@@ -2,7 +2,11 @@ import logging
 import subprocess
 from itertools import islice
 from sys import version_info
-
+import socket
+from contextlib import closing
+import uuid
+import base64
+import inspect
 
 _logger = logging.getLogger(__name__)
 
@@ -28,9 +32,6 @@ def get_unique_resource_id(max_length=None):
     :return: A unique identifier that can be appended to a user-readable resource name to avoid
              naming collisions.
     """
-    import uuid
-    import base64
-
     if max_length is not None and max_length <= 0:
         raise ValueError(
             "The specified maximum length for the unique resource id must be positive!"
@@ -153,8 +154,6 @@ def _inspect_original_var_name(var, fallback_name):
     in the most outer frame.
     If inspect failed, return fallback_name
     """
-    import inspect
-
     if var is None:
         return fallback_name
     try:
@@ -195,9 +194,6 @@ def find_free_port():
     """
     Find free socket port on local machine.
     """
-    import socket
-    from contextlib import closing
-
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
         s.bind(("", 0))
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

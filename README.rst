@@ -46,7 +46,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
     :target: https://twitter.com/MLflow
     :alt: Account Twitter
 
-.. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-1b7gbsopj-ckYE002CMSDR4_Bioztv8g
+.. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-1iffrtbly-UNU8hV03aV8feUeGmqf_uA
 
 Job Statuses
 
@@ -169,3 +169,14 @@ Contributing
 We happily welcome contributions to MLflow. We are also seeking contributions to items on the
 `MLflow Roadmap <https://github.com/mlflow/mlflow/milestone/3>`_. Please see our
 `contribution guide <CONTRIBUTING.md>`_ to learn more about contributing to MLflow.
+
+Maintainers
+-----------
+
+MLflow is currently maintained by the following members with significant contributions from hundreds of exceptionally talented community members.
+
+- `Harutaka Kawamura <https://github.com/harupy>`_
+- `Weichen Xu <https://github.com/WeichenXu123>`_
+- `Corey Zumar <https://github.com/dbczumar>`_
+- `Ben Wilson <https://github.com/BenWilson2>`_
+- `Serena Ruan <https://github.com/serena-ruan>`_

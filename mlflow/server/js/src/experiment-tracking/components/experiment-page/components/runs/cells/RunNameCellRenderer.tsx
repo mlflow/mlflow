@@ -2,8 +2,7 @@ import { ICellRendererParams } from '@ag-grid-community/core';
 import { Button, MinusBoxIcon, PlusSquareIcon } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { shouldUseNextRunsComparisonUI } from '../../../../../../common/utils/FeatureUtils';
+import { Link } from 'react-router-dom-v5-compat';
 import Routes from '../../../../../routes';
 import { RunRowType } from '../../../utils/experimentPage.row-types';
 
@@ -20,7 +19,6 @@ export const RunNameCellRenderer = React.memo(
     const { hasExpander, expanderOpen, childrenIds, level } = runDateAndNestInfo || {};
 
     const renderingAsParent = !isNaN(level) && hasExpander;
-    const shouldDisplayRunColors = shouldUseNextRunsComparisonUI();
 
     return (
       <div css={styles.cellWrapper}>
@@ -41,13 +39,11 @@ export const RunNameCellRenderer = React.memo(
           </div>
         </div>
         <Link to={Routes.getRunPageRoute(experimentId, runUuid)} css={styles.runLink}>
-          {shouldDisplayRunColors && (
-            <div
-              css={styles.colorPill}
-              data-testid='experiment-view-table-run-color'
-              style={{ backgroundColor: color }}
-            />
-          )}
+          <div
+            css={styles.colorPill}
+            data-testid='experiment-view-table-run-color'
+            style={{ backgroundColor: color }}
+          />
           <span css={styles.runName}>{runName}</span>
         </Link>
       </div>

@@ -5,6 +5,7 @@ import os
 import logging
 import socket
 import time
+import contextlib
 
 import mlflow
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
@@ -13,7 +14,7 @@ from tests.helper_functions import LOCALHOST, get_safe_port
 _logger = logging.getLogger(__name__)
 
 
-def _await_server_up_or_die(port, timeout=10):
+def _await_server_up_or_die(port, timeout=30):
     """Waits until the local flask server is listening on the given port."""
     _logger.info(f"Awaiting server to be up on {LOCALHOST}:{port}")
     start_time = time.time()
@@ -29,16 +30,8 @@ def _await_server_up_or_die(port, timeout=10):
         raise Exception(f"Failed to connect on {LOCALHOST}:{port} within {timeout} seconds")
 
 
-# NB: We explicitly wait and timeout on server shutdown in order to ensure that pytest output
-# reveals the cause in the event of a test hang due to the subprocess not exiting.
-def _terminate_server(process, timeout=10):
-    """Waits until the local flask server process is terminated."""
-    _logger.info("Terminating server...")
-    process.terminate()
-    process.wait(timeout=timeout)
-
-
-def _init_server(backend_uri, root_artifact_uri):
+@contextlib.contextmanager
+def _init_server(backend_uri, root_artifact_uri, extra_env=None, app="mlflow.server:app"):
     """
     Launch a new REST server using the tracking store specified by backend_uri and root artifact
     directory specified by root_artifact_uri.
@@ -47,26 +40,36 @@ def _init_server(backend_uri, root_artifact_uri):
     """
     mlflow.set_tracking_uri(None)
     server_port = get_safe_port()
-    process = Popen(
+    with Popen(
         [
             sys.executable,
-            "-c",
-            f'from mlflow.server import app; app.run("{LOCALHOST}", {server_port})',
+            "-m",
+            "flask",
+            "--app",
+            app,
+            "run",
+            "--host",
+            LOCALHOST,
+            "--port",
+            str(server_port),
         ],
         env={
             **os.environ,
             BACKEND_STORE_URI_ENV_VAR: backend_uri,
             ARTIFACT_ROOT_ENV_VAR: root_artifact_uri,
+            **(extra_env or {}),
         },
-    )
+    ) as proc:
+        _await_server_up_or_die(server_port)
+        url = f"http://{LOCALHOST}:{server_port}"
+        _logger.info(
+            f"Launching tracking server against backend URI {backend_uri}. Server URL: {url}"
+        )
+        yield url
+        proc.terminate()
 
-    _await_server_up_or_die(server_port)
-    url = f"http://{LOCALHOST}:{server_port}"
-    _logger.info(f"Launching tracking server against backend URI {backend_uri}. Server URL: {url}")
-    return url, process
 
-
-def _send_rest_tracking_post_request(tracking_server_uri, api_path, json_payload):
+def _send_rest_tracking_post_request(tracking_server_uri, api_path, json_payload, auth=None):
     """
     Make a POST request to the specified MLflow Tracking API and retrieve the
     corresponding `requests.Response` object
@@ -74,5 +77,5 @@ def _send_rest_tracking_post_request(tracking_server_uri, api_path, json_payload
     import requests
 
     url = tracking_server_uri + api_path
-    response = requests.post(url, json=json_payload)
+    response = requests.post(url, json=json_payload, auth=auth)
     return response

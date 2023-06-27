@@ -73,7 +73,7 @@ Launch the MLflow UI:
 View results at http://localhost:5000. You should see a newly-created run with a param named
 "param1" and a metric named "foo":
 
-    .. image:: ./_static/images/quickstart-ui-screenshot.png
+    .. image:: ./_static/images/quickstart/quickstart_ui_screenshot.png
 
 
 
@@ -200,7 +200,7 @@ plugin:
        (e.g., the `PluginDeploymentClient class <https://github.com/mlflow/mlflow/blob/master/tests/resources/mlflow-test-plugin/mlflow_test_plugin/fake_deployment_plugin.py>`_).
        MLflow's ``mlflow.deployments.get_deploy_client`` API directly returns an instance of this subclass to the user, so you're encouraged
        to write clear user-facing method and class docstrings as part of your plugin implementation.
-       2) The ``run_local`` and ``target_help`` functions, with the ``target`` parameter excluded, as shown
+       1) The ``run_local`` and ``target_help`` functions, with the ``target`` parameter excluded, as shown
        `here <https://github.com/mlflow/mlflow/blob/master/mlflow/deployments/base.py>`_
      - `PluginDeploymentClient <https://github.com/mlflow/mlflow/blob/master/tests/resources/mlflow-test-plugin/mlflow_test_plugin/fake_deployment_plugin.py>`_.
    * - Plugins for :ref:`MLflow Model Evaluation <model-evaluation>`
@@ -210,7 +210,7 @@ plugin:
        the subclass must implement 2 methods:
        1) ``can_evaluate``: Accepts the keyword-only arguments ``model_type`` and ``evaluator_config``.
        Returns ``True`` if the evaluator can evaluate the specified model type with the specified evaluator config. Returns ``False`` otherwise.
-       2) ``evaluate``: Computes and logs metrics and artifacts, returning evaluation results as an instance
+       1) ``evaluate``: Computes and logs metrics and artifacts, returning evaluation results as an instance
        of ``mlflow.models.EvaluationResult``. Accepts the following arguments: ``model`` (a pyfunc model instance),
        ``model_type`` (identical to the ``model_type`` argument from :py:func:`mlflow.evaluate()`),
        ``dataset`` (an instance of ``mlflow.models.evaluation.base._EvaluationDataset`` containing features and labels (optional) for model evaluation),
@@ -338,6 +338,14 @@ for usage instructions and examples.
 - `mlflow-algorithmia <https://github.com/algorithmiaio/mlflow-algorithmia>`_
 - `mlflow-ray-serve <https://github.com/ray-project/mlflow-ray-serve>`_
 - `mlflow-azureml <https://docs.microsoft.com/en-us/azure/machine-learning/how-to-deploy-mlflow-models>`_
+- `oci-mlflow <https://github.com/oracle/oci-mlflow>`_ Leverages Oracle Cloud Infrastructure (OCI) Model Deployment service for the deployment of MLflow models.
+
+Model Evaluation Plugins
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following known plugins provide support for evaluating models with custom validation tools using MLflow's `mlflow.evaluate() API <models.html#model-evaluation>`_:
+
+- `mlflow-trubrics <https://github.com/trubrics/trubrics-sdk/tree/main/trubrics/integrations/mlflow>`_: validating ML models with Trubrics
 
 Project Backend Plugins
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -346,6 +354,7 @@ The following known plugins provide support for running `MLflow projects <https:
 against custom execution backends.
 
 - `mlflow-yarn <https://github.com/criteo/mlflow-yarn>`_ Running mlflow on Hadoop/YARN
+- `oci-mlflow <https://github.com/oracle/oci-mlflow>`_ Running mlflow projects on Oracle Cloud Infrastructure (OCI)
 
 Tracking Store Plugins
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -357,3 +366,8 @@ against custom databases.
 
 For additional information regarding this plugin, refer to <https://github.com/criteo/mlflow-elasticsearchstore/issues>.
 The library is available on PyPI here : <https://pypi.org/project/mlflow-elasticsearchstore/>
+
+Artifact Repository Plugins
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- `oci-mlflow <https://github.com/oracle/oci-mlflow>`__ Leverages Oracle Cloud Infrastructure (OCI) Object Storage service to store MLflow models artifacts.

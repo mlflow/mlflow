@@ -161,7 +161,7 @@ mlflow_get_run_context.mlflow_databricks_client <- function(client, experiment_i
     } else {
       NA
     }
-    if (!is.na(job_info) && !is.na(job_info$job_id)) {
+    if (!all(is.na(job_info)) && !is.na(job_info$job_id)) {
       return(list(
         client = client,
         tags = build_context_tags_from_databricks_job_info(job_info),

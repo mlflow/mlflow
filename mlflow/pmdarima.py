@@ -22,9 +22,9 @@ from packaging.version import Version
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, ModelInputExample
+from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature
+from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -100,16 +100,20 @@ def save_model(
                        containing file dependencies). These files are *prepended* to the system
                        path when the model is loaded.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
-    :param signature: :py:class:`Model Signature <mlflow.models.ModelSignature>` describes model
-                      input and output :py:class:`Schema <mlflow.types.Schema>`. The model
-                      signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+    :param signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      class that describes the model's inputs and outputs. If not specified but an
+                      ``input_example`` is supplied, a signature will be automatically inferred
+                      based on the supplied input example and model. To disable automatic signature
+                      inference when providing an input example, set ``signature`` to ``False``.
+                      To manually infer a model signature, call
+                      :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
+                      with valid model inputs, such as a training dataset with the target column
+                      omitted, and valid model outputs, like model predictions made on the training
+                      dataset, for example:
 
                       .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
+                        from mlflow.models import infer_signature
 
                         model = pmdarima.auto_arima(data)
                         predictions = model.predict(n_periods=30, return_conf_int=False)
@@ -120,12 +124,7 @@ def save_model(
                         will not be inferred due to the complex tuple return type when using the
                         native ``ARIMA.predict()`` API. ``infer_schema`` will function correctly
                         if using the ``pyfunc`` flavor of the model, though.
-
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a ``Pandas DataFrame`` and
-                          then serialized to json using the ``Pandas`` split-oriented format.
-                          Bytes are base64-encoded.
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
@@ -140,6 +139,12 @@ def save_model(
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
+    if signature is None and input_example is not None:
+        wrapped_model = _PmdarimaModelWrapper(pmdarima_model)
+        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+    elif signature is False:
+        signature = None
 
     if mlflow_model is None:
         mlflow_model = Model()
@@ -226,16 +231,20 @@ def log_model(
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
-    :param signature: :py:class:`Model Signature <mlflow.models.ModelSignature>` describes model
-                      input and output :py:class:`Schema <mlflow.types.Schema>`. The model
-                      signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+    :param signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      class that describes the model's inputs and outputs. If not specified but an
+                      ``input_example`` is supplied, a signature will be automatically inferred
+                      based on the supplied input example and model. To disable automatic signature
+                      inference when providing an input example, set ``signature`` to ``False``.
+                      To manually infer a model signature, call
+                      :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
+                      with valid model inputs, such as a training dataset with the target column
+                      omitted, and valid model outputs, like model predictions made on the training
+                      dataset, for example:
 
                       .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
+                        from mlflow.models import infer_signature
 
                         model = pmdarima.auto_arima(data)
                         predictions = model.predict(n_periods=30, return_conf_int=False)
@@ -247,11 +256,7 @@ def log_model(
                         native ``ARIMA.predict()`` API. ``infer_schema`` will function correctly
                         if using the ``pyfunc`` flavor of the model, though.
 
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a ``Pandas DataFrame`` and
-                          then serialized to json using the ``Pandas`` split-oriented format.
-                          Bytes are base64-encoded.
+    :param input_example: {{ input_example }}
     :param await_registration_for: Number of seconds to wait for the model version
                                    to finish being created and is in ``READY`` status.
                                    By default, the function waits for five minutes.

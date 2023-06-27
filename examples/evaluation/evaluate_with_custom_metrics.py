@@ -4,6 +4,7 @@ from sklearn.model_selection import train_test_split
 import numpy as np
 import mlflow
 from mlflow.models import make_metric
+from mlflow.models import infer_signature
 import os
 import matplotlib.pyplot as plt
 
@@ -17,6 +18,10 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 # train the model
 lin_reg = LinearRegression().fit(X_train, y_train)
+
+# Infer model signature
+predictions = lin_reg.predict(X_train)
+signature = infer_signature(X_train, predictions)
 
 # creating the evaluation dataframe
 eval_data = X_test.copy()
@@ -55,7 +60,7 @@ def prediction_target_scatter(eval_df, _builtin_metrics, artifacts_dir):
 
 
 with mlflow.start_run() as run:
-    mlflow.sklearn.log_model(lin_reg, "model")
+    mlflow.sklearn.log_model(lin_reg, "model", signature=signature)
     model_uri = mlflow.get_artifact_uri("model")
     result = mlflow.evaluate(
         model=model_uri,

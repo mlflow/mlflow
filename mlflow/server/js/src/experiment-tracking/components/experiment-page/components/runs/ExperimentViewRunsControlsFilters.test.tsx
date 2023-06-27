@@ -39,9 +39,8 @@ describe('ExperimentViewRunsControlsFilters', () => {
     const wrapper = doSimpleMock({
       runsData: MOCK_RUNS_DATA,
       updateSearchFacets: jest.fn(),
-      sortOptions: [],
       onDownloadCsv: () => {},
-      viewState: {} as any,
+      viewState: { runsSelected: {} } as any,
       updateViewState: () => {},
       searchFacetsState,
       requestError: null,

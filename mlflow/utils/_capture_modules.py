@@ -101,13 +101,50 @@ def parse_args():
     parser.add_argument("--flavor", required=True)
     parser.add_argument("--output-file", required=True)
     parser.add_argument("--sys-path", required=True)
+    parser.add_argument("--module-to-throw", required=False)
     return parser.parse_args()
+
+
+def store_imported_modules(cap_cm, model_path, flavor, output_file):
+    # If `model_path` refers to an MLflow model directory, load the model using
+    # `mlflow.pyfunc.load_model`
+    if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
+        mlflow_model = Model.load(model_path)
+        pyfunc_conf = mlflow_model.flavors.get(mlflow.pyfunc.FLAVOR_NAME)
+        input_example = mlflow_model.load_input_example(model_path)
+        loader_module = importlib.import_module(pyfunc_conf[MAIN])
+        original = loader_module._load_pyfunc
+
+        @functools.wraps(original)
+        def _load_pyfunc_patch(*args, **kwargs):
+            with cap_cm:
+                model = original(*args, **kwargs)
+                if input_example is not None:
+                    model.predict(input_example)
+                return model
+
+        loader_module._load_pyfunc = _load_pyfunc_patch
+        try:
+            mlflow.pyfunc.load_model(model_path)
+        finally:
+            loader_module._load_pyfunc = original
+    # Otherwise, load the model using `mlflow.<flavor>._load_pyfunc`.
+    # For models that don't contain pyfunc flavor (e.g. scikit-learn estimator
+    # that doesn't implement a `predict` method),
+    # we need to directly pass a model data path to this script.
+    else:
+        with cap_cm:
+            importlib.import_module(f"mlflow.{flavor}")._load_pyfunc(model_path)
+
+    # Store the imported modules in `output_file`
+    write_to(output_file, "\n".join(cap_cm.imported_modules))
 
 
 def main():
     args = parse_args()
     model_path = args.model_path
     flavor = args.flavor
+    output_file = args.output_file
     # Mirror `sys.path` of the parent process
     sys.path = json.loads(args.sys_path)
 
@@ -119,30 +156,7 @@ def main():
         _create_local_spark_session_for_loading_spark_model()
 
     cap_cm = _CaptureImportedModules()
-
-    # If `model_path` refers to an MLflow model directory, load the model using
-    # `mlflow.pyfunc.load_model`
-    if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
-        pyfunc_conf = Model.load(model_path).flavors.get(mlflow.pyfunc.FLAVOR_NAME)
-        loader_module = importlib.import_module(pyfunc_conf[MAIN])
-        original = loader_module._load_pyfunc
-
-        @functools.wraps(original)
-        def _load_pyfunc_patch(*args, **kwargs):
-            with cap_cm:
-                return original(*args, **kwargs)
-
-        loader_module._load_pyfunc = _load_pyfunc_patch
-        mlflow.pyfunc.load_model(model_path)
-    # Otherwise, load the model using `mlflow.<flavor>._load_pyfunc`. For models that don't contain
-    # pyfunc flavor (e.g. scikit-learn estimator that doesn't implement a `predict` method),
-    # we need to directly pass a model data path to this script.
-    else:
-        with cap_cm:
-            importlib.import_module(f"mlflow.{flavor}")._load_pyfunc(model_path)
-
-    # Store the imported modules in `output_file`
-    write_to(args.output_file, "\n".join(cap_cm.imported_modules))
+    store_imported_modules(cap_cm, model_path, flavor, output_file)
 
     # Clean up a spark session created by `mlflow.spark._load_pyfunc`
     if flavor == mlflow.spark.FLAVOR_NAME:

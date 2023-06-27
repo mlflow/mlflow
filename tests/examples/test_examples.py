@@ -1,5 +1,7 @@
 import re
 import shutil
+import os
+import sys
 from pathlib import Path
 
 import mlflow
@@ -7,14 +9,10 @@ from mlflow import cli
 from mlflow.utils import process
 from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
 import pytest
+from tests.helper_functions import clear_hub_cache, get_free_disk_space_in_GiB
 from tests.integration.utils import invoke_cli_runner
 
 EXAMPLES_DIR = "examples"
-
-
-def get_free_disk_space_in_GiB():
-    # https://stackoverflow.com/a/48929832/6943581
-    return shutil.disk_usage("/")[-1] / (2**30)
 
 
 def find_python_env_yaml(directory: Path) -> Path:
@@ -28,13 +26,12 @@ def replace_mlflow_with_dev_version(yml_path: Path) -> None:
     yml_path.write_text(new_src)
 
 
-@pytest.fixture(scope="function", autouse=True)
+@pytest.fixture(autouse=True)
 def report_free_disk_space(capsys):
     yield
 
     with capsys.disabled():
-        # pylint: disable-next=print-function
-        print(" | Free disk space: {:.1f} GiB".format(get_free_disk_space_in_GiB()), end="")
+        sys.stdout.write(f" | Free disk space: {get_free_disk_space_in_GiB():.1f} GiB")
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -86,6 +83,8 @@ def clean_up_mlflow_virtual_environments():
         ),
         ("pytorch/CaptumExample", ["-P", "max_epochs=50"]),
         ("supply_chain_security", []),
+        ("tensorflow", []),
+        ("sktime", []),
     ],
 )
 def test_mlflow_run_example(directory, params, tmp_path):
@@ -162,11 +161,18 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("diviner", ["python", "train.py"]),
         ("spark_udf", ["python", "spark_udf_datetime.py"]),
         ("pyfunc", ["python", "train.py"]),
+        ("tensorflow", ["python", "train.py"]),
+        ("transformers", ["python", "conversational.py"]),
+        ("transformers", ["python", "load_components.py"]),
+        ("transformers", ["python", "simple.py"]),
+        ("transformers", ["python", "sentence_transformer.py"]),
+        ("transformers", ["python", "whisper.py"]),
     ],
 )
 def test_command_example(directory, command):
     cwd_dir = Path(EXAMPLES_DIR, directory)
-    import os
-
     assert os.environ.get("MLFLOW_HOME") is not None
+    if directory == "transformers":
+        # NB: Clearing the huggingface_hub cache is to lower the disk storage pressure for CI
+        clear_hub_cache()
     process._exec_cmd(command, cwd=cwd_dir, env=os.environ)

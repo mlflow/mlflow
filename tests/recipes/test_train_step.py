@@ -3,6 +3,8 @@ import os
 import sys
 from unittest.mock import Mock, MagicMock
 from unittest import mock
+import math
+import random
 import cloudpickle
 from pathlib import Path
 import pytest
@@ -61,9 +63,6 @@ def setup_train_dataset(recipe_root: Path, recipe: str = "regression"):
             }
         )
     else:
-        import math
-        import random
-
         if recipe == "classification/binary":
             minority_class_cnt = math.ceil(0.1 * num_rows)
             majority_class_cnt = num_rows - minority_class_cnt

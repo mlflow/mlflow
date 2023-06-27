@@ -2,7 +2,6 @@ import click
 
 from mlflow.recipes.utils import _RECIPE_PROFILE_ENV_VAR
 from mlflow.recipes import Recipe
-from mlflow.utils.annotations import experimental
 
 _CLI_ARG_RECIPE_PROFILE = click.option(
     "--profile",
@@ -37,7 +36,6 @@ def commands():
     help="The name of the recipe step to run.",
 )
 @_CLI_ARG_RECIPE_PROFILE
-@experimental("command")
 def run(step, profile):
     """
     Run the full recipe, or run a particular recipe step if specified, producing
@@ -61,7 +59,6 @@ def run(step, profile):
     help="The name of the recipe step for which to remove cached outputs.",
 )
 @_CLI_ARG_RECIPE_PROFILE
-@experimental("command")
 def clean(step, profile):
     """
     Remove all recipe outputs from the cache, or remove the cached outputs of a particular
@@ -85,7 +82,6 @@ def clean(step, profile):
     help="The name of the recipe step to inspect.",
 )
 @_CLI_ARG_RECIPE_PROFILE
-@experimental("command")
 def inspect(step, profile):
     """
     Display a visual overview of the recipe graph, or display a summary of results from a
@@ -105,7 +101,6 @@ def inspect(step, profile):
     help="The name of the artifact to retrieve.",
 )
 @_CLI_ARG_RECIPE_PROFILE
-@experimental("command")
 def get_artifact(profile, artifact):
     """
     Get the location of an artifact output from the recipe.

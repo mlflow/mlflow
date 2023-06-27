@@ -75,7 +75,7 @@ def update_max_version(src, key, new_max_version, category):
         minimum: "1.1.1"
         maximum: "1.2.1"
     """
-    pattern = r"({key}:.+?{category}:.+?maximum: )\".+?\"".format(
+    pattern = r"((^|\n){key}:.+?{category}:.+?maximum: )\".+?\"".format(
         key=re.escape(key), category=category
     )
     # Matches the following pattern:
@@ -103,20 +103,38 @@ def update_ml_package_versions_py(config_path):
         for name, cfg in yaml.load(f, Loader=yaml.SafeLoader).items():
             # Extract required fields
             pip_release = extract_field(cfg, ("package_info", "pip_release"))
+            min_version = extract_field(cfg, ("models", "minimum"))
+            max_version = extract_field(cfg, ("models", "maximum"))
+            if min_version:
+                config[name] = {
+                    "package_info": {
+                        "pip_release": pip_release,
+                    },
+                    "models": {
+                        "minimum": min_version,
+                        "maximum": max_version,
+                    },
+                }
+            else:
+                config[name] = {
+                    "package_info": {
+                        "pip_release": pip_release,
+                    }
+                }
+
             min_version = extract_field(cfg, ("autologging", "minimum"))
             max_version = extract_field(cfg, ("autologging", "maximum"))
             if (pip_release, min_version, max_version).count(None) > 0:
                 continue
 
-            config[name] = {
-                "package_info": {
-                    "pip_release": pip_release,
+            config[name].update(
+                {
+                    "autologging": {
+                        "minimum": min_version,
+                        "maximum": max_version,
+                    }
                 },
-                "autologging": {
-                    "minimum": min_version,
-                    "maximum": max_version,
-                },
-            }
+            )
 
         this_file = Path(__file__).name
         dst = Path("mlflow", "ml_package_versions.py")

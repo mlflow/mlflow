@@ -5,11 +5,12 @@ from mlflow.environment_variables import MLFLOW_TRACKING_AWS_SIGV4
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.file_store import FileStore
 from mlflow.store.model_registry.rest_store import RestStore
+from mlflow.store.model_registry.databricks_workspace_model_registry_rest_store import (
+    DatabricksWorkspaceModelRegistryRestStore,
+)
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
-    _TRACKING_USERNAME_ENV_VAR,
-    _TRACKING_PASSWORD_ENV_VAR,
     _TRACKING_TOKEN_ENV_VAR,
     _TRACKING_INSECURE_TLS_ENV_VAR,
     _TRACKING_CLIENT_CERT_PATH_ENV_VAR,
@@ -20,6 +21,8 @@ from mlflow.tracking._tracking_service.utils import (
 from mlflow.utils import env, rest_utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
+from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
+
 
 _REGISTRY_URI_ENV_VAR = "MLFLOW_REGISTRY_URI"
 
@@ -134,8 +137,8 @@ def _get_sqlalchemy_store(store_uri):
 def get_default_host_creds(store_uri):
     return rest_utils.MlflowHostCreds(
         host=store_uri,
-        username=os.environ.get(_TRACKING_USERNAME_ENV_VAR),
-        password=os.environ.get(_TRACKING_PASSWORD_ENV_VAR),
+        username=MLFLOW_TRACKING_USERNAME.get(),
+        password=MLFLOW_TRACKING_PASSWORD.get(),
         token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
         aws_sigv4=MLFLOW_TRACKING_AWS_SIGV4.get(),
         ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == "true",
@@ -149,7 +152,7 @@ def _get_rest_store(store_uri, **_):
 
 
 def _get_databricks_rest_store(store_uri, **_):
-    return RestStore(partial(get_databricks_host_creds, store_uri))
+    return DatabricksWorkspaceModelRegistryRestStore(partial(get_databricks_host_creds, store_uri))
 
 
 # We define the global variable as `None` so that instantiating the store does not lead to circular

@@ -27,10 +27,16 @@ jest.mock('./ExperimentViewRunsTableStatusBar', () => ({
   ExperimentViewRunsTableStatusBar: () => <div />,
 }));
 
+// ExperimentViewRunsTableAddColumnCTA isn't supported in this test as it uses ResizeObserver
+jest.mock('./ExperimentViewRunsTableAddColumnCTA', () => ({
+  ExperimentViewRunsTableAddColumnCTA: () => null,
+}));
+
 const mockGridApi = {
   showLoadingOverlay: jest.fn(),
   hideOverlay: jest.fn(),
   setRowData: jest.fn(),
+  resetRowHeights: jest.fn(),
 };
 
 jest.mock('../../../../../common/components/ag-grid/AgGridLoader', () => {
@@ -91,6 +97,7 @@ describe('ExperimentViewRunsTable', () => {
     updateSearchFacets() {},
     updateViewState() {},
     loadMoreRunsFunc: jest.fn(),
+    expandRows: false,
   };
   const createWrapper = (additionalProps: Partial<ExperimentViewRunsTableProps> = {}) =>
     mount(<ExperimentViewRunsTable {...defaultProps} {...additionalProps} />);
@@ -241,7 +248,7 @@ describe('ExperimentViewRunsTable', () => {
       }),
     });
 
-    // Assert "add params/metrics" CTA button not being displayed anymore
+    // Assert "show more columns" CTA button not being displayed anymore
     expect(simpleExperimentsWrapper.find('ExperimentViewRunsTableAddColumnCTA').length).toBe(0);
   });
 });

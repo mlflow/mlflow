@@ -4,6 +4,7 @@ import argparse
 from functools import partial
 
 import mlflow
+from mlflow.models import infer_signature
 import mlflow.sklearn
 
 from cuml.metrics.accuracy import accuracy_score
@@ -55,9 +56,12 @@ def train(fpath, max_depth, max_features, n_estimators):
 
     mlflow.log_metric("accuracy", acc)
 
-    mlflow.sklearn.log_model(mod, "saved_models")
+    predictions = mod.predict(X_train)
+    sig = infer_signature(X_train, predictions)
 
-    return mod
+    mlflow.sklearn.log_model(mod, "saved_models", signature=sig)
+
+    return mod, sig
 
 
 if __name__ == "__main__":
@@ -80,13 +84,14 @@ if __name__ == "__main__":
 
     mlflow.set_tracking_uri(uri="sqlite:////tmp/mlflow-db.sqlite")
     with mlflow.start_run(run_name="RAPIDS-MLFlow"):
-        model = train(args.fpath, args.max_depth, args.max_features, args.n_estimators)
+        model, signature = train(args.fpath, args.max_depth, args.max_features, args.n_estimators)
 
         mlflow.sklearn.log_model(
             model,
             artifact_path=artifact_path,
             registered_model_name="rapids_mlflow_cli",
             conda_env="conda.yaml",
+            signature=signature,
         )
         artifact_uri = mlflow.get_artifact_uri(artifact_path=artifact_path)
 

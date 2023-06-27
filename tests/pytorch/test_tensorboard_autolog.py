@@ -6,11 +6,11 @@ NUM_EPOCHS = 20
 START_STEP = 3
 
 
-def test_pytorch_autolog_logs_expected_data(tmpdir):
+def test_pytorch_autolog_logs_expected_data(tmp_path):
     from torch.utils.tensorboard import SummaryWriter
 
     mlflow.pytorch.autolog(log_every_n_step=1)
-    writer = SummaryWriter(str(tmpdir))
+    writer = SummaryWriter(str(tmp_path))
 
     timestamps = []
     with mlflow.start_run() as run:

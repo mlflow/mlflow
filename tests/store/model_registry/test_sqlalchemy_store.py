@@ -128,8 +128,7 @@ def test_get_registered_model(store):
         RegisteredModelTag("anotherKey", "some other value"),
     ]
     # use fake clock
-    with mock.patch("time.time") as mock_time:
-        mock_time.return_value = 1234
+    with mock.patch("time.time", return_value=1234):
         rm = _rm_maker(store, name, tags)
         assert rm.name == name
     rmd = store.get_registered_model(name=name)
@@ -433,8 +432,7 @@ def test_create_model_version(store):
     name = "test_for_update_MV"
     _rm_maker(store, name)
     run_id = uuid.uuid4().hex
-    with mock.patch("time.time") as mock_time:
-        mock_time.return_value = 456778
+    with mock.patch("time.time", return_value=456778):
         mv1 = _mv_maker(store, name, "a/b/CD", run_id)
         assert mv1.name == name
         assert mv1.version == 1
@@ -765,6 +763,11 @@ def test_search_model_versions(store):
 
     # search IN operator is case sensitive
     assert set(search_versions(f"run_id IN ('{run_id_1.upper()}','{run_id_2}')")) == {2, 3}
+
+    # search IN operator with other conditions
+    assert set(
+        search_versions(f"version_number=2 AND run_id IN ('{run_id_1.upper()}','{run_id_2}')")
+    ) == {2}
 
     # search IN operator with right-hand side value containing whitespaces
     assert set(search_versions(f"run_id IN ('{run_id_1}', '{run_id_2}')")) == {1, 2, 3}
@@ -1576,3 +1579,60 @@ def test_delete_model_version_tag(store):
     ) as exception_context:
         store.delete_model_version_tag(name1, "I am not a version", "key")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def _setup_and_test_aliases(store, model_name):
+    store.create_registered_model(model_name)
+    run_id_1 = uuid.uuid4().hex
+    run_id_2 = uuid.uuid4().hex
+    store.create_model_version(model_name, "v1", run_id_1)
+    store.create_model_version(model_name, "v2", run_id_2)
+    store.set_registered_model_alias(model_name, "test_alias", "2")
+    model = store.get_registered_model(model_name)
+    assert model.aliases == {"test_alias": 2}
+    mv1 = store.get_model_version(model_name, 1)
+    mv2 = store.get_model_version(model_name, 2)
+    assert mv1.aliases == []
+    assert mv2.aliases == ["test_alias"]
+
+
+def test_set_registered_model_alias(store):
+    _setup_and_test_aliases(store, "SetRegisteredModelAlias_TestMod")
+
+
+def test_delete_registered_model_alias(store):
+    model_name = "DeleteRegisteredModelAlias_TestMod"
+    _setup_and_test_aliases(store, model_name)
+    store.delete_registered_model_alias(model_name, "test_alias")
+    model = store.get_registered_model(model_name)
+    assert model.aliases == {}
+    mv2 = store.get_model_version(model_name, 2)
+    assert mv2.aliases == []
+
+
+def test_get_model_version_by_alias(store):
+    model_name = "GetModelVersionByAlias_TestMod"
+    _setup_and_test_aliases(store, model_name)
+    mv = store.get_model_version_by_alias(model_name, "test_alias")
+    assert mv.aliases == ["test_alias"]
+
+
+def test_delete_model_version_deletes_alias(store):
+    model_name = "DeleteModelVersionDeletesAlias_TestMod"
+    _setup_and_test_aliases(store, model_name)
+    store.delete_model_version(model_name, 2)
+    model = store.get_registered_model(model_name)
+    assert model.aliases == {}
+    with pytest.raises(MlflowException, match=r"Registered model alias test_alias not found."):
+        store.get_model_version_by_alias(model_name, "test_alias")
+
+
+def test_delete_model_deletes_alias(store):
+    model_name = "DeleteModelDeletesAlias_TestMod"
+    _setup_and_test_aliases(store, model_name)
+    store.delete_registered_model(model_name)
+    with pytest.raises(
+        MlflowException,
+        match=r"Registered model alias test_alias not found.",
+    ):
+        store.get_model_version_by_alias(model_name, "test_alias")

@@ -26,20 +26,31 @@ message RegisteredModel {
 
   // Description of this ``registered_model``.
   optional string description = 5;
+
+  // Registered Model Aliases on this model.
+  repeated RegisteredModelAlias aliases = 6;
+}
+
+message RegisteredModelAlias {
+  // The name of the alias
+  optional string alias = 1;
+
+  // Model version number that the alias references.
+  optional string version = 2;
 }
 
 enum ModelVersionStatus {
   // Unspecified enum value
-  MODEL_VERSION_STATUS_UNSPECIFIED = 0;
+  UNSPECIFIED = 0;
 
   // Request to register a new model version is pending as server performs background tasks.
-  MODEL_VERSION_STATUS_PENDING_REGISTRATION = 1;
+  PENDING_REGISTRATION = 1;
 
   // Request to register a new model version has failed.
-  MODEL_VERSION_STATUS_FAILED_REGISTRATION = 2;
+  FAILED_REGISTRATION = 2;
 
   // Model version is ready for use.
-  MODEL_VERSION_STATUS_READY = 3;
+  READY = 3;
 }
 
 message ModelVersion {
@@ -82,12 +93,15 @@ message ModelVersion {
 
   // Current storage location of model version files, e.g. in blob storage
   optional string storage_location = 13;
+
+  // Registered Model Aliases on this model version.
+  repeated RegisteredModelAlias aliases = 14;
 }
 
 enum ModelVersionOperation {
-  MODEL_VERSION_OPERATION_UNKNOWN = 0;
-  MODEL_VERSION_READ = 1;
-  MODEL_VERSION_READ_WRITE = 2;
+  MODEL_VERSION_OPERATION_UNSPECIFIED = 0;
+  MODEL_VERSION_OPERATION_READ = 1;
+  MODEL_VERSION_OPERATION_READ_WRITE = 2;
 }
 
 // An object encapsulates temporary credentials for cloud API authentication. The temporary
@@ -215,6 +229,9 @@ message CreateModelVersionRequest {
 
   // Optional tracking server ID (e.g. Databricks workspace ID) of the source run
   optional string run_tracking_server_id = 5;
+
+  // Optional field to list features the model depends on
+  optional string feature_deps = 6;
 }
 
 message CreateModelVersionResponse {
@@ -335,4 +352,78 @@ message FinalizeModelVersionRequest {
 
 message FinalizeModelVersionResponse {
   optional ModelVersion model_version = 1;
+}
+
+message SetRegisteredModelAliasRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[SetRegisteredModelAliasResponse]";
+
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
+
+  // Name of the registered model alias
+  optional string alias = 2 [(validate_required) = true];
+
+  // Model version number that alias will reference
+  optional string version = 3 [(validate_required) = true];
+}
+
+message SetRegisteredModelAliasResponse {
+}
+
+message DeleteRegisteredModelAliasRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[DeleteRegisteredModelAliasResponse]";
+
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
+
+  // Name of the registered model alias
+  optional string alias = 2 [(validate_required) = true];
+}
+
+message DeleteRegisteredModelAliasResponse {
+}
+
+message GetModelVersionByAliasRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[GetModelVersionByAliasResponse]";
+
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
+
+  // Name of the registered model alias
+  optional string alias = 2 [(validate_required) = true];
+}
+
+message GetModelVersionByAliasResponse {
+  optional ModelVersion model_version = 1;
+}
+
+// Lineage kafka protos
+message Entity {
+  oneof value {
+    Job job = 1;
+    Notebook notebook = 2;
+    Pipeline pipeline = 3;
+  }
+}
+
+message Pipeline {
+  optional string pipeline_id = 1;
+  optional string pipeline_update_id = 2;
+}
+
+message Job {
+  optional string id = 1;
+  optional string task_key = 2;
+  optional string job_run_id = 3;
+  optional string task_run_id = 4;
+}
+
+message Notebook {
+  optional string id = 1;
+  optional string command_id = 2;
+  optional string notebook_run_id = 3;
+}
+
+message LineageHeaderInfo {
+  repeated Entity entities = 1;
 }

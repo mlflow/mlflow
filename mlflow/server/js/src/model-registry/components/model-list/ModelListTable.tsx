@@ -4,10 +4,10 @@ import {
   TableCell,
   TableHeader,
   TableRow,
-  TableSkeleton,
   Tooltip,
   Empty,
   PlusIcon,
+  TableSkeletonRows,
 } from '@databricks/design-system';
 import { Interpolation, Theme } from '@emotion/react';
 import {
@@ -19,13 +19,17 @@ import {
 } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Link } from 'react-router-dom';
-
+import { Link } from 'react-router-dom-v5-compat';
+import { ModelListTagsCell, ModelListVersionLinkCell } from './ModelTableCellRenderers';
+import { RegisteringModelDocUrl } from '../../../common/constants';
 import Utils from '../../../common/utils/Utils';
-import type { ModelEntity, ModelInfoEntity } from '../../../experiment-tracking/types';
+import type {
+  KeyValueEntity,
+  ModelEntity,
+  ModelInfoEntity,
+} from '../../../experiment-tracking/types';
 import { Stages } from '../../constants';
 import { getModelPageRoute } from '../../routes';
-import { ModelListVersionLinkCell } from './ModelTableCellRenderers';
 import { CreateModelButton } from '../CreateModelButton';
 
 const getLatestVersionNumberByStage = (latestVersions: ModelInfoEntity[], stage: string) => {
@@ -40,6 +44,7 @@ enum ColumnKeys {
   CREATED_BY = 'user_id',
   STAGE_STAGING = 'stage_staging',
   STAGE_PRODUCTION = 'stage_production',
+  TAGS = 'tags',
 }
 
 export interface ModelListTableProps {
@@ -160,6 +165,18 @@ export const ModelListTable = ({
         cell: ({ getValue }) => <span>{Utils.formatTimestamp(getValue())}</span>,
         meta: { styles: { flex: 1, maxWidth: 150 } },
       },
+      {
+        id: ColumnKeys.TAGS,
+        header: intl.formatMessage({
+          defaultMessage: 'Tags',
+          description: 'Column title for model tags in the registered model page',
+        }),
+        enableSorting: false,
+        accessorKey: 'tags',
+        cell: ({ getValue }) => {
+          return <ModelListTagsCell tags={getValue() as KeyValueEntity[]} />;
+        },
+      },
     ];
 
     return columns;
@@ -178,10 +195,20 @@ export const ModelListTable = ({
     }
   };
 
+  // eslint-disable-next-line prefer-const
+  let registerModelDocUrl = RegisteringModelDocUrl;
+
   const emptyDescription = (
     <FormattedMessage
-      defaultMessage='No models yet. Use the button below to create your first model.'
+      defaultMessage='No models registered yet. <link>Learn more about registering models</link>.'
       description='Models table > no models present yet'
+      values={{
+        link: (content: any) => (
+          <a target='_blank' rel='noopener noreferrer' href={registerModelDocUrl}>
+            {content}
+          </a>
+        ),
+      }}
     />
   );
   const noResultsDescription = (
@@ -192,7 +219,11 @@ export const ModelListTable = ({
   );
   const emptyComponent = isFiltered ? (
     // Displayed when there is no results, but any filters have been applied
-    <Empty description={noResultsDescription} image={<SearchIcon />} />
+    <Empty
+      description={noResultsDescription}
+      image={<SearchIcon />}
+      data-testid='model-list-no-results'
+    />
   ) : (
     // Displayed when there is no results with no filters applied
     <Empty
@@ -220,27 +251,18 @@ export const ModelListTable = ({
     onSortingChange: setSorting,
   });
 
-  // Three skeleton rows for the loading state
-  const loadingState = (
-    <>
-      {new Array(3).fill(0).map((_, rowIndex) => (
-        <TableRow key={rowIndex}>
-          {table.getAllColumns().map((column, columnIndex) => (
-            <TableCell key={columnIndex} css={(column.columnDef as ModelsColumnDef).meta?.styles}>
-              <TableSkeleton seed={`${rowIndex}-${columnIndex}`} />
-            </TableCell>
-          ))}
-        </TableRow>
-      ))}
-    </>
-  );
-
   return (
     <>
-      <Table pagination={pagination} scrollable empty={isEmpty() ? emptyComponent : undefined}>
+      <Table
+        data-testid='model-list-table'
+        pagination={pagination}
+        scrollable
+        empty={isEmpty() ? emptyComponent : undefined}
+      >
         <TableRow isHeader>
           {table.getLeafHeaders().map((header) => (
             <TableHeader
+              ellipsis
               key={header.id}
               sortable={header.column.getCanSort()}
               sortDirection={header.column.getIsSorted() || 'none'}
@@ -256,21 +278,23 @@ export const ModelListTable = ({
             </TableHeader>
           ))}
         </TableRow>
-        {isLoading
-          ? loadingState
-          : table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
-                {row.getAllCells().map((cell) => (
-                  <TableCell
-                    ellipsis
-                    key={cell.id}
-                    css={(cell.column.columnDef as ModelsColumnDef).meta?.styles}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
+        {isLoading ? (
+          <TableSkeletonRows table={table} />
+        ) : (
+          table.getRowModel().rows.map((row) => (
+            <TableRow key={row.id}>
+              {row.getAllCells().map((cell) => (
+                <TableCell
+                  ellipsis
+                  key={cell.id}
+                  css={(cell.column.columnDef as ModelsColumnDef).meta?.styles}
+                >
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))
+        )}
       </Table>
     </>
   );

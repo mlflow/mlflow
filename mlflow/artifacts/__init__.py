@@ -9,7 +9,11 @@ from typing import Optional
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.tracking import _get_store
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_repository
+from mlflow.tracking.artifact_utils import (
+    _download_artifact_from_uri,
+    get_artifact_repository,
+    add_databricks_profile_info_to_artifact_uri,
+)
 
 
 def download_artifacts(
@@ -59,7 +63,9 @@ def download_artifacts(
 
     store = _get_store(store_uri=tracking_uri)
     artifact_uri = store.get_run(run_id).info.artifact_uri
-    artifact_repo = get_artifact_repository(artifact_uri)
+    artifact_repo = get_artifact_repository(
+        add_databricks_profile_info_to_artifact_uri(artifact_uri, tracking_uri)
+    )
     artifact_location = artifact_repo.download_artifacts(artifact_path, dst_path=dst_path)
     return artifact_location
 

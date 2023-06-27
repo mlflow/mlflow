@@ -1,4 +1,4 @@
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom-v5-compat';
 import {
   getTableRowByCellText,
   getTableRows,
@@ -53,9 +53,9 @@ describe('ModelListTable', () => {
 
   const createComponentWrapper = (moreProps: Partial<ModelListTableProps> = {}) => {
     return mountWithIntl(
-      <BrowserRouter>
+      <MemoryRouter>
         <ModelListTable {...minimalProps} {...moreProps} />
-      </BrowserRouter>,
+      </MemoryRouter>,
     );
   };
 
@@ -77,7 +77,7 @@ describe('ModelListTable', () => {
     } = getTableRows(wrapper);
     expect(
       firstRow
-        .findWhere((column) =>
+        .findWhere((column: any) =>
           column.text().includes(Utils.formatTimestamp(MODELS[0].last_updated_timestamp)),
         )
         .exists(),
@@ -115,5 +115,37 @@ describe('ModelListTable', () => {
     expect(row.find('a[href="/models/test_model_2/versions/1"]').exists()).toBeFalsy();
     expect(row.find('a[href="/models/test_model_2/versions/2"]').exists()).toBeTruthy();
     expect(row.find('a[href="/models/test_model_2/versions/3"]').exists()).toBeTruthy();
+  });
+
+  it('checks if the tags are rendered correctly and are expanding', () => {
+    const modelWithManyTags = {
+      ...MODELS[0],
+      // Create four tags for the model
+      tags: [
+        ...new Array(4)
+          .fill(0)
+          .map((_, index) => ({ key: `Tag ${index + 1}`, value: `Value ${index + 1}` })),
+        { key: 'Empty tag', value: undefined },
+      ],
+    };
+    const wrapper = createComponentWrapper({ modelsData: [modelWithManyTags as any] });
+    const row = getTableRowByCellText(wrapper, MODELS[0].name);
+
+    expect(row.text()).toContain('Tag 1: Value 1');
+    expect(row.text()).toContain('Tag 2: Value 2');
+    expect(row.text()).toContain('Tag 3: Value 3');
+    expect(row.text()).not.toContain('Tag 4: Value 4');
+
+    const moreButton = row.findWhere((e: any) => e.text() === '2 more').find('button');
+    expect(moreButton.exists()).toBeTruthy();
+
+    moreButton.simulate('click');
+    wrapper.update();
+
+    expect(row.text()).toContain('Tag 4: Value 4');
+    expect(row.text()).toContain('Empty tag: (empty)');
+    const lessButton = row.findWhere((e: any) => e.text() === 'Show less').find('button');
+    lessButton.simulate('click');
+    expect(row.text()).not.toContain('Tag 4: Value 4');
   });
 });

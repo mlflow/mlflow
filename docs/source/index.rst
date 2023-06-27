@@ -22,15 +22,19 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
 .. toctree::
     :maxdepth: 1
 
+    what-is-mlflow
     quickstart
+    quickstart_mlops
     tutorials-and-examples/index
     concepts
     tracking
+    llm-tracking
     projects
     models
     model-registry
     recipes
     plugins
+    auth/index
     cli
     search-runs
     search-experiments
@@ -39,3 +43,5 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     java_api/index
     rest-api
     docker
+    community-model-flavors
+

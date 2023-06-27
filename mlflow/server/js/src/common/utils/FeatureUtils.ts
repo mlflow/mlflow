@@ -2,12 +2,15 @@
  * This file aggregates utility functions for enabling features configured by flags.
  * In the OSS version, you can override them in local development by manually changing the return values.
  */
-
 /**
- * UI feature preview: new ("next") version of runs comparison view within experiment runs table.
+ * Disable legacy charts on "compare runs" page in favor of a new chart view
  */
-export const shouldUseNextRunsComparisonUI = () => true;
+export const shouldDisableLegacyRunCompareCharts = () => false;
 /**
- * Use unified pattern for all list pages (model list page etc.)
+ * UI feature preview: displays data lineage (datasets used) in experiment runs
  */
-export const shouldUseUnifiedListPattern = () => false;
+export const shouldEnableExperimentDatasetTracking = () => false;
+/**
+ * UI feature preview: enables artifact-based ML experiment output data analysis, used for evaluating LLM prediction data
+ */
+export const shouldEnableArtifactBasedEvaluation = () => true;

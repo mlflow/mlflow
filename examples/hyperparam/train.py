@@ -24,6 +24,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 
 import mlflow
+from mlflow.models import infer_signature
 
 
 def eval_and_log_metrics(prefix, actual, pred, epoch):
@@ -71,7 +72,9 @@ class MLflowCheckpoint(Callback):
             raise Exception("Failed to build any model")
         mlflow.log_metric(self.train_loss, self._best_train_loss, step=self._next_step)
         mlflow.log_metric(self.val_loss, self._best_val_loss, step=self._next_step)
-        mlflow.tensorflow.log_model(self._best_model, "model")
+        predictions = self._best_model.predict(self._test_x)
+        signature = infer_signature(self._test_x, predictions)
+        mlflow.tensorflow.log_model(self._best_model, "model", signature=signature)
 
     def on_epoch_end(self, epoch, logs=None):
         """

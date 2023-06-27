@@ -1,5 +1,168 @@
 # CHANGELOG
 
+## 2.4.1 (2023-06-09)
+
+MLflow 2.4.1 is a patch release containing the following features, bug fixes and changes:
+
+Features:
+
+- [Tracking] Extend SearchRuns to support datasets (#8622, @prithvikannan)
+- [Models] Add an ``mlflow.johnsnowlabs`` flavor for the ``johnsnowlabs`` package (#8556, @C-K-Loan)
+- [Models] Add a warning for duplicate pip requirements specified in ``save_model`` and ``log_model`` for the ``transformers`` flavor (#8678, @BenWilson2)
+
+Bug fixes:
+- [Security] Improve robustness to LFI attacks (#8648, @serena-ruan)
+    * If you  are using ``mlflow server`` or ``mlflow ui``, we recommend upgrading to MLflow 2.4.1 as soon as possible.
+- [Models] Fix an issue with ``transformers`` serialization for ModelCards that contain invalid characters (#8652, @BenWilson2)
+- [Models] Fix connection pooling deadlocks that occurred during large file downloads (#8682, @dbczumar; #8660, @harupy)
+
+Small bug fixes and documentation updates:
+
+#8677, #8674, #8646, #8647, @dbczumar; #8654, #8653, #8660, #8650, #8642, #8636, #8599, #8637, #8608, #8633, #8623, #8628, #8619, @harupy; #8655, #8609, @BenWilson2; #8648, @serena-ruan; #8521, @ka1mar; #8638, @smurching; #8634, @PenHsuanWang
+
+## 2.4.0 (2023-06-06)
+
+MLflow 2.4.0 includes several major features and improvements
+
+Features:
+
+- [Tracking] Introduce dataset tracking APIs: ``mlflow.data`` and ``mlflow.log_input()`` (#8186, @prithvikannan)
+- [Tracking] Add ``mlflow.log_table()`` and ``mlflow.load_table()`` APIs for logging evaluation tables (#8523, #8467, @sunishsheth2009)
+- [Tracking] Introduce ``mlflow.get_parent_run()`` fluent API (#8493, @annzhang-db)
+- [Tracking / Model Registry] Re-introduce faster artifact downloads on Databricks (#8352, @dbczumar; #8561, @harupy)
+- [UI] Add dataset tracking information to MLflow Tracking UI (#8602, @prithvikannan, @hubertzub-db)
+- [UI] Introduce Artifact View for comparing inputs, outputs, and metadata across models (#8602, @hubertzub-db)
+- [Models] Extend ``mlflow.evaluate()`` to support LLM tasks (#8484, @harupy)
+- [Models] Support logging subclasses of ``Chain`` and ``LLMChain`` in ``mlflow.langchain`` flavor (#8453, @liangz1)
+- [Models] Add support for LangChain Agents to the ``mlflow.langchain`` flavor (#8297, @sunishsheth2009)
+- [Models] Add a ``mlflow.sentence_transformers`` flavor for SentenceTransformers (#8479, @BenWilson2; #8547, @Loquats)
+- [Models] Add support for multi-GPU inference and efficient weight loading for ``mlflow.transformers`` flavor (#8448, @ankit-db)
+- [Models] Support the ``max_shard_size`` parameter in the ``mlflow.transformers`` flavor (#8567, @wenfeiy-db)
+- [Models] Add support for audio transcription pipelines in the ``mlflow.transformers`` flavor (#8464, @BenWilson2)
+- [Models] Add support for audio classification to ``mlflow.transformers`` flavor (#8492, @BenWilson2)
+- [Models] Add support for URI inputs in audio models logged with the ``mlflow.transformers`` flavor (#8495, @BenWilson2)
+- [Models] Add support for returning classifier scores in ``mlflow.transformers`` pyfunc outputs (#8512, @BenWilson2)
+- [Models] Support optional inputs in model signatures (#8438, @apurva-koti)
+- [Models] Introduce an ``mlflow.models.set_signature()`` API to set the signature of a logged model (#8476, @jerrylian-db)
+- [Models] Persist ONNX Runtime InferenceSession options when logging a model with ``mlflow.onnx.log_model()`` (#8433, @leqiao-1)
+
+Bug fixes:
+
+- [Tracking] Terminate Spark callback server when Spark Autologging is disabled or Spark Session is shut down (#8508, @WeichenXu123)
+- [Tracking] Fix compatibility of ``mlflow server`` with ``Flask<2.0`` (#8463, @kevingreer)
+- [Models] Convert ``mlflow.transformers`` pyfunc scalar string output to list of strings during batch inference (#8546, @BenWilson2)
+- [Models] Fix a bug causing outdated pyenv versions to be installed by ``mlflow models build-docker`` (#8488, @Hellzed)
+- [Model Registry] Remove aliases from storage when a Model Version is deleted (#8459, @arpitjasa-db)
+
+Documentation updates:
+
+- [Docs] Publish a new MLOps Quickstart for model selection and deployment (#8462, @lobrien)
+- [Docs] Add MLflavors library to Community Model Flavors documentation (#8420, @benjaminbluhm)
+- [Docs] Add documentation for Registered Model Aliases (#8445, @arpitjasa-db)
+- [Docs] Fix errors in documented ``mlflow models`` CLI command examples (#8480, @vijethmoudgalya)
+
+Small bug fixes and documentation updates:
+
+#8611, #8587, @dbczumar; #8617, #8620, #8615, #8603, #8604, #8601, #8596, #8598, #8597, #8589, #8580, #8581, #8575, #8582, #8577, #8576, #8578, #8561, #8568, #8551, #8528, #8550, #8489, #8530, #8534, #8533, #8532, #8524, #8520, #8517, #8516, #8515, #8514, #8506, #8503, #8500, #8504, #8496, #8486, #8485, #8468, #8471, #8473, #8470, #8458, #8447, #8446, #8434, @harupy; #8607, #8538, #8513, #8452, #8466, #8465, @serena-ruan; #8586, #8595, @prithvikannan; #8593, #8541, @kriscon-db; #8592, #8566, @annzhang-db; #8588, #8565, #8559, #8537, @BenWilson2; #8545, @apurva-koti; #8564, @DavidSpek; #8436, #8490, @jerrylian-db; #8505, @eliaskoromilas; #8483, @WeichenXu123; #8472, @leqiao-1; #8429, @jinzhang21; #8581, #8548, #8499, @gabrielfu;
+
+## 2.3.2 (2023-05-12)
+
+MLflow 2.3.2 is a patch release containing the following features, bug fixes and changes:
+
+Features:
+
+- [Models] Add GPU support for `transformers` models `pyfunc` inference and serving (#8375, @ankit-db)
+- [Models] Disable autologging functionality for non-relevant models when training a `transformers` model (#8405, @BenWilson2)
+- [Models] Add support for preserving and overriding `torch_dtype` values in `transformers` pipelines (#8421, @BenWilson2)
+- [Models] Add support for `Feature Extraction` pipelines in the `transformers` flavor (#8423, @BenWilson2)
+- [Tracking] Add basic HTTP auth support for users, registered models, and experiments permissions (#8286, @gabrielfu)
+
+Bug Fixes:
+
+- [Models] Fix inferred schema issue with `Text2TextGeneration` pipelines in the `transformers` flavor (#8391, @BenWilson2)
+- [Models] Change MLflow dependency pinning in logged models from a range value to an exact major and minor version (#8422, @harupy) 
+
+Documentation updates:
+
+- [Examples] Add `signature` logging to all examples and documentation (#8410, #8401, #8400, #8387 @jerrylian-db)
+- [Examples] Add `sentence-transformers` examples to the `transformers` examples suite (#8425, @BenWilson2)
+- [Docs] Add a new MLflow Quickstart documentation page (#8171, @lobrien)
+- [Docs] Add a new introduction to MLflow page (#8365, @lobrien)
+- [Docs] Add a community model plugin example and documentation for `trubrics` (#8371, @jeffkayne)
+- [Docs] Add `gluon` pyfunc example to Model flavor documentation (#8403, @ericvincent18)
+- [Docs] Add `statsmodels` pyfunc example to `Models` flavor documentation (#8394, @ericvincent18)
+
+Small bug fixes and documentation updates:
+
+#8415, #8412, #8411, #8355, #8354, #8353, #8348, @harupy; #8374, #8367, #8350, @dbczumar; #8358 @mrkaye97; #8392, #8362, @smurching; #8427, #8408, #8399, #8381, @BenWilson2; #8395, #8390, @jerrylian-db; #8402, #8398, @WeichenXu123; #8377, #8363, @arpitjasa-db; #8385, @prithvikannan; #8418, @Jeukoh;
+
+## 2.3.1 (2023-04-27)
+
+MLflow 2.3.1 is a patch release containing the following bug fixes and changes:
+
+Bug fixes:
+
+- [Security] Fix critical LFI attack vulnerability by disabling the ability to provide relative paths in registered model sources (#8281, @BenWilson2)
+    * __If you  are using ``mlflow server`` or ``mlflow ui``, we recommend upgrading to MLflow 2.3.1 as soon as possible.__ For more details, see https://github.com/mlflow/mlflow/security/advisories/GHSA-xg73-94fp-g449.
+- [Tracking] Fix an issue causing file and model uploads to hang on Databricks (#8348, @harupy)
+- [Tracking / Model Registry] Fix an issue causing file and model downloads to hang on Databricks (#8350, @dbczumar)
+- [Scoring] Fix regression in schema enforcement for model serving when using the ``inputs`` format for inference (#8326, @BenWilson2)
+- [Model Registry] Fix regression in model naming parsing where special characters were not accepted in model names (#8322, @arpitjasa-db)
+- [Recipes] Fix card rendering with the pandas profiler to handle columns containing all null values (#8263, @sunishsheth2009)
+
+Documentation updates:
+
+- [Docs] Add an H2O pyfunc usage example to the models documentation (#8292, @ericvincent18)
+- [Examples] Add a TensorFlow Core 2.x API usage example (#8235, @dheerajnbhat)
+
+Small bug fixes and documentation updates:
+
+#8324, #8325, @smurching; #8313, @dipanjank; #8323, @liangz1; #8331, #8328, #8319, #8316, #8308, #8293, #8289, #8283, #8284, #8285, #8282, #8241, #8270, #8272, #8271, #8268, @harupy; #8312, #8294, #8295, #8279, #8267, @BenWilson2; #8290, @jinzhang21; #8257, @WeichenXu123; #8307, @arpitjasa-db
+
+## 2.3.0 (2023-04-18)
+
+MLflow 2.3.0 includes several major features and improvements
+
+Features:
+
+- [Models] Introduce a new  `transformers`  named flavor (#8236, #8181, #8086, @BenWilson2)
+- [Models] Introduce a new `openai`  named flavor (#8191, #8155, @harupy)
+- [Models] Introduce a new `langchain`  named flavor (#8251, #8197, @liangz1, @sunishsheth2009)
+- [Models] Add support for `Pytorch` and `Lightning` 2.0 (#8072, @shrinath-suresh)
+- [Tracking] Add support for logging LLM input, output, and prompt artifacts (#8234, #8204, @sunishsheth2009)
+- [Tracking] Add support for HTTP Basic Auth in the MLflow tracking server (#8130, @gabrielfu)
+- [Tracking] Add `search_model_versions` to the fluent API (#8223, @mariusschlegel)
+- [Artifacts] Add support for parallelized artifact downloads (#8116, @apurva-koti)
+- [Artifacts] Add support for parallelized artifact uploads for AWS (#8003, @harupy)
+- [Artifacts] Add content type headers to artifact upload requests for the `HttpArtifactRepository` (#8048, @WillEngler)
+- [Model Registry] Add alias support for logged models within Model Registry (#8164, #8094, #8055 @arpitjasa-db)
+- [UI] Add support for custom domain git providers (#7933, @gusghrlrl101)
+- [Scoring]  Add plugin support for customization of MLflow serving endpoints (#7757, @jmahlik)
+- [Scoring] Add support to MLflow serving that allows configuration of multiple inference workers (#8035, @M4nouel)
+- [Sagemaker] Add support for asynchronous inference configuration on Sagemaker (#8009, @thomasbell1985)
+- [Build] Remove `shap` as a core dependency of MLflow (#8199, @jmahlik)
+
+Bug fixes:
+
+- [Models] Fix a bug with `tensorflow` autologging for models with multiple inputs (#8097, @jaume-ferrarons)
+- [Recipes] Fix a bug with `Pandas` 2.0 updates for profiler rendering of datetime types (#7925, @sunishsheth2009)
+- [Tracking] Prevent exceptions from being raised if a parameter is logged with an existing key whose value is identical to the logged parameter (#8038, @AdamStelmaszczyk)
+- [Tracking] Fix an issue with deleting experiments in the FileStore backend (#8178, @mariusschlegel)
+- [Tracking] Fix a UI bug where the "Source Run" field in the Model Version page points to an incorrect set of artifacts (#8156, @WeichenXu123)
+- [Tracking] Fix a bug wherein renaming a run reverts its current lifecycle status to `UNFINISHED` (#8154, @WeichenXu123)
+- [Tracking] Fix a bug where a file URI could be used as a model version source (#8126, @harupy)
+- [Projects] Fix an issue with MLflow projects that have submodules contained within a project (#8050, @kota-iizuka)
+- [Examples] Fix `lightning` hyperparameter tuning examples (#8039, @BenWilson2)
+- [Server-infra] Fix bug with Cache-Control headers for static server files (#8016, @jmahlik)
+
+Documentation updates:
+
+- [Examples] Add a new and thorough example for the creation of custom model flavors (#7867, @benjaminbluhm)
+
+Small bug fixes and documentation updates:
+
+#8262, #8252, #8250, #8228, #8221, #8203, #8134, #8040, #7994, #7934, @BenWilson2; #8258, #8255, #8253, #8248, #8247, #8245, #8243, #8246, #8244, #8242, #8240, #8229, #8198, #8192, #8112, #8165, #8158, #8152, #8148, #8144, #8143, #8120, #8107, #8105, #8102, #8088, #8089, #8096, #8075, #8073, #8076, #8063, #8064, #8033, #8024, #8023, #8021, #8015, #8005, #7982, #8002, #7987, #7981, #7968, #7931, #7930, #7929, #7917, #7918, #7916, #7914, #7913, @harupy; #7955, @arjundc-db; #8219, #8110, #8093, #8087, #8091, #8092, #8029, #8028, #8031, @jerrylian-db; #8187, @apurva-koti; #8210, #8001, #8000, @arpitjasa-db; #8161, #8127, #8095, #8090, #8068, #8043, #7940, #7924, #7923, @dbczumar; #8147, @morelen17; #8106, @WeichenXu123; #8117, @eltociear; #8100, @laerciop; #8080, @elado; #8070, @grofte; #8066, @yukimori; #8027, #7998, @liangz1; #7999, @martlaf; #7964, @viditjain99; #7928, @alekseyolg; #7909, #7901, #7844, @smurching; #7971, @n30111; #8012, @mingyu89; #8137, @lobrien; #7992, @robmarkcole; #8263, @sunishsheth2009
+
 ## 2.2.2 (2023-03-14)
 
 MLflow 2.2.2 is a patch release containing the following bug fixes:
@@ -13,6 +176,8 @@ MLflow 2.2.2 is a patch release containing the following bug fixes:
 MLflow 2.2.1 is a patch release containing the following bug fixes:
 
 - [Model Registry] Fix a bug that caused too many results to be requested by default when calling ``MlflowClient.search_model_versions()`` (#7935, @dbczumar)
+- [Model Registry] Patch for GHSA-xg73-94fp-g449 (#7908, @harupy)
+- [Model Registry] Patch for GHSA-wp72-7hj9-5265 (#7965, @harupy)
 
 ## 2.2.0 (2023-02-28)
 

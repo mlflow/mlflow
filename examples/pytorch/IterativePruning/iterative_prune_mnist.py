@@ -5,7 +5,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-import pytorch_lightning as pl
+import lightning as L
 import torch
 from ax.service.ax_client import AxClient
 from prettytable import PrettyTable
@@ -27,15 +27,14 @@ class IterativePrune:
         self.pruning_amount = None
 
     def run_mnist_model(self, base=False):
-        parser_dict = vars(self.parser_args)
         if base:
             mlflow.start_run(run_name="BaseModel")
         mlflow.pytorch.autolog()
-        dm = MNISTDataModule(**parser_dict)
+        dm = MNISTDataModule()
         dm.setup(stage="fit")
 
-        model = LightningMNISTClassifier(**parser_dict)
-        trainer = pl.Trainer.from_argparse_args(self.parser_args)
+        model = LightningMNISTClassifier()
+        trainer = L.Trainer(max_epochs=self.parser_args.max_epochs)
         trainer.fit(model, dm)
         trainer.test(datamodule=dm)
         if os.path.exists(self.base_model_path):
@@ -85,8 +84,7 @@ class IterativePrune:
 
     @staticmethod
     def write_prune_summary(summary, params):
-        tempdir = tempfile.mkdtemp()
-        try:
+        with tempfile.TemporaryDirectory() as tempdir:
             summary_file = os.path.join(tempdir, "pruned_model_summary.txt")
             params = "Total Trainable Parameters :" + str(params)
             with open(summary_file, "w") as f:
@@ -95,8 +93,6 @@ class IterativePrune:
                 f.write(str(params))
 
             mlflow.log_artifact(local_path=summary_file)
-        finally:
-            shutil.rmtree(tempdir)
 
     def iterative_prune(self, model, parametrization):
         if not self.pruning_amount:
@@ -137,12 +133,17 @@ class IterativePrune:
 
     def get_parser_args(self):
         parser = argparse.ArgumentParser()
-        parser = pl.Trainer.add_argparse_args(parent_parser=parser)
-        parser = LightningMNISTClassifier.add_model_specific_args(parent_parser=parser)
+        parser.add_argument(
+            "--max_epochs",
+            default=3,
+            type=int,
+            help="Number of AX trials to be run for the optimization experiment",
+        )
 
         parser.add_argument(
             "--total_trials",
             default=3,
+            type=int,
             help="Number of AX trials to be run for the optimization experiment",
         )
 

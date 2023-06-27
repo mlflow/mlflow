@@ -34,11 +34,13 @@ class SageMakerResponse(BaseResponse):
         config_name = self.request_params["EndpointConfigName"]
         production_variants = self.request_params.get("ProductionVariants")
         tags = self.request_params.get("Tags", [])
+        async_inference_config = self.request_params.get("AsyncInferenceConfig")
         new_config = self.sagemaker_backend.create_endpoint_config(
             config_name=config_name,
             production_variants=production_variants,
             tags=tags,
             region_name=self.region,
+            async_inference_config=async_inference_config,
         )
         return json.dumps({"EndpointConfigArn": new_config.arn})
 
@@ -322,7 +324,9 @@ class SageMakerBackend(BaseBackend):
             region_name=region_name, account_id=DEFAULT_ACCOUNT_ID
         )
 
-    def create_endpoint_config(self, config_name, production_variants, tags, region_name):
+    def create_endpoint_config(
+        self, config_name, production_variants, tags, region_name, async_inference_config
+    ):
         """
         Modifies backend state during calls to the SageMaker "CreateEndpointConfig" API
         documented here:
@@ -344,7 +348,10 @@ class SageMakerBackend(BaseBackend):
                 )
 
         new_config = EndpointConfig(
-            config_name=config_name, production_variants=production_variants, tags=tags
+            config_name=config_name,
+            production_variants=production_variants,
+            tags=tags,
+            async_inference_config=async_inference_config,
         )
         new_config_arn = self._get_base_arn(region_name=region_name) + new_config.arn_descriptor
         new_resource = SageMakerResourceWithArn(resource=new_config, arn=new_config_arn)
@@ -887,14 +894,13 @@ class EndpointSummary:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "EndpointName": self.endpoint.endpoint_name,
             "CreationTime": self.endpoint.creation_time,
             "LastModifiedTime": self.endpoint.last_modified_time,
             "EndpointStatus": self.endpoint.status,
             "EndpointArn": self.arn,
         }
-        return response
 
 
 class EndpointDescription:
@@ -911,7 +917,7 @@ class EndpointDescription:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "EndpointName": self.endpoint.endpoint_name,
             "EndpointArn": self.arn,
             "EndpointConfigName": self.endpoint.config_name,
@@ -920,7 +926,6 @@ class EndpointDescription:
             "CreationTime": self.endpoint.creation_time,
             "LastModifiedTime": self.endpoint.last_modified_time,
         }
-        return response
 
 
 class EndpointConfig(TimestampedResource):
@@ -929,11 +934,12 @@ class EndpointConfig(TimestampedResource):
     and manage EndpointConfigs.
     """
 
-    def __init__(self, config_name, production_variants, tags):
+    def __init__(self, config_name, production_variants, tags, async_inference_config=None):
         super().__init__()
         self.config_name = config_name
         self.production_variants = production_variants
         self.tags = tags
+        self.async_inference_config = async_inference_config
 
     @property
     def arn_descriptor(self):
@@ -953,12 +959,11 @@ class EndpointConfigSummary:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "EndpointConfigName": self.config.config_name,
             "EndpointArn": self.arn,
             "CreationTime": self.config.creation_time,
         }
-        return response
 
 
 class EndpointConfigDescription:
@@ -974,13 +979,13 @@ class EndpointConfigDescription:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "EndpointConfigName": self.config.config_name,
             "EndpointConfigArn": self.arn,
             "ProductionVariants": self.config.production_variants,
             "CreationTime": self.config.creation_time,
+            "AsyncInferenceConfig": self.config.async_inference_config,
         }
-        return response
 
 
 class Model(TimestampedResource):
@@ -1013,12 +1018,11 @@ class ModelSummary:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "ModelArn": self.arn,
             "ModelName": self.model.model_name,
             "CreationTime": self.model.creation_time,
         }
-        return response
 
 
 class ModelDescription:
@@ -1033,7 +1037,7 @@ class ModelDescription:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "ModelArn": self.arn,
             "ModelName": self.model.model_name,
             "PrimaryContainer": self.model.primary_container,
@@ -1041,7 +1045,6 @@ class ModelDescription:
             "VpcConfig": self.model.vpc_config if self.model.vpc_config else {},
             "CreationTime": self.model.creation_time,
         }
-        return response
 
 
 class TransformJobSummary:
@@ -1057,14 +1060,13 @@ class TransformJobSummary:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "TransformJobName": self.transform_job.job_name,
             "TransformJobArn": self.arn,
             "CreationTime": self.transform_job.creation_time,
             "LastModifiedTime": self.transform_job.last_modified_time,
             "TransformJobStatus": self.transform_job.status,
         }
-        return response
 
 
 class TransformJobDescription:
@@ -1080,7 +1082,7 @@ class TransformJobDescription:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "TransformJobName": self.transform_job.job_name,
             "TransformJobArn": self.arn,
             "CreationTime": self.transform_job.creation_time,
@@ -1088,7 +1090,6 @@ class TransformJobDescription:
             "TransformJobStatus": self.transform_job.status,
             "ModelName": self.transform_job.model_name,
         }
-        return response
 
 
 # Create a SageMaker backend for EC2 region: "us-west-2"

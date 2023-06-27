@@ -24,7 +24,6 @@ def test_get_minimum_indentation():
 
 
 def test_format_docstring():
-    # pylint: disable=W
     @format_docstring({"p": "param doc"})
     def single_param(p):
         """

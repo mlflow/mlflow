@@ -4,6 +4,9 @@ import os
 from pathlib import Path
 from typing import Dict, Any
 from collections import namedtuple
+import warnings
+import sys
+import datetime
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -28,17 +31,16 @@ from mlflow.recipes.utils.tracking import (
     TrackingConfig,
     get_run_tags_env_vars,
 )
-from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.fluent import _get_experiment_id, _set_experiment_primary_metric
-from mlflow.utils.databricks_utils import get_databricks_run_url
+from mlflow.utils.databricks_utils import get_databricks_env_vars, get_databricks_run_url
 from mlflow.utils.string_utils import strip_prefix
 
 _logger = logging.getLogger(__name__)
 
 
 _FEATURE_IMPORTANCE_PLOT_FILE = "feature_importance.png"
-
+_VALIDATION_METRIC_PREFIX = "val_"
 
 MetricValidationResult = namedtuple(
     "MetricValidationResult", ["metric", "greater_is_better", "value", "threshold", "validated"]
@@ -129,9 +131,6 @@ class EvaluateStep(BaseStep):
 
     def _run(self, output_directory):
         def my_warn(*args, **kwargs):
-            import sys
-            import datetime
-
             timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
             stacklevel = 1 if "stacklevel" not in kwargs else kwargs["stacklevel"]
             frame = sys._getframe(stacklevel)
@@ -139,8 +138,6 @@ class EvaluateStep(BaseStep):
             lineno = frame.f_lineno
             message = f"{timestamp} {filename}:{lineno}: {args[0]}\n"
             open(os.path.join(output_directory, "warning_logs.txt"), "a").write(message)
-
-        import warnings
 
         original_warn = warnings.warn
         warnings.warn = my_warn
@@ -199,7 +196,7 @@ class EvaluateStep(BaseStep):
                         {
                             "explainability_algorithm": "kernel",
                             "explainability_nsamples": 10,
-                            "metric_prefix": "val_",
+                            "metric_prefix": _VALIDATION_METRIC_PREFIX,
                         },
                     ),
                     (
@@ -343,7 +340,7 @@ class EvaluateStep(BaseStep):
             confusion_matrix_path = os.path.join(
                 output_directory,
                 "eval_validation/artifacts",
-                "confusion_matrix.png",
+                f"{_VALIDATION_METRIC_PREFIX}confusion_matrix.png",
             )
             if os.path.exists(confusion_matrix_path):
                 classifiers_plot_tab.add_html(
@@ -357,7 +354,7 @@ class EvaluateStep(BaseStep):
             lift_curve_path = os.path.join(
                 output_directory,
                 "eval_validation/artifacts",
-                "lift_curve_plot.png",
+                f"{_VALIDATION_METRIC_PREFIX}lift_curve_plot.png",
             )
             if os.path.exists(lift_curve_path):
                 classifiers_plot_tab.add_html(
@@ -369,7 +366,7 @@ class EvaluateStep(BaseStep):
             pr_curve_path = os.path.join(
                 output_directory,
                 "eval_validation/artifacts",
-                "precision_recall_curve_plot.png",
+                f"{_VALIDATION_METRIC_PREFIX}precision_recall_curve_plot.png",
             )
             if os.path.exists(pr_curve_path):
                 classifiers_plot_tab.add_html(
@@ -381,7 +378,7 @@ class EvaluateStep(BaseStep):
             roc_curve_path = os.path.join(
                 output_directory,
                 "eval_validation/artifacts",
-                "roc_curve_plot.png",
+                f"{_VALIDATION_METRIC_PREFIX}roc_curve_plot.png",
             )
             if os.path.exists(roc_curve_path):
                 classifiers_plot_tab.add_html(
@@ -391,23 +388,37 @@ class EvaluateStep(BaseStep):
                 classifiers_plot_tab.add_image("ROC_CURVE_PLOT", roc_curve_path, width=400)
 
         # Tab 3: SHAP plots.
-        shap_plot_tab = card.add_tab(
-            "Feature Importance",
-            '<h3 class="section-title">Feature Importance on Validation Dataset</h3>'
-            '<h3 class="section-title">SHAP Bar Plot</h3>{{SHAP_BAR_PLOT}}'
-            '<h3 class="section-title">SHAP Beeswarm Plot</h3>{{SHAP_BEESWARM_PLOT}}',
-        )
+        def _add_shap_plots(card):
+            """Contingent on shap being installed."""
+            shap_plot_tab = card.add_tab(
+                "Feature Importance",
+                '<h3 class="section-title">Feature Importance on Validation Dataset</h3>'
+                '<h3 class="section-title">SHAP Bar Plot</h3>{{SHAP_BAR_PLOT}}'
+                '<h3 class="section-title">SHAP Beeswarm Plot</h3>{{SHAP_BEESWARM_PLOT}}',
+            )
 
-        shap_bar_plot_path = os.path.join(
-            output_directory, "eval_validation/artifacts", "shap_feature_importance_plot.png"
-        )
-        shap_beeswarm_plot_path = os.path.join(
-            output_directory,
-            "eval_validation/artifacts",
-            "shap_beeswarm_plot.png",
-        )
-        shap_plot_tab.add_image("SHAP_BAR_PLOT", shap_bar_plot_path, width=800)
-        shap_plot_tab.add_image("SHAP_BEESWARM_PLOT", shap_beeswarm_plot_path, width=800)
+            shap_bar_plot_path = os.path.join(
+                output_directory,
+                "eval_validation/artifacts",
+                f"{_VALIDATION_METRIC_PREFIX}shap_feature_importance_plot.png",
+            )
+            shap_beeswarm_plot_path = os.path.join(
+                output_directory,
+                "eval_validation/artifacts",
+                f"{_VALIDATION_METRIC_PREFIX}shap_beeswarm_plot.png",
+            )
+            shap_plot_tab.add_image("SHAP_BAR_PLOT", shap_bar_plot_path, width=800)
+            shap_plot_tab.add_image("SHAP_BEESWARM_PLOT", shap_beeswarm_plot_path, width=800)
+
+        try:
+            import shap  # pylint: disable=unused-import
+            from matplotlib import pyplot  # pylint: disable=unused-import
+
+            _add_shap_plots(card)
+        except ImportError:
+            _logger.warning(
+                "SHAP or matplotlib package is not installed, so shap plots will not be added."
+            )
 
         # Tab 3: Warning log outputs.
         warning_output_path = os.path.join(output_directory, "warning_logs.txt")

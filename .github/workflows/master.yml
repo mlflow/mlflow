@@ -23,7 +23,7 @@ on:
         default: ""
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 # Use `bash --noprofile --norc -exo pipefail` by default for all `run` steps in this workflow:
@@ -42,6 +42,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v3
         with:
@@ -63,10 +64,24 @@ jobs:
       - name: Install pre-commit hooks
         run: |
           pre-commit install -t pre-commit -t prepare-commit-msg
-      - name: Run pre-commit
+      - name: Run pre-commit (only changed files)
         id: run-pre-commit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          pre-commit run --all-files --color=always
+          # pylint is ridiculously slow. It takes ~15 minutes to run on all files.
+          # To fail fast for faster iteration, first run pylint only on changed files,
+          # then run it on all files in the next step.
+          changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
+          pre-commit run --color=always --files $changed_files
+      - name: Run pre-commit (pylint)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
+          if echo "$changed_files" | grep -q '\.py$'; then
+            pre-commit run --color=always --all-files pylint
+          fi
       - name: Update error messages
         if: always() && steps.run-pre-commit.outcome == 'failure'
         run: |
@@ -94,10 +109,13 @@ jobs:
       - name: Run tests
         run: |
           ./dev/run-python-skinny-tests.sh
+      - uses: ./.github/actions/untracked
 
   python:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
+    env:
+      JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -121,10 +139,11 @@ jobs:
         run: |
           source dev/setup-ssh.sh
           ./dev/run-python-tests.sh
+      - uses: ./.github/actions/untracked
 
   database:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v3
         with:
@@ -191,6 +210,7 @@ jobs:
       - name: Clean up
         run: |
           ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
+      - uses: ./.github/actions/untracked
 
   java:
     runs-on: ubuntu-latest
@@ -253,6 +273,33 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/models
+      - uses: ./.github/actions/untracked
+
+  # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
+  # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
+  # When the shap cross version tests are passing in a new release version of shap, this pin should
+  # be removed.
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh
+          pip install pyspark "numpy<1.24.0"
+      - name: Run tests
+        run: |
+          export MLFLOW_HOME=$(pwd)
+          pytest tests/evaluate
+      - uses: ./.github/actions/untracked
 
   pyfunc:
     runs-on: ubuntu-latest
@@ -274,6 +321,7 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest --durations=30 tests/pyfunc
+      - uses: ./.github/actions/untracked
 
   sagemaker:
     runs-on: ubuntu-latest
@@ -292,6 +340,7 @@ jobs:
       - name: Run tests
         run: |
           ./dev/run-python-sagemaker-tests.sh;
+      - uses: ./.github/actions/untracked
 
   windows:
     runs-on: windows-latest
@@ -312,9 +361,13 @@ jobs:
           pip install -e .[extras]
           pip install pyspark
           pip install mleap
+          # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
+          pip install datasets
+          # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
+          pip install tensorflow
       - name: Download Hadoop winutils for Spark
         run: |
-          git clone https://github.com/cdarlint/winutils
+          git clone https://github.com/cdarlint/winutils /tmp/winutils
       - name: Run python tests
         env:
           # Starting from SQLAlchemy version 2.0, `QueuePool` is the default connection pool
@@ -324,8 +377,11 @@ jobs:
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
         run: |
           # Set Hadoop environment variables required for testing Spark integrations on Windows
-          export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
+          export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
-          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/recipes
-          pytest tests/mleap
+          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/recipes --ignore=tests/evaluate
+          # MLeap is incompatible on Windows with PySpark3.4 release. 
+          # Reinstate tests when MLeap has released a fix. [ML-30491]
+          # pytest tests/mleap
+      - uses: ./.github/actions/untracked

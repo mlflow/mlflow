@@ -1,12 +1,16 @@
-from typing import Any, Optional
+from typing import Any, Optional, List, Dict
 import warnings
+import logging
 
 import numpy as np
 import pandas as pd
 
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
+
+_logger = logging.getLogger(__name__)
 
 
 class TensorsNotSupportedException(MlflowException):
@@ -87,9 +91,15 @@ def _infer_schema(data: Any) -> Schema:
     The input should be one of these:
       - pandas.DataFrame or pandas.Series
       - dictionary of { name -> numpy.ndarray}
+      - dictionary of { name -> [str, List[str]}
       - numpy.ndarray
       - pyspark.sql.DataFrame
       - csc/csr matrix
+      - str
+      - List[str]
+      - List[Dict[str, Union[str, List[str]]]]
+      - Dict[str, Union[str, List[str]]]
+      - bytes
 
     The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType` for
     dataframes and to one of numpy types for tensors.
@@ -100,12 +110,10 @@ def _infer_schema(data: Any) -> Schema:
     """
     from scipy.sparse import csr_matrix, csc_matrix
 
-    if isinstance(data, dict):
+    if isinstance(data, dict) and all(isinstance(values, np.ndarray) for values in data.values()):
         res = []
         for name in data.keys():
             ndarray = data[name]
-            if not isinstance(ndarray, np.ndarray):
-                raise TypeError("Data in the dictionary must be of type numpy.ndarray")
             res.append(
                 TensorSpec(
                     type=clean_tensor_type(ndarray.dtype),
@@ -136,6 +144,31 @@ def _infer_schema(data: Any) -> Schema:
                 for field in data.schema.fields
             ]
         )
+    elif isinstance(data, dict):
+        _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data)
+        schema = Schema([ColSpec(type=DataType.string, name=name) for name in data.keys()])
+    elif isinstance(data, str):
+        schema = Schema([ColSpec(type=DataType.string)])
+    elif isinstance(data, bytes):
+        schema = Schema([ColSpec(type=DataType.binary)])
+    elif isinstance(data, list) and all(isinstance(element, str) for element in data):
+        schema = Schema([ColSpec(type=DataType.string)])
+    elif (
+        isinstance(data, list)
+        and all(isinstance(element, dict) for element in data)
+        and all(isinstance(key, str) for d in data for key in d)
+        and all(isinstance(value, str) for d in data for value in d.values())
+    ):
+        first_keys = data[0].keys()
+        if all(d.keys() == first_keys for d in data):
+            schema = Schema([ColSpec(type=DataType.string, name=name) for name in first_keys])
+        else:
+            raise MlflowException(
+                "The list of dictionaries supplied has inconsistent keys among "
+                "each dictionary in the list. Please validate the uniformity "
+                "in the key naming for each dictionary.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
     else:
         raise TypeError(
             "Expected one of the following types:\n"
@@ -146,6 +179,11 @@ def _infer_schema(data: Any) -> Schema:
             "- pyspark.sql.DataFrame\n",
             "- scipy.sparse.csr_matrix\n"
             "- scipy.sparse.csc_matrix\n"
+            "- str\n"
+            "- List[str]\n"
+            "- List[Dict[str, Union[str, List[str]]]]\n"
+            "- Dict[str, Union[str, List[str]]]\n"
+            "- bytes\n"
             "but got '{}'".format(type(data)),
         )
     if not schema.is_tensor_spec() and any(
@@ -286,3 +324,157 @@ def _is_spark_df(x) -> bool:
         return isinstance(x, pyspark.sql.dataframe.DataFrame)
     except ImportError:
         return False
+
+
+def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) -> None:
+    invalid_keys = []
+    invalid_values = []
+    value_type = None
+    for key, value in data.items():
+        if not value_type:
+            value_type = type(value)
+        if isinstance(key, bool):
+            invalid_keys.append(key)
+        elif not isinstance(key, (str, int)):
+            invalid_keys.append(key)
+        if isinstance(value, list) and not all(isinstance(item, (str, bytes)) for item in value):
+            invalid_values.append(key)
+        elif not isinstance(value, (np.ndarray, list, str, bytes)):
+            invalid_values.append(key)
+        elif isinstance(value, np.ndarray) or value_type == np.ndarray:
+            if not isinstance(value, value_type):
+                invalid_values.append(key)
+    if invalid_values:
+        raise MlflowException(
+            "Invalid values in dictionary. If passing a dictionary containing strings, all "
+            "values must be either strings or lists of strings. If passing a dictionary containing "
+            "numeric values, the data must be enclosed in a numpy.ndarray. The following keys "
+            f"in the input dictionary are invalid: {invalid_values}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if invalid_keys:
+        raise MlflowException(
+            f"The dictionary keys are not all strings or indexes. Invalid keys: {invalid_keys}"
+        )
+
+
+def _is_all_string(x):
+    return all(isinstance(v, str) for v in x)
+
+
+def _validate_is_all_string(x):
+    if not _is_all_string(x):
+        raise MlflowException(f"Expected all values to be string, got {x}", INVALID_PARAMETER_VALUE)
+
+
+def _validate_all_keys_string(d):
+    keys = list(d.keys())
+    if not _is_all_string(keys):
+        raise MlflowException(
+            f"Expected example to be dict with string keys, got {keys}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_all_values_string(d):
+    values = list(d.values())
+    if not _is_all_string(values):
+        raise MlflowException(
+            f"Expected example to be dict with string values, got {values}", INVALID_PARAMETER_VALUE
+        )
+
+
+def _validate_keys_match(d, expected_keys):
+    if d.keys() != expected_keys:
+        raise MlflowException(
+            "Expected example to be dict with keys {}, got {}".format(
+                list(expected_keys), list(d.keys())
+            ),
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_num_items(d, num_items):
+    actual_num_items = len(d)
+    if actual_num_items != num_items:
+        raise MlflowException(
+            f"Expected example to be dict with {num_items} items, got {actual_num_items}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_has_items(d):
+    num_items = len(d)
+    if num_items == 0:
+        raise MlflowException(
+            f"Expected example to be dict with at least one item, got {num_items}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_is_dict(d):
+    if not isinstance(d, dict):
+        raise MlflowException(
+            f"Expected each item in example to be dict, got {type(d).__name__}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_non_empty(examples):
+    num_items = len(examples)
+    if num_items == 0:
+        raise MlflowException(
+            f"Expected examples to be non-empty list, got {num_items}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_is_list(examples):
+    if not isinstance(examples, list):
+        raise MlflowException(
+            f"Expected examples to be list, got {type(examples).__name__}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_dict_examples(examples, num_items=None):
+    examples_iter = iter(examples)
+    first_example = next(examples_iter)
+    _validate_is_dict(first_example)
+    _validate_has_items(first_example)
+    if num_items is not None:
+        _validate_num_items(first_example, num_items)
+    _validate_all_keys_string(first_example)
+    _validate_all_values_string(first_example)
+    first_keys = first_example.keys()
+
+    for example in examples_iter:
+        _validate_is_dict(example)
+        _validate_has_items(example)
+        if num_items is not None:
+            _validate_num_items(example, num_items)
+        _validate_all_keys_string(example)
+        _validate_all_values_string(example)
+        _validate_keys_match(example, first_keys)
+
+
+def _infer_schema_from_type_hint(type_hint, examples=None):
+    has_examples = examples is not None
+    if has_examples:
+        _validate_is_list(examples)
+        _validate_non_empty(examples)
+
+    if type_hint == List[str]:
+        if has_examples:
+            _validate_is_all_string(examples)
+        return Schema([ColSpec(type="string", name=None)])
+    elif type_hint == List[Dict[str, str]]:
+        if has_examples:
+            _validate_dict_examples(examples)
+            return Schema([ColSpec(type="string", name=name) for name in examples[0]])
+        else:
+            _logger.warning(f"Could not infer schema for {type_hint} because example is missing")
+            return Schema([ColSpec(type="string", name=None)])
+    else:
+        _logger.info("Unsupported type hint: %s, skipping schema inference", type_hint)
+        return None

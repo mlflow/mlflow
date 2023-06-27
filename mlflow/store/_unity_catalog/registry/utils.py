@@ -1,4 +1,4 @@
-from mlflow.entities.model_registry import ModelVersion, RegisteredModel
+from mlflow.entities.model_registry import ModelVersion, RegisteredModel, RegisteredModelAlias
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     ModelVersion as ProtoModelVersion,
     ModelVersionStatus as ProtoModelVersionStatus,
@@ -10,6 +10,8 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 
 _STRING_TO_STATUS = {k: ProtoModelVersionStatus.Value(k) for k in ProtoModelVersionStatus.keys()}
 _STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}
+_ACTIVE_CATALOG_QUERY = "SELECT current_catalog() AS catalog"
+_ACTIVE_SCHEMA_QUERY = "SELECT current_database() AS schema"
 
 
 def uc_model_version_status_to_string(status):
@@ -28,6 +30,7 @@ def model_version_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVersion:
         run_id=uc_proto.run_id,
         status=uc_model_version_status_to_string(uc_proto.status),
         status_message=uc_proto.status_message,
+        aliases=[alias.alias for alias in (uc_proto.aliases or [])],
     )
 
 
@@ -37,6 +40,10 @@ def registered_model_from_uc_proto(uc_proto: ProtoRegisteredModel) -> Registered
         creation_timestamp=uc_proto.creation_timestamp,
         last_updated_timestamp=uc_proto.last_updated_timestamp,
         description=uc_proto.description,
+        aliases=[
+            RegisteredModelAlias(alias=alias.alias, version=alias.version)
+            for alias in (uc_proto.aliases or [])
+        ],
     )
 
 
@@ -49,8 +56,26 @@ def get_artifact_repo_from_storage_info(
     :param storage_location: Storage location of the model version
     :param scoped_token: Protobuf scoped token to use to authenticate to blob storage
     """
+    try:
+        return _get_artifact_repo_from_storage_info(
+            storage_location=storage_location, scoped_token=scoped_token
+        )
+    except ImportError as e:
+        raise MlflowException(
+            "Unable to import necessary dependencies to access model version files in "
+            "Unity Catalog. Please ensure you have the necessary dependencies installed, "
+            "e.g. by running 'pip install mlflow[databricks]' or "
+            "'pip install mlflow-skinny[databricks]'"
+        ) from e
+
+
+def _get_artifact_repo_from_storage_info(
+    storage_location: str, scoped_token: TemporaryCredentials
+) -> ArtifactRepository:
     credential_type = scoped_token.WhichOneof("credentials")
     if credential_type == "aws_temp_credentials":
+        # Verify upfront that boto3 is importable
+        import boto3  # pylint: disable=unused-import
         from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 
         aws_creds = scoped_token.aws_temp_credentials
@@ -83,3 +108,23 @@ def get_artifact_repo_from_storage_info(
         raise MlflowException(
             f"Got unexpected token type {credential_type} for Unity Catalog managed file access"
         )
+
+
+def get_full_name_from_sc(name, spark) -> str:
+    """
+    Constructs the full name of a registered model using the active catalog and schema in a spark
+    session / context.
+    :param name: the model name provided by the user
+    :param spark: the active spark session
+    """
+    num_levels = len(name.split("."))
+    if num_levels >= 3 or spark is None:
+        return name
+    catalog = spark.sql(_ACTIVE_CATALOG_QUERY).collect()[0]["catalog"]
+    # return the user provided name if the catalog is the hive metastore default
+    if catalog in {"spark_catalog", "hive_metastore"}:
+        return name
+    if num_levels == 2:
+        return f"{catalog}.{name}"
+    schema = spark.sql(_ACTIVE_SCHEMA_QUERY).collect()[0]["schema"]
+    return f"{catalog}.{schema}.{name}"

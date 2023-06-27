@@ -1,6 +1,12 @@
 import { isNumber } from 'lodash';
 import Utils from '../../../../common/utils/Utils';
-import { ExperimentEntity, KeyValueEntity, ModelInfoEntity, RunInfoEntity } from '../../../types';
+import type {
+  ExperimentEntity,
+  KeyValueEntity,
+  ModelInfoEntity,
+  RunInfoEntity,
+  RunDatasetWithTags,
+} from '../../../types';
 import {
   RunRowDateAndNestInfo,
   RunRowModelsInfo,
@@ -42,6 +48,7 @@ interface RowRenderMetadata {
   params: KeyValueEntity[];
   metrics: KeyValueEntity[];
   tags: Record<string, KeyValueEntity>;
+  datasets: RunDatasetWithTags[];
 }
 
 /**
@@ -49,15 +56,18 @@ interface RowRenderMetadata {
  * a list of rows metadata discarding any information about the parent/child run hierarchy.
  */
 const getFlatRowRenderMetadata = (runData: SingleRunData[]) =>
-  runData.map<RowRenderMetadata>(({ runInfo, metrics = [], params = [], tags = {} }, index) => ({
-    index,
-    runInfo,
-    level: 0, // All runs will be on "0" level here,
-    isPinnable: !tags[EXPERIMENT_PARENT_ID_TAG]?.value,
-    metrics: metrics,
-    params: params,
-    tags: tags,
-  }));
+  runData.map<RowRenderMetadata>(
+    ({ runInfo, metrics = [], params = [], tags = {}, datasets = [] }, index) => ({
+      index,
+      runInfo,
+      level: 0, // All runs will be on "0" level here,
+      isPinnable: !tags[EXPERIMENT_PARENT_ID_TAG]?.value,
+      metrics: metrics,
+      params: params,
+      tags: tags,
+      datasets: datasets,
+    }),
+  );
 
 /**
  * For a given run dataset from the store, this function prepares
@@ -139,6 +149,7 @@ const getNestedRowRenderMetadata = ({
         params: runData[dfsIndex].params || [],
         metrics: runData[dfsIndex].metrics || [],
         tags: runData[dfsIndex].tags || {},
+        datasets: runData[dfsIndex].datasets || [],
         isPinnable,
       };
       if (parentIdToChildren[currentNodeRunId]) {
@@ -292,6 +303,7 @@ export const prepareRunsGridData = ({
       tags,
       params,
       metrics,
+      datasets,
     } = runInfoMetadata;
 
     const formattedMetrics = (metrics || []).map(({ key, value }) => ({
@@ -330,6 +342,7 @@ export const prepareRunsGridData = ({
     // Prepare a data package to be used by "Models" cell
     const models: RunRowModelsInfo = {
       registeredModels: modelVersionsByRunUuid[runInfo.run_uuid] || [], // ModelInfoEntity
+      // @ts-expect-error TS(2322): Type 'unknown[]' is not assignable to type '{ arti... Remove this comment to see the full error message
       loggedModels: Utils.getLoggedModelsFromTags(tags),
       experimentId: runInfo.experiment_id,
       runUuid: runInfo.run_uuid,
@@ -374,6 +387,7 @@ export const prepareRunsGridData = ({
         metricKeyList,
         EXPERIMENT_FIELD_PREFIX_METRIC,
       ),
+      datasets,
       ...createKeyValueDataForRunRow(visibleTags, tagKeyList, EXPERIMENT_FIELD_PREFIX_TAG),
     };
   });
@@ -389,10 +403,11 @@ export const prepareRunsGridData = ({
   ];
 };
 
-type SingleRunData = {
+export type SingleRunData = {
   runInfo: RunInfoEntity;
   params: KeyValueEntity[];
   metrics: KeyValueEntity[];
+  datasets: RunDatasetWithTags[];
   tags: Record<string, KeyValueEntity>;
 };
 

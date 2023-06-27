@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import posixpath
@@ -7,6 +8,7 @@ import time
 import uuid
 from pathlib import Path
 import re
+from typing import List
 
 import pytest
 from unittest import mock
@@ -20,6 +22,10 @@ from mlflow.entities import (
     RunStatus,
     RunData,
     ExperimentTag,
+    Dataset,
+    DatasetInput,
+    InputTag,
+    _DatasetSummary,
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.exceptions import MlflowException, MissingConfigException
@@ -27,7 +33,7 @@ from mlflow.models import Model
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
+from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_LOGGED_MODELS
 from mlflow.utils.os import is_windows
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES, _EXPERIMENT_ID_FIXED_WIDTH
@@ -354,6 +360,7 @@ def _create_root(store):
             "experiment_id": exp,
             "name": random_str(),
             "artifact_location": exp_folder,
+            "lifecycle_stage": LifecycleStage.ACTIVE,
             "creation_time": current_time,
             "last_update_time": current_time,
         }
@@ -378,6 +385,7 @@ def _create_root(store):
                 "deleted_time": random_int(20, 30),
                 "tags": [],
                 "artifact_uri": os.path.join(run_folder, FileStore.ARTIFACTS_FOLDER_NAME),
+                "lifecycle_stage": LifecycleStage.ACTIVE,
             }
             write_yaml(run_folder, FileStore.META_DATA_FILE_NAME, run_info)
             run_data[run_id] = run_info
@@ -590,39 +598,58 @@ def _extract_ids(experiments):
 
 
 def test_delete_restore_experiment(store):
-    exp_id = store.create_experiment("test_delete")
-    exp_name = store.get_experiment(exp_id).name
+    experiments, _, _ = _create_root(store)
+    exp1_id = experiments[random_int(0, len(experiments) - 2)]  # never select default experiment
+    exp1 = store.get_experiment(exp1_id)
 
-    exp1 = store.get_experiment(exp_id)
-    time.sleep(0.001)
-
-    # delete it
-    store.delete_experiment(exp_id)
-    assert exp_id not in _extract_ids(store.search_experiments(view_type=ViewType.ACTIVE_ONLY))
-    assert exp_id in _extract_ids(store.search_experiments(view_type=ViewType.DELETED_ONLY))
-    assert exp_id in _extract_ids(store.search_experiments(view_type=ViewType.ALL))
-    assert store.get_experiment(exp_id).lifecycle_stage == LifecycleStage.DELETED
-
-    deleted_exp1 = store.get_experiment(exp_id)
+    # test deleting experiment
+    store.delete_experiment(exp1_id)
+    assert exp1_id not in _extract_ids(store.search_experiments(view_type=ViewType.ACTIVE_ONLY))
+    assert exp1_id in _extract_ids(store.search_experiments(view_type=ViewType.DELETED_ONLY))
+    assert exp1_id in _extract_ids(store.search_experiments(view_type=ViewType.ALL))
+    deleted_exp1 = store.get_experiment(exp1_id)
     assert deleted_exp1.last_update_time > exp1.last_update_time
     assert deleted_exp1.lifecycle_stage == LifecycleStage.DELETED
 
-    # restore it
-    exp1 = store.get_experiment(exp_id)
-    time.sleep(0.01)
-    store.restore_experiment(exp_id)
-    restored_1 = store.get_experiment(exp_id)
-    assert restored_1.experiment_id == exp_id
-    assert restored_1.name == exp_name
-    assert restored_1.last_update_time > exp1.last_update_time
+    # test if setting lifecycle_stage is persisted correctly
+    deleted_exp1_dir = store._get_experiment_path(
+        experiment_id=exp1_id, view_type=ViewType.DELETED_ONLY
+    )
+    deleted_exp1_meta = FileStore._read_yaml(
+        root=deleted_exp1_dir, file_name=FileStore.META_DATA_FILE_NAME
+    )
+    assert deleted_exp1_meta["lifecycle_stage"] == LifecycleStage.DELETED
+    for run in store.search_runs(
+        experiment_ids=[exp1_id], filter_string="", run_view_type=ViewType.ALL
+    ):
+        assert run.info.lifecycle_stage == LifecycleStage.DELETED
 
-    restored_2 = store.get_experiment_by_name(exp_name)
-    assert restored_2.experiment_id == exp_id
-    assert restored_2.name == exp_name
-    assert exp_id in _extract_ids(store.search_experiments(view_type=ViewType.ACTIVE_ONLY))
-    assert exp_id not in _extract_ids(store.search_experiments(view_type=ViewType.DELETED_ONLY))
-    assert exp_id in _extract_ids(store.search_experiments(view_type=ViewType.ALL))
-    assert store.get_experiment(exp_id).lifecycle_stage == LifecycleStage.ACTIVE
+    # test restoring experiment
+    store.restore_experiment(exp1_id)
+    assert exp1_id in _extract_ids(store.search_experiments(view_type=ViewType.ACTIVE_ONLY))
+    assert exp1_id not in _extract_ids(store.search_experiments(view_type=ViewType.DELETED_ONLY))
+    assert exp1_id in _extract_ids(store.search_experiments(view_type=ViewType.ALL))
+    restored1_exp1 = store.get_experiment(exp1_id)
+    assert restored1_exp1.experiment_id == exp1_id
+    assert restored1_exp1.name == exp1.name
+    assert restored1_exp1.last_update_time > exp1.last_update_time
+    assert restored1_exp1.lifecycle_stage == LifecycleStage.ACTIVE
+    restored2_exp1 = store.get_experiment_by_name(exp1.name)
+    assert restored2_exp1.experiment_id == exp1_id
+    assert restored2_exp1.name == exp1.name
+
+    # test if setting lifecycle_stage is persisted correctly
+    restored_exp1_dir = store._get_experiment_path(
+        experiment_id=exp1_id, view_type=ViewType.ACTIVE_ONLY
+    )
+    restored_exp1_meta = FileStore._read_yaml(
+        root=restored_exp1_dir, file_name=FileStore.META_DATA_FILE_NAME
+    )
+    assert restored_exp1_meta["lifecycle_stage"] == LifecycleStage.ACTIVE
+    for run in store.search_runs(
+        experiment_ids=[exp1_id], filter_string="", run_view_type=ViewType.ALL
+    ):
+        assert run.info.lifecycle_stage == LifecycleStage.ACTIVE
 
 
 def test_rename_experiment(store):
@@ -1216,6 +1243,13 @@ def test_search_runs_run_id(store):
     )
     assert [r.info.run_id for r in result] == [run_id2]
 
+    result = store.search_runs(
+        [exp_id],
+        filter_string=f"run_name = '{run1.info.run_name}' AND run_id IN ('{run_id1}')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert [r.info.run_id for r in result] == [run_id1]
+
     for filter_string in [
         f"attributes.run_id IN ('{run_id1}','{run_id2}')",
         f"attributes.run_id IN ('{run_id1}', '{run_id2}')",
@@ -1286,6 +1320,163 @@ def test_search_runs_start_time_alias(store):
         run_view_type=ViewType.ACTIVE_ONLY,
     )
     assert result == []
+
+
+def test_search_runs_datasets(store):
+    exp_id = store.create_experiment("12345dataset")
+
+    run1 = store.create_run(
+        experiment_id=exp_id,
+        user_id="user1",
+        start_time=1,
+        tags=[],
+        run_name=None,
+    )
+    run2 = store.create_run(
+        experiment_id=exp_id,
+        user_id="user2",
+        start_time=3,
+        tags=[],
+        run_name=None,
+    )
+    run3 = store.create_run(
+        experiment_id=exp_id,
+        user_id="user3",
+        start_time=2,
+        tags=[],
+        run_name=None,
+    )
+
+    dataset1 = Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="st1",
+        source="source1",
+        schema="schema1",
+        profile="profile1",
+    )
+    dataset2 = Dataset(
+        name="name2",
+        digest="digest2",
+        source_type="st2",
+        source="source2",
+        schema="schema2",
+        profile="profile2",
+    )
+    dataset3 = Dataset(
+        name="name3",
+        digest="digest3",
+        source_type="st3",
+        source="source3",
+        schema="schema3",
+        profile="profile3",
+    )
+
+    test_tag = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="test")]
+    train_tag = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+    eval_tag = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="eval")]
+
+    inputs_run1 = [DatasetInput(dataset1, train_tag), DatasetInput(dataset2, eval_tag)]
+    inputs_run2 = [DatasetInput(dataset1, train_tag), DatasetInput(dataset3, eval_tag)]
+    inputs_run3 = [DatasetInput(dataset2, test_tag)]
+
+    store.log_inputs(run1.info.run_id, inputs_run1)
+    store.log_inputs(run2.info.run_id, inputs_run2)
+    store.log_inputs(run3.info.run_id, inputs_run3)
+    run_id1 = run1.info.run_id
+    run_id2 = run2.info.run_id
+    run_id3 = run3.info.run_id
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="dataset.name = 'name1'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id2, run_id1}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="dataset.digest = 'digest2'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3, run_id1}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="dataset.name = 'name4'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == set()
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="dataset.context = 'train'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id2, run_id1}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="dataset.context = 'test'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="dataset.context = 'test' and dataset.name = 'name2'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="dataset.name = 'name2' and dataset.context = 'test'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.name IN ('name1', 'name2')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.digest IN ('digest1', 'digest2')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.name LIKE 'Name%'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == set()
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.name ILIKE 'Name%'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.context ILIKE 'test%'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.context IN ('test', 'train')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
 
 
 def test_weird_param_names(store):
@@ -2062,3 +2253,452 @@ def test_create_experiment_appends_to_artifact_local_path_file_uri_correctly(
 )
 def test_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri):
     _assert_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
+
+
+def assert_dataset_inputs_equal(inputs1: List[DatasetInput], inputs2: List[DatasetInput]):
+    inputs1 = sorted(inputs1, key=lambda inp: (inp.dataset.name, inp.dataset.digest))
+    inputs2 = sorted(inputs2, key=lambda inp: (inp.dataset.name, inp.dataset.digest))
+    assert len(inputs1) == len(inputs2)
+    for idx, inp1 in enumerate(inputs1):
+        inp2 = inputs2[idx]
+        assert dict(inp1.dataset) == dict(inp2.dataset)
+        tags1 = sorted(inp1.tags, key=lambda tag: tag.key)
+        tags2 = sorted(inp2.tags, key=lambda tag: tag.key)
+        for idx, tag1 in enumerate(tags1):
+            tag2 = tags2[idx]
+            assert tag1.key == tag1.key
+            assert tag1.value == tag2.value
+
+
+def test_log_inputs_and_retrieve_runs_behaves_as_expected(store):
+    exp_id = store.create_experiment("12345dataset")
+
+    run1 = store.create_run(
+        experiment_id=exp_id,
+        user_id="user1",
+        start_time=1,
+        tags=[],
+        run_name=None,
+    )
+    run2 = store.create_run(
+        experiment_id=exp_id,
+        user_id="user2",
+        start_time=3,
+        tags=[],
+        run_name=None,
+    )
+    run3 = store.create_run(
+        experiment_id=exp_id,
+        user_id="user3",
+        start_time=2,
+        tags=[],
+        run_name=None,
+    )
+
+    dataset1 = Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="st1",
+        source="source1",
+        schema="schema1",
+        profile="profile1",
+    )
+    dataset2 = Dataset(
+        name="name2",
+        digest="digest2",
+        source_type="st2",
+        source="source2",
+        schema="schema2",
+        profile="profile2",
+    )
+    dataset3 = Dataset(
+        name="name3",
+        digest="digest3",
+        source_type="st3",
+        source="source3",
+        schema="schema3",
+        profile="profile3",
+    )
+
+    tags1 = [InputTag(key="key1", value="value1"), InputTag(key="key2", value="value2")]
+    tags2 = [InputTag(key="key3", value="value3"), InputTag(key="key4", value="value4")]
+    tags3 = [InputTag(key="key5", value="value5"), InputTag(key="key6", value="value6")]
+
+    inputs_run1 = [DatasetInput(dataset1, tags1), DatasetInput(dataset2, tags1)]
+    inputs_run2 = [DatasetInput(dataset1, tags2), DatasetInput(dataset3, tags3)]
+    inputs_run3 = [DatasetInput(dataset2, tags3)]
+
+    store.log_inputs(run1.info.run_id, inputs_run1)
+    store.log_inputs(run2.info.run_id, inputs_run2)
+    store.log_inputs(run3.info.run_id, inputs_run3)
+
+    run1 = store.get_run(run1.info.run_id)
+    assert_dataset_inputs_equal(run1.inputs.dataset_inputs, inputs_run1)
+    run2 = store.get_run(run2.info.run_id)
+    assert_dataset_inputs_equal(run2.inputs.dataset_inputs, inputs_run2)
+    run3 = store.get_run(run3.info.run_id)
+    assert_dataset_inputs_equal(run3.inputs.dataset_inputs, inputs_run3)
+
+    search_results_1 = store.search_runs(
+        [exp_id], None, ViewType.ALL, max_results=4, order_by=["start_time ASC"]
+    )
+    run1 = search_results_1[0]
+    assert_dataset_inputs_equal(run1.inputs.dataset_inputs, inputs_run1)
+    run2 = search_results_1[2]
+    assert_dataset_inputs_equal(run2.inputs.dataset_inputs, inputs_run2)
+    run3 = search_results_1[1]
+    assert_dataset_inputs_equal(run3.inputs.dataset_inputs, inputs_run3)
+
+    search_results_2 = store.search_runs(
+        [exp_id], None, ViewType.ALL, max_results=4, order_by=["start_time DESC"]
+    )
+    run1 = search_results_2[2]
+    assert_dataset_inputs_equal(run1.inputs.dataset_inputs, inputs_run1)
+    run2 = search_results_2[0]
+    assert_dataset_inputs_equal(run2.inputs.dataset_inputs, inputs_run2)
+    run3 = search_results_2[1]
+    assert_dataset_inputs_equal(run3.inputs.dataset_inputs, inputs_run3)
+
+
+def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(store):
+    exp_id = store.create_experiment("dataset_no_overwrite")
+
+    run = store.create_run(
+        experiment_id=exp_id,
+        user_id="user",
+        start_time=0,
+        tags=[],
+        run_name=None,
+    )
+    dataset = Dataset(
+        name="name",
+        digest="digest",
+        source_type="st",
+        source="source",
+        schema="schema",
+        profile="profile",
+    )
+    tags = [InputTag(key="key1", value="value1"), InputTag(key="key2", value="value2")]
+    store.log_inputs(run.info.run_id, [DatasetInput(dataset, tags)])
+
+    for i in range(3):
+        # Since the dataset name and digest are the same as the previously logged dataset,
+        # no changes should be made
+        overwrite_dataset = Dataset(
+            name="name",
+            digest="digest",
+            source_type="st{i}",
+            source=f"source{i}",
+            schema=f"schema{i}",
+            profile=f"profile{i}",
+        )
+        # Since the dataset has already been logged as an input to the run, no changes should be
+        # made to the input tags
+        overwrite_tags = [
+            InputTag(key=f"key{i}", value=f"value{i}"),
+            InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+        ]
+        store.log_inputs(run.info.run_id, [DatasetInput(overwrite_dataset, overwrite_tags)])
+
+    run = store.get_run(run.info.run_id)
+    assert_dataset_inputs_equal(run.inputs.dataset_inputs, [DatasetInput(dataset, tags)])
+
+    # Logging a dataset with a different name or digest to the original run should result
+    # in the addition of another dataset input
+    other_name_dataset = Dataset(
+        name="other_name",
+        digest="digest",
+        source_type="st",
+        source="source",
+        schema="schema",
+        profile="profile",
+    )
+    other_name_input_tags = [InputTag(key="k1", value="v1")]
+    store.log_inputs(run.info.run_id, [DatasetInput(other_name_dataset, other_name_input_tags)])
+
+    other_digest_dataset = Dataset(
+        name="name",
+        digest="other_digest",
+        source_type="st",
+        source="source",
+        schema="schema",
+        profile="profile",
+    )
+    other_digest_input_tags = [InputTag(key="k2", value="v2")]
+    store.log_inputs(run.info.run_id, [DatasetInput(other_digest_dataset, other_digest_input_tags)])
+
+    run = store.get_run(run.info.run_id)
+    assert_dataset_inputs_equal(
+        run.inputs.dataset_inputs,
+        [
+            DatasetInput(dataset, tags),
+            DatasetInput(other_name_dataset, other_name_input_tags),
+            DatasetInput(other_digest_dataset, other_digest_input_tags),
+        ],
+    )
+
+    # Logging the same dataset with different tags to new runs should result in each run
+    # having its own new input tags and the same dataset input
+    for i in range(3):
+        new_run = store.create_run(
+            experiment_id=exp_id,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            run_name=None,
+        )
+        new_tags = [
+            InputTag(key=f"key{i}", value=f"value{i}"),
+            InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+        ]
+        store.log_inputs(new_run.info.run_id, [DatasetInput(dataset, new_tags)])
+        new_run = store.get_run(new_run.info.run_id)
+        assert_dataset_inputs_equal(
+            new_run.inputs.dataset_inputs, [DatasetInput(dataset, new_tags)]
+        )
+
+
+def test_log_inputs_uses_expected_input_and_dataset_ids_for_storage(store):
+    """
+    This test verifies that the FileStore uses expected IDs as folder names to represent datasets
+    and run inputs. This is very important because the IDs are used to deduplicate inputs and
+    datasets if the same dataset is logged to multiple runs or the same dataset is logged
+    multiple times as an input to the same run with different tags.
+
+    **If this test fails, be very careful before removing or changing asserts. Unintended changes
+    could result in user-visible duplication of datasets and run inputs.**
+    """
+    exp_id = store.create_experiment("dataset_expected_ids")
+
+    run1 = store.create_run(
+        experiment_id=exp_id,
+        user_id="user",
+        start_time=0,
+        tags=[],
+        run_name=None,
+    )
+    run2 = store.create_run(
+        experiment_id=exp_id,
+        user_id="user",
+        start_time=0,
+        tags=[],
+        run_name=None,
+    )
+
+    experiment_dir = store._get_experiment_path(exp_id, assert_exists=True)
+    datasets_dir = os.path.join(experiment_dir, FileStore.DATASETS_FOLDER_NAME)
+
+    def assert_expected_dataset_storage_ids_present(storage_ids):
+        assert set(os.listdir(datasets_dir)) == set(storage_ids)
+
+    def assert_expected_input_storage_ids_present(run, dataset_storage_ids):
+        run_dir = store._get_run_dir(run.info.experiment_id, run.info.run_id)
+        inputs_dir = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME)
+        expected_input_storage_ids = []
+        for dataset_storage_id in dataset_storage_ids:
+            md5 = hashlib.md5(dataset_storage_id.encode("utf-8"))
+            md5.update(run.info.run_id.encode("utf-8"))
+            expected_input_storage_ids.append(md5.hexdigest())
+        assert set(os.listdir(inputs_dir)) == set(expected_input_storage_ids)
+
+    tags = [InputTag(key="key", value="value")]
+
+    dataset1 = Dataset(
+        name="name",
+        digest="digest",
+        source_type="st",
+        source="source",
+        schema="schema",
+        profile="profile",
+    )
+    store.log_inputs(run1.info.run_id, [DatasetInput(dataset1, tags)])
+    expected_dataset1_storage_id = "efa4363cd8179759e8c7f113aebdd340"
+    assert_expected_dataset_storage_ids_present([expected_dataset1_storage_id])
+    assert_expected_input_storage_ids_present(run1, [expected_dataset1_storage_id])
+
+    dataset2 = Dataset(
+        name="name",
+        digest="digest_other",
+        source_type="st2",
+        source="source2",
+        schema="schema2",
+        profile="profile2",
+    )
+    expected_dataset2_storage_id = "419804e8e153199481c3e509de1fef8f"
+    store.log_inputs(run2.info.run_id, [DatasetInput(dataset2)])
+    assert_expected_dataset_storage_ids_present(
+        [expected_dataset1_storage_id, expected_dataset2_storage_id]
+    )
+    assert_expected_input_storage_ids_present(run2, [expected_dataset2_storage_id])
+
+    dataset3 = Dataset(
+        name="name_other",
+        digest="digest",
+        source_type="st",
+        source="source",
+        schema="schema",
+        profile="profile",
+    )
+    expected_dataset3_storage_id = "bc5dd0841d8898512d988fe3f984313c"
+    store.log_inputs(
+        run2.info.run_id,
+        [DatasetInput(dataset1), DatasetInput(dataset2), DatasetInput(dataset3, tags)],
+    )
+    assert_expected_dataset_storage_ids_present(
+        [expected_dataset1_storage_id, expected_dataset2_storage_id, expected_dataset3_storage_id]
+    )
+    assert_expected_input_storage_ids_present(
+        run2,
+        [expected_dataset1_storage_id, expected_dataset2_storage_id, expected_dataset3_storage_id],
+    )
+
+
+def test_log_inputs_handles_case_when_no_datasets_are_specified(store):
+    exp_id = store.create_experiment("log_input_no_datasets")
+    run = store.create_run(
+        experiment_id=exp_id,
+        user_id="user",
+        start_time=0,
+        tags=[],
+        run_name=None,
+    )
+    store.log_inputs(run.info.run_id)
+    store.log_inputs(run.info.run_id, datasets=None)
+
+
+def test_search_datasets(store):
+    exp_id1 = store.create_experiment("test_search_datasets_1")
+    # Create an additional experiment to ensure we filter on specified experiment
+    # and search works on multiple experiments.
+    exp_id2 = store.create_experiment("test_search_datasets_2")
+
+    run1 = store.create_run(
+        experiment_id=exp_id1,
+        user_id="user",
+        start_time=1,
+        tags=[],
+        run_name=None,
+    )
+    run2 = store.create_run(
+        experiment_id=exp_id1,
+        user_id="user",
+        start_time=2,
+        tags=[],
+        run_name=None,
+    )
+    run3 = store.create_run(
+        experiment_id=exp_id2,
+        user_id="user",
+        start_time=3,
+        tags=[],
+        run_name=None,
+    )
+
+    dataset1 = Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="st1",
+        source="source1",
+        schema="schema1",
+        profile="profile1",
+    )
+    dataset2 = Dataset(
+        name="name2",
+        digest="digest2",
+        source_type="st2",
+        source="source2",
+        schema="schema2",
+        profile="profile2",
+    )
+    dataset3 = Dataset(
+        name="name3",
+        digest="digest3",
+        source_type="st3",
+        source="source3",
+        schema="schema3",
+        profile="profile3",
+    )
+    dataset4 = Dataset(
+        name="name4",
+        digest="digest4",
+        source_type="st4",
+        source="source4",
+        schema="schema4",
+        profile="profile4",
+    )
+
+    test_tag = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="test")]
+    train_tag = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+    eval_tag = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="eval")]
+    no_context_tag = [InputTag(key="not_context", value="test")]
+
+    inputs_run1 = [
+        DatasetInput(dataset1, train_tag),
+        DatasetInput(dataset2, eval_tag),
+        DatasetInput(dataset4, no_context_tag),
+    ]
+    inputs_run2 = [
+        DatasetInput(dataset1, train_tag),
+        DatasetInput(dataset2, test_tag),
+    ]
+    inputs_run3 = [DatasetInput(dataset3, train_tag)]
+
+    store.log_inputs(run1.info.run_id, inputs_run1)
+    store.log_inputs(run2.info.run_id, inputs_run2)
+    store.log_inputs(run3.info.run_id, inputs_run3)
+
+    # Verify actual and expected results are same size and that all elements are equal.
+    def assert_has_same_elements(actual_list, expected_list):
+        assert len(actual_list) == len(expected_list)
+        for actual in actual_list:
+            # Verify the expected results list contains same element.
+            isEqual = False
+            for expected in expected_list:
+                isEqual = actual == expected
+                if isEqual:
+                    break
+            assert isEqual
+
+    # Verify no results from exp_id2 are returned.
+    results = store._search_datasets([exp_id1])
+    expected_results = [
+        _DatasetSummary(exp_id1, dataset1.name, dataset1.digest, "train"),
+        _DatasetSummary(exp_id1, dataset2.name, dataset2.digest, "eval"),
+        _DatasetSummary(exp_id1, dataset2.name, dataset2.digest, "test"),
+        _DatasetSummary(exp_id1, dataset4.name, dataset4.digest, None),
+    ]
+    assert_has_same_elements(results, expected_results)
+
+    # Verify results from both experiment are returned.
+    results = store._search_datasets([exp_id1, exp_id2])
+    expected_results.append(_DatasetSummary(exp_id2, dataset3.name, dataset3.digest, "train"))
+    assert_has_same_elements(results, expected_results)
+
+
+def test_search_datasets_returns_no_more_than_max_results(store):
+    exp_id = store.create_experiment("test_search_datasets")
+    run = store.create_run(
+        experiment_id=exp_id,
+        user_id="user",
+        start_time=1,
+        tags=[],
+        run_name=None,
+    )
+    inputs = []
+    # We intentionally add more than 1000 datasets here to test we only return 1000.
+    for i in range(1010):
+        dataset = Dataset(
+            name="name" + str(i),
+            digest="digest" + str(i),
+            source_type="st" + str(i),
+            source="source" + str(i),
+            schema="schema" + str(i),
+            profile="profile" + str(i),
+        )
+        input_tag = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=str(i))]
+        inputs.append(DatasetInput(dataset, input_tag))
+
+    store.log_inputs(run.info.run_id, inputs)
+
+    results = store._search_datasets([exp_id])
+    assert len(results) == 1000

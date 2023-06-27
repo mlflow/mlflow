@@ -26,6 +26,8 @@ MLFLOW_DOCKER_IMAGE_URI = "mlflow.docker.image.uri"
 MLFLOW_DOCKER_IMAGE_ID = "mlflow.docker.image.id"
 # Indicates that an MLflow run was created by an autologging integration
 MLFLOW_AUTOLOGGING = "mlflow.autologging"
+# Indicates the artifacts type and path that are logged
+MLFLOW_LOGGED_ARTIFACTS = "mlflow.loggedArtifacts"
 
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
@@ -56,6 +58,9 @@ MLFLOW_DATABRICKS_GIT_REPO_RELATIVE_PATH = "mlflow.databricks.gitRepoRelativePat
 MLFLOW_DATABRICKS_GIT_REPO_REFERENCE = "mlflow.databricks.gitRepoReference"
 MLFLOW_DATABRICKS_GIT_REPO_REFERENCE_TYPE = "mlflow.databricks.gitRepoReferenceType"
 MLFLOW_DATABRICKS_GIT_REPO_STATUS = "mlflow.databricks.gitRepoStatus"
+
+# For MLflow Dataset tracking
+MLFLOW_DATASET_CONTEXT = "mlflow.data.context"
 
 MLFLOW_PROJECT_BACKEND = "mlflow.project.backend"
 

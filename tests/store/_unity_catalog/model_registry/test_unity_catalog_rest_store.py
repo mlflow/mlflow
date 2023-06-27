@@ -1,5 +1,6 @@
 from itertools import combinations
 
+import base64
 import json
 import pytest
 from unittest import mock
@@ -11,6 +12,10 @@ import yaml
 
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature, Schema
+from mlflow.entities.run import Run
+from mlflow.entities.run_data import RunData
+from mlflow.entities.run_info import RunInfo
+from mlflow.entities.run_tag import RunTag
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import GetRun
@@ -31,12 +36,18 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GetModelVersionDownloadUriRequest,
     GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
+    SetRegisteredModelAliasRequest,
+    DeleteRegisteredModelAliasRequest,
+    GetModelVersionByAliasRequest,
     ModelVersion as ProtoModelVersion,
-    MODEL_VERSION_READ_WRITE,
+    MODEL_VERSION_OPERATION_READ_WRITE,
     TemporaryCredentials,
     AwsCredentials,
     AzureUserDelegationSAS,
     GcpOauthToken,
+    Entity,
+    Notebook,
+    LineageHeaderInfo,
 )
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
@@ -44,7 +55,10 @@ from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store._unity_catalog.registry.rest_store import (
     UcModelRegistryStore,
     _DATABRICKS_ORG_ID_HEADER,
+    _DATABRICKS_LINEAGE_ID_HEADER,
 )
+from mlflow.store._unity_catalog.registry.utils import _ACTIVE_CATALOG_QUERY, _ACTIVE_SCHEMA_QUERY
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
 from tests.helper_functions import mock_http_200
@@ -77,12 +91,40 @@ def store(mock_databricks_host_creds):
         yield UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks")
 
 
-def _args(endpoint, method, json_body, host_creds):
+@pytest.fixture
+def spark_session(request):
+    with mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store._get_active_spark_session"
+    ) as spark_session_getter:
+        spark = mock.MagicMock()
+        spark_session_getter.return_value = spark
+
+        # Define a custom side effect function for spark sql queries
+        def sql_side_effect(query):
+            if query == _ACTIVE_CATALOG_QUERY:
+                catalog_response_mock = mock.MagicMock()
+                catalog_response_mock.collect.return_value = [{"catalog": request.param}]
+                return catalog_response_mock
+            elif query == _ACTIVE_SCHEMA_QUERY:
+                schema_response_mock = mock.MagicMock()
+                schema_response_mock.collect.return_value = [{"schema": "default"}]
+                return schema_response_mock
+            else:
+                raise ValueError(f"Unexpected query: {query}")
+
+        spark.sql.side_effect = sql_side_effect
+        yield spark
+
+
+def _args(endpoint, method, json_body, host_creds, extra_headers):
     res = {
         "host_creds": host_creds,
         "endpoint": f"/api/2.0/mlflow/unity-catalog/{endpoint}",
         "method": method,
+        "extra_headers": extra_headers,
     }
+    if extra_headers is None:
+        del res["extra_headers"]
     if method == "GET":
         res["params"] = json.loads(json_body)
     else:
@@ -91,10 +133,16 @@ def _args(endpoint, method, json_body, host_creds):
 
 
 def _verify_requests(
-    http_request, endpoint, method, proto_message, host_creds=_REGISTRY_HOST_CREDS
+    http_request,
+    endpoint,
+    method,
+    proto_message,
+    host_creds=_REGISTRY_HOST_CREDS,
+    extra_headers=None,
 ):
     json_body = message_to_json(proto_message)
-    http_request.assert_any_call(**(_args(endpoint, method, json_body, host_creds)))
+    call_args = _args(endpoint, method, json_body, host_creds, extra_headers)
+    http_request.assert_any_call(**(call_args))
 
 
 def _expected_unsupported_method_error_message(method):
@@ -124,6 +172,46 @@ def local_model_dir(tmp_path):
     with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)
     yield tmp_path
+
+
+def test_create_model_version_nonexistent_directory(store, tmp_path):
+    fake_directory = str(tmp_path.joinpath("myfakepath"))
+    with pytest.raises(
+        MlflowException,
+        match="Unable to download model artifacts from source artifact location",
+    ):
+        store.create_model_version(name="mymodel", source=fake_directory)
+
+
+def test_create_model_version_missing_python_deps(store, local_model_dir):
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+    )
+    storage_location = "s3://blah"
+    source = str(local_model_dir)
+    model_name = "model_1"
+    version = "1"
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
+            name=model_name,
+            version=version,
+            temp_credentials=aws_temp_creds,
+            storage_location=storage_location,
+            source=source,
+        ),
+    ), mock.patch.dict("sys.modules", {"boto3": None}), pytest.raises(
+        MlflowException,
+        match="Unable to import necessary dependencies to access model version files",
+    ):
+        store.create_model_version(name=model_name, source=str(local_model_dir))
 
 
 def test_create_model_version_missing_mlmodel(store, tmp_path):
@@ -245,10 +333,15 @@ def test_get_registered_model(mock_http, store):
 
 def test_get_latest_versions_unsupported(store):
     name = "model_1"
-    expected_err_msg = _expected_unsupported_method_error_message("get_latest_versions")
-    with pytest.raises(MlflowException, match=expected_err_msg):
+    expected_error = (
+        f"{_expected_unsupported_method_error_message('get_latest_versions')}. "
+        "If seeing this error while attempting to load a model version by stage, "
+        "note that setting stages and loading model versions by stage is unsupported "
+        "in Unity Catalog."
+    )
+    with pytest.raises(MlflowException, match=expected_error):
         store.get_latest_versions(name=name)
-    with pytest.raises(MlflowException, match=expected_err_msg):
+    with pytest.raises(MlflowException, match=expected_error):
         store.get_latest_versions(name=name, stages=["Production"])
 
 
@@ -267,15 +360,69 @@ def test_delete_registered_model_tag_unsupported(store):
         store.delete_registered_model_tag(name=name, key="key")
 
 
-def test_get_workspace_id_returns_none_if_no_request_header(store):
+def test_get_notebook_id_returns_none_if_empty_run(store):
+    assert store._get_notebook_id(None) is None
+
+
+def test_get_notebook_id_returns_expected_id(store):
+    test_tag = RunTag(key=MLFLOW_DATABRICKS_NOTEBOOK_ID, value="123")
+    test_run_data = RunData(tags=[test_tag])
+    test_run_info = RunInfo(
+        "run_uuid",
+        "experiment_id",
+        "user_id",
+        "status",
+        "start_time",
+        "end_time",
+        "lifecycle_stage",
+    )
+    test_run = Run(run_data=test_run_data, run_info=test_run_info)
+    assert store._get_notebook_id(test_run) == "123"
+
+
+def test_get_workspace_id_returns_none_if_empty_headers(store):
+    assert store._get_workspace_id(None) is None
+    bad_headers = {}
+    assert store._get_workspace_id(bad_headers) is None
+
+
+def test_get_workspace_id_returns_expected_id(store):
+    good_headers = {_DATABRICKS_ORG_ID_HEADER: "123"}
+    assert store._get_workspace_id(good_headers) == "123"
+
+
+@pytest.mark.parametrize(
+    "status_code,response_text",
+    [
+        (403, str({})),
+        (500, "<html><div>Not real json</div></html>"),
+    ],
+)
+def test_get_run_and_headers_returns_none_if_request_fails(store, status_code, response_text):
     mock_response = mock.MagicMock(autospec=Response)
-    mock_response.status_code = 200
-    mock_response.headers = {}
-    mock_response.text = str({})
+    mock_response.status_code = status_code
+    mock_response.headers = {_DATABRICKS_ORG_ID_HEADER: 123}
+    mock_response.text = response_text
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.http_request", return_value=mock_response
     ):
-        assert store._get_workspace_id(run_id="some_run_id") is None
+        assert store._get_run_and_headers(run_id="some_run_id") == (None, None)
+
+
+def test_get_run_and_headers_returns_none_if_tracking_uri_not_databricks(
+    mock_databricks_host_creds, tmp_path
+):
+    with mock.patch("databricks_cli.configure.provider.get_config"):
+        store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri=str(tmp_path))
+        mock_response = mock.MagicMock(autospec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {_DATABRICKS_ORG_ID_HEADER: 123}
+        mock_response.text = str({})
+        with mock.patch(
+            "mlflow.store._unity_catalog.registry.rest_store.http_request",
+            return_value=mock_response,
+        ):
+            assert store._get_run_and_headers(run_id="some_run_id") == (None, None)
 
 
 def _get_workspace_id_for_run(run_id=None):
@@ -324,7 +471,7 @@ def get_request_mock(
                 "POST",
                 message_to_json(
                     GenerateTemporaryModelVersionCredentialsRequest(
-                        name=name, version=version, operation=MODEL_VERSION_READ_WRITE
+                        name=name, version=version, operation=MODEL_VERSION_OPERATION_READ_WRITE
                     )
                 ),
             ): model_version_temp_credentials_response,
@@ -362,7 +509,7 @@ def get_request_mock(
 
 
 def _assert_create_model_version_endpoints_called(
-    request_mock, name, source, version, run_id=None, description=None
+    request_mock, name, source, version, run_id=None, description=None, extra_headers=None
 ):
     """
     Asserts that endpoints related to the model version creation flow were called on the provided
@@ -382,7 +529,7 @@ def _assert_create_model_version_endpoints_called(
         (
             "model-versions/generate-temporary-credentials",
             GenerateTemporaryModelVersionCredentialsRequest(
-                name=name, version=version, operation=MODEL_VERSION_READ_WRITE
+                name=name, version=version, operation=MODEL_VERSION_OPERATION_READ_WRITE
             ),
         ),
         (
@@ -390,12 +537,21 @@ def _assert_create_model_version_endpoints_called(
             FinalizeModelVersionRequest(name=name, version=version),
         ),
     ]:
-        _verify_requests(
-            http_request=request_mock,
-            endpoint=endpoint,
-            method="POST",
-            proto_message=proto_message,
-        )
+        if endpoint == "model-versions/create" and extra_headers is not None:
+            _verify_requests(
+                http_request=request_mock,
+                endpoint=endpoint,
+                method="POST",
+                proto_message=proto_message,
+                extra_headers=extra_headers,
+            )
+        else:
+            _verify_requests(
+                http_request=request_mock,
+                endpoint=endpoint,
+                method="POST",
+                proto_message=proto_message,
+            )
 
 
 def test_create_model_version_aws(store, local_model_dir):
@@ -507,8 +663,27 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         temp_credentials=temporary_creds,
         storage_location=storage_location,
     )
+    get_run_and_headers_retval = None, None
+    if "run_id" in create_kwargs:
+        test_tag = RunTag(key=MLFLOW_DATABRICKS_NOTEBOOK_ID, value="321")
+        test_run_data = RunData(tags=[test_tag])
+        test_run_info = RunInfo(
+            "run_uuid",
+            "experiment_id",
+            "user_id",
+            "status",
+            "start_time",
+            "end_time",
+            "lifecycle_stage",
+        )
+        test_run = Run(run_data=test_run_data, run_info=test_run_info)
+        get_run_and_headers_retval = ({_DATABRICKS_ORG_ID_HEADER: "123"}, test_run)
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.http_request", side_effect=mock_request_fn
+    ), mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store.UcModelRegistryStore._get_run_and_headers",
+        # Set the headers and Run retvals when the run_id is set
+        return_value=get_run_and_headers_retval,
     ), mock.patch(
         "mlflow.utils.rest_utils.http_request",
         side_effect=mock_request_fn,
@@ -526,6 +701,18 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         gcs_client_args = gcs_client_class_mock.call_args_list[0]
         credentials = gcs_client_args[1]["credentials"]
         assert credentials.token == fake_oauth_token
+        if "run_id" in create_kwargs:
+            _, run = store._get_run_and_headers("some_run_id")
+            notebook_id = store._get_notebook_id(run)
+            notebook_entity = Notebook(id=str(notebook_id))
+            entity = Entity(notebook=notebook_entity)
+            lineage_header_info = LineageHeaderInfo(entities=[entity])
+            expected_lineage_json = message_to_json(lineage_header_info)
+            expected_lineage_header = base64.b64encode(expected_lineage_json.encode())
+            assert expected_lineage_header.isascii()
+            create_kwargs["extra_headers"] = {
+                _DATABRICKS_LINEAGE_ID_HEADER: expected_lineage_header,
+            }
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, version=version, **create_kwargs
         )
@@ -543,9 +730,14 @@ def test_create_model_version_unsupported_fields(store):
 def test_transition_model_version_stage_unsupported(store):
     name = "model_1"
     version = "5"
+    expected_error = (
+        f"{_expected_unsupported_method_error_message('transition_model_version_stage')}. "
+        f"We recommend using aliases instead of stages for more flexible model deployment "
+        f"management."
+    )
     with pytest.raises(
         MlflowException,
-        match=_expected_unsupported_method_error_message("transition_model_version_stage"),
+        match=expected_error,
     ):
         store.transition_model_version_stage(
             name=name, version=version, stage="prod", archive_existing_versions=True
@@ -613,6 +805,28 @@ def test_search_model_versions(mock_http, store):
     )
 
 
+@mock_http_200
+def test_search_model_versions_with_pagination(mock_http, store):
+    store.search_model_versions(
+        filter_string="name='model_12'", page_token="fake_page_token", max_results=123
+    )
+    _verify_requests(
+        mock_http,
+        "model-versions/search",
+        "GET",
+        SearchModelVersionsRequest(
+            filter="name='model_12'", page_token="fake_page_token", max_results=123
+        ),
+    )
+
+
+def test_search_model_versions_order_by_unsupported(store):
+    with pytest.raises(MlflowException, match=_expected_unsupported_arg_error_message("order_by")):
+        store.search_model_versions(
+            filter_string="name='model_12'", page_token="fake_page_token", order_by=["name ASC"]
+        )
+
+
 def test_set_model_version_tag_unsupported(store):
     name = "model_1"
     tag = ModelVersionTag(key="key", value="value")
@@ -629,3 +843,90 @@ def test_delete_model_version_tag_unsupported(store):
         match=_expected_unsupported_method_error_message("delete_model_version_tag"),
     ):
         store.delete_model_version_tag(name=name, version="1", key="key")
+
+
+@mock_http_200
+@pytest.mark.parametrize("tags", [None, []])
+def test_default_values_for_tags(store, tags):
+    # No unsupported arg exceptions should be thrown
+    store.create_registered_model(name="model_1", description="description", tags=tags)
+    store.create_model_version(name="mymodel", source="source")
+
+
+@mock_http_200
+def test_set_registered_model_alias(mock_http, store):
+    name = "model_1"
+    alias = "test_alias"
+    version = "1"
+    store.set_registered_model_alias(name=name, alias=alias, version=version)
+    _verify_requests(
+        mock_http,
+        "registered-models/alias",
+        "POST",
+        SetRegisteredModelAliasRequest(name=name, alias=alias, version=version),
+    )
+
+
+@mock_http_200
+def test_delete_registered_model_alias(mock_http, store):
+    name = "model_1"
+    alias = "test_alias"
+    store.delete_registered_model_alias(name=name, alias=alias)
+    _verify_requests(
+        mock_http,
+        "registered-models/alias",
+        "DELETE",
+        DeleteRegisteredModelAliasRequest(name=name, alias=alias),
+    )
+
+
+@mock_http_200
+def test_get_model_version_by_alias(mock_http, store):
+    name = "model_1"
+    alias = "test_alias"
+    store.get_model_version_by_alias(name=name, alias=alias)
+    _verify_requests(
+        mock_http,
+        "registered-models/alias",
+        "GET",
+        GetModelVersionByAliasRequest(name=name, alias=alias),
+    )
+
+
+@mock_http_200
+@pytest.mark.parametrize("spark_session", ["main"], indirect=True)  # set the catalog name to "main"
+def test_store_uses_catalog_and_schema_from_spark_session(mock_http, spark_session, store):
+    name = "model_1"
+    full_name = "main.default.model_1"
+    store.get_registered_model(name=name)
+    spark_session.sql.assert_any_call(_ACTIVE_CATALOG_QUERY)
+    spark_session.sql.assert_any_call(_ACTIVE_SCHEMA_QUERY)
+    assert spark_session.sql.call_count == 2
+    _verify_requests(
+        mock_http, "registered-models/get", "GET", GetRegisteredModelRequest(name=full_name)
+    )
+
+
+@mock_http_200
+@pytest.mark.parametrize("spark_session", ["main"], indirect=True)
+def test_store_uses_catalog_from_spark_session(mock_http, spark_session, store):
+    name = "default.model_1"
+    full_name = "main.default.model_1"
+    store.get_registered_model(name=name)
+    spark_session.sql.assert_any_call(_ACTIVE_CATALOG_QUERY)
+    assert spark_session.sql.call_count == 1
+    _verify_requests(
+        mock_http, "registered-models/get", "GET", GetRegisteredModelRequest(name=full_name)
+    )
+
+
+@mock_http_200
+@pytest.mark.parametrize("spark_session", ["hive_metastore", "spark_catalog"], indirect=True)
+def test_store_ignores_hive_metastore_default_from_spark_session(mock_http, spark_session, store):
+    name = "model_1"
+    store.get_registered_model(name=name)
+    spark_session.sql.assert_any_call(_ACTIVE_CATALOG_QUERY)
+    assert spark_session.sql.call_count == 1
+    _verify_requests(
+        mock_http, "registered-models/get", "GET", GetRegisteredModelRequest(name=name)
+    )

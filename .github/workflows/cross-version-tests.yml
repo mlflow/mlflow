@@ -30,7 +30,7 @@ on:
     - cron: "0 13 * * *"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -116,6 +116,8 @@ jobs:
           submodules: recursive
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/free-disk-space
+        if: matrix.package == 'transformers' || matrix.package == 'sentence-transformers'
       - name: Get python version
         id: get-python-version
         run: |
@@ -169,7 +171,15 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          pip install --upgrade pip wheel
+          # prophet==1.0.1 can only be installed `setup.py install` fallback but this was removed
+          # in pip 23.1. See https://github.com/pypa/pip/issues/8368 more details.
+          if [ "${{ matrix.package }}==${{ matrix.version }}" = "prophet==1.0.1" ]
+          then
+            PIP_SPEC="<23.1"
+          else
+            PIP_SPEC=""
+          fi
+          pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
@@ -185,6 +195,8 @@ jobs:
           MLFLOW_CONDA_HOME: /usr/share/miniconda
           SPARK_LOCAL_IP: localhost
           PACKAGE_VERSION: ${{ matrix.version }}
+          JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
         run: |
           export MLFLOW_HOME=$(pwd)
           ${{ matrix.run }}
+      - uses: ./.github/actions/untracked

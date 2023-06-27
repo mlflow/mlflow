@@ -18,7 +18,8 @@ export const ModelsCellRenderer = React.memo((props: ModelsCellRendererProps) =>
   const models = Utils.mergeLoggedAndRegisteredModels(loggedModels, registeredModels);
 
   if (models && models.length) {
-    const modelToRender = models[0];
+    // TODO: type is wrongly inferred as boolean
+    const modelToRender = models[0] as any;
     let modelDiv;
     if (modelToRender.registeredModelName) {
       const { registeredModelName, registeredModelVersion } = modelToRender;

@@ -1,6 +1,7 @@
 import xgboost
 import shap
 import mlflow
+from mlflow.models import infer_signature
 from sklearn.model_selection import train_test_split
 
 # Load the UCI Adult Dataset
@@ -12,13 +13,17 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random
 # Fit an XGBoost binary classifier on the training data split
 model = xgboost.XGBClassifier().fit(X_train, y_train)
 
+# Infer model signature
+predictions = model.predict(X_train)
+signature = infer_signature(X_train, predictions)
+
 # Build the Evaluation Dataset from the test set
 eval_data = X_test
 eval_data["label"] = y_test
 
 with mlflow.start_run() as run:
     # Log the XGBoost binary classifier model to MLflow
-    mlflow.sklearn.log_model(model, "model")
+    mlflow.sklearn.log_model(model, "model", signature=signature)
     model_uri = mlflow.get_artifact_uri("model")
 
     # Evaluate the logged model

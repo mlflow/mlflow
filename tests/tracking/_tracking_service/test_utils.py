@@ -21,13 +21,12 @@ from mlflow.tracking._tracking_service.utils import (
     _get_store,
     _resolve_tracking_uri,
     _TRACKING_INSECURE_TLS_ENV_VAR,
-    _TRACKING_PASSWORD_ENV_VAR,
     _TRACKING_TOKEN_ENV_VAR,
     _TRACKING_URI_ENV_VAR,
-    _TRACKING_USERNAME_ENV_VAR,
 )
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.os import is_windows
+from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
 
 # pylint: disable=unused-argument
 
@@ -39,7 +38,8 @@ from mlflow.utils.os import is_windows
 pytestmark = pytest.mark.notrackingurimock
 
 
-def test_get_store_file_store(tmp_wkdir):
+def test_get_store_file_store(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     env = {}
     with mock.patch.dict(os.environ, env):
         store = _get_store()
@@ -47,7 +47,8 @@ def test_get_store_file_store(tmp_wkdir):
         assert os.path.abspath(store.root_directory) == os.path.abspath("mlruns")
 
 
-def test_get_store_file_store_from_arg(tmp_wkdir):
+def test_get_store_file_store_from_arg(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     env = {}
     with mock.patch.dict(os.environ, env):
         store = _get_store("other/path")
@@ -56,7 +57,8 @@ def test_get_store_file_store_from_arg(tmp_wkdir):
 
 
 @pytest.mark.parametrize("uri", ["other/path", "file:other/path"])
-def test_get_store_file_store_from_env(tmp_wkdir, uri):
+def test_get_store_file_store_from_env(tmp_path, monkeypatch, uri):
+    monkeypatch.chdir(tmp_path)
     env = {_TRACKING_URI_ENV_VAR: uri}
     with mock.patch.dict(os.environ, env):
         store = _get_store()
@@ -76,8 +78,8 @@ def test_get_store_basic_rest_store():
 def test_get_store_rest_store_with_password():
     env = {
         _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
-        _TRACKING_USERNAME_ENV_VAR: "Bob",
-        _TRACKING_PASSWORD_ENV_VAR: "Ross",
+        MLFLOW_TRACKING_USERNAME.name: "Bob",
+        MLFLOW_TRACKING_PASSWORD.name: "Ross",
     }
     with mock.patch.dict(os.environ, env):
         store = _get_store()
@@ -130,7 +132,8 @@ def test_get_store_rest_store_with_no_insecure():
 
 
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
-def test_get_store_sqlalchemy_store(tmp_wkdir, db_type, monkeypatch):
+def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
+    monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
     patch_create_engine = mock.patch("sqlalchemy.create_engine")
 
@@ -157,7 +160,8 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type, monkeypatch):
 
 
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
-def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_wkdir, db_type):
+def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_type):
+    monkeypatch.chdir(tmp_path)
     patch_create_engine = mock.patch("sqlalchemy.create_engine")
     uri = f"{db_type}://hostname/database"
     env = {_TRACKING_URI_ENV_VAR: uri}
@@ -211,16 +215,16 @@ def test_get_store_databricks_profile():
             store.get_host_creds()
 
 
-def test_get_store_caches_on_store_uri_and_artifact_uri(tmpdir):
+def test_get_store_caches_on_store_uri_and_artifact_uri(tmp_path):
     registry = mlflow.tracking._tracking_service.utils._tracking_store_registry
 
-    store_uri_1 = "sqlite:///" + tmpdir.join("backend_store_1.db").strpath
-    store_uri_2 = "file:///" + tmpdir.join("backend_store_2").strpath
+    store_uri_1 = f"sqlite:///{tmp_path.joinpath('backend_store_1.db')}"
+    store_uri_2 = f"sqlite:///{tmp_path.joinpath('backend_store_2.db')}"
     stores_uris = [store_uri_1, store_uri_2]
     artifact_uris = [
         None,
-        tmpdir.join("artifact_root_1").strpath,
-        tmpdir.join("artifact_root_2").strpath,
+        str(tmp_path.joinpath("artifact_root_1")),
+        str(tmp_path.joinpath("artifact_root_2")),
     ]
 
     stores = []
@@ -260,9 +264,9 @@ def test_standard_store_registry_with_mocked_entrypoint():
         )
 
 
-def test_standard_store_registry_with_installed_plugin(tmp_wkdir):
+def test_standard_store_registry_with_installed_plugin(tmp_path, monkeypatch):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
-
+    monkeypatch.chdir(tmp_path)
     reload(mlflow.tracking._tracking_service.utils)
     assert (
         "file-plugin" in mlflow.tracking._tracking_service.utils._tracking_store_registry._registry
@@ -341,28 +345,27 @@ def test_get_store_for_unregistered_scheme():
 
 def test_resolve_tracking_uri_with_param():
     with mock.patch(
-        "mlflow.tracking._tracking_service.utils.get_tracking_uri"
-    ) as get_tracking_uri_mock:
-        get_tracking_uri_mock.return_value = "databricks://tracking_qoeirj"
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+        return_value="databricks://tracking_qoeirj",
+    ):
         overriding_uri = "databricks://tracking_poiwerow"
         assert _resolve_tracking_uri(overriding_uri) == overriding_uri
 
 
 def test_resolve_tracking_uri_with_no_param():
     with mock.patch(
-        "mlflow.tracking._tracking_service.utils.get_tracking_uri"
-    ) as get_tracking_uri_mock:
-        default_uri = "databricks://tracking_zlkjdas"
-        get_tracking_uri_mock.return_value = default_uri
-        assert _resolve_tracking_uri() == default_uri
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+        return_value="databricks://tracking_zlkjdas",
+    ):
+        assert _resolve_tracking_uri() == "databricks://tracking_zlkjdas"
 
 
-def test_store_object_can_be_serialized_by_pickle(tmpdir):
+def test_store_object_can_be_serialized_by_pickle(tmp_path):
     """
     This test ensures a store object generated by `_get_store` can be serialized by pickle
     to prevent issues such as https://github.com/mlflow/mlflow/issues/2954
     """
-    pickle.dump(_get_store(f"file:///{tmpdir.join('mlflow').strpath}"), io.BytesIO())
+    pickle.dump(_get_store(f"file:///{tmp_path.joinpath('mlflow')}"), io.BytesIO())
     pickle.dump(_get_store("databricks"), io.BytesIO())
     pickle.dump(_get_store("https://example.com"), io.BytesIO())
     # pickle.dump(_get_store(f"sqlite:///{tmpdir.strpath}/mlflow.db"), io.BytesIO())
