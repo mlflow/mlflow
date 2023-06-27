@@ -371,8 +371,8 @@ def test_search_experiments(tmp_path):
     mlflow.set_tracking_uri(sqlite_uri)
     # Why do we need this line? If we didn't have this line, the first `mlflow.create_experiment`
     # call in the loop below would create two experiments, the default experiment (when the sqlite
-    # database is initialized) and a new experiment with the specified name. They might have
-    # the same creation time, which makes the search order non-deterministic and this test flaky.
+    # database is initialized) and another one with the specified name. They might have the same
+    # creation time, which makes the search order non-deterministic and this test flaky.
     mlflow.search_experiments()
 
     num_all_experiments = SEARCH_MAX_RESULTS_DEFAULT + 1  # +1 for the default experiment
