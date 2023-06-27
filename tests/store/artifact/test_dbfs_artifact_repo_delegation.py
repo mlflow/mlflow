@@ -21,7 +21,7 @@ def host_creds_mock():
 
 @mock.patch("mlflow.utils.databricks_utils.is_dbfs_fuse_available")
 def test_dbfs_artifact_repo_delegates_to_correct_repo(
-    monkeypatch, is_dbfs_fuse_available, host_creds_mock
+    is_dbfs_fuse_available, host_creds_mock, monkeypatch
 ):  # pylint: disable=unused-argument
     # fuse available
     is_dbfs_fuse_available.return_value = True
