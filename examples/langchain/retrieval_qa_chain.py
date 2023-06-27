@@ -3,7 +3,7 @@ import os
 import tempfile
 
 from langchain.chains import RetrievalQA
-from langchain.documents import TextLoader
+from langchain.document_loaders import TextLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.llms import OpenAI
 from langchain.text_splitter import CharacterTextSplitter
