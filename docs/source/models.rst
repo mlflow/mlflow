@@ -237,7 +237,11 @@ A model signature consists on inputs and outputs schemas, each of which can be e
 Column-based schemas are a sequence of (optionally) named columns with type specified as one of the
 :py:class:`MLflow data types <mlflow.types.DataType>`.
 Tensor-based schemas are a sequence of (optionally) named tensors with type specified as one of the
-`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. See some examples of constructing them below.
+`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. 
+Params schema is a sequence of ParamSpec, each of which contains ``name``, ``type``, ``default`` and ``shape`` fields.
+``type`` field must be specified as one of the :py:class:`MLflow data types <mlflow.types.DataType>`, and ``shape`` 
+field should be ``None`` for scalar parameters, or (-1,) for list parameters.
+See some examples of constructing them below.
 
 Column-based Signature Example
 """"""""""""""""""""""""""""""
@@ -289,10 +293,11 @@ of the value, it should be None for scalar values, and (-1,) for a list.
 .. code-block:: yaml
 
     signature:
-        inputs: '[{"name": "images", "dtype": "uint8", "shape": [-1, 28, 28, 1]}]'
-        outputs: '[{"shape": [-1, 10], "dtype": "float32"}]'
+        inputs: '[{"name": "text", "type": "string"}]'
+        outputs: '[{"name": "output", "type": "string"}]'
         params: '[{"name": "temperature", "type": "float", "default": 0.5, "shape": None},
-                  {"name": "top_k", "type": "integer", "default": 1, "shape": None}]'
+                  {"name": "top_k", "type": "integer", "default": 1, "shape": None},
+                  {"name": "suppress_tokens", "type": "integer", "default": [101, 102], "shape": (-1,)}]'
 
 .. _signature-enforcement:
 
