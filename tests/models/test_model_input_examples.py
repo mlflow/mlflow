@@ -350,8 +350,7 @@ def test_infer_signature_on_multi_column_input_examples(input_example, iris_mode
     mlflow_model = Model.load(model_uri)
     input_columns = mlflow_model.signature.inputs.inputs
     assert len(input_columns) == 4
-    for col in input_columns:
-        assert col.type == DataType.double
+    assert all(col.type == DataType.double for col in input_columns)
     assert mlflow_model.signature.outputs == Schema([ColSpec(type=DataType.long)])
 
 
@@ -381,15 +380,10 @@ def test_infer_signature_on_scalar_input_examples(input_example):
     signature = mlflow_model.signature
     assert isinstance(signature, ModelSignature)
     assert signature.inputs.inputs[0].name == 0
-    if isinstance(input_example, str):
-        assert signature == ModelSignature(
-            inputs=Schema([ColSpec(name=0, type=DataType.string)]),
-            outputs=Schema([ColSpec(name=0, type=DataType.string)]),
-        )
-    else:
-        assert signature == ModelSignature(
-            inputs=Schema([ColSpec(name=0, type=DataType.binary)]),
-            outputs=Schema([ColSpec(name=0, type=DataType.binary)]),
-        )
+    t = DataType.string if isinstance(input_example, str) else DataType.binary
+    assert signature == ModelSignature(
+        inputs=Schema([ColSpec(name=0, type=t)]),
+        outputs=Schema([ColSpec(name=0, type=t)]),
+    )
     # test that a single string still passes pyfunc schema enforcement
     mlflow.pyfunc.load_model(model_uri).predict(input_example)

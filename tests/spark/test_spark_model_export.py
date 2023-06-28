@@ -112,17 +112,23 @@ spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
     spark.stop()
 
 
-@pytest.fixture(scope="module")
-def iris_df(spark_context):
+def iris_pandas_df():
     iris = datasets.load_iris()
     X = iris.data
     y = iris.target
+    df = pd.DataFrame(X)  # to make spark_udf work
+    df.columns = df.columns.astype(str)
+    df["label"] = pd.Series(y)
+    return df
+
+
+@pytest.fixture(scope="module")
+def iris_df(spark_context):
+    pdf = iris_pandas_df()
     feature_names = ["0", "1", "2", "3"]
-    iris_pandas_df = pd.DataFrame(X, columns=feature_names)  # to make spark_udf work
-    iris_pandas_df["label"] = pd.Series(y)
     spark_session = pyspark.sql.SparkSession(spark_context)
-    iris_spark_df = spark_session.createDataFrame(iris_pandas_df)
-    return feature_names, iris_pandas_df, iris_spark_df
+    iris_spark_df = spark_session.createDataFrame(pdf)
+    return feature_names, pdf, iris_spark_df
 
 
 @pytest.fixture(scope="module")
@@ -956,34 +962,30 @@ def test_model_log_with_metadata(spark_model_iris):
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
 
 
-def test_model_log_with_signature_inference(spark_model_iris, iris_signature):
+_df_input_example = iris_pandas_df().drop("label", axis=1).iloc[[0]]
+_dict_input_example = _df_input_example.iloc[0].to_dict()
+_array_input_example = list(_dict_input_example.values())
+
+
+@pytest.mark.parametrize(
+    "input_example",
+    [_df_input_example, _dict_input_example, _array_input_example],
+)
+def test_model_log_with_signature_inference(spark_model_iris, input_example):
     artifact_path = "model"
-    X = spark_model_iris.pandas_df
-    X.drop("label", axis=1, inplace=True)
-    example = X.iloc[[0]]
-    example_dict = X.iloc[0].to_dict()
-    example_array = list(example_dict.values())
 
-    # test various input example data types
-    for input_ex in (example, example_dict, example_array):
-        with mlflow.start_run():
-            mlflow.spark.log_model(
-                spark_model_iris.model, artifact_path=artifact_path, input_example=input_ex
-            )
-            model_uri = mlflow.get_artifact_uri(artifact_path)
+    with mlflow.start_run():
+        mlflow.spark.log_model(
+            spark_model_iris.model, artifact_path=artifact_path, input_example=input_example
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-        mlflow_model = Model.load(model_uri)
-        if isinstance(input_ex, list):
-            assert mlflow_model.signature == ModelSignature(
-                inputs=Schema(
-                    [
-                        ColSpec(name=0, type=DataType.double),
-                        ColSpec(name=1, type=DataType.double),
-                        ColSpec(name=2, type=DataType.double),
-                        ColSpec(name=3, type=DataType.double),
-                    ]
-                ),
-                outputs=Schema([ColSpec(type=DataType.double)]),
-            )
-        else:
-            assert mlflow_model.signature == iris_signature
+    mlflow_model = Model.load(model_uri)
+    input_columns = mlflow_model.signature.inputs.inputs
+    assert all(col.type == DataType.double for col in input_columns)
+    column_names = [col.name for col in input_columns]
+    if isinstance(input_example, list):
+        assert column_names == [0, 1, 2, 3]
+    else:
+        assert column_names == ["0", "1", "2", "3"]
+    assert mlflow_model.signature.outputs == Schema([ColSpec(type=DataType.double)])
