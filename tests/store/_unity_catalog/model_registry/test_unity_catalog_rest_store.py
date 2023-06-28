@@ -484,7 +484,7 @@ def get_request_mock(
                         run_id=run_id,
                         run_tracking_server_id=run_workspace_id,
                         tags=uc_tags,
-                        feature_deps=""
+                        feature_deps="",
                     )
                 ),
             ): CreateModelVersionResponse(
@@ -560,7 +560,7 @@ def _assert_create_model_version_endpoints_called(
                 description=description,
                 run_tracking_server_id=_get_workspace_id_for_run(run_id),
                 tags=uc_tags,
-                feature_deps=""
+                feature_deps="",
             ),
         ),
         (
