@@ -300,7 +300,13 @@ def test_infer_signature_from_example_can_be_disabled():
     assert mlflow_model.signature is None
 
 
-def test_infer_signature_silently_fails():
+def test_infer_signature_silently_fails(monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "MLFLOW_TESTING": "false",
+        }
+    )
+
     class ErrorModel(BaseEstimator, ClassifierMixin):
         def fit(self, X, y=None):
             return self
