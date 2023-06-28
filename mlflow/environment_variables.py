@@ -315,3 +315,11 @@ MLFLOW_TRACKING_CLIENT_CERT_PATH = _EnvironmentVariable(
 #: Specified the ID of the run to log data to.
 #: (default: ``None``)
 MLFLOW_RUN_ID = _EnvironmentVariable("MLFLOW_RUN_ID", str, None)
+
+#: Specifies the default root directory for tracking `FileStore`.
+#: (default: ``None``)
+MLFLOW_TRACKING_DIR = _EnvironmentVariable("MLFLOW_TRACKING_DIR", str, None)
+
+#: Specifies the default root directory for registry `FileStore`.
+#: (default: ``None``)
+MLFLOW_REGISTRY_DIR = _EnvironmentVariable("MLFLOW_REGISTRY_DIR", str, None)
