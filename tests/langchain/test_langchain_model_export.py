@@ -382,8 +382,8 @@ def load_base_embeddings(_):
     return FakeEmbeddings(size=32)
 
 
+@pytest.mark.skip(reason="This fails due to https://github.com/hwchase17/langchain/issues/5131")
 def test_log_and_load_hyde_chain():
-    # TODO: This fails due to https://github.com/hwchase17/langchain/issues/5131
     # Create the HypotheticalDocumentEmbedder chain
     base_embeddings = FakeEmbeddings(size=32)
     llm = OpenAI()
