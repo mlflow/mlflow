@@ -574,7 +574,7 @@ def test_pyfunc_serve_and_score(pd_model):
             model,
             artifact_path,
             extra_pip_requirements=[PROTOBUF_REQUIREMENT]
-            if Version(paddle.__version__) >= Version("2.5.0")
+            if Version(paddle.__version__) < Version("2.5.0")
             else None,
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
