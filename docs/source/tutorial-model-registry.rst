@@ -1,3 +1,5 @@
+.. _tutorial-model-registry:
+
 Track models and deployments wwith the MLflow Model Registry
 ============================================================
 
