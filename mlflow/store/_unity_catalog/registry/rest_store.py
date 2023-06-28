@@ -425,7 +425,14 @@ class UcModelRegistryStore(BaseRestStore):
             )
 
     def create_model_version(
-        self, name, source, run_id=None, tags=None, run_link=None, description=None
+        self,
+        name,
+        source,
+        run_id=None,
+        tags=None,
+        run_link=None,
+        description=None,
+        local_model_source=None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -466,17 +473,19 @@ class UcModelRegistryStore(BaseRestStore):
             )
         )
         with tempfile.TemporaryDirectory() as tmpdir:
-            try:
-                local_model_dir = mlflow.artifacts.download_artifacts(
-                    artifact_uri=source, dst_path=tmpdir, tracking_uri=self.tracking_uri
-                )
-            except Exception as e:
-                raise MlflowException(
-                    f"Unable to download model artifacts from source artifact location "
-                    f"'{source}' in order to upload them to Unity Catalog. Please ensure "
-                    f"the source artifact location exists and that you can download from "
-                    f"it via mlflow.artifacts.download_artifacts()"
-                ) from e
+            local_model_dir = local_model_source
+            if local_model_dir is None:
+                try:
+                    local_model_dir = mlflow.artifacts.download_artifacts(
+                        artifact_uri=source, dst_path=tmpdir, tracking_uri=self.tracking_uri
+                    )
+                except Exception as e:
+                    raise MlflowException(
+                        f"Unable to download model artifacts from source artifact location "
+                        f"'{source}' in order to upload them to Unity Catalog. Please ensure "
+                        f"the source artifact location exists and that you can download from "
+                        f"it via mlflow.artifacts.download_artifacts()"
+                    ) from e
             self._validate_model_signature(local_model_dir)
             model_version = self._call_endpoint(
                 CreateModelVersionRequest, req_body, extra_headers=extra_headers

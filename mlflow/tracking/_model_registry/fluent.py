@@ -20,7 +20,7 @@ def register_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
     tags: Optional[Dict[str, Any]] = None,
-) -> ModelVersion:
+):
     """
     Create a new model version in model registry for the model files specified by ``model_uri``.
     Note that this method assumes the model registry backend URI is the same as that of the
@@ -70,6 +70,19 @@ def register_model(
         Name: RandomForestRegressionModel
         Version: 1
     """
+    return _register_model(
+        model_uri=model_uri, name=name, await_registration_for=await_registration_for, tags=tags
+    )
+
+
+def _register_model(
+    model_uri,
+    name,
+    await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    *,
+    tags: Optional[Dict[str, Any]] = None,
+    local_model_source=None,
+) -> ModelVersion:
     client = MlflowClient()
     try:
         create_model_response = client.create_registered_model(name)
@@ -86,20 +99,19 @@ def register_model(
         else:
             raise e
 
+    run_id = None
+    source = model_uri
     if RunsArtifactRepository.is_runs_uri(model_uri):
         source = RunsArtifactRepository.get_underlying_uri(model_uri)
         (run_id, _) = RunsArtifactRepository.parse_runs_uri(model_uri)
-        create_version_response = client.create_model_version(
-            name, source, run_id, tags=tags, await_creation_for=await_registration_for
-        )
-    else:
-        create_version_response = client.create_model_version(
-            name,
-            source=model_uri,
-            run_id=None,
-            tags=tags,
-            await_creation_for=await_registration_for,
-        )
+    create_version_response = client._create_model_version(
+        name,
+        source,
+        run_id,
+        tags=tags,
+        await_creation_for=await_registration_for,
+        local_model_source=local_model_source,
+    )
     eprint(
         "Created version '{version}' of model '{model_name}'.".format(
             version=create_version_response.version, model_name=create_version_response.name

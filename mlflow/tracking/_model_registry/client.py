@@ -171,6 +171,7 @@ class ModelRegistryClient:
         run_link=None,
         description=None,
         await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        local_model_source=None,
     ):
         """
         Create a new model version from given source.
@@ -191,7 +192,21 @@ class ModelRegistryClient:
         """
         tags = tags if tags else {}
         tags = [ModelVersionTag(key, str(value)) for key, value in tags.items()]
-        mv = self.store.create_model_version(name, source, run_id, tags, run_link, description)
+        try:
+            mv = self.store.create_model_version(
+                name,
+                source,
+                run_id,
+                tags,
+                run_link,
+                description,
+                local_model_source=local_model_source,
+            )
+        except TypeError:
+            # We catch TypeError here and fall back to calling create_model_version without
+            # local_model_source since old model registry store implementations may not
+            # support the local_model_source argument.
+            mv = self.store.create_model_version(name, source, run_id, tags, run_link, description)
         if await_creation_for and await_creation_for > 0:
             _logger.info(
                 f"Waiting up to {await_creation_for} seconds for model version to finish creation. "

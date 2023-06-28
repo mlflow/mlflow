@@ -586,6 +586,10 @@ class Model:
         return mlflow_model.get_model_info()
 
 
+def _register_model(source, registered_model_name, await_registration_for):
+    pass
+
+
 def get_model_info(model_uri: str) -> ModelInfo:
     """
     Get metadata for the specified model, such as its input/output signature.

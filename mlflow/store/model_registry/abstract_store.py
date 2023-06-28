@@ -140,8 +140,15 @@ class AbstractStore:
 
     @abstractmethod
     def create_model_version(
-        self, name, source, run_id=None, tags=None, run_link=None, description=None
-    ):
+        self,
+        name,
+        source,
+        run_id=None,
+        tags=None,
+        run_link=None,
+        description=None,
+        local_model_source=None,
+    ):  # pylint: disable=unused-argument
         """
         Create a new model version from given source and run ID.
 
@@ -152,6 +159,12 @@ class AbstractStore:
                      instances associated with this model version.
         :param run_link: Link to the run from an MLflow tracking server that generated this model.
         :param description: Description of the version.
+        :param local_model_source: Local path to the MLflow model, if it's already accessible
+                                   on the local filesystem. Can be used by AbstractStores that
+                                   upload model version files to the model registry to avoid
+                                   a redundant download from the source location when logging
+                                   and registering a model via a single
+                                   mlflow.<flavor>.log_model(..., registered_model_name) call
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  created in the backend.
         """
