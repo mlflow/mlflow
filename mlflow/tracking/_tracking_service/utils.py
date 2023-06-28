@@ -196,7 +196,7 @@ _tracking_store_registry = TrackingStoreRegistry()
 
 def register_tracking_stores():
     """Register tracking stores.
-    This method is to be called upon the module initialization or per user request to refresh"""
+    This method is to be called upon the module initialization or per user's request to refresh"""
     _tracking_store_registry.register("", _get_file_store)
     _tracking_store_registry.register("file", _get_file_store)
     _tracking_store_registry.register("databricks", _get_databricks_rest_store)
