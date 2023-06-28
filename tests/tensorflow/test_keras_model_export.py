@@ -63,7 +63,7 @@ extra_pip_requirements = (
 def set_envs(monkeypatch):
     monkeypatch.setenvs(
         {
-            "MLFLOW_SIGNATURE_INFERENCE_TESTING": "true",
+            "MLFLOW_TESTING": "true",
         }
     )
 

@@ -89,7 +89,7 @@ def _get_spark_session_with_retry(max_tries=3):
 def set_envs(monkeypatch):
     monkeypatch.setenvs(
         {
-            "MLFLOW_SIGNATURE_INFERENCE_TESTING": "true",
+            "MLFLOW_TESTING": "true",
         }
     )
 

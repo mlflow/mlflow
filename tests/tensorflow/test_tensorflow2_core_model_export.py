@@ -13,7 +13,7 @@ from mlflow.models import Model, infer_signature
 def set_envs(monkeypatch):
     monkeypatch.setenvs(
         {
-            "MLFLOW_SIGNATURE_INFERENCE_TESTING": "true",
+            "MLFLOW_TESTING": "true",
         }
     )
 
