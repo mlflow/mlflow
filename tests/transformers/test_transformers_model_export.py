@@ -388,7 +388,10 @@ def raw_audio_file():
 @pytest.fixture()
 @flaky()
 def whisper_pipeline():
-    return transformers.pipeline(model="openai/whisper-tiny")
+    model = transformers.pipeline(model="openai/whisper-tiny")
+    if Version(transformers.__version__) > Version("4.30.2"):
+        model.generation_config.alignment_heads = [[2, 2], [3, 0], [3, 2], [3, 3], [3, 4], [3, 5]]
+    return model
 
 
 @pytest.fixture()
