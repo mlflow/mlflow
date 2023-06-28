@@ -24,6 +24,9 @@ class _EnvironmentVariable:
     def set(self, value):
         os.environ[self.name] = value
 
+    def unset(self):
+        os.environ.pop(self.name, None)
+
     def get(self):
         """
         Reads the value of the environment variable if it exists and converts it to the desired
