@@ -116,6 +116,10 @@ def _raise_unsupported_method(method, message=None):
     raise MlflowException(" ".join(messages))
 
 
+def _get_feature_dependencies(model_dir):
+    return ""
+
+
 @experimental
 class UcModelRegistryStore(BaseRestStore):
     """
@@ -424,9 +428,6 @@ class UcModelRegistryStore(BaseRestStore):
                 f"{signature_required_explanation}"
             )
 
-    def _get_feature_dependencies(model_dir: str) -> str:
-        return ""
-
     def create_model_version(
         self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
@@ -480,7 +481,7 @@ class UcModelRegistryStore(BaseRestStore):
                     description=description,
                     tags=uc_model_version_tag_from_mlflow_tags(tags),
                     run_tracking_server_id=source_workspace_id,
-                    feature_deps=feature_deps
+                    feature_deps=feature_deps,
                 )
             )
             model_version = self._call_endpoint(
