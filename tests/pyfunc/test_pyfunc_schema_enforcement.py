@@ -1000,7 +1000,7 @@ def test_param_spec():
 
     # Raise error if shape specified is not allowed
     with pytest.raises(
-        MlflowException, match=r"Shape must be None for scala value or \(-1,\) for 1D array value"
+        MlflowException, match=r"Shape must be None for scalar value or \(-1,\) for 1D array value"
     ):
         ParamSpec("a", DataType.boolean, [True, False], (2,))
 

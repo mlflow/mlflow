@@ -503,7 +503,7 @@ class ParamSpec:
                     )
             else:
                 raise MlflowException(
-                    "Shape must be None for scala value or (-1,) for 1D array value "
+                    "Shape must be None for scalar value or (-1,) for 1D array value "
                     f"for ParamSpec {spec}), received {shape}",
                     INVALID_PARAMETER_VALUE,
                 )
