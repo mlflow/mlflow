@@ -1,6 +1,7 @@
 from collections import namedtuple
 import pytest
 import numpy as np
+from packaging.version import Version
 import pandas as pd
 import os
 from unittest import mock
@@ -569,7 +570,13 @@ def test_pyfunc_serve_and_score(pd_model):
     model, inference_dataframe = pd_model
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.paddle.log_model(model, artifact_path, extra_pip_requirements=[PROTOBUF_REQUIREMENT])
+        mlflow.paddle.log_model(
+            model,
+            artifact_path,
+            extra_pip_requirements=[PROTOBUF_REQUIREMENT]
+            if Version(paddle.__version__) >= Version("2.5.0")
+            else None,
+        )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     resp = pyfunc_serve_and_score_model(
