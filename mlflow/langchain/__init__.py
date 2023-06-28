@@ -166,14 +166,15 @@ def save_model(
     :param loader_fn: A function that takes a string `persist_dir` defined below as the argument
                       and returns a unserializable object. This is required for models containing
                       unserializable objects. For example, RetrievalQA models require a retriever
-                      (https://python.langchain.com/docs/modules/data_connection/retrievers/),
+                      (`retrievers <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_).
                       VectorDBQA and VectorDBQAWithSourcesChain models require a vectorstore
-                      (https://python.langchain.com/docs/modules/data_connection/vectorstores/),
-                      APIChain models require a requests_wrapper(https://python.langchain.com/docs
-                      /modules/agents/tools/integrations/requests), HypotheticalDocumentEmbedder
-                      require an embeddings (https://python.langchain.com/docs/modules/data_connec
-                      tion/text_embedding/) and SQLDatabaseChain require a database (https://pytho
-                      n.langchain.com/docs/modules/agents/toolkits/sql_database).
+                      (`vectorstores <https://python.langchain.com/docs/modules/data_connection/vectorstores/>`_).
+                      APIChain models require a requests_wrapper
+                      (`requests <https://python.langchain.com/docs/modules/agents/tools/integrations/requests>`_).
+                      HypotheticalDocumentEmbedder require an embeddings
+                      (`text_embedding <https://python.langchain.com/docs/modules/data_connection/text_embedding/>`_).
+                      SQLDatabaseChain require a database
+                      (`sql_database <https://python.langchain.com/docs/modules/agents/toolkits/sql_database>`_).
     :param persist_dir: The directory where the unserializable object is stored. The `loader_fn`
                         takes this string as the argument to load the unserializable object.
                         This is optional for models containing unserializable objects. MLflow logs
@@ -354,14 +355,15 @@ def log_model(
     :param loader_fn: A function that takes a string `persist_dir` defined below as the argument
                       and returns a unserializable object. This is required for models containing
                       unserializable objects. For example, RetrievalQA models require a retriever
-                      (https://python.langchain.com/docs/modules/data_connection/retrievers/),
+                      (`retrievers <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_).
                       VectorDBQA and VectorDBQAWithSourcesChain models require a vectorstore
-                      (https://python.langchain.com/docs/modules/data_connection/vectorstores/),
-                      APIChain models require a requests_wrapper(https://python.langchain.com/docs
-                      /modules/agents/tools/integrations/requests), HypotheticalDocumentEmbedder
-                      require an embeddings (https://python.langchain.com/docs/modules/data_connec
-                      tion/text_embedding/) and SQLDatabaseChain require a database (https://pytho
-                      n.langchain.com/docs/modules/agents/toolkits/sql_database).
+                      (`vectorstores <https://python.langchain.com/docs/modules/data_connection/vectorstores/>`_).
+                      APIChain models require a requests_wrapper
+                      (`requests <https://python.langchain.com/docs/modules/agents/tools/integrations/requests>`_).
+                      HypotheticalDocumentEmbedder require an embeddings
+                      (`text_embedding <https://python.langchain.com/docs/modules/data_connection/text_embedding/>`_).
+                      SQLDatabaseChain require a database
+                      (`sql_database <https://python.langchain.com/docs/modules/agents/toolkits/sql_database>`_).
     :param persist_dir: The directory where the unserializable object is stored. The `loader_fn`
                         takes this string as the argument to load the unserializable object.
                         This is optional for models containing unserializable objects. MLflow logs
@@ -576,10 +578,6 @@ def _save_model(model, path, loader_fn, persist_dir):
 
 
 def _load_from_pickle(loader_fn_path, persist_dir):
-    if loader_fn_path is None:
-        raise mlflow.MlflowException.invalid_parameter_value(
-            "Missing file for loader_fn which is required to build the model."
-        )
     with open(loader_fn_path, "rb") as f:
         loader_fn = cloudpickle.load(f)
     return loader_fn(persist_dir)
@@ -614,19 +612,12 @@ def _load_model(
     }
 
     model = None
-    if model_type in (
-        RetrievalQA.__name__,
-        VectorDBQA.__name__,
-        VectorDBQAWithSourcesChain.__name__,
-        APIChain.__name__,
-        HypotheticalDocumentEmbedder.__name__,
-        SQLDatabaseChain.__name__,
-    ):
-        kwargs = {
-            unserializable_object_name_map[model_type]: _load_from_pickle(
-                loader_fn_path, persist_dir
+    if key := unserializable_object_name_map.get(model_type):
+        if loader_fn_path is None:
+            raise mlflow.MlflowException.invalid_parameter_value(
+                "Missing file for loader_fn which is required to build the model."
             )
-        }
+        kwargs = {key: _load_from_pickle(loader_fn_path, persist_dir)}
         model = load_chain(path, **kwargs)
     elif agent_path is None and tools_path is None:
         model = load_chain(path)
