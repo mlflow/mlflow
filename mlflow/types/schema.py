@@ -3,7 +3,7 @@ from enum import Enum
 
 import numpy as np
 import string
-from typing import Dict, Any, List, Union, Optional, TypedDict
+from typing import Dict, Any, List, Union, Optional, Tuple, TypedDict
 
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
@@ -457,7 +457,7 @@ class ParamSpec:
         spec: str,
         value: Union[DataType, List[DataType], None],
         value_type: DataType,
-        shape: Optional[tuple],
+        shape: Optional[Tuple[int, ...]],
     ):
         """
         Validate that the value has the expected type and shape.
@@ -542,7 +542,7 @@ class ParamSpec:
         name: str
         type: str
         default: Union[DataType, List[DataType], None]
-        shape: Optional[tuple]
+        shape: Optional[Tuple[int, ...]]
 
     def to_dict(self) -> ParamSpecTypedDict:
         return {
