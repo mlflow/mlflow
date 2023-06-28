@@ -114,21 +114,20 @@ def test_get_store_rest_store_with_insecure():
         assert store.get_host_creds().ignore_tls_verification
 
 
-def test_get_store_rest_store_with_no_insecure():
-    env = {
-        MLFLOW_TRACKING_URI.name: "https://my-tracking-server:5050",
-        MLFLOW_TRACKING_INSECURE_TLS.name: "false",
-    }
-    with mock.patch.dict(os.environ, env):
+def test_get_store_rest_store_with_no_insecure(monkeypatch):
+    with monkeypatch.context() as m:
+        for k, v in {
+            MLFLOW_TRACKING_URI.name: "https://my-tracking-server:5050",
+            MLFLOW_TRACKING_INSECURE_TLS.name: "false",
+        }.items():
+            m.setenv(k, v)
         store = _get_store()
         assert isinstance(store, RestStore)
         assert not store.get_host_creds().ignore_tls_verification
 
     # By default, should not ignore verification.
-    env = {
-        MLFLOW_TRACKING_URI.name: "https://my-tracking-server:5050",
-    }
-    with mock.patch.dict(os.environ, env):
+    with monkeypatch.context() as m:
+        monkeypatch.setenv(MLFLOW_TRACKING_URI.name, "https://my-tracking-server:5050")
         store = _get_store()
         assert isinstance(store, RestStore)
         assert not store.get_host_creds().ignore_tls_verification
@@ -165,17 +164,14 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
 def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_type):
     monkeypatch.chdir(tmp_path)
-    patch_create_engine = mock.patch("sqlalchemy.create_engine")
     uri = f"{db_type}://hostname/database"
-    env = {MLFLOW_TRACKING_URI.name: uri}
     artifact_uri = "file:artifact/path"
-
-    with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, mock.patch(
+    monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
+    with mock.patch(
+        "sqlalchemy.create_engine",
+    ) as mock_create_engine, mock.patch(
         "mlflow.store.db.utils._verify_schema"
     ), mock.patch("mlflow.store.db.utils._initialize_tables"), mock.patch(
-        # In sqlalchemy 1.4.0, `SqlAlchemyStore.search_experiments`, which is called when fetching
-        # the store, results in an error when called with a mocked sqlalchemy engine.
-        # Accordingly, we mock `SqlAlchemyStore.search_experiments`
         "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
         return_value=[],
     ):
@@ -192,30 +188,27 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_
     mock_create_engine.assert_not_called()
 
 
-def test_get_store_databricks():
-    env = {
+def test_get_store_databricks(monkeypatch):
+    for k, v in {
         MLFLOW_TRACKING_URI.name: "databricks",
         "DATABRICKS_HOST": "https://my-tracking-server",
         "DATABRICKS_TOKEN": "abcdef",
-    }
-    with mock.patch.dict(os.environ, env):
-        store = _get_store()
-        assert isinstance(store, RestStore)
-        assert store.get_host_creds().host == "https://my-tracking-server"
-        assert store.get_host_creds().token == "abcdef"
+    }.items():
+        monkeypatch.setenv(k, v)
+    store = _get_store()
+    assert isinstance(store, RestStore)
+    assert store.get_host_creds().host == "https://my-tracking-server"
+    assert store.get_host_creds().token == "abcdef"
 
 
-def test_get_store_databricks_profile():
-    env = {
-        MLFLOW_TRACKING_URI.name: "databricks://mycoolprofile",
-    }
+def test_get_store_databricks_profile(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACKING_URI.name, "databricks://mycoolprofile")
     # It's kind of annoying to setup a profile, and we're not really trying to test
     # that anyway, so just check if we raise a relevant exception.
-    with mock.patch.dict(os.environ, env):
-        store = _get_store()
-        assert isinstance(store, RestStore)
-        with pytest.raises(MlflowException, match="mycoolprofile"):
-            store.get_host_creds()
+    store = _get_store()
+    assert isinstance(store, RestStore)
+    with pytest.raises(MlflowException, match="mycoolprofile"):
+        store.get_host_creds()
 
 
 def test_get_store_caches_on_store_uri_and_artifact_uri(tmp_path):
