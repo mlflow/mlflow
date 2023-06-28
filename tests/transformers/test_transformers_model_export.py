@@ -388,7 +388,10 @@ def raw_audio_file():
 @pytest.fixture()
 @flaky()
 def whisper_pipeline():
-    return transformers.pipeline(model="openai/whisper-tiny")
+    model = transformers.pipeline(model="openai/whisper-tiny")
+    if Version(transformers.__version__) > Version("4.30.2"):
+        model.generation_config.alignment_heads = [[2, 2], [3, 0], [3, 2], [3, 3], [3, 4], [3, 5]]
+    return model
 
 
 @pytest.fixture()
@@ -2849,7 +2852,7 @@ def test_whisper_model_save_and_load(model_path, whisper_pipeline, sound_file_fo
         "return_timestamps": "word",
         "chunk_length_s": 20,
         "stride_length_s": [5, 3],
-    }
+    }  #
 
     signature = infer_signature(
         sound_file_for_test,
