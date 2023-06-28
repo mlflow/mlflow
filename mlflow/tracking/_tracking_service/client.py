@@ -357,9 +357,9 @@ class TrackingServiceClient:
         self.store.update_run_info(
             run_id=run_id,
             run_status=RunStatus.from_string(status),
-            start_time=run.info.start_time,
             end_time=run.info.end_time,
             run_name=name,
+            start_time=run.info.start_time,
         )
 
     def log_batch(self, run_id, metrics=(), params=(), tags=()):
@@ -503,9 +503,9 @@ class TrackingServiceClient:
         self.store.update_run_info(
             run_id,
             run_status=RunStatus.from_string(status),
-            start_time=None,
             end_time=end_time,
             run_name=None,
+            start_time=None,
         )
 
     def delete_run(self, run_id):

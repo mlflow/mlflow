@@ -580,7 +580,7 @@ class SqlAlchemyStore(AbstractStore):
                 INVALID_PARAMETER_VALUE,
             )
 
-    def update_run_info(self, run_id, run_status, start_time, end_time, run_name):
+    def update_run_info(self, run_id, run_status, end_time, run_name, start_time=None):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
@@ -1116,7 +1116,7 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             if tag.key == MLFLOW_RUN_NAME:
                 run_status = RunStatus.from_string(run.status)
-                self.update_run_info(run_id, run_status, run.start_time, run.end_time, tag.value)
+                self.update_run_info(run_id, run_status, run.end_time, tag.value, run.start_time)
             else:
                 # NB: Updating the run_info will set the tag. No need to do it twice.
                 session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))

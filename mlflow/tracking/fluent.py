@@ -327,9 +327,9 @@ def start_run(
         _get_store().update_run_info(
             existing_run_id,
             run_status=RunStatus.RUNNING,
-            start_time=start_time,
             end_time=end_time,
             run_name=None,
+            start_time=start_time,
         )
         tags = tags or {}
         if description:

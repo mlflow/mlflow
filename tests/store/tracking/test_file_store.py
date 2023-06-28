@@ -924,7 +924,7 @@ def test_update_run_renames_run(store):
         tags=[],
         run_name="first name",
     ).info.run_id
-    store.update_run_info(run_id, RunStatus.FINISHED, None, 1000, "new name")
+    store.update_run_info(run_id, RunStatus.FINISHED, 1000, "new name")
     get_run = store.get_run(run_id)
     assert get_run.info.run_name == "new name"
 
@@ -937,7 +937,7 @@ def test_update_run_does_not_rename_run_with_none_name(store):
         tags=[],
         run_name="first name",
     ).info.run_id
-    store.update_run_info(run_id, RunStatus.FINISHED, None, 1000, None)
+    store.update_run_info(run_id, RunStatus.FINISHED, 1000, None)
     get_run = store.get_run(run_id)
     assert get_run.info.run_name == "first name"
 
@@ -950,7 +950,7 @@ def test_update_run_updates_start_time(store):
         tags=[],
         run_name="first name",
     ).info.run_id
-    store.update_run_info(run_id, RunStatus.FINISHED, 1, 1000, None)
+    store.update_run_info(run_id, RunStatus.FINISHED, 1000, None, 1)
     get_run = store.get_run(run_id)
     assert get_run.info.start_time == 1
 
@@ -963,7 +963,7 @@ def test_update_run_does_not_update_with_none_start_time(store):
         tags=[],
         run_name="first name",
     ).info.run_id
-    store.update_run_info(run_id, RunStatus.FINISHED, None, 1000, None)
+    store.update_run_info(run_id, RunStatus.FINISHED, 1000, None, None)
     get_run = store.get_run(run_id)
     assert get_run.info.start_time == 0
 
@@ -1181,9 +1181,9 @@ def test_search_runs_run_name(store):
     store.update_run_info(
         run1.info.run_id,
         RunStatus.FINISHED,
-        start_time=run1.info.start_time,
         end_time=run1.info.end_time,
         run_name="new_run_name1",
+        start_time=run1.info.start_time,
     )
     result = store.search_runs(
         [exp_id],
@@ -2012,12 +2012,12 @@ def test_update_run_name(store):
     assert run.info.run_name == "name"
     assert run.data.tags.get(MLFLOW_RUN_NAME) == "name"
 
-    store.update_run_info(run_id, RunStatus.FINISHED, None, 100, "new name")
+    store.update_run_info(run_id, RunStatus.FINISHED, 100, "new name")
     run = store.get_run(run_id)
     assert run.info.run_name == "new name"
     assert run.data.tags.get(MLFLOW_RUN_NAME) == "new name"
 
-    store.update_run_info(run_id, RunStatus.FINISHED, None, 100, None)
+    store.update_run_info(run_id, RunStatus.FINISHED, 100, None)
     run = store.get_run(run_id)
     assert run.info.run_name == "new name"
     assert run.data.tags.get(MLFLOW_RUN_NAME) == "new name"
@@ -2027,7 +2027,7 @@ def test_update_run_name(store):
     assert run.info.run_name == "new name"
     assert run.data.tags.get(MLFLOW_RUN_NAME) is None
 
-    store.update_run_info(run_id, RunStatus.FINISHED, None, 100, "another name")
+    store.update_run_info(run_id, RunStatus.FINISHED, 100, "another name")
     run = store.get_run(run_id)
     assert run.data.tags.get(MLFLOW_RUN_NAME) == "another name"
     assert run.info.run_name == "another name"
