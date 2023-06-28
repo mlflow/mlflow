@@ -55,6 +55,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.environment_variables import MLFLOW_RUN_ID
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -66,7 +67,6 @@ if TYPE_CHECKING:
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
-_RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
 _active_run_stack = []
 _active_experiment_id = None
 _last_active_run_id = None
@@ -292,9 +292,9 @@ def start_run(
     client = MlflowClient()
     if run_id:
         existing_run_id = run_id
-    elif _RUN_ID_ENV_VAR in os.environ:
-        existing_run_id = os.environ[_RUN_ID_ENV_VAR]
-        del os.environ[_RUN_ID_ENV_VAR]
+    elif run_id := MLFLOW_RUN_ID.get():
+        existing_run_id = run_id
+        del os.environ[MLFLOW_RUN_ID.name]
     else:
         existing_run_id = None
     if existing_run_id:
@@ -402,7 +402,7 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
     global _active_run_stack, _last_active_run_id
     if len(_active_run_stack) > 0:
         # Clear out the global existing run environment variable as well.
-        env.unset_variable(_RUN_ID_ENV_VAR)
+        MLFLOW_RUN_ID.unset()
         run = _active_run_stack.pop()
         MlflowClient().set_terminated(run.info.run_id, status)
         _last_active_run_id = run.info.run_id

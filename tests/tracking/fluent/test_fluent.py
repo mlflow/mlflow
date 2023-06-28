@@ -41,7 +41,6 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking.fluent import (
     _EXPERIMENT_ID_ENV_VAR,
     _EXPERIMENT_NAME_ENV_VAR,
-    _RUN_ID_ENV_VAR,
     _get_experiment_id,
     _get_experiment_id_from_env,
     search_runs,
@@ -52,6 +51,7 @@ from mlflow.tracking.fluent import (
 from mlflow.utils import mlflow_tags, get_results_from_paginated_fn
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.environment_variables import MLFLOW_RUN_ID
 
 from tests.helper_functions import multi_context
 
@@ -369,6 +369,11 @@ def test_get_experiment_by_name():
 def test_search_experiments(tmp_path):
     sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
     mlflow.set_tracking_uri(sqlite_uri)
+    # Why do we need this line? If we didn't have this line, the first `mlflow.create_experiment`
+    # call in the loop below would create two experiments, the default experiment (when the sqlite
+    # database is initialized) and another one with the specified name. They might have the same
+    # creation time, which makes the search order non-deterministic and this test flaky.
+    mlflow.search_experiments()
 
     num_all_experiments = SEARCH_MAX_RESULTS_DEFAULT + 1  # +1 for the default experiment
     num_active_experiments = SEARCH_MAX_RESULTS_DEFAULT // 2
@@ -796,18 +801,16 @@ def test_start_run_existing_run(empty_active_run_stack):  # pylint: disable=unus
 
 
 def test_start_run_existing_run_from_environment(
-    empty_active_run_stack,
+    empty_active_run_stack, monkeypatch
 ):  # pylint: disable=unused-argument
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
 
     run_id = uuid.uuid4().hex
-    env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: run_id})
+    monkeypatch.setenv(MLFLOW_RUN_ID.name, run_id)
     mock_get_store = mock.patch("mlflow.tracking.fluent._get_store")
 
-    with env_patch, mock_get_store, mock.patch.object(
-        MlflowClient, "get_run", return_value=mock_run
-    ):
+    with mock_get_store, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
         active_run = start_run()
 
         assert is_from_run(active_run, mock_run)
@@ -815,15 +818,14 @@ def test_start_run_existing_run_from_environment(
 
 
 def test_start_run_existing_run_from_environment_with_set_environment(
-    empty_active_run_stack,
+    empty_active_run_stack, monkeypatch
 ):  # pylint: disable=unused-argument
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
 
     run_id = uuid.uuid4().hex
-    env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: run_id})
-
-    with env_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+    monkeypatch.setenv(MLFLOW_RUN_ID.name, run_id)
+    with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
         set_experiment("test-run")
         with pytest.raises(
             MlflowException, match="active run ID does not match environment run ID"
