@@ -48,7 +48,7 @@ def spark():
 def set_envs(monkeypatch):
     monkeypatch.setenvs(
         {
-            "MLFLOW_OPENAI_TESTING": "true",
+            "MLFLOW_TESTING": "true",
             "OPENAI_API_KEY": "test",
             "SERPAPI_API_KEY": "test",
         }

@@ -1,8 +1,16 @@
-from mlflow.entities.model_registry import ModelVersion, RegisteredModel, RegisteredModelAlias
+from mlflow.entities.model_registry import (
+    ModelVersion,
+    ModelVersionTag,
+    RegisteredModel,
+    RegisteredModelTag,
+    RegisteredModelAlias,
+)
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     ModelVersion as ProtoModelVersion,
+    ModelVersionTag as ProtoModelVersionTag,
     ModelVersionStatus as ProtoModelVersionStatus,
     RegisteredModel as ProtoRegisteredModel,
+    RegisteredModelTag as ProtoRegisteredModelTag,
     RegisteredModelAlias as ProtoRegisteredModelAlias,
 )
 from mlflow.store._unity_catalog.registry.utils import (
@@ -24,6 +32,10 @@ def test_model_version_from_uc_proto():
         status="READY",
         status_message="status_message",
         aliases=["alias1", "alias2"],
+        tags=[
+            ModelVersionTag(key="key1", value="value"),
+            ModelVersionTag(key="key2", value=""),
+        ],
     )
     uc_proto = ProtoModelVersion(
         name="name",
@@ -40,6 +52,10 @@ def test_model_version_from_uc_proto():
             ProtoRegisteredModelAlias(alias="alias1", version="1"),
             ProtoRegisteredModelAlias(alias="alias2", version="2"),
         ],
+        tags=[
+            ProtoModelVersionTag(key="key1", value="value"),
+            ProtoModelVersionTag(key="key2", value=""),
+        ],
     )
     actual_model_version = model_version_from_uc_proto(uc_proto)
     assert actual_model_version == expected_model_version
@@ -55,6 +71,10 @@ def test_registered_model_from_uc_proto():
             RegisteredModelAlias(alias="alias1", version="1"),
             RegisteredModelAlias(alias="alias2", version="2"),
         ],
+        tags=[
+            RegisteredModelTag(key="key1", value="value"),
+            RegisteredModelTag(key="key2", value=""),
+        ],
     )
     uc_proto = ProtoRegisteredModel(
         name="name",
@@ -64,6 +84,10 @@ def test_registered_model_from_uc_proto():
         aliases=[
             ProtoRegisteredModelAlias(alias="alias1", version="1"),
             ProtoRegisteredModelAlias(alias="alias2", version="2"),
+        ],
+        tags=[
+            ProtoRegisteredModelTag(key="key1", value="value"),
+            ProtoRegisteredModelTag(key="key2", value=""),
         ],
     )
     actual_registered_model = registered_model_from_uc_proto(uc_proto)

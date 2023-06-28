@@ -24,6 +24,9 @@ class _EnvironmentVariable:
     def set(self, value):
         os.environ[self.name] = value
 
+    def unset(self):
+        os.environ.pop(self.name, None)
+
     def get(self):
         """
         Reads the value of the environment variable if it exists and converts it to the desired
@@ -72,6 +75,10 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
 #: Specifies the tracking URI.
 #: (default: ``None``)
 MLFLOW_TRACKING_URI = _EnvironmentVariable("MLFLOW_TRACKING_URI", str, None)
+
+#: Specifies the registry URI.
+#: (default: ``None``)
+MLFLOW_REGISTRY_URI = _EnvironmentVariable("MLFLOW_REGISTRY_URI", str, None)
 
 #: Specifies the ``dfs_tmpdir`` parameter to use for ``mlflow.spark.save_model``,
 #: ``mlflow.spark.log_model`` and ``mlflow.spark.load_model``. See
@@ -253,8 +260,6 @@ MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE", False
 )
 
-#: Private environment variable that should be set to True when running MLflow tests.
-_MLFLOW_OPENAI_TESTING = _BooleanEnvironmentVariable("MLFLOW_OPENAI_TESTING", False)
 
 #: Specifies the name of the Databricks secret scope to use for storing OpenAI API keys.
 MLFLOW_OPENAI_SECRET_SCOPE = _EnvironmentVariable("MLFLOW_OPENAI_SECRET_SCOPE", str, None)
@@ -276,7 +281,7 @@ MLFLOW_ENABLE_MULTIPART_DOWNLOAD = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_MULTIPART_DOWNLOAD", True
 )
 
-#: Private environment variable that should be set to True when running MLflow tests
+#: Private environment variable that's set to ``True`` while running tests.
 _MLFLOW_TESTING = _BooleanEnvironmentVariable("MLFLOW_TESTING", False)
 
 #: Specifies the username used to authenticate with a tracking server.
@@ -309,3 +314,15 @@ MLFLOW_TRACKING_SERVER_CERT_PATH = _EnvironmentVariable(
 MLFLOW_TRACKING_CLIENT_CERT_PATH = _EnvironmentVariable(
     "MLFLOW_TRACKING_CLIENT_CERT_PATH", str, None
 )
+
+#: Specified the ID of the run to log data to.
+#: (default: ``None``)
+MLFLOW_RUN_ID = _EnvironmentVariable("MLFLOW_RUN_ID", str, None)
+
+#: Specifies the default root directory for tracking `FileStore`.
+#: (default: ``None``)
+MLFLOW_TRACKING_DIR = _EnvironmentVariable("MLFLOW_TRACKING_DIR", str, None)
+
+#: Specifies the default root directory for registry `FileStore`.
+#: (default: ``None``)
+MLFLOW_REGISTRY_DIR = _EnvironmentVariable("MLFLOW_REGISTRY_DIR", str, None)
