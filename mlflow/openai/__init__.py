@@ -61,7 +61,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types import Schema, ColSpec
-from mlflow.environment_variables import _MLFLOW_OPENAI_TESTING, MLFLOW_OPENAI_SECRET_SCOPE
+from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_OPENAI_SECRET_SCOPE
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
@@ -572,7 +572,7 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``openai`` flavor.
     """
-    wrapper_cls = _TestOpenAIWrapper if _MLFLOW_OPENAI_TESTING.get() else _OpenAIWrapper
+    wrapper_cls = _TestOpenAIWrapper if _MLFLOW_TESTING.get() else _OpenAIWrapper
     return wrapper_cls(_load_model(path))
 
 
