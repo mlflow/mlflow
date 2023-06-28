@@ -2852,7 +2852,7 @@ def test_whisper_model_save_and_load(model_path, whisper_pipeline, sound_file_fo
         "return_timestamps": "word",
         "chunk_length_s": 20,
         "stride_length_s": [5, 3],
-    }  #
+    }
 
     signature = infer_signature(
         sound_file_for_test,
