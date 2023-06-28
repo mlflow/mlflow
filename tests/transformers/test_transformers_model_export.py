@@ -1,6 +1,9 @@
 import base64
+from functools import wraps
 import gc
+import logging
 import json
+import time
 
 import librosa
 import numpy as np
@@ -82,6 +85,33 @@ GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
 # - Text2TextGeneration pipeline tests
 # - Conversational pipeline tests
 
+_logger = logging.getLogger(__name__)
+
+
+def flaky(max_tries=3):
+    """
+    Annotation decorator for retrying flaky functions up to max_tries times, and raise the Exception
+    if it fails after max_tries attempts.
+    :param max_tries: Maximum number of times to retry the function.
+    :return: Decorated function.
+    """
+
+    def flaky_test_func(test_func):
+        @wraps(test_func)
+        def decorated_func(*args, **kwargs):
+            for i in range(max_tries):
+                try:
+                    return test_func(*args, **kwargs)
+                except Exception as e:
+                    _logger.warning(f"Attempt {i+1} failed with error: {e}")
+                    if i == max_tries - 1:
+                        raise
+                    time.sleep(3)
+
+        return decorated_func
+
+    return flaky_test_func
+
 
 @pytest.fixture(autouse=True)
 def force_gc():
@@ -133,6 +163,7 @@ def mock_pyfunc_wrapper():
 
 
 @pytest.fixture()
+@flaky()
 def small_seq2seq_pipeline():
     # The return type of this model's language head is a List[Dict[str, Any]]
     architecture = "lordtt13/emo-mobilebert"
@@ -142,6 +173,7 @@ def small_seq2seq_pipeline():
 
 
 @pytest.fixture()
+@flaky()
 def small_qa_pipeline():
     # The return type of this model's language head is a Dict[str, Any]
     architecture = "csarron/mobilebert-uncased-squad-v2"
@@ -153,6 +185,7 @@ def small_qa_pipeline():
 
 
 @pytest.fixture()
+@flaky()
 def small_vision_model():
     architecture = "google/mobilenet_v2_1.0_224"
     feature_extractor = transformers.AutoFeatureExtractor.from_pretrained(
@@ -167,12 +200,14 @@ def small_vision_model():
 
 
 @pytest.fixture()
+@flaky()
 def small_multi_modal_pipeline():
     architecture = "dandelin/vilt-b32-finetuned-vqa"
     return transformers.pipeline(model=architecture)
 
 
 @pytest.fixture()
+@flaky()
 def component_multi_modal():
     architecture = "dandelin/vilt-b32-finetuned-vqa"
     tokenizer = transformers.BertTokenizerFast.from_pretrained(architecture, low_cpu_mem_usage=True)
@@ -192,6 +227,7 @@ def component_multi_modal():
 
 
 @pytest.fixture()
+@flaky()
 def small_conversational_model():
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         "microsoft/DialoGPT-small", low_cpu_mem_usage=True
@@ -203,6 +239,7 @@ def small_conversational_model():
 
 
 @pytest.fixture()
+@flaky()
 def fill_mask_pipeline():
     architecture = "distilroberta-base"
     model = transformers.AutoModelForMaskedLM.from_pretrained(architecture, low_cpu_mem_usage=True)
@@ -211,6 +248,7 @@ def fill_mask_pipeline():
 
 
 @pytest.fixture()
+@flaky()
 def text2text_generation_pipeline():
     task = "text2text-generation"
     architecture = "mrm8488/t5-base-finetuned-common_gen"
@@ -225,6 +263,7 @@ def text2text_generation_pipeline():
 
 
 @pytest.fixture()
+@flaky()
 def text_generation_pipeline():
     task = "text-generation"
     architecture = "distilgpt2"
@@ -239,6 +278,7 @@ def text_generation_pipeline():
 
 
 @pytest.fixture()
+@flaky()
 def translation_pipeline():
     return transformers.pipeline(
         task="translation_en_to_de",
@@ -248,6 +288,7 @@ def translation_pipeline():
 
 
 @pytest.fixture()
+@flaky()
 def summarizer_pipeline():
     task = "summarization"
     architecture = "philschmid/distilbart-cnn-12-6-samsum"
@@ -261,6 +302,7 @@ def summarizer_pipeline():
 
 
 @pytest.fixture()
+@flaky()
 def text_classification_pipeline():
     task = "text-classification"
     architecture = "distilbert-base-uncased-finetuned-sst-2-english"
@@ -274,6 +316,7 @@ def text_classification_pipeline():
 
 
 @pytest.fixture()
+@flaky()
 def zero_shot_pipeline():
     task = "zero-shot-classification"
     architecture = "typeform/distilbert-base-uncased-mnli"
@@ -287,6 +330,7 @@ def zero_shot_pipeline():
 
 
 @pytest.fixture()
+@flaky()
 def table_question_answering_pipeline():
     return transformers.pipeline(
         task="table-question-answering", model="microsoft/tapex-base-finetuned-wtq"
@@ -294,6 +338,7 @@ def table_question_answering_pipeline():
 
 
 @pytest.fixture()
+@flaky()
 def ner_pipeline():
     return transformers.pipeline(
         task="token-classification", model="vblagoje/bert-english-uncased-finetuned-pos"
@@ -301,6 +346,7 @@ def ner_pipeline():
 
 
 @pytest.fixture()
+@flaky()
 def ner_pipeline_aggregation():
     # Modification to the default aggregation_strategy of `None` changes the output keys in each
     # of the dictionaries. This fixture allows for testing that the correct data is extracted
@@ -313,11 +359,13 @@ def ner_pipeline_aggregation():
 
 
 @pytest.fixture()
+@flaky()
 def conversational_pipeline():
     return transformers.pipeline(model="microsoft/DialoGPT-medium")
 
 
 @pytest.fixture()
+@flaky()
 def image_for_test():
     dataset = load_dataset("huggingface/cats-image")
     return dataset["test"]["image"][0]
@@ -338,16 +386,19 @@ def raw_audio_file():
 
 
 @pytest.fixture()
+@flaky()
 def whisper_pipeline():
     return transformers.pipeline(model="openai/whisper-tiny")
 
 
 @pytest.fixture()
+@flaky()
 def audio_classification_pipeline():
     return transformers.pipeline("audio-classification", model="superb/wav2vec2-base-superb-ks")
 
 
 @pytest.fixture()
+@flaky()
 def feature_extraction_pipeline():
     st_arch = "sentence-transformers/all-MiniLM-L6-v2"
     model = transformers.AutoModel.from_pretrained(st_arch)
@@ -714,6 +765,7 @@ def test_basic_save_model_and_load_vision_pipeline(small_vision_model, model_pat
     assert prediction[0]["score"] > 0.5
 
 
+@flaky()
 def test_multi_modal_pipeline_save_and_load(small_multi_modal_pipeline, model_path, image_for_test):
     mlflow.transformers.save_model(transformers_model=small_multi_modal_pipeline, path=model_path)
     question = "How many cats are in the picture?"
@@ -779,6 +831,7 @@ def test_multi_modal_component_save_and_load(component_multi_modal, model_path, 
         assert answer == "sleeping"
 
 
+@flaky()
 def test_pipeline_saved_model_with_processor_cannot_be_loaded_as_pipeline(
     component_multi_modal, model_path, image_for_test
 ):
@@ -1139,6 +1192,7 @@ def test_save_pipeline_without_defined_components(small_conversational_model, mo
     assert convo.generated_responses[-1] == "good"
 
 
+@flaky()
 def test_invalid_model_type_without_registered_name_does_not_save(model_path):
     invalid_pipeline = transformers.pipeline(task="text-generation", model="gpt2")
     del invalid_pipeline.model.name_or_path
@@ -1147,6 +1201,7 @@ def test_invalid_model_type_without_registered_name_does_not_save(model_path):
         mlflow.transformers.save_model(transformers_model=invalid_pipeline, path=model_path)
 
 
+@flaky()
 def test_invalid_task_inference_raises_error(model_path):
     from transformers import Pipeline
 
@@ -2575,6 +2630,7 @@ def test_invalid_instruction_pipeline_parsing(mock_pyfunc_wrapper, flavor_config
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.skipcacheclean
+@flaky()
 def test_instructional_pipeline_no_prompt_in_output(model_path):
     architecture = "databricks/dolly-v2-3b"
     dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
@@ -2597,6 +2653,7 @@ def test_instructional_pipeline_no_prompt_in_output(model_path):
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.skipcacheclean
+@flaky()
 def test_instructional_pipeline_no_prompt_in_output_and_removal_of_newlines(model_path):
     architecture = "databricks/dolly-v2-3b"
     dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
@@ -2619,6 +2676,7 @@ def test_instructional_pipeline_no_prompt_in_output_and_removal_of_newlines(mode
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.skipcacheclean
+@flaky()
 def test_instructional_pipeline_with_prompt_in_output(model_path):
     architecture = "databricks/dolly-v2-3b"
     dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
@@ -2745,6 +2803,7 @@ def test_signature_inference(pipeline_name, data, result, request):
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
 )
+@flaky()
 def test_extraction_of_torch_dtype_from_pipeline(dtype):
     pipe = transformers.pipeline(
         task="translation_en_to_fr",
@@ -2778,6 +2837,7 @@ def test_deserialization_of_configuration_torch_dtype_entry(dtype):
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
 )
+@flaky()
 def test_extraction_of_base_flavor_config(dtype):
     task = "translation_en_to_fr"
 
@@ -2814,6 +2874,7 @@ def test_extraction_of_base_flavor_config(dtype):
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
 )
+@flaky()
 def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
     task = "translation_en_to_fr"
 
@@ -2853,6 +2914,7 @@ def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
 )
+@flaky()
 def test_load_pyfunc_mutate_torch_dtype(model_path, dtype):
     task = "translation_en_to_fr"
 

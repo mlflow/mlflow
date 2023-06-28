@@ -55,7 +55,6 @@ from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
-    _terminate_server,
     _init_server,
     _send_rest_tracking_post_request,
 )
@@ -75,10 +74,8 @@ def mlflow_client(request, tmp_path):
             len("file://") :
         ]
 
-    url, process = _init_server(backend_uri, root_artifact_uri=tmp_path.as_uri())
-    yield MlflowClient(url)
-
-    _terminate_server(process)
+    with _init_server(backend_uri, root_artifact_uri=tmp_path.as_uri()) as url:
+        yield MlflowClient(url)
 
 
 @pytest.fixture()
@@ -1420,12 +1417,11 @@ def test_create_model_version_with_file_uri(mlflow_client):
 
 def test_create_model_version_with_file_uri_env_var(tmp_path):
     backend_uri = tmp_path.joinpath("file").as_uri()
-    url, process = _init_server(
+    with _init_server(
         backend_uri,
         root_artifact_uri=tmp_path.as_uri(),
         extra_env={"MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE": "true"},
-    )
-    try:
+    ) as url:
         mlflow_client = MlflowClient(url)
 
         name = "test"
@@ -1441,8 +1437,6 @@ def test_create_model_version_with_file_uri_env_var(tmp_path):
             },
         )
         assert response.status_code == 200
-    finally:
-        _terminate_server(process)
 
 
 def test_logging_model_with_local_artifact_uri(mlflow_client):

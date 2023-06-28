@@ -4,7 +4,6 @@ import uuid
 import pytest
 from unittest import mock
 
-import os
 import mlflow
 from mlflow.entities import ViewType
 from mlflow.entities.model_registry import (
@@ -227,21 +226,15 @@ def test_catch_mlflow_exception():
     assert json_response["message"] == "test error"
 
 
-def test_mlflow_server_with_installed_plugin(tmp_path):
+def test_mlflow_server_with_installed_plugin(tmp_path, monkeypatch):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
     from mlflow_test_plugin.file_store import PluginFileStore
 
-    env = {
-        BACKEND_STORE_URI_ENV_VAR: f"file-plugin:{tmp_path}",
-    }
-    with mock.patch.dict(os.environ, env):
-        mlflow.server.handlers._tracking_store = None
-        try:
-            plugin_file_store = mlflow.server.handlers._get_tracking_store()
-        finally:
-            mlflow.server.handlers._tracking_store = None
-        assert isinstance(plugin_file_store, PluginFileStore)
-        assert plugin_file_store.is_plugin
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, f"file-plugin:{tmp_path}")
+    monkeypatch.setattr(mlflow.server.handlers, "_tracking_store", None)
+    plugin_file_store = mlflow.server.handlers._get_tracking_store()
+    assert isinstance(plugin_file_store, PluginFileStore)
+    assert plugin_file_store.is_plugin
 
 
 def jsonify(obj):

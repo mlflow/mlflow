@@ -26,6 +26,7 @@ from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
 )
 from mlflow.utils.uri import construct_db_uri_from_profile
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from tests import helper_functions
 from tests.integration.utils import invoke_cli_runner
 
@@ -46,9 +47,9 @@ def runs_cancel_mock():
 def runs_submit_mock():
     """Mocks the Jobs Runs Submit API request"""
     with mock.patch(
-        "mlflow.projects.databricks.DatabricksJobRunner._jobs_runs_submit"
+        "mlflow.projects.databricks.DatabricksJobRunner._jobs_runs_submit",
+        return_value={"run_id": "-1"},
     ) as runs_submit_mock:
-        runs_submit_mock.return_value = {"run_id": "-1"}
         yield runs_submit_mock
 
 
@@ -418,7 +419,7 @@ def test_get_tracking_uri_for_run():
     mlflow.set_tracking_uri("databricks://profile")
     assert databricks._get_tracking_uri_for_run() == "databricks"
     mlflow.set_tracking_uri(None)
-    with mock.patch.dict(os.environ, {mlflow.tracking._TRACKING_URI_ENV_VAR: "http://some-uri"}):
+    with mock.patch.dict(os.environ, {MLFLOW_TRACKING_URI.name: "http://some-uri"}):
         assert mlflow.tracking._tracking_service.utils.get_tracking_uri() == "http://some-uri"
 
 
@@ -470,9 +471,10 @@ def test_databricks_http_request_integration(get_config, request):
 
 @mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds")
 def test_run_databricks_failed(_):
-    with mock.patch("mlflow.utils.rest_utils.http_request") as m:
-        text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
-        m.return_value = mock.Mock(text=text, status_code=400)
+    text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request", return_value=mock.Mock(text=text, status_code=400)
+    ):
         runner = DatabricksJobRunner(construct_db_uri_from_profile("profile"))
         with pytest.raises(
             MlflowException, match="RESOURCE_DOES_NOT_EXIST: Node type not supported"

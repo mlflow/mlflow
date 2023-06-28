@@ -241,8 +241,6 @@ Tensor-based schemas are a sequence of (optionally) named tensors with type spec
 
 Column-based Signature Example
 """"""""""""""""""""""""""""""
-All flavors support column-based signatures.
-
 Each column-based input and output is represented by a type corresponding to one of
 :py:class:`MLflow data types <mlflow.types.DataType>` and an optional name. Input columns can also be marked
 as ``optional``, indicating whether they are required as input to the model or can be omitted. The following example
@@ -262,8 +260,6 @@ The output is an unnamed integer specifying the predicted class.
 
 Tensor-based Signature Example
 """"""""""""""""""""""""""""""
-Only DL flavors support tensor-based signatures (i.e TensorFlow, Keras, PyTorch, Onnx, and Gluon).
-
 Each tensor-based input and output is represented by a dtype corresponding to one of
 `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_, shape and an optional name.
 Tensor-based signatures do not support optional inputs.
@@ -383,6 +379,12 @@ by hand or :py:func:`inferred <mlflow.models.infer_signature>` from datasets wit
 predictions generated on the training dataset) and valid model parameters (a dictionary of 
 parameters passed to model for inference; e.g. `Generation Configs for transformers 
 <https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig>`_).
+
+You may also include a signature with your model by omitting the :py:class:`signature object
+<mlflow.models.ModelSignature>` from the log_model or save_model call and instead passing
+an :ref:`input example <input-example>`. Then, for most MLflow flavors, log_model or save_model
+will automatically infer the signature from the input example and the model's predicted output of
+the input example.
 
 Column-based Signature Example
 """"""""""""""""""""""""""""""
@@ -659,19 +661,27 @@ with a new model signature.
 
 Model Input Example
 ^^^^^^^^^^^^^^^^^^^
-Similar to model signatures, model inputs can be column-based (i.e DataFrames) or tensor-based
-(i.e numpy.ndarrays). A model input example provides an instance of a valid model input.
-Input examples are stored with the model as separate artifacts and are referenced in the the
-:ref:`MLmodel file <pyfunc-model-config>`.
-
+A model input example provides an instance of a valid model input. Input examples are stored with 
+the model as separate artifacts and are referenced in the :ref:`MLmodel file <pyfunc-model-config>`.
 To include an input example with your model, add it to the appropriate log_model call, e.g.
-:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`.
+:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. Input examples are also used to infer
+model signatures in log_model calls when signatures aren't specified.
+
+Similar to model signatures, model inputs can be column-based (i.e DataFrames) or tensor-based
+(i.e numpy.ndarrays). See examples below:
 
 How To Log Model With Column-based Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 For models accepting column-based inputs, an example can be a single record or a batch of records. The
-sample input can be passed in as a Pandas DataFrame, list or dictionary. The given
-example will be converted to a Pandas DataFrame and then serialized to json using the Pandas split-oriented
+sample input can be in the following formats:
+
+* Pandas DataFrame
+* ``dict`` (of scalars, strings, or lists of scalar values)
+* ``list``
+* ``str``
+* ``bytes``
+
+The given example will be converted to a Pandas DataFrame and then serialized to json using the Pandas split-oriented
 format. Bytes are base64-encoded. The following example demonstrates how you can log a column-based
 input example with your model:
 
@@ -688,9 +698,15 @@ input example with your model:
 How To Log Model With Tensor-based Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 For models accepting tensor-based inputs, an example must be a batch of inputs. By default, the axis 0
-is the batch axis unless specified otherwise in the model signature. The sample input can be passed in as
-a numpy ndarray or a dictionary mapping a string to a numpy array. The following example demonstrates how
-you can log a tensor-based input example with your model:
+is the batch axis unless specified otherwise in the model signature. The sample input can be passed in
+as any of the following formats:
+
+* numpy ndarray
+* Python ``dict`` mapping a string to a numpy array
+* Scipy ``csr_matrix`` (sparse matrix)
+* Scipy ``csc_matrix`` (sparse matrix).
+
+The following example demonstrates how you can log a tensor-based input example with your model:
 
 .. code-block:: python
 

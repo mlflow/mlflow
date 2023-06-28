@@ -104,16 +104,22 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
             response_proto=response_proto,
         ).credentials
 
-    def list_artifacts(self, path=None):
-        raise MlflowException("This repository does not support listing artifacts.")
-
-    def download_artifacts(self, artifact_path, dst_path=None):
+    def _get_artifact_repo(self):
+        """
+        Get underlying ArtifactRepository instance for model version blob
+        storage
+        """
         scoped_token = self._get_scoped_token()
         blob_storage_path = self._get_blob_storage_path()
-        repo = get_artifact_repo_from_storage_info(
+        return get_artifact_repo_from_storage_info(
             storage_location=blob_storage_path, scoped_token=scoped_token
         )
-        return repo.download_artifacts(artifact_path, dst_path)
+
+    def list_artifacts(self, path=None):
+        return self._get_artifact_repo().list_artifacts(path=path)
+
+    def download_artifacts(self, artifact_path, dst_path=None):
+        return self._get_artifact_repo().download_artifacts(artifact_path, dst_path)
 
     def log_artifact(self, local_file, artifact_path=None):
         raise MlflowException("This repository does not support logging artifacts.")

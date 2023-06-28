@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import warnings
+from pathlib import Path
 
 from click.testing import CliRunner
 import numpy as np
@@ -15,7 +16,6 @@ import sklearn.neighbors
 
 from unittest import mock
 
-from io import StringIO
 
 import mlflow
 import mlflow.sklearn
@@ -57,6 +57,10 @@ extra_options = no_conda + install_mlflow
 gunicorn_options = "--timeout 60 -w 5"
 
 
+def env_with_tracking_uri():
+    return {**os.environ, "MLFLOW_TRACKING_URI": mlflow.get_tracking_uri()}
+
+
 @pytest.fixture(scope="module")
 def iris_data():
     iris = sklearn.datasets.load_iris()
@@ -83,7 +87,7 @@ def test_mlflow_is_not_installed_unless_specified():
         # Overwrite the logged `conda.yaml` to remove mlflow.
         _mlflow_conda_env(path=os.path.join(fake_model_path, "conda.yaml"), install_mlflow=False)
         # The following should fail because there should be no mlflow in the env:
-        p = subprocess.Popen(
+        prc = subprocess.run(
             [
                 "mlflow",
                 "models",
@@ -95,14 +99,15 @@ def test_mlflow_is_not_installed_unless_specified():
             ],
             stderr=subprocess.PIPE,
             cwd=tmp.path(""),
+            check=False,
+            text=True,
+            env=env_with_tracking_uri(),
         )
-        _, stderr = p.communicate()
-        stderr = stderr.decode("utf-8")
-        assert p.wait() != 0
+        assert prc.returncode != 0
         if PYTHON_VERSION.startswith("3"):
-            assert "ModuleNotFoundError: No module named 'mlflow'" in stderr
+            assert "ModuleNotFoundError: No module named 'mlflow'" in prc.stderr
         else:
-            assert "ImportError: No module named mlflow.pyfunc.scoring_server" in stderr
+            assert "ImportError: No module named mlflow.pyfunc.scoring_server" in prc.stderr
 
 
 def test_model_with_no_deployable_flavors_fails_pollitely():
@@ -118,15 +123,15 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
         os.mkdir(tmp.path("model"))
         m.save(tmp.path("model", "MLmodel"))
         # The following should fail because there should be no suitable flavor
-        p = subprocess.Popen(
+        prc = subprocess.run(
             ["mlflow", "models", "predict", "-m", tmp.path("model")],
             stderr=subprocess.PIPE,
             cwd=tmp.path(""),
+            check=False,
+            text=True,
+            env=env_with_tracking_uri(),
         )
-        _, stderr = p.communicate()
-        stderr = stderr.decode("utf-8")
-        assert p.wait() != 0
-        assert "No suitable flavor backend was found for the model." in stderr
+        assert "No suitable flavor backend was found for the model." in prc.stderr
 
 
 def test_serve_gunicorn_opts(iris_data, sk_model):
@@ -180,9 +185,7 @@ def test_predict(iris_data, sk_model):
         pd.DataFrame(x).to_csv(input_csv_path, index=False)
 
         # Test with no conda & model registry URI
-        env_with_tracking_uri = os.environ.copy()
-        env_with_tracking_uri.update(MLFLOW_TRACKING_URI=mlflow.get_tracking_uri())
-        p = subprocess.Popen(
+        subprocess.run(
             [
                 "mlflow",
                 "models",
@@ -198,17 +201,16 @@ def test_predict(iris_data, sk_model):
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            env=env_with_tracking_uri,
+            env=env_with_tracking_uri(),
+            check=True,
         )
-        rc = p.wait()
-        assert rc == 0
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
         assert all(expected == actual)
 
         # With conda + --install-mlflow
-        p = subprocess.Popen(
+        subprocess.run(
             [
                 "mlflow",
                 "models",
@@ -219,18 +221,18 @@ def test_predict(iris_data, sk_model):
                 input_json_path,
                 "-o",
                 output_json_path,
-            ]
-            + extra_options,
-            env=env_with_tracking_uri,
+                *extra_options,
+            ],
+            env=env_with_tracking_uri(),
+            check=True,
         )
-        assert p.wait() == 0
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
         assert all(expected == actual)
 
         # explicit json format with default orient (should be split)
-        p = subprocess.Popen(
+        subprocess.run(
             [
                 "mlflow",
                 "models",
@@ -243,18 +245,19 @@ def test_predict(iris_data, sk_model):
                 output_json_path,
                 "-t",
                 "json",
-            ]
-            + extra_options,
-            env=env_with_tracking_uri,
+                *extra_options,
+            ],
+            env=env_with_tracking_uri(),
+            check=True,
         )
-        assert p.wait() == 0
+
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
         assert all(expected == actual)
 
         # explicit json format with orient==split
-        p = subprocess.Popen(
+        subprocess.run(
             [
                 "mlflow",
                 "models",
@@ -267,29 +270,35 @@ def test_predict(iris_data, sk_model):
                 output_json_path,
                 "-t",
                 "json",
-            ]
-            + extra_options,
-            env=env_with_tracking_uri,
+                *extra_options,
+            ],
+            env=env_with_tracking_uri(),
+            check=True,
         )
-        assert p.wait() == 0
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
         assert all(expected == actual)
 
         # read from stdin, write to stdout.
-        p = subprocess.Popen(
-            ["mlflow", "models", "predict", "-m", model_uri, "-t", "json"] + extra_options,
-            text=True,
-            stdin=subprocess.PIPE,
+        prc = subprocess.run(
+            [
+                "mlflow",
+                "models",
+                "predict",
+                "-m",
+                model_uri,
+                "-t",
+                "json",
+                *extra_options,
+            ],
+            input=Path(input_json_path).read_text(),
             stdout=subprocess.PIPE,
-            stderr=sys.stderr,
-            env=env_with_tracking_uri,
+            env=env_with_tracking_uri(),
+            text=True,
+            check=True,
         )
-        with open(input_json_path) as f:
-            stdout, _ = p.communicate(f.read())
-        assert p.wait() == 0
-        actual = pd.read_json(StringIO(stdout), orient="records")
+        actual = pd.read_json(prc.stdout, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
         assert all(expected == actual)
@@ -298,7 +307,7 @@ def test_predict(iris_data, sk_model):
         # orient == records is tested in other test with simpler model.
 
         # csv
-        p = subprocess.Popen(
+        subprocess.run(
             [
                 "mlflow",
                 "models",
@@ -311,11 +320,11 @@ def test_predict(iris_data, sk_model):
                 output_json_path,
                 "-t",
                 "csv",
-            ]
-            + extra_options,
-            env=env_with_tracking_uri,
+                *extra_options,
+            ],
+            env=env_with_tracking_uri(),
+            check=True,
         )
-        assert p.wait() == 0
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
@@ -332,16 +341,30 @@ def test_prepare_env_passes(sk_model):
             model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
 
         # With conda
-        p = subprocess.Popen(
-            ["mlflow", "models", "prepare-env", "-m", model_uri], stderr=subprocess.PIPE
+        subprocess.run(
+            [
+                "mlflow",
+                "models",
+                "prepare-env",
+                "-m",
+                model_uri,
+            ],
+            env=env_with_tracking_uri(),
+            check=True,
         )
-        assert p.wait() == 0
 
         # Should be idempotent
-        p = subprocess.Popen(
-            ["mlflow", "models", "prepare-env", "-m", model_uri], stderr=subprocess.PIPE
+        subprocess.run(
+            [
+                "mlflow",
+                "models",
+                "prepare-env",
+                "-m",
+                model_uri,
+            ],
+            env=env_with_tracking_uri(),
+            check=True,
         )
-        assert p.wait() == 0
 
 
 def test_prepare_env_fails(sk_model):
@@ -356,8 +379,18 @@ def test_prepare_env_fails(sk_model):
             model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
 
         # With conda - should fail due to bad conda environment.
-        p = subprocess.Popen(["mlflow", "models", "prepare-env", "-m", model_uri])
-        assert p.wait() != 0
+        prc = subprocess.run(
+            [
+                "mlflow",
+                "models",
+                "prepare-env",
+                "-m",
+                model_uri,
+            ],
+            env=env_with_tracking_uri(),
+            check=False,
+        )
+        assert prc.returncode != 0
 
 
 @pytest.mark.parametrize("enable_mlserver", [True, False])
@@ -375,7 +408,12 @@ def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
         extra_args.append("--enable-mlserver")
 
     output_directory = tmp_path.joinpath("output_directory")
-    pyfunc_generate_dockerfile(output_directory, model_uri, extra_args=extra_args)
+    pyfunc_generate_dockerfile(
+        output_directory,
+        model_uri,
+        extra_args=extra_args,
+        env=env_with_tracking_uri(),
+    )
     assert output_directory.is_dir()
     assert output_directory.joinpath("Dockerfile").exists()
     assert output_directory.joinpath("model_dir").is_dir()
@@ -402,7 +440,11 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
     if enable_mlserver:
         extra_args.append("--enable-mlserver")
 
-    image_name = pyfunc_build_image(model_uri, extra_args=extra_args)
+    image_name = pyfunc_build_image(
+        model_uri,
+        extra_args=extra_args,
+        env=env_with_tracking_uri(),
+    )
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver)
@@ -416,7 +458,11 @@ def test_build_docker_virtualenv(iris_data, sk_model):
     df = pd.DataFrame(iris_data[0])
 
     extra_args = ["--install-mlflow", "--env-manager", "virtualenv"]
-    image_name = pyfunc_build_image(model_info.model_uri, extra_args=extra_args)
+    image_name = pyfunc_build_image(
+        model_info.model_uri,
+        extra_args=extra_args,
+        env=env_with_tracking_uri(),
+    )
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
@@ -440,7 +486,11 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     if enable_mlserver:
         extra_args.append("--enable-mlserver")
 
-    image_name = pyfunc_build_image(model_uri, extra_args=extra_args)
+    image_name = pyfunc_build_image(
+        model_uri,
+        extra_args=extra_args,
+        env=env_with_tracking_uri(),
+    )
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image_with_env_override(
         image_name, host_port, gunicorn_options

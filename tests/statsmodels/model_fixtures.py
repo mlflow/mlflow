@@ -6,6 +6,9 @@ from statsmodels.tsa.arima_process import arma_generate_sample
 from statsmodels.tsa.arima.model import ARIMA
 from scipy.linalg import toeplitz
 
+from mlflow.models import ModelSignature
+from mlflow.types.schema import Schema, TensorSpec
+
 
 ModelWithResults = namedtuple("ModelWithResults", ["model", "alg", "inference_dataframe"])
 
@@ -31,6 +34,13 @@ def ols_model(**kwargs):
     model = ols.fit(**kwargs)
 
     return ModelWithResults(model=model, alg=ols, inference_dataframe=X)
+
+
+def ols_model_signature():
+    return ModelSignature(
+        inputs=Schema([TensorSpec(np.dtype("float64"), (-1, 3))]),
+        outputs=Schema([TensorSpec(np.dtype("float64"), (-1,))]),
+    )
 
 
 def failing_logit_model():

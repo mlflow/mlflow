@@ -1,4 +1,3 @@
-import os
 from unittest import mock
 import uuid
 import pytest
@@ -15,7 +14,6 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlModelVersion,
     SqlModelVersionTag,
 )
-from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
@@ -23,6 +21,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
 )
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from tests.helper_functions import random_str
 
 pytestmark = pytest.mark.notrackingurimock
@@ -30,7 +29,7 @@ pytestmark = pytest.mark.notrackingurimock
 
 @pytest.fixture
 def store(tmp_sqlite_uri):
-    db_uri_from_env_var = os.getenv(_TRACKING_URI_ENV_VAR)
+    db_uri_from_env_var = MLFLOW_TRACKING_URI.get()
     store = SqlAlchemyStore(db_uri_from_env_var if db_uri_from_env_var else tmp_sqlite_uri)
     yield store
 
@@ -128,8 +127,7 @@ def test_get_registered_model(store):
         RegisteredModelTag("anotherKey", "some other value"),
     ]
     # use fake clock
-    with mock.patch("time.time") as mock_time:
-        mock_time.return_value = 1234
+    with mock.patch("time.time", return_value=1234):
         rm = _rm_maker(store, name, tags)
         assert rm.name == name
     rmd = store.get_registered_model(name=name)
@@ -433,8 +431,7 @@ def test_create_model_version(store):
     name = "test_for_update_MV"
     _rm_maker(store, name)
     run_id = uuid.uuid4().hex
-    with mock.patch("time.time") as mock_time:
-        mock_time.return_value = 456778
+    with mock.patch("time.time", return_value=456778):
         mv1 = _mv_maker(store, name, "a/b/CD", run_id)
         assert mv1.name == name
         assert mv1.version == 1

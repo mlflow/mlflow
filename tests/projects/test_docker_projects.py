@@ -20,6 +20,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DOCKER_IMAGE_URI,
     MLFLOW_DOCKER_IMAGE_ID,
 )
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
 from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
 
@@ -124,8 +125,10 @@ def test_docker_project_tracking_uri_propagation(
     old_uri = mlflow.get_tracking_uri()
     try:
         mlflow.set_tracking_uri(tracking_uri)
-        with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as _get_store_mock:
-            _get_store_mock.return_value = file_store.FileStore(local_tracking_dir)
+        with mock.patch(
+            "mlflow.tracking._tracking_service.utils._get_store",
+            return_value=file_store.FileStore(local_tracking_dir),
+        ):
             mlflow.projects.run(
                 TEST_DOCKER_PROJECT_DIR, experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID
             )
@@ -211,7 +214,7 @@ def test_docker_databricks_tracking_cmd_and_envs(ProfileConfigProvider):
         "DATABRICKS_USERNAME": "user",
         "DATABRICKS_PASSWORD": "pass",
         "DATABRICKS_INSECURE": "True",
-        mlflow.tracking._TRACKING_URI_ENV_VAR: "databricks",
+        MLFLOW_TRACKING_URI.name: "databricks",
     }
     assert cmds == []
 

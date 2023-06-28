@@ -691,11 +691,7 @@ def test_ingest_makes_spark_session_if_not_available_for_spark_based_dataset(spa
     dataset_path = tmp_path / "test.delta"
     spark_df.write.format("delta").save(str(dataset_path))
 
-    with mock.patch(
-        "mlflow.utils._spark_utils._get_active_spark_session",
-    ) as _get_active_spark_session:
-        _get_active_spark_session.return_value = None
-
+    with mock.patch("mlflow.utils._spark_utils._get_active_spark_session", return_value=None):
         IngestStep.from_recipe_config(
             recipe_config={
                 "target_col": "label",

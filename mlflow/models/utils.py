@@ -162,9 +162,17 @@ class _Example:
                 except ImportError:
                     pass
                 raise TypeError(
-                    "Unexpected type of input_example. Expected one of "
-                    "(pandas.DataFrame, numpy.ndarray, dict, list), "
-                    "got {}".format(type(input_example))
+                    "Expected one of the following types:\n"
+                    "- pandas.DataFrame\n"
+                    "- numpy.ndarray\n"
+                    "- dictionary of (name -> numpy.ndarray)\n"
+                    "- scipy.sparse.csr_matrix\n"
+                    "- scipy.sparse.csc_matrix\n"
+                    "- dict\n"
+                    "- list\n"
+                    "- str\n"
+                    "- bytes\n"
+                    "but got '{}'".format(type(input_example)),
                 )
             result = _handle_dataframe_nans(input_ex).to_dict(orient="split")
             # Do not include row index
