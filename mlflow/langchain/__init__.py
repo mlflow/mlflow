@@ -171,8 +171,6 @@ def save_model(
                       Specifically:
                       - For RetrievalQA models, the unserializable object is a retriever
                         (`retrievers <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_).
-                      - For VectorDBQA and VectorDBQAWithSourcesChain models, it's a vectorstore
-                        (`vectorstores <https://python.langchain.com/docs/modules/data_connection/vectorstores/>`_).
                       - For APIChain models, it's a requests_wrapper
                         (`requests <https://python.langchain.com/docs/modules/agents/tools/integrations/requests>`_).
                       - For HypotheticalDocumentEmbedder models, it's an embeddings
@@ -364,8 +362,6 @@ def log_model(
                       Specifically:
                       - For RetrievalQA models, the unserializable object is a retriever
                         (`retrievers <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_).
-                      - For VectorDBQA and VectorDBQAWithSourcesChain models, it's a vectorstore
-                        (`vectorstores <https://python.langchain.com/docs/modules/data_connection/vectorstores/>`_).
                       - For APIChain models, it's a requests_wrapper
                         (`requests <https://python.langchain.com/docs/modules/agents/tools/integrations/requests>`_).
                       - For HypotheticalDocumentEmbedder models, it's an embeddings
@@ -407,8 +403,6 @@ def log_model(
     import langchain
     from langchain.chains import (
         RetrievalQA,
-        VectorDBQA,
-        VectorDBQAWithSourcesChain,
         APIChain,
         HypotheticalDocumentEmbedder,
         SQLDatabaseChain,
@@ -416,8 +410,6 @@ def log_model(
 
     unserializable_object_name_map = {
         RetrievalQA.__name__: "retriever",
-        VectorDBQA.__name__: "vectorstore",
-        VectorDBQAWithSourcesChain.__name__: "vectorstore",
         APIChain.__name__: "requests_wrapper",
         HypotheticalDocumentEmbedder.__name__: "embeddings",
         SQLDatabaseChain.__name__: "database",
@@ -453,8 +445,6 @@ def log_model(
         lc_model,
         (
             RetrievalQA,
-            VectorDBQA,
-            VectorDBQAWithSourcesChain,
             APIChain,
             HypotheticalDocumentEmbedder,
             SQLDatabaseChain,
@@ -501,8 +491,6 @@ def _save_model(model, path, loader_fn, persist_dir):
     import langchain
     from langchain.chains import (
         RetrievalQA,
-        VectorDBQA,
-        VectorDBQAWithSourcesChain,
         APIChain,
         HypotheticalDocumentEmbedder,
         SQLDatabaseChain,
@@ -545,8 +533,6 @@ def _save_model(model, path, loader_fn, persist_dir):
         model,
         (
             RetrievalQA,
-            VectorDBQA,
-            VectorDBQAWithSourcesChain,
             APIChain,
             HypotheticalDocumentEmbedder,
             SQLDatabaseChain,
@@ -603,8 +589,6 @@ def _load_model(
     from langchain.chains.loading import load_chain
     from langchain.chains import (
         RetrievalQA,
-        VectorDBQA,
-        VectorDBQAWithSourcesChain,
         APIChain,
         HypotheticalDocumentEmbedder,
         SQLDatabaseChain,
@@ -612,8 +596,6 @@ def _load_model(
 
     unserializable_object_name_map = {
         RetrievalQA.__name__: "retriever",
-        VectorDBQA.__name__: "vectorstore",
-        VectorDBQAWithSourcesChain.__name__: "vectorstore",
         APIChain.__name__: "requests_wrapper",
         HypotheticalDocumentEmbedder.__name__: "embeddings",
         SQLDatabaseChain.__name__: "database",

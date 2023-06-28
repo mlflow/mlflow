@@ -1,3 +1,4 @@
+import os
 import shutil
 import langchain
 import mlflow
@@ -5,16 +6,20 @@ import pytest
 import transformers
 import json
 import importlib
+import sqlite3
+
 
 import openai
 from contextlib import contextmanager
 from packaging import version
+from langchain import SQLDatabase
 from langchain.chains import (
     APIChain,
     ConversationChain,
     LLMChain,
     RetrievalQA,
     HypotheticalDocumentEmbedder,
+    SQLDatabaseChain,
 )
 from langchain.chains.api import open_meteo_docs
 from langchain.chains.base import Chain
@@ -49,7 +54,7 @@ def _mock_async_request(content=TEST_CONTENT):
 
 @pytest.fixture
 def model_path(tmp_path):
-    return tmp_path.joinpath("model")
+    return tmp_path / "model"
 
 
 @pytest.fixture(scope="module")
@@ -334,7 +339,7 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
     docs = text_splitter.split_documents(documents)
     embeddings = FakeEmbeddings(size=5)
     db = FAISS.from_documents(docs, embeddings)
-    persist_dir = str(tmp_path.joinpath("faiss_index"))
+    persist_dir = str(tmp_path / "faiss_index")
     db.save_local(persist_dir)
 
     # Create the RetrievalQA chain
@@ -401,6 +406,78 @@ def test_log_and_load_hyde_chain():
     # Load the chain
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
     assert loaded_model == embeddings
+
+
+def create_sqlite_db_file(db_dir):
+    # Connect to SQLite database (or create it if it doesn't exist)
+    conn = sqlite3.connect(db_dir)
+
+    # Create a cursor
+    c = conn.cursor()
+
+    # Create a dummy table
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS employees(
+            id INTEGER PRIMARY KEY,
+            name TEXT,
+            salary REAL,
+            department TEXT,
+            position TEXT,
+            hireDate TEXT);
+        """
+    )
+
+    # Insert dummy data into the table
+    c.execute(
+        """
+        INSERT INTO employees (name, salary, department, position, hireDate)
+        VALUES ('John Doe', 80000, 'IT', 'Engineer', '2023-06-26');
+        """
+    )
+
+    # Commit the transaction
+    conn.commit()
+
+    # Close the connection
+    conn.close()
+
+
+def load_db(persist_dir):
+    db_file_path = os.path.join(persist_dir, "my_database.db")
+    sqlite_uri = f"sqlite:///{db_file_path}"
+    return SQLDatabase.from_uri(sqlite_uri)
+
+
+@pytest.mark.skip(reason="This fails due to https://github.com/hwchase17/langchain/issues/6889")
+def test_log_and_load_sql_database_chain(tmp_path):
+    # Create the SQLDatabaseChain
+    db_file_path = tmp_path / "my_database.db"
+    sqlite_uri = f"sqlite:///{db_file_path}"
+    llm = OpenAI(temperature=0)
+    create_sqlite_db_file(db_file_path)
+    db = SQLDatabase.from_uri(sqlite_uri)
+    db_chain = SQLDatabaseChain.from_llm(llm, db)
+
+    db_chain.save("/Users/liang.zhang/test_chain.yaml")
+
+    from langchain.chains import load_chain
+
+    # LangChain native load_chain fails
+    load_chain("/Users/liang.zhang/test_chain.yaml", database=db)
+
+    # Log the SQLDatabaseChain
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(
+            db_chain,
+            "sql_database_chain",
+            loader_fn=load_db,
+            persist_dir=tmp_path,
+        )
+
+    # Load the chain
+    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
+    assert loaded_model == db_chain
 
 
 def test_saving_not_implemented_for_memory():
