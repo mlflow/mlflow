@@ -190,19 +190,28 @@ def _get_databricks_uc_rest_store(store_uri, **_):
     )
 
 
+global _tracking_store_registry
 _tracking_store_registry = TrackingStoreRegistry()
-_tracking_store_registry.register("", _get_file_store)
-_tracking_store_registry.register("file", _get_file_store)
-_tracking_store_registry.register("databricks", _get_databricks_rest_store)
-_tracking_store_registry.register(_DATABRICKS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store)
 
-for scheme in ["http", "https"]:
-    _tracking_store_registry.register(scheme, _get_rest_store)
 
-for scheme in DATABASE_ENGINES:
-    _tracking_store_registry.register(scheme, _get_sqlalchemy_store)
+def register_tracking_stores():
+    """Register tracking stores.
+    This method is to be called upon the module initialization or per user request to refresh"""
+    _tracking_store_registry.register("", _get_file_store)
+    _tracking_store_registry.register("file", _get_file_store)
+    _tracking_store_registry.register("databricks", _get_databricks_rest_store)
+    _tracking_store_registry.register(_DATABRICKS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store)
 
-_tracking_store_registry.register_entrypoints()
+    for scheme in ["http", "https"]:
+        _tracking_store_registry.register(scheme, _get_rest_store)
+
+    for scheme in DATABASE_ENGINES:
+        _tracking_store_registry.register(scheme, _get_sqlalchemy_store)
+
+    _tracking_store_registry.register_entrypoints()
+
+
+register_tracking_stores()
 
 
 def _get_store(store_uri=None, artifact_uri=None):
