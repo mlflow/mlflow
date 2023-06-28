@@ -198,16 +198,16 @@ at hand, such as "What inputs does it expect?" and "What output does it produce?
 include the following additional metadata about model inputs and outputs that can be used by
 downstream tooling:
 
-* :ref:`Model Signature <model-signature>` - description of a model's inputs and outputs.
+* :ref:`Model Signature <model-signature>` - description of a model's inputs, outputs and parameters.
 * :ref:`Model Input Example <input-example>` - example of a valid model input.
 
 .. _model-signature:
 
 Model Signature
 ^^^^^^^^^^^^^^^
-Model signatures define input and output schemas for MLflow models, providing a standard 
+Model signatures define input, output and parameters schemas for MLflow models, providing a standard 
 interface to codify and enforce the correct use of your models. Sigatures are fetched by the MLflow Tracking
-UI and Model Registry UI to display model inputs and outputs. They are also utilized by
+UI and Model Registry UI to display model inputs, outputs and params. They are also utilized by
 :ref:`MLflow model deployment tools <built-in-deployment>` to validate inference inputs according to
 the model's assigned signature (see the :ref:`Signature enforcement <signature-enforcement>` section
 for more details).
@@ -226,7 +226,8 @@ saved model, use the :py:func:`set_signature() <mlflow.models.set_signature>` AP
     Function (pyfunc) flavor of MLflow models. Hence, it is recommended that you assign your model
     a signature that matches its PyFunc flavor. Usually, generating the model signature involves calling
     :py:func:`infer_signature() <mlflow.models.infer_signature>` on your raw model's test dataset
-    and predicted output of that dataset. However, in certain cases (such as the :ref:`pmdarima model flavor <pmdarima-flavor>`)
+    and predicted output of that dataset, params is an optional field that's used for inference. 
+    However, in certain cases (such as the :ref:`pmdarima model flavor <pmdarima-flavor>`)
     the schema of the PyFunc model input may differ from that of the test dataset. In such situations,
     it is necessary to create a signature that represents the inputs and outputs of the PyFunc flavor.
 
@@ -257,6 +258,7 @@ The output is an unnamed integer specifying the predicted class.
         (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":
         "petal width (cm)", "type": "double"}, {"name": "class", "type": "string", "optional": "true"}]'
       outputs: '[{"type": "integer"}]'
+      params: None
 
 Tensor-based Signature Example
 """"""""""""""""""""""""""""""
@@ -278,14 +280,32 @@ and the output is the batch size and is thus set to -1 to allow for variable bat
   signature:
       inputs: '[{"name": "images", "dtype": "uint8", "shape": [-1, 28, 28, 1]}]'
       outputs: '[{"shape": [-1, 10], "dtype": "float32"}]'
+      params: None
+
+Signature with params Example
+"""""""""""""""""""""""""""""
+The params field is optional and is used to specify parameters that can be used for model inference.
+Params accept scalar values of type :py:class:`MLflow data types <mlflow.types.DataType>`, or a list
+of such values. Default value for a parameter can be specified by setting ``default`` field, and it 
+should be of the type specified by ``type`` field. ``shape`` field can be used to specify the shape 
+of the value, it should be None for scalar values, and (-1,) for a list.
+
+.. code-block:: yaml
+
+    signature:
+        inputs: '[{"name": "images", "dtype": "uint8", "shape": [-1, 28, 28, 1]}]'
+        outputs: '[{"shape": [-1, 10], "dtype": "float32"}]'
+        params: '[{"name": "temperature", "type": "float", "default": 0.5, "shape": None},
+                  {"name": "top_k", "type": "integer", "default": 1, "shape": None}]'
 
 .. _signature-enforcement:
 
 Signature Enforcement
 ~~~~~~~~~~~~~~~~~~~~~
-Schema enforcement checks the provided input against the model's signature
-and raises an exception if the input is not compatible. This enforcement is applied in MLflow before
-calling the underlying model implementation. Note that this enforcement only applies when using :ref:`MLflow
+Schema enforcement checks the provided input and params against the model's signature and 
+raises an exception if the input or params is not compatible. This enforcement is applied in MLflow before
+calling the underlying model implementation, and during model inference process.
+Note that this enforcement only applies when using :ref:`MLflow
 model deployment tools <built-in-deployment>` or when loading models as ``python_function``. In
 particular, it is not applied to models that are loaded in their native format (e.g. by calling
 :py:func:`mlflow.sklearn.load_model() <mlflow.sklearn.load_model>`).
@@ -310,6 +330,16 @@ be made compatible, MLflow will raise an error.
 
 For models with tensor-based signatures, type checking is strict (i.e an exception will be thrown if
 the input type does not match the type specified by the schema).
+
+Params Type and Shape Enforcement
+"""""""""""""""""""""""""""""""""
+The params types and shapes are checked against the signature.
+
+MLflow verifies the compatibility of each parameter provided during inference by comparing its type and shape 
+with those specified in the signature. Scalar values should have a shape of None, while list values should have 
+a shape of (-1,). If the parameter's type or shape is incompatible, an MlflowException will be raised. 
+Additionally, the value of the parameter is validated against the specified type in the signature. We attempt 
+to convert the value to the specified type, and if this conversion fails, an MlflowException will be raised.
 
 Handling Integers With Missing Values
 """""""""""""""""""""""""""""""""""""
@@ -349,8 +379,10 @@ To include a signature with your model, pass :py:class:`signature object
 <mlflow.models.ModelSignature>` as an argument to the appropriate log_model call, e.g.
 :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. The model signature object can be created
 by hand or :py:func:`inferred <mlflow.models.infer_signature>` from datasets with valid model inputs
-(e.g. the training dataset with target column omitted) and valid model outputs (e.g. model
-predictions generated on the training dataset).
+(e.g. the training dataset with target column omitted), valid model outputs (e.g. model
+predictions generated on the training dataset) and valid model parameters (a dictionary of 
+parameters passed to model for inference; e.g. `Generation Configs for transformers 
+<https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig>`_).
 
 Column-based Signature Example
 """"""""""""""""""""""""""""""
@@ -449,6 +481,75 @@ The same signature can be created explicitly as follows:
     )
     output_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 10))])
     signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+
+Signature with params Example
+"""""""""""""""""""""""""""""
+The following example demonstrates how to store a model signature with params
+for a simple transformers model:
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.models import infer_signature
+    import transformers
+
+    architecture = "mrm8488/t5-base-finetuned-common_gen"
+    model = transformers.pipeline(
+        task="text2text-generation",
+        tokenizer=transformers.AutoTokenizer.from_pretrained(architecture),
+        model=transformers.AutoModelWithLMHead.from_pretrained(architecture),
+    )
+    data = "pencil draw paper"
+
+    params = {
+        "top_k": 2,
+        "num_beams": 5,
+        "max_length": 30,
+        "temperature": 0.62,
+        "top_p": 0.85,
+        "repetition_penalty": 1.15,
+    }
+
+    # infer signature with params
+    signature = infer_signature(
+        data,
+        mlflow.transformers.generate_signature_output(model, data),
+        params,
+    )
+
+    # save model with signature
+    mlflow.transformers.save_model(
+        model,
+        "text2text",
+        signature=signature,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model("text2text")
+
+    # predict with params
+    result = pyfunc_loaded.predict(data, params=params)
+
+The same signature can be created explicitly as follows:
+
+.. code-block:: python
+
+    from mlflow.models import ModelSignature
+    from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema
+
+    input_schema = Schema([ColSpec(type="string")])
+    output_schema = Schema([ColSpec(type="string")])
+    params_schema = ParamSchema(
+        [
+            ParamSpec("top_k", "long", 2),
+            ParamSpec("num_beams", "long", 5),
+            ParamSpec("max_length", "long", 30),
+            ParamSpec("temperature", "double", 0.62),
+            ParamSpec("top_p", "double", 0.85),
+            ParamSpec("repetition_penalty", "double", 1.15),
+        ]
+    )
+    signature = ModelSignature(
+        inputs=input_schema, outputs=output_schema, params=params_schema
+    )
 
 .. _how-to-set-signatures-on-models:
 
@@ -675,7 +776,7 @@ automatic dependency management).
 Once loaded, you can score the model by calling the :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>`
 method, which has the following signature::
 
-  predict(model_input: [pandas.DataFrame, numpy.ndarray, Dict[str, np.ndarray]]) -> [numpy.ndarray | pandas.(Series | DataFrame)]
+  predict(data: Union[pandas.(Series | DataFrame), numpy.ndarray, csc_matrix, csr_matrix, List[Any], Dict[str, Any], str], params: Optional[Dict[str, Any]] = None) → Union[pandas.(Series | DataFrame), numpy.ndarray, list, str]
 
 All PyFunc models will support `pandas.DataFrame` as an input. In addition to `pandas.DataFrame`,
 DL PyFunc models will also support tensor inputs in the form of `numpy.ndarrays`. To verify
@@ -4189,6 +4290,11 @@ the type and encoding of the input data
   <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_ where the provided inputs
   will be cast to Numpy arrays.
 
+The json input also has an optional field ``params`` that can be used to pass additional parameters.
+Valid parameters types are ``Union[DataType, List[DataType], None]`` where DataType is 
+:py:class:`MLflow data types <mlflow.types.DataType>`. In order to pass params, a valid 
+:ref:`Model Signature <model-signature>` with ``params`` must be defined.
+
 .. note:: Since JSON loses type information, MLflow will cast the JSON input to the input type specified
     in the model's schema if available. If your model is sensitive to input types, it is recommended that
     a schema is provided for the model to ensure that type mismatch errors do not occur at inference time.
@@ -4227,6 +4333,13 @@ Example requests:
     # numpy/tensor input using TF serving's "inputs" format
     curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
         "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]}
+    }'
+
+    # inference with params
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+        "inputs": {"question": ["What color is it?"],
+                   "context": ["Some people said it was green but I know that it is pink."]},
+        "params": {"max_answer_len": 10}
     }'
 
 
