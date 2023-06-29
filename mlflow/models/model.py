@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional, Union, Callable
 import mlflow
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
+from mlflow.tracking._model_registry.fluent import _register_model
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.utils.annotations import experimental
@@ -578,16 +579,14 @@ class Model:
                 _logger.debug("", exc_info=True)
             if registered_model_name is not None:
                 run_id = mlflow.tracking.fluent.active_run().info.run_id
-                mlflow.register_model(
+                # mlflow/tracking/_model_registry/fluent.py
+                _register_model(
                     "runs:/{}/{}".format(run_id, mlflow_model.artifact_path),
                     registered_model_name,
                     await_registration_for=await_registration_for,
+                    local_model_source=local_path
                 )
         return mlflow_model.get_model_info()
-
-
-def _register_model(source, registered_model_name, await_registration_for):
-    pass
 
 
 def get_model_info(model_uri: str) -> ModelInfo:
