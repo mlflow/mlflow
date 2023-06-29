@@ -113,19 +113,16 @@ spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 
 
 def iris_pandas_df():
-    iris = datasets.load_iris()
-    X = iris.data
-    y = iris.target
-    df = pd.DataFrame(X)  # to make spark_udf work
-    df.columns = df.columns.astype(str)
-    df["label"] = pd.Series(y)
-    return df
+    X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+    X.columns = ["0", "1", "2", "3"]  # so that an array is a valid input example
+    X["label"] = y
+    return X
 
 
 @pytest.fixture(scope="module")
 def iris_df(spark_context):
     pdf = iris_pandas_df()
-    feature_names = ["0", "1", "2", "3"]
+    feature_names = list(pdf.drop("label", axis=1).columns)
     spark_session = pyspark.sql.SparkSession(spark_context)
     iris_spark_df = spark_session.createDataFrame(pdf)
     return feature_names, pdf, iris_spark_df

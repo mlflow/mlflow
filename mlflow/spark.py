@@ -672,6 +672,7 @@ def save_model(
                 prediction = pd.Series(wrapped_model.predict(input_ex))
                 signature = infer_signature(input_ex, prediction)
         except Exception as e:
+            raise
             _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE, repr(e))
             _logger.debug("", exc_info=True)
     elif signature is False:
