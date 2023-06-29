@@ -13,7 +13,9 @@ class AuthConfig(NamedTuple):
 
 
 def _get_auth_config_path() -> str:
-    return MLFLOW_AUTH_CONFIG_PATH.get() or (Path(__file__).parent / "basic_auth.ini").resolve()
+    return (
+        MLFLOW_AUTH_CONFIG_PATH.get() or Path(__file__).parent.joinpath("basic_auth.ini").resolve()
+    )
 
 
 def read_auth_config() -> AuthConfig:
