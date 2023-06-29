@@ -47,15 +47,6 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
-@pytest.fixture(autouse=True)
-def set_envs(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "MLFLOW_TESTING": "true",
-        }
-    )
-
-
 @pytest.fixture(scope="module")
 def iris_df():
     iris = datasets.load_iris()

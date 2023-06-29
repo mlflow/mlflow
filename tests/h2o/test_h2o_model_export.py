@@ -34,16 +34,6 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
 )
 
-
-@pytest.fixture(autouse=True)
-def set_envs(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "MLFLOW_TESTING": "true",
-        }
-    )
-
-
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 

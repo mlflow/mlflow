@@ -46,14 +46,7 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("statsmodels") else ["--env-manager", "local"]
 )
 
-
-@pytest.fixture(autouse=True)
-def set_envs(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "MLFLOW_TESTING": "true",
-        }
-    )
+# The code in this file has been adapted from the test cases of the lightgbm flavor.
 
 
 def _get_dates_from_df(df):

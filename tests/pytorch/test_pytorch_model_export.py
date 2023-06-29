@@ -59,15 +59,6 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
 )
 
 
-@pytest.fixture(autouse=True)
-def set_envs(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "MLFLOW_TESTING": "true",
-        }
-    )
-
-
 @pytest.fixture(scope="module")
 def data():
     iris = datasets.load_iris()

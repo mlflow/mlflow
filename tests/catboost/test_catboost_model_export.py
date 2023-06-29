@@ -39,16 +39,6 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("catboost") else ["--env-manager", "local"]
 )
 
-
-@pytest.fixture(autouse=True)
-def set_envs(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "MLFLOW_TESTING": "true",
-        }
-    )
-
-
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
 

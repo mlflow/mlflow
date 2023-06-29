@@ -46,15 +46,6 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
 )
 
 
-@pytest.fixture(autouse=True)
-def set_envs(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "MLFLOW_TESTING": "true",
-        }
-    )
-
-
 @pytest.fixture
 def model_path(tmp_path):
     return os.path.join(tmp_path, "model")

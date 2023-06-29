@@ -24,15 +24,6 @@ from mlflow.utils.proto_json_utils import dataframe_from_raw_json
 from tests.helper_functions import AnyStringWith
 
 
-@pytest.fixture(autouse=True)
-def set_envs(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "MLFLOW_TESTING": "true",
-        }
-    )
-
-
 @pytest.fixture
 def pandas_df_with_all_types():
     df = pd.DataFrame(
@@ -300,13 +291,7 @@ def test_infer_signature_from_example_can_be_disabled():
     assert mlflow_model.signature is None
 
 
-def test_infer_signature_silently_fails(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "MLFLOW_TESTING": "false",
-        }
-    )
-
+def test_infer_signature_silently_fails():
     class ErrorModel(BaseEstimator, ClassifierMixin):
         def fit(self, X, y=None):
             return self
