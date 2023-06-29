@@ -81,7 +81,7 @@ def _register_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
     tags: Optional[Dict[str, Any]] = None,
-    local_model_source=None,
+    local_model_path=None,
 ) -> ModelVersion:
     client = MlflowClient()
     try:
@@ -104,13 +104,14 @@ def _register_model(
     if RunsArtifactRepository.is_runs_uri(model_uri):
         source = RunsArtifactRepository.get_underlying_uri(model_uri)
         (run_id, _) = RunsArtifactRepository.parse_runs_uri(model_uri)
+
     create_version_response = client._create_model_version(
         name,
         source,
         run_id,
         tags=tags,
         await_creation_for=await_registration_for,
-        local_model_source=local_model_source,
+        local_model_path=local_model_path,
     )
     eprint(
         "Created version '{version}' of model '{model_name}'.".format(

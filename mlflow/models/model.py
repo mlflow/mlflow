@@ -584,7 +584,7 @@ class Model:
                     "runs:/{}/{}".format(run_id, mlflow_model.artifact_path),
                     registered_model_name,
                     await_registration_for=await_registration_for,
-                    local_model_source=local_path
+                    local_model_path=local_path
                 )
         return mlflow_model.get_model_info()
 

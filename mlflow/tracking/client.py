@@ -2533,7 +2533,7 @@ class MlflowClient:
         run_link: Optional[str] = None,
         description: Optional[str] = None,
         await_creation_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-        local_model_source: Optional[str] = None,
+        local_model_path: Optional[str] = None,
     ) -> ModelVersion:
         tracking_uri = self._tracking_client.tracking_uri
         if (
@@ -2575,7 +2575,7 @@ class MlflowClient:
             run_link=run_link,
             description=description,
             await_creation_for=await_creation_for,
-            local_model_source=local_model_source,
+            local_model_path=local_model_path,
         )
 
     def create_model_version(

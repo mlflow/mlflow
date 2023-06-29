@@ -432,7 +432,7 @@ class UcModelRegistryStore(BaseRestStore):
         tags=None,
         run_link=None,
         description=None,
-        local_model_source=None,
+        local_model_path=None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -473,7 +473,7 @@ class UcModelRegistryStore(BaseRestStore):
             )
         )
         with tempfile.TemporaryDirectory() as tmpdir:
-            local_model_dir = local_model_source
+            local_model_dir = local_model_path
             if local_model_dir is None:
                 try:
                     local_model_dir = mlflow.artifacts.download_artifacts(

@@ -171,7 +171,7 @@ class ModelRegistryClient:
         run_link=None,
         description=None,
         await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-        local_model_source=None,
+        local_model_path=None,
     ):
         """
         Create a new model version from given source.
@@ -200,12 +200,12 @@ class ModelRegistryClient:
                 tags,
                 run_link,
                 description,
-                local_model_source=local_model_source,
+                local_model_path=local_model_path,
             )
         except TypeError:
             # We catch TypeError here and fall back to calling create_model_version without
-            # local_model_source since old model registry store implementations may not
-            # support the local_model_source argument.
+            # local_model_path since old model registry store implementations may not
+            # support the local_model_path argument.
             mv = self.store.create_model_version(name, source, run_id, tags, run_link, description)
         if await_creation_for and await_creation_for > 0:
             _logger.info(
