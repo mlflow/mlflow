@@ -20,11 +20,38 @@ and :ref:`java_api`.
 Get started using the :ref:`quickstart` or by reading about the :ref:`key concepts<concepts>`.
 
 .. toctree::
-    :maxdepth: 1
+   :maxdepth: 1
+   :caption: Getting started
+
+   what-is-mlflow
+   quickstart
+   quickstart_mlops
+   tutorials-and-examples/index
+   concepts
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Components
+
+   tracking
+   llm-tracking
+   projects
+   models
+   model-registry
+   recipes
+
+.. toctree::
+   :maxdepth: 0
+   :caption: How-to
+
+   tutorial-tracking
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Reference
 
     what-is-mlflow
     quickstart
-    quickstart_mlops
     tutorials-and-examples/index
     concepts
     tracking
