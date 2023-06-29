@@ -1,5 +1,8 @@
 import configparser
+from pathlib import Path
 from typing import NamedTuple
+
+from mlflow.environment_variables import MLFLOW_AUTH_CONFIG_PATH
 
 
 class AuthConfig(NamedTuple):
@@ -9,7 +12,8 @@ class AuthConfig(NamedTuple):
     admin_password: str
 
 
-def read_auth_config(config_path: str) -> AuthConfig:
+def read_auth_config() -> AuthConfig:
+    config_path = _get_auth_config_path()
     config = configparser.ConfigParser()
     config.read(config_path)
     return AuthConfig(
@@ -18,3 +22,7 @@ def read_auth_config(config_path: str) -> AuthConfig:
         admin_username=config["mlflow"]["admin_username"],
         admin_password=config["mlflow"]["admin_password"],
     )
+
+
+def _get_auth_config_path() -> str:
+    return MLFLOW_AUTH_CONFIG_PATH.get() or (Path(__file__).parent / "basic_auth.ini").resolve()

@@ -334,3 +334,7 @@ MLFLOW_EXPERIMENT_ID = _EnvironmentVariable("MLFLOW_EXPERIMENT_ID", str, None)
 #: Specifies the default experiment name to create run to.
 #: (default: ``None``)
 MLFLOW_EXPERIMENT_NAME = _EnvironmentVariable("MLFLOW_EXPERIMENT_NAME", str, None)
+
+#: Specified the path to the configuration file for MLflow Authentication.
+#: (default: ``None``)
+MLFLOW_AUTH_CONFIG_PATH = _EnvironmentVariable("MLFLOW_AUTH_CONFIG_PATH", str, None)
