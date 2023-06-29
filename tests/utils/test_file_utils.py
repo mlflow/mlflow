@@ -366,6 +366,7 @@ def test_shutil_copytree_without_file_permissions(tmp_path):
 
 
 def test_overwrite_yaml_preserves_preexisting_permissions(tmp_path):
+    # Given
     tmp_dir = str(tmp_path)
     yaml_path = tmp_path / random_file("yaml")
     file_utils.write_yaml(tmp_dir, yaml_path.name, {"foo": "bar"})
