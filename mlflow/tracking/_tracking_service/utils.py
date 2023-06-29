@@ -190,11 +190,10 @@ def _get_databricks_uc_rest_store(store_uri, **_):
     )
 
 
-global _tracking_store_registry
 _tracking_store_registry = TrackingStoreRegistry()
 
 
-def register_tracking_stores():
+def _register_tracking_stores():
     """Register tracking stores.
     This method is to be called upon the module initialization or per user's request to refresh"""
     _tracking_store_registry.register("", _get_file_store)
@@ -211,7 +210,7 @@ def register_tracking_stores():
     _tracking_store_registry.register_entrypoints()
 
 
-register_tracking_stores()
+_register_tracking_stores()
 
 
 def _get_store(store_uri=None, artifact_uri=None):
