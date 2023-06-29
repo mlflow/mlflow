@@ -244,6 +244,7 @@ describe('ExperimentViewRunsTable', () => {
           'attributes.`Source`',
           'attributes.`Version`',
           'attributes.`Models`',
+          'attributes.`Dataset`',
         ],
       }),
     });
