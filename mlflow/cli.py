@@ -15,6 +15,7 @@ from mlflow.entities import ViewType
 import mlflow.experiments
 import mlflow.deployments.cli
 from mlflow import projects
+from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 import mlflow.runs
 import mlflow.store.artifact.cli
@@ -94,7 +95,7 @@ def cli():
 )
 @click.option(
     "--experiment-id",
-    envvar=tracking._EXPERIMENT_ID_ENV_VAR,
+    envvar=MLFLOW_EXPERIMENT_ID.name,
     type=click.STRING,
     help="ID of the experiment under which to launch the run.",
 )
