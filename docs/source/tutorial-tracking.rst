@@ -10,7 +10,7 @@ As a Data Scientist, developing a Machine Learning solution requires iterating a
 
 MLflow Tracking has four subcomponents:
 
-- A **Tracking Server** that stores this data. The Tracking Server has:
+- A **Tracking Server** that stores experimental data, including parameters, metrics, and artifacts. The Tracking Server has:
 
   - A **Backend store** for parameters and metrics, and
   - An **Artifact store** for artifacts, such as models, visualizations, and generated data files
@@ -65,7 +65,7 @@ You *should* use a SQLAlchemy-compatible database for the backend store. To use 
   # Preferred
   mlflow server --backend-store-uri sqlite:///mlruns.db
 
-Assuming that you've installed `SQLite <https://www.sqlite.org/index.html>`, this will use (and create, if necessary) a SQLite database in the current directory for storing parameters and metrics. Artifacts will still be stored in the **mlruns/** subdirectory.
+Assuming that you've installed `SQLite <https://www.sqlite.org/index.html>`_, this will use (and create, if necessary) a SQLite database in the current directory for storing parameters and metrics. Artifacts will still be stored in the **mlruns/** subdirectory.
 
 {>> Does `mlflow` package install SQLAlchemy package or might they have to install that to? <<}
 
@@ -78,10 +78,10 @@ You can also use the ``--backend-store-uri`` to specify a network-accessible fil
 
 By default, the tracking server will listen on port 5000. You can change this with the ``--port`` argument. 
 
-Using a difference artifact store
+Using a different artifact store
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For this tutorial, we will assume the use of the local file system to store artifacts. However, it is common to use cloud storage to hold artifacts. The details will vary somewhat from cloud-to-cloud due to authentication and access control differences, but the general idea is the same. To use a cloud storage backend, you specify the URI of the artifact store as the argument to the `artifacts-destination`` parameter of the Tracking Server. 
+For this tutorial, we will assume the use of the local file system to store artifacts. However, it is common to use cloud storage to hold artifacts. The details will vary somewhat from cloud-to-cloud due to authentication and access control differences, but the general idea is the same. To use a cloud storage backend, you specify the URI of the artifact store as the argument to the ``artifacts-destination`` parameter of the Tracking Server. 
 
 For instance, to combine a SQLite store for parameters and metrics with an Azure blob-storage artifact store:
 
@@ -90,6 +90,7 @@ For instance, to combine a SQLite store for parameters and metrics with an Azure
 - Construct the ``wasbs:``-prefixed URL for the path to your blob container. The form for this is ``f"wasbs://{container}@{account}.blob.core.windows.net/"``.
 
 {>> Which is a little behind-the-times because WASB is headed for deprecation. But I couldn't get ABFS to work <<} 
+
 - Run the Tracking Server with the ``--artifacts-destination`` argument set to this URL.
 
 .. code-block:: bash
@@ -97,23 +98,24 @@ For instance, to combine a SQLite store for parameters and metrics with an Azure
   export AZURE_STORAGE_CONNECTION_KEY=DefaultEndpointsProtocol=https;AccountName=etc...
   mlflow server --backend-store-uri sqlite:///mlruns.db --artifacts-destination wasbs://artifact-store@my-account.blob.core.windows.net
 
-  {>> Is this correct? There's also ``default_artifact_root`` ... Nope, I just don't follow the difference between `d_a_r` and `a-d` <<}
+{>> Is this correct? There's also ``default_artifact_root`` ... Nope, I just don't follow the difference between `d_a_r` and `a-d` <<}
 
 For other APIs and backends, see the :ref:`tracking` reference documentation.
-{>> :ref:`artifact-stores` ? <<}
+
+{>> Or is a better ref :ref:`artifact-stores` ? <<}
 
 Logging API Example
 -------------------------------
 
 You should now have an instance of the Tracking Server running. Now it is time to begin tracking your experiment. 
 
-A *Run* is a single execution of your training workflow. An *Experiment* is a collection of related runs. Each run in an experiment has a unique ID, friendly name, and basic metadata such as creation date, duration, and the git commit of the code.
+A **Run** is a single execution of your training workflow. An **Experiment** is a collection of related runs. Each run in an experiment has a unique ID, friendly name, and basic metadata such as creation date, duration, and the git commit of the code.
 
 In addition, you should use MLflow to log:
 
-- **Parameters**: Key-value pairs of input parameters or other values that do not change during a single run
-- **Metrics**: Key-value pairs of metrics, showing performance changes during training
-- **Artifacts**: Output data files in any format. In particular, the model file produced by your training job
+- **Parameters**: Key-value pairs of input parameters or other values that do not change during a single run.
+- **Metrics**: Key-value pairs of metrics, showing performance changes during training.
+- **Artifacts**: Output data files in any format. In particular, the model file produced by your training job.
 
 If you do not set an experiment name, the Tracking Server will associate your runs with the ``Default`` experiment. You can also set the run name, or the Tracking Server will generate a random one for you. The run name is not required to be unique. The run ID is a UUID generated by the Tracking Server and is the primary key for the run.
 
@@ -133,9 +135,9 @@ If you do not set an experiment name, the Tracking Server will associate your ru
 
   mlflow run -e hyperopt .
 
-This command will take several minutes to execute. Because this project is defined using :ref:`projects`, the runtime environment (including `Tensorflow <https://www.tensorflow.org/>` and `hyperopt<https://github.com/hyperopt/hyperopt>`) will be created automatically and then the ``hyperopt`` entry point defined in the **MLproject** file is run. The ``hyperopt`` entry point calls the **search_hyperopt.py** program, which repeatedly calls the ``train`` entry point in the same file, which in turn executes **train.py**. By default, 12 runs of 32 epochs are run.
+This command will take several minutes to execute. Because this project is defined using :ref:`projects`, the runtime environment (including `Tensorflow <https://www.tensorflow.org/>`_ and `Hyperopt <https://github.com/hyperopt/hyperopt>`_) will be created automatically and then the ``hyperopt`` entry point defined in the **MLproject** file is run. The ``hyperopt`` entry point calls the **search_hyperopt.py** program, which repeatedly calls the ``train`` entry point in the same file, which in turn executes **train.py**. By default, 12 runs of 32 epochs apiece are run.
 
-Both **search_hyperopt.py** and **train.py** (and, for that matter, **search_random.py**) contain MLFlow logging calls, as discussed below. The example also contains several more advanced techniques, such as using child runs, automatically setting experimental tags, tracking best-to-date metrics, and so forth. These are not discussed in this tutorial, but the example is well worth reading.
+Both **search_hyperopt.py** and **train.py** (and, for that matter, **search_random.py**) contain MLflow logging calls, as discussed below. The example also contains several more advanced techniques, such as using child runs, automatically setting experimental tags, tracking best-to-date metrics, and so forth. These are not discussed in this tutorial, but the example is well worth reading.
 
 The ``ActiveRun`` object
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -149,7 +151,7 @@ Examine the ``run()`` function of the ``train.py`` file in the **examples/hyperp
     with mlflow.start_run():
       # ... training code ... 
 
-The call to :py:func:`mlflow.start_run` returns an object of type :py:class:`mlflow.ActiveRun`. The ``ActiveRun`` object contains metadata about the run that you may find useful. If you want to keep a reference to that object, you can use:
+The call to :py:func:`mlflow.start_run` returns an object of type :py:class:`ActiveRun <mlflow.ActiveRun>`. The ``ActiveRun`` object contains metadata about the run that you may find useful. If you want to keep a reference to that object, you can use:
 
 .. code:: python
 
@@ -169,7 +171,7 @@ In the same **train.py** file, examine the ``eval_and_log_metrics()`` function, 
       mlflow.log_metric("{}_rmse".format(prefix), rmse, step=epoch)
       return rmse
 
-The ``prefix`` argument is one of ``"train"``, ``"val"``, or ``"test"`` and the call to :py:func:`mlflow.log_metric` records the current error in a metric named ``f"{prefix}_rmse``. 
+The ``prefix`` argument is one of ``"train"``, ``"val"``, or ``"test"`` and the call to :py:func:`mlflow.log_metric` records the current error in a metric named ``f"{prefix}_rmse"``. 
 
 Example parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -186,8 +188,10 @@ The **hyperparam** example does a hyperparameter sweep, calling the ``train`` en
 
 Here, the learning rate and momentum of each child run is logged as a parameter. The ``nested=True`` argument to :py:func:`mlflow.start_run` tells MLflow to associate the child run with the parent run, so that you can see the parent-child relationship in the UI. 
 
+.. _example-artifacts:
+
 Example artifacts
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 The **hyperparam** example saves the models, but no other artifacts. Open the **train.py** file and examine the ``MLflowCheckpoint.__exit__()`` function, reproduced in part below:
 
@@ -199,11 +203,11 @@ The **hyperparam** example saves the models, but no other artifacts. Open the **
         signature = infer_signature(self._test_x, predictions)
         mlflow.tensorflow.log_model(self._best_model, "model", signature=signature)
 
-This snippet demonstrates a recommended pattern for logging models. First, the model predicts results for the test data. The test data (``self._test_x``) and ``predictions`` are passed to the :py:func:`mlflow.models.infer_signature` function, which returns a :py:class:`mlflow.models.ModelSignature` object. This object describes the model's inputs and outputs and provides better runtime diagnostics of incorrect inputs when the model is deployed.
+This snippet demonstrates a recommended pattern for logging models. First, the model predicts results for the test data. The test data (``self._test_x``) and ``predictions`` are passed to the :py:func:`infer_signature() <mlflow.models.infer_signature>` function, which returns a :py:class:`ModelSignature <mlflow.models.ModelSignature>` object. This object describes the model's inputs and outputs and provides better runtime diagnostics of incorrect inputs when the model is deployed.
 
 The call to :py:func:`mlflow.tensorflow.log_model` saves the model in the Tensorflow "flavor" of MLflow. Each ML library that supports MLflow will implement ``log_model`` (and it's complement ``load_model``) differently. 
 
-The most general form of the function is :py:func:`mlflow.pyfunc.log_model`, which makes no assumptions about the model beyond it being callable from a Python function. {>> tk: I need the best pyfunc ref we got here, and then I need to switch it to the dedicated doc <<}
+The most general form of the function is :py:func:`mlflow.pyfunc.log_model`, which makes no assumptions about the model beyond it being callable from a Python function. {>> tk: I need the best pyfunc ref we got here, and then I need to switch it to the to-be-written doc dedicated to pyfunc <<}
 
 Parameters, Metrics, and Artifacts
 ----------------------------------
@@ -224,9 +228,25 @@ As your code evolves, you may end up storing parameters in one or two ``Dictiona
 .. code-block:: python
 
   params = {"learning_rate": 1E-3, "batch_size": 32, "epochs": 30, "dataset": "CIFAR10"}
-  mlflow.log_params(params)  
+  mlflow.log_params(params)
 
-Once you have logged a parameter in a given run, you may not overwrite the value. Doing so will raise an exception of type `MLflowException`.
+If you use dataclasses for your parameters, the representation of your dataclass will be logged (``__repr()__`` not ``__str()__``). If you want to log a dataclass as a dictionary, you can use ``asdict()`` from the ``dataclasses`` module. Doing so will allow for easier querying over a large number of runs, since every field in your dataclass will be stored as a searchable/comparable key. For instance:
+
+.. code-block:: python
+
+  from dataclasses import asdict, dataclass
+
+  @dataclass
+  class MyParams:
+    learning_rate: float
+    batch_size: int
+    epochs: int
+    dataset: str
+
+  params = MyParams(learning_rate=1E-3, batch_size=32, epochs=30, dataset="CIFAR10")
+  mlflow.log_params(asdict(params))
+
+Once you have logged a parameter in a given run, you may not overwrite the value. Doing so will raise an exception of type ``MLflowException``.
 
 Metrics
 ~~~~~~~~
@@ -258,9 +278,9 @@ Artifacts
   mlflow.log_artifact(path_to_summary)
   mlflow.log_artifacts(visualizations)
 
-Your model is also an artifact. You should log you should log your model with the ``mlflow.log_model`` API.
+Your model is also an artifact. You should log you should log your model with the ``mlflow.log_model`` API as discussed previously in the :ref:`example-artifacts` section.
 
 Conclusion
 ----------
 
-This how-to showed you how to use two of MLflow Tracking's components: the Tracking Server and the Tracking API. You learned that the Tracker Server has two stores: a backing store that contains metrics and parameters and an artifact store that contains artifacts. You learned that you must use a SQLAlchemy-compatible database as the backing store if you wish to use MLflow's Model Registry. You learned how to use the Tracking API to log parameters, metrics, and artifacts. You also learned how to infer the signature of your model, and to pass that signature to the ``mlflow.log_model`` API.
+This how-to showed you how to use two of MLflow Tracking's components: the Tracking Server and the Tracking API. You learned that the Tracking Server has two stores: a backing store that contains metrics and parameters and an artifact store that contains artifacts. You learned that you must use a SQLAlchemy-compatible database as the backing store if you wish to use MLflow's Model Registry. You learned how to use the Tracking API to log parameters, metrics, and artifacts. You also learned how to infer the signature of your model, and to pass that signature to the ``mlflow.log_model`` API.
