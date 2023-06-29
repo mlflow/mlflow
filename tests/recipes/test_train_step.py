@@ -546,6 +546,27 @@ def test_train_step_with_tuning_output_yaml_correct(
         assert len(lines) == 19 + num_sections * 2
 
 
+@pytest.mark.parametrize("with_hardcoded_params", [(True), (False)])
+def test_train_step_with_tuning_trials_card_tab(
+    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, with_hardcoded_params
+):
+    train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    train_step = setup_train_step_with_tuning(
+        tmp_recipe_root_path, use_tuning=True, with_hardcoded_params=with_hardcoded_params
+    )
+    m_train = Mock()
+    m_train.estimator_fn = estimator_fn
+    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+        train_step.run(str(train_step_output_dir))
+    assert (train_step_output_dir / "card.html").exists()
+    with open(train_step_output_dir / "card.html") as f:
+        step_card_content = f.read()
+
+    assert "Tuning Trials" in step_card_content
+
+
 def test_train_step_with_tuning_child_runs_and_early_stop(
     tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path
 ):
