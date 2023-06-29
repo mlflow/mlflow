@@ -150,6 +150,7 @@ Examine the ``run()`` function of the ``train.py`` file in the **examples/hyperp
     # ... data and model preparation ...
     with mlflow.start_run():
       # ... training code ... 
+      pass # (Not in sample: added because we lint our docs' code samples)
 
 The call to :py:func:`mlflow.start_run` returns an object of type :py:class:`ActiveRun <mlflow.ActiveRun>`. The ``ActiveRun`` object contains metadata about the run that you may find useful. If you want to keep a reference to that object, you can use:
 
