@@ -167,16 +167,14 @@ def save_model(
                       This function takes a string `persist_dir` as an argument and returns the
                       specific unserializable object that the model needs. Depending on the model,
                       this could be a retriever, vectorstore, requests_wrapper, embeddings, or
-                      database.
-                      Specifically:
-                      - For RetrievalQA models, the unserializable object is a retriever
-                        (`retrievers <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_).
-                      - For APIChain models, it's a requests_wrapper
-                        (`requests <https://python.langchain.com/docs/modules/agents/tools/integrations/requests>`_).
-                      - For HypotheticalDocumentEmbedder models, it's an embeddings
-                        (`text_embedding <https://python.langchain.com/docs/modules/data_connection/text_embedding/>`_).
-                      - For SQLDatabaseChain models, it's a database
-                        (`sql_database <https://python.langchain.com/docs/modules/agents/toolkits/sql_database>`_).
+                      database. For RetrievalQA models, the unserializable object is a
+                      (`retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_).
+                      For APIChain models, it's a
+                      (`requests_wrapper <https://python.langchain.com/docs/modules/agents/tools/integrations/requests>`_).
+                      For HypotheticalDocumentEmbedder models, it's an
+                      (`embeddings <https://python.langchain.com/docs/modules/data_connection/text_embedding/>`_).
+                      For SQLDatabaseChain models, it's a
+                      (`database <https://python.langchain.com/docs/modules/agents/toolkits/sql_database>`_).
     :param persist_dir: The directory where the unserializable object is stored. The `loader_fn`
                         takes this string as the argument to load the unserializable object.
                         This is optional for models containing unserializable objects. MLflow logs
@@ -187,13 +185,16 @@ def save_model(
                         and `persist_dir`:
 
                         .. code-block:: python
+
+                            qa = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
+
+
                             def load_retriever(persist_directory):
                                 embeddings = OpenAIEmbeddings()
                                 vectorstore = FAISS.load_local(persist_directory, embeddings)
                                 return vectorstore.as_retriever()
 
 
-                            qa = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
                             with mlflow.start_run() as run:
                                 logged_model = mlflow.langchain.log_model(
                                     qa,
@@ -355,16 +356,14 @@ def log_model(
                       This function takes a string `persist_dir` as an argument and returns the
                       specific unserializable object that the model needs. Depending on the model,
                       this could be a retriever, vectorstore, requests_wrapper, embeddings, or
-                      database.
-                      Specifically:
-                      - For RetrievalQA models, the unserializable object is a retriever
-                        (`retrievers <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_).
-                      - For APIChain models, it's a requests_wrapper
-                        (`requests <https://python.langchain.com/docs/modules/agents/tools/integrations/requests>`_).
-                      - For HypotheticalDocumentEmbedder models, it's an embeddings
-                        (`text_embedding <https://python.langchain.com/docs/modules/data_connection/text_embedding/>`_).
-                      - For SQLDatabaseChain models, it's a database
-                        (`sql_database <https://python.langchain.com/docs/modules/agents/toolkits/sql_database>`_).
+                      database. For RetrievalQA models, the unserializable object is a
+                      (`retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_).
+                      For APIChain models, it's a
+                      (`requests_wrapper <https://python.langchain.com/docs/modules/agents/tools/integrations/requests>`_).
+                      For HypotheticalDocumentEmbedder models, it's an
+                      (`embeddings <https://python.langchain.com/docs/modules/data_connection/text_embedding/>`_).
+                      For SQLDatabaseChain models, it's a
+                      (`database <https://python.langchain.com/docs/modules/agents/toolkits/sql_database>`_).
     :param persist_dir: The directory where the unserializable object is stored. The `loader_fn`
                         takes this string as the argument to load the unserializable object.
                         This is optional for models containing unserializable objects. MLflow logs
