@@ -459,13 +459,6 @@ def test_log_and_load_sql_database_chain(tmp_path):
     db = SQLDatabase.from_uri(sqlite_uri)
     db_chain = SQLDatabaseChain.from_llm(llm, db)
 
-    db_chain.save("/Users/liang.zhang/test_chain.yaml")
-
-    from langchain.chains import load_chain
-
-    # LangChain native load_chain fails
-    load_chain("/Users/liang.zhang/test_chain.yaml", database=db)
-
     # Log the SQLDatabaseChain
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(
