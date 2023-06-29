@@ -327,5 +327,6 @@ MLFLOW_TRACKING_DIR = _EnvironmentVariable("MLFLOW_TRACKING_DIR", str, None)
 #: (default: ``None``)
 MLFLOW_REGISTRY_DIR = _EnvironmentVariable("MLFLOW_REGISTRY_DIR", str, None)
 
-
+#: Specifies the default experiment ID to create run to.
+#: (default: ``None``)
 MLFLOW_EXPERIMENT_ID = _EnvironmentVariable("MLFLOW_EXPERIMENT_ID", str, None)
