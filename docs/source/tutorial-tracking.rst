@@ -264,5 +264,3 @@ Conclusion
 ----------
 
 This how-to showed you how to use two of MLflow Tracking's components: the Tracking Server and the Tracking API. You learned that the Tracker Server has two stores: a backing store that contains metrics and parameters and an artifact store that contains artifacts. You learned that you must use a SQLAlchemy-compatible database as the backing store if you wish to use MLflow's Model Registry. You learned how to use the Tracking API to log parameters, metrics, and artifacts. You also learned how to infer the signature of your model, and to pass that signature to the ``mlflow.log_model`` API.
-
-Now that you've generated some runs, learn how to :ref:`tutorial-tracking-ui`.
