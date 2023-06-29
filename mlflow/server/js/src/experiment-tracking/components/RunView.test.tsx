@@ -75,7 +75,7 @@ describe('RunView', () => {
         },
         tagsByRunUuid: { 'uuid-1234-5678-9012': {} },
         paramsByRunUuid: { 'uuid-1234-5678-9012': {} },
-        runDatasetsByUuid: { 'uuid-1234-5678-9012': {} },
+        runDatasetsByUuid: { 'uuid-1234-5678-9012': [] },
         latestMetricsByRunUuid: { 'uuid-1234-5678-9012': {} },
         artifactRootUriByRunUuid: { 'uuid-1234-5678-9012': 'root/uri' },
       },
