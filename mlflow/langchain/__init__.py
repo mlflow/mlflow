@@ -182,21 +182,18 @@ def save_model(
                         This is optional for models containing unserializable objects. MLflow logs
                         the content in this directory as artifacts in the subdirectory named
                         `persist_dir_data`.
-                        Below is the code snippet for logging a RetrievalQA chain with `loader_fn`
-                        and `persist_dir`, see the complete example in
-                        examples/langchain/retrieval_qa_chain.py.
+
+                        Here is the code snippet for logging a RetrievalQA chain with `loader_fn`
+                        and `persist_dir`:
 
                         .. code-block:: python
-
-                            qa = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
-
-
                             def load_retriever(persist_directory):
                                 embeddings = OpenAIEmbeddings()
                                 vectorstore = FAISS.load_local(persist_directory, embeddings)
                                 return vectorstore.as_retriever()
 
 
+                            qa = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
                             with mlflow.start_run() as run:
                                 logged_model = mlflow.langchain.log_model(
                                     qa,
@@ -205,6 +202,7 @@ def save_model(
                                     persist_dir=persist_dir,
                                 )
 
+                        See a complete example in examples/langchain/retrieval_qa_chain.py.
     """
     import langchain
 
