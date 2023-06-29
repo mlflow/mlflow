@@ -312,9 +312,7 @@ def test_infer_signature_silently_fails():
 @pytest.fixture(scope="module")
 def iris_model():
     X, y = datasets.load_iris(return_X_y=True, as_frame=True)
-    knn_model = knn.KNeighborsClassifier()
-    knn_model.fit(X, y)
-    return knn_model
+    return knn.KNeighborsClassifier().fit(X, y)
 
 
 @pytest.mark.parametrize(
