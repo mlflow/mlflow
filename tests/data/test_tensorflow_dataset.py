@@ -323,7 +323,7 @@ def test_to_evaluation_dataset_with_tensorflow_dataset_data():
     with pytest.raises(
         MlflowException, match="Data must be a Tensor to convert to an EvaluationDataset"
     ):
-        evaluation_dataset = dataset.to_evaluation_dataset()  # pylint: disable=unused-variable
+        dataset.to_evaluation_dataset()
 
 
 def test_from_tensorflow_dataset_constructs_expected_dataset():
