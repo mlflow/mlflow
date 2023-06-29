@@ -3,7 +3,6 @@ CLI for runs
 """
 import click
 import json
-import mlflow.tracking
 from mlflow.entities import ViewType
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.tracking import _get_store
