@@ -33692,6 +33692,7 @@ public final class ModelRegistry {
      * <pre>
      * Name of the tag. Maximum size depends on storage backend.
      * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -33702,6 +33703,7 @@ public final class ModelRegistry {
      * <pre>
      * Name of the tag. Maximum size depends on storage backend.
      * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -33712,6 +33714,7 @@ public final class ModelRegistry {
      * <pre>
      * Name of the tag. Maximum size depends on storage backend.
      * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -34333,6 +34336,7 @@ public final class ModelRegistry {
      * <pre>
      * Name of the tag. Maximum size depends on storage backend.
      * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -34346,6 +34350,7 @@ public final class ModelRegistry {
      * <pre>
      * Name of the tag. Maximum size depends on storage backend.
      * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -34370,6 +34375,7 @@ public final class ModelRegistry {
      * <pre>
      * Name of the tag. Maximum size depends on storage backend.
      * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -34930,6 +34936,7 @@ public final class ModelRegistry {
        * <pre>
        * Name of the tag. Maximum size depends on storage backend.
        * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -34942,6 +34949,7 @@ public final class ModelRegistry {
        * <pre>
        * Name of the tag. Maximum size depends on storage backend.
        * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -34965,6 +34973,7 @@ public final class ModelRegistry {
        * <pre>
        * Name of the tag. Maximum size depends on storage backend.
        * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -34987,6 +34996,7 @@ public final class ModelRegistry {
        * <pre>
        * Name of the tag. Maximum size depends on storage backend.
        * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -35007,6 +35017,7 @@ public final class ModelRegistry {
        * <pre>
        * Name of the tag. Maximum size depends on storage backend.
        * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -35022,6 +35033,7 @@ public final class ModelRegistry {
        * <pre>
        * Name of the tag. Maximum size depends on storage backend.
        * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -35265,6 +35277,7 @@ public final class ModelRegistry {
      * <pre>
      * Name of the tag. Maximum size depends on storage backend.
      * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 3 [(.mlflow.validate_required) = true];</code>
@@ -35275,6 +35288,7 @@ public final class ModelRegistry {
      * <pre>
      * Name of the tag. Maximum size depends on storage backend.
      * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 3 [(.mlflow.validate_required) = true];</code>
@@ -35285,6 +35299,7 @@ public final class ModelRegistry {
      * <pre>
      * Name of the tag. Maximum size depends on storage backend.
      * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 3 [(.mlflow.validate_required) = true];</code>
@@ -35973,6 +35988,7 @@ public final class ModelRegistry {
      * <pre>
      * Name of the tag. Maximum size depends on storage backend.
      * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 3 [(.mlflow.validate_required) = true];</code>
@@ -35986,6 +36002,7 @@ public final class ModelRegistry {
      * <pre>
      * Name of the tag. Maximum size depends on storage backend.
      * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 3 [(.mlflow.validate_required) = true];</code>
@@ -36010,6 +36027,7 @@ public final class ModelRegistry {
      * <pre>
      * Name of the tag. Maximum size depends on storage backend.
      * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 3 [(.mlflow.validate_required) = true];</code>
@@ -36704,6 +36722,7 @@ public final class ModelRegistry {
        * <pre>
        * Name of the tag. Maximum size depends on storage backend.
        * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 3 [(.mlflow.validate_required) = true];</code>
@@ -36716,6 +36735,7 @@ public final class ModelRegistry {
        * <pre>
        * Name of the tag. Maximum size depends on storage backend.
        * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 3 [(.mlflow.validate_required) = true];</code>
@@ -36739,6 +36759,7 @@ public final class ModelRegistry {
        * <pre>
        * Name of the tag. Maximum size depends on storage backend.
        * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 3 [(.mlflow.validate_required) = true];</code>
@@ -36761,6 +36782,7 @@ public final class ModelRegistry {
        * <pre>
        * Name of the tag. Maximum size depends on storage backend.
        * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 3 [(.mlflow.validate_required) = true];</code>
@@ -36781,6 +36803,7 @@ public final class ModelRegistry {
        * <pre>
        * Name of the tag. Maximum size depends on storage backend.
        * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 3 [(.mlflow.validate_required) = true];</code>
@@ -36796,6 +36819,7 @@ public final class ModelRegistry {
        * <pre>
        * Name of the tag. Maximum size depends on storage backend.
        * If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 3 [(.mlflow.validate_required) = true];</code>

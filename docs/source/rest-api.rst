@@ -2169,6 +2169,7 @@ Request Structure
 +------------+------------+----------------------------------------------------------------------------------------------------------+
 | key        | ``STRING`` | Name of the tag. Maximum size depends on storage backend.                                                |
 |            |            | If a tag with this name already exists, its preexisting value will be replaced by the specified `value`. |
+|            |            | All storage backends are guaranteed to support key values up to 250 bytes in size.                       |
 |            |            | This field is required.                                                                                  |
 |            |            |                                                                                                          |
 +------------+------------+----------------------------------------------------------------------------------------------------------+
@@ -2221,6 +2222,7 @@ Request Structure
 +------------+------------+----------------------------------------------------------------------------------------------------------+
 | key        | ``STRING`` | Name of the tag. Maximum size depends on storage backend.                                                |
 |            |            | If a tag with this name already exists, its preexisting value will be replaced by the specified `value`. |
+|            |            | All storage backends are guaranteed to support key values up to 250 bytes in size.                       |
 |            |            | This field is required.                                                                                  |
 |            |            |                                                                                                          |
 +------------+------------+----------------------------------------------------------------------------------------------------------+
