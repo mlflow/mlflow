@@ -55,7 +55,11 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.environment_variables import MLFLOW_RUN_ID, MLFLOW_EXPERIMENT_ID
+from mlflow.environment_variables import (
+    MLFLOW_RUN_ID,
+    MLFLOW_EXPERIMENT_ID,
+    MLFLOW_EXPERIMENT_NAME,
+)
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -65,7 +69,6 @@ if TYPE_CHECKING:
     import numpy  # pylint: disable=unused-import
     import PIL  # pylint: disable=unused-import
 
-_EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
 _active_run_stack = []
 _active_experiment_id = None
 _last_active_run_id = None
@@ -1766,7 +1769,7 @@ def _get_or_start_run():
 
 
 def _get_experiment_id_from_env():
-    experiment_name = env.get_env(_EXPERIMENT_NAME_ENV_VAR)
+    experiment_name = MLFLOW_EXPERIMENT_NAME.get()
     experiment_id = MLFLOW_EXPERIMENT_ID.get()
     if experiment_name is not None:
         exp = MlflowClient().get_experiment_by_name(experiment_name)

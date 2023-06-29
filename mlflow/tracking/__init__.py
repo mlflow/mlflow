@@ -16,7 +16,6 @@ from mlflow.tracking._model_registry.utils import (
     set_registry_uri,
     get_registry_uri,
 )
-from mlflow.tracking.fluent import _EXPERIMENT_NAME_ENV_VAR
 
 __all__ = [
     "MlflowClient",
@@ -26,5 +25,4 @@ __all__ = [
     "_get_store",
     "get_registry_uri",
     "set_registry_uri",
-    "_EXPERIMENT_NAME_ENV_VAR",
 ]

@@ -15,12 +15,11 @@ from mlflow.entities import ViewType
 import mlflow.experiments
 import mlflow.deployments.cli
 from mlflow import projects
-from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
+from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_EXPERIMENT_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 import mlflow.runs
 import mlflow.store.artifact.cli
 from mlflow import version
-from mlflow import tracking
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_ARTIFACTS_URI
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking import _get_store
@@ -89,7 +88,7 @@ def cli():
 )
 @click.option(
     "--experiment-name",
-    envvar=tracking._EXPERIMENT_NAME_ENV_VAR,
+    envvar=MLFLOW_EXPERIMENT_NAME.name,
     help="Name of the experiment under which to launch the run. If not "
     "specified, 'experiment-id' option will be used to launch run.",
 )
