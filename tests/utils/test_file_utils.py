@@ -363,3 +363,18 @@ def test_shutil_copytree_without_file_permissions(tmp_path):
     assert set(os.listdir(dst_dir.joinpath("subdir"))) == {"subdir-file.txt"}
     assert dst_dir.joinpath("subdir/subdir-file.txt").read_text() == "testing 123"
     assert dst_dir.joinpath("top-level-file.txt").read_text() == "hi"
+
+
+def test_overwrite_yaml_preserves_preexisting_permissions(tmp_path):
+    tmp_dir = str(tmp_path)
+    yaml_path = tmp_path / random_file("yaml")
+    file_utils.write_yaml(tmp_dir, yaml_path.name, {"foo": "bar"})
+    expected_mode = 0o100660
+    # ensure temporary file does not have elevated permissions
+    os.chmod(str(yaml_path), expected_mode)
+
+    # When
+    file_utils.overwrite_yaml(tmp_dir, yaml_path.name, {"bar": "foo"})
+
+    # Then
+    assert os.stat(str(yaml_path)).st_mode == expected_mode
