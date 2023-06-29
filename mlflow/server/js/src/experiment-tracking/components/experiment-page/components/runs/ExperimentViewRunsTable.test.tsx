@@ -244,11 +244,12 @@ describe('ExperimentViewRunsTable', () => {
           'attributes.`Source`',
           'attributes.`Version`',
           'attributes.`Models`',
+          'attributes.`Dataset`',
         ],
       }),
     });
 
     // Assert "show more columns" CTA button not being displayed anymore
-    expect(simpleExperimentsWrapper.find('ExperimentViewRunsTableAddColumnCTA').length).toBe(1);
+    expect(simpleExperimentsWrapper.find('ExperimentViewRunsTableAddColumnCTA').length).toBe(0);
   });
 });
