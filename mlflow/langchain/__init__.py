@@ -661,7 +661,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         import langchain
         from tests.langchain.test_langchain_model_export import _mock_async_request
 
-        if isinstance(self.lc_model, langchain.chains.llm.LLMChain):
+        if isinstance(self.lc_model, (langchain.chains.llm.LLMChain, langchain.chains.RetrievalQA)):
             mockContent = TEST_CONTENT
         elif isinstance(self.lc_model, langchain.agents.agent.AgentExecutor):
             mockContent = f"Final Answer: {TEST_CONTENT}"

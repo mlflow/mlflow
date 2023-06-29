@@ -39,6 +39,7 @@ from typing import Any, List, Mapping, Optional, Dict
 from tests.helper_functions import pyfunc_serve_and_score_model
 from mlflow.exceptions import MlflowException
 from mlflow.openai.utils import (
+    _chat_completion_json_sample,
     _mock_chat_completion_response,
     _mock_request,
     _MockResponse,
@@ -360,6 +361,31 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
     # Load the chain
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
     assert loaded_model == retrievalQA
+
+    # Serve the chain
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+    langchain_input = {"query": "What did the president say about Ketanji Brown Jackson"}
+    with _mock_request(return_value=_mock_chat_completion_response()):
+        result = loaded_pyfunc_model.predict([langchain_input])
+        assert result == [TEST_CONTENT]
+
+    inference_payload = json.dumps({"inputs": langchain_input})
+    langchain_output_serving = {"predictions": _chat_completion_json_sample(TEST_CONTENT)}
+    with _mock_request(return_value=_MockResponse(200, langchain_output_serving)):
+        import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+        from mlflow.deployments import PredictionsResponse
+
+        response = pyfunc_serve_and_score_model(
+            logged_model.model_uri,
+            data=inference_payload,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+            extra_args=["--env-manager", "local"],
+        )
+
+        assert (
+            PredictionsResponse.from_json(response.content.decode("utf-8"))
+            == langchain_output_serving
+        )
 
 
 def load_requests_wrapper(_):
