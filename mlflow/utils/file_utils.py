@@ -199,9 +199,13 @@ def overwrite_yaml(root, file_name, data):
             overwrite=True,
             sort_keys=True,
         )
+        # Ensure temporary file contains ACLs of preexisting yaml
+        # file before move-replacing.
+        dst_file_path = os.path.join(root, file_name)
+        shutil.copystat(dst_file_path, tmp_file_path)
         shutil.move(
             tmp_file_path,
-            os.path.join(root, file_name),
+            dst_file_path,
         )
     finally:
         if tmp_file_path is not None and os.path.exists(tmp_file_path):
