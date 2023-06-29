@@ -50,15 +50,25 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
    :maxdepth: 1
    :caption: Reference
 
-   plugins
-   auth/index
-   cli
-   search-runs
-   search-experiments
-   python_api/index
-   R-api
-   java_api/index
-   rest-api
-   docker
-   community-model-flavors
+    what-is-mlflow
+    quickstart
+    tutorials-and-examples/index
+    concepts
+    tracking
+    llm-tracking
+    projects
+    models
+    model-registry
+    recipes
+    plugins
+    auth/index
+    cli
+    search-runs
+    search-experiments
+    python_api/index
+    R-api
+    java_api/index
+    rest-api
+    docker
+    community-model-flavors
 

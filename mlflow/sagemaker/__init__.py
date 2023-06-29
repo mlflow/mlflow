@@ -9,6 +9,8 @@ import tarfile
 import logging
 import time
 import platform
+import json
+import signal
 
 import mlflow
 import mlflow.version
@@ -909,7 +911,7 @@ def push_model_to_sagemaker(
     flavor=None,
 ):
     """
-    Push an MLflow model to AWS SageMaker model registry.
+    Create a SageMaker Model from an MLflow model artifact.
     The currently active AWS account must have correct permissions set up.
 
     :param model_name: Name of the Sagemaker model.
@@ -1133,8 +1135,6 @@ def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unu
         _logger.info("received termination signal => killing docker process")
         proc.send_signal(signal.SIGINT)
 
-    import signal
-
     signal.signal(signal.SIGTERM, _sigterm_handler)
     proc.wait()
 
@@ -1143,7 +1143,7 @@ def target_help():
     """
     Provide help information for the SageMaker deployment client.
     """
-    help_str = """\
+    return """\
     For detailed documentation on the SageMaker deployment client, please visit
     https://mlflow.org/docs/latest/python_api/mlflow.sagemaker.html#mlflow.sagemaker.SageMakerDeploymentClient
 
@@ -1162,7 +1162,6 @@ def target_help():
     The `delete` command accepts configurations to archive a model instead of deleting, execute
     in asynchronous mode and timeout period.
     """
-    return help_str
 
 
 def _get_default_image_url(region_name):
@@ -2003,8 +2002,6 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         return config
 
     def _apply_custom_config(self, config, custom_config):
-        import json
-
         int_fields = {"instance_count", "timeout_seconds"}
         bool_fields = {"synchronous", "archive"}
         dict_fields = {"vpc_config", "data_capture_config", "tags", "env", "async_inference_config"}

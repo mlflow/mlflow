@@ -15,7 +15,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import developer_stable
 
 
-def run_local(target, name, model_uri, flavor=None, config=None):  # pylint: disable=W0613
+def run_local(target, name, model_uri, flavor=None, config=None):  # pylint: disable=unused-argument
     """
     .. Note::
         This function is kept here only for documentation purpose and not implementing the

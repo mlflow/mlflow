@@ -17,18 +17,24 @@ XGBoost (native) format
     https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 """
 import os
-import shutil
 import json
 import yaml
 import tempfile
 import logging
+import functools
 from copy import deepcopy
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.models import Model, ModelInputExample, infer_signature
+from mlflow.data.code_dataset_source import CodeDatasetSource
+from mlflow.data.numpy_dataset import from_numpy
+from mlflow.data.pandas_dataset import from_pandas
+from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.input_tag import InputTag
+from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature
+from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
@@ -44,6 +50,9 @@ from mlflow.utils.environment import (
     _PythonEnv,
 )
 from mlflow.utils.class_utils import _get_class_from_string
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATASET_CONTEXT,
+)
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
@@ -69,6 +78,7 @@ from mlflow.utils.autologging_utils import (
 )
 
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.tracking.context import registry as context_registry
 from mlflow.sklearn import _SklearnTrainingSession
 
 FLAVOR_NAME = "xgboost"
@@ -119,25 +129,8 @@ def save_model(
                        path when the model is loaded.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models.signature import infer_signature
-
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param signature: {{ signature }}
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param model_format: File format in which the model is to be saved.
@@ -153,6 +146,12 @@ def save_model(
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
+    if signature is None and input_example is not None:
+        wrapped_model = _XGBModelWrapper(xgb_model)
+        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+    elif signature is False:
+        signature = None
 
     if mlflow_model is None:
         mlflow_model = Model()
@@ -249,26 +248,8 @@ def log_model(
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
-
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models.signature import infer_signature
-
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param signature: {{ signature }}
+    :param input_example: {{ input_example }}
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
@@ -379,13 +360,14 @@ def autolog(
     log_input_examples=False,
     log_model_signatures=True,
     log_models=True,
+    log_datasets=True,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
     model_format="xgb",
-):  # pylint: disable=W0102,unused-argument
+):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from XGBoost to MLflow. Logs the following:
 
@@ -416,6 +398,8 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
+    :param log_datasets: If ``True``, train and validation dataset information is logged to MLflow
+                         Tracking if applicable. If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the XGBoost autologging integration. If ``False``,
                     enables the XGBoost autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -432,7 +416,6 @@ def autolog(
                                   The registered model is created if it does not already exist.
     :param model_format: File format in which the model is to be saved.
     """
-    import functools
     import xgboost
     import numpy as np
 
@@ -463,7 +446,7 @@ def autolog(
 
         original(self, *args, **kwargs)
 
-    def train_impl(_log_models, original, *args, **kwargs):
+    def train_impl(_log_models, _log_datasets, original, *args, **kwargs):
         def record_eval_results(eval_results, metrics_logger):
             """
             Create a callback function that records evaluation results.
@@ -573,15 +556,14 @@ def autolog(
                 ax.legend()
             fig.tight_layout()
 
-            tmpdir = tempfile.mkdtemp()
-            try:
-                # pylint: disable=undefined-loop-variable
-                filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.png")
-                fig.savefig(filepath)
-                mlflow.log_artifact(filepath)
-            finally:
-                plt.close(fig)
-                shutil.rmtree(tmpdir)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                try:
+                    # pylint: disable=undefined-loop-variable
+                    filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.png")
+                    fig.savefig(filepath)
+                    mlflow.log_artifact(filepath)
+                finally:
+                    plt.close(fig)
 
         autologging_client = MlflowAutologgingQueueingClient()
         # logging booster params separately to extract key/value pairs and make it easier to
@@ -617,6 +599,27 @@ def autolog(
         callbacks_index = all_arg_names.index("callbacks")
 
         run_id = mlflow.active_run().info.run_id
+
+        dtrain = args[1] if len(args) > 1 else kwargs.get("dtrain")
+
+        # Whether to automatically log the training dataset as a dataset artifact.
+        if _log_datasets and dtrain is not None:
+            try:
+                context_tags = context_registry.resolve_tags()
+                source = CodeDatasetSource(context_tags)
+
+                _log_xgboost_dataset(dtrain, source, "train", autologging_client)
+                evals = kwargs.get("evals")
+                if evals is not None:
+                    for d, name in evals:
+                        _log_xgboost_dataset(d, source, "eval", autologging_client, name)
+                dataset_logging_operations = autologging_client.flush(synchronous=False)
+                dataset_logging_operations.await_completion()
+            except Exception as e:
+                _logger.warning(
+                    "Failed to log dataset information to MLflow Tracking. Reason: %s", e
+                )
+
         with batch_metrics_logger(run_id) as metrics_logger:
             callback = record_eval_results(eval_results, metrics_logger)
             if num_pos_args >= callbacks_index + 1:
@@ -667,18 +670,13 @@ def autolog(
                 )
 
             if imp is not None:
-                tmpdir = tempfile.mkdtemp()
-                try:
+                with tempfile.TemporaryDirectory() as tmpdir:
                     filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.json")
                     with open(filepath, "w") as f:
                         json.dump(imp, f)
                     mlflow.log_artifact(filepath)
-                finally:
-                    shutil.rmtree(tmpdir)
 
         # dtrain must exist as the original train function already ran successfully
-        dtrain = args[1] if len(args) > 1 else kwargs.get("dtrain")
-
         # it is possible that the dataset was constructed before the patched
         #   constructor was applied, so we cannot assume the input_example_info exists
         input_example_info = getattr(dtrain, "input_example_info", None)
@@ -724,21 +722,31 @@ def autolog(
 
         return model
 
-    def train(_log_models, original, *args, **kwargs):
+    def train(_log_models, _log_datasets, original, *args, **kwargs):
         current_sklearn_session = _SklearnTrainingSession.get_current_session()
         if current_sklearn_session is None or current_sklearn_session.should_log():
-            return train_impl(_log_models, original, *args, **kwargs)
+            return train_impl(_log_models, _log_datasets, original, *args, **kwargs)
         else:
             return original(*args, **kwargs)
 
-    safe_patch(FLAVOR_NAME, xgboost, "train", functools.partial(train, log_models), manage_run=True)
+    safe_patch(
+        FLAVOR_NAME,
+        xgboost,
+        "train",
+        functools.partial(train, log_models, log_datasets),
+        manage_run=True,
+    )
     # The `train()` method logs XGBoost models as Booster objects. When using XGBoost
     # scikit-learn models, we want to save / log models as their model classes. So we turn
     # off the log_models functionality in the `train()` method patched to `xgboost.sklearn`.
     # Instead the model logging is handled in `fit_mlflow_sklearn()` in `mlflow.sklearn._autolog()`,
     # where models are logged as XGBoost scikit-learn models after the `fit()` method returns.
     safe_patch(
-        FLAVOR_NAME, xgboost.sklearn, "train", functools.partial(train, False), manage_run=True
+        FLAVOR_NAME,
+        xgboost.sklearn,
+        "train",
+        functools.partial(train, False, log_datasets),
+        manage_run=True,
     )
     safe_patch(FLAVOR_NAME, xgboost.DMatrix, "__init__", __init__)
 
@@ -750,6 +758,7 @@ def autolog(
         log_input_examples=log_input_examples,
         log_model_signatures=log_model_signatures,
         log_models=log_models,
+        log_datasets=log_datasets,
         disable=disable,
         exclusive=exclusive,
         disable_for_unsupported_versions=disable_for_unsupported_versions,
@@ -757,3 +766,36 @@ def autolog(
         max_tuning_runs=None,
         log_post_training_metrics=True,
     )
+
+
+def _log_xgboost_dataset(xgb_dataset, source, context, autologging_client, name=None):
+    import numpy as np
+    import pandas as pd
+    import xgboost as xgb
+    from scipy.sparse import issparse
+
+    # dmatrix has a get_data method added in 1.7. skip for earlier versions.
+    if Version(xgb.__version__) >= Version("1.7.0"):
+        data = xgb_dataset.get_data()
+        if isinstance(xgb_dataset, pd.DataFrame):
+            dataset = from_pandas(df=data, source=source, name=name)
+        elif issparse(data):
+            arr_data = data.toarray() if issparse(data) else data
+            dataset = from_numpy(features=arr_data, source=source, name=name)
+        elif isinstance(data, np.ndarray):
+            dataset = from_numpy(features=data, source=source, name=name)
+        else:
+            _logger.warning("Unrecognized dataset type %s. Dataset logging skipped.", type(data))
+            return
+
+        tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)]
+        dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
+
+        autologging_client.log_inputs(
+            run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
+        )
+    else:
+        _logger.warning(
+            "Unable to log dataset information to MLflow Tracking."
+            "XGBoost version must be >= 1.7.0"
+        )

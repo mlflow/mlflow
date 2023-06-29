@@ -894,14 +894,13 @@ class EndpointSummary:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "EndpointName": self.endpoint.endpoint_name,
             "CreationTime": self.endpoint.creation_time,
             "LastModifiedTime": self.endpoint.last_modified_time,
             "EndpointStatus": self.endpoint.status,
             "EndpointArn": self.arn,
         }
-        return response
 
 
 class EndpointDescription:
@@ -918,7 +917,7 @@ class EndpointDescription:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "EndpointName": self.endpoint.endpoint_name,
             "EndpointArn": self.arn,
             "EndpointConfigName": self.endpoint.config_name,
@@ -927,7 +926,6 @@ class EndpointDescription:
             "CreationTime": self.endpoint.creation_time,
             "LastModifiedTime": self.endpoint.last_modified_time,
         }
-        return response
 
 
 class EndpointConfig(TimestampedResource):
@@ -961,12 +959,11 @@ class EndpointConfigSummary:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "EndpointConfigName": self.config.config_name,
             "EndpointArn": self.arn,
             "CreationTime": self.config.creation_time,
         }
-        return response
 
 
 class EndpointConfigDescription:
@@ -982,14 +979,13 @@ class EndpointConfigDescription:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "EndpointConfigName": self.config.config_name,
             "EndpointConfigArn": self.arn,
             "ProductionVariants": self.config.production_variants,
             "CreationTime": self.config.creation_time,
             "AsyncInferenceConfig": self.config.async_inference_config,
         }
-        return response
 
 
 class Model(TimestampedResource):
@@ -1022,12 +1018,11 @@ class ModelSummary:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "ModelArn": self.arn,
             "ModelName": self.model.model_name,
             "CreationTime": self.model.creation_time,
         }
-        return response
 
 
 class ModelDescription:
@@ -1042,7 +1037,7 @@ class ModelDescription:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "ModelArn": self.arn,
             "ModelName": self.model.model_name,
             "PrimaryContainer": self.model.primary_container,
@@ -1050,7 +1045,6 @@ class ModelDescription:
             "VpcConfig": self.model.vpc_config if self.model.vpc_config else {},
             "CreationTime": self.model.creation_time,
         }
-        return response
 
 
 class TransformJobSummary:
@@ -1066,14 +1060,13 @@ class TransformJobSummary:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "TransformJobName": self.transform_job.job_name,
             "TransformJobArn": self.arn,
             "CreationTime": self.transform_job.creation_time,
             "LastModifiedTime": self.transform_job.last_modified_time,
             "TransformJobStatus": self.transform_job.status,
         }
-        return response
 
 
 class TransformJobDescription:
@@ -1089,7 +1082,7 @@ class TransformJobDescription:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "TransformJobName": self.transform_job.job_name,
             "TransformJobArn": self.arn,
             "CreationTime": self.transform_job.creation_time,
@@ -1097,7 +1090,6 @@ class TransformJobDescription:
             "TransformJobStatus": self.transform_job.status,
             "ModelName": self.transform_job.model_name,
         }
-        return response
 
 
 # Create a SageMaker backend for EC2 region: "us-west-2"

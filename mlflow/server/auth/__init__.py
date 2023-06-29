@@ -9,28 +9,43 @@ Usage
 
 import logging
 import uuid
-import os
-from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable
 
 from flask import Flask, request, make_response, Response, flash, render_template_string
 
-from mlflow import get_run, MlflowException
+from mlflow import MlflowException
+from mlflow.entities import Experiment
+from mlflow.entities.model_registry import RegisteredModel
 from mlflow.server import app
 from mlflow.server.auth.config import read_auth_config
 from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import get_permission, Permission, MANAGE
+from mlflow.server.auth.routes import (
+    HOME,
+    SIGNUP,
+    CREATE_USER,
+    GET_USER,
+    UPDATE_USER_PASSWORD,
+    UPDATE_USER_ADMIN,
+    DELETE_USER,
+    CREATE_EXPERIMENT_PERMISSION,
+    GET_EXPERIMENT_PERMISSION,
+    UPDATE_EXPERIMENT_PERMISSION,
+    DELETE_EXPERIMENT_PERMISSION,
+    CREATE_REGISTERED_MODEL_PERMISSION,
+    GET_REGISTERED_MODEL_PERMISSION,
+    UPDATE_REGISTERED_MODEL_PERMISSION,
+    DELETE_REGISTERED_MODEL_PERMISSION,
+)
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.handlers import (
-    _get_rest_path,
+    _get_request_message,
     _get_tracking_store,
+    _get_model_registry_store,
     catch_mlflow_exception,
     get_endpoints,
 )
-from mlflow.tracking._tracking_service.utils import (
-    _TRACKING_USERNAME_ENV_VAR,
-    _TRACKING_PASSWORD_ENV_VAR,
-)
+from mlflow.store.entities import PagedList
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     BAD_REQUEST,
@@ -58,6 +73,7 @@ from mlflow.protos.service_pb2 import (
     GetExperimentByName,
     LogModel,
     CreateExperiment,
+    SearchExperiments,
 )
 from mlflow.protos.model_registry_pb2 import (
     GetRegisteredModel,
@@ -79,50 +95,18 @@ from mlflow.protos.model_registry_pb2 import (
     DeleteRegisteredModelAlias,
     GetModelVersionByAlias,
     CreateRegisteredModel,
+    SearchRegisteredModels,
 )
-from mlflow.utils.proto_json_utils import parse_dict
-
-_AUTH_CONFIG_PATH_ENV_VAR = "MLFLOW_AUTH_CONFIG_PATH"
+from mlflow.utils.proto_json_utils import parse_dict, message_to_json
+from mlflow.utils.search_utils import SearchUtils
 
 _logger = logging.getLogger(__name__)
 
-
-def _get_auth_config_path():
-    return os.environ.get(
-        _AUTH_CONFIG_PATH_ENV_VAR, (Path(__file__).parent / "basic_auth.ini").resolve()
-    )
-
-
-auth_config_path = _get_auth_config_path()
-auth_config = read_auth_config(auth_config_path)
+auth_config = read_auth_config()
 store = SqlAlchemyStore()
 
 
-class ROUTES:
-    HOME = "/"
-    SIGNUP = "/signup"
-    CREATE_USER = _get_rest_path("/mlflow/users/create")
-    GET_USER = _get_rest_path("/mlflow/users/get")
-    UPDATE_USER_PASSWORD = _get_rest_path("/mlflow/users/update-password")
-    UPDATE_USER_ADMIN = _get_rest_path("/mlflow/users/update-admin")
-    DELETE_USER = _get_rest_path("/mlflow/users/delete")
-    CREATE_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/create")
-    GET_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/get")
-    UPDATE_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/update")
-    DELETE_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/delete")
-    CREATE_REGISTERED_MODEL_PERMISSION = _get_rest_path(
-        "/mlflow/registered-models/permissions/create"
-    )
-    GET_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/get")
-    UPDATE_REGISTERED_MODEL_PERMISSION = _get_rest_path(
-        "/mlflow/registered-models/permissions/update"
-    )
-    DELETE_REGISTERED_MODEL_PERMISSION = _get_rest_path(
-        "/mlflow/registered-models/permissions/delete"
-    )
-
-
-UNPROTECTED_ROUTES = [ROUTES.CREATE_USER, ROUTES.SIGNUP]
+UNPROTECTED_ROUTES = [CREATE_USER, SIGNUP]
 
 
 def is_unprotected_route(path: str) -> bool:
@@ -132,12 +116,12 @@ def is_unprotected_route(path: str) -> bool:
 
 
 def make_basic_auth_response() -> Response:
-    res = make_response()
-    res.status_code = 401
-    res.set_data(
-        "You are not authenticated. Please set the environment variables "
-        f"{_TRACKING_USERNAME_ENV_VAR} and {_TRACKING_PASSWORD_ENV_VAR}."
+    res = make_response(
+        "You are not authenticated. Please see "
+        "https://www.mlflow.org/docs/latest/auth/index.html#authenticating-to-mlflow "
+        "on how to authenticate."
     )
+    res.status_code = 401
     res.headers["WWW-Authenticate"] = 'Basic realm="mlflow"'
     return res
 
@@ -148,7 +132,7 @@ def make_forbidden_response() -> Response:
     return res
 
 
-def _get_request_param(param: str) -> Optional[str]:
+def _get_request_param(param: str) -> str:
     if request.method == "GET":
         args = request.args
     elif request.method in ("POST", "PATCH", "DELETE"):
@@ -160,6 +144,9 @@ def _get_request_param(param: str) -> Optional[str]:
         )
 
     if param not in args:
+        # Special handling for run_id
+        if param == "run_id":
+            return _get_request_param("run_uuid")
         raise MlflowException(
             f"Missing value for required parameter '{param}'. "
             "See the API docs for more information about request parameters.",
@@ -209,7 +196,7 @@ def _get_permission_from_run_id() -> Permission:
     # run permissions inherit from parent resource (experiment)
     # so we just get the experiment permission
     run_id = _get_request_param("run_id")
-    run = get_run(run_id)
+    run = _get_tracking_store().get_run(run_id)
     experiment_id = run.info.experiment_id
     username = request.authorization.username
     return _get_permission_from_store_or_default(
@@ -364,18 +351,18 @@ BEFORE_REQUEST_VALIDATORS = {
 
 BEFORE_REQUEST_VALIDATORS.update(
     {
-        (ROUTES.GET_USER, "GET"): validate_can_read_user,
-        (ROUTES.UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
-        (ROUTES.UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
-        (ROUTES.DELETE_USER, "DELETE"): validate_can_delete_user,
-        (ROUTES.GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
-        (ROUTES.CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
-        (ROUTES.UPDATE_EXPERIMENT_PERMISSION, "PATCH"): validate_can_manage_experiment,
-        (ROUTES.DELETE_EXPERIMENT_PERMISSION, "DELETE"): validate_can_manage_experiment,
-        (ROUTES.GET_REGISTERED_MODEL_PERMISSION, "GET"): validate_can_manage_registered_model,
-        (ROUTES.CREATE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
-        (ROUTES.UPDATE_REGISTERED_MODEL_PERMISSION, "PATCH"): validate_can_manage_registered_model,
-        (ROUTES.DELETE_REGISTERED_MODEL_PERMISSION, "DELETE"): validate_can_manage_registered_model,
+        (GET_USER, "GET"): validate_can_read_user,
+        (UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
+        (UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
+        (DELETE_USER, "DELETE"): validate_can_delete_user,
+        (GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
+        (CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
+        (UPDATE_EXPERIMENT_PERMISSION, "PATCH"): validate_can_manage_experiment,
+        (DELETE_EXPERIMENT_PERMISSION, "DELETE"): validate_can_manage_experiment,
+        (GET_REGISTERED_MODEL_PERMISSION, "GET"): validate_can_manage_registered_model,
+        (CREATE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
+        (UPDATE_REGISTERED_MODEL_PERMISSION, "PATCH"): validate_can_manage_registered_model,
+        (DELETE_REGISTERED_MODEL_PERMISSION, "DELETE"): validate_can_manage_registered_model,
     }
 )
 
@@ -427,9 +414,116 @@ def set_can_manage_registered_model_permission(resp: Response):
     store.create_registered_model_permission(name, username, MANAGE.name)
 
 
+def filter_search_experiments(resp: Response):
+    if sender_is_admin():
+        return
+
+    response_message = SearchExperiments.Response()
+    parse_dict(resp.json, response_message)
+
+    # fetch permissions
+    username = request.authorization.username
+    perms = store.list_experiment_permissions(username)
+    can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
+    default_can_read = get_permission(auth_config.default_permission).can_read
+
+    # filter out unreadable
+    for e in list(response_message.experiments):
+        if not can_read.get(e.experiment_id, default_can_read):
+            response_message.experiments.remove(e)
+
+    # re-fetch to fill max results
+    request_message = _get_request_message(SearchExperiments())
+    while (
+        len(response_message.experiments) < request_message.max_results
+        and response_message.next_page_token != ""
+    ):
+        refetched: PagedList[Experiment] = _get_tracking_store().search_experiments(
+            view_type=request_message.view_type,
+            max_results=request_message.max_results,
+            order_by=request_message.order_by,
+            filter_string=request_message.filter,
+            page_token=response_message.next_page_token,
+        )
+        refetched = refetched[: request_message.max_results - len(response_message.experiments)]
+        if len(refetched) == 0:
+            response_message.next_page_token = ""
+            break
+
+        refetched_readable_proto = [
+            e.to_proto() for e in refetched if can_read.get(e.experiment_id, default_can_read)
+        ]
+        response_message.experiments.extend(refetched_readable_proto)
+
+        # recalculate next page token
+        start_offset = SearchUtils.parse_start_offset_from_page_token(
+            response_message.next_page_token
+        )
+        final_offset = start_offset + len(refetched)
+        response_message.next_page_token = SearchUtils.create_page_token(final_offset)
+
+    resp.data = message_to_json(response_message)
+
+
+def filter_search_registered_models(resp: Response):
+    if sender_is_admin():
+        return
+
+    response_message = SearchRegisteredModels.Response()
+    parse_dict(resp.json, response_message)
+
+    # fetch permissions
+    username = request.authorization.username
+    perms = store.list_registered_model_permissions(username)
+    can_read = {p.name: get_permission(p.permission).can_read for p in perms}
+    default_can_read = get_permission(auth_config.default_permission).can_read
+
+    # filter out unreadable
+    for rm in list(response_message.registered_models):
+        if not can_read.get(rm.name, default_can_read):
+            response_message.registered_models.remove(rm)
+
+    # re-fetch to fill max results
+    request_message = _get_request_message(SearchRegisteredModels())
+    while (
+        len(response_message.registered_models) < request_message.max_results
+        and response_message.next_page_token != ""
+    ):
+        refetched: PagedList[
+            RegisteredModel
+        ] = _get_model_registry_store().search_registered_models(
+            filter_string=request_message.filter,
+            max_results=request_message.max_results,
+            order_by=request_message.order_by,
+            page_token=response_message.next_page_token,
+        )
+        refetched = refetched[
+            : request_message.max_results - len(response_message.registered_models)
+        ]
+        if len(refetched) == 0:
+            response_message.next_page_token = ""
+            break
+
+        refetched_readable_proto = [
+            rm.to_proto() for rm in refetched if can_read.get(rm.name, default_can_read)
+        ]
+        response_message.registered_models.extend(refetched_readable_proto)
+
+        # recalculate next page token
+        start_offset = SearchUtils.parse_start_offset_from_page_token(
+            response_message.next_page_token
+        )
+        final_offset = start_offset + len(refetched)
+        response_message.next_page_token = SearchUtils.create_page_token(final_offset)
+
+    resp.data = message_to_json(response_message)
+
+
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
+    SearchExperiments: filter_search_experiments,
+    SearchRegisteredModels: filter_search_registered_models,
 }
 
 
@@ -462,7 +556,7 @@ def create_admin_user(username, password):
         _logger.info(
             f"Created admin user '{username}'. "
             "It is recommended that you set a new password as soon as possible "
-            f"on {ROUTES.UPDATE_USER_PASSWORD}."
+            f"on {UPDATE_USER_PASSWORD}."
         )
 
 
@@ -555,7 +649,7 @@ def signup():
 </form>
 """,
         mlflow_logo=MLFLOW_LOGO,
-        users_route=ROUTES.CREATE_USER,
+        users_route=CREATE_USER,
     )
 
 
@@ -568,11 +662,11 @@ def create_user():
 
         if store.has_user(username):
             flash(f"Username has already been taken: {username}")
-            return alert(href=ROUTES.SIGNUP)
+            return alert(href=SIGNUP)
 
         store.create_user(username, password)
         flash(f"Successfully signed up user: {username}")
-        return alert(href=ROUTES.HOME)
+        return alert(href=HOME)
     elif content_type == "application/json":
         username = _get_request_param("username")
         password = _get_request_param("password")
@@ -601,17 +695,7 @@ def update_user_password():
 @catch_mlflow_exception
 def update_user_admin():
     username = _get_request_param("username")
-    is_admin_str = _get_request_param("is_admin").lower()
-    if is_admin_str == "true":
-        is_admin = True
-    elif is_admin_str == "false":
-        is_admin = False
-    else:
-        raise MlflowException(
-            f"Invalid parameter 'is_admin': '{is_admin_str}', "
-            "must be either 'true' or 'false' (case insensitive).",
-            INVALID_PARAMETER_VALUE,
-        )
+    is_admin = _get_request_param("is_admin")
     store.update_user(username, is_admin=is_admin)
     return make_response({})
 
@@ -691,11 +775,12 @@ def delete_registered_model_permission():
     return make_response({})
 
 
-def _enable_auth(app: Flask):
+def create_app(app: Flask = app):
     """
-    Enables authentication and authorization for the MLflow server.
+    A factory to enable authentication and authorization for the MLflow server.
 
     :param app: The Flask app to enable authentication and authorization for.
+    :return: The app with authentication and authorization enabled.
     """
     _logger.warning(
         "This feature is still experimental and may change in a future release without warning"
@@ -709,72 +794,72 @@ def _enable_auth(app: Flask):
     create_admin_user(auth_config.admin_username, auth_config.admin_password)
 
     app.add_url_rule(
-        rule=ROUTES.SIGNUP,
+        rule=SIGNUP,
         view_func=signup,
         methods=["GET"],
     )
     app.add_url_rule(
-        rule=ROUTES.CREATE_USER,
+        rule=CREATE_USER,
         view_func=create_user,
         methods=["POST"],
     )
     app.add_url_rule(
-        rule=ROUTES.GET_USER,
+        rule=GET_USER,
         view_func=get_user,
-        methods=["POST"],
+        methods=["GET"],
     )
     app.add_url_rule(
-        rule=ROUTES.UPDATE_USER_PASSWORD,
+        rule=UPDATE_USER_PASSWORD,
         view_func=update_user_password,
         methods=["PATCH"],
     )
     app.add_url_rule(
-        rule=ROUTES.UPDATE_USER_ADMIN,
+        rule=UPDATE_USER_ADMIN,
         view_func=update_user_admin,
         methods=["PATCH"],
     )
     app.add_url_rule(
-        rule=ROUTES.DELETE_USER,
+        rule=DELETE_USER,
         view_func=delete_user,
         methods=["DELETE"],
     )
     app.add_url_rule(
-        rule=ROUTES.CREATE_EXPERIMENT_PERMISSION,
+        rule=CREATE_EXPERIMENT_PERMISSION,
         view_func=create_experiment_permission,
         methods=["POST"],
     )
     app.add_url_rule(
-        rule=ROUTES.GET_EXPERIMENT_PERMISSION,
+        rule=GET_EXPERIMENT_PERMISSION,
         view_func=get_experiment_permission,
         methods=["GET"],
     )
     app.add_url_rule(
-        rule=ROUTES.UPDATE_EXPERIMENT_PERMISSION,
+        rule=UPDATE_EXPERIMENT_PERMISSION,
         view_func=update_experiment_permission,
         methods=["PATCH"],
     )
     app.add_url_rule(
-        rule=ROUTES.DELETE_EXPERIMENT_PERMISSION,
+        rule=DELETE_EXPERIMENT_PERMISSION,
         view_func=delete_experiment_permission,
         methods=["DELETE"],
     )
     app.add_url_rule(
-        rule=ROUTES.CREATE_REGISTERED_MODEL_PERMISSION,
+        rule=CREATE_REGISTERED_MODEL_PERMISSION,
         view_func=create_registered_model_permission,
         methods=["POST"],
     )
     app.add_url_rule(
-        rule=ROUTES.GET_REGISTERED_MODEL_PERMISSION,
+        rule=GET_REGISTERED_MODEL_PERMISSION,
         view_func=get_registered_model_permission,
         methods=["GET"],
     )
     app.add_url_rule(
-        rule=ROUTES.UPDATE_REGISTERED_MODEL_PERMISSION,
+        rule=UPDATE_REGISTERED_MODEL_PERMISSION,
         view_func=update_registered_model_permission,
         methods=["PATCH"],
     )
     app.add_url_rule(
-        rule=ROUTES.DELETE_REGISTERED_MODEL_PERMISSION,
+        rule=DELETE_REGISTERED_MODEL_PERMISSION,
         view_func=delete_registered_model_permission,
         methods=["DELETE"],
     )
@@ -782,5 +867,4 @@ def _enable_auth(app: Flask):
     app.before_request(_before_request)
     app.after_request(_after_request)
 
-
-_enable_auth(app)
+    return app

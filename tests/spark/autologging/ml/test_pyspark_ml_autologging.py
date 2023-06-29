@@ -62,9 +62,8 @@ MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
 
 @pytest.fixture(scope="module")
 def spark_session():
-    session = SparkSession.builder.master("local[*]").getOrCreate()
-    yield session
-    session.stop()
+    with SparkSession.builder.master("local[*]").getOrCreate() as session:
+        yield session
 
 
 @pytest.fixture(scope="module")
@@ -721,6 +720,61 @@ def test_gen_estimator_metadata(spark_session):  # pylint: disable=unused-argume
         metadata.uid_to_indexed_name_map[metadata.param_search_estimators[0].uid]
         == "CrossValidator"
     )
+
+
+@pytest.mark.parametrize("log_datasets", [True, False])
+def test_basic_post_training_datasets_autologging(dataset_iris_binomial, log_datasets):
+    mlflow.pyspark.ml.autolog(log_datasets=log_datasets)
+    estimator = LogisticRegression(maxIter=1, family="binomial", regParam=5.0, fitIntercept=False)
+
+    with mlflow.start_run() as run:
+        estimator.fit(dataset_iris_binomial)
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    if log_datasets:
+        assert len(dataset_inputs) == 1
+        assert dataset_inputs[0].dataset.source_type == "code"
+    else:
+        assert len(dataset_inputs) == 0
+
+
+def test_post_training_datasets_with_evaluate_autologging(dataset_iris_binomial):
+    mlflow.pyspark.ml.autolog(log_datasets=True, log_post_training_metrics=True)
+    estimator = LogisticRegression(maxIter=1, family="binomial", regParam=5.0, fitIntercept=False)
+    eval_dataset = dataset_iris_binomial.sample(fraction=0.3, seed=1)
+
+    with mlflow.start_run() as run:
+        model = estimator.fit(dataset_iris_binomial)
+        mce = MulticlassClassificationEvaluator(metricName="logLoss")
+        pred_result = model.transform(eval_dataset)
+        mce.evaluate(pred_result)
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 2
+    assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[1].tags[0].value == "eval"
+
+
+def test_post_training_datasets_without_explicit_run(dataset_iris_binomial):
+    mlflow.pyspark.ml.autolog(log_datasets=True, log_post_training_metrics=True)
+    estimator = LogisticRegression(maxIter=1, family="binomial", regParam=5.0, fitIntercept=False)
+    eval_dataset = dataset_iris_binomial.sample(fraction=0.3, seed=1)
+
+    model = estimator.fit(dataset_iris_binomial)
+    mce = MulticlassClassificationEvaluator(metricName="logLoss")
+    pred_result = model.transform(eval_dataset)
+    mce.evaluate(pred_result)
+
+    run_id = getattr(model, "_mlflow_run_id")
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 2
+    assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[1].tags[0].value == "eval"
 
 
 def test_basic_post_training_metric_autologging(dataset_iris_binomial):

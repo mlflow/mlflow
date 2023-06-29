@@ -2,6 +2,7 @@
 
 import inspect
 import time
+import sys
 import pytest
 from collections import namedtuple
 from unittest.mock import Mock, call
@@ -91,7 +92,7 @@ def start_run():
     mlflow.end_run()
 
 
-def dummy_fn(arg1, arg2="value2", arg3="value3"):  # pylint: disable=W0613
+def dummy_fn(arg1, arg2="value2", arg3="value3"):  # pylint: disable=unused-argument
     pass
 
 
@@ -110,7 +111,9 @@ log_test_args = [
 
 
 @pytest.mark.parametrize(("args", "kwargs", "expected"), log_test_args)
-def test_log_fn_args_as_params(args, kwargs, expected, start_run):  # pylint: disable=W0613
+def test_log_fn_args_as_params(
+    args, kwargs, expected, start_run
+):  # pylint: disable=unused-argument
     log_fn_args_as_params(dummy_fn, args, kwargs)
     client = MlflowClient()
     params = client.get_run(mlflow.active_run().info.run_id).data.params
@@ -119,7 +122,9 @@ def test_log_fn_args_as_params(args, kwargs, expected, start_run):  # pylint: di
         assert params[arg] == value
 
 
-def test_log_fn_args_as_params_ignores_unwanted_parameters(start_run):  # pylint: disable=W0613
+def test_log_fn_args_as_params_ignores_unwanted_parameters(
+    start_run,
+):  # pylint: disable=unused-argument
     args, kwargs, unlogged = ("arg1", {"arg2": "value"}, ["arg1", "arg2", "arg3"])
     log_fn_args_as_params(dummy_fn, args, kwargs, unlogged)
     client = MlflowClient()
@@ -154,8 +159,6 @@ def sample_function_to_patch(a, b):
 
 
 def test_wrap_patch_with_module():
-    import sys
-
     this_module = sys.modules[__name__]
 
     def new_sample_function(a, b):
@@ -214,7 +217,9 @@ def test_if_model_signature_inference_fails(logger):
     )
 
     assert input_example == "data"
-    assert signature is None
+    # When the signature inference fails but an input example is specified, `signature` is set
+    # to `False` to disable the automatic signature inference feature in `log_model` APIs.
+    assert signature is False
     logger.warning.assert_called_with("Failed to infer model signature: " + error_msg)
 
 

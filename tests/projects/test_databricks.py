@@ -26,6 +26,7 @@ from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
 )
 from mlflow.utils.uri import construct_db_uri_from_profile
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from tests import helper_functions
 from tests.integration.utils import invoke_cli_runner
 
@@ -46,9 +47,9 @@ def runs_cancel_mock():
 def runs_submit_mock():
     """Mocks the Jobs Runs Submit API request"""
     with mock.patch(
-        "mlflow.projects.databricks.DatabricksJobRunner._jobs_runs_submit"
+        "mlflow.projects.databricks.DatabricksJobRunner._jobs_runs_submit",
+        return_value={"run_id": "-1"},
     ) as runs_submit_mock:
-        runs_submit_mock.return_value = {"run_id": "-1"}
         yield runs_submit_mock
 
 
@@ -71,15 +72,15 @@ def databricks_cluster_mlflow_run_cmd_mock():
 
 
 @pytest.fixture()
-def cluster_spec_mock(tmpdir):
-    cluster_spec_handle = tmpdir.join("cluster_spec.json")
-    cluster_spec_handle.write(json.dumps({}))
+def cluster_spec_mock(tmp_path):
+    cluster_spec_handle = tmp_path.joinpath("cluster_spec.json")
+    cluster_spec_handle.write_text("{}")
     yield str(cluster_spec_handle)
 
 
 @pytest.fixture()
-def dbfs_root_mock(tmpdir):
-    yield str(tmpdir.join("dbfs-root"))
+def dbfs_root_mock(tmp_path):
+    yield str(tmp_path.joinpath("dbfs-root"))
 
 
 @pytest.fixture()
@@ -148,7 +149,7 @@ def run_databricks_project(cluster_spec, **kwargs):
 
 
 def test_upload_project_to_dbfs(
-    dbfs_root_mock, tmpdir, dbfs_path_exists_mock, upload_to_dbfs_mock
+    dbfs_root_mock, tmp_path, dbfs_path_exists_mock, upload_to_dbfs_mock
 ):  # pylint: disable=unused-argument
     # Upload project to a mock directory
     dbfs_path_exists_mock.return_value = False
@@ -158,7 +159,7 @@ def test_upload_project_to_dbfs(
     )
     # Get expected tar
     local_tar_path = os.path.join(dbfs_root_mock, dbfs_uri.split("/dbfs/")[1])
-    expected_tar_path = str(tmpdir.join("expected.tar.gz"))
+    expected_tar_path = str(tmp_path.joinpath("expected.tar.gz"))
     file_utils.make_tarfile(
         output_filename=expected_tar_path,
         source_dir=TEST_PROJECT_DIR,
@@ -212,7 +213,7 @@ def test_dbfs_path_exists_error_response_handling(response_mock):
 
 
 def test_run_databricks_validations(
-    tmpdir,
+    tmp_path,
     monkeypatch,
     cluster_spec_mock,
     dbfs_mocks,
@@ -226,7 +227,7 @@ def test_run_databricks_validations(
         "mlflow.projects.databricks.DatabricksJobRunner._databricks_api_request"
     ) as db_api_req_mock:
         # Test bad tracking URI
-        mlflow.set_tracking_uri(tmpdir.strpath)
+        mlflow.set_tracking_uri(tmp_path.as_uri())
         with pytest.raises(ExecutionException, match="MLflow tracking URI must be of"):
             run_databricks_project(cluster_spec_mock, synchronous=True)
         assert db_api_req_mock.call_count == 0
@@ -418,7 +419,7 @@ def test_get_tracking_uri_for_run():
     mlflow.set_tracking_uri("databricks://profile")
     assert databricks._get_tracking_uri_for_run() == "databricks"
     mlflow.set_tracking_uri(None)
-    with mock.patch.dict(os.environ, {mlflow.tracking._TRACKING_URI_ENV_VAR: "http://some-uri"}):
+    with mock.patch.dict(os.environ, {MLFLOW_TRACKING_URI.name: "http://some-uri"}):
         assert mlflow.tracking._tracking_service.utils.get_tracking_uri() == "http://some-uri"
 
 
@@ -470,9 +471,10 @@ def test_databricks_http_request_integration(get_config, request):
 
 @mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds")
 def test_run_databricks_failed(_):
-    with mock.patch("mlflow.utils.rest_utils.http_request") as m:
-        text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
-        m.return_value = mock.Mock(text=text, status_code=400)
+    text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request", return_value=mock.Mock(text=text, status_code=400)
+    ):
         runner = DatabricksJobRunner(construct_db_uri_from_profile("profile"))
         with pytest.raises(
             MlflowException, match="RESOURCE_DOES_NOT_EXIST: Node type not supported"

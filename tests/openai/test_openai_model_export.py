@@ -1,5 +1,6 @@
 import yaml
 import json
+import importlib
 from unittest import mock
 
 from pyspark.sql import SparkSession
@@ -20,6 +21,17 @@ from mlflow.openai.utils import (
 def spark():
     with SparkSession.builder.master("local[*]").getOrCreate() as s:
         yield s
+
+
+@pytest.fixture(autouse=True)
+def set_envs(monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "MLFLOW_TESTING": "true",
+            "OPENAI_API_KEY": "test",
+        }
+    )
+    importlib.reload(openai)
 
 
 def test_log_model():

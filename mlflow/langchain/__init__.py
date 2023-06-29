@@ -13,7 +13,7 @@ LangChain (native) format
 """
 import logging
 import os
-from typing import Dict, List, Union
+from typing import Any, Dict, List, Union
 
 import pandas as pd
 import cloudpickle
@@ -22,10 +22,9 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.environment_variables import _MLFLOW_OPENAI_TESTING
-from mlflow.models import Model, ModelInputExample
+from mlflow.environment_variables import _MLFLOW_TESTING
+from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -65,6 +64,17 @@ _AGENT_DATA_KEY = "agent_data"
 _TOOLS_DATA_FILE_NAME = "tools.pkl"
 _TOOLS_DATA_KEY = "tools_data"
 _MODEL_TYPE_KEY = "model_type"
+_UNSUPPORTED_MODEL_ERROR_MESSAGE = (
+    "MLflow langchain flavor only supports logging subclasses of "
+    "langchain.chains.base.Chain and langchain.agents.agent.AgentExecutor instances, "
+    "found {instance_type}"
+)
+_UNSUPPORTED_LLM_WARNING_MESSAGE = (
+    "MLflow does not guarantee support for LLMs outside of HuggingFaceHub and OpenAI, found %s"
+)
+_UNSUPPORTED_MODEL_WARNING_MESSAGE = (
+    "MLflow does not guarantee support for Chains outside of the subclasses of LLMChain, found %s"
+)
 
 
 def get_default_pip_requirements():
@@ -121,7 +131,7 @@ def save_model(
 
                       .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
+                        from mlflow.models import infer_signature
 
                         chain = LLMChain(llm=llm, prompt=prompt)
                         prediction = chain.run(input_str)
@@ -262,7 +272,7 @@ def log_model(
 
                       .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
+                        from mlflow.models import infer_signature
 
                         chain = LLMChain(llm=llm, prompt=prompt)
                         prediction = chain.run(input_str)
@@ -293,11 +303,10 @@ def log_model(
     import langchain
 
     if not isinstance(
-        lc_model, (langchain.chains.llm.LLMChain, langchain.agents.agent.AgentExecutor)
+        lc_model, (langchain.chains.base.Chain, langchain.agents.agent.AgentExecutor)
     ):
         raise mlflow.MlflowException.invalid_parameter_value(
-            "MLflow langchain flavor only supports logging langchain.chains.llm.LLMChain and "
-            + f"langchain.agents.agent.AgentExecutor instances, found {type(lc_model)}"
+            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(lc_model).__name__)
         )
 
     _SUPPORTED_LLMS = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
@@ -306,8 +315,7 @@ def log_model(
         and type(lc_model.llm) not in _SUPPORTED_LLMS
     ):
         logger.warning(
-            "MLflow does not guarantee support for LLMChains outside of HuggingFaceHub and "
-            "OpenAI, found %s",
+            _UNSUPPORTED_LLM_WARNING_MESSAGE,
             type(lc_model.llm).__name__,
         )
 
@@ -316,8 +324,7 @@ def log_model(
         and type(lc_model.agent.llm_chain.llm) not in _SUPPORTED_LLMS
     ):
         logger.warning(
-            "MLflow does not guarantee support for LLMChains outside of HuggingFaceHub and "
-            "OpenAI, found %s",
+            _UNSUPPORTED_LLM_WARNING_MESSAGE,
             type(lc_model.agent.llm_chain.llm).__name__,
         )
 
@@ -343,9 +350,9 @@ def _save_model(model, path):
     model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
     model_data_kwargs = {_MODEL_DATA_KEY: _MODEL_DATA_FILE_NAME}
 
-    if type(model) == langchain.chains.llm.LLMChain:
+    if isinstance(model, langchain.chains.llm.LLMChain):
         model.save(model_data_path)
-    elif type(model) == langchain.agents.agent.AgentExecutor:
+    elif isinstance(model, langchain.agents.agent.AgentExecutor):
         if model.agent and model.agent.llm_chain:
             model.agent.llm_chain.save(model_data_path)
 
@@ -372,10 +379,15 @@ def _save_model(model, path):
             json.dump(temp_dict, config_file, indent=4)
 
         model_data_kwargs[_AGENT_PRIMITIVES_DATA_KEY] = _AGENT_PRIMITIVES_FILE_NAME
+    elif isinstance(model, langchain.chains.base.Chain):
+        logger.warning(
+            _UNSUPPORTED_MODEL_WARNING_MESSAGE,
+            type(model).__name__,
+        )
+        model.save(model_data_path)
     else:
         raise mlflow.MlflowException.invalid_parameter_value(
-            "MLflow langchain flavor only supports logging langchain.chains.llm.LLMChain and "
-            + f"langchain.agents.agent.AgentExecutor instances, found {type(model)}"
+            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(model).__name__)
         )
 
     return model_data_kwargs
@@ -415,7 +427,7 @@ class _LangChainModelWrapper:
     def __init__(self, lc_model):
         self.lc_model = lc_model
 
-    def predict(self, data: Union[pd.DataFrame, List[Union[str, Dict[str, str]]]]) -> List[str]:
+    def predict(self, data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]]) -> List[str]:
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
         if isinstance(data, pd.DataFrame):
@@ -454,7 +466,7 @@ def _load_pyfunc(path):
     Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
     :param path: Local filesystem path to the MLflow Model with the ``langchain`` flavor.
     """
-    wrapper_cls = _TestLangChainWrapper if _MLFLOW_OPENAI_TESTING.get() else _LangChainModelWrapper
+    wrapper_cls = _TestLangChainWrapper if _MLFLOW_TESTING.get() else _LangChainModelWrapper
     return wrapper_cls(_load_model_from_local_fs(path))
 
 

@@ -113,8 +113,8 @@ def keras_model():
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return str(os.path.join(tmpdir.strpath, "model"))
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 def test_scoring_server_responds_to_malformed_json_input_with_error_code_and_message(

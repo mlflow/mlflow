@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { ReactWrapper } from 'enzyme';
 import { IntlProvider } from 'react-intl';
 import { Provider } from 'react-redux';
-import { StaticRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom-v5-compat';
 import { applyMiddleware, compose, createStore } from 'redux';
 import promiseMiddleware from 'redux-promise-middleware';
 import { mountWithIntl } from '../../../../../common/utils/TestUtils';
@@ -10,11 +10,16 @@ import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtu
 import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
 import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
 import { experimentRunsSelector } from '../../utils/experimentRuns.selector';
-import { GetExperimentRunsContextProvider } from '../../contexts/GetExperimentRunsContext';
 import {
   ExperimentViewRunsControlsActions,
   ExperimentViewRunsControlsActionsProps,
 } from './ExperimentViewRunsControlsActions';
+
+jest.mock('../../hooks/useFetchExperimentRuns', () => ({
+  useFetchExperimentRuns: jest.fn(() => ({
+    searchFacetsState: {},
+  })),
+}));
 
 jest.mock('./ExperimentViewRefreshButton', () => ({
   ExperimentViewRefreshButton: () => <div />,
@@ -54,6 +59,10 @@ const doMock = (additionalProps: Partial<ExperimentViewRunsControlsActionsProps>
       updateSearchFacets,
       searchFacetsState,
       viewState: DEFAULT_VIEW_STATE,
+      updateViewState: () => {},
+      sortOptions: [],
+      expandRows: false,
+      updateExpandRows: () => {},
       ...additionalProps,
     };
     return (
@@ -64,13 +73,11 @@ const doMock = (additionalProps: Partial<ExperimentViewRunsControlsActionsProps>
           compose(applyMiddleware(promiseMiddleware())),
         )}
       >
-        <StaticRouter location='/'>
-          <GetExperimentRunsContextProvider actions={{} as any}>
-            <IntlProvider locale='en'>
-              <ExperimentViewRunsControlsActions {...props} />
-            </IntlProvider>
-          </GetExperimentRunsContextProvider>
-        </StaticRouter>
+        <MemoryRouter>
+          <IntlProvider locale='en'>
+            <ExperimentViewRunsControlsActions {...props} />
+          </IntlProvider>
+        </MemoryRouter>
       </Provider>
     );
   };
@@ -112,6 +119,8 @@ describe('ExperimentViewRunsControlsFilters', () => {
         runsSelected: { '123': true },
         hiddenChildRunsSelected: {},
         columnSelectorVisible: false,
+        previewPaneVisible: false,
+        artifactViewState: {},
       },
     });
 
@@ -134,6 +143,8 @@ describe('ExperimentViewRunsControlsFilters', () => {
         runsSelected: { '123': true, '321': true },
         hiddenChildRunsSelected: {},
         columnSelectorVisible: false,
+        previewPaneVisible: false,
+        artifactViewState: {},
       },
     });
 
@@ -156,6 +167,8 @@ describe('ExperimentViewRunsControlsFilters', () => {
         runsSelected: { '123': true },
         hiddenChildRunsSelected: {},
         columnSelectorVisible: false,
+        previewPaneVisible: false,
+        artifactViewState: {},
       },
     });
 
@@ -169,6 +182,8 @@ describe('ExperimentViewRunsControlsFilters', () => {
         runsSelected: { '123': true, '321': true },
         hiddenChildRunsSelected: {},
         columnSelectorVisible: false,
+        previewPaneVisible: false,
+        artifactViewState: {},
       },
     });
 

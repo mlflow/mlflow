@@ -1,12 +1,29 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import thunk from 'redux-thunk';
 import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter } from 'react-router-dom-v5-compat';
 import Fixtures from '../utils/test-utils/Fixtures';
 import HomeView, { getFirstActiveExperiment } from './HomeView';
 import { mount } from 'enzyme';
+
+const mockNavigate = jest.fn();
+
+jest.mock('react-router-dom-v5-compat', () => ({
+  ...jest.requireActual('react-router-dom-v5-compat'),
+  Navigate: (props: any) => {
+    mockNavigate(props);
+    return null;
+  },
+}));
 
 const experiments = {
   1: Fixtures.createExperiment({ experiment_id: '1', name: '1', lifecycle_stage: 'deleted' }),
@@ -37,9 +54,9 @@ describe('HomeView', () => {
   test('should render with minimal props without exploding', () => {
     wrapper = mount(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <HomeView />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     expect(wrapper.length).toBe(1);
@@ -56,11 +73,12 @@ describe('HomeView', () => {
     });
     wrapper = mount(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <HomeView {...minimalProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
-    expect(window.location.pathname).toBe('/experiments/2');
+
+    expect(mockNavigate).toBeCalledWith({ replace: true, to: '/experiments/2' });
   });
 });

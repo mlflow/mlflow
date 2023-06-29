@@ -13,9 +13,10 @@ import logging
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from mlflow.entities import Param, RunTag, Metric
+from mlflow.entities.dataset_input import DatasetInput
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import chunk_list, _truncate_dict
@@ -26,6 +27,7 @@ from mlflow.utils.validation import (
     MAX_PARAM_VAL_LENGTH,
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_METRICS_PER_BATCH,
+    MAX_DATASETS_PER_BATCH,
 )
 from mlflow.utils.time_utils import get_current_time_millis
 
@@ -187,6 +189,16 @@ class MlflowAutologgingQueueingClient:
         params_arr = [Param(key, str(value)) for key, value in params.items()]
         self._get_pending_operations(run_id).enqueue(params=params_arr)
 
+    def log_inputs(
+        self, run_id: Union[str, PendingRunId], datasets: Optional[List[DatasetInput]]
+    ) -> None:
+        """
+        Enqueues a collection of Dataset to be logged to the run specified by `run_id`.
+        """
+        if datasets is None or len(datasets) == 0:
+            return
+        self._get_pending_operations(run_id).enqueue(datasets=datasets)
+
     def log_metrics(
         self,
         run_id: Union[str, PendingRunId],
@@ -332,6 +344,13 @@ class MlflowAutologgingQueueingClient:
                 self._try_operation(self._client.log_batch, run_id=run_id, metrics=metrics_batch)
             )
 
+        for datasets_batch in chunk_list(
+            pending_operations.datasets_queue, chunk_size=MAX_DATASETS_PER_BATCH
+        ):
+            operation_results.append(
+                self._try_operation(self._client.log_inputs, run_id=run_id, datasets=datasets_batch)
+            )
+
         if pending_operations.set_terminated:
             operation_results.append(
                 self._try_operation(
@@ -364,8 +383,17 @@ class _PendingRunOperations:
         self.params_queue = []
         self.tags_queue = []
         self.metrics_queue = []
+        self.datasets_queue = []
 
-    def enqueue(self, params=None, tags=None, metrics=None, create_run=None, set_terminated=None):
+    def enqueue(
+        self,
+        params=None,
+        tags=None,
+        metrics=None,
+        datasets=None,
+        create_run=None,
+        set_terminated=None,
+    ):
         """
         Enqueues a new pending logging operation for the associated MLflow Run.
         """
@@ -379,6 +407,7 @@ class _PendingRunOperations:
         self.params_queue += params or []
         self.tags_queue += tags or []
         self.metrics_queue += metrics or []
+        self.datasets_queue += datasets or []
 
 
 __all__ = [

@@ -49,13 +49,13 @@ describe('persistSearchFacets serializers and deserializers', () => {
   it('tests serializeLocalStorage', () => {
     const serializedObject = serializeFieldsToLocalStorage({
       orderByKey: 'column_name',
-      isComparingRuns: true,
+      compareRunsMode: 'CHART',
     });
 
     expect(serializedObject).toEqual(
       expect.objectContaining({
         orderByKey: 'column_name',
-        isComparingRuns: false,
+        compareRunsMode: undefined,
       }),
     );
   });

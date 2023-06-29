@@ -1,10 +1,23 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React, { Component, createRef } from 'react';
 import { FormattedMessage, injectIntl } from 'react-intl';
-import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
+import {
+  getExperiment,
+  getParams,
+  getRunInfo,
+  getRunTags,
+  getRunDatasets,
+} from '../reducers/Reducers';
 import { connect } from 'react-redux';
 import './RunView.css';
 import { HtmlTableView } from './HtmlTableView';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom-v5-compat';
 import Routes from '../routes';
 import ArtifactPage from './ArtifactPage';
 import { getLatestMetrics } from '../reducers/MetricReducer';
@@ -20,6 +33,13 @@ import { EditableNote } from '../../common/components/EditableNote';
 import { setTagApi, deleteTagApi } from '../actions';
 import { PageHeader, OverflowMenu } from '../../shared/building_blocks/PageHeader';
 import { Descriptions } from '../../common/components/Descriptions';
+import { ExperimentViewDatasetWithContext } from './experiment-page/components/runs/ExperimentViewDatasetWithContext';
+import { RunDatasetWithTags } from 'experiment-tracking/types';
+import {
+  DatasetWithRunType,
+  ExperimentViewDatasetDrawer,
+} from './experiment-page/components/runs/ExperimentViewDatasetDrawer';
+import { shouldEnableExperimentDatasetTracking } from '../../common/utils/FeatureUtils';
 
 type RunViewImplProps = {
   runUuid: string;
@@ -31,6 +51,7 @@ type RunViewImplProps = {
   params: any;
   tags: any;
   latestMetrics: any;
+  datasets: any;
   getMetricPagePath: (...args: any[]) => any;
   runDisplayName: string;
   runName: string;
@@ -53,6 +74,8 @@ export class RunViewImpl extends Component<RunViewImplProps, RunViewImplState> {
     showNoteEditor: false,
     showTags: Utils.getVisibleTagValues(this.props.tags).length > 0,
     isTagsRequestPending: false,
+    isDrawerOpen: false,
+    selectedDatasetWithRun: null,
   };
 
   formRef = createRef();
@@ -68,6 +91,14 @@ export class RunViewImpl extends Component<RunViewImplProps, RunViewImplState> {
 
   hideRenameRunModal = () => {
     this.setState({ showRunRenameModal: false });
+  };
+
+  setIsDrawerOpen = (isDrawerOpen: boolean) => {
+    this.setState({ isDrawerOpen });
+  };
+
+  setSelectedDatasetWithRun = (datasetWithRun: DatasetWithRunType) => {
+    this.setState({ selectedDatasetWithRun: datasetWithRun });
   };
 
   handleAddTag = (values: any) => {
@@ -260,11 +291,15 @@ export class RunViewImpl extends Component<RunViewImplProps, RunViewImplState> {
       params,
       tags,
       latestMetrics,
+      datasets,
       getMetricPagePath,
       modelVersions,
       notificationContextHolder,
+      runName,
+      experimentId,
     } = this.props;
-    const { showNoteEditor, isTagsRequestPending } = this.state;
+    const { showNoteEditor, isTagsRequestPending, isDrawerOpen, selectedDatasetWithRun } =
+      this.state;
     const noteInfo = NoteInfo.fromTags(tags);
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration = Utils.getDuration(run.getStartTime(), run.getEndTime());
@@ -499,6 +534,61 @@ export class RunViewImpl extends Component<RunViewImplProps, RunViewImplState> {
               showEditor={showNoteEditor}
             />
           </CollapsibleSection>
+          {shouldEnableExperimentDatasetTracking() && (
+            <CollapsibleSection
+              defaultCollapsed
+              title={this.renderSectionTitle(
+                this.props.intl.formatMessage({
+                  defaultMessage: 'Datasets',
+                  description:
+                    // eslint-disable-next-line max-len
+                    'Label for the collapsible area to display the datasets used during the experiment run',
+                }),
+                datasets ? datasets.length : 0,
+              )}
+              onChange={this.handleCollapseChange('parameters')}
+              data-test-id='run-parameters-section'
+            >
+              <div css={{ marginLeft: '16px' }}>
+                {datasets &&
+                  datasets.map((dataset: RunDatasetWithTags) => (
+                    <div
+                      key={`${dataset.dataset.name}-${dataset.dataset.digest}`}
+                      css={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Button
+                        type='link'
+                        css={{
+                          textAlign: 'left',
+                        }}
+                        onClick={() => {
+                          this.setSelectedDatasetWithRun({
+                            datasetWithTags: dataset,
+                            runData: {
+                              experimentId: experimentId,
+                              runUuid: runUuid,
+                              runName: runName,
+                              datasets: datasets,
+                              tags: tags,
+                            },
+                          });
+                          this.setIsDrawerOpen(true);
+                        }}
+                      >
+                        <ExperimentViewDatasetWithContext
+                          datasetWithTags={dataset}
+                          displayTextAsLink
+                        />
+                      </Button>
+                    </div>
+                  ))}
+              </div>
+            </CollapsibleSection>
+          )}
           <CollapsibleSection
             defaultCollapsed
             title={this.renderSectionTitle(
@@ -616,6 +706,14 @@ export class RunViewImpl extends Component<RunViewImplProps, RunViewImplState> {
           </CollapsibleSection>
         </div>
         {notificationContextHolder}
+        {selectedDatasetWithRun && (
+          <ExperimentViewDatasetDrawer
+            isOpen={isDrawerOpen}
+            setIsOpen={this.setIsDrawerOpen}
+            selectedDatasetWithRun={selectedDatasetWithRun}
+            setSelectedDatasetWithRun={this.setSelectedDatasetWithRun}
+          />
+        )}
       </div>
     );
   }
@@ -638,6 +736,7 @@ const mapStateToProps = (state: any, ownProps: any) => {
   const params = getParams(runUuid, state);
   const tags = getRunTags(runUuid, state);
   const latestMetrics = getLatestMetrics(runUuid, state);
+  const datasets = getRunDatasets(runUuid, state);
   const runDisplayName = Utils.getRunDisplayName(run, runUuid);
   // @ts-expect-error TS(2554): Expected 1 arguments, but got 2.
   const runName = Utils.getRunName(run, runUuid);
@@ -647,6 +746,7 @@ const mapStateToProps = (state: any, ownProps: any) => {
     params,
     tags,
     latestMetrics,
+    datasets,
     runDisplayName,
     runName,
     comparedExperimentIds,

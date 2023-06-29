@@ -3,17 +3,27 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn import datasets
+from sklearn.base import BaseEstimator, ClassifierMixin
+import sklearn.neighbors as knn
 from scipy.sparse import csr_matrix, csc_matrix
+from unittest import mock
 
-from mlflow.models.signature import infer_signature
+import mlflow
+from mlflow.models import Model
+from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import (
     _Example,
     _read_tensor_input_from_json,
     _read_sparse_matrix_from_json,
 )
+from mlflow.types import DataType
 from mlflow.types.utils import TensorsNotSupportedException
+from mlflow.types.schema import Schema, ColSpec, TensorSpec
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import dataframe_from_raw_json
+
+from tests.helper_functions import AnyStringWith
 
 
 @pytest.fixture
@@ -207,3 +217,171 @@ def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):
             np.testing.assert_array_equal(
                 no_schema_df, np.where(np.isnan(input_example), None, input_example)
             )
+
+
+class DummySklearnModel(BaseEstimator, ClassifierMixin):
+    def __init__(self, output_shape=(1,)):
+        self.output_shape = output_shape
+
+    def fit(self, X, y=None):
+        return self
+
+    def predict(self, X):
+        n_samples = X.shape[0]
+        full_output_shape = (n_samples,) + self.output_shape
+        return np.zeros(full_output_shape, dtype=np.dtype("int64"))
+
+
+@pytest.mark.parametrize(
+    ("input_is_tabular", "output_shape", "expected_signature"),
+    [
+        # When the input example is column-based, output 1D numpy arrays are interpretted `ColSpec`s
+        (
+            True,
+            (),
+            ModelSignature(
+                inputs=Schema([ColSpec(name="feature", type=DataType.string)]),
+                outputs=Schema([ColSpec(type=DataType.long)]),
+            ),
+        ),
+        # But if the output numpy array has higher dimensions, fallback to interpretting the model
+        # output as `TensorSpec`s.
+        (
+            True,
+            (2,),
+            ModelSignature(
+                inputs=Schema([ColSpec(name="feature", type=DataType.string)]),
+                outputs=Schema([TensorSpec(np.dtype("int64"), (-1, 2))]),
+            ),
+        ),
+        # If the input example is tensor-based, intrepret output numpy arrays as `TensorSpec`s
+        (
+            False,
+            (),
+            ModelSignature(
+                inputs=Schema([TensorSpec(np.dtype("int64"), (-1, 1))]),
+                outputs=Schema([TensorSpec(np.dtype("int64"), (-1,))]),
+            ),
+        ),
+    ],
+)
+def test_infer_signature_with_input_example(input_is_tabular, output_shape, expected_signature):
+    model = DummySklearnModel(output_shape=output_shape)
+    artifact_path = "model"
+    example = pd.DataFrame({"feature": ["value"]}) if input_is_tabular else np.array([[1]])
+
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(model, artifact_path=artifact_path, input_example=example)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    mlflow_model = Model.load(model_uri)
+    assert mlflow_model.signature == expected_signature
+
+
+def test_infer_signature_from_example_can_be_disabled():
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            DummySklearnModel(output_shape=()),
+            artifact_path=artifact_path,
+            input_example=np.array([[1]]),
+            signature=False,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    mlflow_model = Model.load(model_uri)
+    assert mlflow_model.signature is None
+
+
+def test_infer_signature_silently_fails():
+    class ErrorModel(BaseEstimator, ClassifierMixin):
+        def fit(self, X, y=None):
+            return self
+
+        def predict(self, X):
+            raise Exception("oh no!")
+
+    with mlflow.start_run(), mock.patch("mlflow.models.signature._logger.warning") as mock_warning:
+        mlflow.sklearn.log_model(ErrorModel(), artifact_path="model", input_example=np.array([[1]]))
+        mock_warning.assert_called_once_with(
+            AnyStringWith("Failed to infer the model signature from the input example."),
+            AnyStringWith("oh no!"),
+        )
+
+
+@pytest.fixture(scope="module")
+def iris_model():
+    X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+    return knn.KNeighborsClassifier().fit(X, y)
+
+
+@pytest.mark.parametrize(
+    "input_example",
+    [
+        {
+            "sepal length (cm)": 5.1,
+            "sepal width (cm)": 3.5,
+            "petal length (cm)": 1.4,
+            "petal width (cm)": 0.2,
+        },
+        [5.1, 3.5, 1.4, 0.2],
+        pd.DataFrame(
+            {
+                "sepal length (cm)": 5.1,
+                "sepal width (cm)": 3.5,
+                "petal length (cm)": 1.4,
+                "petal width (cm)": 0.2,
+            },
+            index=[0],
+        ),
+    ],
+)
+def test_infer_signature_on_multi_column_input_examples(input_example, iris_model):
+    artifact_path = "model"
+
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            iris_model, artifact_path=artifact_path, input_example=input_example
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    mlflow_model = Model.load(model_uri)
+    input_columns = mlflow_model.signature.inputs.inputs
+    assert len(input_columns) == 4
+    assert all(col.type == DataType.double for col in input_columns)
+    assert mlflow_model.signature.outputs == Schema([ColSpec(type=DataType.long)])
+
+
+@pytest.mark.parametrize(
+    "input_example",
+    ["some string", bytes([1, 2, 3])],
+)
+def test_infer_signature_on_scalar_input_examples(input_example):
+    class IdentitySklearnModel(BaseEstimator, ClassifierMixin):
+        def fit(self, X, y=None):
+            return self
+
+        def predict(self, X):
+            if isinstance(X, pd.DataFrame):
+                return X
+            raise Exception("Unsupported input type")
+
+    artifact_path = "model"
+
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            IdentitySklearnModel(), artifact_path=artifact_path, input_example=input_example
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    mlflow_model = Model.load(model_uri)
+    signature = mlflow_model.signature
+    assert isinstance(signature, ModelSignature)
+    assert signature.inputs.inputs[0].name == 0
+    t = DataType.string if isinstance(input_example, str) else DataType.binary
+    assert signature == ModelSignature(
+        inputs=Schema([ColSpec(name=0, type=t)]),
+        outputs=Schema([ColSpec(name=0, type=t)]),
+    )
+    # test that a single string still passes pyfunc schema enforcement
+    mlflow.pyfunc.load_model(model_uri).predict(input_example)

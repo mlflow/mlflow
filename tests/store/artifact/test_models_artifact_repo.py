@@ -10,14 +10,9 @@ from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow import MlflowClient
 
-
-MODELS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.models_artifact_repo"
-MODELS_ARTIFACT_REPOSITORY = MODELS_ARTIFACT_REPOSITORY_PACKAGE + ".ModelsArtifactRepository"
-WORKSPACE_MODELS_ARTIFACT_REPOSITORY = (
-    f"{MODELS_ARTIFACT_REPOSITORY_PACKAGE}.DatabricksModelsArtifactRepository"
-)
-UC_MODELS_ARTIFACT_REPOSITORY = (
-    f"{MODELS_ARTIFACT_REPOSITORY_PACKAGE}.UnityCatalogModelsArtifactRepository"
+from tests.store.artifact.constants import (
+    WORKSPACE_MODELS_ARTIFACT_REPOSITORY,
+    UC_MODELS_ARTIFACT_REPOSITORY,
 )
 
 
@@ -73,9 +68,9 @@ def test_models_artifact_repo_init_with_version_uri_and_not_using_databricks_reg
         "mlflow.store.artifact.utils.models.mlflow.get_registry_uri",
         return_value=non_databricks_uri,
     ), mock.patch(
-        "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository"
+        "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository",
+        return_value=None,
     ) as get_repo_mock:
-        get_repo_mock.return_value = None
         model_uri = "models:/MyModel/12"
         ModelsArtifactRepository(model_uri)
         get_repo_mock.assert_called_once_with(artifact_location)
@@ -102,9 +97,9 @@ def test_models_artifact_repo_init_with_stage_uri_and_not_using_databricks_regis
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     )
     with get_latest_versions_patch, get_model_version_download_uri_patch, mock.patch(
-        "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository"
+        "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository",
+        return_value=None,
     ) as get_repo_mock:
-        get_repo_mock.return_value = None
         ModelsArtifactRepository(model_uri)
         get_repo_mock.assert_called_once_with(artifact_location)
 

@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import { shallow } from 'enzyme';
 import { CreateExperimentModalImpl } from './CreateExperimentModal';
@@ -7,15 +14,12 @@ describe('CreateExperimentModal', () => {
   let wrapper: any;
   let instance;
   let minimalProps: any;
-  let location = {};
+
+  const navigate = jest.fn();
+
   const fakeExperimentId = 'fakeExpId';
   beforeEach(() => {
-    location = { search: 'initialSearchValue' };
-    const history = {
-      push: (url: any) => {
-        (location as any).search = url;
-      },
-    };
+    navigate.mockClear();
     minimalProps = {
       isOpen: false,
       onClose: jest.fn(),
@@ -25,7 +29,7 @@ describe('CreateExperimentModal', () => {
         return Promise.resolve(response);
       },
       searchExperimentsApi: () => Promise.resolve([]),
-      history: history,
+      navigate,
     };
     wrapper = shallow(<CreateExperimentModalImpl {...minimalProps} />);
   });
@@ -34,16 +38,16 @@ describe('CreateExperimentModal', () => {
     expect(wrapper.find(GenericInputModal).length).toBe(1);
     expect(wrapper.length).toBe(1);
   });
-  test('handleCreateExperiment redirects user to newly-created experiment page', (done) => {
+  test('handleCreateExperiment redirects user to newly-created experiment page', async () => {
     instance = wrapper.instance();
-    instance
-      .handleCreateExperiment({ experimentName: 'myNewExp', artifactLocation: 'artifactLoc' })
-      .then(() => {
-        expect((location as any).search).toEqual('/experiments/fakeExpId');
-        done();
-      });
+    await instance.handleCreateExperiment({
+      experimentName: 'myNewExp',
+      artifactLocation: 'artifactLoc',
+    });
+
+    expect(navigate).toBeCalledWith('/experiments/fakeExpId');
   });
-  test('handleCreateExperiment does not perform redirection if API requests fail', (done) => {
+  test('handleCreateExperiment does not perform redirection if API requests fail', async () => {
     const propsVals = [
       {
         ...minimalProps,
@@ -61,9 +65,8 @@ describe('CreateExperimentModal', () => {
       const payload = { experimentName: 'myNewExp', artifactLocation: 'artifactLoc' };
       testPromises.push(expect(instance.handleCreateExperiment(payload)).rejects.toThrow());
     });
-    Promise.all(testPromises).then(() => {
-      expect((location as any).search).toEqual('initialSearchValue');
-      done();
-    });
+    await Promise.all(testPromises);
+
+    expect(navigate).not.toBeCalled();
   });
 });

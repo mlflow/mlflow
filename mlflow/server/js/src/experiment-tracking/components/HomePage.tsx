@@ -1,5 +1,13 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
+import type { Dispatch } from 'redux';
 import qs from 'qs';
 import { searchExperimentsApi } from '../actions';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
@@ -7,17 +15,18 @@ import './HomePage.css';
 import HomeView from './HomeView';
 import { getUUID } from '../../common/utils/ActionUtils';
 import Routes from '../routes';
+import { withRouterNext } from '../../common/utils/withRouterNext';
+import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 
-type OwnHomePageImplProps = {
-  history?: Record<string, never>;
+type HomePageImplProps = {
   dispatchSearchExperimentsApi: (...args: any[]) => any;
   experimentIds?: string[];
   compareExperiments?: boolean;
 };
 
-type HomePageImplState = any;
-
-type HomePageImplProps = OwnHomePageImplProps & typeof HomePageImpl.defaultProps;
+type HomePageImplState = {
+  searchExperimentsRequestId: string;
+};
 
 export class HomePageImpl extends Component<HomePageImplProps, HomePageImplState> {
   static defaultProps = {
@@ -38,8 +47,6 @@ export class HomePageImpl extends Component<HomePageImplProps, HomePageImplState
   render() {
     const homeView = (
       <HomeView
-        // @ts-expect-error TS(2322): Type '{ history: Record<string, never> | undefined... Remove this comment to see the full error message
-        history={this.props.history}
         experimentIds={this.props.experimentIds}
         compareExperiments={this.props.compareExperiments}
       />
@@ -58,28 +65,30 @@ export class HomePageImpl extends Component<HomePageImplProps, HomePageImplState
   }
 }
 
-const mapStateToProps = (state: any, ownProps: any) => {
-  const { match } = ownProps;
-  if (match.url === '/') {
+const mapStateToProps = (
+  state: any,
+  { location, params }: WithRouterNextProps<{ experimentId: string }>,
+) => {
+  if (location.pathname === '/') {
     return {};
   }
 
-  if (match.url.startsWith('/experiments')) {
-    return { experimentIds: [match.params.experimentId], compareExperiments: false };
+  if (location.pathname.startsWith('/experiments')) {
+    return { experimentIds: [params.experimentId], compareExperiments: false };
   }
 
-  if (match.url.startsWith(Routes.compareExperimentsPageRoute)) {
-    const { location } = ownProps;
+  if (location.pathname.startsWith(Routes.compareExperimentsPageRoute)) {
     const searchValues = qs.parse(location.search, { ignoreQueryPrefix: true });
-    // @ts-expect-error TS(2345): Argument of type 'string | string[] | ParsedQs | P... Remove this comment to see the full error message
-    const experimentIds = JSON.parse(searchValues['experiments']);
-    return { experimentIds, compareExperiments: true };
+    if (searchValues['experiments']) {
+      const experimentIds = JSON.parse(searchValues['experiments'].toString());
+      return { experimentIds, compareExperiments: true };
+    }
   }
 
   return {};
 };
 
-const mapDispatchToProps = (dispatch: any) => {
+const mapDispatchToProps = (dispatch: Dispatch) => {
   return {
     dispatchSearchExperimentsApi: (requestId: any) => {
       return dispatch(searchExperimentsApi(requestId));
@@ -87,5 +96,4 @@ const mapDispatchToProps = (dispatch: any) => {
   };
 };
 
-// @ts-expect-error TS(2345): Argument of type 'typeof HomePageImpl' is not assi... Remove this comment to see the full error message
-export const HomePage = connect(mapStateToProps, mapDispatchToProps)(HomePageImpl);
+export const HomePage = withRouterNext(connect(mapStateToProps, mapDispatchToProps)(HomePageImpl));

@@ -1,5 +1,7 @@
 import logging
 import os
+import shutil
+import subprocess
 import numpy as np
 import pandas as pd
 from mlflow.recipes.cards import pandas_renderer
@@ -87,9 +89,6 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
         else:
             ip_display(HTML(data=html_data, filename=html_file_path))
     else:
-        import shutil
-        import subprocess
-
         # Use xdg-open in Linux environment
         if shutil.which("xdg-open") is not None:
             open_tool = shutil.which("xdg-open")
@@ -98,7 +97,14 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
         else:
             open_tool = None
 
-        if os.path.exists(html_file_path) and open_tool is not None:
+        if (
+            os.path.exists(html_file_path)
+            and open_tool is not None
+            # On Windows, attempting to clean up the card while it's being accessed by
+            # the process running `open_tool` results in a PermissionError. To avoid this,
+            # skip displaying the card.
+            and "GITHUB_ACTIONS" not in os.environ
+        ):
             _logger.info(f"Opening HTML file at: '{html_file_path}'")
             try:
                 subprocess.run([open_tool, html_file_path], check=True)

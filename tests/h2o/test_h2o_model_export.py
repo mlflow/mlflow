@@ -17,9 +17,11 @@ import mlflow.h2o
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
-from mlflow.models import Model, infer_signature
+from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types import DataType
+from mlflow.types.schema import Schema, ColSpec
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -53,14 +55,35 @@ def h2o_iris_model():
     return ModelWithData(model=h2o_gbm, inference_data=test)
 
 
-@pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(str(tmpdir), "model")
+@pytest.fixture(scope="module")
+def h2o_iris_model_signature():
+    return ModelSignature(
+        inputs=Schema(
+            [
+                ColSpec(name="feature1", type=DataType.double),
+                ColSpec(name="feature2", type=DataType.double),
+                ColSpec(name="target", type=DataType.string),
+            ]
+        ),
+        outputs=Schema(
+            [
+                ColSpec(name="predict", type=DataType.string),
+                ColSpec(name="Flower 0", type=DataType.double),
+                ColSpec(name="Flower 1", type=DataType.double),
+                ColSpec(name="Flower 2", type=DataType.double),
+            ]
+        ),
+    )
 
 
 @pytest.fixture
-def h2o_custom_env(tmpdir):
-    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
+
+
+@pytest.fixture
+def h2o_custom_env(tmp_path):
+    conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["h2o", "pytest"])
     return conda_env
 
@@ -84,17 +107,19 @@ def test_model_save_load(h2o_iris_model, model_path):
     )
 
 
-def test_signature_and_examples_are_saved_correctly(h2o_iris_model):
+def test_signature_and_examples_are_saved_correctly(h2o_iris_model, h2o_iris_model_signature):
     model = h2o_iris_model.model
-    signature_ = infer_signature(h2o_iris_model.inference_data.as_data_frame())
     example_ = h2o_iris_model.inference_data.as_data_frame().head(3)
-    for signature in (None, signature_):
+    for signature in (None, h2o_iris_model_signature):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
                 mlflow.h2o.save_model(model, path=path, signature=signature, input_example=example)
                 mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
+                if signature is None and example is None:
+                    assert mlflow_model.signature is None
+                else:
+                    assert mlflow_model.signature == h2o_iris_model_signature
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
@@ -170,13 +195,13 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(h2o_custom_env, saved_pip_req_path)
 
 
-def test_log_model_with_pip_requirements(h2o_iris_model, tmpdir):
+def test_log_model_with_pip_requirements(h2o_iris_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.h2o.log_model(h2o_iris_model.model, "model", pip_requirements=req_file.strpath)
+        mlflow.h2o.log_model(h2o_iris_model.model, "model", pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
         )
@@ -186,7 +211,7 @@ def test_log_model_with_pip_requirements(h2o_iris_model, tmpdir):
         mlflow.h2o.log_model(
             h2o_iris_model.model,
             "model",
-            pip_requirements=[f"-r {req_file.strpath}", "b"],
+            pip_requirements=[f"-r {req_file}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
@@ -195,7 +220,7 @@ def test_log_model_with_pip_requirements(h2o_iris_model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.h2o.log_model(
-            h2o_iris_model.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
+            h2o_iris_model.model, "model", pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -205,15 +230,15 @@ def test_log_model_with_pip_requirements(h2o_iris_model, tmpdir):
         )
 
 
-def test_log_model_with_extra_pip_requirements(h2o_iris_model, tmpdir):
+def test_log_model_with_extra_pip_requirements(h2o_iris_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.h2o.get_default_pip_requirements()
 
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.h2o.log_model(h2o_iris_model.model, "model", extra_pip_requirements=req_file.strpath)
+        mlflow.h2o.log_model(h2o_iris_model.model, "model", extra_pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
         )
@@ -221,7 +246,7 @@ def test_log_model_with_extra_pip_requirements(h2o_iris_model, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.h2o.log_model(
-            h2o_iris_model.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+            h2o_iris_model.model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
@@ -230,7 +255,7 @@ def test_log_model_with_extra_pip_requirements(h2o_iris_model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.h2o.log_model(
-            h2o_iris_model.model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+            h2o_iris_model.model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -364,3 +389,17 @@ def test_model_log_with_metadata(h2o_iris_model):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def test_model_log_with_signature_inference(h2o_iris_model, h2o_iris_model_signature):
+    artifact_path = "model"
+    example = h2o_iris_model.inference_data.as_data_frame().head(3)
+
+    with mlflow.start_run():
+        mlflow.h2o.log_model(
+            h2o_iris_model.model, artifact_path=artifact_path, input_example=example
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    mlflow_model = Model.load(model_uri)
+    assert mlflow_model.signature == h2o_iris_model_signature

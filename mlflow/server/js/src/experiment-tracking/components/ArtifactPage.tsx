@@ -1,7 +1,14 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import _ from 'lodash';
 import React, { Component } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { withRouter } from 'react-router';
+import { WithRouterNextProps, withRouterNext } from '../../common/utils/withRouterNext';
 import { ArtifactView } from './ArtifactView';
 import { Spinner } from '../../common/components/Spinner';
 import { listArtifactsApi } from '../actions';
@@ -167,10 +174,28 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
   }
 }
 
-const mapStateToProps = (state: any, ownProps: any) => {
-  const { runUuid, match } = ownProps;
+type ArtifactPageOwnProps = Omit<
+  ArtifactPageImplProps,
+  | 'apis'
+  | 'artifactRootUri'
+  | 'initialSelectedArtifactPath'
+  | 'listArtifactsApi'
+  | 'searchModelVersionsApi'
+>;
+
+const mapStateToProps = (state: any, ownProps: ArtifactPageOwnProps & WithRouterNextProps) => {
+  const { runUuid, location } = ownProps;
+  const currentPathname = location?.pathname || '';
+
+  const initialSelectedArtifactPathMatch = currentPathname.match(/\/artifactPath\/(.+)/);
+  // The dot ("*") parameter behavior is not stable between implementations
+  // so we'll extract the catch-all after /artifactPath, e.g.
+  // `/experiments/123/runs/321/artifactPath/models/requirements.txt`
+  // is getting transformed into
+  // `models/requirements.txt`
+  const initialSelectedArtifactPath = initialSelectedArtifactPathMatch?.[1] || undefined;
+
   const { apis } = state;
-  const { initialSelectedArtifactPath } = match.params;
   const artifactRootUri = getArtifactRootUri(runUuid, state);
 
   // Autoselect most recently created logged model
@@ -190,4 +215,4 @@ const mapDispatchToProps = {
 };
 
 export const ConnectedArtifactPage = connect(mapStateToProps, mapDispatchToProps)(ArtifactPageImpl);
-export default withRouter(ConnectedArtifactPage);
+export default withRouterNext(ConnectedArtifactPage);

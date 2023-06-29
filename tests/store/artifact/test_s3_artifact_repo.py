@@ -34,9 +34,9 @@ def teardown_function():
         del os.environ["MLFLOW_S3_UPLOAD_EXTRA_ARGS"]
 
 
-def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, tmpdir):
+def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, tmp_path):
     file_name = "test.txt"
-    file_path = os.path.join(str(tmpdir), file_name)
+    file_path = os.path.join(tmp_path, file_name)
     file_text = "Hello world!"
 
     with open(file_path, "w") as f:
@@ -48,9 +48,9 @@ def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, t
     assert downloaded_text == file_text
 
 
-def test_file_artifact_is_logged_with_content_metadata(s3_artifact_root, tmpdir):
+def test_file_artifact_is_logged_with_content_metadata(s3_artifact_root, tmp_path):
     file_name = "test.txt"
-    file_path = os.path.join(str(tmpdir), file_name)
+    file_path = os.path.join(tmp_path, file_name)
     file_text = "Hello world!"
 
     with open(file_path, "w") as f:
@@ -142,8 +142,10 @@ def test_s3_creds_passed_to_client(s3_artifact_root):
         )
 
 
-def test_file_artifacts_are_logged_with_content_metadata_in_batch(s3_artifact_root, tmpdir):
-    subdir_path = str(tmpdir.mkdir("subdir"))
+def test_file_artifacts_are_logged_with_content_metadata_in_batch(s3_artifact_root, tmp_path):
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    subdir_path = str(subdir)
     nested_path = os.path.join(subdir_path, "nested")
     os.makedirs(nested_path)
     path_a = os.path.join(subdir_path, "a.txt")
@@ -177,9 +179,11 @@ def test_file_artifacts_are_logged_with_content_metadata_in_batch(s3_artifact_ro
 
 
 def test_file_and_directories_artifacts_are_logged_and_downloaded_successfully_in_batch(
-    s3_artifact_root, tmpdir
+    s3_artifact_root, tmp_path
 ):
-    subdir_path = str(tmpdir.mkdir("subdir"))
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    subdir_path = str(subdir)
     nested_path = os.path.join(subdir_path, "nested")
     os.makedirs(nested_path)
     with open(os.path.join(subdir_path, "a.txt"), "w") as f:
@@ -216,9 +220,11 @@ def test_file_and_directories_artifacts_are_logged_and_downloaded_successfully_i
 
 
 def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_batch(
-    s3_artifact_root, tmpdir
+    s3_artifact_root, tmp_path
 ):
-    subdir_path = str(tmpdir.mkdir("subdir"))
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    subdir_path = str(subdir)
     nested_path = os.path.join(subdir_path, "nested")
     os.makedirs(nested_path)
     with open(os.path.join(subdir_path, "a.txt"), "w") as f:
@@ -247,11 +253,13 @@ def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_ba
 
 
 def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
-    s3_artifact_root, tmpdir
+    s3_artifact_root, tmp_path
 ):
     file_a_name = "a.txt"
     file_a_text = "A"
-    subdir_path = str(tmpdir.mkdir("subdir"))
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    subdir_path = str(subdir)
     nested_path = os.path.join(subdir_path, "nested")
     os.makedirs(nested_path)
     with open(os.path.join(nested_path, file_a_name), "w") as f:
@@ -267,11 +275,11 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_ro
 
 
 def test_download_file_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
-    s3_artifact_root, tmpdir
+    s3_artifact_root, tmp_path
 ):
     file_a_name = "a.txt"
     file_a_text = "A"
-    file_a_path = os.path.join(str(tmpdir), file_a_name)
+    file_a_path = os.path.join(tmp_path, file_a_name)
     with open(file_a_path, "w") as f:
         f.write(file_a_text)
 
@@ -309,8 +317,10 @@ def test_get_s3_file_upload_extra_args_invalid_json():
         S3ArtifactRepository.get_s3_file_upload_extra_args()
 
 
-def test_delete_artifacts(s3_artifact_root, tmpdir):
-    subdir_path = str(tmpdir.mkdir("subdir"))
+def test_delete_artifacts(s3_artifact_root, tmp_path):
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    subdir_path = str(subdir)
     nested_path = os.path.join(subdir_path, "nested")
     os.makedirs(nested_path)
     path_a = os.path.join(subdir_path, "a.txt")

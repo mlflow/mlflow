@@ -1,16 +1,6 @@
-import os
-
 import pytest
 
 import mlflow
-
-
-@pytest.fixture
-def tmp_wkdir(tmpdir):
-    initial_wkdir = os.getcwd()
-    os.chdir(str(tmpdir))
-    yield
-    os.chdir(initial_wkdir)
 
 
 @pytest.fixture

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { IntlProvider } from 'react-intl';
 import { Provider } from 'react-redux';
-import { StaticRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom-v5-compat';
 import { applyMiddleware, compose, createStore } from 'redux';
 import promiseMiddleware from 'redux-promise-middleware';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
@@ -10,7 +10,6 @@ import { experimentRunsSelector } from '../../utils/experimentRuns.selector';
 import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
 import { UpdateExperimentSearchFacetsFn } from '../../../../types';
 import { GetExperimentRunsContextProvider } from '../../contexts/GetExperimentRunsContext';
-import { useRunSortOptions } from '../../hooks/useRunSortOptions';
 
 const MOCK_EXPERIMENT = EXPERIMENT_RUNS_MOCK_STORE.entities.experimentsById['123456789'];
 
@@ -52,8 +51,6 @@ export const Default = () => {
     }
   };
 
-  const sortOptions = useRunSortOptions(['metric1'], ['param1']);
-
   return (
     <Provider
       store={createStore(
@@ -64,7 +61,7 @@ export const Default = () => {
       )}
     >
       <IntlProvider locale='en'>
-        <StaticRouter location='/'>
+        <MemoryRouter>
           <GetExperimentRunsContextProvider actions={MOCK_ACTIONS as any}>
             <div
               css={{
@@ -85,7 +82,6 @@ export const Default = () => {
                 // eslint-disable-next-line no-alert
                 window.alert('Downloading dummy CSV...');
               }}
-              sortOptions={sortOptions}
               requestError={null}
             />
             <div
@@ -108,7 +104,7 @@ export const Default = () => {
               ))}
             </div>
           </GetExperimentRunsContextProvider>
-        </StaticRouter>
+        </MemoryRouter>
       </IntlProvider>
     </Provider>
   );

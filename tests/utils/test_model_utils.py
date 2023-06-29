@@ -1,4 +1,5 @@
 import os
+import sys
 
 import pytest
 from sklearn import datasets
@@ -24,8 +25,8 @@ def sklearn_knn_model():
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(str(tmpdir), "model")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 def test_get_flavor_configuration_throws_exception_when_model_configuration_does_not_exist(
@@ -96,4 +97,10 @@ def test_add_code_to_system_path(sklearn_knn_model, model_path):
     # If this raises an exception it's because dummy_package.test imported
     # dummy_package.operator and not the built-in operator module. This only
     # happens if MLflow is misconfiguring the system path.
-    from dummy_package import base  # pylint: disable=W0611
+    from dummy_package import base  # pylint: disable=unused-import
+
+    # Ensure that the custom tests/utils/test_resources/dummy_package/pandas.py is not
+    # overwriting the 3rd party `pandas` package
+    assert "dummy_package" in sys.modules
+    assert "pandas" in sys.modules
+    assert "site-packages" in sys.modules["pandas"].__file__

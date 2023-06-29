@@ -177,7 +177,8 @@ def test_signature_and_examples_saved_correctly(
     data = prophet_model.data
     model = prophet_model.model
     horizon_df = future_horizon_df(model, FORECAST_HORIZON)
-    signature = infer_signature(data, model.predict(horizon_df)) if use_signature else None
+    signature_ = infer_signature(data, model.predict(horizon_df))
+    signature = signature_ if use_signature else None
     if use_example:
         example = data[0:5].copy(deep=False)
         example["y"] = pd.to_numeric(example["y"])  # cast to appropriate precision
@@ -185,7 +186,10 @@ def test_signature_and_examples_saved_correctly(
         example = None
     mlflow.prophet.save_model(model, path=model_path, signature=signature, input_example=example)
     mlflow_model = Model.load(model_path)
-    assert signature == mlflow_model.signature
+    if signature is None and example is None:
+        assert mlflow_model.signature is None
+    else:
+        assert mlflow_model.signature == signature_
     if example is None:
         assert mlflow_model.saved_input_example_info is None
     else:
@@ -388,9 +392,9 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 def test_pyfunc_serve_and_score(prophet_model):
     artifact_path = "model"
     with mlflow.start_run():
-        extra_pip_requirements = ["holidays!=0.25"] + (
-            ["pandas<2"] if Version(prophet.__version__) < Version("1.1") else []
-        )
+        extra_pip_requirements = (
+            ["holidays<=0.24"] if Version(prophet.__version__) <= Version("1.1.3") else []
+        ) + (["pandas<2"] if Version(prophet.__version__) < Version("1.1") else [])
         mlflow.prophet.log_model(
             prophet_model.model, artifact_path, extra_pip_requirements=extra_pip_requirements
         )
@@ -465,3 +469,17 @@ def test_model_log_with_metadata(prophet_model):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def test_model_log_with_signature_inference(prophet_model):
+    artifact_path = "model"
+    model = prophet_model.model
+    horizon_df = future_horizon_df(model, FORECAST_HORIZON)
+    signature = infer_signature(horizon_df, model.predict(horizon_df))
+
+    with mlflow.start_run():
+        mlflow.prophet.log_model(model, artifact_path=artifact_path, input_example=horizon_df)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    model_info = Model.load(model_uri)
+    assert model_info.signature == signature

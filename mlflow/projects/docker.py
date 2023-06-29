@@ -10,13 +10,14 @@ import subprocess
 import docker
 
 from mlflow import tracking
-from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.exceptions import ExecutionException
 from mlflow.projects.utils import MLFLOW_DOCKER_WORKDIR_PATH
 from mlflow.utils import process, file_utils
+from mlflow.utils.databricks_utils import get_databricks_env_vars
 from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_URI, MLFLOW_DOCKER_IMAGE_ID
 from mlflow.utils.file_utils import _handle_readonly_on_windows
 from mlflow.utils.git_utils import get_git_commit
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 
 _logger = logging.getLogger(__name__)
 
@@ -148,7 +149,7 @@ def get_docker_tracking_cmd_and_envs(tracking_uri):
     local_path, container_tracking_uri = _get_local_uri_or_none(tracking_uri)
     if local_path is not None:
         cmds = ["-v", f"{local_path}:{_MLFLOW_DOCKER_TRACKING_DIR_PATH}"]
-        env_vars[tracking._TRACKING_URI_ENV_VAR] = container_tracking_uri
+        env_vars[MLFLOW_TRACKING_URI.name] = container_tracking_uri
     env_vars.update(get_databricks_env_vars(tracking_uri))
     return cmds, env_vars
 

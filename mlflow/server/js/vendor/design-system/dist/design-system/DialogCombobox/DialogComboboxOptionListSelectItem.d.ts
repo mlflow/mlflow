@@ -7,6 +7,7 @@ export interface DialogComboboxOptionListSelectItemProps extends HTMLDataAttribu
     disabledReason?: React.ReactNode;
     children?: React.ReactNode;
     onChange?: (...args: any[]) => any;
+    _TYPE?: string;
 }
 export declare const DialogComboboxOptionListSelectItem: import("react").ForwardRefExoticComponent<DialogComboboxOptionListSelectItemProps & import("react").RefAttributes<HTMLDivElement>>;
 //# sourceMappingURL=DialogComboboxOptionListSelectItem.d.ts.map

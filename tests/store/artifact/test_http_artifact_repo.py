@@ -6,16 +6,16 @@ import pytest
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
-from mlflow.tracking._tracking_service.utils import (
-    _TRACKING_CLIENT_CERT_PATH_ENV_VAR,
-    _TRACKING_INSECURE_TLS_ENV_VAR,
-    _TRACKING_PASSWORD_ENV_VAR,
-    _TRACKING_SERVER_CERT_PATH_ENV_VAR,
-    _TRACKING_TOKEN_ENV_VAR,
-    _TRACKING_USERNAME_ENV_VAR,
-    _get_default_host_creds,
-)
+from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.environment_variables import (
+    MLFLOW_TRACKING_USERNAME,
+    MLFLOW_TRACKING_PASSWORD,
+    MLFLOW_TRACKING_TOKEN,
+    MLFLOW_TRACKING_INSECURE_TLS,
+    MLFLOW_TRACKING_SERVER_CERT_PATH,
+    MLFLOW_TRACKING_CLIENT_CERT_PATH,
+)
 
 
 @pytest.mark.parametrize("scheme", ["http", "https"])
@@ -72,20 +72,20 @@ def http_artifact_repo():
     ],
 )
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
-def test_log_artifact(http_artifact_repo, tmpdir, artifact_path, filename, expected_mime_type):
-    tmp_path = tmpdir.join(filename)
-    tmp_path.write("0")
+def test_log_artifact(http_artifact_repo, tmp_path, artifact_path, filename, expected_mime_type):
+    file_path = tmp_path.joinpath(filename)
+    file_path.write_text("0")
     with mock.patch(
         "mlflow.store.artifact.http_artifact_repo.http_request",
         return_value=MockResponse({}, 200),
     ) as mock_put:
-        http_artifact_repo.log_artifact(tmp_path, artifact_path)
-        paths = (artifact_path, tmp_path.basename) if artifact_path else (tmp_path.basename,)
+        http_artifact_repo.log_artifact(file_path, artifact_path)
+        paths = (artifact_path, file_path.name) if artifact_path else (file_path.name,)
         mock_put.assert_called_once_with(
             http_artifact_repo._host_creds,
             posixpath.join("/", *paths),
             "PUT",
-            data=FileObjectMatcher(tmp_path, "rb"),
+            data=FileObjectMatcher(str(file_path), "rb"),
             extra_headers={"Content-Type": expected_mime_type},
         )
 
@@ -94,23 +94,25 @@ def test_log_artifact(http_artifact_repo, tmpdir, artifact_path, filename, expec
         return_value=MockResponse({}, 400),
     ):
         with pytest.raises(Exception, match="request failed"):
-            http_artifact_repo.log_artifact(tmp_path, artifact_path)
+            http_artifact_repo.log_artifact(file_path, artifact_path)
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
-def test_log_artifacts(http_artifact_repo, tmpdir, artifact_path):
-    tmp_path_a = tmpdir.join("a.txt")
-    tmp_path_b = tmpdir.mkdir("dir").join("b.txt")
-    tmp_path_a.write("0")
-    tmp_path_b.write("1")
+def test_log_artifacts(http_artifact_repo, tmp_path, artifact_path):
+    tmp_path_a = tmp_path.joinpath("a.txt")
+    d = tmp_path.joinpath("dir")
+    d.mkdir()
+    tmp_path_b = d.joinpath("b.txt")
+    tmp_path_a.write_text("0")
+    tmp_path_b.write_text("1")
 
     with mock.patch.object(http_artifact_repo, "log_artifact") as mock_log_artifact:
-        http_artifact_repo.log_artifacts(tmpdir, artifact_path)
+        http_artifact_repo.log_artifacts(tmp_path, artifact_path)
         mock_log_artifact.assert_has_calls(
             [
-                mock.call(tmp_path_a.strpath, artifact_path),
+                mock.call(str(tmp_path_a), artifact_path),
                 mock.call(
-                    tmp_path_b.strpath,
+                    str(tmp_path_b),
                     posixpath.join(artifact_path, "dir") if artifact_path else "dir",
                 ),
             ],
@@ -121,7 +123,7 @@ def test_log_artifacts(http_artifact_repo, tmpdir, artifact_path):
         return_value=MockResponse({}, 400),
     ):
         with pytest.raises(Exception, match="request failed"):
-            http_artifact_repo.log_artifacts(tmpdir, artifact_path)
+            http_artifact_repo.log_artifacts(tmp_path, artifact_path)
 
 
 def test_list_artifacts(http_artifact_repo):
@@ -184,21 +186,20 @@ def read_file(path):
 
 
 @pytest.mark.parametrize("remote_file_path", ["a.txt", "dir/b.xtx"])
-def test_download_file(http_artifact_repo, tmpdir, remote_file_path):
+def test_download_file(http_artifact_repo, tmp_path, remote_file_path):
     with mock.patch(
         "mlflow.store.artifact.http_artifact_repo.http_request",
         return_value=MockStreamResponse("data", 200),
     ) as mock_get:
-        tmp_path = tmpdir.join(posixpath.basename(remote_file_path))
-        http_artifact_repo._download_file(remote_file_path, tmp_path)
+        file_path = tmp_path.joinpath(posixpath.basename(remote_file_path))
+        http_artifact_repo._download_file(remote_file_path, file_path)
         mock_get.assert_called_once_with(
             http_artifact_repo._host_creds,
             posixpath.join("/", remote_file_path),
             "GET",
             stream=True,
         )
-        with open(tmp_path) as f:
-            assert f.read() == "data"
+        assert file_path.read_text() == "data"
 
     with mock.patch(
         "mlflow.store.artifact.http_artifact_repo.http_request",
@@ -208,7 +209,7 @@ def test_download_file(http_artifact_repo, tmpdir, remote_file_path):
             http_artifact_repo._download_file(remote_file_path, tmp_path)
 
 
-def test_download_artifacts(http_artifact_repo, tmpdir):
+def test_download_artifacts(http_artifact_repo, tmp_path):
     # This test simulates downloading artifacts in the following structure:
     # ---------
     # - a.txt
@@ -250,9 +251,9 @@ def test_download_artifacts(http_artifact_repo, tmpdir):
             raise Exception("Unreachable")
 
     with mock.patch("mlflow.store.artifact.http_artifact_repo.http_request", http_request):
-        http_artifact_repo.download_artifacts("", tmpdir)
-        paths = [os.path.join(root, f) for root, _, files in os.walk(tmpdir) for f in files]
-        assert [os.path.relpath(p, tmpdir) for p in paths] == [
+        http_artifact_repo.download_artifacts("", tmp_path)
+        paths = [os.path.join(root, f) for root, _, files in os.walk(tmp_path) for f in files]
+        assert [os.path.relpath(p, tmp_path) for p in paths] == [
             "a.txt",
             os.path.join("dir", "b.txt"),
         ]
@@ -284,12 +285,12 @@ def test_default_host_creds():
     with mock.patch.dict(
         "mlflow.tracking._tracking_service.utils.os.environ",
         {
-            _TRACKING_USERNAME_ENV_VAR: username,
-            _TRACKING_PASSWORD_ENV_VAR: password,
-            _TRACKING_TOKEN_ENV_VAR: token,
-            _TRACKING_INSECURE_TLS_ENV_VAR: str(ignore_tls_verification),
-            _TRACKING_CLIENT_CERT_PATH_ENV_VAR: client_cert_path,
-            _TRACKING_SERVER_CERT_PATH_ENV_VAR: server_cert_path,
+            MLFLOW_TRACKING_USERNAME.name: username,
+            MLFLOW_TRACKING_PASSWORD.name: password,
+            MLFLOW_TRACKING_TOKEN.name: token,
+            MLFLOW_TRACKING_INSECURE_TLS.name: str(ignore_tls_verification),
+            MLFLOW_TRACKING_CLIENT_CERT_PATH.name: client_cert_path,
+            MLFLOW_TRACKING_SERVER_CERT_PATH.name: server_cert_path,
         },
     ):
         assert repo._host_creds == expected_host_creds

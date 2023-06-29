@@ -22,6 +22,7 @@ import queue
 import time
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict, List, Union
 
 import langchain
 import mlflow
@@ -68,7 +69,7 @@ class APIRequest:
     """
 
     index: int
-    lc_model: langchain.chains.llm.LLMChain
+    lc_model: langchain.chains.base.Chain
     request_json: dict
     results: list[tuple[int, str]]
 
@@ -90,7 +91,7 @@ class APIRequest:
 
 def process_api_requests(
     lc_model,
-    requests: list[dict[str, any]] = None,
+    requests: List[Union[str, Dict[str, Any]]] = None,
     max_workers: int = 10,
 ):
     """

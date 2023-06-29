@@ -18,7 +18,8 @@ jobs:
 
   build_doc:
     docker:
-      - image: cimg/python:3.8
+      # Pin to 3.8.16 to avoid https://github.com/mlflow/mlflow/issues/8635
+      - image: cimg/python:3.8.16
 
     steps:
       - checkout

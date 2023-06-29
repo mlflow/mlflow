@@ -1,6 +1,5 @@
 import { isArray, isObject } from 'lodash';
 import QueryString, { IParseOptions } from 'qs';
-import { shouldUseNextRunsComparisonUI } from '../../../../common/utils/FeatureUtils';
 import LocalStorageUtils from '../../../../common/utils/LocalStorageUtils';
 import Utils from '../../../../common/utils/Utils';
 
@@ -11,10 +10,6 @@ import {
   serializeFieldsToLocalStorage,
   serializeFieldsToQueryString,
 } from './persistSearchFacets.serializers';
-
-// Let's enable serialization/deserialization mechanism basing on the same feature flag
-// as next-gen runs comparison UI since the features are related
-const shouldUseStateSerializer = () => shouldUseNextRunsComparisonUI();
 
 const KNOWN_STATE_KEYS = Object.keys(new SearchExperimentRunsFacetsState());
 
@@ -68,9 +63,7 @@ function validateFacetsState(model: Partial<SearchExperimentRunsFacetsState>) {
 function persistLocalStorage(data: Partial<SearchExperimentRunsFacetsState>, idKey: string) {
   // TODO: decide if we want to use LocalStorageUtils store or fall back to direct use of localStorage
   const localStorageInstance = LocalStorageUtils.getStoreForComponent('ExperimentPage', idKey);
-  const sortFilterModelToSave = shouldUseStateSerializer()
-    ? serializeFieldsToLocalStorage(data)
-    : data;
+  const sortFilterModelToSave = serializeFieldsToLocalStorage(data);
   localStorageInstance.saveComponentState(sortFilterModelToSave);
 }
 
@@ -80,9 +73,7 @@ function persistLocalStorage(data: Partial<SearchExperimentRunsFacetsState>, idK
 function createPersistedQueryString(
   sortFilterModelToSave: Partial<SearchExperimentRunsFacetsState> & { experiments?: any },
 ) {
-  const serializedSortFilterModelToSave = shouldUseStateSerializer()
-    ? serializeFieldsToQueryString(sortFilterModelToSave)
-    : sortFilterModelToSave;
+  const serializedSortFilterModelToSave = serializeFieldsToQueryString(sortFilterModelToSave);
 
   return QueryString.stringify(serializedSortFilterModelToSave, {
     addQueryPrefix: true,
@@ -151,9 +142,7 @@ export function restoreExperimentSearchFacetsState(locationSearch: string, idKey
     const localStorageInstance = LocalStorageUtils.getStoreForComponent('ExperimentPage', idKey);
     const rawLocalStorageValue = localStorageInstance.loadComponentState();
     if (validateFacetsState(rawLocalStorageValue)) {
-      const localStorageValue = shouldUseStateSerializer()
-        ? deserializeFieldsFromLocalStorage(rawLocalStorageValue)
-        : rawLocalStorageValue;
+      const localStorageValue = deserializeFieldsFromLocalStorage(rawLocalStorageValue);
       // Merge it with the base state only if it's valid
       baseState = mergeFacetsStates(baseState, localStorageValue);
     }
@@ -178,9 +167,7 @@ export function restoreExperimentSearchFacetsState(locationSearch: string, idKey
   });
   const { restData, stateData } = extractExperimentSearchFacetsState(rawUrlData);
 
-  const transformedStateData = shouldUseStateSerializer()
-    ? deserializeFieldsFromQueryString(stateData)
-    : stateData;
+  const transformedStateData = deserializeFieldsFromQueryString(stateData);
 
   // If the is at least one relevant query params in URL, take URL into consideration.
   const isURLStateEmpty = Object.keys(transformedStateData).length < 1;
@@ -194,11 +181,6 @@ export function restoreExperimentSearchFacetsState(locationSearch: string, idKey
 
   // Step 4: persist combined state again
   persistLocalStorage(baseState, idKey);
-
-  // Make it impossible to use comparing runs mode if flag is disabled
-  if (!shouldUseNextRunsComparisonUI()) {
-    baseState.isComparingRuns = false;
-  }
 
   return {
     state: baseState,

@@ -8,6 +8,11 @@ export interface DialogComboboxContextType {
     setIsControlled: (isControlled: boolean) => void;
     stayOpenOnSelection?: boolean;
     setIsOpen: (isOpen: boolean) => void;
+    emptyText?: string;
+    contentWidth: number | string | undefined;
+    setContentWidth: (width: number | string | undefined) => void;
+    textOverflowMode: 'ellipsis' | 'multiline';
+    setTextOverflowMode: (mode: 'ellipsis' | 'multiline') => void;
 }
 export declare const DialogComboboxContext: import("react").Context<DialogComboboxContextType>;
 export declare const DialogComboboxContextProvider: ({ children, value, }: {

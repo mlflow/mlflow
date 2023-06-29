@@ -9,6 +9,7 @@ export const EXPERIMENT_FIELD_PREFIX_METRIC = '$$$metric$$$';
 export const EXPERIMENT_FIELD_PREFIX_TAG = '$$$tag$$$';
 export const EXPERIMENT_PARENT_ID_TAG = 'mlflow.parentRunId';
 export const EXPERIMENT_LOG_MODEL_HISTORY_TAG = 'mlflow.log-model.history';
+export const EXPERIMENT_RUNS_TABLE_ROW_HEIGHT = 32;
 
 export enum RUNS_VISIBILITY_MODE {
   'SHOWALL' = 'SHOWALL',
@@ -81,10 +82,6 @@ export const downloadRunsCsv = (
  * Function used for preparing values for "created" (start time) runs filter.
  */
 export const getStartTimeColumnDisplayName = (intl: IntlShape) => ({
-  ALL: intl.formatMessage({
-    defaultMessage: 'All time',
-    description: 'Option for the start select dropdown to render all runs',
-  }),
   LAST_HOUR: intl.formatMessage({
     defaultMessage: 'Last hour',
     description: 'Option for the start select dropdown to filter runs from the last hour',

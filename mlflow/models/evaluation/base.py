@@ -4,6 +4,9 @@ import mlflow
 import hashlib
 import json
 import os
+import signal
+from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.input_tag import InputTag
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.client import MlflowClient
 from contextlib import contextmanager
@@ -14,8 +17,10 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.class_utils import _get_class_from_string
+from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.string_utils import generate_feature_name_if_not_string
 from mlflow.utils.proto_json_utils import NumpyEncoder
+from mlflow.data.dataset import Dataset
 from mlflow.models.evaluation.validation import (
     _MetricValidationResult,
     MetricThreshold,
@@ -38,13 +43,23 @@ _logger = logging.getLogger(__name__)
 class _ModelType:
     REGRESSOR = "regressor"
     CLASSIFIER = "classifier"
+    QUESTION_ANSWERING = "question-answering"
+    TEXT_SUMMARIZATION = "text-summarization"
+    TEXT = "text"
+    # TODO: Add 'retrieval' model type
 
     def __init__(self):
         raise NotImplementedError("This class is not meant to be instantiated.")
 
     @classmethod
     def values(cls):
-        return (cls.REGRESSOR, cls.CLASSIFIER)
+        return (
+            cls.REGRESSOR,
+            cls.CLASSIFIER,
+            cls.QUESTION_ANSWERING,
+            cls.TEXT_SUMMARIZATION,
+            cls.TEXT,
+        )
 
 
 class EvaluationMetric:
@@ -408,6 +423,8 @@ class EvaluationDataset:
         self._supported_dataframe_types = (pd.DataFrame,)
         self._spark_df_type = None
         self._labels_data = None
+        self._targets_name = None
+        self._has_targets = False
 
         try:
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
@@ -427,6 +444,8 @@ class EvaluationDataset:
             )
 
         has_targets = targets is not None
+        if has_targets:
+            self._has_targets = True
         if isinstance(data, (np.ndarray, list)):
             if has_targets and not isinstance(targets, (np.ndarray, list)):
                 raise MlflowException(
@@ -504,6 +523,7 @@ class EvaluationDataset:
 
             if has_targets:
                 self._labels_data = data[targets].to_numpy()
+                self._targets_name = targets
 
             if feature_names is not None:
                 self._features_data = data[list(feature_names)]
@@ -511,6 +531,8 @@ class EvaluationDataset:
             else:
                 if has_targets:
                     self._features_data = data.drop(targets, axis=1, inplace=False)
+                else:
+                    self._features_data = data
                 self._feature_names = [
                     generate_feature_name_if_not_string(c) for c in self._features_data.columns
                 ]
@@ -547,6 +569,20 @@ class EvaluationDataset:
         return labels data as a numpy array
         """
         return self._labels_data
+
+    @property
+    def has_targets(self):
+        """
+        Returns True if the dataset has targets, False otherwise.
+        """
+        return self._has_targets
+
+    @property
+    def targets_name(self):
+        """
+        return targets name
+        """
+        return self._targets_name
 
     @property
     def name(self):
@@ -1044,6 +1080,32 @@ def evaluate(
           true_negatives/false_positives/false_negatives/true_positives/recall/precision/roc_auc,
           precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
 
+     - For question-answering models, the default evaluator logs:
+        - **metrics**: ``exact_match``.
+        - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
+          argument is supplied) of the model in tabular format.
+
+     - For text-summarization models, the default evaluator logs:
+        - **metrics**: `ROUGE`_ (requires `evaluate`_, `nltk`_, and `rouge_score` to be installed).
+        - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
+          argument is supplied) of the model in the tabular format.
+
+        .. _ROUGE:
+            https://huggingface.co/spaces/evaluate-metric/rouge
+
+        .. _evaluate:
+            https://pypi.org/project/evaluate
+
+        .. _nltk:
+            https://pypi.org/project/nltk
+
+        .. _rouge_score:
+            https://pypi.org/project/rouge-score
+
+     - For text models, the default evaluator logs:
+        - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
+          argument is supplied) of the model in tabular format.
+
      - For sklearn models, the default evaluator additionally logs the model's evaluation criterion
        (e.g. mean accuracy for a classifier) computed by `model.score` method.
 
@@ -1132,12 +1194,28 @@ def evaluate(
                    are regarded as feature columns. If it is Spark DataFrame, only the first 10000
                    rows in the Spark DataFrame will be used as evaluation data.
 
+                 - A :py:class`mlflow.data.dataset.Dataset` instance containing evaluation features
+                   and labels.
+
     :param targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
                     labels. If ``data`` is a DataFrame, the string name of a column from ``data``
-                    that contains evaluation labels.
+                    that contains evaluation labels. Required for classifier and regressor models,
+                    but optional for question-answering, text-summarization, and text models. If
+                    ``data`` is a :py:class`mlflow.data.dataset.Dataset` that defines targets,
+                    then ``targets`` is optional.
 
     :param model_type: A string describing the model type. The default evaluator
-                       supports ``"regressor"`` and ``"classifier"`` as model types.
+                       supports the following model types:
+
+                       - ``'classifier'``
+                       - ``'regressor'``
+                       - ``'question-answering'``
+                       - ``'text-summarization'``
+                       - ``'text'``
+
+                       .. note::
+                            ``'question-answering'``, ``'text-summarization'``, and ``'text'``
+                            are experimental and may be changed or removed in a future release.
 
     :param dataset_path: (Optional) The path where the data is stored. Must not contain double
                          quotes (``“``). If specified, the path is logged to the ``mlflow.datasets``
@@ -1306,17 +1384,27 @@ def evaluate(
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              metrics of candidate model and baseline model, and artifacts of candidate model.
     '''
-    import signal
     from mlflow.pyfunc import PyFuncModel, _ServedPyFuncModel, _load_model_or_server
     from mlflow.utils import env_manager as _EnvManager
 
     _EnvManager.validate(env_manager)
 
-    if model_type in [_ModelType.REGRESSOR, _ModelType.CLASSIFIER] and targets is None:
-        raise MlflowException(
-            f"The targets argument must be specified for {model_type} models.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+    if model_type in [_ModelType.REGRESSOR, _ModelType.CLASSIFIER]:
+        if isinstance(data, Dataset):
+            if getattr(data, "targets", None) is not None:
+                targets = data.targets
+            else:
+                raise MlflowException(
+                    message="The targets argument is required when data is a Dataset and does not "
+                    "define targets.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        else:
+            if targets is None:
+                raise MlflowException(
+                    f"The targets argument must be specified for {model_type} models.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
     if isinstance(model, str):
         model = _load_model_or_server(model, env_manager)
@@ -1370,14 +1458,27 @@ def evaluate(
         evaluator_name_to_conf_map,
     ) = _normalize_evaluators_and_evaluator_config_args(evaluators, evaluator_config)
 
-    dataset = EvaluationDataset(
-        data,
-        targets=targets,
-        path=dataset_path,
-        feature_names=feature_names,
-    )
-
     with _start_run_or_reuse_active_run() as run_id:
+        from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
+
+        if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
+            dataset = data.to_evaluation_dataset(dataset_path, feature_names)
+            if evaluator_name_to_conf_map and "default" in evaluator_name_to_conf_map:
+                context = evaluator_name_to_conf_map["default"].get("metric_prefix", None)
+            else:
+                context = None
+            client = MlflowClient()
+            tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)] if context else []
+            dataset_input = DatasetInput(dataset=data._to_mlflow_entity(), tags=tags)
+            client.log_inputs(run_id, [dataset_input])
+        else:
+            dataset = EvaluationDataset(
+                data,
+                targets=targets,
+                path=dataset_path,
+                feature_names=feature_names,
+            )
+
         try:
             evaluate_result = _evaluate(
                 model=model,

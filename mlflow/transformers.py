@@ -2,23 +2,31 @@ import ast
 import base64
 import binascii
 import contextlib
+import functools
 from functools import lru_cache
 import json
 import logging
+import numpy as np
+import os
 import pathlib
 import pandas as pd
-import numpy as np
 import re
 from typing import Union, List, Optional, Dict, Any, NamedTuple
+from urllib.parse import urlparse
 
 import yaml
 
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import ModelInputExample, Model, infer_pip_requirements
+from mlflow.models import (
+    Model,
+    ModelInputExample,
+    ModelSignature,
+    infer_signature,
+    infer_pip_requirements,
+)
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -31,7 +39,15 @@ from mlflow.utils.docstring_utils import (
     LOG_MODEL_PARAM_DOCS,
     docstring_version_compatibility_warning,
 )
-from mlflow.environment_variables import MLFLOW_DEFAULT_PREDICTION_DEVICE
+from mlflow.utils.environment import _find_duplicate_requirements
+from mlflow.environment_variables import (
+    MLFLOW_DEFAULT_PREDICTION_DEVICE,
+    MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES,
+    MLFLOW_HUGGINGFACE_USE_DEVICE_MAP,
+    MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY,
+    MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE,
+    MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE,
+)
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -67,9 +83,10 @@ _IMAGE_PROCESSOR_TYPE_KEY = "image_processor_type"
 _INFERENCE_CONFIG_BINARY_KEY = "inference_config.txt"
 _INSTANCE_TYPE_KEY = "instance_type"
 _MODEL_KEY = "model"
+_MODEL_BINARY_KEY = "model_binary"
+_MODEL_TYPE_KEY = "model_type"
+_MODEL_BINARY_FILE_NAME = "model"
 _MODEL_PATH_OR_NAME_KEY = "source_model_name"
-_PIPELINE_BINARY_KEY = "pipeline"
-_PIPELINE_BINARY_FILE_NAME = "pipeline"
 _PIPELINE_MODEL_TYPE_KEY = "pipeline_model_type"
 _PROCESSOR_KEY = "processor"
 _PROCESSOR_TYPE_KEY = "processor_type"
@@ -99,7 +116,7 @@ def _model_packages(model) -> List[str]:
     """
     engine = _get_engine_type(model)
     if engine == "torch":
-        return ["torch", "torchvision"]
+        return ["torch", "torchvision", "accelerate"]
     else:
         return [engine]
 
@@ -332,7 +349,7 @@ def save_model(
 
                       .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
+                        from mlflow.models import infer_signature
                         from mlflow.transformers import generate_signature_output
                         from transformers import pipeline
 
@@ -359,10 +376,7 @@ def save_model(
                       a supported type, this inference functionality will not function correctly
                       and a warning will be issued. In order to ensure that a precise signature
                       is logged, it is recommended to explicitly provide one.
-    :param input_example: An example of valid input that the model can accept. The example can be
-                          used as a hint of what data to feed the model. The given example will be
-                          converted to a `Pandas DataFrame` and then serialized to JSON using the
-                          `Pandas` split-oriented format. Bytes are base64-encoded.
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param conda_env: {{ conda_env }}
@@ -416,8 +430,11 @@ def save_model(
     if processor:
         flavor_conf.update({_PROCESSOR_TYPE_KEY: _get_instance_type(processor)})
 
-    # Save the pipeline object
-    built_pipeline.save_pretrained(save_directory=path.joinpath(_PIPELINE_BINARY_FILE_NAME))
+    # Save the model object
+    built_pipeline.model.save_pretrained(
+        save_directory=path.joinpath(_MODEL_BINARY_FILE_NAME),
+        max_shard_size=MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE.get(),
+    )
 
     # Save the components explicitly to the components directory
     if components:
@@ -433,12 +450,9 @@ def save_model(
     card_data = model_card if model_card is not None else _fetch_model_card(transformers_model)
 
     # If the card data can be acquired, save the text and the data separately
-    if card_data:
-        path.joinpath(_CARD_TEXT_FILE_NAME).write_text(card_data.text)
-        with path.joinpath(_CARD_DATA_FILE_NAME).open("w") as file:
-            yaml.safe_dump(card_data.data.to_dict(), stream=file, default_flow_style=False)
+    _write_card_data(card_data, path)
 
-    model_bin_kwargs = {_PIPELINE_BINARY_KEY: _PIPELINE_BINARY_FILE_NAME}
+    model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
 
     # Only allow a subset of task types to have a pyfunc definition.
     # Currently supported types are NLP-based language tasks which have a pipeline definition
@@ -446,8 +460,10 @@ def save_model(
     if _should_add_pyfunc_to_model(built_pipeline):
         # For pyfunc supported models, if a signature is not supplied, infer the signature
         # from the input_example if provided, otherwise, apply a generic signature.
-        if not signature:
-            mlflow_model.signature = _get_default_pipeline_signature(built_pipeline, input_example)
+        if signature is None:
+            mlflow_model.signature = _get_default_pipeline_signature(
+                built_pipeline, input_example, inference_config
+            )
 
         pyfunc.add_to_model(
             mlflow_model,
@@ -490,6 +506,14 @@ def save_model(
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+
+    if duplicates := _find_duplicate_requirements(pip_requirements):
+        _logger.warning(
+            "Duplicate packages are present within the pip requirements. Duplicate packages: "
+            f"{duplicates}. Please manually specify the requirements by using the "
+            "`pip_requirements` argument in order to prevent unexpected installation "
+            "issues for this model."
+        )
 
     with path.joinpath(_CONDA_ENV_FILE_NAME).open("w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
@@ -658,7 +682,7 @@ def log_model(
 
                       .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
+                        from mlflow.models import infer_signature
                         from mlflow.transformers import generate_signature_output
                         from transformers import pipeline
 
@@ -688,11 +712,7 @@ def log_model(
                       a supported type, this inference functionality will not function correctly
                       and a warning will be issued. In order to ensure that a precise signature
                       is logged, it is recommended to explicitly provide one.
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a ``Pandas DataFrame`` and
-                          then serialized to json using the ``Pandas`` split-oriented format.
-                          Bytes are base64-encoded.
+    :param input_example: {{ input_example }}
     :param await_registration_for: Number of seconds to wait for the model version
                                    to finish being created and is in ``READY`` status.
                                    By default, the function waits for five minutes.
@@ -824,11 +844,35 @@ def is_gpu_available():
     return is_gpu
 
 
+def _try_load_model_with_device(model_instance, model_path, device, conf):
+    load_model_conf = {}
+    # Assume if torch_dtype was specified in the conf, then it must be with a
+    # pipeline for which it's compatible.
+    if _TORCH_DTYPE_KEY in conf:
+        load_model_conf[_TORCH_DTYPE_KEY] = conf[_TORCH_DTYPE_KEY]
+
+    try:
+        load_model_conf["device"] = device
+        model = model_instance.from_pretrained(model_path, **load_model_conf)
+    except (ValueError, TypeError, NotImplementedError):
+        _logger.warning("Could not specify device parameter for this pipeline type")
+        load_model_conf.pop("device", None)
+        model = model_instance.from_pretrained(model_path, **load_model_conf)
+    return model
+
+
 def _load_model(path: str, flavor_config, return_type: str, device=None, **kwargs):
     """
     Loads components from a locally serialized ``Pipeline`` object.
     """
     import transformers
+
+    model_instance = getattr(transformers, flavor_config[_PIPELINE_MODEL_TYPE_KEY])
+    local_path = pathlib.Path(path)
+    model_path = local_path.joinpath(flavor_config.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME))
+    conf = {
+        "task": flavor_config[_TASK_KEY],
+    }
 
     if device is None:
         if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
@@ -838,19 +882,42 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
                 device = _TRANSFORMERS_DEFAULT_CPU_DEVICE_ID
         elif is_gpu_available():
             device = _TRANSFORMERS_DEFAULT_GPU_DEVICE_ID
+    # Note that we don't set the device in the conf yet because device is
+    # incompatible with device_map.
+    accelerate_model_conf = {}
+    if MLFLOW_HUGGINGFACE_USE_DEVICE_MAP.get():
+        device_map_strategy = MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY.get()
+        conf["device_map"] = device_map_strategy
+        accelerate_model_conf["device_map"] = device_map_strategy
+        # Cannot use device with device_map
+        device = None
 
-    local_path = pathlib.Path(path)
-    pipeline_path = local_path.joinpath(
-        flavor_config.get(_PIPELINE_BINARY_KEY, _PIPELINE_BINARY_FILE_NAME)
-    )
-
-    model_instance = getattr(transformers, flavor_config[_PIPELINE_MODEL_TYPE_KEY])
-    conf = {
-        "task": flavor_config[_TASK_KEY],
-        "model": model_instance.from_pretrained(pipeline_path),
-    }
     if device is not None:
         conf["device"] = device
+        accelerate_model_conf["device"] = device
+
+    if _TORCH_DTYPE_KEY in flavor_config or _TORCH_DTYPE_KEY in kwargs:
+        if _TORCH_DTYPE_KEY in kwargs:
+            dtype_val = kwargs[_TORCH_DTYPE_KEY]
+        else:
+            dtype_val = _deserialize_torch_dtype_if_exists(flavor_config)
+        conf[_TORCH_DTYPE_KEY] = dtype_val
+        accelerate_model_conf[_TORCH_DTYPE_KEY] = dtype_val
+
+    accelerate_model_conf["low_cpu_mem_usage"] = MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE.get()
+
+    if not MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES.get():
+        try:
+            model = model_instance.from_pretrained(model_path, **accelerate_model_conf)
+        except (ValueError, TypeError, NotImplementedError, ImportError):
+            # NB: ImportError is caught here in the event that `accelerate` is not installed
+            # on the system, which will raise if `low_cpu_mem_usage` is set or the argument
+            # `device_map` is set and accelerate is not installed.
+            model = _try_load_model_with_device(model_instance, model_path, device, conf)
+    else:
+        model = _try_load_model_with_device(model_instance, model_path, device, conf)
+
+    conf["model"] = model
 
     if _PROCESSOR_TYPE_KEY in flavor_config:
         conf[_PROCESSOR_KEY] = _load_component(
@@ -861,9 +928,6 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         component_type_key = f"{component_key}_type"
         component_type = flavor_config[component_type_key]
         conf[component_key] = _load_component(local_path, component_key, component_type)
-
-    if _TORCH_DTYPE_KEY in flavor_config:
-        conf[_TORCH_DTYPE_KEY] = _deserialize_torch_dtype_if_exists(flavor_config)
 
     for key in _METADATA_PIPELINE_SCALAR_CONFIG_KEYS:
         if key in flavor_config:
@@ -938,6 +1002,22 @@ def _fetch_model_card(model_or_pipeline):
         )
 
 
+def _write_card_data(card_data, path):
+    """
+    Writes the card data, if specified or available, to the provided path in two separate files
+    """
+    if card_data:
+        try:
+            path.joinpath(_CARD_TEXT_FILE_NAME).write_text(card_data.text, encoding="utf-8")
+        except UnicodeError as e:
+            _logger.warning(f"Unable to save the model card text due to: {e}")
+
+        with path.joinpath(_CARD_DATA_FILE_NAME).open("w") as file:
+            yaml.safe_dump(
+                card_data.data.to_dict(), stream=file, default_flow_style=False, encoding="utf-8"
+            )
+
+
 def _build_pipeline_from_model_input(model, task: str):
     """
     Utility for generating a pipeline from component parts. If required components are not
@@ -984,11 +1064,7 @@ def _save_components(
     root_path: pathlib.Path, component_config: Dict[str, Any], pipeline, processor, inference_config
 ):
     """
-    Saves non-model pipeline components explicitly to a separate directory path for compatibility
-    with certain older model types. In earlier versions of ``transformers``, inferred feature
-    extractor types could be resolved to their correct processor types. This approach ensures
-    compatibility with the expected pipeline configuration argument assignments in later versions
-    of the ``Pipeline`` class.
+    Saves non-model pipeline components.
     """
     component_types = component_config.get(_COMPONENTS_BINARY_KEY, [])
     for component_name in component_types:
@@ -1230,7 +1306,9 @@ def _format_input_example_for_special_cases(input_example, pipeline):
     return input_example
 
 
-def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
+def _get_default_pipeline_signature(
+    pipeline, example=None, inference_config=None
+) -> ModelSignature:
     """
     Assigns a default ModelSignature for a given Pipeline type that has pyfunc support. These
     default signatures should only be generated and assigned when saving a model iff the user
@@ -1243,8 +1321,8 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
 
     if example:
         try:
-            inference_pyfunc = _TransformersWrapper(pipeline)
-            return infer_signature(example, inference_pyfunc.predict(example))
+            prediction = generate_signature_output(pipeline, example, inference_config)
+            return infer_signature(example, prediction)
         except Exception as e:
             _logger.warning(
                 "Attempted to generate a signature for the saved model or pipeline "
@@ -1257,7 +1335,6 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
                 transformers.TokenClassificationPipeline,
                 transformers.ConversationalPipeline,
                 transformers.TranslationPipeline,
-                transformers.TextClassificationPipeline,
                 transformers.FillMaskPipeline,
                 transformers.TextGenerationPipeline,
                 transformers.Text2TextGenerationPipeline,
@@ -1265,6 +1342,11 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
         ):
             return ModelSignature(
                 inputs=Schema([ColSpec("string")]), outputs=Schema([ColSpec("string")])
+            )
+        elif isinstance(pipeline, transformers.TextClassificationPipeline):
+            return ModelSignature(
+                inputs=Schema([ColSpec("string")]),
+                outputs=Schema([ColSpec("string", name="label"), ColSpec("double", name="score")]),
             )
         elif isinstance(pipeline, transformers.ZeroShotClassificationPipeline):
             return ModelSignature(
@@ -1275,7 +1357,13 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
                         ColSpec("string", name="hypothesis_template"),
                     ]
                 ),
-                outputs=Schema([ColSpec("string")]),
+                outputs=Schema(
+                    [
+                        ColSpec("string", name="sequence"),
+                        ColSpec("string", name="labels"),
+                        ColSpec("double", name="scores"),
+                    ]
+                ),
             )
         elif isinstance(pipeline, transformers.AutomaticSpeechRecognitionPipeline):
             return ModelSignature(
@@ -1531,7 +1619,7 @@ class _TransformersWrapper:
             input_data = data
         else:
             raise MlflowException(
-                "Input data must be either a pandas.DataFrame, a string, List[str], "
+                "Input data must be either a pandas.DataFrame, a string, bytes, List[str], "
                 "List[Dict[str, str]], List[Dict[str, Union[str, List[str]]]], "
                 "or Dict[str, Union[str, List[str]]].",
                 error_code=INVALID_PARAMETER_VALUE,
@@ -1628,6 +1716,26 @@ class _TransformersWrapper:
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
+
+        if isinstance(
+            self.pipeline,
+            (
+                transformers.AutomaticSpeechRecognitionPipeline,
+                transformers.AudioClassificationPipeline,
+            ),
+        ):
+            try:
+                raw_output = self.pipeline(data, **self.inference_config)
+            except ValueError as e:
+                if "Malformed soundfile" in str(e):
+                    raise MlflowException(
+                        "Failed to process the input audio data. Either the audio file is "
+                        "corrupted or a uri was passed in without overriding the default model "
+                        "signature. If submitting a string uri, please ensure that the model has "
+                        "been saved with a signature that defines a string input type.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    ) from e
+                raise
         elif isinstance(data, dict):
             raw_output = self.pipeline(**data, **self.inference_config)
         else:
@@ -1650,20 +1758,23 @@ class _TransformersWrapper:
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
             output = self._parse_list_of_multiple_dicts(raw_output, output_key)
         elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
-            interim_output = self._parse_lists_of_dict_to_list_of_str(raw_output, output_key)
-            output = self._parse_list_output_for_multiple_candidate_pipelines(interim_output)
+            return self._flatten_zero_shot_text_classifier_output_to_df(raw_output)
         elif isinstance(self.pipeline, transformers.TokenClassificationPipeline):
             output = self._parse_tokenizer_output(raw_output, output_key)
         elif isinstance(
             self.pipeline, transformers.AutomaticSpeechRecognitionPipeline
         ) and self.inference_config.get("return_timestamps", None) in ["word", "char"]:
             output = json.dumps(raw_output)
-        elif isinstance(self.pipeline, transformers.AudioClassificationPipeline):
+        elif isinstance(
+            self.pipeline,
+            (transformers.AudioClassificationPipeline, transformers.TextClassificationPipeline),
+        ):
             return pd.DataFrame(raw_output)
         else:
             output = self._parse_lists_of_dict_to_list_of_str(raw_output, output_key)
 
-        return self._sanitize_output(output, data)
+        sanitized = self._sanitize_output(output, data)
+        return self._wrap_strings_as_list_if_scalar(sanitized)
 
     def _parse_raw_pipeline_input(self, data):
         """
@@ -1734,34 +1845,27 @@ class _TransformersWrapper:
         Parses the result of Pandas DataFrame.to_dict(orient="records") from pyfunc
         signature validation to coerce the output to the required format for a
         Pipeline that requires a single dict with list elements such as
-        ZeroShotClassifierPipeline.
+        TableQuestionAnsweringPipeline.
         Example input:
 
         [
-         {'sequences': 'My dog loves to eat spaghetti',
-          'candidate_labels': ['happy', 'sad'],
-          'hypothesis_template': 'This example talks about how the dog is {}'},
-         {'sequences': 'My dog hates going to the vet',
-          'candidate_labels': ['happy', 'sad'],
-         'hypothesis_template': 'This example talks about how the dog is {}'},
+          {"answer": "We should order more pizzas to meet the demand."},
+          {"answer": "The venue size should be updated to handle the number of guests."},
         ]
 
         Output:
 
-        {'sequences': ['My dog loves to eat spaghetti',
-          'My dog hates going to the vet'],
-         'candidate_labels': ['happy', 'sad'],
-         'hypothesis_template': 'This example talks about how the dog is {}'}
+        [
+          "We should order more pizzas to meet the demand.",
+          "The venue size should be updated to handle the number of guests.",
+        ]
 
         """
         import transformers
 
         if not isinstance(
             self.pipeline,
-            (
-                transformers.ZeroShotClassificationPipeline,
-                transformers.TableQuestionAnsweringPipeline,
-            ),
+            transformers.TableQuestionAnsweringPipeline,
         ):
             return data
         elif isinstance(data, list) and all(isinstance(item, dict) for item in data):
@@ -1799,6 +1903,48 @@ class _TransformersWrapper:
             return parsed
         else:
             return data
+
+    def _flatten_zero_shot_text_classifier_output_to_df(self, data):
+        """
+        Converts the output of sequences, labels, and scores to a Pandas DataFrame output.
+
+        Example input:
+
+        [{'sequence': 'My dog loves to eat spaghetti',
+          'labels': ['happy', 'sad'],
+          'scores': [0.9896970987319946, 0.010302911512553692]},
+         {'sequence': 'My dog hates going to the vet',
+          'labels': ['sad', 'happy'],
+          'scores': [0.957074761390686, 0.042925238609313965]}]
+
+        Output:
+
+        pd.DataFrame in a fully normalized (flattened) format with each sequence, label, and score
+        having a row entry.
+        For example, here is the DataFrame output:
+
+                                sequence labels    scores
+        0  My dog loves to eat spaghetti  happy  0.989697
+        1  My dog loves to eat spaghetti    sad  0.010303
+        2  My dog hates going to the vet    sad  0.957075
+        3  My dog hates going to the vet  happy  0.042925
+        """
+        if isinstance(data, list) and not all(isinstance(item, dict) for item in data):
+            raise MlflowException(
+                "Encountered an unknown return type from the pipeline type "
+                f"{type(self.pipeline).__name__}. Expecting a List[Dict]",
+                error_code=BAD_REQUEST,
+            )
+        if isinstance(data, dict):
+            data = [data]
+
+        flattened_data = []
+        for entry in data:
+            for label, score in zip(entry["labels"], entry["scores"]):
+                flattened_data.append(
+                    {"sequence": entry["sequence"], "labels": label, "scores": score}
+                )
+        return pd.DataFrame(flattened_data)
 
     def _strip_input_from_response_in_instruction_pipelines(
         self,
@@ -1892,6 +2038,18 @@ class _TransformersWrapper:
             return {k: v.strip() for k, v in output.items()}
         else:
             return output
+
+    @staticmethod
+    def _wrap_strings_as_list_if_scalar(output_data):
+        """
+        Wraps single string outputs in a list to support batch processing logic in serving.
+        Scalar values are not supported for processing in batch logic as they cannot be coerced
+        to DataFrame representations.
+        """
+        if isinstance(output_data, str):
+            return [output_data]
+        else:
+            return output_data
 
     def _parse_lists_of_dict_to_list_of_str(self, output_data, target_dict_key) -> List[str]:
         """
@@ -2085,8 +2243,6 @@ class _TransformersWrapper:
         provided is encoded as JSON. This method unpacks that string to the required
         elements.
         """
-        from json import JSONDecodeError
-
         if isinstance(data, list):
             return [self._parse_json_encoded_list(entry, key_to_unpack) for entry in data]
         elif isinstance(data, dict):
@@ -2101,7 +2257,7 @@ class _TransformersWrapper:
                     return {
                         k: (json.loads(v) if k == key_to_unpack else v) for k, v in data.items()
                     }
-                except JSONDecodeError:
+                except json.JSONDecodeError:
                     return data
             elif isinstance(data[key_to_unpack], list):
                 return data
@@ -2204,8 +2360,7 @@ class _TransformersWrapper:
                     parsed_data.append(entry)
             return parsed_data
 
-    @staticmethod
-    def _convert_audio_input(data):
+    def _convert_audio_input(self, data):
         """
         Conversion utility for decoding the base64 encoded bytes data of a raw soundfile when
         parsed through model serving, if applicable. Direct usage of the pyfunc implementation
@@ -2245,7 +2400,12 @@ class _TransformersWrapper:
                 return False
 
         def decode_audio(encoded):
-            if isinstance(encoded, bytes):
+            if isinstance(encoded, str):
+                # This is to support blob style passing of uri locations to process audio files
+                # on disk or object store. Note that if a uri is passed, a signature *must be*
+                # provided for serving to function as the default signature uses bytes.
+                return encoded
+            elif isinstance(encoded, bytes):
                 # For input types 'dataframe_split' and 'dataframe_records', the encoding
                 # conversion to bytes is handled.
                 if not is_base64(encoded):
@@ -2276,12 +2436,39 @@ class _TransformersWrapper:
         # The output of the conversion present in the conditional structural validation below is
         # to return the only input format that the audio transcription pipeline permits:
         # a bytes input of a single element.
-
         if isinstance(data, list) and all(isinstance(element, dict) for element in data):
             encoded_audio = list(data[0].values())[0]
+            if isinstance(encoded_audio, str):
+                self._validate_str_input_uri_or_file(encoded_audio)
             return decode_audio(encoded_audio)
-        else:
-            return data
+        elif isinstance(data, str):
+            self._validate_str_input_uri_or_file(data)
+        return data
+
+    @staticmethod
+    def _validate_str_input_uri_or_file(input_str):
+        """
+        Validation of blob references to audio files, if a string is input to the ``predict``
+        method, perform validation of the string contents by checking for a valid uri or
+        filesystem reference instead of surfacing the cryptic stack trace that is otherwise raised
+        for an invalid uri input.
+        """
+
+        def is_uri(s):
+            try:
+                result = urlparse(s)
+                return all([result.scheme, result.netloc])
+            except ValueError:
+                return False
+
+        valid_uri = os.path.isfile(input_str) or is_uri(input_str)
+
+        if not valid_uri:
+            raise MlflowException(
+                "An invalid string input was provided. String inputs to "
+                "audio files must be either a file location or a uri.",
+                error_code=BAD_REQUEST,
+            )
 
 
 @experimental
@@ -2290,18 +2477,17 @@ def autolog(
     log_input_examples=False,
     log_model_signatures=False,
     log_models=False,
+    log_datasets=False,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
-):  # pylint: disable=W0102,unused-argument
+):  # pylint: disable=unused-argument
     """
     This autologging integration is solely used for disabling spurious autologging of irrelevant
     sub-models that are created during the training and evaluation of transformers-based models.
     Autologging functionality is not implemented fully for the transformers flavor.
     """
-    import functools
-
     # A list of other flavors whose base autologging config would be automatically logged due to
     # training a model that would otherwise create a run and be logged internally within the
     # transformers-supported trainer calls.

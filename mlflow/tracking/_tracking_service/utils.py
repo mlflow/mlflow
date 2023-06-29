@@ -5,33 +5,24 @@ from pathlib import Path
 from typing import Union
 from contextlib import contextmanager
 
-from mlflow.environment_variables import MLFLOW_TRACKING_AWS_SIGV4
+from mlflow.environment_variables import (
+    MLFLOW_TRACKING_AWS_SIGV4,
+    MLFLOW_TRACKING_URI,
+    MLFLOW_TRACKING_TOKEN,
+    MLFLOW_TRACKING_INSECURE_TLS,
+    MLFLOW_TRACKING_CLIENT_CERT_PATH,
+    MLFLOW_TRACKING_SERVER_CERT_PATH,
+)
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
-from mlflow.utils import env, rest_utils
+from mlflow.utils import rest_utils
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
-
-_TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
-
-# Extra environment variables which take precedence for setting the basic/bearer
-# auth on http requests.
-_TRACKING_USERNAME_ENV_VAR = "MLFLOW_TRACKING_USERNAME"
-_TRACKING_PASSWORD_ENV_VAR = "MLFLOW_TRACKING_PASSWORD"
-_TRACKING_TOKEN_ENV_VAR = "MLFLOW_TRACKING_TOKEN"
-
-# sets verify param of 'requests.request' function
-# see https://requests.readthedocs.io/en/master/api/
-_TRACKING_INSECURE_TLS_ENV_VAR = "MLFLOW_TRACKING_INSECURE_TLS"
-_TRACKING_SERVER_CERT_PATH_ENV_VAR = "MLFLOW_TRACKING_SERVER_CERT_PATH"
-
-# sets cert param of 'requests.request' function
-# see https://requests.readthedocs.io/en/master/api/
-_TRACKING_CLIENT_CERT_PATH_ENV_VAR = "MLFLOW_TRACKING_CLIENT_CERT_PATH"
+from mlflow.utils.credentials import read_mlflow_creds
 
 _logger = logging.getLogger(__name__)
 _tracking_uri = None
@@ -39,7 +30,7 @@ _tracking_uri = None
 
 def is_tracking_uri_set():
     """Returns True if the tracking URI has been set, False otherwise."""
-    if _tracking_uri or env.get_env(_TRACKING_URI_ENV_VAR):
+    if _tracking_uri or MLFLOW_TRACKING_URI.get():
         return True
     return False
 
@@ -132,8 +123,8 @@ def get_tracking_uri() -> str:
     global _tracking_uri
     if _tracking_uri is not None:
         return _tracking_uri
-    elif env.get_env(_TRACKING_URI_ENV_VAR) is not None:
-        return env.get_env(_TRACKING_URI_ENV_VAR)
+    elif uri := MLFLOW_TRACKING_URI.get():
+        return uri
     else:
         return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
 
@@ -151,15 +142,16 @@ def _get_sqlalchemy_store(store_uri, artifact_uri):
 
 
 def _get_default_host_creds(store_uri):
+    creds = read_mlflow_creds()
     return rest_utils.MlflowHostCreds(
         host=store_uri,
-        username=os.environ.get(_TRACKING_USERNAME_ENV_VAR),
-        password=os.environ.get(_TRACKING_PASSWORD_ENV_VAR),
-        token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
+        username=creds.username,
+        password=creds.password,
+        token=MLFLOW_TRACKING_TOKEN.get(),
         aws_sigv4=MLFLOW_TRACKING_AWS_SIGV4.get(),
-        ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == "true",
-        client_cert_path=os.environ.get(_TRACKING_CLIENT_CERT_PATH_ENV_VAR),
-        server_cert_path=os.environ.get(_TRACKING_SERVER_CERT_PATH_ENV_VAR),
+        ignore_tls_verification=MLFLOW_TRACKING_INSECURE_TLS.get(),
+        client_cert_path=MLFLOW_TRACKING_CLIENT_CERT_PATH.get(),
+        server_cert_path=MLFLOW_TRACKING_SERVER_CERT_PATH.get(),
     )
 
 

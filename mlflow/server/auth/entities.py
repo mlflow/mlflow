@@ -53,6 +53,7 @@ class User:
 
     def to_json(self):
         return {
+            "id": self.id,
             "username": self.username,
             "is_admin": self.is_admin,
             "experiment_permissions": [p.to_json() for p in self.experiment_permissions],
@@ -60,6 +61,22 @@ class User:
                 p.to_json() for p in self.registered_model_permissions
             ],
         }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(
+            id_=dictionary["id"],
+            username=dictionary["username"],
+            password_hash="REDACTED",
+            is_admin=dictionary["is_admin"],
+            experiment_permissions=[
+                ExperimentPermission.from_json(p) for p in dictionary["experiment_permissions"]
+            ],
+            registered_model_permissions=[
+                RegisteredModelPermission.from_json(p)
+                for p in dictionary["registered_model_permissions"]
+            ],
+        )
 
 
 class ExperimentPermission:
@@ -96,6 +113,14 @@ class ExperimentPermission:
             "permission": self.permission,
         }
 
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(
+            experiment_id=dictionary["experiment_id"],
+            user_id=dictionary["user_id"],
+            permission=dictionary["permission"],
+        )
+
 
 class RegisteredModelPermission:
     def __init__(
@@ -130,3 +155,11 @@ class RegisteredModelPermission:
             "user_id": self.user_id,
             "permission": self.permission,
         }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(
+            name=dictionary["name"],
+            user_id=dictionary["user_id"],
+            permission=dictionary["permission"],
+        )

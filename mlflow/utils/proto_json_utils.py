@@ -188,7 +188,7 @@ class NumpyEncoder(JSONEncoder):
             return o.isoformat(), True
         return o, False
 
-    def default(self, o):  # pylint: disable=E0202
+    def default(self, o):
         res, converted = self.try_convert(o)
         if converted:
             return res
@@ -200,7 +200,7 @@ class MlflowFailedTypeConversion(MlflowException):
     def __init__(self, col_name, col_type, ex):
         super().__init__(
             message=f"Data is not compatible with model signature. "
-            f"Failed to convert column {col_name} to type '{col_type}'. Error: '{ex}'",
+            f"Failed to convert column {col_name} to type '{col_type}'. Error: '{repr(ex)}'",
             error_code=BAD_REQUEST,
         )
 
@@ -232,7 +232,7 @@ def cast_df_types_according_to_schema(pdf, schema):
                     )
                 elif col_type == np.dtype(bytes):
                     pdf[col_name] = pdf[col_name].map(lambda x: bytes(x, "utf8"))
-                elif schema.is_tensor_spec() and isinstance(pdf[col_name][0], list):
+                elif schema.is_tensor_spec() and isinstance(pdf[col_name].iloc[0], list):
                     # For dataframe with multidimensional column, it contains
                     # list type values, we cannot convert
                     # its type by `astype`, skip conversion.

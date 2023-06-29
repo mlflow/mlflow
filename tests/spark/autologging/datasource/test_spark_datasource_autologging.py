@@ -62,11 +62,8 @@ def test_autologging_of_datasources_with_different_formats(spark_session, format
 
 def test_autologging_does_not_throw_on_api_failures(spark_session, format_to_file_path, tmp_path):
     mlflow.spark.autolog()
-    url, process = _init_server(
-        f"sqlite:///{tmp_path}/test.db", root_artifact_uri=tmp_path.as_uri()
-    )
-    mlflow.set_tracking_uri(url)
-    try:
+    with _init_server(f"sqlite:///{tmp_path}/test.db", root_artifact_uri=tmp_path.as_uri()) as url:
+        mlflow.set_tracking_uri(url)
         with mlflow.start_run():
             with mock.patch(
                 "mlflow.utils.rest_utils.http_request", side_effect=Exception("API request failed!")
@@ -84,8 +81,6 @@ def test_autologging_does_not_throw_on_api_failures(spark_session, format_to_fil
                 df.limit(2).collect()
                 df.collect()
                 time.sleep(1)
-    finally:
-        process.terminate()
 
 
 def test_autologging_dedups_multiple_reads_of_same_datasource(spark_session, format_to_file_path):
@@ -220,7 +215,7 @@ def test_autologging_slow_api_requests(spark_session, format_to_file_path):
     )
 
 
-def test_autologging_truncates_datasource_tag_to_maximum_supported_value(tmpdir, spark_session):
+def test_autologging_truncates_datasource_tag_to_maximum_supported_value(tmp_path, spark_session):
     rows = [Row(100)]
     schema = StructType([StructField("number2", IntegerType())])
     rdd = spark_session.sparkContext.parallelize(rows)
@@ -228,7 +223,7 @@ def test_autologging_truncates_datasource_tag_to_maximum_supported_value(tmpdir,
 
     # Save a Spark Dataframe to multiple paths with an aggregate path length
     # exceeding the maximum length of an MLflow tag (`MAX_TAG_VAL_LENGTH`)
-    long_path_base = str(tmpdir.join("a" * 150))
+    long_path_base = str(tmp_path.joinpath("a" * 150))
     saved_df_paths = []
     for path_suffix in range(int(MAX_TAG_VAL_LENGTH / len(long_path_base)) + 5):
         long_path = long_path_base + str(path_suffix)

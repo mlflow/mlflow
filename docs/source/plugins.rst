@@ -338,6 +338,7 @@ for usage instructions and examples.
 - `mlflow-algorithmia <https://github.com/algorithmiaio/mlflow-algorithmia>`_
 - `mlflow-ray-serve <https://github.com/ray-project/mlflow-ray-serve>`_
 - `mlflow-azureml <https://docs.microsoft.com/en-us/azure/machine-learning/how-to-deploy-mlflow-models>`_
+- `oci-mlflow <https://github.com/oracle/oci-mlflow>`_ Leverages Oracle Cloud Infrastructure (OCI) Model Deployment service for the deployment of MLflow models.
 
 Model Evaluation Plugins
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -353,6 +354,7 @@ The following known plugins provide support for running `MLflow projects <https:
 against custom execution backends.
 
 - `mlflow-yarn <https://github.com/criteo/mlflow-yarn>`_ Running mlflow on Hadoop/YARN
+- `oci-mlflow <https://github.com/oracle/oci-mlflow>`_ Running mlflow projects on Oracle Cloud Infrastructure (OCI)
 
 Tracking Store Plugins
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -364,3 +366,8 @@ against custom databases.
 
 For additional information regarding this plugin, refer to <https://github.com/criteo/mlflow-elasticsearchstore/issues>.
 The library is available on PyPI here : <https://pypi.org/project/mlflow-elasticsearchstore/>
+
+Artifact Repository Plugins
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- `oci-mlflow <https://github.com/oracle/oci-mlflow>`__ Leverages Oracle Cloud Infrastructure (OCI) Object Storage service to store MLflow models artifacts.

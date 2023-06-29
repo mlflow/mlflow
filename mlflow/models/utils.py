@@ -119,7 +119,7 @@ class _Example:
         def _handle_dataframe_nans(df: pd.DataFrame):
             return df.where(df.notnull(), None)
 
-        def _handle_dataframe_input(input_ex):
+        def _coerce_to_pandas_df(input_ex):
             if isinstance(input_ex, dict):
                 if all(_is_scalar(x) for x in input_ex.values()):
                     input_ex = pd.DataFrame([input_ex])
@@ -159,20 +159,32 @@ class _Example:
                 except ImportError:
                     pass
                 raise TypeError(
-                    "Unexpected type of input_example. Expected one of "
-                    "(pandas.DataFrame, numpy.ndarray, dict, list), "
-                    "got {}".format(type(input_example))
+                    "Expected one of the following types:\n"
+                    "- pandas.DataFrame\n"
+                    "- numpy.ndarray\n"
+                    "- dictionary of (name -> numpy.ndarray)\n"
+                    "- scipy.sparse.csr_matrix\n"
+                    "- scipy.sparse.csc_matrix\n"
+                    "- dict\n"
+                    "- list\n"
+                    "- str\n"
+                    "- bytes\n"
+                    "but got '{}'".format(type(input_example)),
                 )
-            result = _handle_dataframe_nans(input_ex).to_dict(orient="split")
+            return input_ex
+
+        def _handle_dataframe_input(df):
+            result = _handle_dataframe_nans(df).to_dict(orient="split")
             # Do not include row index
             del result["index"]
-            if all(input_ex.columns == range(len(input_ex.columns))):
+            if all(df.columns == range(len(df.columns))):
                 # No need to write default column index out
                 del result["columns"]
             return result
 
         example_filename = "input_example.json"
         if _is_ndarray(input_example):
+            self._inference_data = input_example
             self.data = _handle_ndarray_input(input_example)
             self.info = {
                 "artifact_path": example_filename,
@@ -180,6 +192,7 @@ class _Example:
                 "format": "tf-serving",
             }
         elif _is_sparse_matrix(input_example):
+            self._inference_data = input_example
             self.data = _handle_sparse_matrix(input_example)
             if isinstance(input_example, csc_matrix):
                 example_type = "sparse_matrix_csc"
@@ -190,7 +203,8 @@ class _Example:
                 "type": example_type,
             }
         else:
-            self.data = _handle_dataframe_input(input_example)
+            self._inference_data = _coerce_to_pandas_df(input_example)
+            self.data = _handle_dataframe_input(self._inference_data)
             self.info = {
                 "artifact_path": example_filename,
                 "type": "dataframe",
@@ -201,6 +215,13 @@ class _Example:
         """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`."""
         with open(os.path.join(parent_dir_path, self.info["artifact_path"]), "w") as f:
             json.dump(self.data, f, cls=NumpyEncoder)
+
+    @property
+    def inference_data(self):
+        """
+        Returns the input example in a form that PyFunc wrapped models can score.
+        """
+        return self._inference_data
 
 
 def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: str):
@@ -446,16 +467,37 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         )
 
 
-def _enforce_col_schema(pf_input: PyFuncInput, input_schema: Schema):
+def _enforce_unnamed_col_schema(pf_input: PyFuncInput, input_schema: Schema):
     """Enforce the input columns conform to the model's column-based signature."""
-    if input_schema.has_input_names():
-        input_names = input_schema.input_names()
-    else:
-        input_names = pf_input.columns[: len(input_schema.inputs)]
+    input_names = pf_input.columns[: len(input_schema.inputs)]
     input_types = input_schema.input_types()
     new_pf_input = pd.DataFrame()
     for i, x in enumerate(input_names):
         new_pf_input[x] = _enforce_mlflow_datatype(x, pf_input[x], input_types[i])
+    return new_pf_input
+
+
+def _enforce_named_col_schema(pf_input: PyFuncInput, input_schema: Schema):
+    """Enforce the input columns conform to the model's column-based signature."""
+    required_input_names = input_schema.required_input_names()
+    input_types = input_schema.input_types_dict()
+
+    new_pf_input = pd.DataFrame()
+    for x in required_input_names:
+        new_pf_input[x] = _enforce_mlflow_datatype(x, pf_input[x], input_types[x])
+
+    # Upstream validation means that if we're here, pf_input can only be a
+    # pandas dataframe or a dict.
+    optional_input_names = input_schema.optional_input_names()
+    if isinstance(pf_input, pd.DataFrame):
+        supplied_optional_inputs = [col for col in pf_input.columns if col in optional_input_names]
+    elif isinstance(pf_input, dict):
+        supplied_optional_inputs = [col for col in pf_input.keys() if col in optional_input_names]
+    else:
+        supplied_optional_inputs = []
+    # Iterate over supplied optional inputs rather than all optional inputs.
+    for x in supplied_optional_inputs:
+        new_pf_input[x] = _enforce_mlflow_datatype(x, pf_input[x], input_types[x])
     return new_pf_input
 
 
@@ -621,9 +663,9 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     if isinstance(pf_input, pd.Series):
         pf_input = pd.DataFrame(pf_input)
     if not input_schema.is_tensor_spec():
-        if isinstance(pf_input, (list, np.ndarray, dict, pd.Series, str)):
+        if isinstance(pf_input, (list, np.ndarray, dict, pd.Series, str, bytes)):
             try:
-                if isinstance(pf_input, str):
+                if isinstance(pf_input, (str, bytes)):
                     pf_input = pd.DataFrame([pf_input])
                 elif isinstance(pf_input, dict) and all(
                     _is_scalar(value) for value in pf_input.values()
@@ -646,6 +688,12 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                     # list in order to prevent a ValueError exception for requiring an index
                     # if passing in all scalar values thrown by Pandas.
                     pf_input = pd.DataFrame([pf_input])
+                elif isinstance(pf_input, dict) and all(
+                    _is_scalar(value)
+                    or (isinstance(value, list) and all(isinstance(elem, str) for elem in value))
+                    for value in pf_input.values()
+                ):
+                    pf_input = pd.DataFrame([pf_input])
                 else:
                     pf_input = pd.DataFrame(pf_input)
             except Exception as e:
@@ -661,19 +709,21 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
 
     if input_schema.has_input_names():
         # make sure there are no missing columns
-        input_names = input_schema.input_names()
-        expected_cols = set(input_names)
+        input_names = input_schema.required_input_names()
+        optional_names = input_schema.optional_input_names()
+        expected_required_cols = set(input_names)
         actual_cols = set()
-        if len(expected_cols) == 1 and isinstance(pf_input, np.ndarray):
+        optional_cols = set(optional_names)
+        if len(expected_required_cols) == 1 and isinstance(pf_input, np.ndarray):
             # for schemas with a single column, match input with column
             pf_input = {input_names[0]: pf_input}
-            actual_cols = expected_cols
+            actual_cols = expected_required_cols
         elif isinstance(pf_input, pd.DataFrame):
             actual_cols = set(pf_input.columns)
         elif isinstance(pf_input, dict):
             actual_cols = set(pf_input.keys())
-        missing_cols = expected_cols - actual_cols
-        extra_cols = actual_cols - expected_cols
+        missing_cols = expected_required_cols - actual_cols
+        extra_cols = actual_cols - expected_required_cols - optional_cols
         # Preserve order from the original columns, since missing/extra columns are likely to
         # be in same order.
         missing_cols = [c for c in input_names if c in missing_cols]
@@ -693,12 +743,12 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                 "{} inputs. Note: the inputs were not named in the signature so we can "
                 "only verify their count.".format(len(input_schema.inputs), num_actual_columns)
             )
-
-    return (
-        _enforce_tensor_schema(pf_input, input_schema)
-        if input_schema.is_tensor_spec()
-        else _enforce_col_schema(pf_input, input_schema)
-    )
+    if input_schema.is_tensor_spec():
+        return _enforce_tensor_schema(pf_input, input_schema)
+    elif input_schema.has_input_names():
+        return _enforce_named_col_schema(pf_input, input_schema)
+    else:
+        return _enforce_unnamed_col_schema(pf_input, input_schema)
 
 
 def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
@@ -774,7 +824,7 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
         from sklearn.ensemble import RandomForestClassifier
         import mlflow
         import mlflow.sklearn
-        from mlflow.models.signature import infer_signature
+        from mlflow.models import infer_signature
 
         with mlflow.start_run():
             iris = datasets.load_iris()

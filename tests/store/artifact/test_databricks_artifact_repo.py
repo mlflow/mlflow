@@ -58,24 +58,24 @@ def databricks_artifact_repo():
 
 
 @pytest.fixture()
-def test_file(tmpdir):
+def test_file(tmp_path):
     test_file_content = "Hello 🍆🍔".encode()
-    p = tmpdir.join("test.txt")
-    with open(p.strpath, "wb") as f:
-        f.write(test_file_content)
-    return p
+    p = tmp_path.joinpath("test.txt")
+    p.write_bytes(test_file_content)
+    return str(p)
 
 
 @pytest.fixture()
-def test_dir(tmpdir):
+def test_dir(tmp_path):
     test_file_content = "World 🍆🍔🍆".encode()
-    with open(tmpdir.mkdir("subdir").join("test.txt").strpath, "wb") as f:
-        f.write(test_file_content)
-    with open(tmpdir.join("test.txt").strpath, "wb") as f:
-        f.write(bytes(test_file_content))
-    with open(tmpdir.join("empty-file.txt").strpath, "w"):
-        pass
-    return tmpdir
+    p = tmp_path.joinpath("subdir").joinpath("test.txt")
+    p.parent.mkdir()
+    p.write_bytes(test_file_content)
+    p = tmp_path.joinpath("test.txt")
+    p.write_bytes(test_file_content)
+    p = tmp_path.joinpath("empty-file.txt")
+    p.write_text("")
+    return str(tmp_path)
 
 
 def test_init_validation_and_cleaning():
@@ -212,13 +212,11 @@ def test_log_artifact_azure(databricks_artifact_repo, test_file, artifact_path, 
     ) as write_credential_infos_mock, mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._azure_upload_file", return_value=None
     ) as azure_upload_mock:
-        databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
+        databricks_artifact_repo.log_artifact(test_file, artifact_path)
         write_credential_infos_mock.assert_called_with(
             run_id=MOCK_RUN_ID, paths=[expected_location]
         )
-        azure_upload_mock.assert_called_with(
-            mock_credential_info, test_file.strpath, expected_location
-        )
+        azure_upload_mock.assert_called_with(mock_credential_info, test_file, expected_location)
 
 
 @pytest.mark.parametrize(("artifact_path", "expected_location"), [(None, "test.txt")])
@@ -251,7 +249,7 @@ def test_log_artifact_azure_with_headers(
     ) as write_credential_infos_mock, mock.patch(
         "requests.Session.request", return_value=mock_response
     ) as request_mock:
-        databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
+        databricks_artifact_repo.log_artifact(test_file, artifact_path)
         write_credential_infos_mock.assert_called_with(
             run_id=MOCK_RUN_ID, paths=[expected_location]
         )
@@ -275,7 +273,7 @@ def test_log_artifact_azure_blob_client_sas_error(databricks_artifact_repo, test
         "requests.Session.request", side_effect=MlflowException("MOCK ERROR")
     ):
         with pytest.raises(MlflowException, match=r"MOCK ERROR"):
-            databricks_artifact_repo.log_artifact(test_file.strpath)
+            databricks_artifact_repo.log_artifact(test_file)
         write_credential_infos_mock.assert_called_with(run_id=MOCK_RUN_ID, paths=ANY)
 
 
@@ -296,12 +294,12 @@ def test_log_artifact_adls_gen2(
     ) as write_credential_infos_mock, mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._azure_adls_gen2_upload_file", return_value=None
     ) as azure_adls_gen2_upload_mock:
-        databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
+        databricks_artifact_repo.log_artifact(test_file, artifact_path)
         write_credential_infos_mock.assert_called_with(
             run_id=MOCK_RUN_ID, paths=[expected_location]
         )
         azure_adls_gen2_upload_mock.assert_called_with(
-            mock_credential_info, test_file.strpath, expected_location
+            mock_credential_info, test_file, expected_location
         )
 
 
@@ -338,7 +336,7 @@ def test_log_artifact_adls_gen2_with_headers(
         f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}._MULTIPART_UPLOAD_CHUNK_SIZE",
         5,
     ):
-        databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
+        databricks_artifact_repo.log_artifact(test_file, artifact_path)
         write_credential_infos_mock.assert_called_with(
             run_id=MOCK_RUN_ID, paths=[expected_location]
         )
@@ -398,7 +396,7 @@ def test_log_artifact_adls_gen2_flush_error(databricks_artifact_repo, test_file)
             type=ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
         )
         with pytest.raises(MlflowException, match=r"MOCK ERROR"):
-            databricks_artifact_repo.log_artifact(test_file.strpath)
+            databricks_artifact_repo.log_artifact(test_file)
         write_credential_infos_mock.assert_called_with(run_id=MOCK_RUN_ID, paths=ANY)
         assert request_mock.mock_calls == [
             mock.call(
@@ -431,7 +429,7 @@ def test_log_artifact_aws(databricks_artifact_repo, test_file, artifact_path, ex
     ) as write_credential_infos_mock, mock.patch(
         "requests.Session.request", return_value=mock_response
     ) as request_mock:
-        databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
+        databricks_artifact_repo.log_artifact(test_file, artifact_path)
         write_credential_infos_mock.assert_called_with(
             run_id=MOCK_RUN_ID, paths=[expected_location]
         )
@@ -459,7 +457,7 @@ def test_log_artifact_aws_with_headers(
     ) as write_credential_infos_mock, mock.patch(
         "requests.Session.request", return_value=mock_response
     ) as request_mock:
-        databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
+        databricks_artifact_repo.log_artifact(test_file, artifact_path)
         write_credential_infos_mock.assert_called_with(
             run_id=MOCK_RUN_ID, paths=[expected_location]
         )
@@ -479,7 +477,7 @@ def test_log_artifact_aws_presigned_url_error(databricks_artifact_repo, test_fil
         "requests.Session.request", side_effect=MlflowException("MOCK ERROR")
     ):
         with pytest.raises(MlflowException, match="MOCK ERROR"):
-            databricks_artifact_repo.log_artifact(test_file.strpath)
+            databricks_artifact_repo.log_artifact(test_file)
         write_credential_infos_mock.assert_called_with(run_id=MOCK_RUN_ID, paths=ANY)
 
 
@@ -497,7 +495,7 @@ def test_log_artifact_gcp(databricks_artifact_repo, test_file, artifact_path, ex
     ) as write_credential_infos_mock, mock.patch(
         "requests.Session.request", return_value=mock_response
     ) as request_mock:
-        databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
+        databricks_artifact_repo.log_artifact(test_file, artifact_path)
         write_credential_infos_mock.assert_called_with(
             run_id=MOCK_RUN_ID, paths=[expected_location]
         )
@@ -525,7 +523,7 @@ def test_log_artifact_gcp_with_headers(
     ) as write_credential_infos_mock, mock.patch(
         "requests.Session.request", return_value=mock_response
     ) as request_mock:
-        databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
+        databricks_artifact_repo.log_artifact(test_file, artifact_path)
         write_credential_infos_mock.assert_called_with(
             run_id=MOCK_RUN_ID, paths=[expected_location]
         )
@@ -545,7 +543,7 @@ def test_log_artifact_gcp_presigned_url_error(databricks_artifact_repo, test_fil
         "requests.Session.request", side_effect=MlflowException("MOCK ERROR")
     ):
         with pytest.raises(MlflowException, match="MOCK ERROR"):
-            databricks_artifact_repo.log_artifact(test_file.strpath)
+            databricks_artifact_repo.log_artifact(test_file)
         write_credential_infos_mock.assert_called_with(run_id=MOCK_RUN_ID, paths=ANY)
 
 
@@ -570,13 +568,13 @@ def test_log_artifact_with_relative_path(test_file, artifact_path, expected_loca
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._upload_to_cloud", return_value=None
     ) as upload_mock:
         databricks_artifact_repo = get_artifact_repository(MOCK_SUBDIR_ROOT_URI)
-        databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
+        databricks_artifact_repo.log_artifact(test_file, artifact_path)
         write_credential_infos_mock.assert_called_with(
             run_id=MOCK_RUN_ID, paths=[expected_location]
         )
         upload_mock.assert_called_with(
             cloud_credential_info=mock_credential_info,
-            src_file_path=test_file.strpath,
+            src_file_path=test_file,
             dst_run_relative_artifact_path=expected_location,
         )
 
@@ -1001,11 +999,11 @@ def test_databricks_download_file_get_request_fail(databricks_artifact_repo, tes
         "requests.Session.request", side_effect=MlflowException("MOCK ERROR")
     ):
         with pytest.raises(MlflowException, match=r"MOCK ERROR"):
-            databricks_artifact_repo.download_artifacts(test_file.strpath)
-        read_credential_infos_mock.assert_called_with(run_id=MOCK_RUN_ID, paths=[test_file.strpath])
+            databricks_artifact_repo.download_artifacts(test_file)
+        read_credential_infos_mock.assert_called_with(run_id=MOCK_RUN_ID, paths=[test_file])
 
 
-def test_download_artifacts_awaits_download_completion(databricks_artifact_repo, tmpdir):
+def test_download_artifacts_awaits_download_completion(databricks_artifact_repo, tmp_path):
     """
     Verifies that all asynchronous artifact downloads are joined before `download_artifacts()`
     returns a result to the caller
@@ -1037,31 +1035,29 @@ def test_download_artifacts_awaits_download_completion(databricks_artifact_repo,
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._download_from_cloud",
         side_effect=mock_download_from_cloud,
     ):
-        databricks_artifact_repo.download_artifacts("test_path", str(tmpdir))
-        expected_file1_path = os.path.join(str(tmpdir), "file_1.txt")
-        expected_file2_path = os.path.join(str(tmpdir), "file_2.txt")
+        databricks_artifact_repo.download_artifacts("test_path", str(tmp_path))
+        expected_file1_path = os.path.join(str(tmp_path), "file_1.txt")
+        expected_file2_path = os.path.join(str(tmp_path), "file_2.txt")
         for path in [expected_file1_path, expected_file2_path]:
             assert os.path.exists(path)
             with open(path) as f:
                 assert f.read() == "content"
 
 
-def test_artifact_logging(databricks_artifact_repo, tmpdir):
+def test_artifact_logging(databricks_artifact_repo, tmp_path):
     """
     Verifies that `log_artifact()` and `log_artifacts()` initiate all expected asynchronous
     artifact uploads and await their completion before returning results to the caller
     """
-    src_dir = os.path.join(str(tmpdir), "src")
-    os.makedirs(src_dir)
-    src_file1_path = os.path.join(src_dir, "file_1.txt")
-    with open(src_file1_path, "w") as f:
-        f.write("file1")
-    src_file2_path = os.path.join(src_dir, "file_2.txt")
-    with open(src_file2_path, "w") as f:
-        f.write("file2")
+    src_dir = tmp_path.joinpath("src")
+    src_dir.mkdir()
+    src_file1_path = src_dir.joinpath("file_1.txt")
+    src_file1_path.write_text("file1")
+    src_file2_path = src_dir.joinpath("file_2.txt")
+    src_file2_path.write_text("file2")
 
-    dst_dir = os.path.join(str(tmpdir), "dst")
-    os.makedirs(dst_dir)
+    dst_dir = tmp_path.joinpath("dst")
+    dst_dir.mkdir()
 
     def mock_upload_to_cloud(
         cloud_credential_info,  # pylint: disable=unused-argument
@@ -1070,8 +1066,8 @@ def test_artifact_logging(databricks_artifact_repo, tmpdir):
     ):
         # Sleep in order to simulate a longer-running asynchronous upload
         time.sleep(2)
-        dst_run_relative_artifact_path = os.path.join(dst_dir, dst_run_relative_artifact_path)
-        os.makedirs(os.path.dirname(dst_run_relative_artifact_path), exist_ok=True)
+        dst_run_relative_artifact_path = dst_dir.joinpath(dst_run_relative_artifact_path)
+        dst_run_relative_artifact_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(src=src_file_path, dst=dst_run_relative_artifact_path)
 
     with mock.patch(
@@ -1175,11 +1171,11 @@ def test_download_artifacts_provides_failure_info(databricks_artifact_repo):
         assert "MOCK ERROR 2" in err_msg
 
 
-def test_log_artifacts_provides_failure_info(databricks_artifact_repo, tmpdir):
-    src_file1_path = os.path.join(str(tmpdir), "file_1.txt")
+def test_log_artifacts_provides_failure_info(databricks_artifact_repo, tmp_path):
+    src_file1_path = os.path.join(tmp_path, "file_1.txt")
     with open(src_file1_path, "w") as f:
         f.write("file1")
-    src_file2_path = os.path.join(str(tmpdir), "file_2.txt")
+    src_file2_path = os.path.join(tmp_path, "file_2.txt")
     with open(src_file2_path, "w") as f:
         f.write("file2")
 
@@ -1206,7 +1202,7 @@ def test_log_artifacts_provides_failure_info(databricks_artifact_repo, tmpdir):
             r"MOCK ERROR 2"
         )
         with pytest.raises(MlflowException, match=match) as exc:
-            databricks_artifact_repo.log_artifacts(str(tmpdir), "test_artifacts")
+            databricks_artifact_repo.log_artifacts(str(tmp_path), "test_artifacts")
 
         err_msg = str(exc.value)
         assert MOCK_RUN_ROOT_URI in err_msg

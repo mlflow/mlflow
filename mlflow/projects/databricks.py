@@ -1,7 +1,6 @@
 import hashlib
 import json
 import os
-import shutil
 import tempfile
 import textwrap
 import time
@@ -26,6 +25,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.uri import is_databricks_uri, is_http_uri
 from mlflow.utils.string_utils import quote
 from mlflow.version import is_release_version, VERSION
+from mlflow.environment_variables import MLFLOW_TRACKING_URI, MLFLOW_EXPERIMENT_ID
 
 # Base directory within driver container for storing files related to MLflow
 DB_CONTAINER_BASE = "/databricks/mlflow"
@@ -160,13 +160,12 @@ class DatabricksJobRunner:
         :param project_dir: Path to a directory containing an MLflow project to upload to DBFS (e.g.
                             a directory containing an MLproject file).
         """
-        temp_tarfile_dir = tempfile.mkdtemp()
-        temp_tar_filename = os.path.join(temp_tarfile_dir, "project.tar.gz")
+        with tempfile.TemporaryDirectory() as temp_tarfile_dir:
+            temp_tar_filename = os.path.join(temp_tarfile_dir, "project.tar.gz")
 
-        def custom_filter(x):
-            return None if os.path.basename(x.name) == "mlruns" else x
+            def custom_filter(x):
+                return None if os.path.basename(x.name) == "mlruns" else x
 
-        try:
             directory_size = file_utils._get_local_project_dir_size(project_dir)
             _logger.info(
                 f"=== Creating tarball from {project_dir} in temp directory {temp_tarfile_dir} ==="
@@ -194,8 +193,6 @@ class DatabricksJobRunner:
                 _logger.info("=== Finished uploading project to %s ===", dbfs_fuse_uri)
             else:
                 _logger.info("=== Project already exists in DBFS ===")
-        finally:
-            shutil.rmtree(temp_tarfile_dir)
         return dbfs_fuse_uri
 
     def _run_shell_command_job(self, project_uri, command, env_vars, cluster_spec):
@@ -271,8 +268,8 @@ class DatabricksJobRunner:
         tracking_uri = _get_tracking_uri_for_run()
         dbfs_fuse_uri = self._upload_project_to_dbfs(work_dir, experiment_id)
         env_vars = {
-            tracking._TRACKING_URI_ENV_VAR: tracking_uri,
-            tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
+            MLFLOW_TRACKING_URI.name: tracking_uri,
+            MLFLOW_EXPERIMENT_ID.name: experiment_id,
         }
         _logger.info("=== Running entry point %s of project %s on Databricks ===", entry_point, uri)
         # Launch run on Databricks
