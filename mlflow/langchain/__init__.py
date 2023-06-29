@@ -163,11 +163,12 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
-    :param loader_fn: A function that's required for models containing unserializable objects.
+    :param loader_fn: A function that's required for models containing objects that aren't natively
+                      serialized by LangChain.
                       This function takes a string `persist_dir` as an argument and returns the
-                      specific unserializable object that the model needs. Depending on the model,
+                      specific object that the model needs. Depending on the model,
                       this could be a retriever, vectorstore, requests_wrapper, embeddings, or
-                      database. For RetrievalQA models, the unserializable object is a
+                      database. For RetrievalQA models, the object is a
                       (`retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_).
                       For APIChain models, it's a
                       (`requests_wrapper <https://python.langchain.com/docs/modules/agents/tools/integrations/requests>`_).
@@ -175,11 +176,11 @@ def save_model(
                       (`embeddings <https://python.langchain.com/docs/modules/data_connection/text_embedding/>`_).
                       For SQLDatabaseChain models, it's a
                       (`database <https://python.langchain.com/docs/modules/agents/toolkits/sql_database>`_).
-    :param persist_dir: The directory where the unserializable object is stored. The `loader_fn`
-                        takes this string as the argument to load the unserializable object.
-                        This is optional for models containing unserializable objects. MLflow logs
-                        the content in this directory as artifacts in the subdirectory named
-                        `persist_dir_data`.
+    :param persist_dir: The directory where the object is stored. The `loader_fn`
+                        takes this string as the argument to load the object.
+                        This is optional for models containing objects that aren't natively
+                        serialized by LangChain. MLflow logs the content in this directory as
+                        artifacts in the subdirectory named `persist_dir_data`.
 
                         Here is the code snippet for logging a RetrievalQA chain with `loader_fn`
                         and `persist_dir`:
@@ -352,11 +353,12 @@ def log_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
-    :param loader_fn: A function that's required for models containing unserializable objects.
+    :param loader_fn: A function that's required for models containing objects that aren't natively
+                      serialized by LangChain.
                       This function takes a string `persist_dir` as an argument and returns the
-                      specific unserializable object that the model needs. Depending on the model,
+                      specific object that the model needs. Depending on the model,
                       this could be a retriever, vectorstore, requests_wrapper, embeddings, or
-                      database. For RetrievalQA models, the unserializable object is a
+                      database. For RetrievalQA models, the object is a
                       (`retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_).
                       For APIChain models, it's a
                       (`requests_wrapper <https://python.langchain.com/docs/modules/agents/tools/integrations/requests>`_).
@@ -364,11 +366,11 @@ def log_model(
                       (`embeddings <https://python.langchain.com/docs/modules/data_connection/text_embedding/>`_).
                       For SQLDatabaseChain models, it's a
                       (`database <https://python.langchain.com/docs/modules/agents/toolkits/sql_database>`_).
-    :param persist_dir: The directory where the unserializable object is stored. The `loader_fn`
-                        takes this string as the argument to load the unserializable object.
-                        This is optional for models containing unserializable objects. MLflow logs
-                        the content in this directory as artifacts in the subdirectory named
-                        `persist_dir_data`.
+    :param persist_dir: The directory where the object is stored. The `loader_fn`
+                        takes this string as the argument to load the object.
+                        This is optional for models containing objects that aren't natively
+                        serialized by LangChain. MLflow logs the content in this directory as
+                        artifacts in the subdirectory named `persist_dir_data`.
 
                         Here is the code snippet for logging a RetrievalQA chain with `loader_fn`
                         and `persist_dir`:
