@@ -21,7 +21,7 @@ MLflow Tracking has four subcomponents:
 
 {>> Is the Registry part of Tracking? It's in the UI, but it's kind of like the hand-off from data science tracking to mlops deployment <<}
 
-For training your models, the most-relevant components are the Tracking Server and the Tracking API. The Tracking UI is discussed in :ref:`tutorial-tracking-ui`. The Model Registry is discussed in :ref:`tutorial-model-registry`.
+For training your models, the most-relevant components are the Tracking Server and the Tracking API.
 
 MLflow has Python, R, and Java/Scala/JVM APIs, but this tutorial will use Python. 
 
@@ -76,7 +76,7 @@ Naturally, the details of installing the database server will vary by vendor.
 
 You can also use the ``--backend-store-uri`` to specify a network-accessible file-system or database server.
 
-By default, the tracking server will listen on port 5000. You can change this with the ``--port`` argument. (The tracking server will also *serve* the Tracking UI on the same port. See :ref:`tutorial-tracking-ui` for more.)
+By default, the tracking server will listen on port 5000. You can change this with the ``--port`` argument. 
 
 Using a difference artifact store
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
