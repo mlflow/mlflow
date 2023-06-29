@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 from unittest import mock
 import numpy as np
-import pandas as pd
 import pyspark
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import VectorAssembler
