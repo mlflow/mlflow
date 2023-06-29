@@ -27,14 +27,41 @@ The Tracking UI Main page
 
 When you navigate to the Tracking UI, you will see a page similar to this:
 
-.. image:: _static/images/ui-tutorial/tracking-ui.png
+.. image:: _static/images/ui-tutorial/tracking_ui.png
    :width: 100%
 
-Down the left-hand side of the browser, the UI lists the **Experiments** that are being tracked (1). Individual **Runs** are shown in the main body of the page (2). The search box allows you to rapidly filter the displayed runs (3). You can switch between a **Table view** and a **Chart view** summary of runs (4). The **Models** tab displays the registered models that are tracked (5).
+Down the left-hand side of the browser, the UI lists the **Experiments** that are being tracked (1). Individual **Runs** are shown in the main body of the page (2). If you ran either the Quickstarts or the :ref:`tutorial-tracking`, you will see both the parent run, which was the full hyperparameter search, and the child runs, each with unigue parameters.
 
-The **Chart view** allows you to compare runs with visualizations of parameters used and metrics generated. The **Parallel Coordinates** chart is particularly useful for insight into the results of varying parameters. You may set the parameters and metrics visualized by selecting the vertical ellipsis and choosing the desired values from the drop-down menus.
+You can use the **Columns** dropdown (tk) to customize the columns displayed in the main results table. The search box (tk) allows you to rapidly filter the displayed runs. You can switch between a **Table view** and a **Chart view** summary of runs (tk). The **Models** tab (tk) displays the registered models that are tracked.
 
-For instance, in the following image, the final column shows the root mean square error of the validation set, while the left-hand columns show the learning rate and momentum used in the 14 runs. As you can see from the redder lines in the graph, when the learning rate is 0 (and therefore the model does not improve over its random initialization), the error is almost 0.9. With non-zero learning rates (``lr``), high ``momentum`` arguments lead to similar poor results. When the ``momentum`` is set to lower values, the results are better. 
+Customize the displayed columns
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The **hyperparam** example varied learning rate and momentum while trying to optimize Root Mean Square Error (RMSE) on the validation set. Select the **Columns** dropdown and put checkmarks on the following columns:
+
+* Metrics | val_rmse
+* Parameters | lr
+* Parameters | momentum
+
+Close the dropdown. You may have to horizontally scroll the runs table, but you can now see the chosen parameters and resulting metrics for each run. Usually, the best RMSE is slightly above ``0.49``. Note that the first run in the sweep has an ``lr`` of ``0``, so the model does not train beyond its random initialization; this usually results in an RMSE around ``0.89``.
+
+You can sort on a column by clicking on the column-head. For instance, clicking on the ``val_rmse`` column-head is a quick way to find your best or worse run. Clicking again reverses the sort order.
+
+Compare runs visually with the Chart view
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+While you may have a good idea of the best run from the **Table view**, it is often useful to compare runs visually. Select the **Chart view** tab to switch to the chart view.
+
+On this page, the main body is split between the table showing the runs in the experiment and a column which you can populate with various charts comparing runs. 
+
+The **Parallel Coordinates** chart is particularly useful for insight into the results of varying parameters. If there is no **Parallel Coordinates** chart in the right-hand column, click the **Add chart** button to add one. Select **Configure chart**. In the **Params** list, select **lr** and **momentum**. In the **Metrics** list, select **val_rmse**. Click **Save changes**.
+
+You'll see a figure similar to this:
+
+.. image:: _static/images/ui-tutorial/parallel-coordinates.png
+   :width: 100%
+
+The final column shows the root mean square error of the validation set, while the left-hand columns show the learning rate and momentum used in each of the runs. As you can see from the redder lines in the graph, when the learning rate is ``0`` (and therefore the model does not improve over its random initialization), the error is almost ``0.9``. With non-zero learning rates (``lr``), high ``momentum`` arguments lead to similar poor results. When the ``momentum`` is set to lower values, the results are better. 
 
 .. image:: _static/images/ui-tutorial/parallel-coordinates.png
    :width: 100%
@@ -46,10 +73,18 @@ Filtering and searching in the MLflow Tracking UI
 
 A machine lerning experiment inevitably generates a large number of runs. You are free to create as many experiments as desired, but often a single machine learning problem is best thought of as a single experiment. The deployed solution will be a matter of a long evolution of data and feature engineering, architecture selection, and parameters. Filtering the runs displayed quickly becomes important.
 
+The runs in the **hyperparam** example diverge: the runs either generate metrics near ``0.9`` or near ``0.5``. You might want to explore only the better runs. In the search box, enter the following:
+
+.. code-block:: sql
+
+  metrics.val_rmse < 0.55
+
+Select the **Refresh** button. Hover your mouse over various lines to see a popup showing run details. Select the run with the lowest RMSE. Click the run name in the popup box. This will open the run's detail page.
+
 Search with SQL WHERE subset
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A search filter is one or more expressions joined by the AND keyword. The search syntax does not support OR. Each expression has three parts: an identifier of the target entity (for instance, ``metrics.accuracy``), a comparator (for instance, ``>=`` for numeric values, ``LIKE`` for strings), and a constant. For example:
+A search filter is one or more expressions joined by the ``AND`` keyword. The search syntax does not support ``OR``. Each expression has three parts: an identifier of the target entity (for instance, ``metrics.accuracy``), a comparator (for instance, ``>=`` for numeric values, ``LIKE`` for strings), and a constant. For example:
 
 .. code-block:: sql
 
@@ -83,8 +118,23 @@ To delete a run, select it in the list of runs and select "Delete." You will be 
 
 You may also delete a run using the CLI command ``mlflow run delete --run-id <run_id>`` or the Python API ``mlflow.delete_run(run_id : str)->None``.
 
-Sorting and selecting columns
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Run details page
+-----------------------
 
-Both the **Table view** and **Chart view** allow you to sort the displayed filtered list of runs by any column. Select the **Sort** dropdown and choose the desired column and sort direction. In the **Table view** you may also use the **Columns** dropdown to select which columns are displayed.
+Whenever you select a run in the **Table view** or **Chart view**, the run's **Detail page** opens. For a run from the **hyperparam** example, the page will look similar to this:
 
+.. image:: _static/images/ui-tutorial/run-details.png
+   :width: 100%
+
+In particular, note the **Run ID** (1), which is the primary key for the run. The run's name(for instance, ``stylish-ox-217``) is not guaranteed to be unique and cannot be used to identify a run in a program or at the command-line.
+
+The details page contains a large amount of information about the run, including the run's start time, duration, and status, the source code entry point, the Git commit hash of the code at the time of the run, and the run's parameters, metrics, and tags. The **Artifacts** section shows the artifacts logged by the run.
+
+Register a model for possible deployment
+----------------------------------------
+
+From the details page of your most successful experiment, select the **Register Model** button (2). This will open a dialog box that allows you to register the current model with the MLflow Model Registry. Select **Create New Model**. Enter a name for the model, such as ``Wine Quality`` (which is what the **Hyperparam** example uses). Select **Register**. 
+
+Note that the **Register Model** button has been replaced by a link to a registered version of the model.
+
+Now that you have registered a model, select the **Models** tab on the top of the MLflow Tracking UI page. You will see a list of registered models, including the one you just registered. Select the model name to see the model's detail page.
