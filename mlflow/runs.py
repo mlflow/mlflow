@@ -3,8 +3,8 @@ CLI for runs
 """
 import click
 import json
-import mlflow.tracking
 from mlflow.entities import ViewType
+from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.tracking import _get_store
 from mlflow.utils.time_utils import conv_longdate_to_str
 from mlflow.utils.string_utils import _create_table
@@ -24,7 +24,7 @@ def commands():
 @commands.command("list")
 @click.option(
     "--experiment-id",
-    envvar=mlflow.tracking._EXPERIMENT_ID_ENV_VAR,
+    envvar=MLFLOW_EXPERIMENT_ID.name,
     type=click.STRING,
     help="Specify the experiment ID for list of runs.",
     required=True,

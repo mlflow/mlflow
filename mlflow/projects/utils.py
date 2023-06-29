@@ -28,7 +28,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
 )
 from mlflow.utils.rest_utils import augmented_raise_for_status
-from mlflow.environment_variables import MLFLOW_TRACKING_URI, MLFLOW_RUN_ID
+from mlflow.environment_variables import MLFLOW_TRACKING_URI, MLFLOW_RUN_ID, MLFLOW_EXPERIMENT_ID
 
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")
@@ -338,5 +338,5 @@ def get_run_env_vars(run_id, experiment_id):
     return {
         MLFLOW_RUN_ID.name: run_id,
         MLFLOW_TRACKING_URI.name: tracking.get_tracking_uri(),
-        tracking._EXPERIMENT_ID_ENV_VAR: str(experiment_id),
+        MLFLOW_EXPERIMENT_ID.name: str(experiment_id),
     }

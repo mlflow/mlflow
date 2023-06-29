@@ -39,8 +39,6 @@ from mlflow.entities import (
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking.fluent import (
-    _EXPERIMENT_ID_ENV_VAR,
-    _EXPERIMENT_NAME_ENV_VAR,
     _get_experiment_id,
     _get_experiment_id_from_env,
     search_runs,
@@ -51,7 +49,11 @@ from mlflow.tracking.fluent import (
 from mlflow.utils import mlflow_tags, get_results_from_paginated_fn
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.time_utils import get_current_time_millis
-from mlflow.environment_variables import MLFLOW_RUN_ID
+from mlflow.environment_variables import (
+    MLFLOW_RUN_ID,
+    MLFLOW_EXPERIMENT_ID,
+    MLFLOW_EXPERIMENT_NAME,
+)
 
 from tests.helper_functions import multi_context
 
@@ -62,20 +64,20 @@ class HelperEnv:
 
     @classmethod
     def assert_values(cls, exp_id, name):
-        assert os.environ.get(_EXPERIMENT_NAME_ENV_VAR) == name
-        assert os.environ.get(_EXPERIMENT_ID_ENV_VAR) == exp_id
+        assert MLFLOW_EXPERIMENT_NAME.get() == name
+        assert MLFLOW_EXPERIMENT_ID.get() == exp_id
 
     @classmethod
     def set_values(cls, experiment_id=None, name=None):
         if experiment_id:
-            os.environ[_EXPERIMENT_ID_ENV_VAR] = str(experiment_id)
-        elif os.environ.get(_EXPERIMENT_ID_ENV_VAR):
-            del os.environ[_EXPERIMENT_ID_ENV_VAR]
+            MLFLOW_EXPERIMENT_ID.set(str(experiment_id))
+        elif MLFLOW_EXPERIMENT_ID.get():
+            MLFLOW_EXPERIMENT_ID.unset()
 
         if name:
-            os.environ[_EXPERIMENT_NAME_ENV_VAR] = str(name)
-        elif os.environ.get(_EXPERIMENT_NAME_ENV_VAR):
-            del os.environ[_EXPERIMENT_NAME_ENV_VAR]
+            MLFLOW_EXPERIMENT_NAME.set(str(name))
+        elif MLFLOW_EXPERIMENT_NAME.get():
+            MLFLOW_EXPERIMENT_NAME.unset()
 
 
 def create_run(
@@ -252,8 +254,10 @@ def test_get_experiment_id_from_env():
         HelperEnv.assert_values(str(random_id), None)
         with pytest.raises(
             MlflowException,
-            match=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment variable value `{random_id}` "
-            "does not exist in the tracking server",
+            match=(
+                f"The provided {MLFLOW_EXPERIMENT_ID.name} environment variable value "
+                f"`{random_id}` does not exist in the tracking server"
+            ),
         ):
             _get_experiment_id_from_env()
 
@@ -267,8 +271,10 @@ def test_get_experiment_id_from_env():
         HelperEnv.assert_values(str(random_id), name)
         with pytest.raises(
             MlflowException,
-            match=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment variable value `{random_id}` "
-            "does not match the experiment id",
+            match=(
+                f"The provided {MLFLOW_EXPERIMENT_ID.name} environment variable value "
+                f"`{random_id}` does not match the experiment id"
+            ),
         ):
             _get_experiment_id_from_env()
 

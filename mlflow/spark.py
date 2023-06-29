@@ -34,7 +34,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE
-from mlflow.models.utils import _save_example
+from mlflow.models.utils import _Example, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
@@ -657,7 +657,11 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
+    # for automatic signature inference, we use an inline implementation rather than the
+    # `_infer_signature_from_input_example` API because we need to convert model predictions from a
+    # list into a Pandas series for signature inference.
     if signature is None and input_example is not None:
+        input_ex = _Example(input_example).inference_data
         try:
             spark = _get_active_spark_session()
             if spark is not None:
@@ -665,8 +669,8 @@ def save_model(
                 # We cast the predictions to a Pandas series because the Spark _PyFuncModelWrapper
                 # returns predictions as a list, which the `infer_signature` API does not support
                 # (unless it is a list of strings).
-                prediction = pd.Series(wrapped_model.predict(input_example))
-                signature = infer_signature(input_example, prediction)
+                prediction = pd.Series(wrapped_model.predict(input_ex))
+                signature = infer_signature(input_ex, prediction)
         except Exception as e:
             if environment_variables._MLFLOW_TESTING.get():
                 raise

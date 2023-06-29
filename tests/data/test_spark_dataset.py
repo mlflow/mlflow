@@ -184,8 +184,7 @@ def test_from_spark_with_sql_and_version(spark_session, tmp_path, df):
         match="`version` may not be specified when `sql` is specified. `version` may only be"
         " specified when `table_name` or `path` is specified.",
     ):
-        # pylint: disable=unused-variable
-        mlflow_df = mlflow.data.from_spark(df_spark, sql="SELECT * FROM table", version=1)
+        mlflow.data.from_spark(df_spark, sql="SELECT * FROM table", version=1)
 
 
 def test_from_spark_path(spark_session, tmp_path, df):
@@ -242,8 +241,7 @@ def test_from_spark_table_name_with_version(spark_session, tmp_path, df):
         match="Version '1' was specified, but could not find a Delta table "
         "with name 'my_spark_table'",
     ):
-        # pylint: disable=unused-variable
-        mlflow_df = mlflow.data.from_spark(df_spark, table_name="my_spark_table", version=1)
+        mlflow.data.from_spark(df_spark, table_name="my_spark_table", version=1)
 
 
 def test_from_spark_delta_table_name(spark_session, tmp_path, df):
@@ -271,8 +269,7 @@ def test_load_delta_with_no_source_info(spark_session, tmp_path):
         MlflowException,
         match="Must specify exactly one of `table_name` or `path`.",
     ):
-        # pylint: disable=unused-variable
-        mlflow_df = mlflow.data.load_delta()
+        mlflow.data.load_delta()
 
 
 def test_load_delta_with_both_table_name_and_path(spark_session, tmp_path):
@@ -280,8 +277,7 @@ def test_load_delta_with_both_table_name_and_path(spark_session, tmp_path):
         MlflowException,
         match="Must specify exactly one of `table_name` or `path`.",
     ):
-        # pylint: disable=unused-variable
-        mlflow_df = mlflow.data.load_delta(table_name="my_table", path="my_path")
+        mlflow.data.load_delta(table_name="my_table", path="my_path")
 
 
 def test_load_delta_path(spark_session, tmp_path, df):
