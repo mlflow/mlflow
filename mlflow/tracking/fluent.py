@@ -34,7 +34,7 @@ from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.default_experiment import registry as default_experiment_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.utils import env, get_results_from_paginated_fn
+from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     is_testing,
