@@ -45,7 +45,7 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
    :caption: How-to
 
    tutorial-tracking
-å
+
 .. toctree::
    :maxdepth: 1
    :caption: Reference
