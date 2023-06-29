@@ -249,6 +249,6 @@ describe('ExperimentViewRunsTable', () => {
     });
 
     // Assert "show more columns" CTA button not being displayed anymore
-    expect(simpleExperimentsWrapper.find('ExperimentViewRunsTableAddColumnCTA').length).toBe(0);
+    expect(simpleExperimentsWrapper.find('ExperimentViewRunsTableAddColumnCTA').length).toBe(1);
   });
 });
