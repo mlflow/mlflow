@@ -660,21 +660,21 @@ try:
     import mlflow.models.cli  # pylint: disable=unused-import
 
     cli.add_command(mlflow.models.cli.commands)
-except ImportError as e:
+except ImportError:
     pass
 
 try:
     import mlflow.recipes.cli  # pylint: disable=unused-import
 
     cli.add_command(mlflow.recipes.cli.commands)
-except ImportError as e:
+except ImportError:
     pass
 
 try:
     import mlflow.sagemaker.cli  # pylint: disable=unused-import
 
     cli.add_command(mlflow.sagemaker.cli.commands)
-except ImportError as e:
+except ImportError:
     pass
 
 
