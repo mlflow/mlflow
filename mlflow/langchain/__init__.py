@@ -182,9 +182,9 @@ def save_model(
                         This is optional for models containing unserializable objects. MLflow logs
                         the content in this directory as artifacts in the subdirectory named
                         `persist_dir_data`.
-
-                        Here is the code snippet for logging a RetrievalQA chain with `loader_fn`
-                        and `persist_dir`:
+                        Below is the code snippet for logging a RetrievalQA chain with `loader_fn`
+                        and `persist_dir`, see the complete example in
+                        examples/langchain/retrieval_qa_chain.py.
 
                         .. code-block:: python
 
@@ -205,7 +205,6 @@ def save_model(
                                     persist_dir=persist_dir,
                                 )
 
-                        See a complete example in examples/langchain/retrieval_qa_chain.py.
     """
     import langchain
 
