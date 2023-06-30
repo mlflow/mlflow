@@ -20,7 +20,7 @@ def register_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
     tags: Optional[Dict[str, Any]] = None,
-):
+) -> ModelVersion:
     """
     Create a new model version in model registry for the model files specified by ``model_uri``.
     Note that this method assumes the model registry backend URI is the same as that of the
