@@ -728,7 +728,7 @@ def test_basic_post_training_datasets_autologging(dataset_iris_binomial, log_dat
     estimator = LogisticRegression(maxIter=1, family="binomial", regParam=5.0, fitIntercept=False)
 
     with mlflow.start_run() as run:
-        model = estimator.fit(dataset_iris_binomial)  # pylint: disable=unused-variable
+        estimator.fit(dataset_iris_binomial)
 
     run_id = run.info.run_id
     client = MlflowClient()
@@ -749,7 +749,7 @@ def test_post_training_datasets_with_evaluate_autologging(dataset_iris_binomial)
         model = estimator.fit(dataset_iris_binomial)
         mce = MulticlassClassificationEvaluator(metricName="logLoss")
         pred_result = model.transform(eval_dataset)
-        logloss = mce.evaluate(pred_result)  # pylint: disable=unused-variable
+        mce.evaluate(pred_result)
 
     run_id = run.info.run_id
     client = MlflowClient()
@@ -767,7 +767,7 @@ def test_post_training_datasets_without_explicit_run(dataset_iris_binomial):
     model = estimator.fit(dataset_iris_binomial)
     mce = MulticlassClassificationEvaluator(metricName="logLoss")
     pred_result = model.transform(eval_dataset)
-    logloss = mce.evaluate(pred_result)  # pylint: disable=unused-variable
+    mce.evaluate(pred_result)
 
     run_id = getattr(model, "_mlflow_run_id")
     client = MlflowClient()

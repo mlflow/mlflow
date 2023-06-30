@@ -388,10 +388,16 @@ def raw_audio_file():
 @pytest.fixture()
 @flaky()
 def whisper_pipeline():
-    model = transformers.pipeline(model="openai/whisper-tiny")
+    task = "automatic-speech-recognition"
+    architecture = "openai/whisper-tiny"
+    model = transformers.WhisperForConditionalGeneration.from_pretrained(architecture)
+    tokenizer = transformers.WhisperTokenizer.from_pretrained(architecture)
+    feature_extractor = transformers.WhisperFeatureExtractor.from_pretrained(architecture)
     if Version(transformers.__version__) > Version("4.30.2"):
         model.generation_config.alignment_heads = [[2, 2], [3, 0], [3, 2], [3, 3], [3, 4], [3, 5]]
-    return model
+    return transformers.pipeline(
+        task=task, model=model, tokenizer=tokenizer, feature_extractor=feature_extractor
+    )
 
 
 @pytest.fixture()
