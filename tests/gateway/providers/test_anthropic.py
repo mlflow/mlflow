@@ -7,6 +7,7 @@ import pytest
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_ANTHROPIC_MAX_TOKENS
 from tests.gateway.tools import MockAsyncResponse
 
 
@@ -38,6 +39,25 @@ def completions_config():
     }
 
 
+def parsed_completions_response():
+    return {
+        "candidates": [
+            {
+                "text": "Here is a basic overview of how a car works:\n\n1. The engine. "
+                "The engine is the power source that makes the car move.",
+                "metadata": {"finish_reason": "length"},
+            }
+        ],
+        "metadata": {
+            "model": "claude-instant-1.1",
+            "route_type": "llm/v1/completions",
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+        },
+    }
+
+
 @pytest.mark.asyncio
 async def test_completions():
     resp = completions_response()
@@ -48,34 +68,36 @@ async def test_completions():
         provider = AnthropicProvider(RouteConfig(**config))
         payload = {"prompt": "How does a car work?", "max_tokens": 200}
         response = await provider.completions(completions.RequestPayload(**payload))
-        assert jsonable_encoder(response) == {
-            "candidates": [
-                {
-                    "text": "Here is a basic overview of how a car works:\n\n1. The engine. "
-                    "The engine is the power source that makes the car move.",
-                    "metadata": {"finish_reason": "length"},
-                }
-            ],
-            "metadata": {
-                "model": "claude-instant-1.1",
-                "route_type": "llm/v1/completions",
-                "input_tokens": None,
-                "output_tokens": None,
-                "total_tokens": None,
-            },
-        }
+        assert jsonable_encoder(response) == parsed_completions_response()
         mock_post.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_completions_throws_with_missing_max_tokens():
+async def test_completions_with_default_max_tokens():
+    resp = completions_response()
+    config = completions_config()
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = AnthropicProvider(RouteConfig(**config))
+        payload = {"prompt": "How does a car work?"}
+        response = await provider.completions(completions.RequestPayload(**payload))
+        assert jsonable_encoder(response) == parsed_completions_response()
+        mock_post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_completions_throws_with_invalid_max_tokens_too_large():
     config = completions_config()
     provider = AnthropicProvider(RouteConfig(**config))
-    payload = {"prompt": "Would Fozzie or Kermet win in a fight?"}
+    payload = {"prompt": "Would Fozzie or Kermet win in a fight?", "max_tokens": 1000001}
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
-    assert "You must set an integer value for 'max_tokens' for the Anthropic" in e.value.detail
-    assert e.value.status_code == 400
+    assert (
+        f"Invalid value for max_tokens: cannot exceed {MLFLOW_AI_GATEWAY_ANTHROPIC_MAX_TOKENS}"
+        in e.value.detail
+    )
+    assert e.value.status_code == 422
 
 
 @pytest.mark.asyncio
@@ -86,7 +108,7 @@ async def test_completions_throws_with_top_p_defined():
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "Cannot set both 'temperature' and 'top_p' parameters. Please" in e.value.detail
-    assert e.value.status_code == 400
+    assert e.value.status_code == 422
 
 
 @pytest.mark.asyncio
@@ -101,7 +123,7 @@ async def test_completions_throws_with_stream_set_to_true():
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "Setting the 'stream' parameter to 'true' is not supported" in e.value.detail
-    assert e.value.status_code == 400
+    assert e.value.status_code == 422
 
 
 def chat_config():
