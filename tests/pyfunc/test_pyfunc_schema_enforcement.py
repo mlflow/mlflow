@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 import re
 import sklearn.linear_model
+from unittest import mock
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -954,6 +955,17 @@ def test_enforce_params_schema():
     updated_parameters = {"b": 1}
     updated_parameters.update(test_parameters)
     assert _enforce_params_schema(test_parameters, test_schema) == updated_parameters
+
+    # Ignore values not specified in ParamSchema and log warning
+    test_parameters = {"a": "str_a", "invalid_param": "value"}
+    test_schema = ParamSchema([ParamSpec("a", DataType.string, "")])
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
+        assert _enforce_params_schema(test_parameters, test_schema) == {"a": "str_a"}
+        mock_warning.assert_called_once_with(
+            "Invalid arguments ['invalid_param'] are ignored for inference. "
+            "Supported arguments are: {'a'}. "
+            "To enable them, please add corresponding schema in ModelSignature."
+        )
 
     # Converting parameters keys to string if it is not
     test_parameters = {1: 1.0}

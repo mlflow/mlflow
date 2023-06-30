@@ -28,6 +28,7 @@ from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 # dependencies to the minimum here.
 # ALl of the mlflow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
+from mlflow.models.utils import _enforce_params_schema
 from mlflow.types import Schema
 from mlflow.utils import reraise
 from mlflow.utils.annotations import experimental
@@ -262,7 +263,12 @@ def invocations(data, content_type, model, input_schema):
 
     # Do the prediction
     try:
-        raw_predictions = model.predict(data, params)
+        if params:
+            params_schema = model.metadata.get_params_schema()
+            params = _enforce_params_schema(params, params_schema)
+            raw_predictions = model.predict(data, params)
+        else:
+            raw_predictions = model.predict(data)
     except MlflowException as e:
         raise e
     except Exception:
@@ -348,11 +354,18 @@ def _predict(model_uri, input_path, output_path, content_type):
     else:
         raise Exception(f"Unknown content type '{content_type}'")
 
+    if params:
+        params_schema = pyfunc_model.metadata.get_params_schema()
+        params = _enforce_params_schema(params, params_schema)
+        raw_predictions = pyfunc_model.predict(df, params)
+    else:
+        raw_predictions = pyfunc_model.predict(df)
+
     if output_path is None:
-        predictions_to_json(pyfunc_model.predict(df, params), sys.stdout)
+        predictions_to_json(raw_predictions, sys.stdout)
     else:
         with open(output_path, "w") as fout:
-            predictions_to_json(pyfunc_model.predict(df, params), fout)
+            predictions_to_json(raw_predictions, fout)
 
 
 def _serve(model_uri, port, host):

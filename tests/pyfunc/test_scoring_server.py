@@ -20,7 +20,7 @@ from mlflow.models import ModelSignature, infer_signature
 from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
 from mlflow.pyfunc import PythonModel
 from mlflow.pyfunc.scoring_server import get_cmd
-from mlflow.types import Schema, ColSpec, DataType
+from mlflow.types import Schema, ColSpec, DataType, ParamSchema, ParamSpec
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.utils import env_manager as _EnvManager
@@ -562,6 +562,44 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
         )
         response_json = json.loads(response.content)["predictions"]
         assert response_json == [[k, str(v)] for k, v in expected_types.items()]
+
+
+def test_serving_model_with_param_schema(sklearn_model, model_path):
+    dataframe = {
+        "dataframe_split": pd.DataFrame(sklearn_model.inference_data).to_dict(orient="split")
+    }
+    signature = infer_signature(sklearn_model.inference_data)
+    param_schema = ParamSchema([ParamSpec("param1", DataType.datetime, np.datetime64("20230701"))])
+    signature.params = param_schema
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path, signature=signature)
+
+    # Success if passing no parameters
+    response = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=json.dumps(dataframe),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON + "; charset=UTF-8",
+    )
+    expect_status_code(response, 200)
+
+    # Raise error if invalid value is passed
+    payload = dataframe.copy()
+    payload.update({"params": {"param1": "invalid_value1"}})
+    response = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=json.dumps(payload),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON + "; charset=UTF-8",
+    )
+    expect_status_code(response, 400)
+
+    # Ignore parameters specified in payload if it is not defined in ParamSchema
+    payload = dataframe.copy()
+    payload.update({"params": {"invalid_param": "value"}})
+    response = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=json.dumps(payload),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON + "; charset=UTF-8",
+    )
+    expect_status_code(response, 200)
 
 
 def test_get_jsonnable_obj():
