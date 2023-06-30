@@ -294,11 +294,7 @@ def test_infer_signature_from_example_can_be_disabled():
 
 
 def test_infer_signature_silently_fails(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "MLFLOW_TESTING": "false",
-        }
-    )
+    monkeypatch.setenv("MLFLOW_TESTING", "false")
 
     class ErrorModel(BaseEstimator, ClassifierMixin):
         def fit(self, X, y=None):
