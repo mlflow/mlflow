@@ -436,37 +436,30 @@ def test_log_and_load_hyde_chain():
 
 def create_sqlite_db_file(db_dir):
     # Connect to SQLite database (or create it if it doesn't exist)
-    conn = sqlite3.connect(db_dir)
+    with sqlite3.connect(db_dir) as conn:
+        # Create a cursor
+        c = conn.cursor()
 
-    # Create a cursor
-    c = conn.cursor()
+        # Create a dummy table
+        c.execute(
+            """
+            CREATE TABLE IF NOT EXISTS employees(
+                id INTEGER PRIMARY KEY,
+                name TEXT,
+                salary REAL,
+                department TEXT,
+                position TEXT,
+                hireDate TEXT);
+            """
+        )
 
-    # Create a dummy table
-    c.execute(
-        """
-        CREATE TABLE IF NOT EXISTS employees(
-            id INTEGER PRIMARY KEY,
-            name TEXT,
-            salary REAL,
-            department TEXT,
-            position TEXT,
-            hireDate TEXT);
-        """
-    )
-
-    # Insert dummy data into the table
-    c.execute(
-        """
-        INSERT INTO employees (name, salary, department, position, hireDate)
-        VALUES ('John Doe', 80000, 'IT', 'Engineer', '2023-06-26');
-        """
-    )
-
-    # Commit the transaction
-    conn.commit()
-
-    # Close the connection
-    conn.close()
+        # Insert dummy data into the table
+        c.execute(
+            """
+            INSERT INTO employees (name, salary, department, position, hireDate)
+            VALUES ('John Doe', 80000, 'IT', 'Engineer', '2023-06-26');
+            """
+        )
 
 
 def load_db(persist_dir):
