@@ -20,12 +20,7 @@ from mlflow.recipes.utils.execution import (
     _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
 )
 
-# pylint: disable=unused-import
-from tests.recipes.helper_functions import (
-    BaseStepImplemented,
-    enter_recipe_example_directory,
-    enter_test_recipe_directory,
-)
+from tests.recipes.helper_functions import BaseStepImplemented
 
 
 @pytest.fixture

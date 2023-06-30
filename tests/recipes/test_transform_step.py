@@ -15,11 +15,6 @@ from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
 from mlflow.recipes.steps.transform import TransformStep, _validate_user_code_output
 from unittest import mock
 
-# pylint: disable=unused-import
-from tests.recipes.helper_functions import tmp_recipe_root_path
-
-# pylint: enable=unused-import
-
 
 # Sets up the transform step and returns the constructed TransformStep instance and step output dir
 def set_up_transform_step(recipe_root: Path, transform_user_module):

@@ -6,10 +6,6 @@ from click.testing import CliRunner
 from mlflow.exceptions import MlflowException
 from mlflow.recipes.utils import _RECIPE_PROFILE_ENV_VAR
 
-# pylint: disable=unused-import
-from tests.recipes.helper_functions import (
-    enter_recipe_example_directory,
-)  # pylint: enable=unused-import
 
 _STEP_NAMES = ["ingest", "split", "train", "transform", "evaluate", "register"]
 
