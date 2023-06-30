@@ -198,7 +198,9 @@ def _register_tracking_stores():
     _tracking_store_registry.register("", _get_file_store)
     _tracking_store_registry.register("file", _get_file_store)
     _tracking_store_registry.register("databricks", _get_databricks_rest_store)
-    _tracking_store_registry.register(_DATABRICKS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store)
+    _tracking_store_registry.register(
+        _DATABRICKS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store
+    )
 
     for scheme in ["http", "https"]:
         _tracking_store_registry.register(scheme, _get_rest_store)
