@@ -24,8 +24,7 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.conda import _PIP_CACHE_DIR
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
-
-_MLFLOW_ENV_ROOT_ENV_VAR = "MLFLOW_ENV_ROOT"
+from mlflow.environment_variables import MLFLOW_ENV_ROOT
 
 
 _logger = logging.getLogger(__name__)
@@ -35,7 +34,7 @@ def _get_mlflow_virtualenv_root():
     """
     Returns the root directory to store virtualenv environments created by MLflow.
     """
-    return os.getenv(_MLFLOW_ENV_ROOT_ENV_VAR, str(Path.home().joinpath(".mlflow", "envs")))
+    return MLFLOW_ENV_ROOT.get()
 
 
 _DATABRICKS_PYENV_BIN_PATH = "/databricks/.pyenv/bin/pyenv"
