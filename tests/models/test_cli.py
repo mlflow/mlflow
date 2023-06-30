@@ -421,8 +421,7 @@ def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
     assert output_directory.joinpath("Dockerfile").stat().st_size != 0
 
 
-# Re-enable enable_mlserver=True once inference parameters change is updated to MLServer repo
-@pytest.mark.parametrize("enable_mlserver", [False])
+@pytest.mark.parametrize("enable_mlserver", [True, False])
 def test_build_docker(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:

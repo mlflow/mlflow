@@ -31,7 +31,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _enforce_params_schema
 from mlflow.types import Schema
 from mlflow.utils import reraise
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
@@ -82,6 +82,57 @@ SCORING_PROTOCOL_CHANGE_INFO = (
     " Model scoring protocol in MLflow 2.0, see"
     " https://mlflow.org/docs/latest/models.html#deploy-mlflow-models."
 )
+
+
+@deprecated("infer_and_parse_data", "2.4.2")
+def infer_and_parse_json_input(json_input, schema: Schema = None):
+    """
+    :param json_input: A JSON-formatted string representation of TF serving input or a Pandas
+                       DataFrame, or a stream containing such a string representation.
+    :param schema: Optional schema specification to be used during parsing.
+    """
+    if isinstance(json_input, dict):
+        decoded_input = json_input
+    else:
+        try:
+            decoded_input = json.loads(json_input)
+        except json.decoder.JSONDecodeError as ex:
+            raise MlflowException(
+                message=(
+                    "Failed to parse input from JSON. Ensure that input is a valid JSON"
+                    f" formatted string. Error: '{ex}'. Input: \n{json_input}\n"
+                ),
+                error_code=BAD_REQUEST,
+            )
+    if isinstance(decoded_input, dict):
+        format_keys = set(decoded_input.keys()).intersection(SUPPORTED_FORMATS)
+        if len(format_keys) != 1:
+            message = f"Received dictionary with input fields: {list(decoded_input.keys())}"
+            raise MlflowException(
+                message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
+                error_code=BAD_REQUEST,
+            )
+        input_format = format_keys.pop()
+        if input_format in (INSTANCES, INPUTS):
+            return parse_tf_serving_input(decoded_input, schema=schema)
+
+        elif input_format in (DF_SPLIT, DF_RECORDS):
+            # NB: skip the dataframe_ prefix
+            pandas_orient = input_format[10:]
+            return dataframe_from_parsed_json(
+                decoded_input[input_format], pandas_orient=pandas_orient, schema=schema
+            )
+    elif isinstance(decoded_input, list):
+        message = "Received a list"
+        raise MlflowException(
+            message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
+            error_code=BAD_REQUEST,
+        )
+    else:
+        message = f"Received unexpected input type '{type(decoded_input)}'"
+        raise MlflowException(
+            message=f"{REQUIRED_INPUT_FORMAT}. {message}.", error_code=BAD_REQUEST
+        )
 
 
 def _decode_json_input(json_input):
