@@ -69,33 +69,16 @@ from mlflow.store._unity_catalog.registry.utils import (
 )
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.rest_utils import MlflowHostCreds
 from tests.helper_functions import mock_http_200
-
-_REGISTRY_URI = "databricks-uc"
-_TRACKING_URI = "databricks"
-_REGISTRY_HOST_CREDS = MlflowHostCreds("https://hello-registry")
-_TRACKING_HOST_CREDS = MlflowHostCreds("https://hello-tracking")
-
-
-@pytest.fixture
-def mock_databricks_host_creds():
-    def mock_host_creds(uri):
-        if uri == _TRACKING_URI:
-            return _TRACKING_HOST_CREDS
-        elif uri == _REGISTRY_URI:
-            return _REGISTRY_HOST_CREDS
-        raise Exception(f"Got unexpected store URI {uri}")
-
-    with mock.patch(
-        "mlflow.store._unity_catalog.registry.rest_store.get_databricks_host_creds",
-        side_effect=mock_host_creds,
-    ):
-        yield
+from tests.store._unity_catalog.utils import (
+    mock_databricks_uc_host_creds,
+    _REGISTRY_HOST_CREDS,
+    _TRACKING_HOST_CREDS,
+)
 
 
 @pytest.fixture
-def store(mock_databricks_host_creds):
+def store(mock_databricks_uc_host_creds):
     with mock.patch("databricks_cli.configure.provider.get_config"):
         yield UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks")
 
@@ -427,7 +410,7 @@ def test_get_run_and_headers_returns_none_if_request_fails(store, status_code, r
 
 
 def test_get_run_and_headers_returns_none_if_tracking_uri_not_databricks(
-    mock_databricks_host_creds, tmp_path
+    mock_databricks_uc_host_creds, tmp_path
 ):
     with mock.patch("databricks_cli.configure.provider.get_config"):
         store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri=str(tmp_path))
