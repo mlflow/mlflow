@@ -371,7 +371,7 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
 
     inference_payload = json.dumps({"inputs": langchain_input})
     langchain_output_serving = {"predictions": _chat_completion_json_sample(TEST_CONTENT)}
-    with _mock_request(return_value=_MockResponse(200, langchain_output_serving)):
+    with _mock_request(return_value=_MockResponse(200, langchain_output_serving)) as mock_request:
         import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
         from mlflow.deployments import PredictionsResponse
 
@@ -386,6 +386,7 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
             PredictionsResponse.from_json(response.content.decode("utf-8"))
             == langchain_output_serving
         )
+        assert mock_request.call_count == 3
 
 
 def load_requests_wrapper(_):
