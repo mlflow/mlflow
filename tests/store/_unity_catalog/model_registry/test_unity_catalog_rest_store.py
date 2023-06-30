@@ -10,7 +10,6 @@ from google.cloud.storage import Client
 from requests import Response
 import yaml
 
-import mlflow.artifacts
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature, Schema
 from mlflow.entities.run import Run
@@ -72,7 +71,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.utils.proto_json_utils import message_to_json
 from tests.helper_functions import mock_http_200
 from tests.store._unity_catalog.utils import (
-    mock_databricks_uc_host_creds,
+    mock_databricks_uc_host_creds,  # pylint: disable=unused-import
     _REGISTRY_HOST_CREDS,
     _TRACKING_HOST_CREDS,
 )

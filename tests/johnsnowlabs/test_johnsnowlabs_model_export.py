@@ -16,7 +16,6 @@ from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.pyfunc import spark_udf
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 

@@ -30,7 +30,6 @@ from mlflow.utils.environment import _mlflow_conda_env, _mlflow_additional_pip_e
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.types.schema import Schema, TensorSpec
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import (
     _compare_conda_env_requirements,
