@@ -196,7 +196,7 @@ def _save_model_with_class_artifacts_params(
             saved_artifacts_dir_subpath = "artifacts"
             for artifact_name, artifact_uri in artifacts.items():
                 tmp_artifact_path = _download_artifact_from_uri(
-                    artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
+                    artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path(artifact_name)
                 )
                 tmp_artifacts_config[artifact_name] = tmp_artifact_path
                 saved_artifact_subpath = posixpath.join(
