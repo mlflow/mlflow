@@ -244,10 +244,18 @@ def test_log_model_calls_register_model(sklearn_logreg_model):
             registered_model_name="AdsModel1",
         )
 
+
 def test_log_model_call_register_model_to_uc(configure_client_for_uc, sklearn_logreg_model):
     artifact_path = "linear"
-    mock_model_version = ModelVersion(name="AdsModel1", version=1, creation_timestamp=123, status=ModelVersionStatus.to_string(ModelVersionStatus.READY))
-    with mock.patch.object(UcModelRegistryStore, "create_registered_model"), mock.patch.object(UcModelRegistryStore, "create_model_version", return_value=mock_model_version) as mock_create_mv, TempDir(chdr=True, remove_on_exit=True) as tmp:
+    mock_model_version = ModelVersion(
+        name="AdsModel1",
+        version=1,
+        creation_timestamp=123,
+        status=ModelVersionStatus.to_string(ModelVersionStatus.READY),
+    )
+    with mock.patch.object(UcModelRegistryStore, "create_registered_model"), mock.patch.object(
+        UcModelRegistryStore, "create_model_version", return_value=mock_model_version
+    ) as mock_create_mv, TempDir(chdr=True, remove_on_exit=True) as tmp:
         with mlflow.start_run():
             conda_env = os.path.join(tmp.path(), "conda_env.yaml")
             _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
@@ -263,6 +271,7 @@ def test_log_model_call_register_model_to_uc(configure_client_for_uc, sklearn_lo
             expected_source = os.path.join(active_run.info.artifact_uri, artifact_path)
             assert args == ("AdsModel1", expected_source, run_id, [], None, None)
             assert kwargs["local_model_path"].startswith(tempfile.gettempdir())
+
 
 def test_log_model_no_registered_model_name(sklearn_logreg_model):
     artifact_path = "model"
