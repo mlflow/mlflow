@@ -20,6 +20,8 @@ def tracking_uri_mock(tmp_path, request):
         tracking_uri = path_to_local_sqlite_uri(os.path.join(tmp_path, "mlruns.sqlite"))
         with _use_tracking_uri(tracking_uri):
             yield tracking_uri
+    else:
+        yield None
 
 
 @pytest.fixture(autouse=True)
