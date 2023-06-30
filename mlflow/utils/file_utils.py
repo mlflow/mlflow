@@ -872,3 +872,18 @@ def remove_on_error(path: os.PathLike, onerror=None):
             elif os.path.isdir(path):
                 shutil.rmtree(path)
         raise
+
+
+@contextmanager
+def chdir(path: str) -> None:
+    """
+    Temporarily change the current working directory to the specified path.
+
+    :param path: The path to use as the temporary working directory.
+    """
+    cwd = os.getcwd()
+    try:
+        os.chdir(path)
+        yield
+    finally:
+        os.chdir(cwd)
