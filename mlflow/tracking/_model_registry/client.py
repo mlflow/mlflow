@@ -193,6 +193,7 @@ class ModelRegistryClient:
         tags = tags if tags else {}
         tags = [ModelVersionTag(key, str(value)) for key, value in tags.items()]
         try:
+            print(f"@SID calling create model version with {self.store}, {local_model_path}")
             mv = self.store.create_model_version(
                 name,
                 source,
