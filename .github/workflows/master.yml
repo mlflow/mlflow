@@ -54,6 +54,7 @@ jobs:
         run: |
           echo "::add-matcher::.github/workflows/matchers/pylint.json"
           echo "::add-matcher::.github/workflows/matchers/black.json"
+          echo "::add-matcher::.github/workflows/matchers/ruff.json"
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --ml
@@ -73,14 +74,14 @@ jobs:
           # To fail fast for faster iteration, first run pylint only on changed files,
           # then run it on all files in the next step.
           changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
-          pre-commit run --color=always --files $changed_files
+          pre-commit run --files $changed_files
       - name: Run pre-commit (pylint)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
           if echo "$changed_files" | grep -q '\.py$'; then
-            pre-commit run --color=always --all-files pylint
+            pre-commit run --all-files pylint
           fi
       - name: Update error messages
         if: always() && steps.run-pre-commit.outcome == 'failure'

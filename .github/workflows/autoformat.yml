@@ -107,6 +107,7 @@ jobs:
           pip install -r requirements/lint-requirements.txt
       - if: steps.diff.outputs.python == 'true'
         run: |
+          ruff --fix .
           black .
       # ************************************************************************
       # js
