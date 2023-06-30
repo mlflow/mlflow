@@ -526,8 +526,16 @@ class _OpenAIWrapper:
         else:
             return data[self.variables].to_dict(orient="records")
 
-    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         if self.variables:
@@ -561,8 +569,16 @@ class _TestOpenAIWrapper(_OpenAIWrapper):
     A wrapper class that should be used for testing purposes only.
     """
 
-    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         from mlflow.openai.utils import _mock_chat_completion_request
 
         with _mock_chat_completion_request():

@@ -23,7 +23,6 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -451,8 +450,16 @@ class _PaddleWrapper:
     def __init__(self, pd_model):
         self.pd_model = pd_model
 
-    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         import pandas as pd
         import numpy as np
 

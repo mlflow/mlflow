@@ -23,7 +23,6 @@ import mlflow.tracking
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -318,7 +317,6 @@ class _OnnxModelWrapper:
                     feeds[input_name] = feed.astype(np.float32)
         return feeds
 
-    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
         """
         :param data: Either a pandas DataFrame, numpy.ndarray or a dictionary.
@@ -339,6 +337,10 @@ class _OnnxModelWrapper:
 
                       For more information about the ONNX Runtime, see
                       `<https://github.com/microsoft/onnxruntime>`_.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
         :return: Model predictions. If the input is a pandas.DataFrame, the predictions are returned
                  in a pandas.DataFrame. If the input is a numpy array or a dictionary the
                  predictions are returned in a dictionary.

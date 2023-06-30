@@ -19,7 +19,6 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -271,8 +270,16 @@ class _H2OModelWrapper:
     def __init__(self, h2o_model):
         self.h2o_model = h2o_model
 
-    @experimental
     def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
+        """
+        :param dataframe: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         import h2o
 
         predicted = self.h2o_model.predict(h2o.H2OFrame(dataframe)).as_data_frame()

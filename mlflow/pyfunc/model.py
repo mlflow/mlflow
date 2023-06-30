@@ -19,7 +19,6 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _extract_type_hints
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _process_pip_requirements,
@@ -90,7 +89,6 @@ class PythonModel:
         return _extract_type_hints(self.predict, input_arg_index=1)
 
     @abstractmethod
-    @experimental
     def predict(self, context, model_input, params: Optional[Dict[str, Any]] = None):
         """
         Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
@@ -99,6 +97,10 @@ class PythonModel:
         :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
                         can use to perform inference.
         :param model_input: A pyfunc-compatible input for the model to evaluate.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
         """
 
 
@@ -116,8 +118,18 @@ class _FunctionPythonModel(PythonModel):
     def _get_type_hints(self):
         return _extract_type_hints(self.func, input_arg_index=0)
 
-    @experimental
     def predict(self, context, model_input, params: Optional[Dict[str, Any]] = None):
+        """
+        :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                        can use to perform inference.
+        :param model_input: A pyfunc-compatible input for the model to evaluate.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         if params is None:
             return self.func(model_input)
         elif not isinstance(params, dict):
@@ -370,6 +382,14 @@ class _PythonModelPyfuncWrapper:
 
         return model_input
 
-    @experimental
     def predict(self, model_input, params: Optional[Dict[str, Any]] = None):
+        """
+        :param model_input: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         return self.python_model.predict(self.context, self._convert_input(model_input), params)

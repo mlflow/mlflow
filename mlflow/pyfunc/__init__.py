@@ -389,7 +389,6 @@ class PyFuncModel:
         self._model_impl = model_impl
         self._predict_fn = getattr(model_impl, predict_fn)
 
-    @experimental
     def predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
         """
         Generate model predictions.
@@ -413,13 +412,16 @@ class PyFuncModel:
 
         :param params: Additional parameters to pass to the model for inference.
 
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         input_schema = self.metadata.get_input_schema()
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
 
-        if params is not None:
+        if params:
             params_schema = self.metadata.get_params_schema()
             params = _enforce_params_schema(params, params_schema)
 
@@ -617,8 +619,16 @@ class _ServedPyFuncModel(PyFuncModel):
         self._client = client
         self._server_pid = server_pid
 
-    @experimental
     def predict(self, data, params=None):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         result = self._client.invoke(data, params).get_predictions()
         if isinstance(result, pandas.DataFrame):
             result = result[result.columns[0]]

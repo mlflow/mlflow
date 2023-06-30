@@ -12,7 +12,6 @@ from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
-from mlflow.utils.annotations import experimental
 from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
@@ -101,12 +100,16 @@ class _GluonModelWrapper:
     def __init__(self, gluon_model):
         self.gluon_model = gluon_model
 
-    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
         """
         :param data: Either a pandas DataFrame or a numpy array containing input array values.
                      If the input is a DataFrame, it will be converted to an array first by a
                      `ndarray = df.values`.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
         :return: Model predictions. If the input is a pandas.DataFrame, the predictions are returned
                  in a pandas.DataFrame. If the input is a numpy array, the predictions are returned
                  as either a numpy.ndarray or a plain list for hybrid models.

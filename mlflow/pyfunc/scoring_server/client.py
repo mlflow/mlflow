@@ -12,7 +12,6 @@ from typing import Any, Dict, Optional
 from mlflow.pyfunc import scoring_server
 
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import dump_input_data
 from mlflow.deployments import PredictionsResponse
 
@@ -27,13 +26,16 @@ class BaseScoringServerClient(ABC):
         """
 
     @abstractmethod
-    @experimental
     def invoke(self, data, params: Optional[Dict[str, Any]] = None):
         """
         Invoke inference on input data. The input data must be pandas dataframe or numpy array or
         a dict of numpy arrays.
-        params is an optional field that can be used to pass additional parameters to the
-        model inference process.
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+        :return: Prediction result.
         """
 
 
@@ -70,8 +72,15 @@ class ScoringServerClient(BaseScoringServerClient):
                     raise RuntimeError(f"Server process already exit with returncode {return_code}")
         raise RuntimeError("Wait scoring server ready timeout.")
 
-    @experimental
     def invoke(self, data, params: Optional[Dict[str, Any]] = None):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+        :return: :py:class:`PredictionsResponse <mlflow.deployments.PredictionsResponse>` result.
+        """
         response = requests.post(
             url=self.url_prefix + "/invocations",
             data=dump_input_data(data, params=params),
@@ -95,11 +104,17 @@ class StdinScoringServerClient(BaseScoringServerClient):
         if return_code is not None:
             raise RuntimeError(f"Server process already exit with returncode {return_code}")
 
-    @experimental
     def invoke(self, data, params: Optional[Dict[str, Any]] = None):
         """
         Invoke inference on input data. The input data must be pandas dataframe or numpy array or
         a dict of numpy arrays.
+
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+        :return: :py:class:`PredictionsResponse <mlflow.deployments.PredictionsResponse>` result.
         """
         if not self.output_json.exists():
             self.output_json.touch()

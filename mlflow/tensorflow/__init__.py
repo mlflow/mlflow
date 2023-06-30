@@ -38,7 +38,6 @@ from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import is_iterator
-from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _validate_env_arguments,
     _process_pip_requirements,
@@ -760,8 +759,16 @@ class _TF2Wrapper:
         self.model = model
         self.infer = infer
 
-    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         import tensorflow
 
         feed_dict = {}
@@ -805,8 +812,16 @@ class _TF2ModuleWrapper:
         self.model = model
         self.signature = signature
 
-    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         import tensorflow
 
         if isinstance(data, (np.ndarray, list)):
@@ -827,8 +842,16 @@ class _KerasModelWrapper:
         self.keras_model = keras_model
         self.signature = signature
 
-    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         if isinstance(data, pandas.DataFrame):
             # This line is for backwards compatibility:
             # If model signature is not None, when calling

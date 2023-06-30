@@ -427,12 +427,20 @@ class _LangChainModelWrapper:
     def __init__(self, lc_model):
         self.lc_model = lc_model
 
-    @experimental
     def predict(
         self,
         data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]],
         params: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
         if isinstance(data, pd.DataFrame):
@@ -453,8 +461,16 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
     A wrapper class that should be used for testing purposes only.
     """
 
-    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         import langchain
         from tests.langchain.test_langchain_model_export import _mock_async_request
 

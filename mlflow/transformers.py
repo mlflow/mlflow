@@ -1644,8 +1644,16 @@ class _TransformersWrapper:
                 ) from e
             raise
 
-    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         self._override_inference_config(params)
 
         if isinstance(data, pd.DataFrame):

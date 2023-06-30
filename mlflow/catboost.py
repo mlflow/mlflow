@@ -31,7 +31,6 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -330,8 +329,16 @@ class _CatboostModelWrapper:
     def __init__(self, cb_model):
         self.cb_model = cb_model
 
-    @experimental
     def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
+        """
+        :param dataframe: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         return self.cb_model.predict(dataframe)
 
 

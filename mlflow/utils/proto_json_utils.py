@@ -10,7 +10,6 @@ from google.protobuf.json_format import MessageToJson, ParseDict
 from google.protobuf.descriptor import FieldDescriptor
 
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import experimental
 from collections import defaultdict
 from functools import partial
 
@@ -477,8 +476,15 @@ def get_jsonable_input(name, data):
         raise MlflowException(f"Incompatible input type:{type(data)} for input {name}.")
 
 
-@experimental
 def dump_input_data(data, inputs_key="inputs", params: Optional[Dict[str, Any]] = None):
+    """
+    :param data: Input data.
+    :inputs_key: Key to represent data in the request payload.
+    :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+    """
     import numpy as np
     import pandas as pd
 
