@@ -236,7 +236,7 @@ def test_pmdarima_log_model_no_registered_model_name(auto_arima_model, tmp_path)
         mlflow.pmdarima.log_model(
             pmdarima_model=auto_arima_model, artifact_path=artifact_path, conda_env=str(conda_env)
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
 def test_pmdarima_model_save_persists_specified_conda_env_in_mlflow_model_directory(

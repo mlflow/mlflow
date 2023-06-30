@@ -509,7 +509,7 @@ def test_log_model_no_registered_model_name(tmp_path, spark_model_iris):
             spark_model=spark_model_iris.model,
             dfs_tmpdir=dfs_tmp_dir,
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
 def test_sparkml_model_load_from_remote_uri_succeeds(spark_model_iris, model_path, mock_s3_bucket):

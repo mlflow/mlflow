@@ -969,7 +969,7 @@ def test_transformers_log_model_with_no_registered_model_name(small_vision_model
             artifact_path=artifact_path,
             conda_env=str(conda_env),
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         model_path = pathlib.Path(_download_artifact_from_uri(artifact_uri=model_uri))
         model_config = Model.load(str(model_path.joinpath("MLmodel")))

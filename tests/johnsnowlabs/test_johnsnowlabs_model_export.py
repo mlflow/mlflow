@@ -315,7 +315,7 @@ def test_log_model_calls_register_model(tmp_path, jsl_model):
 #             spark_model=jsl_model,
 #             dfs_tmpdir=dfs_tmp_dir,
 #         )
-#         mlflow.register_model.assert_not_called()
+#         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
 # def test_johnsnowlabs_model_load_from_remote_uri_succeeds(jsl_model, model_path, mock_s3_bucket):

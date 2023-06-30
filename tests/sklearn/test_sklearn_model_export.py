@@ -284,7 +284,7 @@ def test_log_model_no_registered_model_name(sklearn_logreg_model):
             artifact_path=artifact_path,
             conda_env=conda_env,
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
 def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(

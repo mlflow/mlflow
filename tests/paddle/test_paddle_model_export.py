@@ -212,7 +212,7 @@ def test_log_model_no_registered_model_name(pd_model):
     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.paddle.log_model(pd_model=pd_model.model, artifact_path=artifact_path)
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(

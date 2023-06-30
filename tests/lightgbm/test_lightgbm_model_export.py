@@ -234,7 +234,7 @@ def test_log_model_no_registered_model_name(lgb_model):
         mlflow.lightgbm.log_model(
             lgb_model=lgb_model.model, artifact_path=artifact_path, conda_env=conda_env
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(

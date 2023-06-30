@@ -273,7 +273,7 @@ def test_log_model_no_registered_model_name(module_scoped_subclassed_model):
             pytorch_model=module_scoped_subclassed_model,
             pickle_module=custom_pickle_module,
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
 @pytest.mark.parametrize("scripted_model", [True, False])

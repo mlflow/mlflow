@@ -288,7 +288,7 @@ def test_diviner_log_model_no_registered_model_name(grouped_prophet, tmp_path):
         mlflow.diviner.log_model(
             diviner_model=grouped_prophet, artifact_path=artifact_path, conda_env=str(conda_env)
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
 def test_diviner_model_save_persists_specified_conda_env_in_mlflow_model_directory(

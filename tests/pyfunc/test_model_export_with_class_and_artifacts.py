@@ -303,7 +303,7 @@ def test_log_model_no_registered_model_name(sklearn_knn_model, main_scoped_model
             artifacts={"sk_model": sklearn_model_uri},
             python_model=main_scoped_model_class(test_predict),
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
         mlflow.end_run()
 
 

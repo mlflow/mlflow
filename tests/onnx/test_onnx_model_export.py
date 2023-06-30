@@ -457,7 +457,7 @@ def test_log_model_no_registered_model_name(onnx_model, onnx_custom_env):
         mlflow.onnx.log_model(
             onnx_model=onnx_model, artifact_path=artifact_path, conda_env=onnx_custom_env
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
 def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):

@@ -176,7 +176,7 @@ def test_log_model_with_no_registered_model_name(tmp_path, basic_model):
             artifact_path=artifact_path,
             conda_env=str(conda_env),
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
 def test_log_with_pip_requirements(tmp_path, basic_model):
