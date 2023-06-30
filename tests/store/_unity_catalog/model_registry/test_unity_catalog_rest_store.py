@@ -10,6 +10,7 @@ from google.cloud.storage import Client
 from requests import Response
 import yaml
 
+import mlflow.artifacts
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature, Schema
 from mlflow.entities.run import Run
@@ -615,6 +616,56 @@ def test_create_model_version_aws(store, local_model_dir):
             session_token=session_token,
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
+        _assert_create_model_version_endpoints_called(
+            request_mock=request_mock, name=model_name, source=source, version=version, tags=tags
+        )
+
+
+def test_create_model_version_local_model_path(store, local_model_dir):
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+    )
+    storage_location = "s3://blah"
+    source = "s3://model/version/source"
+    model_name = "model_1"
+    version = "1"
+    tags = [
+        ModelVersionTag(key="key", value="value"),
+        ModelVersionTag(key="anotherKey", value="some other value"),
+    ]
+    mock_artifact_repo = mock.MagicMock(autospec=S3ArtifactRepository)
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
+            name=model_name,
+            version=version,
+            temp_credentials=aws_temp_creds,
+            storage_location=storage_location,
+            source=source,
+            tags=tags,
+        ),
+    ) as request_mock, mock.patch(
+        "mlflow.artifacts.download_artifacts"
+    ) as mock_download_artifacts, mock.patch(
+        "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository",
+        return_value=mock_artifact_repo,
+    ):
+        store.create_model_version(
+            name=model_name, source=source, tags=tags, local_model_path=local_model_dir
+        )
+        # Assert that we don't attempt to download model version files, and that we instead log
+        # artifacts directly to the destination s3 location from the passed-in local_model_path
+        mock_download_artifacts.assert_not_called()
+        mock_artifact_repo.log_artifacts.assert_called_once_with(
+            local_dir=local_model_dir, artifact_path=""
+        )
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, name=model_name, source=source, version=version, tags=tags
         )

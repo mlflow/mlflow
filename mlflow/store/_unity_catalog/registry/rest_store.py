@@ -390,14 +390,14 @@ class UcModelRegistryStore(BaseRestStore):
             return None
         return run.data.tags.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
 
-    def _validate_model_signature(self, local_model_dir):
+    def _validate_model_signature(self, local_model_path):
         # Import Model here instead of in the top level, to avoid circular import; the
         # mlflow.models.model module imports from MLflow tracking, which triggers an import of
         # this file during store registry initialization
         from mlflow.models.model import Model
 
         try:
-            model = Model.load(local_model_dir)
+            model = Model.load(local_model_path)
         except Exception as e:
             raise MlflowException(
                 "Unable to load model metadata. Ensure the source path of the model "
@@ -473,10 +473,10 @@ class UcModelRegistryStore(BaseRestStore):
             )
         )
         with tempfile.TemporaryDirectory() as tmpdir:
-            local_model_dir = local_model_path
-            if local_model_dir is None:
+            local_model_path = local_model_path
+            if local_model_path is None:
                 try:
-                    local_model_dir = mlflow.artifacts.download_artifacts(
+                    local_model_path = mlflow.artifacts.download_artifacts(
                         artifact_uri=source, dst_path=tmpdir, tracking_uri=self.tracking_uri
                     )
                 except Exception as e:
@@ -486,7 +486,7 @@ class UcModelRegistryStore(BaseRestStore):
                         f"the source artifact location exists and that you can download from "
                         f"it via mlflow.artifacts.download_artifacts()"
                     ) from e
-            self._validate_model_signature(local_model_dir)
+            self._validate_model_signature(local_model_path)
             model_version = self._call_endpoint(
                 CreateModelVersionRequest, req_body, extra_headers=extra_headers
             ).model_version
@@ -497,7 +497,7 @@ class UcModelRegistryStore(BaseRestStore):
             store = get_artifact_repo_from_storage_info(
                 storage_location=model_version.storage_location, scoped_token=scoped_token
             )
-            store.log_artifacts(local_dir=local_model_dir, artifact_path="")
+            store.log_artifacts(local_dir=local_model_path, artifact_path="")
         finalized_mv = self._finalize_model_version(name=full_name, version=version_number)
         return model_version_from_uc_proto(finalized_mv)
 
