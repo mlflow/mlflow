@@ -30,7 +30,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import write_to, mkdir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 
@@ -195,8 +195,10 @@ def _save_model_with_class_artifacts_params(
             tmp_artifacts_config = {}
             saved_artifacts_dir_subpath = "artifacts"
             for artifact_name, artifact_uri in artifacts.items():
+                tmp_artifact_root = tmp_artifacts_dir.path(artifact_name)
+                mkdir(tmp_artifact_root)
                 tmp_artifact_path = _download_artifact_from_uri(
-                    artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path(artifact_name)
+                    artifact_uri=artifact_uri, output_path=tmp_artifact_root
                 )
                 tmp_artifacts_config[artifact_name] = tmp_artifact_path
                 saved_artifact_subpath = posixpath.join(
