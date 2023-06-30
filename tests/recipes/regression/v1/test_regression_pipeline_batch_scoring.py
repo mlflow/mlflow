@@ -8,12 +8,7 @@ import mlflow
 from mlflow.recipes.utils.execution import get_or_create_base_execution_directory
 from mlflow.recipes.regression.v1.recipe import RegressionRecipe
 
-# pylint: disable=unused-import
-from tests.recipes.helper_functions import (
-    enter_recipe_example_directory,
-    RECIPE_EXAMPLE_PATH_FROM_MLFLOW_ROOT,
-    chdir,
-)  # pylint: enable=unused-import
+from tests.recipes.helper_functions import RECIPE_EXAMPLE_PATH_FROM_MLFLOW_ROOT, chdir
 
 _STEP_NAMES = ["ingest_scoring", "predict"]
 

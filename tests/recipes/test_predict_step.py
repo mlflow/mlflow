@@ -15,17 +15,11 @@ from mlflow.recipes.steps.predict import PredictStep, _INPUT_FILE_NAME, _SCORED_
 from mlflow.recipes.steps.register import _REGISTERED_MV_INFO_FILE
 from mlflow.utils.file_utils import read_yaml
 
-# pylint: disable=unused-import
 from tests.recipes.helper_functions import (
-    enter_test_recipe_directory,
-    enter_recipe_example_directory,
     get_random_id,
-    registry_uri_path,
-    tmp_recipe_exec_path,
-    tmp_recipe_root_path,
     train_and_log_model,
     train_log_and_register_model,
-)  # pylint: enable=unused-import
+)
 
 
 @pytest.fixture(scope="module")

@@ -30,12 +30,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RECIPE_STEP_NAME,
 )
 
-# pylint: disable=unused-import
-from tests.recipes.helper_functions import tmp_recipe_root_path, tmp_recipe_exec_path
-
-
-# pylint: enable=unused-import
-
 
 # Sets up the train step output dir
 def setup_train_dataset(recipe_root: Path, recipe: str = "regression"):
