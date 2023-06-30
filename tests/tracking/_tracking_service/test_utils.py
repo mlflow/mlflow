@@ -43,92 +43,87 @@ pytestmark = pytest.mark.notrackingurimock
 
 def test_get_store_file_store(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    env = {}
-    with mock.patch.dict(os.environ, env):
-        store = _get_store()
-        assert isinstance(store, FileStore)
-        assert os.path.abspath(store.root_directory) == os.path.abspath("mlruns")
+    store = _get_store()
+    assert isinstance(store, FileStore)
+    assert os.path.abspath(store.root_directory) == os.path.abspath("mlruns")
 
 
 def test_get_store_file_store_from_arg(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    env = {}
-    with mock.patch.dict(os.environ, env):
-        store = _get_store("other/path")
-        assert isinstance(store, FileStore)
-        assert os.path.abspath(store.root_directory) == os.path.abspath("other/path")
+    store = _get_store("other/path")
+    assert isinstance(store, FileStore)
+    assert os.path.abspath(store.root_directory) == os.path.abspath("other/path")
 
 
 @pytest.mark.parametrize("uri", ["other/path", "file:other/path"])
 def test_get_store_file_store_from_env(tmp_path, monkeypatch, uri):
     monkeypatch.chdir(tmp_path)
-    env = {MLFLOW_TRACKING_URI.name: uri}
-    with mock.patch.dict(os.environ, env):
-        store = _get_store()
-        assert isinstance(store, FileStore)
-        assert os.path.abspath(store.root_directory) == os.path.abspath("other/path")
+    monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
+    store = _get_store()
+    assert isinstance(store, FileStore)
+    assert os.path.abspath(store.root_directory) == os.path.abspath("other/path")
 
 
-def test_get_store_basic_rest_store():
-    env = {MLFLOW_TRACKING_URI.name: "https://my-tracking-server:5050"}
-    with mock.patch.dict(os.environ, env):
-        store = _get_store()
-        assert isinstance(store, RestStore)
-        assert store.get_host_creds().host == "https://my-tracking-server:5050"
-        assert store.get_host_creds().token is None
+def test_get_store_basic_rest_store(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACKING_URI.name, "https://my-tracking-server:5050")
+    store = _get_store()
+    assert isinstance(store, RestStore)
+    assert store.get_host_creds().host == "https://my-tracking-server:5050"
+    assert store.get_host_creds().token is None
 
 
-def test_get_store_rest_store_with_password():
-    env = {
+def test_get_store_rest_store_with_password(monkeypatch):
+    for k, v in {
         MLFLOW_TRACKING_URI.name: "https://my-tracking-server:5050",
         MLFLOW_TRACKING_USERNAME.name: "Bob",
         MLFLOW_TRACKING_PASSWORD.name: "Ross",
-    }
-    with mock.patch.dict(os.environ, env):
-        store = _get_store()
-        assert isinstance(store, RestStore)
-        assert store.get_host_creds().host == "https://my-tracking-server:5050"
-        assert store.get_host_creds().username == "Bob"
-        assert store.get_host_creds().password == "Ross"
+    }.items():
+        monkeypatch.setenv(k, v)
+
+    store = _get_store()
+    assert isinstance(store, RestStore)
+    assert store.get_host_creds().host == "https://my-tracking-server:5050"
+    assert store.get_host_creds().username == "Bob"
+    assert store.get_host_creds().password == "Ross"
 
 
-def test_get_store_rest_store_with_token():
-    env = {
+def test_get_store_rest_store_with_token(monkeypatch):
+    for k, v in {
         MLFLOW_TRACKING_URI.name: "https://my-tracking-server:5050",
         MLFLOW_TRACKING_TOKEN.name: "my-token",
-    }
-    with mock.patch.dict(os.environ, env):
-        store = _get_store()
-        assert isinstance(store, RestStore)
-        assert store.get_host_creds().token == "my-token"
+    }.items():
+        monkeypatch.setenv(k, v)
+
+    store = _get_store()
+    assert isinstance(store, RestStore)
+    assert store.get_host_creds().token == "my-token"
 
 
-def test_get_store_rest_store_with_insecure():
-    env = {
+def test_get_store_rest_store_with_insecure(monkeypatch):
+    for k, v in {
         MLFLOW_TRACKING_URI.name: "https://my-tracking-server:5050",
         MLFLOW_TRACKING_INSECURE_TLS.name: "true",
-    }
-    with mock.patch.dict(os.environ, env):
-        store = _get_store()
-        assert isinstance(store, RestStore)
-        assert store.get_host_creds().ignore_tls_verification
+    }.items():
+        monkeypatch.setenv(k, v)
+    store = _get_store()
+    assert isinstance(store, RestStore)
+    assert store.get_host_creds().ignore_tls_verification
 
 
-def test_get_store_rest_store_with_no_insecure():
-    env = {
-        MLFLOW_TRACKING_URI.name: "https://my-tracking-server:5050",
-        MLFLOW_TRACKING_INSECURE_TLS.name: "false",
-    }
-    with mock.patch.dict(os.environ, env):
+def test_get_store_rest_store_with_no_insecure(monkeypatch):
+    with monkeypatch.context() as m:
+        for k, v in {
+            MLFLOW_TRACKING_URI.name: "https://my-tracking-server:5050",
+            MLFLOW_TRACKING_INSECURE_TLS.name: "false",
+        }.items():
+            m.setenv(k, v)
         store = _get_store()
         assert isinstance(store, RestStore)
         assert not store.get_host_creds().ignore_tls_verification
 
     # By default, should not ignore verification.
-    env = {
-        MLFLOW_TRACKING_URI.name: "https://my-tracking-server:5050",
-    }
-    with mock.patch.dict(os.environ, env):
+    with monkeypatch.context() as m:
+        monkeypatch.setenv(MLFLOW_TRACKING_URI.name, "https://my-tracking-server:5050")
         store = _get_store()
         assert isinstance(store, RestStore)
         assert not store.get_host_creds().ignore_tls_verification
@@ -141,8 +136,8 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
     patch_create_engine = mock.patch("sqlalchemy.create_engine")
 
     uri = f"{db_type}://hostname/database"
-    env = {MLFLOW_TRACKING_URI.name: uri}
-    with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, mock.patch(
+    monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
+    with patch_create_engine as mock_create_engine, mock.patch(
         "mlflow.store.db.utils._verify_schema"
     ), mock.patch("mlflow.store.db.utils._initialize_tables"), mock.patch(
         # In sqlalchemy 1.4.0, `SqlAlchemyStore.search_experiments`, which is called when fetching
@@ -165,17 +160,14 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
 def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_type):
     monkeypatch.chdir(tmp_path)
-    patch_create_engine = mock.patch("sqlalchemy.create_engine")
     uri = f"{db_type}://hostname/database"
-    env = {MLFLOW_TRACKING_URI.name: uri}
     artifact_uri = "file:artifact/path"
-
-    with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, mock.patch(
+    monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
+    with mock.patch(
+        "sqlalchemy.create_engine",
+    ) as mock_create_engine, mock.patch(
         "mlflow.store.db.utils._verify_schema"
     ), mock.patch("mlflow.store.db.utils._initialize_tables"), mock.patch(
-        # In sqlalchemy 1.4.0, `SqlAlchemyStore.search_experiments`, which is called when fetching
-        # the store, results in an error when called with a mocked sqlalchemy engine.
-        # Accordingly, we mock `SqlAlchemyStore.search_experiments`
         "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
         return_value=[],
     ):
@@ -192,30 +184,27 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_
     mock_create_engine.assert_not_called()
 
 
-def test_get_store_databricks():
-    env = {
+def test_get_store_databricks(monkeypatch):
+    for k, v in {
         MLFLOW_TRACKING_URI.name: "databricks",
         "DATABRICKS_HOST": "https://my-tracking-server",
         "DATABRICKS_TOKEN": "abcdef",
-    }
-    with mock.patch.dict(os.environ, env):
-        store = _get_store()
-        assert isinstance(store, RestStore)
-        assert store.get_host_creds().host == "https://my-tracking-server"
-        assert store.get_host_creds().token == "abcdef"
+    }.items():
+        monkeypatch.setenv(k, v)
+    store = _get_store()
+    assert isinstance(store, RestStore)
+    assert store.get_host_creds().host == "https://my-tracking-server"
+    assert store.get_host_creds().token == "abcdef"
 
 
-def test_get_store_databricks_profile():
-    env = {
-        MLFLOW_TRACKING_URI.name: "databricks://mycoolprofile",
-    }
+def test_get_store_databricks_profile(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACKING_URI.name, "databricks://mycoolprofile")
     # It's kind of annoying to setup a profile, and we're not really trying to test
     # that anyway, so just check if we raise a relevant exception.
-    with mock.patch.dict(os.environ, env):
-        store = _get_store()
-        assert isinstance(store, RestStore)
-        with pytest.raises(MlflowException, match="mycoolprofile"):
-            store.get_host_creds()
+    store = _get_store()
+    assert isinstance(store, RestStore)
+    with pytest.raises(MlflowException, match="mycoolprofile"):
+        store.get_host_creds()
 
 
 def test_get_store_caches_on_store_uri_and_artifact_uri(tmp_path):
@@ -277,13 +266,10 @@ def test_standard_store_registry_with_installed_plugin(tmp_path, monkeypatch):
 
     from mlflow_test_plugin.file_store import PluginFileStore
 
-    env = {
-        MLFLOW_TRACKING_URI.name: "file-plugin:test-path",
-    }
-    with mock.patch.dict(os.environ, env):
-        plugin_file_store = mlflow.tracking._tracking_service.utils._get_store()
-        assert isinstance(plugin_file_store, PluginFileStore)
-        assert plugin_file_store.is_plugin
+    monkeypatch.setenv(MLFLOW_TRACKING_URI.name, "file-plugin:test-path")
+    plugin_file_store = mlflow.tracking._tracking_service.utils._get_store()
+    assert isinstance(plugin_file_store, PluginFileStore)
+    assert plugin_file_store.is_plugin
 
 
 def test_plugin_registration():

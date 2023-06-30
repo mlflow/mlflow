@@ -1,18 +1,8 @@
-import os
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.server.auth import (
-    _AUTH_CONFIG_PATH_ENV_VAR,
-)
-from mlflow.server.auth.config import read_auth_config
 from mlflow.server.auth.entities import User, ExperimentPermission, RegisteredModelPermission
-from mlflow.server.auth.sqlalchemy_store import (
-    SqlUser,
-    SqlExperimentPermission,
-    SqlRegisteredModelPermission,
-    SqlAlchemyStore,
-)
+from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.auth.permissions import (
     READ,
     EDIT,
@@ -29,28 +19,11 @@ from tests.helper_functions import random_str
 pytestmark = pytest.mark.notrackingurimock
 
 
-def _get_db_uri_from_env_var():
-    auth_config_path = os.environ.get(_AUTH_CONFIG_PATH_ENV_VAR)
-    if auth_config_path:
-        auth_config = read_auth_config(auth_config_path)
-        return auth_config.database_uri
-
-
 @pytest.fixture
 def store(tmp_sqlite_uri):
-    db_uri_from_env_var = _get_db_uri_from_env_var()
     store = SqlAlchemyStore()
-    store.init_db(db_uri_from_env_var if db_uri_from_env_var else tmp_sqlite_uri)
+    store.init_db(tmp_sqlite_uri)
     yield store
-
-    if db_uri_from_env_var is not None:
-        with store.ManagedSessionMaker() as session:
-            for model in (
-                SqlRegisteredModelPermission,
-                SqlExperimentPermission,
-                SqlUser,
-            ):
-                session.query(model).delete()
 
 
 def _user_maker(store, username, password, is_admin=False):
