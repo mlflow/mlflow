@@ -448,7 +448,9 @@ def log_model(
             SQLDatabaseChain,
         ),
     ):
-        if version.parse(langchain.__version__) < version.parse("0.0.194"):
+        if isinstance(lc_model, RetrievalQA) and version.parse(
+            langchain.__version__
+        ) < version.parse("0.0.194"):
             raise mlflow.MlflowException.invalid_parameter_value(
                 _UNSUPPORTED_LANGCHAIN_VERSION_ERROR_MESSAGE.format(
                     instnace_type=type(lc_model).__name__
