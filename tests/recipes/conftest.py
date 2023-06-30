@@ -9,14 +9,13 @@ import pytest
 
 from mlflow.recipes.utils.execution import _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR
 from mlflow.utils.file_utils import TempDir
-from tests.recipes.helper_functions import chdir
+from tests.recipes.helper_functions import (
+    RECIPE_EXAMPLE_PATH_ENV_VAR_FOR_TESTS,
+    RECIPE_EXAMPLE_PATH_FROM_MLFLOW_ROOT,
+    chdir,
+)
 
 
-RECIPE_EXAMPLE_PATH_ENV_VAR_FOR_TESTS = "_RECIPE_EXAMPLE_PATH"
-RECIPE_EXAMPLE_PATH_FROM_MLFLOW_ROOT = "examples/recipes/regression"
-
-
-## Fixtures
 @pytest.fixture
 def enter_recipe_example_directory():
     recipe_example_path = os.environ.get(RECIPE_EXAMPLE_PATH_ENV_VAR_FOR_TESTS)
