@@ -32,6 +32,7 @@ from tests.helper_functions import (
     _assert_pip_requirements,
     _compare_logged_code_paths,
     _mlflow_major_version_string,
+    assert_register_model_called_with_local_model_path,
 )
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])

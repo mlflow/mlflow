@@ -33,6 +33,7 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
     _is_available_on_pypi,
     _mlflow_major_version_string,
+    assert_register_model_called_with_local_model_path,
 )
 
 
@@ -249,7 +250,7 @@ def test_prophet_log_model(prophet_model, tmp_path, should_start_run):
 
 def test_log_model_calls_register_model(prophet_model, tmp_path):
     artifact_path = "prophet"
-    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])
@@ -260,14 +261,16 @@ def test_log_model_calls_register_model(prophet_model, tmp_path):
             registered_model_name="ProphetModel1",
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        mlflow.register_model.assert_called_once_with(
-            model_uri, "ProphetModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        assert_register_model_called_with_local_model_path(
+            register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
+            model_uri=model_uri,
+            registered_model_name="AdsModel1",
         )
 
 
 def test_log_model_no_registered_model_name(prophet_model, tmp_path):
     artifact_path = "prophet"
-    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])

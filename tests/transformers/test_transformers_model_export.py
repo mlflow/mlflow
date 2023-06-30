@@ -63,6 +63,7 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     pyfunc_serve_and_score_model,
     _get_deps_from_requirement_file,
+    assert_register_model_called_with_local_model_path,
 )
 
 pytestmark = pytest.mark.large
@@ -927,7 +928,7 @@ def test_load_pipeline_from_remote_uri_succeeds(small_seq2seq_pipeline, model_pa
 
 def test_transformers_log_model_calls_register_model(small_qa_pipeline, tmp_path):
     artifact_path = "transformers"
-    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["transformers", "torch", "torchvision"])
@@ -938,11 +939,10 @@ def test_transformers_log_model_calls_register_model(small_qa_pipeline, tmp_path
             registered_model_name="Question-Answering Model 1",
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        mlflow.register_model.assert_called_once_with(
-            model_uri,
-            "Question-Answering Model 1",
-            await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-            local_model_path=
+        assert_register_model_called_with_local_model_path(
+            register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
+            model_uri=model_uri,
+            registered_model_name="Question-Answering Model 1",
         )
 
 

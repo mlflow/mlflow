@@ -20,6 +20,8 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 
+from tests.helper_functions import assert_register_model_called_with_local_model_path
+
 MODEL_CACHE_FOLDER = None
 nlu_model = "en.classify.bert_sequence.covid_sentiment"
 
@@ -269,7 +271,7 @@ def test_johnsnowlabs_model_log(tmp_path, jsl_model, should_start_run, use_dfs_t
 def test_log_model_calls_register_model(tmp_path, jsl_model):
     artifact_path = "model"
     dfs_tmp_dir = tmp_path.joinpath("test")
-    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.johnsnowlabs.log_model(
             artifact_path=artifact_path,
@@ -280,8 +282,10 @@ def test_log_model_calls_register_model(tmp_path, jsl_model):
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
-        mlflow.register_model.assert_called_once_with(
-            model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        assert_register_model_called_with_local_model_path(
+            register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
+            model_uri=model_uri,
+            registered_model_name="AdsModel1",
         )
 
 
@@ -305,7 +309,7 @@ def test_log_model_calls_register_model(tmp_path, jsl_model):
 # def test_log_model_no_registered_model_name(tmpdir, jsl_model):
 #     artifact_path = "model"
 #     dfs_tmp_dir = Path(str(tmpdir)) / "test"
-#     register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
+#     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
 #     with mlflow.start_run(), register_model_patch:
 #         mlflow.johnsnowlabs.log_model(
 #             artifact_path=artifact_path,

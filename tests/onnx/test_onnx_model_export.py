@@ -36,6 +36,7 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _compare_logged_code_paths,
     _mlflow_major_version_string,
+    assert_register_model_called_with_local_model_path,
 )
 
 TEST_DIR = "tests"
@@ -431,7 +432,7 @@ def test_model_log(onnx_model):
 
 def test_log_model_calls_register_model(onnx_model, onnx_custom_env):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.onnx.log_model(
             onnx_model=onnx_model,
@@ -442,14 +443,16 @@ def test_log_model_calls_register_model(onnx_model, onnx_custom_env):
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
-        mlflow.register_model.assert_called_once_with(
-            model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        assert_register_model_called_with_local_model_path(
+            register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
+            model_uri=model_uri,
+            registered_model_name="AdsModel1",
         )
 
 
 def test_log_model_no_registered_model_name(onnx_model, onnx_custom_env):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.onnx.log_model(
             onnx_model=onnx_model, artifact_path=artifact_path, conda_env=onnx_custom_env

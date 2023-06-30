@@ -27,6 +27,7 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _compare_logged_code_paths,
     _mlflow_major_version_string,
+    assert_register_model_called_with_local_model_path,
 )
 from tests.statsmodels.model_fixtures import (
     ols_model,
@@ -196,7 +197,7 @@ def test_log_model_calls_register_model():
     # Adapted from lightgbm tests
     ols = ols_model()
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])
@@ -209,15 +210,17 @@ def test_log_model_calls_register_model():
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
-        mlflow.register_model.assert_called_once_with(
-            model_uri, "OLSModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        assert_register_model_called_with_local_model_path(
+            register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
+            model_uri=model_uri,
+            registered_model_name="OLSModel1",
         )
 
 
 def test_log_model_no_registered_model_name():
     ols = ols_model()
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])

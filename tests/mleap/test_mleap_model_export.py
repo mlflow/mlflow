@@ -145,7 +145,7 @@ def test_mleap_module_model_save_with_unsupported_transformer_raises_serializati
 
 def test_mleap_model_log(spark_model_iris):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         model_info = mlflow.spark.log_model(
             spark_model=spark_model_iris.model,
