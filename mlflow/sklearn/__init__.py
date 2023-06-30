@@ -1810,7 +1810,7 @@ def _autolog(
                 flavor_name, sklearn.metrics, metric_name, patched_metric_api, manage_run=False
             )
 
-        # `sklearn.metrics.SCORERS` was removed in scikit-learn 1.2.2
+        # `sklearn.metrics.SCORERS` was removed in scikit-learn 1.3
         if hasattr(sklearn.metrics, "get_scorer_names"):
             for scoring in sklearn.metrics.get_scorer_names():
                 scorer = sklearn.metrics.get_scorer(scoring)
