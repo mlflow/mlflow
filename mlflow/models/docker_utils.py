@@ -2,6 +2,7 @@ import os
 from subprocess import Popen, PIPE, STDOUT
 from urllib.parse import urlparse
 import logging
+import xml.etree.ElementTree as ET
 
 import mlflow
 import mlflow.version
@@ -39,41 +40,43 @@ RUN pip install virtualenv
 """
 
 
-def _get_maven_proxy():
-    http_proxy = os.getenv("http_proxy")
-    https_proxy = os.getenv("https_proxy")
-    if not http_proxy or not https_proxy:
-        return ""
+def get_maven_settings():
+    http_proxy = os.environ.get("http_proxy", os.environ.get("HTTP_PROXY"))
+    https_proxy = os.environ.get("https_proxy", os.environ.get("HTTPS_PROXY"))
+    no_proxy = os.environ.get("no_proxy", os.environ.get("NO_PROXY"))
 
-    # Expects proxies as either PROTOCOL://{USER}:{PASSWORD}@HOSTNAME:PORT
-    # or PROTOCOL://HOSTNAME:PORT
-    parsed_http_proxy = urlparse(http_proxy)
-    assert parsed_http_proxy.hostname is not None, "Invalid `http_proxy` hostname."
-    assert parsed_http_proxy.port is not None, f"Invalid proxy port: {parsed_http_proxy.port}"
+    non_proxy_hosts = "|".join(no_proxy.split(",")) if no_proxy is not None else None
 
-    parsed_https_proxy = urlparse(https_proxy)
-    assert parsed_https_proxy.hostname is not None, "Invalid `https_proxy` hostname."
-    assert parsed_https_proxy.port is not None, f"Invalid proxy port: {parsed_https_proxy.port}"
+    def to_maven_proxy(elem, name, url):
+        # Expects proxies as either PROTOCOL://{USER}:{PASSWORD}@HOSTNAME:PORT
+        # or PROTOCOL://HOSTNAME:PORT
+        parsed_url = urlparse(url)
+        assert parsed_url.hostname is not None, f"Invalid `{name}` hostname."
+        assert parsed_url.port is not None, f"Invalid proxy port: {parsed_url.port}"
+        ET.SubElement(elem, "id").text = name
+        ET.SubElement(elem, "active").text = "true"
+        ET.SubElement(elem, "protocol").text = parsed_url.scheme
+        ET.SubElement(elem, "host").text = parsed_url.hostname
+        ET.SubElement(elem, "port").text = str(parsed_url.port)
+        if parsed_url.username is not None:
+            ET.SubElement(elem, "username").text = parsed_url.username
+        if parsed_url.password is not None:
+            ET.SubElement(elem, "password").text = parsed_url.password
+        if non_proxy_hosts is not None:
+            ET.SubElement(elem, "nonProxyHosts").text = non_proxy_hosts
 
-    maven_proxy_options = (
-        "-DproxySet=true",
-        f"-Dhttp.proxyHost={parsed_http_proxy.hostname}",
-        f"-Dhttp.proxyPort={parsed_http_proxy.port}",
-        f"-Dhttps.proxyHost={parsed_https_proxy.hostname}",
-        f"-Dhttps.proxyPort={parsed_https_proxy.port}",
-        "-Dhttps.nonProxyHosts=repo.maven.apache.org",
-    )
+    settings = ET.Element("settings")
 
-    if parsed_http_proxy.username is None or parsed_http_proxy.password is None:
-        return " ".join(maven_proxy_options)
+    proxies = ET.SubElement(settings, "proxies")
 
-    return " ".join(
-        (
-            *maven_proxy_options,
-            f"-Dhttp.proxyUser={parsed_http_proxy.username}",
-            f"-Dhttp.proxyPassword={parsed_http_proxy.password}",
-        )
-    )
+    if http_proxy is not None:
+        http_proxy_settings = ET.SubElement(proxies, "proxy")
+        to_maven_proxy(http_proxy_settings, "http_proxy", http_proxy)
+    if https_proxy is not None:
+        https_proxy_settings = ET.SubElement(proxies, "proxy")
+        to_maven_proxy(https_proxy_settings, "https_proxy", https_proxy)
+
+    return ET.tostring(settings)
 
 
 DISABLE_ENV_CREATION = "MLFLOW_DISABLE_ENV_CREATION"
@@ -122,34 +125,44 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
     Get docker build commands for installing MLflow given a Docker context dir and optional source
     directory
     """
-    maven_proxy = _get_maven_proxy()
     if mlflow_home:
         mlflow_dir = _copy_project(src_path=mlflow_home, dst_path=dockerfile_context_dir)
         return (
             f"COPY {mlflow_dir} /opt/mlflow\n"
             "RUN pip install /opt/mlflow\n"
-            "RUN cd /opt/mlflow/mlflow/java/scoring && "
-            f"mvn --batch-mode package -DskipTests {maven_proxy} && "
-            "mkdir -p /opt/java/jars && "
-            "mv /opt/mlflow/mlflow/java/scoring/target/"
-            "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
+            "RUN cd /opt/mlflow/mlflow/java/scoring \\\n && "
+            "SETTINGS_XML=$(mktemp) \\\n && "
+            "python -c 'import mlflow.models.docker_utils as U; print(U.get_maven_settings())'"
+            """ > "${SETTINGS_XML}" \\\n && """
+            f"mvn --batch-mode package -DskipTests \\\n && "
+            'rm "${SETTINGS_XML}" \\\n && '
+            "mkdir -p /opt/java/jars \\\n && "
+            "mv"
+            " /opt/mlflow/mlflow/java/scoring/target/mlflow-scoring-*-with-dependencies.jar"
+            " /opt/java/jars\n"
         )
     else:
+        version = mlflow.version.VERSION
         return (
-            "RUN pip install mlflow=={version}\n"
-            "RUN mvn"
-            " --batch-mode dependency:copy"
+            f"RUN pip install mlflow=={version}\n"
+            "RUN SETTINGS_XML=$(mktemp) \\\n && "
+            "python -c 'import mlflow.models.docker_utils as U; print(U.get_maven_settings())'"
+            """ > "${SETTINGS_XML}" \\\n && """
+            "mvn"
+            f" --batch-mode dependency:copy"
             " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
-            " -DoutputDirectory=/opt/java {maven_proxy}\n"
-            "RUN mvn"
+            " -DoutputDirectory=/opt/java \\\n && "
+            "mvn"
             " --batch-mode dependency:copy"
-            " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
-            " -DoutputDirectory=/opt/java/jars {maven_proxy}\n"
-            "RUN cp /opt/java/mlflow-scoring-{version}.pom /opt/java/pom.xml\n"
-            "RUN cd /opt/java && mvn "
-            "--batch-mode dependency:copy-dependencies "
-            "-DoutputDirectory=/opt/java/jars {maven_proxy}\n"
-        ).format(version=mlflow.version.VERSION, maven_proxy=maven_proxy)
+            f" -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
+            " -DoutputDirectory=/opt/java/jars \\\n && "
+            "cp /opt/java/mlflow-scoring-{version}.pom /opt/java/pom.xml \\\n && "
+            "cd /opt/java \\\n && "
+            "mvn"
+            " --batch-mode dependency:copy-dependencies"
+            " -DoutputDirectory=/opt/java/jars \\\n && "
+            'rm "${SETTINGS_XML}"\n'
+        )
 
 
 def _generate_dockerfile_content(
