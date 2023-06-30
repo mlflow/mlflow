@@ -43,7 +43,6 @@ INPUT_EXAMPLE_SAMPLE_ROWS = 5
 ENSURE_AUTOLOGGING_ENABLED_TEXT = (
     "please ensure that autologging is enabled before constructing the dataset."
 )
-_AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
 
 # Flag indicating whether autologging is globally disabled for all integrations.
 _AUTOLOGGING_GLOBALLY_DISABLED = False
