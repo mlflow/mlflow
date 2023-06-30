@@ -143,7 +143,7 @@ def test_load_from_remote_uri(model_path, basic_model, mock_s3_bucket):
 
 def test_log_model_calls_register_model(tmp_path, basic_model):
     artifact_path = "sentence_transformer"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(
@@ -165,7 +165,7 @@ def test_log_model_calls_register_model(tmp_path, basic_model):
 
 def test_log_model_with_no_registered_model_name(tmp_path, basic_model):
     artifact_path = "sentence_transformer"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(

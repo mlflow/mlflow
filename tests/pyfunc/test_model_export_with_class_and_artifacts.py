@@ -250,7 +250,7 @@ def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model
 
 
 def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_class):
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
     with register_model_patch:
         sklearn_artifact_path = "sk_model_no_run"
         with mlflow.start_run():
@@ -282,7 +282,7 @@ def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_cla
 
 
 def test_log_model_no_registered_model_name(sklearn_knn_model, main_scoped_model_class):
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
     with register_model_patch:
         sklearn_artifact_path = "sk_model_no_run"
         with mlflow.start_run():

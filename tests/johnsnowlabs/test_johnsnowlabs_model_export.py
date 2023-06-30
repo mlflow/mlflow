@@ -269,7 +269,7 @@ def test_johnsnowlabs_model_log(tmp_path, jsl_model, should_start_run, use_dfs_t
 def test_log_model_calls_register_model(tmp_path, jsl_model):
     artifact_path = "model"
     dfs_tmp_dir = tmp_path.joinpath("test")
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.johnsnowlabs.log_model(
             artifact_path=artifact_path,
@@ -305,7 +305,7 @@ def test_log_model_calls_register_model(tmp_path, jsl_model):
 # def test_log_model_no_registered_model_name(tmpdir, jsl_model):
 #     artifact_path = "model"
 #     dfs_tmp_dir = Path(str(tmpdir)) / "test"
-#     register_model_patch = mock.patch("mlflow.register_model")
+#     register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
 #     with mlflow.start_run(), register_model_patch:
 #         mlflow.johnsnowlabs.log_model(
 #             artifact_path=artifact_path,

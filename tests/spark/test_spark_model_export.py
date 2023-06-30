@@ -480,7 +480,7 @@ def test_sparkml_estimator_model_log(
 def test_log_model_calls_register_model(tmp_path, spark_model_iris):
     artifact_path = "model"
     dfs_tmp_dir = tmp_path.joinpath("test")
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
     with mlflow.start_run(), register_model_patch:
         sparkm.log_model(
             artifact_path=artifact_path,
@@ -499,7 +499,7 @@ def test_log_model_calls_register_model(tmp_path, spark_model_iris):
 def test_log_model_no_registered_model_name(tmp_path, spark_model_iris):
     artifact_path = "model"
     dfs_tmp_dir = os.path.join(tmp_path, "test")
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
     with mlflow.start_run(), register_model_patch:
         sparkm.log_model(
             artifact_path=artifact_path,

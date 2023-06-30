@@ -245,7 +245,7 @@ def test_log_model(sequential_model, data, sequential_predicted):
 def test_log_model_calls_register_model(module_scoped_subclassed_model):
     custom_pickle_module = pickle
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.pytorch.log_model(
             artifact_path=artifact_path,
@@ -264,7 +264,7 @@ def test_log_model_calls_register_model(module_scoped_subclassed_model):
 def test_log_model_no_registered_model_name(module_scoped_subclassed_model):
     custom_pickle_module = pickle
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.pytorch.log_model(
             artifact_path=artifact_path,

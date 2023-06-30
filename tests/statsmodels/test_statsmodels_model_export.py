@@ -196,7 +196,7 @@ def test_log_model_calls_register_model():
     # Adapted from lightgbm tests
     ols = ols_model()
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])
@@ -217,7 +217,7 @@ def test_log_model_calls_register_model():
 def test_log_model_no_registered_model_name():
     ols = ols_model()
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])

@@ -431,7 +431,7 @@ def test_model_log(onnx_model):
 
 def test_log_model_calls_register_model(onnx_model, onnx_custom_env):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.onnx.log_model(
             onnx_model=onnx_model,
@@ -449,7 +449,7 @@ def test_log_model_calls_register_model(onnx_model, onnx_custom_env):
 
 def test_log_model_no_registered_model_name(onnx_model, onnx_custom_env):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.onnx.log_model(
             onnx_model=onnx_model, artifact_path=artifact_path, conda_env=onnx_custom_env

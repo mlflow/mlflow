@@ -249,7 +249,7 @@ def test_prophet_log_model(prophet_model, tmp_path, should_start_run):
 
 def test_log_model_calls_register_model(prophet_model, tmp_path):
     artifact_path = "prophet"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])
@@ -267,7 +267,7 @@ def test_log_model_calls_register_model(prophet_model, tmp_path):
 
 def test_log_model_no_registered_model_name(prophet_model, tmp_path):
     artifact_path = "prophet"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])

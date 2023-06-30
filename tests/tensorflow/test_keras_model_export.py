@@ -365,7 +365,7 @@ def test_model_log(model, data, predicted):
 
 def test_log_model_calls_register_model(model):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.tensorflow.log_model(
             model, artifact_path=artifact_path, registered_model_name="AdsModel1"
@@ -380,7 +380,7 @@ def test_log_model_calls_register_model(model):
 
 def test_log_model_no_registered_model_name(model):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking.fluent._model_registry._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.tensorflow.log_model(model, artifact_path=artifact_path)
         mlflow.register_model.assert_not_called()
