@@ -285,7 +285,9 @@ def test_langchain_agent_model_predict():
 
     inference_payload = json.dumps({"inputs": langchain_input})
     langchain_agent_output_serving = {"predictions": langchain_agent_output}
-    with _mock_request(return_value=_MockResponse(200, langchain_agent_output_serving)):
+    with _mock_request(
+        return_value=_MockResponse(200, langchain_agent_output_serving)
+    ) as mock_request:
         import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
         from mlflow.deployments import PredictionsResponse
 
@@ -300,6 +302,7 @@ def test_langchain_agent_model_predict():
             PredictionsResponse.from_json(response.content.decode("utf-8"))
             == langchain_agent_output_serving
         )
+        assert mock_request.call_count == 3
 
 
 def test_langchain_native_log_and_load_qaevalchain():
