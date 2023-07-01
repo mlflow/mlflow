@@ -1041,7 +1041,10 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
         def __init__(self, args_dict):
             self.args_dict = args_dict
 
-        def to_dict(self, flat):
+        def to_dict(
+            self,
+            flat,  # pylint: disable=unused-argument
+        ):
             return self.args_dict
 
         def get(self, key, default=None):
