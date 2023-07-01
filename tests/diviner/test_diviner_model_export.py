@@ -274,7 +274,9 @@ def test_diviner_log_model_calls_register_model(grouped_pmdarima, tmp_path):
             registered_model_name="DivinerModel",
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        assert_register_model_called_with_local_model_path(mlflow.tracking._model_registry.fluent._register_model, model_uri, "DivinerModel")
+        assert_register_model_called_with_local_model_path(
+            mlflow.tracking._model_registry.fluent._register_model, model_uri, "DivinerModel"
+        )
 
 
 def test_diviner_log_model_no_registered_model_name(grouped_prophet, tmp_path):

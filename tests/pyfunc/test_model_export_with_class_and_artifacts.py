@@ -43,7 +43,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _mlflow_major_version_string,
-    assert_register_model_called_with_local_model_path
+    assert_register_model_called_with_local_model_path,
 )
 
 
@@ -277,9 +277,7 @@ def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_cla
             run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
         )
         assert_register_model_called_with_local_model_path(
-            mlflow.tracking._model_registry.fluent._register_model,
-            model_uri,
-            "AdsModel1"
+            mlflow.tracking._model_registry.fluent._register_model, model_uri, "AdsModel1"
         )
         mlflow.end_run()
 
