@@ -33,7 +33,6 @@ from tests.helper_functions import (
     allow_infer_pip_requirements_fallback_if,
     _compare_logged_code_paths,
     _mlflow_major_version_string,
-    assert_register_model_called_with_local_model_path,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (

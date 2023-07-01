@@ -35,7 +35,7 @@ def test_register_model_with_runs_uri():
             run_id="run12345",
             tags=None,
             await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-            local_model_path=None
+            local_model_path=None,
         )
 
 
@@ -57,7 +57,7 @@ def test_register_model_with_non_runs_uri():
             tags=None,
             source="s3:/some/path/to/model",
             await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-            local_model_path=None
+            local_model_path=None,
         )
 
 
@@ -82,7 +82,7 @@ def test_register_model_with_existing_registered_model(error_code):
             source="s3:/some/path/to/model",
             tags=None,
             await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-            local_model_path=None
+            local_model_path=None,
         )
 
 
@@ -129,5 +129,5 @@ def test_register_model_with_tags():
             run_id="run12345",
             tags=tags,
             await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-            local_model_path=None
+            local_model_path=None,
         )
