@@ -275,7 +275,7 @@ def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_cla
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
         )
-        mlflow.register_model.assert_called_once_with(
+        mlflow.tracking._model_registry.fluent._register_model.assert_called_once_with(
             model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
         )
         mlflow.end_run()
