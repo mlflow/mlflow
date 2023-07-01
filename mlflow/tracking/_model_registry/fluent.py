@@ -106,9 +106,9 @@ def _register_model(
         (run_id, _) = RunsArtifactRepository.parse_runs_uri(model_uri)
 
     create_version_response = client._create_model_version(
-        name,
-        source,
-        run_id,
+        name=name,
+        source=source,
+        run_id=run_id,
         tags=tags,
         await_creation_for=await_registration_for,
         local_model_path=local_model_path,
