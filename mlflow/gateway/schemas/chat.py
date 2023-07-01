@@ -11,7 +11,7 @@ class Message(BaseModel):
     content: str
 
 
-class BaseRequestPayload(BaseModel, extra=Extra.allow):
+class BaseRequestPayload(BaseModel):
     temperature: float = Field(0.0, ge=0, le=1)
     stop: Optional[List[str]] = Field(None, min_items=1)
     max_tokens: Optional[int] = Field(None, ge=0)
@@ -20,6 +20,23 @@ class BaseRequestPayload(BaseModel, extra=Extra.allow):
 
 class RequestPayload(BaseRequestPayload):
     messages: List[Message] = Field(..., min_items=1)
+
+    class Config:
+        extra = Extra.allow
+        schema_extra = {
+            "example": {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "hello world",
+                    }
+                ],
+                "temperature": 0.0,
+                "max_tokens": 64,
+                "stop": ["END"],
+                "candidate_count": 1,
+            }
+        }
 
 
 class FinishReason(str, Enum):
@@ -37,13 +54,38 @@ class Candidate(BaseModel):
 
 
 class Metadata(BaseModel, extra=Extra.forbid):
-    input_tokens: int
-    output_tokens: int
-    total_tokens: int
+    input_tokens: Optional[int]
+    output_tokens: Optional[int]
+    total_tokens: Optional[int]
     model: str
     route_type: RouteType
 
 
-class ResponsePayload(BaseModel, extra=Extra.forbid):
+class ResponsePayload(BaseModel):
     candidates: List[Candidate]
     metadata: Metadata
+
+    class Config:
+        extra = Extra.forbid
+        schema_extra = {
+            "example": {
+                "candidates": [
+                    {
+                        "message": {
+                            "role": "user",
+                            "content": "hello world",
+                        },
+                        "metadata": {
+                            "finish_reason": "stop",
+                        },
+                    }
+                ],
+                "metadata": {
+                    "input_tokens": 1,
+                    "output_tokens": 2,
+                    "total_tokens": 3,
+                    "model": "gpt-3.5-turbo",
+                    "route_type": "llm/v1/completions",
+                },
+            }
+        }

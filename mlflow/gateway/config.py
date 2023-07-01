@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from pydantic import BaseModel, validator, parse_obj_as, Extra, ValidationError
 from pydantic.json import pydantic_encoder
-from typing import Optional, Union, List, Dict, Any
+from typing import Optional, Union, List
 import yaml
 
 from mlflow.exceptions import MlflowException
@@ -17,11 +17,11 @@ _logger = logging.getLogger(__name__)
 
 
 class Provider(str, Enum):
-    CUSTOM = "custom"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
-    DATABRICKS_SERVING_ENDPOINT = "databricks_serving_endpoint"
-    MLFLOW = "mlflow"
+    # Note: Databricks Model Serving is only supported on Databricks
+    DATABRICKS_MODEL_SERVING = "databricks-model-serving"
+    COHERE = "cohere"
 
     @classmethod
     def values(cls):
@@ -29,10 +29,19 @@ class Provider(str, Enum):
 
 
 class RouteType(str, Enum):
-    CUSTOM = "custom"
     LLM_V1_COMPLETIONS = "llm/v1/completions"
     LLM_V1_CHAT = "llm/v1/chat"
     LLM_V1_EMBEDDINGS = "llm/v1/embeddings"
+
+
+class CohereConfig(BaseModel, extra=Extra.forbid):
+    api_key: str
+    api_base: str = "https://api.cohere.ai/v1"
+
+    # pylint: disable=no-self-argument
+    @validator("api_key", pre=True)
+    def validate_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 class OpenAIConfig(BaseModel, extra=Extra.forbid):
@@ -58,37 +67,10 @@ class AnthropicConfig(BaseModel, extra=Extra.forbid):
         return _resolve_api_key_from_input(value)
 
 
-class DatabricksConfig(BaseModel, extra=Extra.forbid):
-    databricks_api_token: str
-    databricks_api_base: str
-
-    # pylint: disable=no-self-argument
-    @validator("databricks_api_token", pre=True)
-    def validate_databricks_api_token(cls, value):
-        return _resolve_api_key_from_input(value)
-
-
-class MLflowConfig(BaseModel, extra=Extra.forbid):
-    api_base: str
-
-
-class CustomConfig(BaseModel, extra=Extra.forbid):
-    api_key: str
-    api_base: str
-    api_version: Optional[str] = None
-
-    # pylint: disable=no-self-argument
-    @validator("api_key", pre=True)
-    def validate_api_key(cls, value):
-        return _resolve_api_key_from_input(value)
-
-
 config_types = {
+    Provider.COHERE: CohereConfig,
     Provider.OPENAI: OpenAIConfig,
     Provider.ANTHROPIC: AnthropicConfig,
-    Provider.DATABRICKS_SERVING_ENDPOINT: DatabricksConfig,
-    Provider.MLFLOW: MLflowConfig,
-    Provider.CUSTOM: CustomConfig,
 }
 
 
@@ -136,33 +118,38 @@ def _resolve_api_key_from_input(api_key_input):
 # pylint: disable=no-self-argument
 class Model(BaseModel, extra=Extra.forbid):
     name: Optional[str] = None
-    provider: Union[str, Provider] = Provider.CUSTOM
-    config: Optional[Dict[str, Any]] = None
+    provider: Union[str, Provider]
+    config: Optional[
+        Union[
+            CohereConfig,
+            OpenAIConfig,
+            AnthropicConfig,
+        ]
+    ] = None
 
     @validator("provider", pre=True)
     def validate_provider(cls, value):
         if isinstance(value, Provider):
             return value
-        return Provider[value.upper()] if value.upper() in Provider.__members__ else Provider.CUSTOM
+        if value.upper() in Provider.__members__:
+            return Provider[value.upper()]
+        raise MlflowException.invalid_parameter_value(f"The provider '{value}' is not supported.")
 
     @validator("config", pre=True)
     def validate_config(cls, config, values):
-        provider = values.get("provider")
-        if provider:
+        if provider := values.get("provider"):
             config_type = config_types[provider]
-            config_instance = config_type(**config)
+            return config_type(**config)
 
-            return config_instance
-        else:
-            raise MlflowException.invalid_parameter_value(
-                "A provider must be provided for each gateway route."
-            )
+        raise MlflowException.invalid_parameter_value(
+            "A provider must be provided for each gateway route."
+        )
 
 
 # pylint: disable=no-self-argument
 class RouteConfig(BaseModel, extra=Extra.forbid):
     name: str
-    type: RouteType = RouteType.CUSTOM
+    route_type: RouteType
     model: Model
 
     @validator("name")
@@ -186,16 +173,16 @@ class RouteConfig(BaseModel, extra=Extra.forbid):
                 )
         return model
 
-    @validator("type", pre=True)
+    @validator("route_type", pre=True)
     def validate_route_type(cls, value):
         if value in RouteType._value2member_map_:
             return value
-        return RouteType.CUSTOM.value
+        raise MlflowException.invalid_parameter_value(f"The route_type '{value}' is not supported.")
 
     def to_route(self) -> "Route":
         return Route(
             name=self.name,
-            type=self.type,
+            route_type=self.route_type,
             model=ModelInfo(
                 name=self.model.name,
                 provider=self.model.provider,
@@ -205,8 +192,9 @@ class RouteConfig(BaseModel, extra=Extra.forbid):
 
 class Route(BaseModel, extra=Extra.forbid):
     name: str
-    type: RouteType
+    route_type: RouteType
     model: ModelInfo
+    route_url: Optional[str] = None
 
 
 class GatewayConfig(BaseModel, extra=Extra.forbid):

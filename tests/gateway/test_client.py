@@ -7,8 +7,7 @@ from mlflow.exceptions import MlflowException, InvalidUrlException
 import mlflow.gateway.utils
 from mlflow.gateway import set_gateway_uri, MlflowGatewayClient
 from mlflow.gateway.config import Route
-from mlflow.utils.databricks_utils import MlflowHostCreds
-from tests.gateway.tools import Gateway, store_conf
+from tests.gateway.tools import Gateway, save_yaml
 
 
 @pytest.fixture
@@ -17,7 +16,7 @@ def basic_config_dict():
         "routes": [
             {
                 "name": "completions",
-                "type": "llm/v1/completions",
+                "route_type": "llm/v1/completions",
                 "model": {
                     "name": "text-davinci-003",
                     "provider": "openai",
@@ -31,7 +30,7 @@ def basic_config_dict():
             },
             {
                 "name": "chat",
-                "type": "llm/v1/chat",
+                "route_type": "llm/v1/chat",
                 "model": {
                     "name": "gpt-3.5-turbo",
                     "provider": "openai",
@@ -40,13 +39,42 @@ def basic_config_dict():
             },
             {
                 "name": "embeddings",
-                "type": "llm/v1/embeddings",
+                "route_type": "llm/v1/embeddings",
                 "model": {
                     "provider": "openai",
                     "name": "text-embedding-ada-002",
                     "config": {
                         "openai_api_base": "https://api.openai.com/v1",
                         "openai_api_key": "mykey",
+                    },
+                },
+            },
+        ]
+    }
+
+
+@pytest.fixture
+def mixed_config_dict():
+    return {
+        "routes": [
+            {
+                "name": "chat",
+                "route_type": "llm/v1/chat",
+                "model": {
+                    "name": "gpt-3.5-turbo",
+                    "provider": "openai",
+                    "config": {"openai_api_key": "mykey"},
+                },
+            },
+            {
+                "name": "completions",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "anthropic",
+                    "name": "claude-instant-1",
+                    "config": {
+                        "anthropic_api_base": "https://api.anthropic.com/v1",
+                        "anthropic_api_key": "key",
                     },
                 },
             },
@@ -62,7 +90,15 @@ def clear_uri():
 @pytest.fixture
 def gateway(basic_config_dict, tmp_path):
     conf = tmp_path / "config.yaml"
-    store_conf(conf, basic_config_dict)
+    save_yaml(conf, basic_config_dict)
+    with Gateway(conf) as g:
+        yield g
+
+
+@pytest.fixture
+def mixed_gateway(mixed_config_dict, tmp_path):
+    conf = tmp_path / "config.yaml"
+    save_yaml(conf, mixed_config_dict)
     with Gateway(conf) as g:
         yield g
 
@@ -86,32 +122,13 @@ def test_invalid_uri_on_utils_raises(uri):
         set_gateway_uri(uri)
 
 
-@pytest.mark.parametrize(
-    "uri, base_start",
-    [
-        ("http://local:6000", "/gateway"),
-        ("databricks", "/ml/gateway"),
-        ("databricks://my.shard", "/ml/gateway"),
-    ],
-)
-def test_databricks_base_route_modification(uri, base_start):
-    mock_host_creds = MlflowHostCreds("mock-host")
-
-    with mock.patch(
-        "mlflow.gateway.client.get_databricks_host_creds", return_value=mock_host_creds
-    ):
-        client = MlflowGatewayClient(gateway_uri=uri)
-
-        assert client._route_base.startswith(base_start)
-
-
 def test_non_running_server_raises_when_called(monkeypatch):
     monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "0")
     set_gateway_uri("http://invalid.server:6000")
     client = MlflowGatewayClient()
     with pytest.raises(
         MlflowException,
-        match="API request to http://invalid.server:6000/gateway/routes/ failed with exception",
+        match="API request to http://invalid.server:6000/api/2.0/gateway/routes/ failed ",
     ):
         client.search_routes()
 
@@ -143,7 +160,7 @@ def test_create_gateway_client_with_overriden_env_variable(gateway, monkeypatch)
 
     # Pass a bad env variable config in
     with pytest.raises(
-        InvalidUrlException, match="Invalid url: http://localhost:99999/gateway/routes"
+        InvalidUrlException, match="Invalid url: http://localhost:99999/api/2.0/gateway/routes"
     ):
         MlflowGatewayClient().search_routes()
 
@@ -152,7 +169,7 @@ def test_create_gateway_client_with_overriden_env_variable(gateway, monkeypatch)
     gateway_client = MlflowGatewayClient()
 
     assert gateway_client.gateway_uri == gateway.url
-    assert gateway_client.get_route("chat").type == "llm/v1/chat"
+    assert gateway_client.get_route("chat").route_type == "llm/v1/chat"
 
 
 def test_query_individual_route(gateway, monkeypatch):
@@ -165,7 +182,7 @@ def test_query_individual_route(gateway, monkeypatch):
     assert route1.dict() == {
         "model": {"name": "text-davinci-003", "provider": "openai"},
         "name": "completions",
-        "type": "llm/v1/completions",
+        "route_type": "llm/v1/completions",
     }
 
     route2 = gateway_client.get_route(name="chat")
@@ -173,8 +190,41 @@ def test_query_individual_route(gateway, monkeypatch):
     assert route2.dict() == {
         "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
         "name": "chat",
-        "type": "llm/v1/chat",
+        "route_type": "llm/v1/chat",
     }
+
+
+def test_query_mixed_routes(mixed_gateway, monkeypatch):
+    monkeypatch.setenv(MLFLOW_GATEWAY_URI.name, mixed_gateway.url)
+
+    gateway_client = MlflowGatewayClient()
+    chat_route = gateway_client.get_route(name="chat")
+    assert chat_route.route_type == "llm/v1/chat"
+    assert chat_route.name == "chat"
+    assert chat_route.model.name == "gpt-3.5-turbo"
+    assert chat_route.model.provider == "openai"
+
+    completions_route = gateway_client.get_route(name="completions")
+    assert completions_route.route_type == "llm/v1/completions"
+    assert completions_route.name == "completions"
+    assert completions_route.model.name == "claude-instant-1"
+    assert completions_route.model.provider == "anthropic"
+
+
+def test_search_mixed_routes(mixed_gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=mixed_gateway.url)
+    routes = gateway_client.search_routes()
+
+    assert len(routes) == 2
+    chat_route = routes[0]
+    assert chat_route.route_type == "llm/v1/chat"
+    assert chat_route.name == "chat"
+    assert chat_route.model.provider == "openai"
+
+    completions_route = routes[1]
+    assert completions_route.route_type == "llm/v1/completions"
+    assert completions_route.name == "completions"
+    assert completions_route.model.provider == "anthropic"
 
 
 def test_query_invalid_route(gateway):
@@ -196,12 +246,12 @@ def test_list_all_configured_routes(gateway):
     assert routes[0].dict() == {
         "model": {"name": "text-davinci-003", "provider": "openai"},
         "name": "completions",
-        "type": "llm/v1/completions",
+        "route_type": "llm/v1/completions",
     }
     assert routes[1].dict() == {
         "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
         "name": "chat",
-        "type": "llm/v1/chat",
+        "route_type": "llm/v1/chat",
     }
 
 
@@ -304,4 +354,63 @@ def test_client_query_embeddings(gateway):
 
     with mock.patch.object(gateway_client, "_call_endpoint", return_value=mock_response):
         response = gateway_client.query(route=routes[2].name, data=data)
+        assert response == expected_output
+
+
+def test_client_create_route_raises(gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
+
+    # This API is available only in Databricks for route creation
+    with pytest.raises(MlflowException, match="The create_route API is only available when"):
+        gateway_client.create_route(
+            "some-route",
+            "llm/v1/chat",
+            {
+                "name": "a-route",
+                "provider": "openai",
+                "config": {
+                    "openai_api_key": "mykey",
+                    "openai_api_type": "openai/v1/chat/completions",
+                },
+            },
+        )
+
+
+def test_client_delete_route_raises(gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
+
+    # This API is available only in Databricks for route deletion
+    with pytest.raises(MlflowException, match="The delete_route API is only available when"):
+        gateway_client.delete_route("some-route")
+
+
+def test_client_query_anthropic_completions(mixed_gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=mixed_gateway.url)
+
+    route = gateway_client.get_route(name="completions")
+    assert route.model.provider == "anthropic"
+
+    expected_output = {
+        "candidates": [
+            {
+                "text": "Here are the steps for making a peanut butter sandwich:\n\n1. Get bread. "
+                "\n\n2. Spread peanut butter on bread.",
+                "metadata": {"finish_reason": "length"},
+            }
+        ],
+        "metadata": {
+            "model": "claude-instant-1.1",
+            "route_type": "llm/v1/completions",
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+        },
+    }
+    data = {"prompt": "Can you tell me how to make a peanut butter sandwich?", "max_tokens": 500}
+
+    mock_response = mock.Mock()
+    mock_response.json.return_value = expected_output
+
+    with mock.patch.object(gateway_client, "_call_endpoint", return_value=mock_response):
+        response = gateway_client.query(route=route.name, data=data)
         assert response == expected_output

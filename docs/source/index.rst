@@ -45,4 +45,3 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     rest-api
     docker
     community-model-flavors
-
