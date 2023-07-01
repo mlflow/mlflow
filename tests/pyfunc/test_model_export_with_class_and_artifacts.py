@@ -43,6 +43,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _mlflow_major_version_string,
+    assert_register_model_called_with_local_model_path
 )
 
 
@@ -275,8 +276,10 @@ def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_cla
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
         )
-        mlflow.tracking._model_registry.fluent._register_model.assert_called_once_with(
-            model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        assert_register_model_called_with_local_model_path(
+            mlflow.tracking._model_registry.fluent._register_model,
+            model_uri,
+            "AdsModel1"
         )
         mlflow.end_run()
 

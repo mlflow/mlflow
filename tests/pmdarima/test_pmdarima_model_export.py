@@ -31,6 +31,7 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _compare_logged_code_paths,
     _mlflow_major_version_string,
+    assert_register_model_called_with_local_model_path
 )
 
 
@@ -222,9 +223,7 @@ def test_pmdarima_log_model_calls_register_model(auto_arima_object_model, tmp_pa
             registered_model_name="PmdarimaModel",
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        mlflow.tracking._model_registry.fluent._register_model.assert_called_once_with(
-            model_uri, "PmdarimaModel", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-        )
+        assert_register_model_called_with_local_model_path(mlflow.tracking._model_registry.fluent._register_model, model_uri, "PmdarimaModel")
 
 
 def test_pmdarima_log_model_no_registered_model_name(auto_arima_model, tmp_path):

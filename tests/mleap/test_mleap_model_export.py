@@ -27,6 +27,7 @@ from tests.spark.test_spark_model_export import (  # pylint: disable=unused-impo
     iris_df,
     spark_model_iris,
     spark_custom_env,
+    assert_register_model_called_with_local_model_path
 )
 
 
@@ -157,8 +158,10 @@ def test_mleap_model_log(spark_model_iris):
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
         assert model_info.model_uri == model_uri
-        mlflow.tracking._model_registry.fluent._register_model.assert_called_once_with(
-            model_uri, "Model1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        assert_register_model_called_with_local_model_path(
+            mlflow.tracking._model_registry.fluent._register_model,
+            model_uri,
+            "Model1"
         )
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)

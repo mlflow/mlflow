@@ -263,7 +263,7 @@ def test_log_model_calls_register_model(prophet_model, tmp_path):
         assert_register_model_called_with_local_model_path(
             register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
             model_uri=model_uri,
-            registered_model_name="AdsModel1",
+            registered_model_name="ProphetModel1",
         )
 
 

@@ -960,7 +960,7 @@ def test_transformers_log_model_with_no_registered_model_name(small_vision_model
             "tokenizer": small_vision_model.tokenizer,
         }
     artifact_path = "transformers"
-    registered_model_patch = mock.patch("mlflow.register_model")
+    registered_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), registered_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["tensorflow", "transformers"])
