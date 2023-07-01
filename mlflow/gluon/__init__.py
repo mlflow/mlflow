@@ -119,7 +119,10 @@ class _GluonModelWrapper:
                 preds = preds.asnumpy()
             return pd.DataFrame(preds)
         elif isinstance(data, np.ndarray):
-            ndarray = mx.nd.array(data)
+            if Version(mx.__version__) >= Version("2.0.0"):
+                ndarray = mx.np.array(data)
+            else:
+                ndarray = mx.nd.array(data)
             preds = self.gluon_model(ndarray)
             if isinstance(preds, mx.ndarray.ndarray.NDArray):
                 preds = preds.asnumpy()
