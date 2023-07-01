@@ -408,8 +408,7 @@ class TestRestStore:
         mock_response.status_code = 200
         return mock_response
 
-    @mock.patch("requests.Session.request")
-    def test_get_metric_history_paginated(self, request):
+    def test_get_metric_history_paginated(self):
         creds = MlflowHostCreds("https://hello")
         store = RestStore(lambda: creds)
 
@@ -467,8 +466,7 @@ class TestRestStore:
             assert metrics[1] == Metric(key="a_metric", value=56, timestamp=123456897, step=3)
             assert metrics.token is None
 
-    @mock.patch("requests.Session.request")
-    def test_get_metric_history_on_non_existent_metric_key(self, request):
+    def test_get_metric_history_on_non_existent_metric_key(self):
         creds = MlflowHostCreds("https://hello")
         rest_store = RestStore(lambda: creds)
         empty_metric_response = self._mock_response_with_200_status_code()
