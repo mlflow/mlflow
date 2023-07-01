@@ -203,7 +203,6 @@ def _save_model_with_class_artifacts_params(
                 tmp_artifacts_config[artifact_name] = tmp_artifact_path
                 saved_artifact_subpath = posixpath.join(
                     saved_artifacts_dir_subpath,
-                    artifact_name,
                     os.path.relpath(path=tmp_artifact_path, start=tmp_artifacts_dir.path()),
                 )
                 saved_artifacts_config[artifact_name] = {
