@@ -61,16 +61,16 @@ class Version(OriginalVersion):
 
 class PackageInfo(BaseModel):
     pip_release: str
-    install_dev: t.Optional[str]
+    install_dev: t.Optional[str] = None
 
 
 class TestConfig(BaseModel):
     minimum: Version
     maximum: Version
-    unsupported: t.Optional[t.List[Version]]
-    requirements: t.Optional[t.Dict[str, t.List[str]]]
+    unsupported: t.Optional[t.List[Version]] = None
+    requirements: t.Optional[t.Dict[str, t.List[str]]] = None
     run: str
-    allow_unreleased_max_version: t.Optional[bool]
+    allow_unreleased_max_version: t.Optional[bool] = None
 
     class Config:
         arbitrary_types_allowed = True
