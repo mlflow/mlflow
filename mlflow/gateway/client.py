@@ -84,6 +84,7 @@ class MlflowGatewayClient:
         augmented_raise_for_status(response)
         return response
 
+    @experimental
     def get_route(self, name: str):
         """
         Get a specific query route from the gateway. The routes that are available to retrieve
@@ -100,6 +101,7 @@ class MlflowGatewayClient:
 
         return Route(**response)
 
+    @experimental
     def search_routes(self, search_filter: Optional[str] = None):
         """
         Search for routes in the Gateway. Currently, this simply returns all configured routes.
@@ -117,6 +119,7 @@ class MlflowGatewayClient:
         response = self._call_endpoint("GET", self._route_base).json()["routes"]
         return [Route(**resp) for resp in response]
 
+    @experimental
     def query(self, route: str, data: Dict[str, Any]):
         """
         Submit a query to a configured provider route.
