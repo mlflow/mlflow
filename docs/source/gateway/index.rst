@@ -647,6 +647,12 @@ These examples cover the primary ways you might interact with the MLflow AI Gate
 
 **Note:** Please remember to replace "http://my.gateway:8888" with the URL of your actual MLflow AI Gateway Server.
 
+MLflow AI Gateway API Documentation
+===================================
+
+`API documentation <./api.html>`_
+
+
 .. _gateway-guide:
 
 Guide

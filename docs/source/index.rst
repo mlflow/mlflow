@@ -33,7 +33,7 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     models
     model-registry
     recipes
-    gateway
+    gateway/index
     plugins
     auth/index
     cli
