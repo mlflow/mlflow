@@ -223,7 +223,7 @@ class DummySklearnModel(BaseEstimator, ClassifierMixin):
     def __init__(self, output_shape=(1,)):
         self.output_shape = output_shape
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None):  # pylint: disable=unused-argument
         return self
 
     def predict(self, X):
@@ -297,7 +297,7 @@ def test_infer_signature_silently_fails(monkeypatch):
     monkeypatch.setenv("MLFLOW_TESTING", "false")
 
     class ErrorModel(BaseEstimator, ClassifierMixin):
-        def fit(self, X, y=None):
+        def fit(self, X, y=None):  # pylint: disable=unused-argument
             return self
 
         def predict(self, X):
@@ -360,7 +360,7 @@ def test_infer_signature_on_multi_column_input_examples(input_example, iris_mode
 )
 def test_infer_signature_on_scalar_input_examples(input_example):
     class IdentitySklearnModel(BaseEstimator, ClassifierMixin):
-        def fit(self, X, y=None):
+        def fit(self, X, y=None):  # pylint: disable=unused-argument
             return self
 
         def predict(self, X):
