@@ -3,6 +3,7 @@ import subprocess
 import sys
 import time
 from typing import Any, Union, Dict
+from unittest import mock
 
 import requests
 import yaml
@@ -96,3 +97,20 @@ class MockAsyncResponse:
 
     async def __aexit__(self, exc_type, exc, traceback):
         pass
+
+
+def mock_http_client(mock_response: MockAsyncResponse):
+    class MockHttpClient(mock.Mock):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            # self.post = mock.Mock(return_value=MockAsyncResponse(resp))
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return
+
+    mock_http_client = MockHttpClient()
+    mock_http_client.post = mock.Mock(return_value=mock_response)
+    return mock_http_client
