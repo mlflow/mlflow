@@ -14,11 +14,6 @@ from mlflow.recipes.utils import (
 )
 from mlflow.utils.file_utils import write_yaml
 
-# pylint: disable=unused-import
-from tests.recipes.helper_functions import (
-    enter_recipe_example_directory,
-    enter_test_recipe_directory,
-)  # pylint: enable=unused-import
 from tests.recipes.helper_functions import chdir
 from unittest import mock
 

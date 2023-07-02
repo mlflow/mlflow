@@ -5,7 +5,7 @@ import pytest
 
 from mlflow.utils import logging_utils
 from mlflow.utils.autologging_utils import is_testing
-from mlflow.utils.autologging_utils.safety import _AUTOLOGGING_TEST_MODE_ENV_VAR
+from mlflow.environment_variables import _MLFLOW_AUTOLOGGING_TESTING
 
 
 PATCH_DESTINATION_FN_DEFAULT_RESULT = "original_result"
@@ -37,29 +37,29 @@ def patch_destination():
 
 @pytest.fixture
 def test_mode_off():
-    prev_env_var_value = os.environ.pop(_AUTOLOGGING_TEST_MODE_ENV_VAR, None)
+    prev_env_var_value = os.environ.pop(_MLFLOW_AUTOLOGGING_TESTING.name, None)
     try:
-        os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR] = "false"
+        os.environ[_MLFLOW_AUTOLOGGING_TESTING.name] = "false"
         assert not is_testing()
         yield
     finally:
         if prev_env_var_value:
-            os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR] = prev_env_var_value
+            os.environ[_MLFLOW_AUTOLOGGING_TESTING.name] = prev_env_var_value
         else:
-            del os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR]
+            del os.environ[_MLFLOW_AUTOLOGGING_TESTING.name]
 
 
 def enable_test_mode():
-    prev_env_var_value = os.environ.pop(_AUTOLOGGING_TEST_MODE_ENV_VAR, None)
+    prev_env_var_value = os.environ.pop(_MLFLOW_AUTOLOGGING_TESTING.name, None)
     try:
-        os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR] = "true"
+        os.environ[_MLFLOW_AUTOLOGGING_TESTING.name] = "true"
         assert is_testing()
         yield
     finally:
         if prev_env_var_value:
-            os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR] = prev_env_var_value
+            os.environ[_MLFLOW_AUTOLOGGING_TESTING.name] = prev_env_var_value
         else:
-            del os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR]
+            del os.environ[_MLFLOW_AUTOLOGGING_TESTING.name]
 
 
 @pytest.fixture

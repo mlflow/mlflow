@@ -30,13 +30,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
 )
 
-# pylint: disable=unused-import
-from tests.recipes.helper_functions import (
-    enter_recipe_example_directory,
-    enter_test_recipe_directory,
-    list_all_artifacts,
-    chdir,
-)  # pylint: enable=unused-import
+from tests.recipes.helper_functions import list_all_artifacts, chdir
 
 # _STEP_NAMES must contain all step names that are expected to be executed when
 # `recipe.run(step=None)` is called

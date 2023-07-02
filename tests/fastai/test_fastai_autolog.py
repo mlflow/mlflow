@@ -18,7 +18,6 @@ import mlflow.fastai
 from mlflow import MlflowClient
 from mlflow.fastai.callback import __MlflowFastaiCallback
 from mlflow.utils.autologging_utils import BatchMetricsLogger
-from tests.conftest import tracking_uri_mock  # pylint: disable=unused-import
 
 mpl.use("Agg")
 

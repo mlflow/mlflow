@@ -2,6 +2,7 @@
 This module defines environment variables used in MLflow.
 """
 import os
+from pathlib import Path
 
 
 class _EnvironmentVariable:
@@ -338,3 +339,13 @@ MLFLOW_EXPERIMENT_NAME = _EnvironmentVariable("MLFLOW_EXPERIMENT_NAME", str, Non
 #: Specified the path to the configuration file for MLflow Authentication.
 #: (default: ``None``)
 MLFLOW_AUTH_CONFIG_PATH = _EnvironmentVariable("MLFLOW_AUTH_CONFIG_PATH", str, None)
+
+#: Specifies the root directory to create Python virtual environments in.
+#: (default: ``~/.mlflow/envs``)
+MLFLOW_ENV_ROOT = _EnvironmentVariable(
+    "MLFLOW_ENV_ROOT", str, str(Path.home().joinpath(".mlflow", "envs"))
+)
+
+#: Private environment variable that should be set to ``True`` when running autologging tests.
+#: (default: ``False``)
+_MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TESTING", False)

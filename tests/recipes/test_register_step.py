@@ -12,14 +12,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RECIPE_TEMPLATE_NAME,
 )
 
-# pylint: disable=unused-import
-from tests.recipes.helper_functions import (
-    clear_custom_metrics_module_cache,
-    registry_uri_path,
-    setup_model_and_evaluate,
-    tmp_recipe_exec_path,
-    tmp_recipe_root_path,
-)  # pylint: enable=unused-import
+from tests.recipes.helper_functions import setup_model_and_evaluate
 
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")

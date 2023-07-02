@@ -26,9 +26,6 @@ from unittest import mock
 from unittest.mock import Mock
 from pathlib import Path
 
-# pylint: disable=unused-import
-from tests.recipes.helper_functions import tmp_recipe_root_path, tmp_recipe_exec_path
-
 
 def set_up_dataset(tmp_path, num_classes=2):
     ingest_output_dir = tmp_path / "steps" / "ingest" / "outputs"
