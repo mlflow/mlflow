@@ -55,9 +55,9 @@ def chat_response():
 async def test_chat():
     resp = chat_response()
     config = chat_config()
-    with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    mock_client = mock_http_client(MockAsyncResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
         provider = OpenAIProvider(RouteConfig(**config))
         payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
         response = await provider.chat(chat.RequestPayload(**payload))
@@ -81,7 +81,19 @@ async def test_chat():
                 "route_type": "llm/v1/chat",
             },
         }
-        mock_post.assert_called_once()
+        mock_build_client.assert_called_once_with(
+            headers={
+                "Authorization": "Bearer key",
+            }
+        )
+        mock_client.post.assert_called_once_with(
+            "https://api.openai.com/v1/chat/completions",
+            json={
+                "model": "gpt-3.5-turbo",
+                "temperature": 0,
+                **payload,
+            },
+        )
 
 
 @pytest.mark.asyncio
@@ -116,9 +128,8 @@ def completions_config():
         "route_type": "llm/v1/completions",
         "model": {
             "provider": "openai",
-            "name": "text-davinci-003",
+            "name": "gpt-4-32k",
             "config": {
-                "openai_api_base": "https://api.openai.com/v1",
                 "openai_api_key": "key",
                 "openai_organization": "test-organization",
             },
@@ -130,9 +141,9 @@ def completions_config():
 async def test_completions():
     resp = chat_response()
     config = completions_config()
-    with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    mock_client = mock_http_client(MockAsyncResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
         provider = OpenAIProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
@@ -148,7 +159,20 @@ async def test_completions():
                 "route_type": "llm/v1/completions",
             },
         }
-        mock_post.assert_called_once()
+        mock_build_client.assert_called_once_with(
+            headers={
+                "Authorization": "Bearer key",
+                "OpenAI-Organization": "test-organization",
+            }
+        )
+        mock_client.post.assert_called_once_with(
+            "https://api.openai.com/v1/chat/completions",
+            json={
+                "model": "gpt-4-32k",
+                "temperature": 0,
+                "messages": [{"role": "user", "content": "This is a test"}],
+            },
+        )
 
 
 @pytest.mark.asyncio
@@ -211,10 +235,9 @@ async def test_embeddings():
         "usage": {"prompt_tokens": 8, "total_tokens": 8},
     }
     config = embedding_config()
+    mock_client = mock_http_client(MockAsyncResponse(resp))
 
-    with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
         provider = OpenAIProvider(RouteConfig(**config))
         payload = {"text": "This is a test"}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
@@ -234,7 +257,15 @@ async def test_embeddings():
                 "route_type": "llm/v1/embeddings",
             },
         }
-        mock_post.assert_called_once()
+        mock_build_client.assert_called_once_with(
+            headers={
+                "Authorization": "Bearer key",
+            }
+        )
+        mock_client.post.assert_called_once_with(
+            "https://api.openai.com/v1/embeddings",
+            json={"model": "text-embedding-ada-002", "input": "This is a test"},
+        )
 
 
 @pytest.mark.asyncio
@@ -265,10 +296,9 @@ async def test_embeddings_batch_input():
         "usage": {"prompt_tokens": 8, "total_tokens": 8},
     }
     config = embedding_config()
+    mock_client = mock_http_client(MockAsyncResponse(resp))
 
-    with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
         provider = OpenAIProvider(RouteConfig(**config))
         payload = {"text": ["1", "2"]}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
@@ -293,7 +323,18 @@ async def test_embeddings_batch_input():
                 "route_type": "llm/v1/embeddings",
             },
         }
-        mock_post.assert_called_once()
+        mock_build_client.assert_called_once_with(
+            headers={
+                "Authorization": "Bearer key",
+            }
+        )
+        mock_client.post.assert_called_once_with(
+            "https://api.openai.com/v1/embeddings",
+            json={
+                "model": "text-embedding-ada-002",
+                "input": ["1", "2"],
+            },
+        )
 
 
 def azure_config(api_type: str):
@@ -346,7 +387,11 @@ async def test_azure_openai():
                 "https://test-azureopenai.openai.azure.com/openai/deployments/test-gpt35"
                 "/chat/completions?api-version=2023-05-15"
             ),
-            json=mock.ANY,
+            json={
+                "model": "gpt-35-turbo",
+                "temperature": 0,
+                "messages": [{"role": "user", "content": "This is a test"}],
+            },
         )
 
 
@@ -382,7 +427,11 @@ async def test_azuread_openai():
                 "https://test-azureopenai.openai.azure.com/openai/deployments/test-gpt35"
                 "/chat/completions?api-version=2023-05-15"
             ),
-            json=mock.ANY,
+            json={
+                "model": "gpt-35-turbo",
+                "temperature": 0,
+                "messages": [{"role": "user", "content": "This is a test"}],
+            },
         )
 
 
