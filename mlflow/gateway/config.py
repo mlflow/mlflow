@@ -49,6 +49,7 @@ class OpenAIConfig(BaseModel, extra=Extra.forbid):
     openai_api_type: Optional[str] = None
     openai_api_base: str = "https://api.openai.com/v1"
     openai_api_version: Optional[str] = None
+    openai_deployment_name: Optional[str] = None
     openai_organization: Optional[str] = None
 
     # pylint: disable=no-self-argument
