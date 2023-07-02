@@ -4,6 +4,8 @@ from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 import pytest
 
+from mlflow.exceptions import MlflowException
+from mlflow.gateway.config import OpenAIConfig
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.config import RouteConfig
@@ -291,3 +293,101 @@ async def test_embeddings_batch_input():
             },
         }
         mock_post.assert_called_once()
+
+
+def azure_config():
+    return {
+        "name": "completions",
+        "route_type": "llm/v1/completions",
+        "model": {
+            "provider": "openai",
+            "name": "text-davinci-003",
+            "config": {
+                "openai_api_base": "https://api.openai.com/v1",
+                "openai_api_key": "key",
+            },
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_completions():
+    resp = chat_response()
+    config = completions_config()
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = OpenAIProvider(RouteConfig(**config))
+        payload = {
+            "prompt": "This is a test",
+        }
+        response = await provider.completions(completions.RequestPayload(**payload))
+        assert jsonable_encoder(response) == {
+            "candidates": [{"text": "\n\nThis is a test!", "metadata": {"finish_reason": "stop"}}],
+            "metadata": {
+                "input_tokens": 13,
+                "output_tokens": 7,
+                "total_tokens": 20,
+                "model": "gpt-3.5-turbo-0301",
+                "route_type": "llm/v1/completions",
+            },
+        }
+        mock_post.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("api_type", "api_base", "deployment_name", "api_version", "exception_type"),
+    [
+        # Invalid API Types
+        ("invalidtype", None, None, None, MlflowException),
+        (0, None, None, None, MlflowException),
+        # OpenAI API type
+        ("openai", None, None, None, None),
+        ("openai", "https://api.openai.com/v1", None, None, None),
+        ("openai", "https://api.openai.com/v1", None, "2023-05-15", None),
+        ("openAI", "https://api.openai.com/v1", None, "2023-05-15", None),
+        # Deployment name is specified when API type is not 'azure' or 'azuread'
+        ("openai", None, "mock-deployment", None, MlflowException),
+        # Azure API type
+        ("azure", "https://test-azureopenai.openai.azure.com", "mock-dep", "2023-05-15", None),
+        ("AZURe", "https://test-azureopenai.openai.azure.com", "mock-dep", "2023-04-12", None),
+        # Missing required API base, deployment name, and / or api version fields
+        ("azure", None, None, None, MlflowException),
+        ("azure", "https://test-azureopenai.openai.azure.com", "mock-dep", None, MlflowException),
+        # AzureAD API type
+        ("azuread", "https://test-azureopenai.openai.azure.com", "mock-dep", "2023-05-15", None),
+        ("azureAD", "https://test-azureopenai.openai.azure.com", "mock-dep", "2023-04-12", None),
+        # Missing required API base, deployment name, and / or api version fields
+        ("azuread", None, None, None, MlflowException),
+        ("azuread", "https://test-azureopenai.openai.azure.com", "mock-dep", None, MlflowException),
+    ],
+)
+def test_openai_provider_validates_openai_config(
+    api_type,
+    api_base,
+    deployment_name,
+    api_version,
+    exception_type,
+):
+    openai_config = OpenAIConfig(
+        openai_api_key="mock-api-key",
+        openai_api_type=api_type,
+        openai_api_base=api_base,
+        openai_deployment_name=deployment_name,
+        openai_api_version=api_version,
+    )
+    route_config = RouteConfig(
+        name="completions",
+        route_type="llm/v1/completions",
+        model={
+            "provider": "openai",
+            "name": "text-davinci-003",
+            "config": dict(openai_config),
+        },
+    )
+    if exception_type is not None:
+        with pytest.raises(exception_type, match="OpenAI"):
+            OpenAIProvider(route_config)
+    else:
+        provider = OpenAIProvider(route_config)
+        assert provider.openai_config == openai_config
