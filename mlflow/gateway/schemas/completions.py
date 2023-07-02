@@ -22,16 +22,16 @@ class RequestPayload(BaseRequestPayload):
         }
 
 
-class CandidateMetadata(BaseModel, extra=Extra.forbid):
+class CandidateMetadata(BaseModel, extra=Extra.allow):
     finish_reason: Optional[FinishReason]
 
 
-class Candidate(BaseModel, extra=Extra.forbid):
+class Candidate(BaseModel, extra=Extra.allow):
     text: str
     metadata: CandidateMetadata
 
 
-class Metadata(BaseModel, extra=Extra.forbid):
+class Metadata(BaseModel, extra=Extra.allow):
     input_tokens: Optional[int]
     output_tokens: Optional[int]
     total_tokens: Optional[int]
@@ -44,7 +44,7 @@ class ResponsePayload(BaseModel):
     metadata: Metadata
 
     class Config:
-        extra = Extra.forbid
+        extra = Extra.allow
         schema_extra = {
             "example": {
                 "candidates": [
