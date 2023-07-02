@@ -22,7 +22,6 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
@@ -259,7 +258,7 @@ def test_log_model_calls_register_model(cb_model, tmp_path):
     registered_model_name = "registered_model"
     with mlflow.start_run() as run, mock.patch(
         "mlflow.tracking._model_registry.fluent._register_model"
-    ) as register_model_mock:
+    ):
         conda_env_path = os.path.join(tmp_path, "conda_env.yaml")
         _mlflow_conda_env(conda_env_path, additional_pip_deps=["catboost"])
         mlflow.catboost.log_model(

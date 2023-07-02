@@ -17,7 +17,6 @@ import mlflow.mleap
 from mlflow.models import Model
 from mlflow.utils.file_utils import TempDir
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.pyfunc.test_spark import get_spark_session
 

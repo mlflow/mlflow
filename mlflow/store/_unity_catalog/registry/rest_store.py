@@ -473,7 +473,6 @@ class UcModelRegistryStore(BaseRestStore):
             )
         )
         with tempfile.TemporaryDirectory() as tmpdir:
-            local_model_path = local_model_path
             if local_model_path is None:
                 try:
                     local_model_path = mlflow.artifacts.download_artifacts(

@@ -12,7 +12,6 @@ from typing import Any, Dict, Optional, Union, Callable
 import mlflow
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
-from mlflow.tracking._model_registry.fluent import _register_model
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.utils.annotations import experimental
