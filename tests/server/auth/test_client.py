@@ -13,11 +13,8 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.server.auth import auth_config
 from mlflow.server.auth.client import AuthServiceClient
-from mlflow.tracking._tracking_service.utils import (
-    _TRACKING_USERNAME_ENV_VAR,
-    _TRACKING_PASSWORD_ENV_VAR,
-)
 from mlflow.utils.os import is_windows
+from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
 from tests.helper_functions import random_str
 from tests.server.auth.auth_test_utils import create_user, User
 from tests.tracking.integration_test_utils import _init_server, _terminate_server
@@ -30,7 +27,9 @@ ADMIN_PASSWORD = auth_config.admin_password
 
 @pytest.fixture(autouse=True)
 def clear_credentials(monkeypatch):
-    monkeypatch.delenvs([_TRACKING_USERNAME_ENV_VAR, _TRACKING_PASSWORD_ENV_VAR], raising=False)
+    monkeypatch.delenvs(
+        [MLFLOW_TRACKING_USERNAME.name, MLFLOW_TRACKING_PASSWORD.name], raising=False
+    )
 
 
 @pytest.fixture

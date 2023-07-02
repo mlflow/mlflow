@@ -48,10 +48,6 @@ from mlflow.server.handlers import (
     get_endpoints,
 )
 from mlflow.store.entities import PagedList
-from mlflow.tracking._tracking_service.utils import (
-    _TRACKING_USERNAME_ENV_VAR,
-    _TRACKING_PASSWORD_ENV_VAR,
-)
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     BAD_REQUEST,
@@ -105,6 +101,7 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.utils.proto_json_utils import parse_dict, message_to_json
 from mlflow.utils.search_utils import SearchUtils
+from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
 
 _AUTH_CONFIG_PATH_ENV_VAR = "MLFLOW_AUTH_CONFIG_PATH"
 
@@ -136,7 +133,7 @@ def make_basic_auth_response() -> Response:
     res.status_code = 401
     res.set_data(
         "You are not authenticated. Please set the environment variables "
-        f"{_TRACKING_USERNAME_ENV_VAR} and {_TRACKING_PASSWORD_ENV_VAR}."
+        f"{MLFLOW_TRACKING_USERNAME.name} and {MLFLOW_TRACKING_PASSWORD.name}."
     )
     res.headers["WWW-Authenticate"] = 'Basic realm="mlflow"'
     return res
@@ -711,17 +708,7 @@ def update_user_password():
 @catch_mlflow_exception
 def update_user_admin():
     username = _get_request_param("username")
-    is_admin_str = _get_request_param("is_admin").lower()
-    if is_admin_str == "true":
-        is_admin = True
-    elif is_admin_str == "false":
-        is_admin = False
-    else:
-        raise MlflowException(
-            f"Invalid parameter 'is_admin': '{is_admin_str}', "
-            "must be either 'true' or 'false' (case insensitive).",
-            INVALID_PARAMETER_VALUE,
-        )
+    is_admin = _get_request_param("is_admin")
     store.update_user(username, is_admin=is_admin)
     return make_response({})
 
