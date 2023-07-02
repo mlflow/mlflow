@@ -17,7 +17,7 @@ class RequestPayload(BaseModel):
         }
 
 
-class Metadata(BaseModel, extra=Extra.forbid):
+class Metadata(BaseModel, extra=Extra.allow):
     input_tokens: Optional[int]
     output_tokens: Optional[int]
     total_tokens: Optional[int]
@@ -30,7 +30,7 @@ class ResponsePayload(BaseModel):
     metadata: Metadata
 
     class Config:
-        extra = Extra.forbid
+        extra = Extra.allow
         schema_extra = {
             "example": {
                 "embeddings": [
