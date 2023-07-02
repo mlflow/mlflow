@@ -9,7 +9,7 @@ from mlflow.gateway.config import OpenAIConfig
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.config import RouteConfig
-from tests.gateway.tools import MockAsyncResponse
+from tests.gateway.tools import MockAsyncResponse, mock_http_client
 
 
 def chat_config():
@@ -120,6 +120,7 @@ def completions_config():
             "config": {
                 "openai_api_base": "https://api.openai.com/v1",
                 "openai_api_key": "key",
+                "openai_organization": "test-organization",
             },
         },
     }
@@ -317,22 +318,9 @@ def azure_config(api_type: str):
 async def test_azure_openai():
     resp = chat_response()
     config = azure_config(api_type="azure")
+    mock_client = mock_http_client(MockAsyncResponse(resp))
 
-    class MockHttpClient(mock.Mock):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            # self.post = mock.Mock(return_value=MockAsyncResponse(resp))
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *args):
-            return
-
-    mock_http_client = MockHttpClient()
-    mock_http_client.post = mock.Mock(return_value=MockAsyncResponse(resp))
-
-    with mock.patch("aiohttp.ClientSession", return_value=mock_http_client) as mock_build_client:
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
         provider = OpenAIProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
@@ -353,7 +341,7 @@ async def test_azure_openai():
                 "api-key": "key",
             }
         )
-        mock_http_client.post.assert_called_once_with(
+        mock_client.post.assert_called_once_with(
             (
                 "https://test-azureopenai.openai.azure.com/openai/deployments/test-gpt35"
                 "/chat/completions?api-version=2023-05-15"
@@ -366,22 +354,9 @@ async def test_azure_openai():
 async def test_azuread_openai():
     resp = chat_response()
     config = azure_config(api_type="azuread")
+    mock_client = mock_http_client(MockAsyncResponse(resp))
 
-    class MockHttpClient(mock.Mock):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            # self.post = mock.Mock(return_value=MockAsyncResponse(resp))
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *args):
-            return
-
-    mock_http_client = MockHttpClient()
-    mock_http_client.post = mock.Mock(return_value=MockAsyncResponse(resp))
-
-    with mock.patch("aiohttp.ClientSession", return_value=mock_http_client) as mock_build_client:
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
         provider = OpenAIProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
@@ -402,7 +377,7 @@ async def test_azuread_openai():
                 "Authorization": "Bearer key",
             }
         )
-        mock_http_client.post.assert_called_once_with(
+        mock_client.post.assert_called_once_with(
             (
                 "https://test-azureopenai.openai.azure.com/openai/deployments/test-gpt35"
                 "/chat/completions?api-version=2023-05-15"
