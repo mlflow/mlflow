@@ -19,7 +19,9 @@ class OpenAIProvider(BaseProvider):
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, OpenAIConfig):
             # Should be unreachable
-            raise MlflowException.invalid_parameter_value("Invalid config type {config.model.config}")
+            raise MlflowException.invalid_parameter_value(
+                "Invalid config type {config.model.config}"
+            )
         self.openai_config: OpenAIConfig = config.model.config
         self.openai_api_type = (self.openai_config.openai_api_type or _API_TYPE_OPENAI).lower()
         self._validate_openai_config()
@@ -46,7 +48,9 @@ class OpenAIProvider(BaseProvider):
                     f"'{_API_TYPE_AZURE}' or '{_API_TYPE_AZUREAD}'."
                 )
         else:
-            raise MlflowException.invalid_parameter_value(f"Invalid OpenAI API type '{self.openai_api_type}'")
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid OpenAI API type '{self.openai_api_type}'"
+            )
 
     @property
     def _request_base_url(self):
@@ -62,14 +66,16 @@ class OpenAIProvider(BaseProvider):
                 self.openai_config.openai_api_base,
                 "openai",
                 "deployment",
-                self.openai_config.openai_deployment_name
+                self.openai_config.openai_deployment_name,
             )
             return append_to_uri_query_params(
                 openai_url,
                 ("api-version", self.openai_config.openai_api_version),
             )
         else:
-            raise MlflowException.invalid_parameter_value(f"Invalid OpenAI API type '{self.openai_api_type}'")
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid OpenAI API type '{self.openai_api_type}'"
+            )
 
     @property
     def _request_headers(self):
@@ -89,7 +95,9 @@ class OpenAIProvider(BaseProvider):
                 "api-key": self.openai_config.openai_api_key,
             }
         else:
-            raise MlflowException.invalid_parameter_value(f"Invalid OpenAI API type '{self.openai_api_type}'")
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid OpenAI API type '{self.openai_api_type}'"
+            )
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)

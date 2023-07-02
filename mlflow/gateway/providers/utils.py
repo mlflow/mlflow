@@ -17,7 +17,7 @@ async def send_request(headers: Dict[str, str], base_url: str, path: str, payloa
     :raise: HTTPException if the HTTP request fails.
     """
     async with aiohttp.ClientSession(headers=headers) as session:
-        url = append_to_uri_path(base_url, path) 
+        url = append_to_uri_path(base_url, path)
         async with session.post(url, json=payload) as response:
             js = await response.json()
             try:
