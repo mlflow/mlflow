@@ -27,8 +27,10 @@ class OpenAIProvider(BaseProvider):
         self._validate_openai_config()
 
     def _validate_openai_config(self):
-        if not self.openai_api_key:
-            raise MlflowException.invalid_parameter_value("'openai_api_key' must be specified")
+        if not self.openai_config.openai_api_key:
+            raise MlflowException.invalid_parameter_value(
+                "OpenAI route configuration must specify 'openai_api_key'"
+            )
 
         if self.openai_api_type == _API_TYPE_OPENAI:
             if self.openai_config.openai_deployment_name is not None:
@@ -41,7 +43,7 @@ class OpenAIProvider(BaseProvider):
             base_url = self.openai_config.openai_api_base
             deployment_name = self.openai_config.openai_deployment_name
             api_version = self.openai_config.openai_api_version
-            if (base_url, deployment_name, api_version).count(None) >= 0:
+            if (base_url, deployment_name, api_version).count(None) > 0:
                 raise MlflowException.invalid_parameter_value(
                     f"OpenAI route configuration must specify 'openai_api_base', "
                     f"'openai_deployment_name', and 'openai_api_version' if 'openai_api_type' is "
@@ -59,13 +61,13 @@ class OpenAIProvider(BaseProvider):
         elif self.openai_api_type in (_API_TYPE_AZURE, _API_TYPE_AZUREAD):
             if self.openai_config.openai_api_base is None:
                 raise MlflowException.invalid_parameter_value(
-                    f"'openai_api_base' must be specified when 'openai_api_type' is "
-                    f"'{_API_TYPE_AZURE}' or '{_API_TYPE_AZUREAD}'."
+                    f"OpenAI route configuration must specify 'openai_api_base' when"
+                    f"'openai_api_type' is '{_API_TYPE_AZURE}' or '{_API_TYPE_AZUREAD}'."
                 )
             openai_url = append_to_uri_path(
                 self.openai_config.openai_api_base,
                 "openai",
-                "deployment",
+                "deployments",
                 self.openai_config.openai_deployment_name,
             )
             return append_to_uri_query_params(
