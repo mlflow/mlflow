@@ -1,6 +1,8 @@
-from typing import Dict, Any
 import aiohttp
+from typing import Dict, Any
 from fastapi import HTTPException
+
+from mlflow.utils.uri import append_to_uri_path
 
 
 async def send_request(headers: Dict[str, str], base_url: str, path: str, payload: Dict[str, Any]):
@@ -15,7 +17,7 @@ async def send_request(headers: Dict[str, str], base_url: str, path: str, payloa
     :raise: HTTPException if the HTTP request fails.
     """
     async with aiohttp.ClientSession(headers=headers) as session:
-        url = "/".join([base_url.rstrip("/"), path.lstrip("/")])
+        url = append_to_uri_path(base_url, path) 
         async with session.post(url, json=payload) as response:
             js = await response.json()
             try:
