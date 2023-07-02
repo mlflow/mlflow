@@ -295,28 +295,44 @@ async def test_embeddings_batch_input():
         mock_post.assert_called_once()
 
 
-def azure_config():
+def azure_config(api_type: str):
     return {
         "name": "completions",
         "route_type": "llm/v1/completions",
         "model": {
             "provider": "openai",
-            "name": "text-davinci-003",
+            "name": "gpt-35-turbo",
             "config": {
-                "openai_api_base": "https://api.openai.com/v1",
+                "openai_api_type": api_type,
                 "openai_api_key": "key",
+                "openai_api_base": "https://test-azureopenai.openai.azure.com/",
+                "openai_deployment_name": "test-gpt35",
+                "openai_api_version": "2023-05-15",
             },
         },
     }
 
 
 @pytest.mark.asyncio
-async def test_completions():
+async def test_azure_openai():
     resp = chat_response()
-    config = completions_config()
-    with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    config = azure_config(api_type="azure")
+
+    class MockHttpClient(mock.Mock):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            # self.post = mock.Mock(return_value=MockAsyncResponse(resp))
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return
+
+    mock_http_client = MockHttpClient()
+    mock_http_client.post = mock.Mock(return_value=MockAsyncResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_http_client) as mock_build_client:
         provider = OpenAIProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
@@ -332,7 +348,67 @@ async def test_completions():
                 "route_type": "llm/v1/completions",
             },
         }
-        mock_post.assert_called_once()
+        mock_build_client.assert_called_once_with(
+            headers={
+                "api-key": "key",
+            }
+        )
+        mock_http_client.post.assert_called_once_with(
+            (
+                "https://test-azureopenai.openai.azure.com/openai/deployments/test-gpt35"
+                "/chat/completions?api-version=2023-05-15"
+            ),
+            json=mock.ANY,
+        )
+
+
+@pytest.mark.asyncio
+async def test_azuread_openai():
+    resp = chat_response()
+    config = azure_config(api_type="azuread")
+
+    class MockHttpClient(mock.Mock):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            # self.post = mock.Mock(return_value=MockAsyncResponse(resp))
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return
+
+    mock_http_client = MockHttpClient()
+    mock_http_client.post = mock.Mock(return_value=MockAsyncResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_http_client) as mock_build_client:
+        provider = OpenAIProvider(RouteConfig(**config))
+        payload = {
+            "prompt": "This is a test",
+        }
+        response = await provider.completions(completions.RequestPayload(**payload))
+        assert jsonable_encoder(response) == {
+            "candidates": [{"text": "\n\nThis is a test!", "metadata": {"finish_reason": "stop"}}],
+            "metadata": {
+                "input_tokens": 13,
+                "output_tokens": 7,
+                "total_tokens": 20,
+                "model": "gpt-3.5-turbo-0301",
+                "route_type": "llm/v1/completions",
+            },
+        }
+        mock_build_client.assert_called_once_with(
+            headers={
+                "Authorization": "Bearer key",
+            }
+        )
+        mock_http_client.post.assert_called_once_with(
+            (
+                "https://test-azureopenai.openai.azure.com/openai/deployments/test-gpt35"
+                "/chat/completions?api-version=2023-05-15"
+            ),
+            json=mock.ANY,
+        )
 
 
 @pytest.mark.parametrize(
