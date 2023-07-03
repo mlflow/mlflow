@@ -254,7 +254,7 @@ class Route(BaseModel):
                 "model": {
                     "name": "gpt-3.5-turbo",
                     "provider": "openai",
-                }
+                },
             }
         }
 

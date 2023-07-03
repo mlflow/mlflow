@@ -117,7 +117,7 @@ class SearchRoutesResponse(BaseModel):
                         "model": {
                             "name": "gpt-3.5-turbo",
                             "provider": "openai",
-                        }
+                        },
                     },
                     {
                         "name": "anthropic-completions",
@@ -125,7 +125,7 @@ class SearchRoutesResponse(BaseModel):
                         "model": {
                             "name": "claude-instant-100k",
                             "provider": "anthropic",
-                        }
+                        },
                     },
                     {
                         "name": "cohere-embeddings",
@@ -133,7 +133,7 @@ class SearchRoutesResponse(BaseModel):
                         "model": {
                             "name": "embed-english-v2.0",
                             "provider": "cohere",
-                        }
+                        },
                     },
                 ],
                 "next_page_token": "eyJpbmRleCI6IDExfQ==",
