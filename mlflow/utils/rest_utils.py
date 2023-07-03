@@ -64,7 +64,7 @@ def http_request(
     hostname = host_creds.host
     auth_str = None
     if host_creds.username and host_creds.password:
-        basic_auth_str = ("{}:{}".format(host_creds.username, host_creds.password)).encode("utf-8")
+        basic_auth_str = f"{host_creds.username}:{host_creds.password}".encode("utf-8")
         auth_str = "Basic " + base64.standard_b64encode(basic_auth_str).decode("utf-8")
     elif host_creds.token:
         auth_str = "Bearer %s" % host_creds.token
@@ -134,12 +134,12 @@ def verify_rest_response(response, endpoint):
         if _can_parse_as_json_object(response.text):
             raise RestException(json.loads(response.text))
         else:
-            base_msg = "API request to endpoint {} failed with error code {} != 200".format(
-                endpoint,
-                response.status_code,
+            base_msg = (
+                f"API request to endpoint {endpoint} "
+                f"failed with error code {response.status_code} != 200"
             )
             raise MlflowException(
-                "{}. Response body: '{}'".format(base_msg, response.text),
+                f"{base_msg}. Response body: '{response.text}'",
                 error_code=get_error_code(response.status_code),
             )
 
@@ -150,7 +150,7 @@ def verify_rest_response(response, endpoint):
             "API request to endpoint was successful but the response body was not "
             "in a valid JSON format"
         )
-        raise MlflowException("{}. Response body: '{}'".format(base_msg, response.text))
+        raise MlflowException(f"{base_msg}. Response body: '{response.text}'")
 
     return response
 
