@@ -567,7 +567,7 @@ def test_invalid_openai_configs_throw_on_construction(
     organization,
 ):
     with pytest.raises(MlflowException, match="OpenAI"):
-        openai_config = OpenAIConfig(
+        OpenAIConfig(
             openai_api_key="mock-api-key",
             openai_api_type=api_type,
             openai_api_base=api_base,
