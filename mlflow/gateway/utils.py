@@ -1,9 +1,10 @@
 import base64
 import json
 import logging
+import posixpath
 import psutil
 import re
-from typing import Optional
+from typing import Optional, List
 from urllib.parse import urlparse
 
 from mlflow.exceptions import MlflowException
@@ -52,9 +53,11 @@ def _is_valid_uri(uri: str):
     Evaluates the basic structure of a provided gateway uri to determine if the scheme and
     netloc are provided
     """
+    if uri == "databricks":
+        return True
     try:
         parsed = urlparse(uri)
-        return all([parsed.scheme, parsed.netloc])
+        return parsed.scheme == "databricks" or all([parsed.scheme, parsed.netloc])
     except ValueError:
         return False
 
@@ -82,6 +85,17 @@ def get_gateway_uri() -> str:
             f"`mlflow.set_gateway_uri()` or set the environment variable {MLFLOW_GATEWAY_URI.name} "
             "to the running Gateway API server's uri"
         )
+
+
+def assemble_uri_path(paths: List[str]) -> str:
+    """
+    Assemble a correct URI path from a list of path parts.
+
+    :param paths: A list of strings representing parts of a URI path.
+    :return: A string representing the complete assembled URI path.
+    """
+    stripped_paths = [path.strip("/").lstrip("/") for path in paths if path]
+    return "/" + posixpath.join(*stripped_paths)
 
 
 class SearchRoutesToken:

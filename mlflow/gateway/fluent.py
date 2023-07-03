@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 from mlflow.gateway.client import MlflowGatewayClient
 from mlflow.gateway.config import Route
@@ -43,6 +43,92 @@ def search_routes() -> List[Route]:
         max_results_per_page=MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE,
         max_results=None,
     )
+
+
+@experimental
+def create_route(name: str, route_type: str, model: Dict[str, Any]) -> Route:
+    """
+    Create a new route in the Gateway.
+
+    .. warning::
+
+        This API is ``only available`` when running within Databricks. When running elsewhere,
+        route configuration is handled via updates to the route configuration YAML file that
+        is specified during Gateway server start.
+
+    :param name: The name of the route.
+    :param route_type: The type of the route (e.g., 'llm/v1/chat', 'llm/v1/completions',
+                       'llm/v1/embeddings').
+    :param model: A dictionary representing the model details to be associated with the route.
+                  This dictionary should define:
+
+                  - The model name (e.g., "gpt-3.5-turbo")
+                  - The provider (e.g., "openai", "anthropic")
+                  - The configuration for the model used in the route
+
+    :return: A serialized representation of the `Route` data structure,
+             providing information about the name, type, and model details for the
+             newly created route endpoint.
+
+    .. note::
+
+        See the official Databricks documentation for MLflow Gateway for examples of supported
+        model configurations and how to dynamically create new routes within Databricks.
+
+
+    Example usage from within Databricks:
+
+    .. code-block:: python
+
+        from mlflow.gateway import set_gateway_uri, create_route
+
+        set_gateway_uri(gateway_uri="databricks")
+
+        openai_api_key = ...
+
+        create_route(
+            "my-new-route",
+            "llm/v1/completions",
+            {
+                "name": "question-answering-bot-1",
+                "provider": "openai",
+                "config": {
+                    "openai_api_key": openai_api_key,
+                    "openai_api_version": "2023-05-10",
+                    "openai_api_type": "openai/v1/chat/completions",
+                },
+            },
+        )
+
+    """
+    return MlflowGatewayClient().create_route(name, route_type, model)
+
+
+@experimental
+def delete_route(name: str) -> None:
+    """
+    Delete an existing route in the Gateway.
+
+    .. warning::
+
+        This API is **only available** when running within Databricks. When running elsewhere,
+        route deletion is handled by removing the corresponding entry from the route
+        configuration YAML file that is specified during Gateway server start.
+
+    :param name: The name of the route to delete.
+
+    Example usage from within Databricks:
+
+    .. code-block:: python
+
+        from mlflow.gateway import set_gateway_uri, delete_route
+
+        set_gateway_uri(gateway_uri="databricks")
+
+        delete_route("my-new-route")
+
+    """
+    MlflowGatewayClient().delete_route(name)
 
 
 @experimental

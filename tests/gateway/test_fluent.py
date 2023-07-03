@@ -4,6 +4,8 @@ from unittest import mock
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway import (
+    create_route,
+    delete_route,
     set_gateway_uri,
     get_gateway_uri,
     get_route,
@@ -22,7 +24,7 @@ def basic_config_dict():
         "routes": [
             {
                 "name": "completions",
-                "type": "llm/v1/completions",
+                "route_type": "llm/v1/completions",
                 "model": {
                     "name": "text-davinci-003",
                     "provider": "openai",
@@ -36,7 +38,7 @@ def basic_config_dict():
             },
             {
                 "name": "chat",
-                "type": "llm/v1/chat",
+                "route_type": "llm/v1/chat",
                 "model": {
                     "name": "gpt-3.5-turbo",
                     "provider": "openai",
@@ -73,7 +75,7 @@ def test_fluent_health_check_on_non_running_server(monkeypatch):
     set_gateway_uri("http://not.real:1000")
     with pytest.raises(
         MlflowException,
-        match="API request to http://not.real:1000/gateway/routes/not-a-route failed with",
+        match="API request to http://not.real:1000/api/2.0/gateway/routes/not-a-route failed with",
     ):
         get_route("not-a-route")
 
@@ -97,7 +99,7 @@ def test_fluent_get_valid_route(gateway):
     assert route.dict() == {
         "model": {"name": "text-davinci-003", "provider": "openai"},
         "name": "completions",
-        "type": "llm/v1/completions",
+        "route_type": "llm/v1/completions",
     }
 
 
@@ -119,12 +121,12 @@ def test_fluent_search_routes(gateway):
     assert routes[0].dict() == {
         "model": {"name": "text-davinci-003", "provider": "openai"},
         "name": "completions",
-        "type": "llm/v1/completions",
+        "route_type": "llm/v1/completions",
     }
     assert routes[1].dict() == {
         "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
         "name": "chat",
-        "type": "llm/v1/chat",
+        "route_type": "llm/v1/chat",
     }
 
 
@@ -192,3 +194,19 @@ def test_fluent_query_completions(gateway):
     ):
         response = query(route=routes[0].name, data=data)
         assert response == expected_output
+
+
+def test_fluent_create_route_raises(gateway):
+    set_gateway_uri(gateway_uri=gateway.url)
+    # This API is only available in Databricks
+    with pytest.raises(MlflowException, match="The create_route API is only available when"):
+        create_route(
+            "some-route", "llm/v1/completions", {"name": "some_name", "provider": "anthropic"}
+        )
+
+
+def test_fluent_delete_route_raises(gateway):
+    set_gateway_uri(gateway_uri=gateway.url)
+    # This API is only available in Databricks
+    with pytest.raises(MlflowException, match="The delete_route API is only available when"):
+        delete_route("some-route")

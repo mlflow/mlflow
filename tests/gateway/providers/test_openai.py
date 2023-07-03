@@ -7,29 +7,13 @@ import pytest
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.config import RouteConfig
-
-
-class MockAsyncResponse:
-    def __init__(self, data):
-        self.data = data
-
-    def raise_for_status(self):
-        pass
-
-    async def json(self):
-        return self.data
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, traceback):
-        pass
+from tests.gateway.tools import MockAsyncResponse
 
 
 def chat_config():
     return {
         "name": "chat",
-        "type": "llm/v1/chat",
+        "route_type": "llm/v1/chat",
         "model": {
             "provider": "openai",
             "name": "gpt-3.5-turbo",
@@ -127,7 +111,7 @@ async def test_chat_temperature_is_doubled():
 def completions_config():
     return {
         "name": "completions",
-        "type": "llm/v1/completions",
+        "route_type": "llm/v1/completions",
         "model": {
             "provider": "openai",
             "name": "text-davinci-003",
@@ -193,7 +177,7 @@ async def test_completions_temperature_is_doubled():
 def embedding_config():
     return {
         "name": "embeddings",
-        "type": "llm/v1/embeddings",
+        "route_type": "llm/v1/embeddings",
         "model": {
             "provider": "openai",
             "name": "text-embedding-ada-002",

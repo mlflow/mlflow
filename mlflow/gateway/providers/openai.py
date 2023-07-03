@@ -1,60 +1,43 @@
-from typing import Dict, Any
-
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from .base import BaseProvider
+from .utils import send_request, rename_payload_keys
 from ..schemas import chat, completions, embeddings
+from ..config import OpenAIConfig, RouteConfig
 
 
 class OpenAIProvider(BaseProvider):
-    NAME = "openai"
-    SUPPORTED_ROUTES = ("chat", "completions", "embeddings")
-
-    async def _request(self, path: str, payload: Dict[str, Any]):
-        import aiohttp
-
-        config = self.config.model.config
-        token = config["openai_api_key"]
-        headers = {"Authorization": f"Bearer {token}"}
-        if org := config.get("openai_organization"):
-            headers["OpenAI-Organization"] = org
-        async with aiohttp.ClientSession(headers=headers) as session:
-            url = "/".join([config["openai_api_base"].rstrip("/"), path.lstrip("/")])
-            async with session.post(url, json=payload) as response:
-                js = await response.json()
-                try:
-                    response.raise_for_status()
-                except aiohttp.ClientResponseError as e:
-                    detail = js.get("error", {}).get("message", e.message)
-                    raise HTTPException(status_code=e.status, detail=detail)
-                return js
-
-    @staticmethod
-    def _make_payload(payload: Dict[str, Any], mapping: Dict[str, str]):
-        payload = payload.copy()
-        for k1, k2 in mapping.items():
-            if v := payload.pop(k1, None):
-                payload[k2] = v
-        return {k: v for k, v in payload.items() if v is not None and v != []}
+    def __init__(self, config: RouteConfig) -> None:
+        super().__init__(config)
+        if config.model.config is None or not isinstance(config.model.config, OpenAIConfig):
+            # Should be unreachable
+            raise TypeError(f"Invalid config type {config.model.config}")
+        self.openai_config: OpenAIConfig = config.model.config
+        self.headers = {"Authorization": f"Bearer {self.openai_config.openai_api_key}"}
+        if org := self.openai_config.openai_organization:
+            self.headers["OpenAI-Organization"] = org
+        self.base_url = self.openai_config.openai_api_base
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        payload = jsonable_encoder(payload)
+        payload = jsonable_encoder(payload, exclude_none=True)
         if "n" in payload:
             raise HTTPException(
                 status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
             )
 
-        payload = OpenAIProvider._make_payload(
+        payload = rename_payload_keys(
             payload,
             {"candidate_count": "n"},
         )
         # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
         payload["temperature"] = 2 * payload["temperature"]
 
-        resp = await self._request(
-            "chat/completions",
-            {"model": self.config.model.name, **payload},
+        resp = await send_request(
+            headers=self.headers,
+            base_url=self.base_url,
+            path="chat/completions",
+            payload={"model": self.config.model.name, **payload},
         )
         # Response example (https://platform.openai.com/docs/api-reference/chat/create)
         # ```
@@ -99,27 +82,29 @@ class OpenAIProvider(BaseProvider):
                     "output_tokens": resp["usage"]["completion_tokens"],
                     "total_tokens": resp["usage"]["total_tokens"],
                     "model": resp["model"],
-                    "route_type": self.config.type,
+                    "route_type": self.config.route_type,
                 },
             }
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        payload = jsonable_encoder(payload)
+        payload = jsonable_encoder(payload, exclude_none=True)
         if "n" in payload:
             raise HTTPException(
                 status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
             )
-        payload = OpenAIProvider._make_payload(
+        payload = rename_payload_keys(
             payload,
             {"candidate_count": "n"},
         )
         # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
         payload["temperature"] = 2 * payload["temperature"]
         payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
-        resp = await self._request(
-            "chat/completions",
-            {"model": self.config.model.name, **payload},
+        resp = await send_request(
+            headers=self.headers,
+            base_url=self.base_url,
+            path="chat/completions",
+            payload={"model": self.config.model.name, **payload},
         )
         # Response example (https://platform.openai.com/docs/api-reference/completions/create)
         # ```
@@ -157,19 +142,21 @@ class OpenAIProvider(BaseProvider):
                     "output_tokens": resp["usage"]["completion_tokens"],
                     "total_tokens": resp["usage"]["total_tokens"],
                     "model": resp["model"],
-                    "route_type": self.config.type,
+                    "route_type": self.config.route_type,
                 },
             }
         )
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
-        payload = OpenAIProvider._make_payload(
-            jsonable_encoder(payload),
+        payload = rename_payload_keys(
+            jsonable_encoder(payload, exclude_none=True),
             {"text": "input"},
         )
-        resp = await self._request(
-            "embeddings",
-            {"model": self.config.model.name, **payload},
+        resp = await send_request(
+            headers=self.headers,
+            base_url=self.base_url,
+            path="embeddings",
+            payload={"model": self.config.model.name, **payload},
         )
         # Response example (https://platform.openai.com/docs/api-reference/embeddings/create):
         # ```
@@ -202,7 +189,7 @@ class OpenAIProvider(BaseProvider):
                     "output_tokens": 0,  # output_tokens is not available for embeddings
                     "total_tokens": resp["usage"]["total_tokens"],
                     "model": resp["model"],
-                    "route_type": self.config.type,
+                    "route_type": self.config.route_type,
                 },
             }
         )
