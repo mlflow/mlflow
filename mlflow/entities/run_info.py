@@ -10,7 +10,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 def check_run_is_active(run_info):
     if run_info.lifecycle_stage != LifecycleStage.ACTIVE:
         raise MlflowException(
-            "The run {} must be in 'active' lifecycle_stage.".format(run_info.run_id),
+            f"The run {run_info.run_id} must be in 'active' lifecycle_stage.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

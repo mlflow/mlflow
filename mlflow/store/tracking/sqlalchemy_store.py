@@ -566,8 +566,9 @@ class SqlAlchemyStore(AbstractStore):
     def _check_run_is_active(self, run):
         if run.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
-                "The run {} must be in the 'active' state. Current state is {}.".format(
-                    run.run_uuid, run.lifecycle_stage
+                (
+                    f"The run {run.run_uuid} must be in the 'active' state. "
+                    f"Current state is {run.lifecycle_stage}."
                 ),
                 INVALID_PARAMETER_VALUE,
             )
@@ -575,8 +576,10 @@ class SqlAlchemyStore(AbstractStore):
     def _check_experiment_is_active(self, experiment):
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
-                "The experiment {} must be in the 'active' state. "
-                "Current state is {}.".format(experiment.experiment_id, experiment.lifecycle_stage),
+                (
+                    f"The experiment {experiment.experiment_id} must be in the 'active' state. "
+                    f"Current state is {experiment.lifecycle_stage}."
+                ),
                 INVALID_PARAMETER_VALUE,
             )
 

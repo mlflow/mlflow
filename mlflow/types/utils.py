@@ -42,10 +42,8 @@ def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple:
             variable_input_data_shape[variable_dimension] = -1
         except IndexError:
             raise MlflowException(
-                "The specified variable_dimension {} is out of bounds with "
-                "respect to the number of dimensions {} in the input dataset".format(
-                    variable_dimension, data.ndim
-                )
+                f"The specified variable_dimension {variable_dimension} is out of bounds with "
+                f"respect to the number of dimensions {data.ndim} in the input dataset"
             )
     return tuple(variable_input_data_shape)
 
