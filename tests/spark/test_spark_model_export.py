@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from unittest import mock
 import numpy as np
+import pandas as pd
 import pyspark
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import VectorAssembler
@@ -112,10 +113,13 @@ spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 
 
 def iris_pandas_df():
-    X, y = datasets.load_iris(return_X_y=True, as_frame=True)
-    X.columns = ["0", "1", "2", "3"]  # so that an array is a valid input example
-    X["label"] = y
-    return X
+    iris = datasets.load_iris()
+    X = iris.data
+    y = iris.target
+    feature_names = ["0", "1", "2", "3"]
+    df = pd.DataFrame(X, columns=feature_names)  # to make spark_udf work
+    df["label"] = pd.Series(y)
+    return df
 
 
 @pytest.fixture(scope="module")
