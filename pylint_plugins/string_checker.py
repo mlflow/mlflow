@@ -12,6 +12,19 @@ class StringChecker(BaseChecker):
     msgs = to_msgs(USE_F_STRING)
     priority = -1
 
+    def _is_simple_expression(node: astroid.NodeNG):
+        """
+        Returns True if the node is a Name or an Attribute containing only names.
+
+        Examples
+        - `a`
+        - `a.b`
+        - `a.b.c`
+        """
+        return isinstance(node, astroid.Name) or (
+            isinstance(node, astroid.Attribute) and StringChecker._is_simple_expression(node.expr)
+        )
+
     def visit_call(self, node: astroid.Call):
         if (
             isinstance(node.func, astroid.Attribute)
@@ -22,7 +35,7 @@ class StringChecker(BaseChecker):
             if node.kwargs or node.starargs:
                 return
 
-            if all(isinstance(a, astroid.Name) for a in node.args) and all(
-                isinstance(kw.value, astroid.Name) for kw in node.keywords
+            if all(StringChecker._is_simple_expression(arg) for arg in node.args) and (
+                all(StringChecker._is_simple_expression(kwarg.value) for kwarg in node.keywords)
             ):
                 self.add_message(USE_F_STRING.name, node=node)
