@@ -94,8 +94,8 @@ async def test_completions_throws_with_invalid_max_tokens_too_large():
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert (
-        f"Invalid value for max_tokens: cannot exceed {MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS}"
-        in e.value.detail
+        "Invalid value for max_tokens: cannot exceed "
+        f"{MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS}" in e.value.detail
     )
     assert e.value.status_code == 422
 
