@@ -1,5 +1,4 @@
-
-# MLflow AI Gateway Guide to using Cohere 
+# MLflow AI Gateway Guide to using Cohere
 
 ## Installing the MLflow AI Gateway
 

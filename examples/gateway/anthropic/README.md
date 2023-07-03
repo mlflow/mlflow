@@ -38,7 +38,7 @@ Please replace `$ANTHROPIC_API_KEY` with your actual Anthropic API Key, which yo
 
 ## Step 3: Obtaining and Setting the Anthropic API Key
 
-To obtain an Anthropic API key, you need to create an account and subscribe to the service at [Anthropic](https://docs.anthropic.com/claude/docs/getting-access-to-claude). 
+To obtain an Anthropic API key, you need to create an account and subscribe to the service at [Anthropic](https://docs.anthropic.com/claude/docs/getting-access-to-claude).
 
 After obtaining the key, you can export it to your environment variables. Make sure to replace the '...' with your actual API key:
 
@@ -62,7 +62,7 @@ http://127.0.0.1:5000/docs
 
 ## Step 6: Sending Test Requests
 
-Upon successful setup of the MLflow Gateway Service, you can send a test request using the provided Python script. 
+Upon successful setup of the MLflow Gateway Service, you can send a test request using the provided Python script.
 
 ```sh
 python examples/gateway/anthropic/anthropic_example.py
