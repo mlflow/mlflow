@@ -14,6 +14,7 @@ Defines four endpoints:
 """
 from typing import Dict, NamedTuple, Tuple
 import flask
+import inspect
 import json
 import logging
 import os
@@ -317,7 +318,10 @@ def invocations(data, content_type, model, input_schema):
         if params:
             params_schema = model.metadata.get_params_schema()
             params = _enforce_params_schema(params, params_schema)
-            raw_predictions = model.predict(data, params)
+            if inspect.signature(model.predict).parameters.get("params"):
+                raw_predictions = model.predict(data, params)
+            else:
+                raw_predictions = model.predict(data)
         else:
             raw_predictions = model.predict(data)
     except MlflowException as e:
@@ -408,7 +412,10 @@ def _predict(model_uri, input_path, output_path, content_type):
     if params:
         params_schema = pyfunc_model.metadata.get_params_schema()
         params = _enforce_params_schema(params, params_schema)
-        raw_predictions = pyfunc_model.predict(df, params)
+        if inspect.signature(pyfunc_model.predict).parameters.get("params"):
+            raw_predictions = pyfunc_model.predict(df, params)
+        else:
+            raw_predictions = pyfunc_model.predict(df)
     else:
         raw_predictions = pyfunc_model.predict(df)
 
