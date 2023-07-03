@@ -110,3 +110,5 @@ a.py
 
 # Pytest-monitor load testing DB file
 *.pymon
+
+spark-bin
