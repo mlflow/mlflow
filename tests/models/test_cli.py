@@ -173,7 +173,7 @@ def test_predict(iris_data, sk_model):
     with TempDir(chdr=True) as tmp:
         with mlflow.start_run() as active_run:
             mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
-            model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
+            model_uri = f"runs:/{active_run.info.run_id}/model"
         model_registry_uri = "models:/{name}/{stage}".format(name="impredicting", stage="None")
         input_json_path = tmp.path("input.json")
         input_csv_path = tmp.path("input.csv")
@@ -338,7 +338,7 @@ def test_prepare_env_passes(sk_model):
     with TempDir(chdr=True):
         with mlflow.start_run() as active_run:
             mlflow.sklearn.log_model(sk_model, "model")
-            model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
+            model_uri = f"runs:/{active_run.info.run_id}/model"
 
         # With conda
         subprocess.run(
@@ -376,7 +376,7 @@ def test_prepare_env_fails(sk_model):
             mlflow.sklearn.log_model(
                 sk_model, "model", pip_requirements=["does-not-exist-dep==abc"]
             )
-            model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
+            model_uri = f"runs:/{active_run.info.run_id}/model"
 
         # With conda - should fail due to bad conda environment.
         prc = subprocess.run(
@@ -402,7 +402,7 @@ def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
             )
         else:
             mlflow.sklearn.log_model(sk_model, "model")
-        model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
+        model_uri = f"runs:/{active_run.info.run_id}/model"
     extra_args = ["--install-mlflow"]
     if enable_mlserver:
         extra_args.append("--enable-mlserver")
@@ -430,7 +430,7 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
             )
         else:
             mlflow.sklearn.log_model(sk_model, "model")
-        model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
+        model_uri = f"runs:/{active_run.info.run_id}/model"
 
     x, _ = iris_data
     df = pd.DataFrame(x)
@@ -476,7 +476,7 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
             )
         else:
             mlflow.sklearn.log_model(sk_model, "model")
-        model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
+        model_uri = f"runs:/{active_run.info.run_id}/model"
     x, _ = iris_data
     df = pd.DataFrame(x)
 

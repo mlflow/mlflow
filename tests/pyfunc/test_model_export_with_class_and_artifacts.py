@@ -125,8 +125,8 @@ def _conda_env():
     # NB: We need mlflow as a dependency in the environment.
     return _mlflow_conda_env(
         additional_pip_deps=[
-            "cloudpickle=={}".format(cloudpickle.__version__),
-            "scikit-learn=={}".format(sklearn.__version__),
+            f"cloudpickle=={cloudpickle.__version__}",
+            f"scikit-learn=={sklearn.__version__}",
         ],
     )
 
