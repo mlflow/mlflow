@@ -4,6 +4,10 @@ from fastapi.encoders import jsonable_encoder
 from .base import BaseProvider
 from .utils import send_request, rename_payload_keys
 from ..config import AnthropicConfig, RouteConfig
+from ..constants import (
+    MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
+    MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
+)
 from ..schemas import completions, chat, embeddings
 
 
@@ -20,19 +24,24 @@ class AnthropicProvider(BaseProvider):
         payload = jsonable_encoder(payload, exclude_none=True)
         if "top_p" in payload:
             raise HTTPException(
-                status_code=400,
+                status_code=422,
                 detail="Cannot set both 'temperature' and 'top_p' parameters. "
                 "Please use only the temperature parameter for your query.",
             )
-        if "max_tokens" not in payload:
+        max_tokens = payload.get("max_tokens", MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS)
+
+        if max_tokens > MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS:
             raise HTTPException(
-                status_code=400,
-                detail="You must set an integer value for 'max_tokens' for the Anthropic provider "
-                "that provides the upper bound on the returned token count.",
+                status_code=422,
+                detail="Invalid value for max_tokens: cannot exceed "
+                f"{MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS}.",
             )
+
+        payload["max_tokens"] = max_tokens
+
         if payload.get("stream", None) == "true":
             raise HTTPException(
-                status_code=400,
+                status_code=422,
                 detail="Setting the 'stream' parameter to 'true' is not supported with the MLflow "
                 "Gateway.",
             )
