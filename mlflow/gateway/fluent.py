@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, List, Dict, Any
+from typing import List, Dict, Any
 
 from mlflow.gateway.client import MlflowGatewayClient
 from mlflow.gateway.config import Route
