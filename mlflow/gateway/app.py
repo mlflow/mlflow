@@ -107,6 +107,37 @@ class SearchRoutesResponse(BaseModel):
     routes: List[Route]
     next_page_token: str
 
+    class Config:
+        schema_extra = {
+            "routes": [
+                {
+                    "name": "chat",
+                    "route_type": "llm/v1/chat",
+                    "model": {
+                        "name": "gpt-3.5-turbo",
+                        "provider": "openai",
+                    }
+                },
+                {
+                    "name": "completions",
+                    "route_type": "llm/v1/completions",
+                    "model": {
+                        "name": "claude-instant-100k",
+                        "provider": "anthropic",
+                    }
+                },
+                {
+                    "name": "embeddings",
+                    "route_type": "llm/v1/embeddings",
+                    "model": {
+                        "name": "embed-english-v2.0",
+                        "provider": "cohere",
+                    }
+                },
+            ],
+            "next_page_token": "eyJpbmRleCI6IDExfQ==",
+        }
+
 
 def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     """
