@@ -45,6 +45,12 @@ class AnthropicProvider(BaseProvider):
                 detail="Setting the 'stream' parameter to 'true' is not supported with the MLflow "
                 "Gateway.",
             )
+        candidate_count = payload.get("candidate_count", 1)
+        if candidate_count != 1:
+            raise HTTPException(
+                status_code=422,
+                detail="'candidate_count' must be '1' for the Anthropic provider, if specified.",
+            )
 
         payload = rename_payload_keys(
             payload, {"max_tokens": "max_tokens_to_sample", "stop": "stop_sequences"}
