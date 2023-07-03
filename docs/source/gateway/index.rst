@@ -99,6 +99,113 @@ environment. For example:
 
 **Note:** Replace "your_openai_api_key" with your actual `OpenAI` API key.
 
+AI Gateway Configuration Details
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The MLflow AI Gateway service relies on a user-provided configuration file. It defines how the gateway interacts with various language model providers and dictates the routes that users can access.
+
+The configuration file is written in YAML and includes a series of sections, each representing a unique route. Each route section has a name, a type, and a model specification, which includes the provider, model name, and provider-specific configuration details.
+
+Here are the details of each configuration parameter:
+
+General Configuration Parameters
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **routes**: This is a list of route configurations. Each route represents a unique endpoint that maps to a particular language model service.
+
+Each route has the following configuration parameters:
+
+- **name**: This is the name of the route. It needs to be a unique name without spaces or any non-alphanumeric characters other than hyphen and underscore.
+
+- **route_type**: This specifies the type of service offered by this route. This determines the interface for inputs to a route and the returned outputs. Current supported route types are:
+
+  - "llm/v1/completions"
+  - "llm/v1/chat"
+  - "llm/v1/embeddings"
+
+- **model**: This defines the provider-specific details of the language model. It contains the following fields:
+
+  - **provider**: This indicates the provider of the AI model. It accepts the following values:
+
+    - "openai"
+    - "anthropic"
+    - "cohere"
+    - "azure" / "azuread"
+
+  - **name**: This is an optional field to specify the name of the model.
+  - **config**: This contains provider-specific configuration details.
+
+Provider-Specific Configuration Parameters
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+OpenAI
+++++++
+
+- **openai_api_key**: This is the API key for the OpenAI service. It is a required field.
+- **openai_api_type**: This is an optional field to specify the type of OpenAI API to use.
+- **openai_api_base**: This is the base URL for the OpenAI API. By default, it is set to "https://api.openai.com/v1".
+- **openai_api_version**: This is an optional field to specify the OpenAI API version.
+- **openai_organization**: This is an optional field to specify the organization in OpenAI.
+
+Cohere
+++++++
+
+- **api_key**: This is the API key for the Cohere service. It is a required field.
+- **api_base**: This is the base URL for the Cohere API. By default, it is set to "https://api.cohere.ai/v1".
+
+Anthropic
++++++++++
+
+- **anthropic_api_key**: This is the API key for the Anthropic service. It is a required field.
+- **anthropic_api_base**: This is the base URL for the Anthropic API. By default, it is set to "https://api.anthropic.com/".
+
+Azure OpenAI
+++++++++++++
+
+Azure provides two different mechanisms for integrating with OpenAI, each corresponding to a different type of security validation. One relies on an access token for validation, referred to as "azure", while the other uses Azure Active Directory (Azure AD) integration for authentication, termed as "azuread".
+
+To match your user's interaction and security access requirements, adjust the ``openai_api_type`` parameter to represent the preferred security validation model. This will ensure seamless interaction and reliable security for your Azure-OpenAI integration.
+
+- **openai_api_key**: This is the API key for the Azure OpenAI service. It is a required field.
+- **openai_api_type**: When using the Azure integration with OpenAI, this field is required and must be either "azure" or "azuread" depending on the security access protocol being used. This is a required field.
+- **openai_api_base**: This is the base URL for the Azure OpenAI API service that is provided by Azure. It is a required field.
+- **openai_api_version**: The version of the Azure OpenAI service to utilize as specified by a date. It is a required field.
+- **openai_deployment_name**: This is a name of the deployment resource for the Azure OpenAI service. It is a required field.
+- **openai_organization**: This is an optional field to specify the organization in OpenAI.
+
+An example configuration for Azure OpenAI is:
+
+.. code-block:: yaml
+
+    routes:
+      - name: completions
+        route_type: llm/v1/completions
+        model:
+          provider: openai
+          name: gpt-4
+          config:
+            openai_api_type: "azuread"
+            openai_api_key: $AZURE_AAD_TOKEN
+            openai_deployment_name: "{your_deployment_name}"
+            openai_api_base: "https://{your_resource_name}-azureopenai.openai.azure.com/"
+            openai_api_version: "2023-05-15"
+
+
+.. note::
+
+    Azure OpenAI has disctinct features as compared with the direct OpenAI service. For an overview, please see `the comparison documentation <https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/how-to/switching-endpoints>`_.
+
+For specifying an API key, there are three options:
+
+1. (Preferred) Use an environment variable to store the API key and reference it in the YAML configuration file. This is denoted by a "$" symbol before the name of the environment variable.
+2. (Preferred) Define the API key in a file and reference the location of that key-bearing file within the YAML configuration file.
+3. Directly include it in the YAML configuration file.
+
+.. important::
+
+    The use of environment variables or file-based keys is recommended for better security practices. If the API key is directly included in the configuration file, it should be ensured that the file is securely stored and appropriately access controlled.
+    Please ensure that the configuration file is stored in a secure location as it contains sensitive API keys.
+
 AI Gateway Security Considerations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Remember to ensure secure access to the system that the MLflow AI Gateway service is running in to protect access to these keys.
@@ -252,6 +359,10 @@ below can be used as a helpful guide when configuring a given route for any newl
      - Cohere
      - command, command-light-nightly
      - ✓
+   * - llm/v1/completions
+     - Azure OpenAI
+     - text-davinci-003, gpt-35-turbo
+     - ✓
    * - llm/v1/chat
      - OpenAI
      - gpt-3.5-turbo, gpt-4
@@ -264,6 +375,10 @@ below can be used as a helpful guide when configuring a given route for any newl
      - Cohere
      -
      - ✗
+   * - llm/v1/chat
+     - Azure OpenAI
+     - gpt-35-turbo, gpt-4
+     - ✓
    * - llm/v1/embeddings
      - OpenAI
      - text-embedding-ada-002
@@ -276,7 +391,10 @@ below can be used as a helpful guide when configuring a given route for any newl
      - Cohere
      - embed-english-v2.0, embed-multilingual-v2.0
      - ✓
-
+   * - llm/v1/embeddings
+     - Azure OpenAI
+     - text-embedding-ada-002
+     - ✓
 
 Within each model block in the configuration file, the provider field is used to specify the name
 of the provider for that model. This is a string value that needs to correspond to a provider the MLflow AI Gateway supports.
@@ -302,6 +420,7 @@ As of now, the MLflow AI Gateway supports the following providers:
 * **openai**: This is used for models offered by `OpenAI <https://platform.openai.com/>`_.
 * **anthropic**: This is used for models offered by `Anthropic <https://docs.anthropic.com/claude/docs>`_.
 * **cohere**: This is used for models offered by `Cohere <https://docs.cohere.com/docs>`_.
+* **azure** / **azuread**: This is used for model services offered by `Azure <https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/>`_.
 
 More providers are being added continually. Check the latest version of the MLflow AI Gateway Docs for the
 most up-to-date list of supported providers.
@@ -364,11 +483,55 @@ are routed to specific models, and their configurations provide flexibility to t
 
 The Routes API provides a suite of endpoints for interacting with the routes configured on the Gateway Server:
 
-* ``GET /gateway/routes/{route_name}``: This endpoint returns the configuration for the specified route. Replace {route_name} with the name of the route you wish to retrieve.
+* ``GET /gateway/routes/{route_name}`` [GetRoute]: This endpoint returns the configuration for the specified route. Replace {route_name} with the name of the route you wish to retrieve.
 
-* ``GET /gateway/routes``: This endpoint returns a list of all configured routes on the Gateway Server.
+* ``GET /gateway/routes`` [SearchRoutes]: This endpoint returns a list of all configured routes on the Gateway Server.
 
-* ``POST /gateway/routes/{route_name}``: This endpoint is used to submit a query to a specific route. Replace {route_name} with the name of the route you wish to query. The request payload must include the data to be passed to the model. This will depend on the specific model, and should match the structure detailed in the route configuration.
+* ``POST /gateway/routes/{route_name}`` [QueryRoute]: This endpoint is used to submit a query to a specific route. Replace {route_name} with the name of the route you wish to query. The request payload must include the data to be passed to the model. This will depend on the specific model, and should match the structure detailed in the route configuration.
+
+Additional Databricks-only Routes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When using the MLflow AI Gateway on Databricks, the configuration for routes is not handled through a YAML configuration. Instead, there are endpoints available to create and delete routes via API call.
+
+* ``POST /api/2.0/gateway/routes`` **Databricks-only API** [CreateRoute]: This endpoint creates a new route based on the provided configuration.
+
+An example usage of the ``CreateRoute`` API in Databricks is:
+
+.. code-block:: python
+
+    import requests
+
+    url = "https://<your workspace>.databricks.com/api/2.0/gateway/routes"
+
+    data = {
+        "name": "my-completions",
+        "route_type": "llm/v1/completions",
+        "model": {
+            "name": "text-davinci-003",
+            "provider": "openai",
+            "openai_config": {"openai_api_key": "<redacted secret key>"},
+        },
+    }
+
+    response = requests.post(url, headers=headers, json=data)
+
+* ``DELETE /api/2.0/gateway/routes`` **Databricks-only API** [DeleteRoute]: This endpoint deletes a route from the AI Gateway service based on the provided name.
+
+An example usage of the ``DeleteRoute`` API in Databricks is:
+
+.. code-block:: python
+
+    import requests
+
+    url = "https://<your workspace>.databricks.com/api/2.0/gateway/routes"
+
+    data = {
+        "name": "my-completions",
+    }
+
+    requests.delete(url, headers=headers, json=data)
+
 
 Using these endpoints, you can interact directly with the Gateway Server from any platform or language
 that supports HTTP, providing a powerful and flexible way to leverage the functionality of the MLflow AI Gateway.
