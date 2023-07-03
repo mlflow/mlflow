@@ -67,6 +67,7 @@ def test_search_routes(client: TestClient):
             {
                 "name": "completions-gpt4",
                 "route_type": "llm/v1/completions",
+                "route_url": None,
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -76,6 +77,7 @@ def test_search_routes(client: TestClient):
             {
                 "name": "chat-gpt4",
                 "route_type": "llm/v1/chat",
+                "route_url": None,
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -92,6 +94,7 @@ def test_get_route(client: TestClient):
     assert response.json() == {
         "name": "chat-gpt4",
         "route_type": "llm/v1/chat",
+        "route_url": None,
         "model": {
             "name": "gpt-4",
             "provider": "openai",
