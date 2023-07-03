@@ -49,6 +49,15 @@ class OpenAIAPIType(str, Enum):
     AZURE = "azure"
     AZUREAD = "azuread"
 
+    @classmethod
+    def _missing_(cls, value):
+        """
+        Implements case-insensitive matching of API type strings
+        """
+        for api_type in cls:
+            if api_type.value == value.lower():
+                return api_type
+
 
 class OpenAIConfig(BaseModel, extra=Extra.allow):
     openai_api_key: str
@@ -62,14 +71,6 @@ class OpenAIConfig(BaseModel, extra=Extra.allow):
     @validator("openai_api_key", pre=True)
     def validate_openai_api_key(cls, value):
         return _resolve_api_key_from_input(value)
-
-    # pylint: disable=no-self-argument
-    @validator("openai_api_type", pre=True)
-    def validate_openai_api_type(cls, value):
-        api_type = value.lower()
-        if api_type not in [api_type.value for api_type in OpenAIAPIType]:
-            raise MlflowException.invalid_parameter_value(f"Invalid OpenAI API type '{api_type}'")
-        return api_type
 
     @root_validator(pre=False)
     def validate_field_compatibility(cls, config: "OpenAIConfig"):
