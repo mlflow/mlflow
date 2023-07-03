@@ -436,30 +436,35 @@ async def test_azuread_openai():
 
 
 @pytest.mark.parametrize(
-    ("api_type", "api_base", "deployment_name", "api_version", "exception_type"),
+    ("api_type", "api_base", "deployment_name", "api_version", "organization", "exception_type"),
     [
         # Invalid API Types
-        ("invalidtype", None, None, None, MlflowException),
-        (0, None, None, None, MlflowException),
+        ("invalidtype", None, None, None, None, MlflowException),
+        (0, None, None, None, None, MlflowException),
         # OpenAI API type
-        ("openai", None, None, None, None),
-        ("openai", "https://api.openai.com/v1", None, None, None),
-        ("openai", "https://api.openai.com/v1", None, "2023-05-15", None),
-        ("openAI", "https://api.openai.com/v1", None, "2023-05-15", None),
+        ("openai", None, None, None, None, None),
+        ("openai", "https://api.openai.com/v1", None, None, None, None),
+        ("openai", "https://api.openai.com/v1", None, "2023-05-15", None, None),
+        ("openAI", "https://api.openai.com/v1", None, "2023-05-15", None, None),
+        ("openAI", "https://api.openai.com/v1", None, "2023-05-15", "test-organization", None),
         # Deployment name is specified when API type is not 'azure' or 'azuread'
-        ("openai", None, "mock-deployment", None, MlflowException),
+        ("openai", None, "mock-deployment", None, None, MlflowException),
         # Azure API type
-        ("azure", "https://test-azureopenai.openai.azure.com", "mock-dep", "2023-05-15", None),
-        ("AZURe", "https://test-azureopenai.openai.azure.com", "mock-dep", "2023-04-12", None),
+        ("azure", "https://test.openai.azure.com", "mock-dep", "2023-05-15", None, None),
+        ("AZURe", "https://test.openai.azure.com", "mock-dep", "2023-04-12", None, None),
         # Missing required API base, deployment name, and / or api version fields
-        ("azure", None, None, None, MlflowException),
-        ("azure", "https://test-azureopenai.openai.azure.com", "mock-dep", None, MlflowException),
+        ("azure", None, None, None, None, MlflowException),
+        ("azure", "https://test.openai.azure.com", "mock-dep", None, None, MlflowException),
+        # Organization is specified when API type is not 'openai'
+        ("azure", "https://test.openai.azure.com", "mock-dep", "2023", "test-org", MlflowException),
         # AzureAD API type
-        ("azuread", "https://test-azureopenai.openai.azure.com", "mock-dep", "2023-05-15", None),
-        ("azureAD", "https://test-azureopenai.openai.azure.com", "mock-dep", "2023-04-12", None),
+        ("azuread", "https://test.openai.azure.com", "mock-dep", "2023-05-15", None, None),
+        ("azureAD", "https://test.openai.azure.com", "mock-dep", "2023-04-12", None, None),
         # Missing required API base, deployment name, and / or api version fields
-        ("azuread", None, None, None, MlflowException),
-        ("azuread", "https://test-azureopenai.openai.azure.com", "mock-dep", None, MlflowException),
+        ("azuread", None, None, None, None, MlflowException),
+        ("azuread", "https://test.openai.azure.com", "mock-dep", None, None, MlflowException),
+        # Organization is specified when API type is not 'openai'
+        ("azuread", "https://test.openai.azure.com", "mock", "2023", "test-org", MlflowException),
     ],
 )
 def test_openai_provider_validates_openai_config(
@@ -467,6 +472,7 @@ def test_openai_provider_validates_openai_config(
     api_base,
     deployment_name,
     api_version,
+    organization,
     exception_type,
 ):
     openai_config = OpenAIConfig(
@@ -475,6 +481,7 @@ def test_openai_provider_validates_openai_config(
         openai_api_base=api_base,
         openai_deployment_name=deployment_name,
         openai_api_version=api_version,
+        openai_organization=organization,
     )
     route_config = RouteConfig(
         name="completions",

@@ -40,6 +40,12 @@ class OpenAIProvider(BaseProvider):
                     f"'{_API_TYPE_AZUREAD}'. Found type: '{self.openai_api_type}'"
                 )
         elif self.openai_api_type in (_API_TYPE_AZURE, _API_TYPE_AZUREAD):
+            if self.openai_config.openai_organization is not None:
+                raise MlflowException.invalid_parameter_value(
+                    f"OpenAI route configuration can only specify a value for "
+                    f"'openai_organization' if 'openai_api_type' is '{_API_TYPE_OPENAI}'"
+                )
+
             base_url = self.openai_config.openai_api_base
             deployment_name = self.openai_config.openai_deployment_name
             api_version = self.openai_config.openai_api_version
