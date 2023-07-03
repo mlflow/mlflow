@@ -7,7 +7,7 @@ import pytest
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.config import RouteConfig
-from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_ANTHROPIC_MAX_TOKENS
+from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS
 from tests.gateway.tools import MockAsyncResponse
 
 
@@ -94,7 +94,7 @@ async def test_completions_throws_with_invalid_max_tokens_too_large():
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert (
-        f"Invalid value for max_tokens: cannot exceed {MLFLOW_AI_GATEWAY_ANTHROPIC_MAX_TOKENS}"
+        f"Invalid value for max_tokens: cannot exceed {MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS}"
         in e.value.detail
     )
     assert e.value.status_code == 422

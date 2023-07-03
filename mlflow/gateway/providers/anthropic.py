@@ -5,8 +5,8 @@ from .base import BaseProvider
 from .utils import send_request, rename_payload_keys
 from ..config import AnthropicConfig, RouteConfig
 from ..constants import (
-    MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_TOKENS,
-    MLFLOW_AI_GATEWAY_ANTHROPIC_MAX_TOKENS,
+    MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
+    MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
 )
 from ..schemas import completions, chat, embeddings
 
@@ -28,13 +28,13 @@ class AnthropicProvider(BaseProvider):
                 detail="Cannot set both 'temperature' and 'top_p' parameters. "
                 "Please use only the temperature parameter for your query.",
             )
-        max_tokens = payload.get("max_tokens", MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_TOKENS)
+        max_tokens = payload.get("max_tokens", MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS)
 
-        if max_tokens > MLFLOW_AI_GATEWAY_ANTHROPIC_MAX_TOKENS:
+        if max_tokens > MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS:
             raise HTTPException(
                 status_code=422,
                 detail="Invalid value for max_tokens: cannot exceed "
-                f"{MLFLOW_AI_GATEWAY_ANTHROPIC_MAX_TOKENS}.",
+                f"{MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS}.",
             )
 
         payload["max_tokens"] = max_tokens
