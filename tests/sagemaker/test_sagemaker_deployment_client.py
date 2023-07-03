@@ -1212,7 +1212,7 @@ def test_update_deployment_in_replace_mode_with_archiving_does_not_delete_resour
         model["ModelName"] for model in sagemaker_client.list_models()["Models"]
     ]
 
-    model_uri = "runs:/{pretrained_model.run_id}/{pretrained_model.model_path}"
+    model_uri = f"runs:/{pretrained_model.run_id}/{pretrained_model.model_path}"
     sk_model = mlflow.sklearn.load_model(model_uri=model_uri)
     new_artifact_path = "model"
     with mlflow.start_run():
