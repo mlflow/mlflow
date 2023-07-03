@@ -55,7 +55,6 @@ def basic_routes():
                     "name": "gpt-4",
                     "provider": "openai",
                 },
-                "route_url": None,
             },
             {
                 "name": "embeddings-gpt4",
@@ -65,7 +64,6 @@ def basic_routes():
                     "name": "gpt-4",
                     "provider": "openai",
                 },
-                "route_url": None,
             },
         ]
     }
@@ -105,7 +103,6 @@ def update_routes():
                     "name": "gpt-4",
                     "provider": "openai",
                 },
-                "route_url": None,
             },
         ]
     }

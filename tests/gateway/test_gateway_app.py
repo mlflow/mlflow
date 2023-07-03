@@ -72,7 +72,6 @@ def test_search_routes(client: TestClient):
                     "name": "gpt-4",
                     "provider": "openai",
                 },
-                "route_url": None,
             },
             {
                 "name": "chat-gpt4",
@@ -82,7 +81,6 @@ def test_search_routes(client: TestClient):
                     "name": "gpt-4",
                     "provider": "openai",
                 },
-                "route_url": None,
             },
         ]
     }
@@ -99,7 +97,6 @@ def test_get_route(client: TestClient):
             "name": "gpt-4",
             "provider": "openai",
         },
-        "route_url": None,
     }
 
 
