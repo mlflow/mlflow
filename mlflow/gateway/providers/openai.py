@@ -87,6 +87,9 @@ class OpenAIProvider(BaseProvider):
             base_url=self._request_base_url,
             path="chat/completions",
             payload=(
+                # For Azure OpenAI, the deployment name (which is included in the URL) specifies
+                # the model; it is not specified in the payoad. For OpenAI outside of Azure, the
+                # model is always specified in the payload
                 payload
                 if self.openai_config.openai_api_type
                 in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD)
@@ -159,6 +162,9 @@ class OpenAIProvider(BaseProvider):
             base_url=self._request_base_url,
             path="chat/completions",
             payload=(
+                # For Azure OpenAI, the deployment name (which is included in the URL) specifies
+                # the model; it is not specified in the payoad. For OpenAI outside of Azure, the
+                # model is always specified in the payload
                 payload
                 if self.openai_config.openai_api_type
                 in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD)
@@ -216,6 +222,9 @@ class OpenAIProvider(BaseProvider):
             base_url=self._request_base_url,
             path="embeddings",
             payload=(
+                # For Azure OpenAI, the deployment name (which is included in the URL) specifies
+                # the model; it is not specified in the payoad. For OpenAI outside of Azure, the
+                # model is always specified in the payload
                 payload
                 if self.openai_config.openai_api_type
                 in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD)
