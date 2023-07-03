@@ -113,9 +113,6 @@ def test_fluent_get_invalid_route(gateway):
 def test_fluent_search_routes(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
 
-    with pytest.raises(MlflowException, match="Search functionality is not implemented"):
-        search_routes(search_filter="route like %anthrop")
-
     routes = search_routes()
     assert all(isinstance(route, Route) for route in routes)
     assert routes[0].dict() == {

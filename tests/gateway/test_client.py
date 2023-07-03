@@ -237,10 +237,6 @@ def test_query_invalid_route(gateway):
 def test_list_all_configured_routes(gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
 
-    # This is a non-functional filter applied only to ensure that print a warning
-    with pytest.raises(MlflowException, match="Search functionality is not implemented"):
-        gateway_client.search_routes(search_filter="where 'myroute' contains 'gpt'")
-
     routes = gateway_client.search_routes()
     assert all(isinstance(x, Route) for x in routes)
     assert routes[0].dict() == {

@@ -96,7 +96,7 @@ class MlflowGatewayClient:
 
         return Route(**response)
 
-    def search_routes(self, page_token: Optional[str]):
+    def search_routes(self, page_token: Optional[str] = None):
         """
         Search for routes in the Gateway. Currently, this simply returns all configured routes.
 
