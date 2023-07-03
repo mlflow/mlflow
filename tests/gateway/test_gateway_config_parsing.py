@@ -154,8 +154,8 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
     assert isinstance(chat_conf, OpenAIConfig)
     assert chat_conf.openai_api_key == "sk-openai"
     assert chat_conf.openai_api_base == "https://api.openai.com/v1"
+    assert chat_conf.openai_api_type == "openai"
     assert chat_conf.openai_api_version is None
-    assert chat_conf.openai_api_type is None
     assert chat_conf.openai_organization is None
 
     claude = loaded_from_save.routes[2]
@@ -252,7 +252,7 @@ def test_invalid_model_definition(tmp_path):
                 "model": {
                     "name": "invalid",
                     "provider": "openai",
-                    "config": {"openai_api_type": "open_ai"},
+                    "config": {"openai_api_type": "openai"},
                 },
             }
         ]
@@ -274,7 +274,7 @@ def test_invalid_model_definition(tmp_path):
                 "model": {
                     "name": "invalid",
                     "provider": "openai",
-                    "config": {"openai_api_type": "open_ai", "openai_api_key": [42]},
+                    "config": {"openai_api_type": "openai", "openai_api_key": [42]},
                 },
             }
         ]
@@ -297,7 +297,7 @@ def test_invalid_model_definition(tmp_path):
                 "model": {
                     "name": "invalid",
                     "provider": "openai",
-                    "config": {"openai_api_type": "open_ai", "openai_api_key": "/not/a/real/path"},
+                    "config": {"openai_api_type": "openai", "openai_api_key": "/not/a/real/path"},
                 },
             }
         ]
