@@ -30,9 +30,9 @@ def search_routes() -> List[Route]:
     Searches for routes in the MLflow Gateway service.
 
     This function creates an instance of MlflowGatewayClient and uses it to fetch a list of routes
-    from the Gateway service, optionally filtered by a search string.
+    from the Gateway service.
 
-    :return: A list of Route instances representing the found routes.
+    :return: A list of Route instances.
     """
 
     def pagination_wrapper_func(_, next_page_token):

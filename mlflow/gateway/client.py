@@ -96,12 +96,12 @@ class MlflowGatewayClient:
 
         return Route(**response)
 
-    def search_routes(self, page_token: Optional[str] = None):
+    def search_routes(self, page_token: Optional[str] = None) -> PagedList[Route]:
         """
-        Search for routes in the Gateway. Currently, this simply returns all configured routes.
+        Search for routes in the Gateway.
 
-
-        :param search_filter: An optional filter to apply to the search. Currently not used.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                           a prior ``search_routes()`` call.
         :return: Returns a list of all configured and initialized `Route` data for the MLflow
             Gateway Server. The return will be a list of dictionaries that detail the name, type,
             and model details of each active route endpoint.
