@@ -58,6 +58,8 @@ class OpenAIAPIType(str, Enum):
             if api_type.value == value.lower():
                 return api_type
 
+        raise MlflowException.invalid_parameter_value(f"Invalid OpenAI API type '{value}'")
+
 
 class OpenAIConfig(BaseModel, extra=Extra.allow):
     openai_api_key: str
