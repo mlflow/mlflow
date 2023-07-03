@@ -81,6 +81,8 @@ class OpenAIConfig(BaseModel, extra=Extra.allow):
                     f"'openai_deployment_name' if 'openai_api_type' is '{OpenAIAPIType.AZURE}' "
                     f"or '{OpenAIAPIType.AZUREAD}'. Found type: '{api_type}'"
                 )
+            if config.get("openai_api_base") is None:
+                config["openai_api_base"] = "https://api.openai.com/v1"
         elif api_type in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD):
             if config.get("openai_organization") is not None:
                 raise MlflowException.invalid_parameter_value(
