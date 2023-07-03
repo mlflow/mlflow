@@ -828,7 +828,7 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
-def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LOCAL):
+def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
 
@@ -967,32 +967,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     should_use_nfs = nfs_root_dir is not None
     should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
 
-    result_type = "boolean" if result_type == "bool" else result_type
-
-    if not isinstance(result_type, SparkDataType):
-        result_type = _parse_datatype_string(result_type)
-
-    elem_type = result_type
-    if isinstance(elem_type, ArrayType):
-        elem_type = elem_type.elementType
-
-    supported_types = [
-        IntegerType,
-        LongType,
-        FloatType,
-        DoubleType,
-        StringType,
-        BooleanType,
-        SparkStructType,
-    ]
-
-    if not any(isinstance(elem_type, x) for x in supported_types):
-        raise MlflowException(
-            message="Invalid result_type '{}'. Result type can only be one of or an array of one "
-            "of the following types: {}".format(str(elem_type), str(supported_types)),
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
     local_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri,
         output_path=_create_model_downloading_tmp_dir(should_use_nfs),
@@ -1048,6 +1022,44 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
 
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
+
+    model_output_schema = model_metadata.get_output_schema()
+
+    result_type = "boolean" if result_type == "bool" else result_type
+
+    if result_type is None:
+        if model_output_schema is None:
+            _logger.warning(
+                "You don't provide 'result_type' for spark_udf and the model metadata does not "
+                "have output schema, set 'result_type' to 'double' type as the default fallback."
+            )
+            result_type = "double"
+        else:
+            result_type = model_output_schema.as_spark_schema().simpleString()
+
+    if not isinstance(result_type, SparkDataType):
+        result_type = _parse_datatype_string(result_type)
+
+    elem_type = result_type
+    if isinstance(elem_type, ArrayType):
+        elem_type = elem_type.elementType
+
+    supported_types = [
+        IntegerType,
+        LongType,
+        FloatType,
+        DoubleType,
+        StringType,
+        BooleanType,
+        SparkStructType,
+    ]
+
+    if not any(isinstance(elem_type, x) for x in supported_types):
+        raise MlflowException(
+            message="Invalid result_type '{}'. Result type can only be one of or an array of one "
+            "of the following types: {}".format(str(elem_type), str(supported_types)),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     def _predict_row_batch(predict_fn, args):
         input_schema = model_metadata.get_input_schema()
