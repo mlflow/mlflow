@@ -104,7 +104,7 @@ class SearchRoutesToken:
 
     @property
     def index(self):
-        return self.index
+        return self._index
 
     @classmethod
     def decode(cls, encoded_token: str):

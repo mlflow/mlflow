@@ -13,6 +13,7 @@ from mlflow.gateway import (
     search_routes,
 )
 from mlflow.gateway.config import Route
+from mlflow.gateway.constants import MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE
 from mlflow.gateway.envs import MLFLOW_GATEWAY_URI
 import mlflow.gateway.utils
 from tests.gateway.tools import Gateway, save_yaml
@@ -128,6 +129,32 @@ def test_fluent_search_routes(gateway):
         "route_type": "llm/v1/chat",
         "route_url": None,
     }
+
+
+def test_fluent_search_routes_handles_pagination(tmp_path):
+    conf = tmp_path / "config.yaml"
+    base_route_config = {
+        "route_type": "llm/v1/completions",
+        "model": {
+            "name": "text-davinci-003",
+            "provider": "openai",
+            "config": {
+                "openai_api_key": "mykey",
+                "openai_api_base": "https://api.openai.com/v1",
+                "openai_api_version": "2023-05-10",
+                "openai_api_type": "openai",
+            },
+        },
+    }
+    num_routes = (MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE * 2) + 1
+    gateway_route_names = [f"route_{i}" for i in range(num_routes)]
+    gateway_config_dict = {
+        "routes": [{"name": route_name, **base_route_config} for route_name in gateway_route_names]
+    }
+    save_yaml(conf, gateway_config_dict)
+    with Gateway(conf) as gateway:
+        set_gateway_uri(gateway_uri=gateway.url)
+        assert [route.name for route in search_routes()] == gateway_route_names
 
 
 def test_fluent_get_gateway_uri(gateway):

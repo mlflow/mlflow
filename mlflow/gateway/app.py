@@ -146,9 +146,9 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             start_idx = 0
 
         end_idx = start_idx + MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE
-        routes = list(app.dynamic_routes.values())[start_idx:end_idx]
-        result = {"routes": routes}
-        if len(routes) > MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE:
+        routes = list(app.dynamic_routes.values())
+        result = {"routes": routes[start_idx:end_idx]}
+        if len(routes[end_idx:]) > 0:
             next_page_token = SearchRoutesToken(index=end_idx)
             result["next_page_token"] = next_page_token.encode()
 
