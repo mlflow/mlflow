@@ -199,8 +199,8 @@ def overwrite_yaml(root, file_name, data):
             overwrite=True,
             sort_keys=True,
         )
-        # Ensure temporary file contains ACLs of preexisting yaml
-        # file before move-replacing.
+        # Preserve the ACLs of the preexisting yaml file
+        # in the temporary file before replacing it.
         dst_file_path = os.path.join(root, file_name)
         shutil.copystat(dst_file_path, tmp_file_path)
         shutil.move(
