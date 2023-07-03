@@ -52,7 +52,7 @@ class OpenAIAPIType(str, Enum):
 
 class OpenAIConfig(BaseModel, extra=Extra.allow):
     openai_api_key: str
-    openai_api_type: str = OpenAIAPIType.OPENAI
+    openai_api_type: OpenAIAPIType = OpenAIAPIType.OPENAI
     openai_api_base: Optional[str] = None
     openai_api_version: Optional[str] = None
     openai_deployment_name: Optional[str] = None
