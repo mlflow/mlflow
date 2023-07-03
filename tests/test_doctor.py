@@ -13,7 +13,7 @@ def test_doctor_active_run(capsys):
     with mlflow.start_run() as run:
         mlflow.doctor()
         captured = capsys.readouterr()
-        assert "Active run ID: {}".format(run.info.run_id) in captured.out
+        assert f"Active run ID: {run.info.run_id}" in captured.out
 
 
 def test_doctor_databricks_runtime(capsys):

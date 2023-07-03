@@ -629,9 +629,7 @@ def test_create_deployment_creates_sagemaker_and_s3_resources_with_expected_name
     default_bucket = mfs._get_default_s3_bucket(region_name)
     s3_artifact_repo = S3ArtifactRepository(f"s3://{default_bucket}")
     s3_artifact_repo.log_artifacts(local_model_path, artifact_path=artifact_path)
-    model_s3_uri = "s3://{bucket_name}/{artifact_path}".format(
-        bucket_name=default_bucket, artifact_path=pretrained_model.model_path
-    )
+    model_s3_uri = f"s3://{default_bucket}/{pretrained_model.model_path}"
     expected_model_environment = {
         "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
         "SERVING_ENVIRONMENT": "SageMaker",
@@ -696,9 +694,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
     default_bucket = mfs._get_default_s3_bucket(region_name)
     s3_artifact_repo = S3ArtifactRepository(f"s3://{default_bucket}")
     s3_artifact_repo.log_artifacts(local_model_path, artifact_path=artifact_path)
-    model_s3_uri = "s3://{bucket_name}/{artifact_path}".format(
-        bucket_name=default_bucket, artifact_path=pretrained_model.model_path
-    )
+    model_s3_uri = f"s3://{default_bucket}/{pretrained_model.model_path}"
     environment_variables = {"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}
     expected_model_environment = {
         "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
@@ -1216,9 +1212,7 @@ def test_update_deployment_in_replace_mode_with_archiving_does_not_delete_resour
         model["ModelName"] for model in sagemaker_client.list_models()["Models"]
     ]
 
-    model_uri = "runs:/{run_id}/{artifact_path}".format(
-        run_id=pretrained_model.run_id, artifact_path=pretrained_model.model_path
-    )
+    model_uri = f"runs:/{pretrained_model.run_id}/{pretrained_model.model_path}"
     sk_model = mlflow.sklearn.load_model(model_uri=model_uri)
     new_artifact_path = "model"
     with mlflow.start_run():

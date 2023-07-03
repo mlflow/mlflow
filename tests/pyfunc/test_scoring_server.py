@@ -583,7 +583,7 @@ def test_parse_json_input_including_path():
     )
 
     response_records_content_type = pyfunc_serve_and_score_model(
-        model_uri="runs:/{}/model".format(run.info.run_id),
+        model_uri=f"runs:/{run.info.run_id}/model",
         data=pandas_split_content,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )

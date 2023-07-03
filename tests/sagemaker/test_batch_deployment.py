@@ -251,9 +251,7 @@ def test_deploy_creates_sagemaker_transform_job_and_s3_resources_with_expected_n
     default_bucket = mfs._get_default_s3_bucket(region_name)
     s3_artifact_repo = S3ArtifactRepository(f"s3://{default_bucket}")
     s3_artifact_repo.log_artifacts(local_model_path, artifact_path=artifact_path)
-    model_s3_uri = "s3://{bucket_name}/{artifact_path}".format(
-        bucket_name=default_bucket, artifact_path=pretrained_model.model_path
-    )
+    model_s3_uri = f"s3://{default_bucket}/{pretrained_model.model_path}"
 
     job_name = "test-job"
     mfs.deploy_transform_job(
@@ -291,9 +289,7 @@ def test_deploy_cli_creates_sagemaker_transform_job_and_s3_resources_with_expect
     default_bucket = mfs._get_default_s3_bucket(region_name)
     s3_artifact_repo = S3ArtifactRepository(f"s3://{default_bucket}")
     s3_artifact_repo.log_artifacts(local_model_path, artifact_path=artifact_path)
-    model_s3_uri = "s3://{bucket_name}/{artifact_path}".format(
-        bucket_name=default_bucket, artifact_path=pretrained_model.model_path
-    )
+    model_s3_uri = f"s3://{default_bucket}/{pretrained_model.model_path}"
 
     job_name = "test-job"
     result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(

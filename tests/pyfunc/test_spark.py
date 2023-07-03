@@ -251,7 +251,7 @@ def test_spark_udf_with_single_arg(spark):
         mlflow.pyfunc.log_model("model", python_model=TestModel())
 
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=StringType()
+            spark, f"runs:/{run.info.run_id}/model", result_type=StringType()
         )
 
         data1 = spark.createDataFrame(pd.DataFrame({"a": [1], "b": [4]})).repartition(1)
@@ -283,7 +283,7 @@ def test_spark_udf_with_struct_return_type(spark):
 
         udf = mlflow.pyfunc.spark_udf(
             spark,
-            "runs:/{}/model".format(run.info.run_id),
+            f"runs:/{run.info.run_id}/model",
             result_type=(
                 "r1 int, r2 float, r3 array<long>, r4 array<double>, "
                 "r5 array<double>, r6 boolean, r7 string"
@@ -326,7 +326,7 @@ def test_spark_udf_autofills_no_arguments(spark):
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(
             spark,
-            "runs:/{}/model".format(run.info.run_id),
+            f"runs:/{run.info.run_id}/model",
             result_type=ArrayType(StringType()),
             env_manager="local",
         )
@@ -365,7 +365,7 @@ def test_spark_udf_autofills_no_arguments(spark):
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=nameless_signature)
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+            spark, f"runs:/{run.info.run_id}/model", result_type=ArrayType(StringType())
         )
         with pytest.raises(
             MlflowException,
@@ -377,7 +377,7 @@ def test_spark_udf_autofills_no_arguments(spark):
         # model without signature
         mlflow.pyfunc.log_model("model", python_model=TestModel())
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+            spark, f"runs:/{run.info.run_id}/model", result_type=ArrayType(StringType())
         )
         with pytest.raises(MlflowException, match="Attempting to apply udf on zero columns"):
             res = good_data.withColumn("res", udf()).select("res").toPandas()
@@ -398,7 +398,7 @@ def test_spark_udf_autofills_no_arguments(spark):
             "model", python_model=TestModel(), signature=named_signature_with_optional_input
         )
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+            spark, f"runs:/{run.info.run_id}/model", result_type=ArrayType(StringType())
         )
         with pytest.raises(
             MlflowException,
@@ -425,7 +425,7 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(
             spark,
-            "runs:/{}/model".format(run.info.run_id),
+            f"runs:/{run.info.run_id}/model",
             result_type=ArrayType(StringType()),
             env_manager="local",
         )
@@ -462,7 +462,7 @@ def test_spark_udf_with_datetime_columns(spark):
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(
             spark,
-            "runs:/{}/model".format(run.info.run_id),
+            f"runs:/{run.info.run_id}/model",
             result_type=ArrayType(StringType()),
             env_manager="local",
         )
@@ -496,7 +496,7 @@ def test_spark_udf_over_empty_partition(spark):
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         python_udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=LongType()
+            spark, f"runs:/{run.info.run_id}/model", result_type=LongType()
         )
         res_df = spark_df.withColumn("res", python_udf("x", "y")).select("res").toPandas()
         assert res_df.res[0] == 32
@@ -724,7 +724,7 @@ def test_spark_udf_with_col_spec_type_input(spark):
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(
             spark,
-            "runs:/{}/model".format(run.info.run_id),
+            f"runs:/{run.info.run_id}/model",
             result_type="c_int int, c_float float",
             env_manager="local",
         )
@@ -774,7 +774,7 @@ def test_spark_udf_array_of_structs(spark):
         )
         udf = mlflow.pyfunc.spark_udf(
             spark,
-            "runs:/{}/model".format(run.info.run_id),
+            f"runs:/{run.info.run_id}/model",
             result_type=ArrayType(
                 StructType(
                     [
