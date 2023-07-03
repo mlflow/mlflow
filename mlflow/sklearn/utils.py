@@ -554,7 +554,7 @@ def _log_specialized_estimator_content(
                     with matplotlib.rc_context(_matplotlib_config):
                         display = artifact.function(**artifact.arguments)
                         display.ax_.set_title(artifact.title)
-                        artifact_path = "{}.png".format(artifact.name)
+                        artifact_path = f"{artifact.name}.png"
                         filepath = tmp_dir.path(artifact_path)
                         display.figure_.savefig(fname=filepath, format="png")
                         plt.close(display.figure_)
