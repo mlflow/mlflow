@@ -436,9 +436,9 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_tags_
     sagemaker_deployment_client.create_deployment(
         name=name,
         model_uri=pretrained_model.model_uri,
-        config=dict(
-            tags={"key1": "value1", "key2": "value2"},
-        ),
+        config={
+            "tags": {"key1": "value1", "key2": "value2"},
+        },
     )
 
     endpoint_description = sagemaker_client.describe_endpoint(EndpointName=name)
@@ -478,9 +478,9 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_names
         sagemaker_deployment_client.create_deployment(
             name=name,
             model_uri=pretrained_model.model_uri,
-            config=dict(
-                env={"DISABLE_NGINX": "true", "GUNCORN_CMD_ARGS": '"--timeout 60"'},
-            ),
+            config={
+                "env": {"DISABLE_NGINX": "true", "GUNCORN_CMD_ARGS": '"--timeout 60"'},
+            },
         )
     else:
         name = "test-app"
@@ -489,9 +489,9 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_names
         sagemaker_deployment_client.create_deployment(
             name=name,
             model_uri=pretrained_model.model_uri,
-            config=dict(
-                env={"DISABLE_NGINX": "true", "GUNCORN_CMD_ARGS": '"--timeout 60"'},
-            ),
+            config={
+                "env": {"DISABLE_NGINX": "true", "GUNCORN_CMD_ARGS": '"--timeout 60"'},
+            },
         )
 
     region_name = sagemaker_client.meta.region_name

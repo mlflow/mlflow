@@ -927,7 +927,7 @@ def autolog(
     global _log_model_allowlist
 
     if log_model_allowlist:
-        _log_model_allowlist = set(model.strip() for model in log_model_allowlist)
+        _log_model_allowlist = {model.strip() for model in log_model_allowlist}
     else:
         _log_model_allowlist = _read_log_model_allowlist()
 
