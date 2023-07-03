@@ -302,7 +302,7 @@ class Model:
         Retrieves the parameters schema of the Model iff the model was saved with a schema
         definition.
         """
-        return self.signature.params if self.signature is not None else None
+        return getattr(self.signature, "params", None)
 
     def load_input_example(self, path: str):
         """

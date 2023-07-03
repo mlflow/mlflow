@@ -1336,7 +1336,6 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
         ),
     ],
 )
-@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 def test_text2text_generation_pipeline_with_inference_configs(
     text2text_generation_pipeline, tmp_path, data, result
 ):
@@ -1393,7 +1392,6 @@ def test_text2text_generation_pipeline_with_inference_configs(
     assert dict_inference == inference
 
 
-@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 def test_text2text_generation_pipeline_catch_error_in_kwargs(
     text2text_generation_pipeline, model_path
 ):

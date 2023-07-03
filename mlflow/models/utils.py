@@ -930,7 +930,7 @@ def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[Pa
         else:
             params[param_spec.name] = param_spec.default
 
-    if len(invalid_params) > 0:
+    if invalid_params:
         raise MlflowException(
             f"Invalid parameters found: {invalid_params!r}",
             INVALID_PARAMETER_VALUE,
