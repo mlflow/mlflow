@@ -74,7 +74,7 @@ class OpenAIConfig(BaseModel, extra=Extra.allow):
 
     @root_validator(pre=False)
     def validate_field_compatibility(cls, config: "OpenAIConfig"):
-        api_type = config["openai_api_type"]
+        api_type = config.get("openai_api_type")
         if api_type == OpenAIAPIType.OPENAI:
             if config.get("openai_deployment_name") is not None:
                 raise MlflowException.invalid_parameter_value(
