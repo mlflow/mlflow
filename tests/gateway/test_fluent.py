@@ -32,7 +32,7 @@ def basic_config_dict():
                         "openai_api_key": "mykey",
                         "openai_api_base": "https://api.openai.com/v1",
                         "openai_api_version": "2023-05-10",
-                        "openai_api_type": "openai/v1/chat/completions",
+                        "openai_api_type": "openai",
                     },
                 },
             },

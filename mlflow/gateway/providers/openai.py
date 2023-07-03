@@ -1,10 +1,13 @@
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
+from mlflow.exceptions import MlflowException
+from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
+
 from .base import BaseProvider
 from .utils import send_request, rename_payload_keys
 from ..schemas import chat, completions, embeddings
-from ..config import OpenAIConfig, RouteConfig
+from ..config import OpenAIConfig, OpenAIAPIType, RouteConfig
 
 
 class OpenAIProvider(BaseProvider):
@@ -12,12 +15,67 @@ class OpenAIProvider(BaseProvider):
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, OpenAIConfig):
             # Should be unreachable
-            raise TypeError(f"Invalid config type {config.model.config}")
+            raise MlflowException.invalid_parameter_value(
+                "Invalid config type {config.model.config}"
+            )
         self.openai_config: OpenAIConfig = config.model.config
-        self.headers = {"Authorization": f"Bearer {self.openai_config.openai_api_key}"}
-        if org := self.openai_config.openai_organization:
-            self.headers["OpenAI-Organization"] = org
-        self.base_url = self.openai_config.openai_api_base
+
+    @property
+    def _request_base_url(self):
+        api_type = self.openai_config.openai_api_type
+        if api_type == OpenAIAPIType.OPENAI:
+            base_url = self.openai_config.openai_api_base or "https://api.openai.com/v1"
+            if api_version := self.openai_config.openai_api_version is not None:
+                return append_to_uri_query_params(base_url, ("api-version", api_version))
+            else:
+                return base_url
+        elif api_type in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD):
+            openai_url = append_to_uri_path(
+                self.openai_config.openai_api_base,
+                "openai",
+                "deployments",
+                self.openai_config.openai_deployment_name,
+            )
+            return append_to_uri_query_params(
+                openai_url,
+                ("api-version", self.openai_config.openai_api_version),
+            )
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid OpenAI API type '{self.openai_api_type}'"
+            )
+
+    @property
+    def _request_headers(self):
+        api_type = self.openai_config.openai_api_type
+        if api_type == OpenAIAPIType.OPENAI:
+            headers = {
+                "Authorization": f"Bearer {self.openai_config.openai_api_key}",
+            }
+            if org := self.openai_config.openai_organization:
+                headers["OpenAI-Organization"] = org
+            return headers
+        elif api_type == OpenAIAPIType.AZUREAD:
+            return {
+                "Authorization": f"Bearer {self.openai_config.openai_api_key}",
+            }
+        elif api_type == OpenAIAPIType.AZURE:
+            return {
+                "api-key": self.openai_config.openai_api_key,
+            }
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid OpenAI API type '{self.openai_api_type}'"
+            )
+
+    def _add_model_to_payload_if_necessary(self, payload):
+        # NB: For Azure OpenAI, the deployment name (which is included in the URL) specifies
+        # the model; it is not specified in the payoad. For OpenAI outside of Azure, the
+        # model is always specified in the payload
+        if self.openai_config.openai_api_type not in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD):
+            return {"model": self.config.model.name, **payload}
+        else:
+            return payload
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -34,10 +92,10 @@ class OpenAIProvider(BaseProvider):
         payload["temperature"] = 2 * payload["temperature"]
 
         resp = await send_request(
-            headers=self.headers,
-            base_url=self.base_url,
+            headers=self._request_headers,
+            base_url=self._request_base_url,
             path="chat/completions",
-            payload={"model": self.config.model.name, **payload},
+            payload=self._add_model_to_payload_if_necessary(payload),
         )
         # Response example (https://platform.openai.com/docs/api-reference/chat/create)
         # ```
@@ -101,10 +159,10 @@ class OpenAIProvider(BaseProvider):
         payload["temperature"] = 2 * payload["temperature"]
         payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
         resp = await send_request(
-            headers=self.headers,
-            base_url=self.base_url,
+            headers=self._request_headers,
+            base_url=self._request_base_url,
             path="chat/completions",
-            payload={"model": self.config.model.name, **payload},
+            payload=self._add_model_to_payload_if_necessary(payload),
         )
         # Response example (https://platform.openai.com/docs/api-reference/completions/create)
         # ```
@@ -153,10 +211,10 @@ class OpenAIProvider(BaseProvider):
             {"text": "input"},
         )
         resp = await send_request(
-            headers=self.headers,
-            base_url=self.base_url,
+            headers=self._request_headers,
+            base_url=self._request_base_url,
             path="embeddings",
-            payload={"model": self.config.model.name, **payload},
+            payload=self._add_model_to_payload_if_necessary(payload),
         )
         # Response example (https://platform.openai.com/docs/api-reference/embeddings/create):
         # ```

@@ -4,9 +4,9 @@ import json
 import logging
 import os
 from pathlib import Path
-from pydantic import BaseModel, validator, parse_obj_as, Extra, ValidationError
+from pydantic import BaseModel, validator, root_validator, parse_obj_as, Extra, ValidationError
 from pydantic.json import pydantic_encoder
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Dict, Any
 import yaml
 
 from mlflow.exceptions import MlflowException
@@ -44,17 +44,67 @@ class CohereConfig(BaseModel, extra=Extra.allow):
         return _resolve_api_key_from_input(value)
 
 
+class OpenAIAPIType(str, Enum):
+    OPENAI = "openai"
+    AZURE = "azure"
+    AZUREAD = "azuread"
+
+    @classmethod
+    def _missing_(cls, value):
+        """
+        Implements case-insensitive matching of API type strings
+        """
+        for api_type in cls:
+            if api_type.value == value.lower():
+                return api_type
+
+        raise MlflowException.invalid_parameter_value(f"Invalid OpenAI API type '{value}'")
+
+
 class OpenAIConfig(BaseModel, extra=Extra.allow):
     openai_api_key: str
-    openai_api_type: Optional[str] = None
-    openai_api_base: str = "https://api.openai.com/v1"
+    openai_api_type: OpenAIAPIType = OpenAIAPIType.OPENAI
+    openai_api_base: Optional[str] = None
     openai_api_version: Optional[str] = None
+    openai_deployment_name: Optional[str] = None
     openai_organization: Optional[str] = None
 
     # pylint: disable=no-self-argument
     @validator("openai_api_key", pre=True)
     def validate_openai_api_key(cls, value):
         return _resolve_api_key_from_input(value)
+
+    @root_validator(pre=False)
+    def validate_field_compatibility(cls, config: Dict[str, Any]):
+        api_type = config.get("openai_api_type")
+        if api_type == OpenAIAPIType.OPENAI:
+            if config.get("openai_deployment_name") is not None:
+                raise MlflowException.invalid_parameter_value(
+                    f"OpenAI route configuration can only specify a value for "
+                    f"'openai_deployment_name' if 'openai_api_type' is '{OpenAIAPIType.AZURE}' "
+                    f"or '{OpenAIAPIType.AZUREAD}'. Found type: '{api_type}'"
+                )
+            if config.get("openai_api_base") is None:
+                config["openai_api_base"] = "https://api.openai.com/v1"
+        elif api_type in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD):
+            if config.get("openai_organization") is not None:
+                raise MlflowException.invalid_parameter_value(
+                    f"OpenAI route configuration can only specify a value for "
+                    f"'openai_organization' if 'openai_api_type' is '{OpenAIAPIType.OPENAI}'"
+                )
+            base_url = config.get("openai_api_base")
+            deployment_name = config.get("openai_deployment_name")
+            api_version = config.get("openai_api_version")
+            if (base_url, deployment_name, api_version).count(None) > 0:
+                raise MlflowException.invalid_parameter_value(
+                    f"OpenAI route configuration must specify 'openai_api_base', "
+                    f"'openai_deployment_name', and 'openai_api_version' if 'openai_api_type' is "
+                    f"'{OpenAIAPIType.AZURE}' or '{OpenAIAPIType.AZUREAD}'."
+                )
+        else:
+            raise MlflowException.invalid_parameter_value(f"Invalid OpenAI API type '{api_type}'")
+
+        return config
 
 
 class AnthropicConfig(BaseModel, extra=Extra.allow):
