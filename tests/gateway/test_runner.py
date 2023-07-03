@@ -50,6 +50,7 @@ def basic_routes():
             {
                 "name": "completions-gpt4",
                 "route_type": "llm/v1/completions",
+                "route_url": None,
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -59,6 +60,7 @@ def basic_routes():
             {
                 "name": "embeddings-gpt4",
                 "route_type": "llm/v1/embeddings",
+                "route_url": None,
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -98,6 +100,7 @@ def update_routes():
             {
                 "name": "chat-gpt4",
                 "route_type": "llm/v1/chat",
+                "route_url": None,
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
