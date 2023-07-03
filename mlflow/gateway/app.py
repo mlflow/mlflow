@@ -105,6 +105,7 @@ class HealthResponse(BaseModel):
 
 class SearchRoutesResponse(BaseModel):
     routes: List[Route]
+    next_page_token: str
 
 
 def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
@@ -139,7 +140,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         )
 
     @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE)
-    async def search_routes(page_token: Union[str, None] = None):
+    async def search_routes(page_token: Union[str, None] = None) -> SearchRoutesResponse:
         if page_token is not None:
             start_idx = SearchRoutesToken.decode(page_token).index
         else:
