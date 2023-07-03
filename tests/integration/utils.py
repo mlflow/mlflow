@@ -32,7 +32,5 @@ def invoke_cli_runner(*args, **kwargs):
     """
 
     res = CliRunner().invoke(*args, **kwargs)
-    assert res.exit_code == 0, "Got non-zero exit code {}. Output is: {}".format(
-        res.exit_code, res.output
-    )
+    assert res.exit_code == 0, "Got non-zero exit code {res.exit_code}. Output is: {res.output}"
     return res
