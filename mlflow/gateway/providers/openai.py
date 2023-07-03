@@ -68,6 +68,15 @@ class OpenAIProvider(BaseProvider):
                 f"Invalid OpenAI API type '{self.openai_api_type}'"
             )
 
+    def _add_model_to_payload_if_necessary(self, payload):
+        # NB: For Azure OpenAI, the deployment name (which is included in the URL) specifies
+        # the model; it is not specified in the payoad. For OpenAI outside of Azure, the
+        # model is always specified in the payload
+        if self.openai_config.openai_api_type not in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD):
+            return {"model": self.config.model.name, **payload}
+        else:
+            return payload
+
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
         if "n" in payload:
@@ -86,15 +95,7 @@ class OpenAIProvider(BaseProvider):
             headers=self._request_headers,
             base_url=self._request_base_url,
             path="chat/completions",
-            payload=(
-                # For Azure OpenAI, the deployment name (which is included in the URL) specifies
-                # the model; it is not specified in the payoad. For OpenAI outside of Azure, the
-                # model is always specified in the payload
-                payload
-                if self.openai_config.openai_api_type
-                in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD)
-                else {"model": self.config.model.name, **payload}
-            ),
+            payload=self._add_model_to_payload_if_necessary(payload),
         )
         # Response example (https://platform.openai.com/docs/api-reference/chat/create)
         # ```
@@ -161,15 +162,7 @@ class OpenAIProvider(BaseProvider):
             headers=self._request_headers,
             base_url=self._request_base_url,
             path="chat/completions",
-            payload=(
-                # For Azure OpenAI, the deployment name (which is included in the URL) specifies
-                # the model; it is not specified in the payoad. For OpenAI outside of Azure, the
-                # model is always specified in the payload
-                payload
-                if self.openai_config.openai_api_type
-                in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD)
-                else {"model": self.config.model.name, **payload}
-            ),
+            payload=self._add_model_to_payload_if_necessary(payload),
         )
         # Response example (https://platform.openai.com/docs/api-reference/completions/create)
         # ```
@@ -221,15 +214,7 @@ class OpenAIProvider(BaseProvider):
             headers=self._request_headers,
             base_url=self._request_base_url,
             path="embeddings",
-            payload=(
-                # For Azure OpenAI, the deployment name (which is included in the URL) specifies
-                # the model; it is not specified in the payoad. For OpenAI outside of Azure, the
-                # model is always specified in the payload
-                payload
-                if self.openai_config.openai_api_type
-                in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD)
-                else {"model": self.config.model.name, **payload}
-            ),
+            payload=self._add_model_to_payload_if_necessary(payload),
         )
         # Response example (https://platform.openai.com/docs/api-reference/embeddings/create):
         # ```
