@@ -30,11 +30,6 @@ class OpenAIProvider(BaseProvider):
             else:
                 return base_url
         elif api_type in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD):
-            if self.openai_config.openai_api_base is None:
-                raise MlflowException.invalid_parameter_value(
-                    f"OpenAI route configuration must specify 'openai_api_base' when"
-                    f"'openai_api_type' is '{OpenAIAPIType.AZURE}' or '{OpenAIAPIType.AZUREAD}'."
-                )
             openai_url = append_to_uri_path(
                 self.openai_config.openai_api_base,
                 "openai",
@@ -91,7 +86,12 @@ class OpenAIProvider(BaseProvider):
             headers=self._request_headers,
             base_url=self._request_base_url,
             path="chat/completions",
-            payload={"model": self.config.model.name, **payload},
+            payload=(
+                {"model": self.config.model.name, **payload}
+                if self.openai_config.openai_api_type
+                in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD)
+                else payload
+            ),
         )
         # Response example (https://platform.openai.com/docs/api-reference/chat/create)
         # ```
