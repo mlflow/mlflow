@@ -14,14 +14,7 @@ from mlflow.recipes.steps.evaluate import EvaluateStep
 from mlflow.recipes.steps.train import TrainStep
 from mlflow.exceptions import MlflowException
 
-# pylint: disable=unused-import
-from tests.recipes.helper_functions import (
-    clear_custom_metrics_module_cache,
-    tmp_recipe_exec_path,
-    tmp_recipe_root_path,
-    train_and_log_model,
-    train_and_log_classification_model,
-)  # pylint: enable=unused-import
+from tests.recipes.helper_functions import train_and_log_model, train_and_log_classification_model
 
 
 @pytest.fixture(autouse=True)

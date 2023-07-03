@@ -346,7 +346,7 @@ def init(model: PyFuncModel):
 
     @app.route("/ping", methods=["GET"])
     @app.route("/health", methods=["GET"])
-    def ping():  # pylint: disable=unused-variable
+    def ping():
         """
         Determine if the container is working and healthy.
         We declare it healthy if we can load the model successfully.
@@ -356,7 +356,7 @@ def init(model: PyFuncModel):
         return flask.Response(response="\n", status=status, mimetype="application/json")
 
     @app.route("/version", methods=["GET"])
-    def version():  # pylint: disable=unused-variable
+    def version():
         """
         Returns the current mlflow version.
         """
@@ -364,7 +364,7 @@ def init(model: PyFuncModel):
 
     @app.route("/invocations", methods=["POST"])
     @catch_mlflow_exception
-    def transformation():  # pylint: disable=unused-variable
+    def transformation():
         """
         Do an inference on a single batch of data. In this sample server,
         we take data as CSV or json, convert it to a Pandas DataFrame or Numpy,

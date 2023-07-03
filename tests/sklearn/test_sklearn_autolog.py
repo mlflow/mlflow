@@ -1125,7 +1125,7 @@ def test_sklearn_autolog_log_datasets_with_predict():
         mlflow.sklearn.autolog(log_datasets=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
-        y_pred = model.predict(X)  # pylint: disable=unused-variable
+        model.predict(X)
 
     run_id = run.info.run_id
     client = MlflowClient()
@@ -1160,7 +1160,7 @@ def test_sklearn_autolog_log_datasets_without_explicit_run():
     mlflow.sklearn.autolog(log_datasets=True)
     model = sklearn.linear_model.LinearRegression()
     model.fit(X, y)
-    y_pred = model.predict(X)  # pylint: disable=unused-variable
+    model.predict(X)
 
     run_id = getattr(model, "_mlflow_run_id")
     client = MlflowClient()

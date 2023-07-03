@@ -1,23 +1,18 @@
 import mlflow
 import os
-import pathlib
 import random
 import shutil
 import string
-import sys
 from typing import Generator
 
 from contextlib import contextmanager
-from mlflow.recipes.utils.execution import _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR
 from mlflow.recipes.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDATION_FILE_NAME
 from mlflow.recipes.step import BaseStep
-from mlflow.utils.file_utils import TempDir
 from pathlib import Path
 from sklearn.datasets import load_diabetes, load_iris
 from sklearn.dummy import DummyRegressor, DummyClassifier
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
-import pytest
 
 RECIPE_EXAMPLE_PATH_ENV_VAR_FOR_TESTS = "_RECIPE_EXAMPLE_PATH"
 RECIPE_EXAMPLE_PATH_FROM_MLFLOW_ROOT = "examples/recipes/regression"
@@ -85,61 +80,6 @@ def train_log_and_register_model(model_name, is_dummy=False):
     runs_uri = f"runs:/{run_id}/train/model"
     mv = mlflow.register_model(runs_uri, model_name)
     return f"models:/{mv.name}/{mv.version}"
-
-
-## Fixtures
-@pytest.fixture
-def enter_recipe_example_directory():
-    recipe_example_path = os.environ.get(RECIPE_EXAMPLE_PATH_ENV_VAR_FOR_TESTS)
-    if recipe_example_path is None:
-        mlflow_repo_root_directory = pathlib.Path(mlflow.__file__).parent.parent
-        recipe_example_path = mlflow_repo_root_directory / RECIPE_EXAMPLE_PATH_FROM_MLFLOW_ROOT
-
-    with chdir(recipe_example_path):
-        yield recipe_example_path
-
-
-@pytest.fixture
-def enter_test_recipe_directory(enter_recipe_example_directory):
-    recipe_example_root_path = enter_recipe_example_directory
-
-    with TempDir(chdr=True) as tmp:
-        test_recipe_path = tmp.path("test_recipe")
-        shutil.copytree(recipe_example_root_path, test_recipe_path)
-        os.chdir(test_recipe_path)
-        yield os.getcwd()
-
-
-@pytest.fixture
-def tmp_recipe_exec_path(monkeypatch, tmp_path) -> Path:
-    path = tmp_path.joinpath("recipe_execution")
-    path.mkdir(parents=True)
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(path))
-    yield path
-    shutil.rmtree(path)
-
-
-@pytest.fixture
-def tmp_recipe_root_path(tmp_path) -> Path:
-    path = tmp_path.joinpath("recipe_root")
-    path.mkdir(parents=True)
-    yield path
-    shutil.rmtree(path)
-
-
-@pytest.fixture
-def clear_custom_metrics_module_cache():
-    key = "steps.custom_metrics"
-    if key in sys.modules:
-        del sys.modules[key]
-
-
-@pytest.fixture
-def registry_uri_path(tmp_path) -> Path:
-    path = tmp_path.joinpath("registry.db")
-    db_url = "sqlite:///%s" % path
-    yield db_url
-    mlflow.set_registry_uri("")
 
 
 @contextmanager

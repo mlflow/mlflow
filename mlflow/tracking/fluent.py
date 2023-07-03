@@ -34,7 +34,7 @@ from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.default_experiment import registry as default_experiment_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.utils import env, get_results_from_paginated_fn
+from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     is_testing,
@@ -55,7 +55,11 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.environment_variables import MLFLOW_RUN_ID
+from mlflow.environment_variables import (
+    MLFLOW_RUN_ID,
+    MLFLOW_EXPERIMENT_ID,
+    MLFLOW_EXPERIMENT_NAME,
+)
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -65,8 +69,6 @@ if TYPE_CHECKING:
     import numpy  # pylint: disable=unused-import
     import PIL  # pylint: disable=unused-import
 
-_EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
-_EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
 _active_run_stack = []
 _active_experiment_id = None
 _last_active_run_id = None
@@ -402,7 +404,7 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
     global _active_run_stack, _last_active_run_id
     if len(_active_run_stack) > 0:
         # Clear out the global existing run environment variable as well.
-        env.unset_variable(MLFLOW_RUN_ID.name)
+        MLFLOW_RUN_ID.unset()
         run = _active_run_stack.pop()
         MlflowClient().set_terminated(run.info.run_id, status)
         _last_active_run_id = run.info.run_id
@@ -1767,14 +1769,14 @@ def _get_or_start_run():
 
 
 def _get_experiment_id_from_env():
-    experiment_name = env.get_env(_EXPERIMENT_NAME_ENV_VAR)
-    experiment_id = env.get_env(_EXPERIMENT_ID_ENV_VAR)
+    experiment_name = MLFLOW_EXPERIMENT_NAME.get()
+    experiment_id = MLFLOW_EXPERIMENT_ID.get()
     if experiment_name is not None:
         exp = MlflowClient().get_experiment_by_name(experiment_name)
         if exp:
             if experiment_id and experiment_id != exp.experiment_id:
                 raise MlflowException(
-                    message=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment variable "
+                    message=f"The provided {MLFLOW_EXPERIMENT_ID.name} environment variable "
                     f"value `{experiment_id}` does not match the experiment id "
                     f"`{exp.experiment_id}` for experiment name `{experiment_name}`",
                     error_code=INVALID_PARAMETER_VALUE,
@@ -1790,7 +1792,7 @@ def _get_experiment_id_from_env():
             return exp.experiment_id
         except MlflowException as exc:
             raise MlflowException(
-                message=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment variable "
+                message=f"The provided {MLFLOW_EXPERIMENT_ID.name} environment variable "
                 f"value `{experiment_id}` does not exist in the tracking server. Provide a valid "
                 f"experiment_id.",
                 error_code=INVALID_PARAMETER_VALUE,

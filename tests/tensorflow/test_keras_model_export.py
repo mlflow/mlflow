@@ -593,7 +593,7 @@ def test_save_model_with_tf_save_format(model_path):
     assert not args[0].endswith(".h5")
 
 
-def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path):
+def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path, data):
     """Ensures that keras models saved with save_format="tf" can be loaded."""
     mlflow.tensorflow.save_model(
         tf_keras_model, path=model_path, keras_model_kwargs={"save_format": "tf"}
@@ -611,10 +611,10 @@ def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path):
     ), "Expected directory containing saved_model.pb"
 
     model_loaded = mlflow.tensorflow.load_model(model_path)
-    assert tf_keras_model.to_json() == model_loaded.to_json()
+    np.testing.assert_allclose(model_loaded.predict(data[0]), tf_keras_model.predict(data[0]))
 
 
-def test_load_without_save_format(tf_keras_model, model_path):
+def test_load_without_save_format(tf_keras_model, model_path, data):
     """Ensures that keras models without save_format can still be loaded."""
     mlflow.tensorflow.save_model(
         tf_keras_model, path=model_path, keras_model_kwargs={"save_format": "h5"}
@@ -627,7 +627,7 @@ def test_load_without_save_format(tf_keras_model, model_path):
     model_conf.save(model_conf_path)
 
     model_loaded = mlflow.tensorflow.load_model(model_path)
-    assert tf_keras_model.to_json() == model_loaded.to_json()
+    np.testing.assert_allclose(model_loaded.predict(data[0]), tf_keras_model.predict(data[0]))
 
 
 # TODO: Remove skipif condition `not Version(tf.__version__).is_devrelease` once

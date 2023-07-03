@@ -62,11 +62,8 @@ def test_autologging_of_datasources_with_different_formats(spark_session, format
 
 def test_autologging_does_not_throw_on_api_failures(spark_session, format_to_file_path, tmp_path):
     mlflow.spark.autolog()
-    url, process = _init_server(
-        f"sqlite:///{tmp_path}/test.db", root_artifact_uri=tmp_path.as_uri()
-    )
-    mlflow.set_tracking_uri(url)
-    try:
+    with _init_server(f"sqlite:///{tmp_path}/test.db", root_artifact_uri=tmp_path.as_uri()) as url:
+        mlflow.set_tracking_uri(url)
         with mlflow.start_run():
             with mock.patch(
                 "mlflow.utils.rest_utils.http_request", side_effect=Exception("API request failed!")
@@ -84,8 +81,6 @@ def test_autologging_does_not_throw_on_api_failures(spark_session, format_to_fil
                 df.limit(2).collect()
                 df.collect()
                 time.sleep(1)
-    finally:
-        process.terminate()
 
 
 def test_autologging_dedups_multiple_reads_of_same_datasource(spark_session, format_to_file_path):

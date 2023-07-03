@@ -2,7 +2,6 @@ import abc
 import inspect
 import itertools
 import functools
-import os
 import uuid
 from abc import abstractmethod
 from contextlib import contextmanager
@@ -21,8 +20,7 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (
     set_non_mlflow_warnings_behavior_for_current_thread,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
-
-_AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
+from mlflow.environment_variables import _MLFLOW_AUTOLOGGING_TESTING
 
 _AUTOLOGGING_PATCHES = {}
 
@@ -278,7 +276,7 @@ def is_testing():
         - Disables exception handling for patched function logic, ensuring that patch code
           executes without errors during testing
     """
-    return os.environ.get(_AUTOLOGGING_TEST_MODE_ENV_VAR, "false") == "true"
+    return _MLFLOW_AUTOLOGGING_TESTING.get()
 
 
 def safe_patch(

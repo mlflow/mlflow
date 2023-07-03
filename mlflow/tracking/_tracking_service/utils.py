@@ -76,23 +76,19 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
 
 
 @contextmanager
-def _use_tracking_uri(uri: str, local_store_root_path: str = None) -> None:
+def _use_tracking_uri(uri: str) -> None:
     """
-    Similar to `mlflow.tracking.set_tracking_uri` function but return a context manager.
-    :param uri: tracking URI to use.
-    :param local_store_root_path: the local store root path for the tracking URI.
+    Temporarily use the specified tracking URI.
+
+    :param uri: The tracking URI to use.
     """
     global _tracking_uri
-    cwd = os.getcwd()
     old_tracking_uri = _tracking_uri
     try:
-        if local_store_root_path is not None:
-            os.chdir(local_store_root_path)
         _tracking_uri = uri
         yield
     finally:
         _tracking_uri = old_tracking_uri
-        os.chdir(cwd)
 
 
 def _resolve_tracking_uri(tracking_uri=None):
@@ -191,18 +187,27 @@ def _get_databricks_uc_rest_store(store_uri, **_):
 
 
 _tracking_store_registry = TrackingStoreRegistry()
-_tracking_store_registry.register("", _get_file_store)
-_tracking_store_registry.register("file", _get_file_store)
-_tracking_store_registry.register("databricks", _get_databricks_rest_store)
-_tracking_store_registry.register(_DATABRICKS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store)
 
-for scheme in ["http", "https"]:
-    _tracking_store_registry.register(scheme, _get_rest_store)
 
-for scheme in DATABASE_ENGINES:
-    _tracking_store_registry.register(scheme, _get_sqlalchemy_store)
+def _register_tracking_stores():
+    global _tracking_store_registry
+    _tracking_store_registry.register("", _get_file_store)
+    _tracking_store_registry.register("file", _get_file_store)
+    _tracking_store_registry.register("databricks", _get_databricks_rest_store)
+    _tracking_store_registry.register(
+        _DATABRICKS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store
+    )
 
-_tracking_store_registry.register_entrypoints()
+    for scheme in ["http", "https"]:
+        _tracking_store_registry.register(scheme, _get_rest_store)
+
+    for scheme in DATABASE_ENGINES:
+        _tracking_store_registry.register(scheme, _get_sqlalchemy_store)
+
+    _tracking_store_registry.register_entrypoints()
+
+
+_register_tracking_stores()
 
 
 def _get_store(store_uri=None, artifact_uri=None):

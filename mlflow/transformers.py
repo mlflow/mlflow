@@ -1677,7 +1677,7 @@ class _TransformersWrapper:
             input_data = data
         else:
             raise MlflowException(
-                "Input data must be either a pandas.DataFrame, a string, List[str], "
+                "Input data must be either a pandas.DataFrame, a string, bytes, List[str], "
                 "List[Dict[str, str]], List[Dict[str, Union[str, List[str]]]], "
                 "or Dict[str, Union[str, List[str]]].",
                 error_code=INVALID_PARAMETER_VALUE,

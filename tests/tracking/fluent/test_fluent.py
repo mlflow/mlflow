@@ -39,8 +39,6 @@ from mlflow.entities import (
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking.fluent import (
-    _EXPERIMENT_ID_ENV_VAR,
-    _EXPERIMENT_NAME_ENV_VAR,
     _get_experiment_id,
     _get_experiment_id_from_env,
     search_runs,
@@ -49,9 +47,12 @@ from mlflow.tracking.fluent import (
     get_run,
 )
 from mlflow.utils import mlflow_tags, get_results_from_paginated_fn
-from mlflow.utils.file_utils import TempDir
 from mlflow.utils.time_utils import get_current_time_millis
-from mlflow.environment_variables import MLFLOW_RUN_ID
+from mlflow.environment_variables import (
+    MLFLOW_RUN_ID,
+    MLFLOW_EXPERIMENT_ID,
+    MLFLOW_EXPERIMENT_NAME,
+)
 
 from tests.helper_functions import multi_context
 
@@ -62,20 +63,20 @@ class HelperEnv:
 
     @classmethod
     def assert_values(cls, exp_id, name):
-        assert os.environ.get(_EXPERIMENT_NAME_ENV_VAR) == name
-        assert os.environ.get(_EXPERIMENT_ID_ENV_VAR) == exp_id
+        assert MLFLOW_EXPERIMENT_NAME.get() == name
+        assert MLFLOW_EXPERIMENT_ID.get() == exp_id
 
     @classmethod
     def set_values(cls, experiment_id=None, name=None):
         if experiment_id:
-            os.environ[_EXPERIMENT_ID_ENV_VAR] = str(experiment_id)
-        elif os.environ.get(_EXPERIMENT_ID_ENV_VAR):
-            del os.environ[_EXPERIMENT_ID_ENV_VAR]
+            MLFLOW_EXPERIMENT_ID.set(str(experiment_id))
+        elif MLFLOW_EXPERIMENT_ID.get():
+            MLFLOW_EXPERIMENT_ID.unset()
 
         if name:
-            os.environ[_EXPERIMENT_NAME_ENV_VAR] = str(name)
-        elif os.environ.get(_EXPERIMENT_NAME_ENV_VAR):
-            del os.environ[_EXPERIMENT_NAME_ENV_VAR]
+            MLFLOW_EXPERIMENT_NAME.set(str(name))
+        elif MLFLOW_EXPERIMENT_NAME.get():
+            MLFLOW_EXPERIMENT_NAME.unset()
 
 
 def create_run(
@@ -209,90 +210,86 @@ def test_get_experiment_id_from_env():
     assert _get_experiment_id_from_env() is None
 
     # set only ID
-    with TempDir(chdr=True):
-        name = "random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
-        assert exp_id is not None
-        HelperEnv.set_values(experiment_id=exp_id)
-        HelperEnv.assert_values(exp_id, None)
-        assert _get_experiment_id_from_env() == exp_id
+    name = "random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(name)
+    assert exp_id is not None
+    HelperEnv.set_values(experiment_id=exp_id)
+    HelperEnv.assert_values(exp_id, None)
+    assert _get_experiment_id_from_env() == exp_id
 
     # set only name
-    with TempDir(chdr=True):
-        name = "random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
-        assert exp_id is not None
-        HelperEnv.set_values(name=name)
-        HelperEnv.assert_values(None, name)
-        assert _get_experiment_id_from_env() == exp_id
+    name = "random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(name)
+    assert exp_id is not None
+    HelperEnv.set_values(name=name)
+    HelperEnv.assert_values(None, name)
+    assert _get_experiment_id_from_env() == exp_id
 
     # create experiment from env name
-    with TempDir(chdr=True):
-        name = "random experiment %d" % random.randint(1, 1e6)
-        HelperEnv.set_values(name=name)
-        HelperEnv.assert_values(None, name)
-        assert MlflowClient().get_experiment_by_name(name) is None
-        assert _get_experiment_id_from_env() is not None
+    name = "random experiment %d" % random.randint(1, 1e6)
+    HelperEnv.set_values(name=name)
+    HelperEnv.assert_values(None, name)
+    assert MlflowClient().get_experiment_by_name(name) is None
+    assert _get_experiment_id_from_env() is not None
 
     # assert experiment creation from encapsulating function
-    with TempDir(chdr=True):
-        name = "random experiment %d" % random.randint(1, 1e6)
-        HelperEnv.set_values(name=name)
-        HelperEnv.assert_values(None, name)
-        assert MlflowClient().get_experiment_by_name(name) is None
-        assert _get_experiment_id() is not None
+    name = "random experiment %d" % random.randint(1, 1e6)
+    HelperEnv.set_values(name=name)
+    HelperEnv.assert_values(None, name)
+    assert MlflowClient().get_experiment_by_name(name) is None
+    assert _get_experiment_id() is not None
 
     # assert raises from conflicting experiment_ids
-    with TempDir(chdr=True):
-        name = "random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
-        random_id = random.randint(100, 1e6)
-        assert exp_id != random_id
-        HelperEnv.set_values(experiment_id=random_id)
-        HelperEnv.assert_values(str(random_id), None)
-        with pytest.raises(
-            MlflowException,
-            match=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment variable value `{random_id}` "
-            "does not exist in the tracking server",
-        ):
-            _get_experiment_id_from_env()
+    name = "random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(name)
+    random_id = random.randint(100, 1e6)
+    assert exp_id != random_id
+    HelperEnv.set_values(experiment_id=random_id)
+    HelperEnv.assert_values(str(random_id), None)
+    with pytest.raises(
+        MlflowException,
+        match=(
+            f"The provided {MLFLOW_EXPERIMENT_ID.name} environment variable value "
+            f"`{random_id}` does not exist in the tracking server"
+        ),
+    ):
+        _get_experiment_id_from_env()
 
     # assert raises from name to id mismatch
-    with TempDir(chdr=True):
-        name = "random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
-        random_id = random.randint(100, 1e6)
-        assert exp_id != random_id
-        HelperEnv.set_values(experiment_id=random_id, name=name)
-        HelperEnv.assert_values(str(random_id), name)
-        with pytest.raises(
-            MlflowException,
-            match=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment variable value `{random_id}` "
-            "does not match the experiment id",
-        ):
-            _get_experiment_id_from_env()
+    name = "random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(name)
+    random_id = random.randint(100, 1e6)
+    assert exp_id != random_id
+    HelperEnv.set_values(experiment_id=random_id, name=name)
+    HelperEnv.assert_values(str(random_id), name)
+    with pytest.raises(
+        MlflowException,
+        match=(
+            f"The provided {MLFLOW_EXPERIMENT_ID.name} environment variable value "
+            f"`{random_id}` does not match the experiment id"
+        ),
+    ):
+        _get_experiment_id_from_env()
 
     # assert does not raise if active experiment is set with invalid env variables
-    with TempDir(chdr=True):
-        invalid_name = "invalid experiment"
-        name = "random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
-        assert exp_id is not None
-        random_id = random.randint(100, 1e6)
-        HelperEnv.set_values(name=invalid_name, experiment_id=random_id)
-        HelperEnv.assert_values(str(random_id), invalid_name)
-        mlflow.set_experiment(experiment_id=exp_id)
-        assert _get_experiment_id() == exp_id
+    invalid_name = "invalid experiment"
+    name = "random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(name)
+    assert exp_id is not None
+    random_id = random.randint(100, 1e6)
+    HelperEnv.set_values(name=invalid_name, experiment_id=random_id)
+    HelperEnv.assert_values(str(random_id), invalid_name)
+    mlflow.set_experiment(experiment_id=exp_id)
+    assert _get_experiment_id() == exp_id
 
 
 def test_get_experiment_id_with_active_experiment_returns_active_experiment_id():
     # Create a new experiment and set that as active experiment
-    with TempDir(chdr=True):
-        name = "Random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
-        assert exp_id is not None
-        mlflow.set_experiment(name)
-        assert _get_experiment_id() == exp_id
+    name = "Random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(name)
+    assert exp_id is not None
+    mlflow.set_experiment(name)
+    assert _get_experiment_id() == exp_id
 
 
 def test_get_experiment_id_with_no_active_experiments_returns_zero():
@@ -310,11 +307,10 @@ def test_get_experiment_id_in_databricks_detects_notebook_id_by_default():
 
 
 def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_experiment_id():
-    with TempDir(chdr=True):
-        exp_name = "random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(exp_name)
-        mlflow.set_experiment(exp_name)
-        notebook_id = str(int(exp_id) + 73)
+    exp_name = "random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(exp_name)
+    mlflow.set_experiment(exp_name)
+    notebook_id = str(int(exp_id) + 73)
 
     with mock.patch(
         "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id",
@@ -325,11 +321,10 @@ def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_e
 
 
 def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_env_experiment_id():
-    with TempDir(chdr=True):
-        exp_name = "random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(exp_name)
-        notebook_id = str(int(exp_id) + 73)
-        HelperEnv.set_values(experiment_id=exp_id)
+    exp_name = "random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(exp_name)
+    notebook_id = str(int(exp_id) + 73)
+    HelperEnv.set_values(experiment_id=exp_id)
 
     with mock.patch(
         "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id",
@@ -340,12 +335,11 @@ def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_
 
 
 def test_get_experiment_by_id():
-    with TempDir(chdr=True):
-        name = "Random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
+    name = "Random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(name)
 
-        experiment = mlflow.get_experiment(exp_id)
-        assert experiment.experiment_id == exp_id
+    experiment = mlflow.get_experiment(exp_id)
+    assert experiment.experiment_id == exp_id
 
 
 def test_get_experiment_by_id_with_is_in_databricks_job():
@@ -358,12 +352,11 @@ def test_get_experiment_by_id_with_is_in_databricks_job():
 
 
 def test_get_experiment_by_name():
-    with TempDir(chdr=True):
-        name = "Random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
+    name = "Random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(name)
 
-        experiment = mlflow.get_experiment_by_name(name)
-        assert experiment.experiment_id == exp_id
+    experiment = mlflow.get_experiment_by_name(name)
+    assert experiment.experiment_id == exp_id
 
 
 def test_search_experiments(tmp_path):

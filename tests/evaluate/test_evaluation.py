@@ -650,13 +650,13 @@ def test_pandas_df_regressor_evaluation_mlflow_dataset_without_targets(linear_re
     df = pd.DataFrame(data.data, columns=data.feature_names)
     df["y"] = data.target
     mlflow_df = from_pandas(df=df, source="my_src")
-    with mlflow.start_run() as run:  # pylint: disable=unused-variable
+    with mlflow.start_run():
         with pytest.raises(
             MlflowException,
             match="The targets argument is required when data is a Dataset and does not define "
             "targets.",
         ):
-            eval_result = evaluate(  # pylint: disable=unused-variable
+            evaluate(
                 linear_regressor_model_uri,
                 data=mlflow_df,
                 model_type="regressor",

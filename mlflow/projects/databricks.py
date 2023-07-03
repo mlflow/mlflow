@@ -25,7 +25,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.uri import is_databricks_uri, is_http_uri
 from mlflow.utils.string_utils import quote
 from mlflow.version import is_release_version, VERSION
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.environment_variables import MLFLOW_TRACKING_URI, MLFLOW_EXPERIMENT_ID
 
 # Base directory within driver container for storing files related to MLflow
 DB_CONTAINER_BASE = "/databricks/mlflow"
@@ -269,7 +269,7 @@ class DatabricksJobRunner:
         dbfs_fuse_uri = self._upload_project_to_dbfs(work_dir, experiment_id)
         env_vars = {
             MLFLOW_TRACKING_URI.name: tracking_uri,
-            tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
+            MLFLOW_EXPERIMENT_ID.name: experiment_id,
         }
         _logger.info("=== Running entry point %s of project %s on Databricks ===", entry_point, uri)
         # Launch run on Databricks
