@@ -174,7 +174,7 @@ def _decode_json_input(json_input):
 def _split_data_and_params(json_input):
     input_dict = _decode_json_input(json_input)
     data = {k: v for k, v in input_dict.items() if k in SUPPORTED_FORMATS}
-    params = input_dict.get("params", {})
+    params = input_dict.get("params")
     return data, params
 
 
@@ -297,7 +297,7 @@ def invocations(data, content_type, model, input_schema):
     if mime_type == CONTENT_TYPE_CSV:
         csv_input = StringIO(data)
         data = parse_csv_input(csv_input=csv_input, schema=input_schema)
-        params = {}
+        params = None
     elif mime_type == CONTENT_TYPE_JSON:
         data, params = _split_data_and_params(data)
         data = infer_and_parse_data(data, input_schema)
@@ -401,7 +401,7 @@ def _predict(model_uri, input_path, output_path, content_type):
             df = parse_csv_input(input_path)
         else:
             df = parse_csv_input(sys.stdin)
-        params = {}
+        params = None
     else:
         raise Exception(f"Unknown content type '{content_type}'")
 
