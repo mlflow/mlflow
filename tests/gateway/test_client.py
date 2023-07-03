@@ -2,6 +2,7 @@ import pytest
 from requests.exceptions import HTTPError
 from unittest import mock
 
+from mlflow.gateway.constants import MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE
 from mlflow.gateway.envs import MLFLOW_GATEWAY_URI  # TODO: change to environment_variables import
 from mlflow.exceptions import MlflowException, InvalidUrlException
 import mlflow.gateway.utils
@@ -227,6 +228,43 @@ def test_search_mixed_routes(mixed_gateway):
     assert completions_route.route_type == "llm/v1/completions"
     assert completions_route.name == "completions"
     assert completions_route.model.provider == "anthropic"
+
+
+def test_search_routes_returns_expected_pages(tmp_path):
+    conf = tmp_path / "config.yaml"
+    base_route_config = {
+        "route_type": "llm/v1/completions",
+        "model": {
+            "name": "text-davinci-003",
+            "provider": "openai",
+            "config": {
+                "openai_api_key": "mykey",
+                "openai_api_base": "https://api.openai.com/v1",
+                "openai_api_version": "2023-05-10",
+                "openai_api_type": "openai",
+            },
+        },
+    }
+    num_routes = MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE + 5
+    gateway_route_names = [f"route_{i}" for i in range(num_routes)]
+    gateway_config_dict = {
+        "routes": [{"name": route_name, **base_route_config} for route_name in gateway_route_names]
+    }
+    save_yaml(conf, gateway_config_dict)
+    with Gateway(conf) as gateway:
+        gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
+        routes_page_1 = gateway_client.search_routes()
+        assert [route.name for route in routes_page_1] == gateway_route_names[
+            :MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE
+        ]
+        assert routes_page_1.token
+
+        routes_page_2 = gateway_client.search_routes(page_token=routes_page_1.token)
+        assert len(routes_page_2) == 5
+        assert [route.name for route in routes_page_2] == gateway_route_names[
+            MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE:
+        ]
+        assert not routes_page_2.token
 
 
 def test_query_invalid_route(gateway):
