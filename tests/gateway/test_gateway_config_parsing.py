@@ -28,7 +28,7 @@ def basic_config_dict():
                         "openai_api_key": "mykey",
                         "openai_api_base": "https://api.openai.com/v1",
                         "openai_api_version": "2023-05-10",
-                        "openai_api_type": "openai/v1/chat/completions",
+                        "openai_api_type": "openai",
                         "openai_organization": "my_company",
                     },
                 },
@@ -142,7 +142,7 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
     assert completions_conf.openai_api_key == "mykey"
     assert completions_conf.openai_api_base == "https://api.openai.com/v1"
     assert completions_conf.openai_api_version == "2023-05-10"
-    assert completions_conf.openai_api_type == "openai/v1/chat/completions"
+    assert completions_conf.openai_api_type == "openai"
     assert completions_conf.openai_organization == "my_company"
 
     chat_gpt4 = loaded_from_save.routes[1]

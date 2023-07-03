@@ -25,7 +25,7 @@ def client() -> TestClient:
                             "openai_api_key": "mykey",
                             "openai_api_base": "https://api.openai.com/v1",
                             "openai_api_version": "2023-05-10",
-                            "openai_api_type": "openai/v1/chat/completions",
+                            "openai_api_type": "openai",
                         },
                     },
                 },
@@ -71,6 +71,7 @@ def test_search_routes(client: TestClient):
                     "name": "gpt-4",
                     "provider": "openai",
                 },
+                "route_url": None,
             },
             {
                 "name": "chat-gpt4",
@@ -79,6 +80,7 @@ def test_search_routes(client: TestClient):
                     "name": "gpt-4",
                     "provider": "openai",
                 },
+                "route_url": None,
             },
         ]
     }
@@ -94,6 +96,7 @@ def test_get_route(client: TestClient):
             "name": "gpt-4",
             "provider": "openai",
         },
+        "route_url": None,
     }
 
 
