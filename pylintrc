@@ -84,7 +84,6 @@ enable=signature-differs,
        consider-merging-isinstance,
        consider-using-dict-items,
        unnecessary-comprehension,
-       singleton-comparison,
        unnecessary-lambda-assignment,
        # Built-in rules
        # --------------
