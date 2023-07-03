@@ -440,7 +440,6 @@ async def test_azuread_openai():
     [
         # Invalid API Types
         ("invalidtype", None, None, None, None, MlflowException),
-        (0, None, None, None, None, MlflowException),
         # OpenAI API type
         ("openai", None, None, None, None, None),
         ("openai", "https://api.openai.com/v1", None, None, None, None),
@@ -475,6 +474,51 @@ def test_openai_provider_validates_openai_config(
     organization,
     exception_type,
 ):
+    if exception_type is not None:
+        with pytest.raises(exception_type, match="OpenAI"):
+            OpenAIConfig(
+                openai_api_key="mock-api-key",
+                openai_api_type=api_type,
+                openai_api_base=api_base,
+                openai_deployment_name=deployment_name,
+                openai_api_version=api_version,
+                openai_organization=organization,
+            )
+    else:
+        OpenAIConfig(
+            openai_api_key="mock-api-key",
+            openai_api_type=api_type,
+            openai_api_base=api_base,
+            openai_deployment_name=deployment_name,
+            openai_api_version=api_version,
+            openai_organization=organization,
+        )
+
+
+@pytest.mark.parametrize(
+    ("api_type", "api_base", "deployment_name", "api_version", "organization"),
+    [
+        # OpenAI API type
+        ("openai", None, None, None, None),
+        ("openai", "https://api.openai.com/v1", None, None, None),
+        ("openai", "https://api.openai.com/v1", None, "2023-05-15", None),
+        ("openAI", "https://api.openai.com/v1", None, "2023-05-15", None),
+        ("openAI", "https://api.openai.com/v1", None, "2023-05-15", "test-organization"),
+        # Azure API type
+        ("azure", "https://test.openai.azure.com", "mock-dep", "2023-05-15", None),
+        ("AZURe", "https://test.openai.azure.com", "mock-dep", "2023-04-12", None),
+        # AzureAD API type
+        ("azuread", "https://test.openai.azure.com", "mock-dep", "2023-05-15", None),
+        ("azureAD", "https://test.openai.azure.com", "mock-dep", "2023-04-12", None),
+    ],
+)
+def test_openai_provider_can_be_constructed_with_valid_configs(
+    api_type,
+    api_base,
+    deployment_name,
+    api_version,
+    organization,
+):
     openai_config = OpenAIConfig(
         openai_api_key="mock-api-key",
         openai_api_type=api_type,
@@ -492,9 +536,42 @@ def test_openai_provider_validates_openai_config(
             "config": dict(openai_config),
         },
     )
-    if exception_type is not None:
-        with pytest.raises(exception_type, match="OpenAI"):
-            OpenAIProvider(route_config)
-    else:
-        provider = OpenAIProvider(route_config)
-        assert provider.openai_config == openai_config
+    provider = OpenAIProvider(route_config)
+    assert provider.openai_config == openai_config
+
+
+@pytest.mark.parametrize(
+    ("api_type", "api_base", "deployment_name", "api_version", "organization"),
+    [
+        # Invalid API Type
+        ("invalidtype", None, None, None, None),
+        # Deployment name is specified when API type is not 'azure' or 'azuread'
+        ("openai", None, "mock-deployment", None, None),
+        # Missing required API base, deployment name, and / or api version fields
+        ("azure", None, None, None, None),
+        ("azure", "https://test.openai.azure.com", "mock-dep", None, None),
+        # Organization is specified when API type is not 'openai'
+        ("azure", "https://test.openai.azure.com", "mock-dep", "2023", "test-org"),
+        # Missing required API base, deployment name, and / or api version fields
+        ("azuread", None, None, None, None),
+        ("azuread", "https://test.openai.azure.com", "mock-dep", None, None),
+        # Organization is specified when API type is not 'openai'
+        ("azuread", "https://test.openai.azure.com", "mock", "2023", "test-org"),
+    ],
+)
+def test_invalid_openai_configs_throw_on_construction(
+    api_type,
+    api_base,
+    deployment_name,
+    api_version,
+    organization,
+):
+    with pytest.raises(MlflowException, match="OpenAI"):
+        openai_config = OpenAIConfig(
+            openai_api_key="mock-api-key",
+            openai_api_type=api_type,
+            openai_api_base=api_base,
+            openai_deployment_name=deployment_name,
+            openai_api_version=api_version,
+            openai_organization=organization,
+        )

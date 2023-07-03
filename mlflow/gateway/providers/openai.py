@@ -7,11 +7,7 @@ from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 from .base import BaseProvider
 from .utils import send_request, rename_payload_keys
 from ..schemas import chat, completions, embeddings
-from ..config import OpenAIConfig, RouteConfig
-
-_API_TYPE_OPENAI = "openai"
-_API_TYPE_AZURE = "azure"
-_API_TYPE_AZUREAD = "azuread"
+from ..config import OpenAIConfig, OpenAIAPIType, RouteConfig
 
 
 class OpenAIProvider(BaseProvider):
@@ -23,52 +19,21 @@ class OpenAIProvider(BaseProvider):
                 "Invalid config type {config.model.config}"
             )
         self.openai_config: OpenAIConfig = config.model.config
-        self.openai_api_type = (self.openai_config.openai_api_type or _API_TYPE_OPENAI).lower()
-        self._validate_openai_config()
-
-    def _validate_openai_config(self):
-        if not self.openai_config.openai_api_key:
-            raise MlflowException.invalid_parameter_value(
-                "OpenAI route configuration must specify 'openai_api_key'"
-            )
-
-        if self.openai_api_type == _API_TYPE_OPENAI:
-            if self.openai_config.openai_deployment_name is not None:
-                raise MlflowException.invalid_parameter_value(
-                    f"OpenAI route configuration can only specify a value for "
-                    f"'openai_deployment_name' if 'openai_api_type' is '{_API_TYPE_AZURE}' or "
-                    f"'{_API_TYPE_AZUREAD}'. Found type: '{self.openai_api_type}'"
-                )
-        elif self.openai_api_type in (_API_TYPE_AZURE, _API_TYPE_AZUREAD):
-            if self.openai_config.openai_organization is not None:
-                raise MlflowException.invalid_parameter_value(
-                    f"OpenAI route configuration can only specify a value for "
-                    f"'openai_organization' if 'openai_api_type' is '{_API_TYPE_OPENAI}'"
-                )
-
-            base_url = self.openai_config.openai_api_base
-            deployment_name = self.openai_config.openai_deployment_name
-            api_version = self.openai_config.openai_api_version
-            if (base_url, deployment_name, api_version).count(None) > 0:
-                raise MlflowException.invalid_parameter_value(
-                    f"OpenAI route configuration must specify 'openai_api_base', "
-                    f"'openai_deployment_name', and 'openai_api_version' if 'openai_api_type' is "
-                    f"'{_API_TYPE_AZURE}' or '{_API_TYPE_AZUREAD}'."
-                )
-        else:
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid OpenAI API type '{self.openai_api_type}'"
-            )
 
     @property
     def _request_base_url(self):
-        if self.openai_api_type == _API_TYPE_OPENAI:
-            return self.openai_config.openai_api_base or "https://api.openai.com/v1"
-        elif self.openai_api_type in (_API_TYPE_AZURE, _API_TYPE_AZUREAD):
+        api_type = self.openai_config.openai_api_type
+        if api_type == OpenAIAPIType.OPENAI:
+            base_url = self.openai_config.openai_api_base or "https://api.openai.com/v1"
+            if api_version := self.openai_config.openai_api_version is not None:
+                return append_to_uri_query_params(base_url, ("api-version", api_version))
+            else:
+                return base_url
+        elif api_type in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD):
             if self.openai_config.openai_api_base is None:
                 raise MlflowException.invalid_parameter_value(
                     f"OpenAI route configuration must specify 'openai_api_base' when"
-                    f"'openai_api_type' is '{_API_TYPE_AZURE}' or '{_API_TYPE_AZUREAD}'."
+                    f"'openai_api_type' is '{OpenAIAPIType.AZURE}' or '{OpenAIAPIType.AZUREAD}'."
                 )
             openai_url = append_to_uri_path(
                 self.openai_config.openai_api_base,
@@ -87,18 +52,19 @@ class OpenAIProvider(BaseProvider):
 
     @property
     def _request_headers(self):
-        if self.openai_api_type == _API_TYPE_OPENAI:
+        api_type = self.openai_config.openai_api_type
+        if api_type == OpenAIAPIType.OPENAI:
             headers = {
                 "Authorization": f"Bearer {self.openai_config.openai_api_key}",
             }
             if org := self.openai_config.openai_organization:
                 headers["OpenAI-Organization"] = org
             return headers
-        elif self.openai_api_type == _API_TYPE_AZUREAD:
+        elif api_type == OpenAIAPIType.AZUREAD:
             return {
                 "Authorization": f"Bearer {self.openai_config.openai_api_key}",
             }
-        elif self.openai_api_type == _API_TYPE_AZURE:
+        elif api_type == OpenAIAPIType.AZURE:
             return {
                 "api-key": self.openai_config.openai_api_key,
             }

@@ -99,18 +99,18 @@ class MockAsyncResponse:
         pass
 
 
+class MockHttpClient(mock.Mock):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return
+
+
 def mock_http_client(mock_response: MockAsyncResponse):
-    class MockHttpClient(mock.Mock):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            # self.post = mock.Mock(return_value=MockAsyncResponse(resp))
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *args):
-            return
-
     mock_http_client = MockHttpClient()
     mock_http_client.post = mock.Mock(return_value=mock_response)
     return mock_http_client
