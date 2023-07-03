@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from pydantic import BaseModel, validator, root_validator, parse_obj_as, Extra, ValidationError
 from pydantic.json import pydantic_encoder
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Dict, Any
 import yaml
 
 from mlflow.exceptions import MlflowException
@@ -73,7 +73,7 @@ class OpenAIConfig(BaseModel, extra=Extra.allow):
         return _resolve_api_key_from_input(value)
 
     @root_validator(pre=False)
-    def validate_field_compatibility(cls, config: "OpenAIConfig"):
+    def validate_field_compatibility(cls, config: Dict[str, Any]):
         api_type = config.get("openai_api_type")
         if api_type == OpenAIAPIType.OPENAI:
             if config.get("openai_deployment_name") is not None:
