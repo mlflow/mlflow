@@ -39,7 +39,8 @@ def completions_config():
 
 
 @pytest.mark.asyncio
-async def test_completions():
+@pytest.mark.parametrize("candidate_count", [1, None])
+async def test_completions(candidate_count):
     resp = completions_response()
     config = completions_config()
     with mock.patch(
@@ -47,6 +48,8 @@ async def test_completions():
     ) as mock_post:
         provider = AnthropicProvider(RouteConfig(**config))
         payload = {"prompt": "How does a car work?", "max_tokens": 200}
+        if candidate_count is not None:
+            payload["candidate_count"] = candidate_count
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
             "candidates": [
@@ -76,6 +79,21 @@ async def test_completions_throws_with_missing_max_tokens():
         await provider.completions(completions.RequestPayload(**payload))
     assert "You must set an integer value for 'max_tokens' for the Anthropic" in e.value.detail
     assert e.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_completions_throws_with_unsupported_candidate_count():
+    config = completions_config()
+    provider = AnthropicProvider(RouteConfig(**config))
+    payload = {
+        "prompt": "Would Fozzie or Kermet win in a fight?",
+        "candidate_count": 5,
+        "max_tokens": 10,
+    }
+    with pytest.raises(HTTPException, match=r".*") as e:
+        await provider.completions(completions.RequestPayload(**payload))
+    assert "'candidate_count' must be '1' for the Anthropic provider" in e.value.detail
+    assert e.value.status_code == 422
 
 
 @pytest.mark.asyncio
