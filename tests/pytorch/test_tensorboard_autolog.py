@@ -20,7 +20,7 @@ def test_pytorch_autolog_logs_expected_data(tmp_path):
             t1 = time.time()
             timestamps.append((int(t0 * 1000), int(t1 * 1000)))
 
-        writer.add_hparams(dict(hparam1=42, hparam2="foo"), dict(final_loss=8))
+        writer.add_hparams({"hparam1": 42, "hparam2": "foo"}, {"final_loss": 8})
         writer.close()
 
     # Checking if metrics are logged.
