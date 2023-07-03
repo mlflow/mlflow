@@ -388,7 +388,6 @@ async def test_azure_openai():
                 "/chat/completions?api-version=2023-05-15"
             ),
             json={
-                "model": "gpt-35-turbo",
                 "temperature": 0,
                 "messages": [{"role": "user", "content": "This is a test"}],
             },
@@ -428,7 +427,6 @@ async def test_azuread_openai():
                 "/chat/completions?api-version=2023-05-15"
             ),
             json={
-                "model": "gpt-35-turbo",
                 "temperature": 0,
                 "messages": [{"role": "user", "content": "This is a test"}],
             },

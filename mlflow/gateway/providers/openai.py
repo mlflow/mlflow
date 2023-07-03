@@ -87,10 +87,10 @@ class OpenAIProvider(BaseProvider):
             base_url=self._request_base_url,
             path="chat/completions",
             payload=(
-                {"model": self.config.model.name, **payload}
+                payload
                 if self.openai_config.openai_api_type
                 in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD)
-                else payload
+                else {"model": self.config.model.name, **payload}
             ),
         )
         # Response example (https://platform.openai.com/docs/api-reference/chat/create)
@@ -158,7 +158,12 @@ class OpenAIProvider(BaseProvider):
             headers=self._request_headers,
             base_url=self._request_base_url,
             path="chat/completions",
-            payload={"model": self.config.model.name, **payload},
+            payload=(
+                payload
+                if self.openai_config.openai_api_type
+                in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD)
+                else {"model": self.config.model.name, **payload}
+            ),
         )
         # Response example (https://platform.openai.com/docs/api-reference/completions/create)
         # ```
@@ -210,7 +215,12 @@ class OpenAIProvider(BaseProvider):
             headers=self._request_headers,
             base_url=self._request_base_url,
             path="embeddings",
-            payload={"model": self.config.model.name, **payload},
+            payload=(
+                payload
+                if self.openai_config.openai_api_type
+                in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD)
+                else {"model": self.config.model.name, **payload}
+            ),
         )
         # Response example (https://platform.openai.com/docs/api-reference/embeddings/create):
         # ```
