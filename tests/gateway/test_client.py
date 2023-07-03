@@ -24,7 +24,7 @@ def basic_config_dict():
                         "openai_api_key": "mykey",
                         "openai_api_base": "https://api.openai.com/v1",
                         "openai_api_version": "2023-05-10",
-                        "openai_api_type": "openai/v1/chat/completions",
+                        "openai_api_type": "openai",
                     },
                 },
             },
@@ -183,6 +183,7 @@ def test_query_individual_route(gateway, monkeypatch):
         "model": {"name": "text-davinci-003", "provider": "openai"},
         "name": "completions",
         "route_type": "llm/v1/completions",
+        "route_url": None,
     }
 
     route2 = gateway_client.get_route(name="chat")
@@ -191,6 +192,7 @@ def test_query_individual_route(gateway, monkeypatch):
         "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
         "name": "chat",
         "route_type": "llm/v1/chat",
+        "route_url": None,
     }
 
 
@@ -247,11 +249,13 @@ def test_list_all_configured_routes(gateway):
         "model": {"name": "text-davinci-003", "provider": "openai"},
         "name": "completions",
         "route_type": "llm/v1/completions",
+        "route_url": None,
     }
     assert routes[1].dict() == {
         "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
         "name": "chat",
         "route_type": "llm/v1/chat",
+        "route_url": None,
     }
 
 
@@ -370,7 +374,7 @@ def test_client_create_route_raises(gateway):
                 "provider": "openai",
                 "config": {
                     "openai_api_key": "mykey",
-                    "openai_api_type": "openai/v1/chat/completions",
+                    "openai_api_type": "openai",
                 },
             },
         )

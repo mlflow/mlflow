@@ -21,7 +21,7 @@ def basic_config_dict():
                         "openai_api_key": "mykey",
                         "openai_api_base": "https://api.openai.com/v1",
                         "openai_api_version": "2023-05-15",
-                        "openai_api_type": "open_ai",
+                        "openai_api_type": "openai",
                     },
                 },
             },
@@ -35,7 +35,7 @@ def basic_config_dict():
                         "openai_api_key": "mykey",
                         "openai_api_base": "https://api.openai.com/v1",
                         "openai_api_version": "2023-05-15",
-                        "openai_api_type": "open_ai",
+                        "openai_api_type": "openai",
                     },
                 },
             },
@@ -54,6 +54,7 @@ def basic_routes():
                     "name": "gpt-4",
                     "provider": "openai",
                 },
+                "route_url": None,
             },
             {
                 "name": "embeddings-gpt4",
@@ -62,6 +63,7 @@ def basic_routes():
                     "name": "gpt-4",
                     "provider": "openai",
                 },
+                "route_url": None,
             },
         ]
     }
@@ -81,7 +83,7 @@ def update_config_dict():
                         "openai_api_key": "mykey",
                         "openai_api_base": "https://api.openai.com/v1",
                         "openai_api_version": "2023-05-15",
-                        "openai_api_type": "open_ai",
+                        "openai_api_type": "openai",
                     },
                 },
             },
@@ -100,6 +102,7 @@ def update_routes():
                     "name": "gpt-4",
                     "provider": "openai",
                 },
+                "route_url": None,
             },
         ]
     }
