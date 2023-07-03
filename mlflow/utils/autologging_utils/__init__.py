@@ -31,6 +31,8 @@ from mlflow.utils.autologging_utils.versioning import (
     is_flavor_supported_for_associated_package_versions,
 )
 
+from mlflow.utils.autologging_utils.events import AutologgingEventLogger
+
 # Wildcard import other autologging utilities (e.g. safety utilities, event logging utilities) used
 # in autologging integration implementations, which reference them via the
 # `mlflow.utils.autologging_utils` module
