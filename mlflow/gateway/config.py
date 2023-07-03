@@ -240,7 +240,7 @@ class RouteConfig(BaseModel, extra=Extra.allow):
         )
 
 
-class Route(BaseModel):
+class Route(BaseModel, extra=Extra.ignore):
     name: str
     route_type: RouteType
     model: ModelInfo
