@@ -240,11 +240,23 @@ class RouteConfig(BaseModel, extra=Extra.allow):
         )
 
 
-class Route(BaseModel, extra=Extra.allow):
+class Route(BaseModel):
     name: str
     route_type: RouteType
     model: ModelInfo
     route_url: Optional[str] = None
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "name": "openai-completions",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "name": "gpt-3.5-turbo",
+                    "provider": "openai",
+                }
+            }
+        }
 
 
 class GatewayConfig(BaseModel, extra=Extra.allow):
