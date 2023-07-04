@@ -733,7 +733,7 @@ def test_spark_udf_with_col_spec_type_input(spark):
         np.testing.assert_almost_equal(res.c_float.tolist(), [1.5])
 
 
-def test_spark_udf_stdin_scoring_server(spark, monkeypatch):
+def test_spark_udf_stdin_scoring_server(spark):
     X, y = datasets.load_iris(return_X_y=True, as_frame=True)
     X = X[::5]
     y = y[::5]

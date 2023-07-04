@@ -842,7 +842,7 @@ def test_multi_modal_component_save_and_load(component_multi_modal, model_path, 
 
 @flaky()
 def test_pipeline_saved_model_with_processor_cannot_be_loaded_as_pipeline(
-    component_multi_modal, model_path, image_for_test
+    component_multi_modal, model_path
 ):
     invalid_pipeline = transformers.pipeline(
         task="visual-question-answering", **component_multi_modal
@@ -1071,9 +1071,7 @@ def test_transformers_log_with_extra_pip_requirements(small_multi_modal_pipeline
         )
 
 
-def test_transformers_log_with_duplicate_pip_requirements(
-    small_multi_modal_pipeline, tmp_path, capsys
-):
+def test_transformers_log_with_duplicate_pip_requirements(small_multi_modal_pipeline, capsys):
     with mlflow.start_run():
         mlflow.transformers.log_model(
             small_multi_modal_pipeline,
@@ -1087,9 +1085,7 @@ def test_transformers_log_with_duplicate_pip_requirements(
     )
 
 
-def test_transformers_log_with_duplicate_extra_pip_requirements(
-    small_multi_modal_pipeline, tmp_path, capsys
-):
+def test_transformers_log_with_duplicate_extra_pip_requirements(small_multi_modal_pipeline, capsys):
     with mlflow.start_run():
         mlflow.transformers.log_model(
             small_multi_modal_pipeline,
@@ -1855,7 +1851,7 @@ def test_infer_signature_from_example_only(
         assert model.saved_input_example_info is None
 
 
-def test_qa_pipeline_pyfunc_predict(small_qa_pipeline, tmp_path):
+def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
     artifact_path = "qa_model"
     with mlflow.start_run():
         mlflow.transformers.log_model(
@@ -1911,7 +1907,7 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline, tmp_path):
     assert values.to_dict(orient="records") == [{0: "Run"}]
 
 
-def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline, tmp_path):
+def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
     artifact_path = "text_classifier_model"
     with mlflow.start_run():
         mlflow.transformers.log_model(
@@ -1955,7 +1951,7 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline, tmp_pa
     assert len(values.to_dict()["score"]) == 1
 
 
-def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline, tmp_path):
+def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline):
     artifact_path = "zero_shot_classifier_model"
     with mlflow.start_run():
         mlflow.transformers.log_model(
@@ -2012,7 +2008,7 @@ def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline, tmp_path):
     assert len(values.to_dict()["labels"]) == 6
 
 
-def test_table_question_answering_pyfunc_predict(table_question_answering_pipeline, tmp_path):
+def test_table_question_answering_pyfunc_predict(table_question_answering_pipeline):
     artifact_path = "table_qa_model"
     with mlflow.start_run():
         mlflow.transformers.log_model(
