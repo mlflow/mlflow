@@ -3,6 +3,8 @@ The ``mlflow.pyfunc.model`` module defines logic for saving and loading custom "
 models with a user-defined ``PythonModel`` subclass.
 """
 
+import inspect
+import logging
 import os
 import posixpath
 import shutil
@@ -39,6 +41,9 @@ CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
 CONFIG_KEY_ARTIFACT_URI = "uri"
 CONFIG_KEY_PYTHON_MODEL = "python_model"
 CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
+
+
+_logger = logging.getLogger(__name__)
 
 
 def get_default_pip_requirements():
@@ -392,4 +397,14 @@ class _PythonModelPyfuncWrapper:
 
         :return: Model predictions.
         """
-        return self.python_model.predict(self.context, self._convert_input(model_input), params)
+        if params:
+            if inspect.signature(self.python_model.predict).parameters.get("params"):
+                return self.python_model.predict(
+                    self.context, self._convert_input(model_input), params
+                )
+            else:
+                _logger.warning(
+                    "The python_model does not support passing additional parameters to the predict"
+                    f" function. `params` {params} will be ignored."
+                )
+        return self.python_model.predict(self.context, self._convert_input(model_input))
