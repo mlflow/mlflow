@@ -39,8 +39,8 @@ class CohereConfig(BaseModel, extra=Extra.allow):
     cohere_api_base: str = "https://api.cohere.ai/v1"
 
     # pylint: disable=no-self-argument
-    @validator("api_key", pre=True)
-    def validate_api_key(cls, value):
+    @validator("cohere_api_key", pre=True)
+    def validate_cohere_api_key(cls, value):
         return _resolve_api_key_from_input(value)
 
 
