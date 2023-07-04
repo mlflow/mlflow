@@ -639,6 +639,48 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
 
 
+def test_sklearn_compatible_with_mlflow_2_4_0(sklearn_knn_model):
+    model, inference_dataframe = sklearn_knn_model
+    model_predict = model.predict(inference_dataframe)
+
+    assert mlflow.__version__ > "2.4.0"
+    model_uri = "tests/sklearn/test_resources/test_model"
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_uri)
+
+    # predict is compatible
+    local_predict = pyfunc_loaded.predict(inference_dataframe)
+    np.testing.assert_array_almost_equal(local_predict, model_predict)
+
+    # model serving is compatible
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=pd.DataFrame(inference_dataframe),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
+    )
+    scores = pd.DataFrame(
+        data=json.loads(resp.content.decode("utf-8"))["predictions"]
+    ).values.squeeze()
+    np.testing.assert_array_almost_equal(scores, model_predict)
+
+    # Raise error if trying to pass params to model logged with mlflow <= 2.4.1
+    with pytest.raises(
+        MlflowException, match=r"Parameters schema must be provided if `params` are provided."
+    ):
+        pyfunc_loaded.predict(inference_dataframe, params={"top_k": 2})
+
+    # Raise error if trying to pass params to model logged with mlflow <= 2.4.1 for model serving
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=json.dumps(
+            {"dataframe_split": inference_dataframe.to_dict(orient="split"), "params": {"top_k": 2}}
+        ),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 500
+
+
 def test_log_model_with_code_paths(sklearn_knn_model):
     artifact_path = "model"
     with mlflow.start_run(), mock.patch(
