@@ -173,7 +173,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         )
 
     @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE)
-    async def search_routes(page_token: Union[str, None] = None) -> SearchRoutesResponse:
+    async def search_routes(page_token: Optional[str] = None) -> SearchRoutesResponse:
         if page_token is not None:
             start_idx = SearchRoutesToken.decode(page_token).index
         else:
