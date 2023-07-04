@@ -4,7 +4,7 @@
 pydantic:
   pip_release: pydantic
   minimum: "1.0"
-  max_major_version: 2
+  max_major_version: 1
 
 fastapi:
   pip_release: fastapi
