@@ -435,8 +435,9 @@ class PyFuncModel:
                 if _MLFLOW_TESTING.get():
                     raise
 
-        # To avoid breaking change for examples like
-        # tests/pyfunc/test_model_export_with_loader_module_and_data_path.py::test_model_save_load
+        # Models saved prior to MLflow 2.5.0 do not support `params` in the pyfunc `predict()`
+        # function definition, nor do they support `**kwargs`. Accordingly, we only pass `params`
+        # to the `predict()` method if it defines the `params` argument
         if inspect.signature(self._predict_fn).parameters.get("params"):
             return self._predict_fn(data, params)
         return self._predict_fn(data)
