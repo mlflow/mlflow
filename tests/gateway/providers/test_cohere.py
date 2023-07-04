@@ -17,7 +17,7 @@ def completions_config():
             "provider": "cohere",
             "name": "command",
             "config": {
-                "api_key": "key",
+                "cohere_api_key": "key",
             },
         },
     }
@@ -92,7 +92,7 @@ def embeddings_config():
             "provider": "cohere",
             "name": "embed-english-light-v2.0",
             "config": {
-                "api_key": "key",
+                "cohere_api_key": "key",
             },
         },
     }
