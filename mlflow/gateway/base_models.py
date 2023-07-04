@@ -26,9 +26,8 @@ class ResponseModel(
 
 class ConfigModel(
     BaseModel,
-    # Allow extra fields for pydantic config models, e.g. to support
-    # vendor-specific configuration attributes
-    extra=Extra.allow,
+    # Ignore extra fields for pydantic config models, since they are unused
+    extra=Extra.ignore,
 ):
     """
     A pydantic model representing Gateway configuration data, such as an OpenAI completions
