@@ -18,7 +18,7 @@ class ResponseModel(
     BaseModel,
     # Ignore extra fields for pydantic response models to ensure a consistent response
     # experience for clients across different backends
-    extra=Extra.allow,
+    extra=Extra.ignore,
 ):
     """
     A pydantic model representing Gateway response data, such as information about a Gateway
