@@ -3,15 +3,10 @@ import time
 import mlflow
 import mlflow.spark
 
-from tests.tracking.test_rest_tracking import mlflow_client  # pylint: disable=unused-import
 from tests.spark.autologging.utils import (
     _assert_spark_data_logged,
     _assert_spark_data_not_logged,
 )
-from tests.spark.autologging.utils import spark_session  # pylint: disable=unused-import
-from tests.spark.autologging.utils import format_to_file_path  # pylint: disable=unused-import
-from tests.spark.autologging.utils import data_format  # pylint: disable=unused-import
-from tests.spark.autologging.utils import file_path  # pylint: disable=unused-import
 
 
 # Note that the following tests run one-after-the-other and operate on the SAME spark_session
