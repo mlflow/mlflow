@@ -74,7 +74,6 @@ disable=all
 # it should appear only once). See also the "--disable" option for examples.
 enable=signature-differs,
        line-too-long,
-       undefined-variable,
        unused-import,
        super-with-arguments,
        useless-object-inheritance,
