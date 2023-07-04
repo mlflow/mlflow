@@ -1,15 +1,13 @@
 from typing import List, Union, Optional
 
-from pydantic import BaseModel, Extra
-
+from ..base_models import RequestModel, ResponseModel
 from ..config import RouteType
 
 
-class RequestPayload(BaseModel):
+class RequestPayload(RequestModel):
     text: Union[str, List[str]]
 
     class Config:
-        extra = Extra.allow
         schema_extra = {
             "example": {
                 "text": ["hello", "world"],
@@ -17,7 +15,7 @@ class RequestPayload(BaseModel):
         }
 
 
-class Metadata(BaseModel, extra=Extra.allow):
+class Metadata(ResponseModel):
     input_tokens: Optional[int]
     output_tokens: Optional[int]
     total_tokens: Optional[int]
@@ -25,12 +23,11 @@ class Metadata(BaseModel, extra=Extra.allow):
     route_type: RouteType
 
 
-class ResponsePayload(BaseModel):
+class ResponsePayload(ResponseModel):
     embeddings: List[List[float]]
     metadata: Metadata
 
     class Config:
-        extra = Extra.allow
         schema_extra = {
             "example": {
                 "embeddings": [
