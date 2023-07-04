@@ -378,31 +378,16 @@ class Schema:
         column names are filled with an integer sequence).
         Unsupported by TensorSpec.
         """
-        from pyspark.sql.types import StructType, StructField, ArrayType
-
-        def _convert_spec_to_spark_type(spec):
-            from mlflow.types.schema import ColSpec, TensorSpec, DataType
-
-            # TODO: handle optional output columns.
-            if isinstance(spec, ColSpec):
-                return spec.type.to_spark()
-            elif isinstance(spec, TensorSpec):
-                data_type = DataType.from_numpy_type(spec.type)
-                if data_type is None:
-                    raise ValueError(
-                        f"Model output column spec type {spec.type} cannot be converted to spark type."
-                    )
-                return ArrayType(data_type.to_spark())
-            else:
-                raise ValueError(f"Unknown schema output spec {spec}.")
-
+        if self.is_tensor_spec():
+            raise MlflowException("TensorSpec cannot be converted to spark dataframe")
         if len(self.inputs) == 1 and self.inputs[0].name is None:
-            return _convert_spec_to_spark_type(self.inputs[0])
+            return self.inputs[0].type.to_spark()
+        from pyspark.sql.types import StructType, StructField
 
         return StructType(
             [
-                StructField(name=spec.name or str(i), dataType=_convert_spec_to_spark_type(spec))
-                for i, spec in enumerate(self.inputs)
+                StructField(name=col.name or str(i), dataType=col.type.to_spark())
+                for i, col in enumerate(self.inputs)
             ]
         )
 

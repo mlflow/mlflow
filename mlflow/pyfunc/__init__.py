@@ -828,6 +828,45 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
+def _infer_spark_udf_return_type(model_output_schema):
+    from pyspark.sql.types import StructType, StructField, ArrayType
+
+    def _convert_spec_to_spark_type(spec):
+        from mlflow.types.schema import ColSpec, TensorSpec, DataType
+
+        # TODO: handle optional output columns.
+        if isinstance(spec, ColSpec):
+            return spec.type.to_spark()
+        elif isinstance(spec, TensorSpec):
+            data_type = DataType.from_numpy_type(spec.type)
+            if data_type is None:
+                raise ValueError(
+                    f"Model output tensor spec type {spec.type} is not supported in spark_udf."
+                )
+
+            if len(spec.shape) == 1:
+                return ArrayType(data_type.to_spark())
+            elif len(spec.shape) == 2:
+                return ArrayType(ArrayType(data_type.to_spark()))
+            else:
+                raise ValueError(
+                    "Only one dimension or 2 dimensions tensors are supported as spark_udf "
+                    f"return value, but model output '{spec.name}' has shape {spec.shape}."
+                )
+        else:
+            raise ValueError(f"Unknown schema output spec {spec}.")
+
+    if len(self.inputs) == 1 and self.inputs[0].name is None:
+        return _convert_spec_to_spark_type(self.inputs[0])
+
+    return StructType(
+        [
+            StructField(name=spec.name or str(i), dataType=_convert_spec_to_spark_type(spec))
+            for i, spec in enumerate(self.inputs)
+        ]
+    )
+
+
 def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -1035,7 +1074,7 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
             )
             result_type = "double"
         else:
-            result_type = model_output_schema.as_spark_schema().simpleString()
+            result_type = _infer_spark_udf_return_type(model_output_schema)
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
@@ -1108,6 +1147,36 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
             StringType: np.str_,
         }
 
+        def _convert_array_values(values, spark_type):
+            array_dim = 1
+            elem_type = spark_type.elementType
+            if type(elem_type) == ArrayType:
+                elem_type = elem_type.elementType
+                if type(elem_type) == ArrayType:
+                    raise MlflowException(
+                        f"Unsupported array<array<array<ElementType>>> type field "
+                        "in struct type."
+                    )
+                array_dim = 2
+
+            if type(elem_type) not in spark_primitive_type_to_np_type:
+                raise MlflowException(
+                    "Unsupported array type field with element type "
+                    f"{elem_type.simpleString()} in struct type.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            np_type = spark_primitive_type_to_np_type[type(elem_type)]
+
+            if array_dim == 1:
+                return [
+                    np.array(v, dtype=np_type) for v in values
+                ]
+            else:
+                return [
+                    [np.array(v, dtype=np_type) for e in v]
+                    for v in values
+                ]
+
         if isinstance(result_type, SparkStructType):
             result_dict = {}
             for field_name in result_type.fieldNames():
@@ -1119,19 +1188,7 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
                     field_values = field_values.astype(np_type)
 
                 elif type(field_type) == ArrayType:
-                    elem_type = field_type.elementType
-                    if type(elem_type) not in spark_primitive_type_to_np_type:
-                        raise MlflowException(
-                            "Unsupported array type field with element type "
-                            f"{elem_type.simpleString()} in struct type.",
-                            error_code=INVALID_PARAMETER_VALUE,
-                        )
-                    np_type = spark_primitive_type_to_np_type[type(elem_type)]
-
-                    field_values = [
-                        np.array(v, dtype=np.dtype(type(elem_type))) for v in field_values
-                    ]
-
+                    field_values = _convert_array_values(field_values, field_type)
                 else:
                     raise MlflowException(
                         f"Unsupported field type {field_type.simpleString()} in struct type.",
@@ -1175,7 +1232,8 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
             result = result.applymap(str)
 
         if type(result_type) == ArrayType:
-            return pandas.Series(result.to_numpy().tolist())
+            result_values = _convert_array_values(result, result_type)
+            return pandas.Series(result_values)
         else:
             return result[result.columns[0]]
 
