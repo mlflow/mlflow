@@ -153,7 +153,6 @@ def reset_experiment_id(monkeypatch):
     its included
     """
     yield
-    monkeypatch.delenvs((MLFLOW_EXPERIMENT_ID.name, MLFLOW_EXPERIMENT_NAME.name), raising=False)
     mlflow.tracking.fluent._active_experiment_id = None
 
 
