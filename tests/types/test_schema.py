@@ -679,9 +679,10 @@ def test_infer_param_schema():
         "e": np.float32(0.1),
         "f": b"byte_g",
         "g": np.int64(100),
-        "h": np.datetime64("20230626"),
+        "h": np.datetime64("2023-06-26 00:00:00"),
         "i": ["a", "b", "c"],
         "j": [True, False],
+        "k": np.array([1.0, 2.0]),
     }
     test_schema = ParamSchema(
         [
@@ -692,9 +693,10 @@ def test_infer_param_schema():
             ParamSpec("e", DataType.float, np.float32(0.1), None),
             ParamSpec("f", DataType.binary, b"byte_g", None),
             ParamSpec("g", DataType.long, np.int64(100), None),
-            ParamSpec("h", DataType.datetime, np.datetime64("20230626"), None),
+            ParamSpec("h", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None),
             ParamSpec("i", DataType.string, ["a", "b", "c"], (-1,)),
             ParamSpec("j", DataType.boolean, [True, False], (-1,)),
+            ParamSpec("k", DataType.double, np.array([1.0, 2.0]), (-1,)),
         ]
     )
     assert _infer_param_schema(test_parameters) == test_schema
@@ -703,12 +705,13 @@ def test_infer_param_schema():
     with pytest.raises(MlflowException, match=r"Expected parameters to be dict, got list"):
         _infer_param_schema(["a", "str_a", "b", 1])
 
-    # Raise error for invalid parameters types
+    # Raise error for invalid parameters types - tuple, 2D array, dictionary
     test_parameters = {
         "a": "str_a",
         "b": (1, 2, 3),
         "c": True,
         "d": [[1, 2], [3, 4]],
+        "e": {"a": 1, "b": 2},
     }
     with pytest.raises(MlflowException) as e:  # pylint: disable=pytest-raises-without-match
         _infer_param_schema(test_parameters)
@@ -723,5 +726,11 @@ def test_infer_param_schema():
         re.escape(
             "('d', [[1, 2], [3, 4]], MlflowException('Expected parameters "
             "to be 1D array or scalar, got 2D array'))"
+        )
+    )
+    assert e.match(
+        re.escape(
+            "('e', {'a': 1, 'b': 2}, MlflowException('Expected parameters "
+            "to be 1D array or scalar, got dict'))"
         )
     )

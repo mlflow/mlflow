@@ -930,6 +930,7 @@ def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[Pa
             param_value = params[param_spec.name]
             try:
                 param_value = ParamSpec.validate_param_spec(param_value, param_spec)
+                params[param_spec.name] = param_value
             except MlflowException as e:
                 invalid_params.add((param_spec.name, e.message))
         else:

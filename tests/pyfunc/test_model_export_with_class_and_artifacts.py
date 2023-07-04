@@ -1433,3 +1433,18 @@ def test_class_python_model_type_hints(tmp_path):
     assert model.signature.outputs.to_dict() == [{"type": "string"}]
     model = mlflow.pyfunc.load_model(tmp_path)
     assert model.predict(["a", "b"]) == ["a", "b"]
+
+
+def test_python_model_predict_with_params():
+    signature = infer_signature(["input1", "input2"], params={"foo": [8]})
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=AnnotatedPythonModel(),
+            artifact_path="test_model",
+            signature=signature,
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert loaded_model.predict(["a", "b"], params={"foo": [0, 1]}) == ["a", "b"]
+    assert loaded_model.predict(["a", "b"], params={"foo": np.array([0, 1])}) == ["a", "b"]

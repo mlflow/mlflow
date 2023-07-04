@@ -927,7 +927,7 @@ def test_enforce_params_schema():
         "e": np.float32(0.1),
         "f": b"byte_g",
         "g": np.int64(100),
-        "h": np.datetime64("20230626"),
+        "h": np.datetime64("2023-06-26 00:00:00"),
         "i": ["a", "b", "c"],
         "j": [True, False],
     }
@@ -940,12 +940,45 @@ def test_enforce_params_schema():
             ParamSpec("e", DataType.float, np.float32(0.1), None),
             ParamSpec("f", DataType.binary, b"byte_g", None),
             ParamSpec("g", DataType.long, np.int64(100), None),
-            ParamSpec("h", DataType.datetime, np.datetime64("20230626"), None),
+            ParamSpec("h", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None),
             ParamSpec("i", DataType.string, ["a", "b", "c"], (-1,)),
             ParamSpec("j", DataType.boolean, [True, False], (-1,)),
         ]
     )
     assert _enforce_params_schema(test_parameters, test_schema) == test_parameters
+
+    params = {"a": np.array([1.0, 2.0])}
+    schema = ParamSchema([ParamSpec("a", DataType.double, np.array([1.0, 2.0]), (-1,))])
+    assert (_enforce_params_schema(params, schema)["a"] == params["a"]).all()
+
+    # Converting parameters value type to corresponding schema type
+    params = {
+        "a": 123,
+        "b": 1,
+        "c": 0,
+        "d": 1,
+        "e": 0.1,
+        "f": "byte",
+        "g": 100,
+        "h": "2023-06-26 00:00:00",
+        "i": [1, 2, 3],
+        "j": [0, 0],
+    }
+    assert _enforce_params_schema(params, test_schema) == {
+        "a": "123",
+        "b": np.int32(1),
+        "c": False,
+        "d": 1.0,
+        "e": np.float32(0.1),
+        "f": b"byte",
+        "g": np.int64(100),
+        "h": np.datetime64("2023-06-26 00:00:00"),
+        "i": ["1", "2", "3"],
+        "j": [False, False],
+    }
+    params = {"a": np.array([1, 2])}
+    schema = ParamSchema([ParamSpec("a", DataType.double, np.array([1.0, 2.0]), (-1,))])
+    assert (_enforce_params_schema(params, schema)["a"] == params["a"]).all()
 
     # Add default values if the parameter is not provided
     test_parameters = {"a": "str_a"}
@@ -1002,13 +1035,19 @@ def test_param_spec():
 
     # Raise error if shape is not specified for list value
     with pytest.raises(
-        MlflowException, match=r"Shape must be specified for non-scalar value for ParamSpec"
+        MlflowException, match=r"Value must be a scalar with shape None for ParamSpec"
     ):
-        ParamSpec("a", DataType.long, [1, 2, 3])
+        ParamSpec("a", DataType.long, [1, 2, 3], shape=None)
 
     # Raise error if shape is specified for scalar value
-    with pytest.raises(MlflowException, match=r"Shape must be None for scalar value for ParamSpec"):
-        ParamSpec("a", DataType.boolean, True, (-1,))
+    with pytest.raises(
+        MlflowException,
+        match=re.escape(
+            "Value must be a 1D array with shape (-1,) for ParamSpec 'a': boolean (default: True) "
+            "(shape: (-1,)), received scalar value True"
+        ),
+    ):
+        ParamSpec("a", DataType.boolean, True, shape=(-1,))
 
     # Raise error if shape specified is not allowed
     with pytest.raises(
@@ -1023,3 +1062,141 @@ def test_param_spec():
     # Raise error if default value can not be converted to specified type
     with pytest.raises(MlflowException, match=r"Failed to convert value type for ParamSpec"):
         ParamSpec("a", DataType.datetime, "string")
+
+
+def test_enforce_schema_in_predict():
+    test_params = {
+        "a": "str_a",
+        "b": np.int32(1),
+        "c": True,
+        "d": 1.0,
+        "e": np.float32(0.1),
+        "f": b"byte_g",
+        "g": np.int64(100),
+        "h": np.datetime64("2023-06-26 00:00:00"),
+        "i": ["a", "b", "c"],
+        "j": [True, False],
+        "k": np.array([1.0, 2.0]),
+    }
+    test_schema = ParamSchema(
+        [
+            ParamSpec("a", DataType.string, "str_a", None),
+            ParamSpec("b", DataType.integer, np.int32(1), None),
+            ParamSpec("c", DataType.boolean, True, None),
+            ParamSpec("d", DataType.double, 1.0, None),
+            ParamSpec("e", DataType.float, np.float32(0.1), None),
+            ParamSpec("f", DataType.binary, b"byte_g", None),
+            ParamSpec("g", DataType.long, np.int64(100), None),
+            ParamSpec("h", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None),
+            ParamSpec("i", DataType.string, ["a", "b", "c"], (-1,)),
+            ParamSpec("j", DataType.boolean, [True, False], (-1,)),
+            ParamSpec("k", DataType.double, [1.0, 2.0], (-1,)),
+        ]
+    )
+
+    class TestPythonModel(mlflow.pyfunc.PythonModel):
+        def __init__(self, params_schema):
+            self.params_schema = params_schema
+
+        def predict(self, context, model_input, params=None):
+            params = _enforce_params_schema(params, self.params_schema)
+            assert isinstance(params, dict)
+            assert isinstance(params["a"], str)
+            assert isinstance(params["b"], np.int32)
+            assert isinstance(params["c"], np.bool_)
+            assert isinstance(params["d"], np.float64)
+            assert isinstance(params["e"], np.float32)
+            assert isinstance(params["f"], np.bytes_)
+            assert isinstance(params["g"], np.int64)
+            assert isinstance(params["h"], np.datetime64)
+            assert isinstance(params["i"], list)
+            assert all(isinstance(x, str) for x in params["i"])
+            assert isinstance(params["j"], list)
+            assert all(isinstance(x, np.bool_) for x in params["j"])
+            assert isinstance(params["k"], list)
+            assert all(isinstance(x, np.float64) for x in params["k"])
+            return params
+
+    signature = infer_signature(["input1"], params=test_params)
+    assert signature.params == test_schema
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=TestPythonModel(test_schema),
+            artifact_path="test_model",
+            signature=signature,
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    loaded_predict = loaded_model.predict(["a", "b"], params=test_params)
+    assert (loaded_predict["k"] == test_params["k"]).all()
+    loaded_predict.pop("k")
+    test_params.pop("k")
+    assert loaded_predict == test_params
+
+    # Automatically convert type if it's not consistent with schema
+    params = {
+        "a": 123,
+        "b": 1,
+        "c": 0,
+        "d": 1,
+        "e": 0.1,
+        "f": "byte",
+        "g": 100,
+        "h": "20230626",
+        "i": [1, 2, 3],
+        "j": [0, 0],
+        "k": np.array([1, 2]),
+    }
+    expect_params = {
+        "a": "123",
+        "b": np.int32(1),
+        "c": False,
+        "d": 1.0,
+        "e": np.float32(0.1),
+        "f": b"byte",
+        "g": np.int64(100),
+        "h": np.datetime64("20230626"),
+        "i": ["1", "2", "3"],
+        "j": [False, False],
+        "k": np.array([1.0, 2.0]),
+    }
+    loaded_predict = loaded_model.predict(["a", "b"], params=params)
+    assert (loaded_predict["k"] == expect_params["k"]).all()
+    loaded_predict.pop("k")
+    expect_params.pop("k")
+    assert loaded_predict == expect_params
+
+    class TestPythonModelSimple(mlflow.pyfunc.PythonModel):
+        def __init__(self, params_schema, params_type):
+            self.params_schema = params_schema
+            self.params_type = params_type
+
+        def predict(self, context, model_input, params=None):
+            params = _enforce_params_schema(params, self.params_schema)
+            assert isinstance(params, dict)
+            assert all(isinstance(x, self.params_type) for x in params["a"])
+            return params
+
+    test_params = {"a": [1, 2, 3]}
+    signature = infer_signature(["input1"], params=test_params)
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=TestPythonModelSimple(signature.params, np.int64),
+            artifact_path="test_model",
+            signature=signature,
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    loaded_predict = loaded_model.predict(["a", "b"], params=test_params)
+    assert loaded_predict["a"] == test_params["a"]
+
+    # Automatically convert type if it's not consistent with schema
+    test_params = {"a": [1, 2, "3"]}
+    loaded_predict = loaded_model.predict(["a", "b"], params=test_params)
+    assert loaded_predict["a"] == [1, 2, 3]
+
+    # Raise error if failing to convert the type
+    test_params = {"a": [1, 2, "invalid_value"]}
+    with pytest.raises(MlflowException, match=r"Failed to convert value type for ParamSpec"):
+        loaded_model.predict(["a", "b"], params=test_params)

@@ -464,7 +464,7 @@ class ParamSpec:
         """
 
         def _is_1d_array(value):
-            if not isinstance(value, list):
+            if not isinstance(value, (list, np.ndarray)):
                 return False
             if np.array(value).ndim == 1:
                 return True
@@ -474,25 +474,28 @@ class ParamSpec:
             if shape is None:
                 if np.isscalar(value) or value is None:
                     return (
-                        np.array(value, dtype=value_type.to_numpy()).item()
+                        np.array(value, dtype=value_type.to_numpy()).take(0)
                         if value is not None
                         else None
                     )
                 else:
                     raise MlflowException(
-                        f"Shape must be specified for non-scalar value for ParamSpec {spec}",
+                        f"Value must be a scalar with shape None for ParamSpec {spec}, "
+                        f"received {type(value).__name__}",
                         INVALID_PARAMETER_VALUE,
                     )
             elif shape == (-1,):
                 if _is_1d_array(value):
                     return (
-                        np.array(value, dtype=value_type.to_numpy()).tolist()
+                        # Note that .tolist() also converts the underlying type to native python
+                        list(np.array(value, dtype=value_type.to_numpy()))
                         if value is not None
                         else None
                     )
                 elif np.isscalar(value):
                     raise MlflowException(
-                        f"Shape must be None for scalar value for ParamSpec {spec}",
+                        f"Value must be a 1D array with shape (-1,) for ParamSpec {spec}, "
+                        f"received scalar value {value}",
                         INVALID_PARAMETER_VALUE,
                     )
                 else:
@@ -545,10 +548,31 @@ class ParamSpec:
         shape: Optional[Tuple[int, ...]]
 
     def to_dict(self) -> ParamSpecTypedDict:
+        type_conversion = {
+            "integer": int,
+            "boolean": bool,
+            "float": float,
+            "long": int,
+            "datetime": str,
+        }
+        if self.shape is None:
+            if self.type.name == "binary":
+                default_value = self.default.decode("utf-8")
+            elif self.type.name in type_conversion:
+                default_value = type_conversion[self.type.name](self.default)
+            else:
+                default_value = self.default
+        elif self.shape == (-1,):
+            if self.type.name == "binary":
+                default_value = [value.decode("utf-8") for value in self.default]
+            elif self.type.name in type_conversion:
+                default_value = list(map(type_conversion[self.type.name], self.default))
+            else:
+                default_value = self.default
         return {
             "name": self.name,
             "type": self.type.name,
-            "default": self.default,
+            "default": default_value,
             "shape": self.shape,
         }
 
@@ -576,10 +600,17 @@ class ParamSpec:
             raise MlflowException(
                 "Missing keys in ParamSpec JSON. Expected to find keys `name`, `type` and `default`"
             )
+        if kwargs["type"] == "binary":
+            if kwargs.get("shape") is None:
+                default_value = kwargs["default"].encode("utf-8")
+            else:
+                default_value = [value.encode("utf-8") for value in kwargs["default"]]
+        else:
+            default_value = kwargs["default"]
         return cls(
             name=str(kwargs["name"]),
             type=DataType[kwargs["type"]],
-            default=kwargs["default"],
+            default=default_value,
             shape=kwargs.get("shape"),
         )
 

@@ -487,23 +487,27 @@ def _infer_param_schema(parameters: Dict[str, Any]):
         )
 
     def _infer_type_and_shape(value):
-        ndim = np.array(value).ndim
-        if ndim == 1:
-            if not isinstance(value, list):
+        if isinstance(value, (list, np.ndarray, pd.Series)):
+            ndim = np.array(value).ndim
+            if ndim != 1:
                 raise MlflowException(
-                    f"Expected parameters to be 1D array or scalar, got {type(value).__name__}",
+                    f"Expected parameters to be 1D array or scalar, got {ndim}D array",
                     INVALID_PARAMETER_VALUE,
                 )
-            shape = (-1,)
-        elif ndim == 0:
-            shape = None
-        else:
-            raise MlflowException(
-                f"Expected parameters to be 1D array or scalar, got {ndim}D array",
-                INVALID_PARAMETER_VALUE,
-            )
-        value_type = _infer_numpy_dtype(np.array(value).dtype)
-        return value_type, shape
+            value_type = _infer_numpy_dtype(np.array(value).dtype)
+            return value_type, (-1,)
+        elif np.isscalar(value):
+            try:
+                value_type = _infer_numpy_dtype(np.array(value).dtype)
+                return value_type, None
+            except (Exception, MlflowException) as e:
+                raise MlflowException(
+                    f"Failed to infer schema for parameter {value}: {e!r}", INVALID_PARAMETER_VALUE
+                )
+        raise MlflowException(
+            f"Expected parameters to be 1D array or scalar, got {type(value).__name__}",
+            INVALID_PARAMETER_VALUE,
+        )
 
     param_specs = []
     invalid_params = []
