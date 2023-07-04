@@ -1028,7 +1028,7 @@ def test_get_metric_history_bulk_respects_max_results(mlflow_client):
     ]
 
 
-def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch, tmp_path):
+def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
     from mlflow.server.handlers import get_metric_history_bulk_handler
 
     path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
@@ -1041,7 +1041,10 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch,
         def __init__(self, args_dict):
             self.args_dict = args_dict
 
-        def to_dict(self, flat):
+        def to_dict(
+            self,
+            flat,  # pylint: disable=unused-argument
+        ):
             return self.args_dict
 
         def get(self, key, default=None):
@@ -1175,7 +1178,7 @@ def test_create_model_version_with_path_source(mlflow_client):
     assert "To use a local path as a model version" in response.json()["message"]
 
 
-def test_create_model_version_with_non_local_source(mlflow_client, monkeypatch):
+def test_create_model_version_with_non_local_source(mlflow_client):
     name = "model"
     mlflow_client.create_registered_model(name)
     exp_id = mlflow_client.create_experiment("test")

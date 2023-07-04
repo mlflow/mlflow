@@ -605,7 +605,6 @@ class TrainStep(BaseStep):
             card = self._build_step_card(
                 eval_metrics=eval_metrics,
                 pred_and_error_df=pred_and_error_df,
-                model=model,
                 model_schema=model_schema,
                 run_id=run.info.run_id,
                 model_uri=model_uri,
@@ -825,7 +824,6 @@ class TrainStep(BaseStep):
         self,
         eval_metrics,
         pred_and_error_df,
-        model,
         model_schema,
         run_id,
         model_uri,

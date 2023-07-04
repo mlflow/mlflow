@@ -56,7 +56,7 @@ def test_create_recipe_and_clean_works():
 @pytest.mark.parametrize("empty_profile", [None, ""])
 def test_create_recipe_fails_with_empty_profile_name(empty_profile):
     with pytest.raises(MlflowException, match="A profile name must be provided"):
-        _ = Recipe(profile=empty_profile)
+        Recipe(profile=empty_profile)
 
 
 @pytest.mark.usefixtures("enter_recipe_example_directory")

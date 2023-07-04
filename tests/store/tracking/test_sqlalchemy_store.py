@@ -77,60 +77,68 @@ ARTIFACT_URI = "artifact_folder"
 pytestmark = pytest.mark.notrackingurimock
 
 
-class TestParseDbUri(unittest.TestCase):
-    def test_correct_db_type_from_uri(self):
-        # try each the main drivers per supported database type
-        target_db_type_uris = {
-            "sqlite": ("pysqlite", "pysqlcipher"),
-            "postgresql": (
-                "psycopg2",
-                "pg8000",
-                "psycopg2cffi",
-                "pypostgresql",
-                "pygresql",
-                "zxjdbc",
-            ),
-            "mysql": (
-                "mysqldb",
-                "pymysql",
-                "mysqlconnector",
-                "cymysql",
-                "oursql",
-                "gaerdbms",
-                "pyodbc",
-                "zxjdbc",
-            ),
-            "mssql": ("pyodbc", "mxodbc", "pymssql", "zxjdbc", "adodbapi"),
-        }
-        for target_db_type, drivers in target_db_type_uris.items():
-            # try the driver-less version, which will revert SQLAlchemy to the default driver
-            uri = "%s://..." % target_db_type
-            parsed_db_type = extract_db_type_from_uri(uri)
-            assert target_db_type == parsed_db_type
-            # try each of the popular drivers (per SQLAlchemy's dialect pages)
-            for driver in drivers:
-                uri = f"{target_db_type}+{driver}://..."
-                parsed_db_type = extract_db_type_from_uri(uri)
-                assert target_db_type == parsed_db_type
+def db_types_and_drivers():
+    d = {
+        "sqlite": [
+            "pysqlite",
+            "pysqlcipher",
+        ],
+        "postgresql": [
+            "psycopg2",
+            "pg8000",
+            "psycopg2cffi",
+            "pypostgresql",
+            "pygresql",
+            "zxjdbc",
+        ],
+        "mysql": [
+            "mysqldb",
+            "pymysql",
+            "mysqlconnector",
+            "cymysql",
+            "oursql",
+            "gaerdbms",
+            "pyodbc",
+            "zxjdbc",
+        ],
+        "mssql": [
+            "pyodbc",
+            "mxodbc",
+            "pymssql",
+            "zxjdbc",
+            "adodbapi",
+        ],
+    }
+    for db_type, drivers in d.items():
+        for driver in drivers:
+            yield db_type, driver
 
-    def _db_uri_error(self, db_uris, expected_message_regex):
-        for db_uri in db_uris:
-            with pytest.raises(MlflowException, match=expected_message_regex):
-                extract_db_type_from_uri(db_uri)
 
-    def test_fail_on_unsupported_db_type(self):
-        bad_db_uri_strings = [
-            "oracle://...",
-            "oracle+cx_oracle://...",
-            "snowflake://...",
-            "://...",
-            "abcdefg",
-        ]
-        self._db_uri_error(bad_db_uri_strings, r"Invalid database engine")
+@pytest.mark.parametrize(("db_type", "driver"), db_types_and_drivers())
+def test_correct_db_type_from_uri(db_type, driver):
+    assert extract_db_type_from_uri(f"{db_type}+{driver}://...") == db_type
+    # try the driver-less version, which will revert SQLAlchemy to the default driver
+    assert extract_db_type_from_uri(f"{db_type}://...") == db_type
 
-    def test_fail_on_multiple_drivers(self):
-        bad_db_uri_strings = ["mysql+pymsql+pyodbc://..."]
-        self._db_uri_error(bad_db_uri_strings, r"Invalid database URI")
+
+@pytest.mark.parametrize(
+    "db_uri",
+    [
+        "oracle://...",
+        "oracle+cx_oracle://...",
+        "snowflake://...",
+        "://...",
+        "abcdefg",
+    ],
+)
+def test_fail_on_unsupported_db_type(db_uri):
+    with pytest.raises(MlflowException, match=r"Invalid database engine"):
+        extract_db_type_from_uri(db_uri)
+
+
+def test_fail_on_multiple_drivers():
+    with pytest.raises(MlflowException, match=r"Invalid database URI"):
+        extract_db_type_from_uri("mysql+pymsql+pyodbc://...")
 
 
 class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
@@ -148,7 +156,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             fd, self.temp_dbfile = tempfile.mkstemp()
             # Close handle immediately so that we can remove the file later on in Windows
             os.close(fd)
-            self.db_url = "{}{}".format(DB_URI, self.temp_dbfile)
+            self.db_url = f"{DB_URI}{self.temp_dbfile}"
 
     def setUp(self):
         self._setup_db_uri()

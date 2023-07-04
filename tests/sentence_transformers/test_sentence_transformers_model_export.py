@@ -59,7 +59,7 @@ def test_model_save_and_load(model_path, basic_model):
     assert all(len(x) == 384 for x in encoded_multi)
 
 
-def test_dependency_mapping(model_path, basic_model):
+def test_dependency_mapping():
     pip_requirements = mlflow.sentence_transformers.get_default_pip_requirements()
 
     expected_requirements = {"sentence-transformers", "torch", "transformers"}
@@ -290,7 +290,7 @@ def test_log_model_with_code_paths(basic_model):
         add_mock.assert_called()
 
 
-def test_default_signature_assignment(model_path, basic_model):
+def test_default_signature_assignment():
     expected_signature = {
         "inputs": '[{"type": "string"}]',
         "outputs": '[{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": ' "[-1]}}]",
@@ -324,7 +324,7 @@ def test_model_pyfunc_save_load(basic_model, model_path):
     np.testing.assert_array_equal(emb1, emb3)
 
 
-def test_spark_udf(basic_model, model_path, spark):
+def test_spark_udf(basic_model, spark):
     params = {"batch_size": 16}
     with mlflow.start_run():
         signature = infer_signature(SENTENCES, basic_model.encode(SENTENCES), params)

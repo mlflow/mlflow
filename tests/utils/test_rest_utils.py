@@ -375,22 +375,22 @@ def test_http_request_request_headers_user_agent_and_extra_header(request):
         )
 
 
-@mock.patch("requests.Session.request", side_effect=requests.exceptions.InvalidURL)
-def test_http_request_with_invalid_url_raise_invalid_url_exception(request):
+def test_http_request_with_invalid_url_raise_invalid_url_exception():
     """InvalidURL exception can be caught by a custom InvalidUrlException"""
     host_only = MlflowHostCreds("http://my-host")
 
     with pytest.raises(InvalidUrlException, match="Invalid url: http://my-host/invalid_url"):
-        http_request(host_only, "/invalid_url", "GET")
+        with mock.patch("requests.Session.request", side_effect=requests.exceptions.InvalidURL):
+            http_request(host_only, "/invalid_url", "GET")
 
 
-@mock.patch("requests.Session.request", side_effect=requests.exceptions.InvalidURL)
-def test_http_request_with_invalid_url_raise_mlflow_exception(request):
+def test_http_request_with_invalid_url_raise_mlflow_exception():
     """The InvalidUrlException can be caught by the MlflowException"""
     host_only = MlflowHostCreds("http://my-host")
 
     with pytest.raises(MlflowException, match="Invalid url: http://my-host/invalid_url"):
-        http_request(host_only, "/invalid_url", "GET")
+        with mock.patch("requests.Session.request", side_effect=requests.exceptions.InvalidURL):
+            http_request(host_only, "/invalid_url", "GET")
 
 
 def test_ignore_tls_verification_not_server_cert_path():

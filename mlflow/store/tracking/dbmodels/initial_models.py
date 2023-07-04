@@ -76,7 +76,7 @@ class SqlExperiment(Base):
     )
 
     def __repr__(self):
-        return "<SqlExperiment ({}, {})>".format(self.experiment_id, self.name)
+        return f"<SqlExperiment ({self.experiment_id}, {self.name})>"
 
 
 class SqlRun(Base):

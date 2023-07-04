@@ -93,7 +93,7 @@ class SqlExperiment(Base):
     )
 
     def __repr__(self):
-        return "<SqlExperiment ({}, {})>".format(self.experiment_id, self.name)
+        return f"<SqlExperiment ({self.experiment_id}, {self.name})>"
 
     def to_mlflow_entity(self):
         """
@@ -266,7 +266,7 @@ class SqlExperimentTag(Base):
     __table_args__ = (PrimaryKeyConstraint("key", "experiment_id", name="experiment_tag_pk"),)
 
     def __repr__(self):
-        return "<SqlExperimentTag({}, {})>".format(self.key, self.value)
+        return f"<SqlExperimentTag({self.key}, {self.value})>"
 
     def to_mlflow_entity(self):
         """

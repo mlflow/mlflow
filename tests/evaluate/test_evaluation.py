@@ -1212,7 +1212,7 @@ def test_evaluate_terminates_model_servers(multiclass_logistic_regressor_model_u
         os_mock.assert_has_calls([mock.call(1, signal.SIGTERM), mock.call(2, signal.SIGTERM)])
 
 
-def test_evaluate_stdin_scoring_server(monkeypatch):
+def test_evaluate_stdin_scoring_server():
     X, y = sklearn.datasets.load_iris(return_X_y=True)
     X = X[::5]
     y = y[::5]

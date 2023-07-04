@@ -463,9 +463,7 @@ def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):
     with mlflow.start_run() as run:
         artifact_path = "onnx_model"
         mlflow.onnx.log_model(onnx_model=onnx_model, artifact_path=artifact_path)
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=run.info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
 
         # Loading pyfunc model
         pyfunc_loaded = mlflow.pyfunc.load_model(model_uri=model_uri)

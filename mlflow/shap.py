@@ -96,7 +96,7 @@ def get_default_pip_requirements():
     """
     import shap
 
-    return ["shap=={}".format(shap.__version__)]
+    return [f"shap=={shap.__version__}"]
 
 
 def get_default_conda_env():

@@ -87,7 +87,7 @@ class ColSpec:
         if not isinstance(self.type, DataType):
             raise TypeError(
                 "Expected mlflow.models.signature.Datatype or str for the 'type' "
-                "argument, but got {}".format(self.type.__class__)
+                f"argument, but got {self.type.__class__}"
             )
 
     @property
@@ -139,9 +139,7 @@ class TensorInfo:
     def __init__(self, dtype: np.dtype, shape: Union[tuple, list]):
         if not isinstance(dtype, np.dtype):
             raise TypeError(
-                "Expected `type` to be instance of `{}`, received `{}`".format(
-                    np.dtype, type.__class__
-                )
+                f"Expected `type` to be instance of `{np.dtype}`, received `{ type.__class__}`"
             )
         # Throw if size information exists flexible numpy data types
         if dtype.char in ["U", "S"] and not dtype.name.isalpha():

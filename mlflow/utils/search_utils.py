@@ -336,7 +336,7 @@ class SearchUtils:
         if identifier_type == cls._METRIC_IDENTIFIER:
             if token.ttype not in cls.NUMERIC_VALUE_TYPES:
                 raise MlflowException(
-                    "Expected numeric value type for metric. Found {}".format(token.value),
+                    f"Expected numeric value type for metric. Found {token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return token.value
@@ -390,7 +390,7 @@ class SearchUtils:
             else:
                 raise MlflowException(
                     "Expected a quoted string value for dataset attributes. "
-                    "Got value {value}".format(value=token.value),
+                    f"Got value {token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         else:
@@ -523,8 +523,8 @@ class SearchUtils:
         if key_type == cls._ATTRIBUTE_IDENTIFIER and key_name not in cls.NUMERIC_ATTRIBUTES:
             if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
-                    "Invalid comparator '{}' not one of "
-                    "'{}".format(comparator, cls.VALID_STRING_ATTRIBUTE_COMPARATORS)
+                    "Invalid comparator '{comparator}' not one of "
+                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}'"
                 )
             return True
         return False
@@ -938,8 +938,8 @@ class SearchExperimentsUtils(SearchUtils):
         if key_type == cls._ATTRIBUTE_IDENTIFIER:
             if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
-                    "Invalid comparator '{}' not one of "
-                    "'{}".format(comparator, cls.VALID_STRING_ATTRIBUTE_COMPARATORS)
+                    "Invalid comparator '{comparator}' not one of "
+                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}'"
                 )
             return True
         return False

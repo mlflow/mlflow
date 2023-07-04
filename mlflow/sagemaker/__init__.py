@@ -457,7 +457,7 @@ def _deploy(
         else:
             raise MlflowException(
                 "The deployment operation failed with the following error message:"
-                ' "{error_message}"'.format(error_message=operation_status.message)
+                f' "{operation_status.message}"'
             )
         if not archive:
             deployment_operation.clean_up()
@@ -559,7 +559,7 @@ def _delete(
         else:
             raise MlflowException(
                 "The deletion operation failed with the following error message:"
-                ' "{error_message}"'.format(error_message=operation_status.message)
+                f' "{operation_status.message}"'
             )
         if not archive:
             delete_operation.clean_up()

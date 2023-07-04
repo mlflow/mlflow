@@ -140,9 +140,7 @@ class _Example:
             elif isinstance(input_ex, list):
                 for i, x in enumerate(input_ex):
                     if isinstance(x, np.ndarray) and len(x.shape) > 1:
-                        raise TensorsNotSupportedException(
-                            "Row '{}' has shape {}".format(i, x.shape)
-                        )
+                        raise TensorsNotSupportedException(f"Row '{i}' has shape {x.shape}")
                 if all(_is_scalar(x) for x in input_ex):
                     input_ex = pd.DataFrame([input_ex], columns=range(len(input_ex)))
                 else:
@@ -413,7 +411,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
             return values.astype(np.dtype("datetime64[ns]"), errors="raise")
         except ValueError as e:
             raise MlflowException(
-                "Failed to convert column {} from type {} to {}.".format(name, values.dtype, t)
+                "Failed to convert column {name} from type {values.dtype} to {t}."
             ) from e
     if t == DataType.double and values.dtype == decimal.Decimal:
         # NB: Pyspark Decimal column get converted to decimal.Decimal when converted to pandas
@@ -423,7 +421,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
             return pd.to_numeric(values, errors="raise")
         except ValueError:
             raise MlflowException(
-                "Failed to convert column {} from type {} to {}.".format(name, values.dtype, t)
+                f"Failed to convert column {name} from type {values.dtype} to {t}."
             )
 
     numpy_type = t.to_numpy()

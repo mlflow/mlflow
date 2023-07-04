@@ -1387,7 +1387,7 @@ class MlflowClient:
             if x.min() < low or x.max() > high:
                 msg = (
                     "Out-of-range values are detected. "
-                    "Clipping array (dtype: '{}') to [{}, {}]".format(x.dtype, low, high)
+                    f"Clipping array (dtype: '{x.dtype}') to [{low}, {high}]"
                 )
                 _logger.warning(msg)
                 x = np.clip(x, low, high)

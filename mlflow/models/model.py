@@ -421,7 +421,7 @@ class Model:
         return ModelInfo(
             artifact_path=self.artifact_path,
             flavors=self.flavors,
-            model_uri="runs:/{}/{}".format(self.run_id, self.artifact_path),
+            model_uri=f"runs:/{self.run_id}/{self.artifact_path}",
             model_uuid=self.model_uuid,
             run_id=self.run_id,
             saved_input_example_info=self.saved_input_example_info,
@@ -586,7 +586,7 @@ class Model:
             if registered_model_name is not None:
                 run_id = mlflow.tracking.fluent.active_run().info.run_id
                 mlflow.register_model(
-                    "runs:/{}/{}".format(run_id, mlflow_model.artifact_path),
+                    f"runs:/{run_id}/{mlflow_model.artifact_path}",
                     registered_model_name,
                     await_registration_for=await_registration_for,
                 )
