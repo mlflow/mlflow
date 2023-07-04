@@ -996,7 +996,7 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
 
     # ensure throwing_X throws when sliced
     with pytest.raises(IndexError, match="DO NOT SLICE ME"):
-        _ = throwing_X[:5]
+        throwing_X[:5]
 
     mlflow.sklearn.autolog()
     model = sklearn.linear_model.LinearRegression()

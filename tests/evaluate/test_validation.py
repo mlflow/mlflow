@@ -344,11 +344,9 @@ def test_validation_value_threshold_should_fail(
         expected_failure_message = message_separator.join(
             map(str, list(expected_validation_results.values()))
         )
-        with mock.patch.object(
-            MockEvaluator, "can_evaluate", return_value=True
-        ) as _, mock.patch.object(
+        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
             MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ) as _:
+        ):
             with pytest.raises(
                 ModelValidationFailedException,
                 match=expected_failure_message,
@@ -388,11 +386,9 @@ def test_validation_value_threshold_should_pass(
         evaluator1_return_value = EvaluationResult(
             metrics=metrics, artifacts={}, baseline_model_metrics=None
         )
-        with mock.patch.object(
-            MockEvaluator, "can_evaluate", return_value=True
-        ) as _, mock.patch.object(
+        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
             MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ) as _:
+        ):
             evaluate(
                 multiclass_logistic_regressor_model_uri,
                 data=iris_dataset._constructor_args["data"],
@@ -553,11 +549,9 @@ def test_validation_model_comparison_absolute_threshold_should_fail(
         expected_failure_message = message_separator.join(
             map(str, list(expected_validation_results.values()))
         )
-        with mock.patch.object(
-            MockEvaluator, "can_evaluate", return_value=True
-        ) as _, mock.patch.object(
+        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
             MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ) as _:
+        ):
             with pytest.raises(
                 ModelValidationFailedException,
                 match=expected_failure_message,
@@ -602,11 +596,9 @@ def test_validation_model_comparison_absolute_threshold_should_pass(
         evaluator1_return_value = EvaluationResult(
             metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
         )
-        with mock.patch.object(
-            MockEvaluator, "can_evaluate", return_value=True
-        ) as _, mock.patch.object(
+        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
             MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ) as _:
+        ):
             evaluate(
                 multiclass_logistic_regressor_model_uri,
                 data=iris_dataset._constructor_args["data"],
@@ -788,11 +780,9 @@ def test_validation_model_comparison_relative_threshold_should_fail(
         expected_failure_message = message_separator.join(
             map(str, list(expected_validation_results.values()))
         )
-        with mock.patch.object(
-            MockEvaluator, "can_evaluate", return_value=True
-        ) as _, mock.patch.object(
+        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
             MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ) as _:
+        ):
             with pytest.raises(
                 ModelValidationFailedException,
                 match=expected_failure_message,
@@ -838,11 +828,9 @@ def test_validation_model_comparison_relative_threshold_should_pass(
         evaluator1_return_value = EvaluationResult(
             metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
         )
-        with mock.patch.object(
-            MockEvaluator, "can_evaluate", return_value=True
-        ) as _, mock.patch.object(
+        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
             MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ) as _:
+        ):
             evaluate(
                 multiclass_logistic_regressor_model_uri,
                 data=iris_dataset._constructor_args["data"],
