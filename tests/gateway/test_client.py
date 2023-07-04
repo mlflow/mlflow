@@ -264,7 +264,7 @@ def test_search_routes_returns_expected_pages(tmp_path):
         assert [route.name for route in routes_page_2] == gateway_route_names[
             MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE:
         ]
-        assert not routes_page_2.token
+        assert routes_page_2.token is None
 
 
 def test_query_invalid_route(gateway):

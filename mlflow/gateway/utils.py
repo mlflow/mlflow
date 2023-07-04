@@ -117,7 +117,7 @@ class SearchRoutesToken:
             ) from e
 
         index = parsed_token.get("index")
-        if not index or index < 0:
+        if index is None or index < 0:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid SearchRoutes token: {encoded_token}"
             ) from e
