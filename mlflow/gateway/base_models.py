@@ -11,8 +11,6 @@ class RequestModel(
     A pydantic model representing Gateway request data, such as a chat or completions request
     """
 
-    pass
-
 
 class ResponseModel(
     BaseModel,
@@ -25,8 +23,6 @@ class ResponseModel(
     Route returned in response to a GetRoute request
     """
 
-    pass
-
 
 class ConfigModel(
     BaseModel,
@@ -38,5 +34,3 @@ class ConfigModel(
     A pydantic model representing Gateway configuration data, such as an OpenAI completions
     route definition including route name, model name, API keys, etc.
     """
-
-    pass
