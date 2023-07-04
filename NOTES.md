@@ -4,6 +4,7 @@
 wget https://dlcdn.apache.org/spark/spark-3.4.1/spark-3.4.1-bin-hadoop3.tgz
 mkdir spark-bin
 tar -xvf spark-3.4.1-bin-hadoop3.tgz --directory spark-bin
+rm spark-3.4.1-bin-hadoop3.tgz
 ./spark-bin/spark-3.4.1-bin-hadoop3/sbin/start-connect-server.sh --packages org.apache.spark:spark-connect_2.12:3.4.0
 export SPARK_REMOTE="sc://localhost"
 ```
