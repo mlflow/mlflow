@@ -1173,6 +1173,9 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
                     list(np.array(v, dtype=np_type)) for v in values
                 ]
 
+        if not isinstance(result, pandas.DataFrame):
+            result = pandas.DataFrame(data=result)
+
         if isinstance(result_type, SparkStructType):
             result_dict = {}
             for field_name in result_type.fieldNames():
@@ -1192,11 +1195,7 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
                     )
                 result_dict[field_name] = field_values
 
-            # raise ValueError(str(result_dict))
             return pandas.DataFrame(result_dict)
-
-        if not isinstance(result, pandas.DataFrame):
-            result = pandas.DataFrame(data=result)
 
         elem_type = result_type.elementType if isinstance(result_type, ArrayType) else result_type
 
