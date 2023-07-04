@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, FileResponse
+from fastapi.openapi.docs import get_swagger_ui_html
 from pydantic import BaseModel
 import logging
 import os
@@ -151,11 +152,30 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         description="The core gateway API for reverse proxy interface using remote inference "
         "endpoints within MLflow",
         version=VERSION,
+        docs_url=None,
     )
 
     @app.get("/", include_in_schema=False)
     async def index():
         return RedirectResponse(url="/docs")
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    async def favicon():
+        for directory in ["build", "public"]:
+            favicon = Path(__file__).parent.parent.joinpath(
+                "server", "js", directory, "favicon.ico"
+            )
+            if favicon.exists():
+                return FileResponse(favicon)
+        raise HTTPException(status_code=404, detail="favicon.ico not found")
+
+    @app.get("/docs", include_in_schema=False)
+    async def docs():
+        return get_swagger_ui_html(
+            openapi_url="/openapi.json",
+            title="MLflow Gateway API",
+            swagger_favicon_url="/favicon.ico",
+        )
 
     @app.get(MLFLOW_GATEWAY_HEALTH_ENDPOINT)
     async def health() -> HealthResponse:

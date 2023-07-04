@@ -59,6 +59,16 @@ def test_health(client: TestClient):
     assert response.json() == {"status": "OK"}
 
 
+def test_favicon(client: TestClient):
+    response = client.get("/favicon.ico")
+    assert response.status_code == 200
+
+
+def test_docs(client: TestClient):
+    response = client.get("/docs")
+    assert response.status_code == 200
+
+
 def test_search_routes(client: TestClient):
     response = client.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE)
     assert response.status_code == 200
