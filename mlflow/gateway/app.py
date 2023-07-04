@@ -13,6 +13,7 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
+    MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE,
 )
 from mlflow.gateway.config import (
     Route,
@@ -23,6 +24,7 @@ from mlflow.gateway.config import (
 )
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.providers import get_provider
+from mlflow.gateway.utils import SearchRoutesToken
 
 _logger = logging.getLogger(__name__)
 
@@ -103,6 +105,40 @@ class HealthResponse(BaseModel):
 
 class SearchRoutesResponse(BaseModel):
     routes: List[Route]
+    next_page_token: Optional[str]
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "routes": [
+                    {
+                        "name": "openai-chat",
+                        "route_type": "llm/v1/chat",
+                        "model": {
+                            "name": "gpt-3.5-turbo",
+                            "provider": "openai",
+                        },
+                    },
+                    {
+                        "name": "anthropic-completions",
+                        "route_type": "llm/v1/completions",
+                        "model": {
+                            "name": "claude-instant-100k",
+                            "provider": "anthropic",
+                        },
+                    },
+                    {
+                        "name": "cohere-embeddings",
+                        "route_type": "llm/v1/embeddings",
+                        "model": {
+                            "name": "embed-english-v2.0",
+                            "provider": "cohere",
+                        },
+                    },
+                ],
+                "next_page_token": "eyJpbmRleCI6IDExfQ==",
+            }
+        }
 
 
 def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
@@ -137,10 +173,20 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         )
 
     @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE)
-    async def search_routes() -> SearchRoutesResponse:
-        # placeholder route listing functionality
+    async def search_routes(page_token: Optional[str] = None) -> SearchRoutesResponse:
+        if page_token is not None:
+            start_idx = SearchRoutesToken.decode(page_token).index
+        else:
+            start_idx = 0
 
-        return {"routes": list(app.dynamic_routes.values())}
+        end_idx = start_idx + MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
+        routes = list(app.dynamic_routes.values())
+        result = {"routes": routes[start_idx:end_idx]}
+        if len(routes[end_idx:]) > 0:
+            next_page_token = SearchRoutesToken(index=end_idx)
+            result["next_page_token"] = next_page_token.encode()
+
+        return result
 
     return app
 

@@ -247,6 +247,18 @@ class Route(ResponseModel):
     model: ModelInfo
     route_url: Optional[str] = None
 
+    class Config:
+        schema_extra = {
+            "example": {
+                "name": "openai-completions",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "name": "gpt-3.5-turbo",
+                    "provider": "openai",
+                },
+            }
+        }
+
 
 class GatewayConfig(ConfigModel):
     routes: List[RouteConfig]
