@@ -12,6 +12,7 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sentence_transformers
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -393,6 +394,45 @@ SIGNATURE = infer_signature(
     model_input=SENTENCES,
     model_output=SentenceTransformer("all-MiniLM-L6-v2").encode(SENTENCES),
 )
+
+
+def test_sentence_transformers_compatible_with_mlflow_2_4_0(basic_model):
+    assert mlflow.__version__ > "2.4.0"
+    model_uri = "tests/sentence_transformers/test_resources/test_model"
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_uri)
+
+    # predict is compatible
+    sentence = ["hello world and hello mlflow"]
+    embedding_dim = basic_model.get_sentence_embedding_dimension()
+
+    local_predict = pyfunc_loaded.predict(sentence)
+    assert local_predict.shape == (1, embedding_dim)
+
+    # model serving is compatible
+    inference_payload = json.dumps({"inputs": sentence})
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    serving_result = json.loads(response.content.decode("utf-8"))["predictions"]
+    np.testing.assert_array_equal(local_predict, serving_result)
+
+    # Raise error if trying to pass params to model logged with mlflow <= 2.4.1
+    with pytest.raises(
+        MlflowException, match=r"Parameters schema must be provided if `params` are provided."
+    ):
+        pyfunc_loaded.predict(sentence, params={"top_k": 2})
+
+    # Raise error if trying to pass params to model logged with mlflow <= 2.4.1 for model serving
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=json.dumps({"inputs": sentence, "params": {"top_k": 2}}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 500
 
 
 @pytest.mark.parametrize(

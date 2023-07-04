@@ -1,0 +1,19 @@
+artifact_path: test_model
+flavors:
+  python_function:
+    data: model.sentence_transformer
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sentence_transformers
+    python_version: 3.8.16
+  sentence_transformers:
+    code: null
+    sentence_transformers_version: 2.2.2
+mlflow_version: 2.4.0
+model_uuid: f13727eacf894dfa8242b425ad2d7246
+run_id: 5f554ec93611444fb06f816863b5e777
+signature:
+  inputs: '[{"type": "string"}]'
+  outputs: '[{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1]}}]'
+utc_time_created: '2023-07-04 05:00:24.800072'
