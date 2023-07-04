@@ -49,7 +49,8 @@ class AnthropicProvider(BaseProvider):
         if candidate_count != 1:
             raise HTTPException(
                 status_code=422,
-                detail="'candidate_count' must be '1' for the Anthropic provider, if specified.",
+                detail="'candidate_count' must be '1' for the Anthropic provider. "
+                f"Received value: '{candidate_count}'.",
             )
 
         payload = rename_payload_keys(

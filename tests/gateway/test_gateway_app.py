@@ -62,28 +62,26 @@ def test_health(client: TestClient):
 def test_search_routes(client: TestClient):
     response = client.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE)
     assert response.status_code == 200
-    assert response.json() == {
-        "routes": [
-            {
-                "name": "completions-gpt4",
-                "route_type": "llm/v1/completions",
-                "route_url": None,
-                "model": {
-                    "name": "gpt-4",
-                    "provider": "openai",
-                },
+    assert response.json()["routes"] == [
+        {
+            "name": "completions-gpt4",
+            "route_type": "llm/v1/completions",
+            "route_url": None,
+            "model": {
+                "name": "gpt-4",
+                "provider": "openai",
             },
-            {
-                "name": "chat-gpt4",
-                "route_type": "llm/v1/chat",
-                "route_url": None,
-                "model": {
-                    "name": "gpt-4",
-                    "provider": "openai",
-                },
+        },
+        {
+            "name": "chat-gpt4",
+            "route_type": "llm/v1/chat",
+            "route_url": None,
+            "model": {
+                "name": "gpt-4",
+                "provider": "openai",
             },
-        ]
-    }
+        },
+    ]
 
 
 def test_get_route(client: TestClient):
