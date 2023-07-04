@@ -106,9 +106,7 @@ class MlflowGatewayClient:
             Gateway Server. The return will be a list of dictionaries that detail the name, type,
             and model details of each active route endpoint.
         """
-        request_parameters = None
-        if page_token is not None:
-            request_parameters = {"page_token": page_token}
+        request_parameters = {"page_token": page_token} if page_token is not None else None
         response_json = self._call_endpoint(
             "GET", MLFLOW_GATEWAY_CRUD_ROUTE_BASE, json_body=json.dumps(request_parameters)
         ).json()
