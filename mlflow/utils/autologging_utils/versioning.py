@@ -42,7 +42,7 @@ def _check_spark_version_in_range(ver, min_ver, max_ver):
 
 def _violates_pep_440(ver):
     try:
-        _ = Version(ver)
+        Version(ver)
         return False
     except InvalidVersion:
         return True
