@@ -13,7 +13,7 @@ from mlflow.gateway import (
     search_routes,
 )
 from mlflow.gateway.config import Route
-from mlflow.gateway.constants import MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE
+from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
 from mlflow.gateway.envs import MLFLOW_GATEWAY_URI
 import mlflow.gateway.utils
 from tests.gateway.tools import Gateway, save_yaml
@@ -146,7 +146,7 @@ def test_fluent_search_routes_handles_pagination(tmp_path):
             },
         },
     }
-    num_routes = (MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE * 2) + 1
+    num_routes = (MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE * 2) + 1
     gateway_route_names = [f"route_{i}" for i in range(num_routes)]
     gateway_config_dict = {
         "routes": [{"name": route_name, **base_route_config} for route_name in gateway_route_names]

@@ -13,7 +13,7 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
-    MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE,
+    MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE,
 )
 from mlflow.gateway.config import (
     Route,
@@ -179,7 +179,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         else:
             start_idx = 0
 
-        end_idx = start_idx + MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE
+        end_idx = start_idx + MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
         routes = list(app.dynamic_routes.values())
         result = {"routes": routes[start_idx:end_idx]}
         if len(routes[end_idx:]) > 0:

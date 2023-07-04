@@ -2,7 +2,7 @@ import pytest
 from requests.exceptions import HTTPError
 from unittest import mock
 
-from mlflow.gateway.constants import MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE
+from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
 from mlflow.gateway.envs import MLFLOW_GATEWAY_URI  # TODO: change to environment_variables import
 from mlflow.exceptions import MlflowException, InvalidUrlException
 import mlflow.gateway.utils
@@ -245,7 +245,7 @@ def test_search_routes_returns_expected_pages(tmp_path):
             },
         },
     }
-    num_routes = MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE + 5
+    num_routes = MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE + 5
     gateway_route_names = [f"route_{i}" for i in range(num_routes)]
     gateway_config_dict = {
         "routes": [{"name": route_name, **base_route_config} for route_name in gateway_route_names]
@@ -255,14 +255,14 @@ def test_search_routes_returns_expected_pages(tmp_path):
         gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
         routes_page_1 = gateway_client.search_routes()
         assert [route.name for route in routes_page_1] == gateway_route_names[
-            :MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE
+            :MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
         ]
         assert routes_page_1.token
 
         routes_page_2 = gateway_client.search_routes(page_token=routes_page_1.token)
         assert len(routes_page_2) == 5
         assert [route.name for route in routes_page_2] == gateway_route_names[
-            MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE:
+            MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE:
         ]
         assert not routes_page_2.token
 

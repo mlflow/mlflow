@@ -3,7 +3,7 @@ from typing import List, Dict, Any
 
 from mlflow.gateway.client import MlflowGatewayClient
 from mlflow.gateway.config import Route
-from mlflow.gateway.constants import MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE
+from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 
@@ -40,7 +40,7 @@ def search_routes() -> List[Route]:
 
     return get_results_from_paginated_fn(
         paginated_fn=pagination_wrapper_func,
-        max_results_per_page=MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE,
+        max_results_per_page=MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE,
         max_results=None,
     )
 
