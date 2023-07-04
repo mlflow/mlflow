@@ -18,7 +18,7 @@ def create_user(tracking_uri):
     return username, password
 
 
-class User(object):
+class User:
     def __init__(self, username, password, monkeypatch):
         self.username = username
         self.password = password
