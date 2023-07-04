@@ -4,12 +4,13 @@ import json
 import logging
 import os
 from pathlib import Path
-from pydantic import BaseModel, validator, root_validator, parse_obj_as, Extra, ValidationError
+from pydantic import validator, root_validator, parse_obj_as, ValidationError
 from pydantic.json import pydantic_encoder
 from typing import Optional, Union, List, Dict, Any
 import yaml
 
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.base_models import ConfigModel, ResponseModel
 from mlflow.gateway.utils import is_valid_endpoint_name, check_configuration_route_name_collisions
 
 
@@ -34,7 +35,7 @@ class RouteType(str, Enum):
     LLM_V1_EMBEDDINGS = "llm/v1/embeddings"
 
 
-class CohereConfig(BaseModel, extra=Extra.allow):
+class CohereConfig(ConfigModel):
     cohere_api_key: str
     cohere_api_base: str = "https://api.cohere.ai/v1"
 
@@ -61,7 +62,7 @@ class OpenAIAPIType(str, Enum):
         raise MlflowException.invalid_parameter_value(f"Invalid OpenAI API type '{value}'")
 
 
-class OpenAIConfig(BaseModel, extra=Extra.allow):
+class OpenAIConfig(ConfigModel):
     openai_api_key: str
     openai_api_type: OpenAIAPIType = OpenAIAPIType.OPENAI
     openai_api_base: Optional[str] = None
@@ -107,7 +108,7 @@ class OpenAIConfig(BaseModel, extra=Extra.allow):
         return config
 
 
-class AnthropicConfig(BaseModel, extra=Extra.allow):
+class AnthropicConfig(ConfigModel):
     anthropic_api_key: str
     anthropic_api_base: str = "https://api.anthropic.com/"
 
@@ -124,7 +125,7 @@ config_types = {
 }
 
 
-class ModelInfo(BaseModel, extra=Extra.allow):
+class ModelInfo(ResponseModel):
     name: Optional[str] = None
     provider: Provider
 
@@ -166,7 +167,7 @@ def _resolve_api_key_from_input(api_key_input):
 
 
 # pylint: disable=no-self-argument
-class Model(BaseModel, extra=Extra.allow):
+class Model(ConfigModel):
     name: Optional[str] = None
     provider: Union[str, Provider]
     config: Optional[
@@ -197,7 +198,7 @@ class Model(BaseModel, extra=Extra.allow):
 
 
 # pylint: disable=no-self-argument
-class RouteConfig(BaseModel, extra=Extra.allow):
+class RouteConfig(ConfigModel):
     name: str
     route_type: RouteType
     model: Model
@@ -240,14 +241,14 @@ class RouteConfig(BaseModel, extra=Extra.allow):
         )
 
 
-class Route(BaseModel, extra=Extra.allow):
+class Route(ResponseModel):
     name: str
     route_type: RouteType
     model: ModelInfo
     route_url: Optional[str] = None
 
 
-class GatewayConfig(BaseModel, extra=Extra.allow):
+class GatewayConfig(ConfigModel):
     routes: List[RouteConfig]
 
 
