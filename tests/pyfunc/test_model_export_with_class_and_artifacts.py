@@ -1384,3 +1384,37 @@ def test_class_python_model_type_hints(tmp_path):
     assert model.signature.outputs.to_dict() == [{"type": "string"}]
     model = mlflow.pyfunc.load_model(tmp_path)
     assert model.predict(["a", "b"]) == ["a", "b"]
+
+
+@pytest.mark.large
+def test_multiple_artifacts_with_same_artifact_relative_path(
+    sklearn_knn_model, model_path, iris_data
+):
+    default_model_path = "model"
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(
+            sk_model=sklearn_knn_model, artifact_path=default_model_path
+        )
+        first_model_uri = model_info.model_uri
+
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(
+            sk_model=sklearn_knn_model, artifact_path=default_model_path
+        )
+        second_model_uri = model_info.model_uri
+
+    class ArtifactValidationModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            first_model_resolved_path = context.artifacts["first_model"]
+            second_model_resolved_path = context.artifacts["second_model"]
+            return first_model_resolved_path != second_model_resolved_path
+
+    mlflow.pyfunc.save_model(
+        path=model_path,
+        artifacts={"first_model": first_model_uri, "second_model": second_model_uri},
+        python_model=ArtifactValidationModel(),
+        conda_env=_conda_env(),
+    )
+
+    loaded_model = mlflow.pyfunc.load_model(model_uri=model_path)
+    assert loaded_model.predict(iris_data[0])
