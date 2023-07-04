@@ -54,7 +54,7 @@ class CandidateMetadata(ResponseModel):
 
 
 class Candidate(ResponseModel):
-    message: ResponseMessage 
+    message: ResponseMessage
     metadata: CandidateMetadata
 
 
