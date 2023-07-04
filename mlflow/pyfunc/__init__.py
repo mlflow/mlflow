@@ -856,13 +856,13 @@ def _infer_spark_udf_return_type(model_output_schema):
         else:
             raise ValueError(f"Unknown schema output spec {spec}.")
 
-    if len(self.inputs) == 1 and self.inputs[0].name is None:
-        return _convert_spec_to_spark_type(self.inputs[0])
+    if len(model_output_schema.inputs) == 1 and model_output_schema.inputs[0].name is None:
+        return _convert_spec_to_spark_type(model_output_schema.inputs[0])
 
     return StructType(
         [
             StructField(name=spec.name or str(i), dataType=_convert_spec_to_spark_type(spec))
-            for i, spec in enumerate(self.inputs)
+            for i, spec in enumerate(model_output_schema.inputs)
         ]
     )
 
@@ -1135,9 +1135,6 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
         if isinstance(result, dict):
             result = {k: list(v) for k, v in result.items()}
 
-        if not isinstance(result, pandas.DataFrame):
-            result = pandas.DataFrame(data=result)
-
         spark_primitive_type_to_np_type = {
             IntegerType: np.int32,
             LongType: np.int64,
@@ -1173,8 +1170,7 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
                 ]
             else:
                 return [
-                    [np.array(v, dtype=np_type) for e in v]
-                    for v in values
+                    list(np.array(v, dtype=np_type)) for v in values
                 ]
 
         if isinstance(result_type, SparkStructType):
@@ -1194,10 +1190,13 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
                         f"Unsupported field type {field_type.simpleString()} in struct type.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-
                 result_dict[field_name] = field_values
 
+            # raise ValueError(str(result_dict))
             return pandas.DataFrame(result_dict)
+
+        if not isinstance(result, pandas.DataFrame):
+            result = pandas.DataFrame(data=result)
 
         elem_type = result_type.elementType if isinstance(result_type, ArrayType) else result_type
 

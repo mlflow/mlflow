@@ -42,7 +42,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
 from mlflow.pyfunc import spark_udf, PythonModel, PyFuncModel
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
-from mlflow.types import Schema, ColSpec
+from mlflow.types import Schema, ColSpec, TensorSpec
 
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2, True]
@@ -307,6 +307,95 @@ def test_spark_udf_with_struct_return_type(spark):
         )
         assert result.r6.tolist() == [True] * 2
         assert result.r7.tolist() == ["abc"] * 2
+
+
+def test_spark_udf_colspec_struct_return_type_inferring(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            input_len = len(model_input)
+            return {
+                "r1": [1] * input_len,
+                "r2": [1.5] * input_len,
+                "r3": [True] * input_len,
+                "r4": ["abc"] * input_len,
+            }
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=ModelSignature(
+            inputs=Schema([ColSpec("long")]),
+            outputs=Schema([
+                ColSpec('integer', 'r1'),
+                ColSpec('float', 'r2'),
+                ColSpec('boolean', 'r3'),
+                ColSpec('string', 'r4'),
+            ])
+        ))
+
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            "runs:/{}/model".format(run.info.run_id),
+        )
+
+        data1 = spark.range(2).repartition(1)
+        result = (
+            data1.withColumn("res", udf("id"))
+            .select("res.r1", "res.r2", "res.r3", "res.r4")
+            .toPandas()
+        )
+        assert result.r1.tolist() == [1] * 2
+        np.testing.assert_almost_equal(result.r2.tolist(), [1.5] * 2)
+        assert result.r3.tolist() == [True] * 2
+        assert result.r4.tolist() == ["abc"] * 2
+
+
+def test_spark_udf_tensorspec_struct_return_type_inferring(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            input_len = len(model_input)
+            return {
+                "r1": [[1, 2]] * input_len,
+                "r2": [np.array([1.5, 2.5])] * input_len,
+                "r3": np.vstack([np.array([1.5, 2.5])] * input_len),
+                "r4": [np.array([[1., 2., 3.], [4., 5., 6.]])] * input_len,
+                "r5": np.array([[[1., 2., 3.], [4., 5., 6.]]] * input_len),
+            }
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=ModelSignature(
+            inputs=Schema([ColSpec("long")]),
+            outputs=Schema([
+                TensorSpec(np.dtype(np.int64), (2,), 'r1'),
+                TensorSpec(np.dtype(np.float64), (2,), 'r2'),
+                TensorSpec(np.dtype(np.float64), (2,), 'r3'),
+                TensorSpec(np.dtype(np.float64), (2, 3,), 'r4'),
+                TensorSpec(np.dtype(np.float64), (2, 3,), 'r5'),
+            ])
+        ))
+
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            "runs:/{}/model".format(run.info.run_id),
+        )
+
+        data1 = spark.range(2).repartition(1)
+        result_spark_df = (
+            data1.withColumn("res", udf("id"))
+            .select("res.r1", "res.r2", "res.r3", "res.r4", "res.r5")
+        )
+        result = result_spark_df.toPandas()
+        assert result.r1.tolist() == [[1, 2]] * 2
+        np.testing.assert_almost_equal(
+            np.vstack(result.r2.tolist()), np.array([[1.5, 2.5], [1.5, 2.5]])
+        )
+        np.testing.assert_almost_equal(
+            np.vstack(result.r3.tolist()), np.array([[1.5, 2.5], [1.5, 2.5]])
+        )
+        np.testing.assert_almost_equal(
+            list(result.r4), [[[1., 2., 3.], [4., 5., 6.]]] * 2
+        )
+        np.testing.assert_almost_equal(
+            list(result.r5), [[[1., 2., 3.], [4., 5., 6.]]] * 2
+        )
 
 
 def test_spark_udf_autofills_no_arguments(spark):
