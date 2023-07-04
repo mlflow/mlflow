@@ -29,7 +29,6 @@ ignore = [
   "F403",  # undefined-local-with-import-star
   "F811",  # redefined-while-unused
   "F821",  # undefined-name
-  "F841",  # unused-variable
 ]
 exclude = [
   # Exclude a variety of commonly ignored directories.
