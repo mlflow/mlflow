@@ -890,8 +890,13 @@ def get_model_version_from_model_uri(model_uri):
 
 
 def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[ParamSchema]):
-    if params in [None, {}] and schema is None:
-        return params
+    if schema is None:
+        if params in [None, {}]:
+            return params
+        raise MlflowException(
+            "Parameters schema must be provided if `params` are provided."
+            "Please double check your model signature and ensure that params schema is provided."
+        )
     if not isinstance(params, dict):
         raise MlflowException(
             f"Parameters must be a dictionary. Got type '{type(params).__name__}'."

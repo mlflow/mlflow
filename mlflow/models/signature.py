@@ -25,7 +25,6 @@ from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
 from mlflow.types.schema import ParamSchema, Schema
 from mlflow.types.utils import _infer_param_schema, _infer_schema, _infer_schema_from_type_hint
-from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import append_to_uri_path
 
 
@@ -138,7 +137,6 @@ class ModelSignature:
         )
 
 
-@experimental
 def infer_signature(
     model_input: Any,
     model_output: "MlflowInferableDataset" = None,
@@ -209,6 +207,9 @@ def infer_signature(
 
                         # Passing params to `predict` function directly
                         result = pyfunc_loaded.predict(data, params=params)
+
+                   .. Note:: Experimental: This parameter may change or be removed in a future
+                                           release without warning.
 
     :return: ModelSignature
     """

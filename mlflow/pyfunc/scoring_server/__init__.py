@@ -32,7 +32,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _enforce_params_schema
 from mlflow.types import Schema
 from mlflow.utils import reraise
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
@@ -85,6 +85,8 @@ SCORING_PROTOCOL_CHANGE_INFO = (
 )
 
 
+# Keep this method to maintain compatibility with MLServer
+# https://github.com/SeldonIO/MLServer/blob/caa173ab099a4ec002a7c252cbcc511646c261a6/runtimes/mlflow/mlserver_mlflow/runtime.py#L13C5-L13C31
 @deprecated("infer_and_parse_data", "2.4.2")
 def infer_and_parse_json_input(json_input, schema: Schema = None):
     """
@@ -171,7 +173,6 @@ def _decode_json_input(json_input):
         )
 
 
-@experimental
 def _split_data_and_params(json_input):
     input_dict = _decode_json_input(json_input)
     data = {k: v for k, v in input_dict.items() if k in SUPPORTED_FORMATS}

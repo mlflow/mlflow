@@ -41,7 +41,6 @@ from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
     _get_root_uri_and_artifact_path,
 )
-from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -893,7 +892,6 @@ class _PyFuncModelWrapper:
         self.spark = spark
         self.spark_model = spark_model
 
-    @experimental
     def predict(self, pandas_df, params: Optional[Dict[str, Any]] = None):
         """
         Generate predictions given input data in a pandas DataFrame.

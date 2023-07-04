@@ -94,7 +94,8 @@ class ScoringServerClient(BaseScoringServerClient):
 
 
 class StdinScoringServerClient(BaseScoringServerClient):
-    def __init__(self, process):  # pylint: disable=super-init-not-called
+    def __init__(self, process):
+        super().__init__()
         self.process = process
         self.tmpdir = Path(tempfile.mkdtemp())
         self.output_json = self.tmpdir.joinpath("output.json")

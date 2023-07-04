@@ -852,7 +852,6 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
-@experimental
 def spark_udf(
     spark,
     model_uri,
@@ -959,7 +958,10 @@ def spark_udf(
                            may differ from the environment used to train the model and may lead to
                            errors or invalid predictions.
 
-    :param params: A dictionary of parameters that will be used for model inference.
+    :param params: Additional parameters to pass to the model for inference.
+
+                   .. Note:: Experimental: This parameter may change or be removed in a future
+                                           release without warning.
 
     :return: Spark UDF that applies the model's ``predict`` method to the data and returns a
              type specified by ``result_type``, which by default is a double.
