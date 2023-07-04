@@ -187,7 +187,7 @@ def test_server_update_config_removed_then_recreated(
         save_yaml(config, {"routes": basic_config_dict["routes"][1:]})
         gateway.wait_reload()
         response = gateway.get(BASE_ROUTE)
-        assert response.json()["routes"] == {"routes": basic_routes[1:]}
+        assert response.json()["routes"] == basic_routes[1:]
 
 
 def test_server_static_endpoints(tmp_path, basic_config_dict, basic_routes):
