@@ -206,7 +206,7 @@ downstream tooling:
 Model Signature
 ^^^^^^^^^^^^^^^
 Model signatures define input, output and parameters schemas for MLflow models, providing a standard 
-interface to codify and enforce the correct use of your models. Sigatures are fetched by the MLflow Tracking
+interface to codify and enforce the correct use of your models. Signatures are fetched by the MLflow Tracking
 UI and Model Registry UI to display model inputs, outputs and params. They are also utilized by
 :ref:`MLflow model deployment tools <built-in-deployment>` to validate inference inputs according to
 the model's assigned signature (see the :ref:`Signature enforcement <signature-enforcement>` section
@@ -226,7 +226,7 @@ saved model, use the :py:func:`set_signature() <mlflow.models.set_signature>` AP
     Function (pyfunc) flavor of MLflow models. Hence, it is recommended that you assign your model
     a signature that matches its PyFunc flavor. Usually, generating the model signature involves calling
     :py:func:`infer_signature() <mlflow.models.infer_signature>` on your raw model's test dataset
-    and predicted output of that dataset, params is an optional field that's used for inference. 
+    and predicted output of that dataset, optionally specifying parameters used for inference. 
     However, in certain cases (such as the :ref:`pmdarima model flavor <pmdarima-flavor>`)
     the schema of the PyFunc model input may differ from that of the test dataset. In such situations,
     it is necessary to create a signature that represents the inputs and outputs of the PyFunc flavor.
@@ -240,7 +240,7 @@ Tensor-based schemas are a sequence of (optionally) named tensors with type spec
 `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. 
 Params schema is a sequence of ParamSpec, each of which contains ``name``, ``type``, ``default`` and ``shape`` fields.
 ``type`` field must be specified as one of the :py:class:`MLflow data types <mlflow.types.DataType>`, and ``shape`` 
-field should be ``None`` for scalar parameters, or (-1,) for list parameters.
+field should be ``None`` for scalar parameters, or ``(-1,)`` for list parameters.
 See some examples of constructing them below.
 
 Column-based Signature Example
@@ -286,15 +286,15 @@ Signature with params Example
 """""""""""""""""""""""""""""
 The params field is optional and is used to specify parameters that can be used for model inference.
 Params accept scalar values of type :py:class:`MLflow data types <mlflow.types.DataType>`, or a list
-of such values. Default value for a parameter can be specified by setting ``default`` field, and it 
-should be of the type specified by ``type`` field. ``shape`` field can be used to specify the shape 
-of the value, it should be None for scalar values, and (-1,) for a list.
+of such values. The default value of a parameter is specified by setting the ``default`` field, and the value
+should be of the type specified by ``type`` field. The ``shape`` field can be used to specify the shape 
+of the value, it should be ``None`` for scalar values and ``(-1,)`` for a list.
 
 .. code-block:: yaml
 
     signature:
         inputs: '[{"name": "text", "type": "string"}]'
-        outputs: '[{"name": "output", "type": "string"}]'
+       outputs: '[{"name": "output", "type": "string"}]'
         params: '[{"name": "temperature", "type": "float", "default": 0.5, "shape": None},
                   {"name": "top_k", "type": "integer", "default": 1, "shape": None},
                   {"name": "suppress_tokens", "type": "integer", "default": [101, 102], "shape": (-1,)}]'
@@ -337,8 +337,8 @@ Params Type and Shape Enforcement
 The params types and shapes are checked against the signature.
 
 MLflow verifies the compatibility of each parameter provided during inference by comparing its type and shape 
-with those specified in the signature. Scalar values should have a shape of None, while list values should have 
-a shape of (-1,). If the parameter's type or shape is incompatible, an MlflowException will be raised. 
+with those specified in the signature. Scalar values should have a shape of ``None``, while list values should have 
+a shape of ``(-1,)``. If the parameter's type or shape is incompatible, an exception will be raised. 
 Additionally, the value of the parameter is validated against the specified type in the signature. We attempt 
 to convert the value to the specified type, and if this conversion fails, an MlflowException will be raised.
 
@@ -2785,7 +2785,6 @@ For `transformers` inference, there are two ways to pass in additional arguments
 
 .. note::
     Model signature parameters passed in to `predict` function will override the values in inference_config.
-    This functionality is not supported for model serving yet, but it will be supported in the short future.
 
 * Using inference_config
 
