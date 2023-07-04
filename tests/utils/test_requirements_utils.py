@@ -71,7 +71,7 @@ def test_join_continued_lines():
     assert list(_join_continued_lines(["\\", "a"])) == ["a"]
 
 
-def test_parse_requirements(request, tmp_path, monkeypatch):
+def test_parse_requirements(tmp_path, monkeypatch):
     """
     Ensures `_parse_requirements` returns the same result as `pip._internal.req.parse_requirements`
     """

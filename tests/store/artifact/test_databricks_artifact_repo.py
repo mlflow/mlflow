@@ -1235,7 +1235,7 @@ def extract_part_number(url):
     return int(re.search(r"partNumber=(\d+)", url).group(1))
 
 
-def mock_request(method, url, *args, **kwargs):
+def mock_request(method, url, *_args, **_kwargs):
     resp = Response()
     resp.status_code = 200
     resp.close = lambda: None
@@ -1309,7 +1309,7 @@ def test_multipart_upload(databricks_artifact_repo, large_file, mock_chunk_size)
 STATUS_CODE_GENERATOR = (s for s in (403, 200))
 
 
-def mock_request_retry(method, url, *args, **kwargs):
+def mock_request_retry(method, url, *_args, **_kwargs):
     resp = Response()
     resp.status_code = 200
     resp.close = lambda: None
