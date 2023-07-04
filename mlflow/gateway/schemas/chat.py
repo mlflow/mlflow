@@ -1,17 +1,18 @@
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, Extra, Field
+from pydantic import Field
 
+from ..base_models import RequestModel, ResponseModel
 from ..config import RouteType
 
 
-class Message(BaseModel):
+class RequestMessage(RequestModel):
     role: str
     content: str
 
 
-class BaseRequestPayload(BaseModel):
+class BaseRequestPayload(RequestModel):
     temperature: float = Field(0.0, ge=0, le=1)
     stop: Optional[List[str]] = Field(None, min_items=1)
     max_tokens: Optional[int] = Field(None, ge=0)
@@ -19,10 +20,9 @@ class BaseRequestPayload(BaseModel):
 
 
 class RequestPayload(BaseRequestPayload):
-    messages: List[Message] = Field(..., min_items=1)
+    messages: List[RequestMessage] = Field(..., min_items=1)
 
     class Config:
-        extra = Extra.allow
         schema_extra = {
             "example": {
                 "messages": [
@@ -44,16 +44,21 @@ class FinishReason(str, Enum):
     LENGTH = "length"
 
 
-class CandidateMetadata(BaseModel, extra=Extra.allow):
+class ResponseMessage(ResponseModel):
+    role: str
+    content: str
+
+
+class CandidateMetadata(ResponseModel):
     finish_reason: Optional[FinishReason]
 
 
-class Candidate(BaseModel):
-    message: Message
+class Candidate(ResponseModel):
+    message: ResponseMessage 
     metadata: CandidateMetadata
 
 
-class Metadata(BaseModel, extra=Extra.allow):
+class Metadata(ResponseModel):
     input_tokens: Optional[int]
     output_tokens: Optional[int]
     total_tokens: Optional[int]
@@ -61,12 +66,11 @@ class Metadata(BaseModel, extra=Extra.allow):
     route_type: RouteType
 
 
-class ResponsePayload(BaseModel):
+class ResponsePayload(ResponseModel):
     candidates: List[Candidate]
     metadata: Metadata
 
     class Config:
-        extra = Extra.allow
         schema_extra = {
             "example": {
                 "candidates": [
