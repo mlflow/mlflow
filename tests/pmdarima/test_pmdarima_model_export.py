@@ -118,7 +118,7 @@ def test_pmdarima_signature_and_examples_saved_correctly(
     # NB: Signature inference will only work on the first element of the tuple return
     prediction = auto_arima_model.predict(n_periods=20, return_conf_int=True, alpha=0.05)
     signature = infer_signature(test_data, prediction[0]) if use_signature else None
-    example = test_data[0:5].copy(deep=False) if use_example else None
+    example = test_data[0:1].copy(deep=False) if use_example else None
     mlflow.pmdarima.save_model(
         auto_arima_model, path=model_path, signature=signature, input_example=example
     )
