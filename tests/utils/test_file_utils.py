@@ -369,8 +369,8 @@ def test_overwrite_yaml_preserves_preexisting_permissions(tmp_path):
     tmp_dir = str(tmp_path)
     yaml_path = tmp_path / random_file("yaml")
     file_utils.write_yaml(tmp_dir, yaml_path.name, {"foo": "bar"})
-    expected_mode = 0o100660
-    # ensure temporary file does not have elevated permissions
-    os.chmod(str(yaml_path), expected_mode)
+    # Set OS-independent permissions on temporary testing file
+    expected_mode = 0o100666
+    yaml_path.chmod(expected_mode)
     file_utils.overwrite_yaml(tmp_dir, yaml_path.name, {"bar": "foo"})
     assert yaml_path.stat().st_mode == expected_mode
