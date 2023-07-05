@@ -381,6 +381,7 @@ def test_search_experiments(tmp_path):
 
     deleted_experiment_names = [f"deleted_{i}" for i in range(num_deleted_experiments)]
     for deleted_experiment_name in deleted_experiment_names:
+        time.sleep(0.001)
         exp_id = mlflow.create_experiment(deleted_experiment_name)
         mlflow.delete_experiment(exp_id)
 
