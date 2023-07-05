@@ -309,7 +309,7 @@ def test_spark_udf_with_struct_return_type(spark):
         assert result.r7.tolist() == ["abc"] * 2
 
 
-def test_spark_udf_colspec_struct_return_type_inferring(spark):
+def test_spark_udf_colspec_struct_return_type_inference(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
             input_len = len(model_input)
@@ -333,22 +333,26 @@ def test_spark_udf_colspec_struct_return_type_inferring(spark):
 
         udf = mlflow.pyfunc.spark_udf(
             spark,
-            "runs:/{}/model".format(run.info.run_id),
+            f"runs:/{run.info.run_id}/model",
         )
 
         data1 = spark.range(2).repartition(1)
-        result = (
+        result_spark_df = (
             data1.withColumn("res", udf("id"))
             .select("res.r1", "res.r2", "res.r3", "res.r4")
-            .toPandas()
         )
-        assert result.r1.tolist() == [1] * 2
-        np.testing.assert_almost_equal(result.r2.tolist(), [1.5] * 2)
-        assert result.r3.tolist() == [True] * 2
-        assert result.r4.tolist() == ["abc"] * 2
+        assert (
+            result_spark_df.schema.simpleString() == "struct<r1:int,r2:float,r3:boolean,r4:string>"
+        )
+
+        result = result_spark_df.toPandas()
+        assert result["r1"].tolist() == [1] * 2
+        np.testing.assert_almost_equal(result["r2"].tolist(), [1.5] * 2)
+        assert result["r3"].tolist() == [True] * 2
+        assert result["r4"].tolist() == ["abc"] * 2
 
 
-def test_spark_udf_tensorspec_struct_return_type_inferring(spark):
+def test_spark_udf_tensorspec_struct_return_type_inference(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
             input_len = len(model_input)
@@ -374,7 +378,7 @@ def test_spark_udf_tensorspec_struct_return_type_inferring(spark):
 
         udf = mlflow.pyfunc.spark_udf(
             spark,
-            "runs:/{}/model".format(run.info.run_id),
+            f"runs:/{run.info.run_id}/model",
         )
 
         data1 = spark.range(2).repartition(1)
@@ -382,19 +386,24 @@ def test_spark_udf_tensorspec_struct_return_type_inferring(spark):
             data1.withColumn("res", udf("id"))
             .select("res.r1", "res.r2", "res.r3", "res.r4", "res.r5")
         )
+        assert (
+            result_spark_df.schema.simpleString() ==
+            "struct<r1:array<bigint>,r2:array<double>,r3:array<double>,"
+            "r4:array<array<double>>,r5:array<array<double>>>"
+        )
         result = result_spark_df.toPandas()
-        assert result.r1.tolist() == [[1, 2]] * 2
+        assert result["r1"].tolist() == [[1, 2]] * 2
         np.testing.assert_almost_equal(
-            np.vstack(result.r2.tolist()), np.array([[1.5, 2.5], [1.5, 2.5]])
+            np.vstack(result["r2"].tolist()), np.array([[1.5, 2.5], [1.5, 2.5]])
         )
         np.testing.assert_almost_equal(
-            np.vstack(result.r3.tolist()), np.array([[1.5, 2.5], [1.5, 2.5]])
+            np.vstack(result["r3"].tolist()), np.array([[1.5, 2.5], [1.5, 2.5]])
         )
         np.testing.assert_almost_equal(
-            list(result.r4), [[[1., 2., 3.], [4., 5., 6.]]] * 2
+            list(result["r4"]), [[[1., 2., 3.], [4., 5., 6.]]] * 2
         )
         np.testing.assert_almost_equal(
-            list(result.r5), [[[1., 2., 3.], [4., 5., 6.]]] * 2
+            list(result["r5"]), [[[1., 2., 3.], [4., 5., 6.]]] * 2
         )
 
 

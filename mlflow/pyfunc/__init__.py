@@ -829,33 +829,35 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
+def _convert_spec_to_spark_type(spec):
+    from mlflow.types.schema import ColSpec, TensorSpec, DataType
+    from pyspark.sql.types import ArrayType
+
+    # TODO: handle optional output columns.
+    if isinstance(spec, ColSpec):
+        return spec.type.to_spark()
+    elif isinstance(spec, TensorSpec):
+        data_type = DataType.from_numpy_type(spec.type)
+        if data_type is None:
+            raise ValueError(
+                f"Model output tensor spec type {spec.type} is not supported in spark_udf."
+            )
+
+        if len(spec.shape) == 1:
+            return ArrayType(data_type.to_spark())
+        elif len(spec.shape) == 2:
+            return ArrayType(ArrayType(data_type.to_spark()))
+        else:
+            raise ValueError(
+                "Only one dimension or 2 dimensions tensors are supported as spark_udf "
+                f"return value, but model output '{spec.name}' has shape {spec.shape}."
+            )
+    else:
+        raise ValueError(f"Unknown schema output spec {spec}.")
+
+
 def _infer_spark_udf_return_type(model_output_schema):
     from pyspark.sql.types import StructType, StructField, ArrayType
-
-    def _convert_spec_to_spark_type(spec):
-        from mlflow.types.schema import ColSpec, TensorSpec, DataType
-
-        # TODO: handle optional output columns.
-        if isinstance(spec, ColSpec):
-            return spec.type.to_spark()
-        elif isinstance(spec, TensorSpec):
-            data_type = DataType.from_numpy_type(spec.type)
-            if data_type is None:
-                raise ValueError(
-                    f"Model output tensor spec type {spec.type} is not supported in spark_udf."
-                )
-
-            if len(spec.shape) == 1:
-                return ArrayType(data_type.to_spark())
-            elif len(spec.shape) == 2:
-                return ArrayType(ArrayType(data_type.to_spark()))
-            else:
-                raise ValueError(
-                    "Only one dimension or 2 dimensions tensors are supported as spark_udf "
-                    f"return value, but model output '{spec.name}' has shape {spec.shape}."
-                )
-        else:
-            raise ValueError(f"Unknown schema output spec {spec}.")
 
     if len(model_output_schema.inputs) == 1 and model_output_schema.inputs[0].name is None:
         return _convert_spec_to_spark_type(model_output_schema.inputs[0])
@@ -1065,17 +1067,18 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
 
     model_output_schema = model_metadata.get_output_schema()
 
-    result_type = "boolean" if result_type == "bool" else result_type
-
     if result_type is None:
         if model_output_schema is None:
             _logger.warning(
-                "You don't provide 'result_type' for spark_udf and the model metadata does not "
-                "have output schema, set 'result_type' to 'double' type as the default fallback."
+                "No 'result_type' provided for spark_udf and the model metadata does not "
+                "have an output schema. 'result_type' is set to 'double' type as the default "
+                "fallback."
             )
             result_type = "double"
         else:
             result_type = _infer_spark_udf_return_type(model_output_schema)
+    else:
+        result_type = "boolean" if result_type == "bool" else result_type
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
@@ -1148,9 +1151,9 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
         def _convert_array_values(values, spark_type):
             array_dim = 1
             elem_type = spark_type.elementType
-            if type(elem_type) == ArrayType:
+            if isinstance(elem_type, ArrayType):
                 elem_type = elem_type.elementType
-                if type(elem_type) == ArrayType:
+                if isinstance(elem_type, ArrayType):
                     raise MlflowException(
                         f"Unsupported array<array<array<ElementType>>> type field "
                         "in struct type."
