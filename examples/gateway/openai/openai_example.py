@@ -9,8 +9,8 @@ def main():
     # Using the fluent API
     set_gateway_uri(gateway_uri)
 
-    # Completions request using the fluent API
-    response_fluent = query(
+    # Completions example
+    response_completions = query(
         route="completions",
         data={
             "prompt": "How many patties could be stacked on a cheeseburger before issues arise?",
@@ -18,50 +18,29 @@ def main():
             "temperature": 0.25,
         },
     )
-    print(f"Fluent API response: {response_fluent}")
+    print(f"Fluent API completions response: {response_completions}")
 
-    # Using the client API
-    gateway_client = MlflowGatewayClient(gateway_uri)
-
-    # Completions request using the client API
-    response_client = gateway_client.query(
+    # Chat example
+    response_chat = query(
         route="completions",
         data={
-            "prompt": "What would happen if we stocked Europa with trout?",
-            "temperature": 0.9,
-            "max_tokens": 200,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Please recite the preamble to the US Constitution as if it were "
+                    "written today by a rapper from Reykjavík",
+                }
+            ]
         },
     )
+    print(f"Fluent API completions response: {response_chat}")
 
-    print(f"Client API response: {response_client}")
-
-    # REST request using requests library
-    url = "http://127.0.0.1:5000/gateway/completions/invocations"
-    headers = {"Content-Type": "application/json"}
-    data = {
-        "prompt": "Is it possible to vine swing like Tarzan or is that a myth? Asking for a friend.",
-        "max_tokens": 200,
-        "temperature": 0.95,
-    }
-
-    response_rest = requests.post(url, headers=headers, json=data)
-    print(f"REST API response: {response_rest.json()}")
-
-    # CURL command for making a REST request from the terminal
-    # This command is equivalent to the REST request above
-    print(
-        f"""
-    You can also use the following curl command to make a request from your terminal:
-
-    curl -X POST {url} 
-        -H "Content-Type: application/json" 
-        -d '{json.dumps({
-            "prompt": "How could long-term durable memory be introduced into an attention model?", 
-            "max_tokens": 200, 
-            "temperature": 0.88
-        })}'
-    """
+    # Embeddings example
+    response_embeddings = query(
+        route="embeddings",
+        data={"text": "When you say 'enriched', what exactly are you enriching the cereal with?"},
     )
+    print(f"OpenAI response for embeddings: {response_embeddings}")
 
 
 if __name__ == "__main__":

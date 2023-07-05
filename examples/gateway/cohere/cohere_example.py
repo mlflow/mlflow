@@ -1,6 +1,4 @@
-import json
-import requests
-from mlflow.gateway import query, set_gateway_uri, MlflowGatewayClient
+from mlflow.gateway import query, set_gateway_uri
 
 
 def main():
@@ -9,55 +7,21 @@ def main():
     # Using the fluent API
     set_gateway_uri(gateway_uri)
 
-    # Completions request using the fluent API
-    response_fluent = query(
+    # Completions request
+    response_completions = query(
         route="completions",
         data={
             "prompt": "What is the world record for flapjack consumption in a single sitting?",
             "temperature": 0.1,
         },
     )
-    print(f"Fluent API response: {response_fluent}")
+    print(f"Cohere response for completions: {response_completions}")
 
-    # Using the client API
-    gateway_client = MlflowGatewayClient(gateway_uri)
-
-    # Completions request using the client API
-    response_client = gateway_client.query(
-        route="completions",
-        data={
-            "prompt": "What would happen if someone strapped an AIM-9X to the roof of a car?",
-            "temperature": 0.6,
-        },
+    # Embeddings request
+    response_embeddings = query(
+        route="embeddings", data={"text": ["Do you carry the Storm Trooper costume in size 2T?"]}
     )
-
-    print(f"Client API response: {response_client}")
-
-    # REST request using requests library
-    url = "http://127.0.0.1:5000/gateway/completions/invocations"
-    headers = {"Content-Type": "application/json"}
-    data = {
-        "prompt": "How many eggs can a chicken lay in its life?",
-        "temperature": 0.88,
-    }
-
-    response_rest = requests.post(url, headers=headers, json=data)
-    print(f"REST API response: {response_rest.json()}")
-
-    # CURL command for making a REST request from the terminal
-    # This command is equivalent to the REST request above
-    print(
-        f"""
-    You can also use the following curl command to make a request from your terminal:
-
-    curl -X POST {url} 
-        -H "Content-Type: application/json" 
-        -d '{json.dumps({
-            "prompt": "What would happen if the Earth's moon were made of lime Jello?", 
-            "temperature": 0.99
-        })}'
-    """
-    )
+    print(f"Cohere response for embeddings: {response_embeddings}")
 
 
 if __name__ == "__main__":
