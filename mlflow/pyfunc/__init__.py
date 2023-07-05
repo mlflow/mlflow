@@ -828,6 +828,10 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
+def _infer_spark_datatype(spark, datatype: str):
+    return spark.createDataFrame([], datatype).schema[0].dataType
+
+
 def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LOCAL):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -937,7 +941,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from mlflow.utils._spark_utils import _SparkDirectoryDistributor
     from pyspark.sql.functions import pandas_udf
-    from pyspark.sql.types import _parse_datatype_string
     from pyspark.sql.types import (
         ArrayType,
         DataType as SparkDataType,
@@ -970,7 +973,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     result_type = "boolean" if result_type == "bool" else result_type
 
     if not isinstance(result_type, SparkDataType):
-        result_type = _parse_datatype_string(result_type)
+        result_type = _infer_spark_datatype(result_type)
 
     elem_type = result_type
     if isinstance(elem_type, ArrayType):
