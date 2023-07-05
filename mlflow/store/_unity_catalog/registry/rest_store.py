@@ -86,6 +86,7 @@ _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
     UcModelRegistryService, _REST_API_PATH_PREFIX
 )
+_DATABRICKS_FS_LOADER_MODULE = "databricks.feature_store.mlflow_model"
 
 _logger = logging.getLogger(__name__)
 
@@ -116,7 +117,34 @@ def _raise_unsupported_method(method, message=None):
     raise MlflowException(" ".join(messages))
 
 
-def _get_feature_dependencies(model_dir):
+def _load_model(local_model_dir):
+    # Import Model here instead of in the top level, to avoid circular import; the
+    # mlflow.models.model module imports from MLflow tracking, which triggers an import of
+    # this file during store registry initialization
+    from mlflow.models.model import Model
+
+    try:
+        return Model.load(local_model_dir)
+    except Exception as e:
+        raise MlflowException(
+            "Unable to load model metadata. Ensure the source path of the model "
+            "being registered points to a valid MLflow model directory "
+            "(see https://mlflow.org/docs/latest/models.html#storage-format) containing a "
+            "model signature (https://mlflow.org/docs/latest/models.html#model-signature) "
+            "specifying both input and output type specifications."
+        ) from e
+
+
+def get_feature_dependencies(model_dir):
+    model = _load_model(model_dir)
+    model_info = model.get_model_info()
+    if (
+        model_info.flavors.get("python_function", {}).get("loader_module")
+        == _DATABRICKS_FS_LOADER_MODULE
+    ):
+        raise MlflowException(
+            "This model was packaged by Databricks Feature Store and can only be registered on a Databricks cluster."
+        )
     return ""
 
 
@@ -395,21 +423,7 @@ class UcModelRegistryStore(BaseRestStore):
         return run.data.tags.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
 
     def _validate_model_signature(self, local_model_dir):
-        # Import Model here instead of in the top level, to avoid circular import; the
-        # mlflow.models.model module imports from MLflow tracking, which triggers an import of
-        # this file during store registry initialization
-        from mlflow.models.model import Model
-
-        try:
-            model = Model.load(local_model_dir)
-        except Exception as e:
-            raise MlflowException(
-                "Unable to load model metadata. Ensure the source path of the model "
-                "being registered points to a valid MLflow model directory "
-                "(see https://mlflow.org/docs/latest/models.html#storage-format) containing a "
-                "model signature (https://mlflow.org/docs/latest/models.html#model-signature) "
-                "specifying both input and output type specifications."
-            ) from e
+        model = _load_model(local_model_dir)
         signature_required_explanation = (
             "All models in the Unity Catalog must be logged with a "
             "model signature containing both input and output "
@@ -472,7 +486,7 @@ class UcModelRegistryStore(BaseRestStore):
                     f"it via mlflow.artifacts.download_artifacts()"
                 ) from e
             self._validate_model_signature(local_model_dir)
-            feature_deps = _get_feature_dependencies(local_model_dir)
+            feature_deps = get_feature_dependencies(local_model_dir)
             req_body = message_to_json(
                 CreateModelVersionRequest(
                     name=full_name,
