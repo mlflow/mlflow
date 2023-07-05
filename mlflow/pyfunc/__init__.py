@@ -223,6 +223,7 @@ from typing import Any, Union, Iterator, Tuple
 
 import numpy as np
 import pandas
+import pandas as pd
 import yaml
 
 import mlflow
@@ -1230,6 +1231,8 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
             result = result.applymap(str)
 
         if type(result_type) == ArrayType:
+            if isinstance(result, pd.DataFrame):
+                result = result.to_numpy()
             result_values = _convert_array_values(result, result_type)
             return pandas.Series(result_values)
         else:
