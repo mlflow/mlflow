@@ -147,7 +147,7 @@ def create_experiment(
 
 
 @pytest.fixture(autouse=True)
-def reset_experiment_id(monkeypatch):
+def reset_experiment_id():
     """
     This fixture resets the active experiment id *after* the execution of the test case in which
     its included
