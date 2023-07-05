@@ -480,6 +480,7 @@ class ParamSpec:
         3. float -> double
         4. any -> datetime (try conversion)
         5. str -> bytes
+
         Any other type mismatch will raise error.
 
         :param name: parameter name
