@@ -34,7 +34,7 @@ def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple:
     from scipy.sparse import csr_matrix, csc_matrix
 
     if not isinstance(data, (np.ndarray, csr_matrix, csc_matrix)):
-        raise TypeError("Expected numpy.ndarray or csc/csr matrix, got '{}'.".format(type(data)))
+        raise TypeError(f"Expected numpy.ndarray or csc/csr matrix, got '{type(data)}'.")
     variable_input_data_shape = data.shape
     if variable_dimension is not None:
         try:
@@ -215,9 +215,7 @@ def _infer_numpy_dtype(dtype) -> DataType:
         # This version of pandas does not support extension types
         pass
     if not isinstance(dtype, supported_types):
-        raise TypeError(
-            "Expected numpy.dtype or pandas.ExtensionDtype, got '{}'.".format(type(dtype))
-        )
+        raise TypeError(f"Expected numpy.dtype or pandas.ExtensionDtype, got '{type(dtype)}'.")
 
     if dtype.kind == "b":
         return DataType.boolean
@@ -242,14 +240,14 @@ def _infer_numpy_dtype(dtype) -> DataType:
         )
     elif dtype.kind == "M":
         return DataType.datetime
-    raise MlflowException("Unsupported numpy data type '{}', kind '{}'".format(dtype, dtype.kind))
+    raise MlflowException(f"Unsupported numpy data type '{dtype}', kind '{dtype.kind}'")
 
 
 def _infer_pandas_column(col: pd.Series) -> DataType:
     if not isinstance(col, pd.Series):
-        raise TypeError("Expected pandas.Series, got '{}'.".format(type(col)))
+        raise TypeError(f"Expected pandas.Series, got '{type(col)}'.")
     if len(col.values.shape) > 1:
-        raise MlflowException("Expected 1d array, got array with shape {}".format(col.shape))
+        raise MlflowException(f"Expected 1d array, got array with shape {col.shape}")
 
     class IsInstanceOrNone:
         def __init__(self, *args):

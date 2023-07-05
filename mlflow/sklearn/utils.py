@@ -543,7 +543,7 @@ def _log_specialized_estimator_content(
             import matplotlib.pyplot as plt
         except ImportError as ie:
             _logger.warning(
-                f"Failed to import matplotlib (error: {repr(ie)}). Skipping artifact logging."
+                f"Failed to import matplotlib (error: {ie!r}). Skipping artifact logging."
             )
             return metrics
 

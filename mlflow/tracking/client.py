@@ -1303,7 +1303,7 @@ class MlflowClient:
                         f"Unsupported file extension for plotly figure: '{file_extension}'"
                     )
             else:
-                raise TypeError("Unsupported figure object type: '{}'".format(type(figure)))
+                raise TypeError(f"Unsupported figure object type: '{type(figure)}'")
 
     def log_image(
         self, run_id: str, image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str
@@ -1428,7 +1428,7 @@ class MlflowClient:
 
                 if image.ndim not in [2, 3]:
                     raise ValueError(
-                        "`image` must be a 2D or 3D array but got a {}D array".format(image.ndim)
+                        f"`image` must be a 2D or 3D array but got a {image.ndim}D array"
                     )
 
                 if (image.ndim == 3) and (image.shape[2] not in [1, 3, 4]):
@@ -1447,7 +1447,7 @@ class MlflowClient:
                 Image.fromarray(image).save(tmp_path)
 
             else:
-                raise TypeError("Unsupported image object type: '{}'".format(type(image)))
+                raise TypeError(f"Unsupported image object type: '{type(image)}'")
 
     def _check_artifact_file_string(self, artifact_file: str):
         """

@@ -116,4 +116,4 @@ def _execute(command):
 
 
 def _str_optional(s):
-    return "NULL" if s is None else "'{}'".format(quote(str(s)))
+    return "NULL" if s is None else f"'{quote(str(s))}'"

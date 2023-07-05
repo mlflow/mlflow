@@ -404,17 +404,17 @@ class SearchUtils:
         base_error_string = "Invalid comparison clause"
         if len(tokens) != 3:
             raise MlflowException(
-                "{}. Expected 3 tokens found {}".format(base_error_string, len(tokens)),
+                f"{base_error_string}. Expected 3 tokens found {len(tokens)}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         if not isinstance(tokens[0], Identifier):
             raise MlflowException(
-                "{}. Expected 'Identifier' found '{}'".format(base_error_string, str(tokens[0])),
+                f"{base_error_string}. Expected 'Identifier' found '{tokens[0]}'",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         if not isinstance(tokens[1], Token) and tokens[1].ttype != TokenType.Operator.Comparison:
             raise MlflowException(
-                "{}. Expected comparison found '{}'".format(base_error_string, str(tokens[1])),
+                f"{base_error_string}. Expected comparison found '{tokens[1]}'",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         if not isinstance(tokens[2], Token) and (
@@ -422,7 +422,7 @@ class SearchUtils:
             or isinstance(tokens[2], Identifier)
         ):
             raise MlflowException(
-                "{}. Expected value token found '{}'".format(base_error_string, str(tokens[2])),
+                f"{base_error_string}. Expected value token found '{tokens[2]}'",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

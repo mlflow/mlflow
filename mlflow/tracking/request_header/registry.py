@@ -63,7 +63,7 @@ def resolve_request_headers(request_headers=None):
                 # all_request_headers.update(provider.request_headers())
                 for header, value in provider.request_headers().items():
                     all_request_headers[header] = (
-                        "{} {}".format(all_request_headers[header], value)
+                        f"{all_request_headers[header]} {value}"
                         if header in all_request_headers
                         else value
                     )

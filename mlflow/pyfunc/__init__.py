@@ -541,7 +541,7 @@ def _warn_dependency_requirement_mismatches(model_path):
 
     except Exception as e:
         _logger.warning(
-            f"Encountered an unexpected error ({repr(e)}) while detecting model dependency "
+            f"Encountered an unexpected error ({e!r}) while detecting model dependency "
             "mismatches. Set logging level to DEBUG to see the full traceback."
         )
         _logger.debug("", exc_info=True)
@@ -1522,7 +1522,7 @@ def save_model(
         raise TypeError(f"save_model() got unexpected keyword arguments: {kwargs}")
     if code_path is not None:
         if not isinstance(code_path, list):
-            raise TypeError("Argument code_path should be a list, not {}".format(type(code_path)))
+            raise TypeError(f"Argument code_path should be a list, not {type(code_path)}")
 
     first_argument_set = {
         "loader_module": loader_module,
