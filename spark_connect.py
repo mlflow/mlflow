@@ -19,7 +19,7 @@ with mlflow.start_run():
     model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
 
 infer_spark_df = spark.createDataFrame(X)
-infer_spark_df.show()
+infer_spark_df.limit(5).show()
 
 pyfunc_udf = mlflow.pyfunc.spark_udf(
     spark, model_info.model_uri, env_manager="conda", result_type=DoubleType()

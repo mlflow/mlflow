@@ -1067,7 +1067,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 names = [str(i) for i in range(len(args))]
             else:
                 names = input_schema.input_names()
-                required_names = input_schema.required_input_names()
+                # required_names = input_schema.required_input_names()
+                required_names = names
                 if len(args) > len(names):
                     args = args[: len(names)]
                 if len(args) < len(required_names):
@@ -1272,7 +1273,11 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
             if should_use_spark_to_broadcast_file:
                 loaded_model, _ = SparkModelCache.get_or_load(archive_path)
             else:
-                loaded_model = mlflow.pyfunc.load_model(local_model_path)
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    local_model_path = _download_artifact_from_uri(
+                        artifact_uri=model_uri, output_path=tmpdir
+                    )
+                    loaded_model = mlflow.pyfunc.load_model(local_model_path)
 
             def batch_predict_fn(pdf):
                 return loaded_model.predict(pdf)
