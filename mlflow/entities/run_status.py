@@ -28,7 +28,7 @@ class RunStatus:
         if status not in RunStatus._STATUS_TO_STRING:
             raise Exception(
                 f"Could not get string corresponding to run status {status}. Valid run "
-                f"statuses: { list(RunStatus._STATUS_TO_STRING.keys())}"
+                f"statuses: {list(RunStatus._STATUS_TO_STRING.keys())}"
             )
         return RunStatus._STATUS_TO_STRING[status]
 

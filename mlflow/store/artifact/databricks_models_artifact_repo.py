@@ -123,7 +123,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
         except ValueError:
             raise MlflowException(
                 f"API request to get presigned uri to for file under path `{path}` failed with"
-                f" status code {response.status_code,}. Response body: {response.text}"
+                f" status code {response.status_code}. Response body: {response.text}"
             )
         return json_response.get("signed_uri", None), json_response.get("headers", None)
 

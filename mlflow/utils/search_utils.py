@@ -500,7 +500,7 @@ class SearchUtils:
             if comparator not in cls.VALID_PARAM_COMPARATORS:
                 raise MlflowException(
                     f"Invalid comparator '{comparator}' "
-                    f"not one of '{ cls.VALID_PARAM_COMPARATORS}'",
+                    f"not one of '{cls.VALID_PARAM_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
