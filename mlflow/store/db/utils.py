@@ -96,8 +96,8 @@ def _get_latest_schema_revision():
     heads = script.get_heads()
     if len(heads) != 1:
         raise MlflowException(
-            "Migration script directory was in unexpected state. Got %s head "
-            "database versions but expected only 1. Found versions: %s" % (len(heads), heads)
+            f"Migration script directory was in unexpected state. Got {len(heads)} head "
+            f"database versions but expected only 1. Found versions: {heads}"
         )
     return heads[0]
 
@@ -107,11 +107,12 @@ def _verify_schema(engine):
     current_rev = _get_schema_version(engine)
     if current_rev != head_revision:
         raise MlflowException(
-            "Detected out-of-date database schema (found version %s, but expected %s). "
-            "Take a backup of your database, then run 'mlflow db upgrade <database_uri>' "
+            f"Detected out-of-date database schema (found version {current_rev}, "
+            f"but expected {head_revision}). Take a backup of your database, then run "
+            "'mlflow db upgrade <database_uri>' "
             "to migrate your database to the latest schema. NOTE: schema migration may "
             "result in database downtime - please consult your database's documentation for "
-            "more detail." % (current_rev, head_revision)
+            "more detail."
         )
 
 

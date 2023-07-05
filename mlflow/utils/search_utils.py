@@ -284,8 +284,7 @@ class SearchUtils:
         entity_type = cls._trim_backticks(entity_type)
         if entity_type not in cls._VALID_IDENTIFIERS:
             raise MlflowException(
-                "Invalid entity type '%s'. "
-                "Valid values are %s" % (entity_type, cls._IDENTIFIERS),
+                f"Invalid entity type '{entity_type}'. Valid values are {cls._IDENTIFIERS}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -488,8 +487,8 @@ class SearchUtils:
         if key_type == cls._METRIC_IDENTIFIER:
             if comparator not in cls.VALID_METRIC_COMPARATORS:
                 raise MlflowException(
-                    "Invalid comparator '%s' "
-                    "not one of '%s" % (comparator, cls.VALID_METRIC_COMPARATORS),
+                    "Invalid comparator '{}' "
+                    "not one of '{}".format(comparator, cls.VALID_METRIC_COMPARATORS),
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -500,8 +499,8 @@ class SearchUtils:
         if key_type == cls._PARAM_IDENTIFIER:
             if comparator not in cls.VALID_PARAM_COMPARATORS:
                 raise MlflowException(
-                    "Invalid comparator '%s' "
-                    "not one of '%s'" % (comparator, cls.VALID_PARAM_COMPARATORS),
+                    "Invalid comparator '{}' "
+                    "not one of '{}'".format(comparator, cls.VALID_PARAM_COMPARATORS),
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -512,8 +511,8 @@ class SearchUtils:
         if key_type == cls._TAG_IDENTIFIER:
             if comparator not in cls.VALID_TAG_COMPARATORS:
                 raise MlflowException(
-                    "Invalid comparator '%s' "
-                    "not one of '%s" % (comparator, cls.VALID_TAG_COMPARATORS)
+                    "Invalid comparator '{}' "
+                    "not one of '{}".format(comparator, cls.VALID_TAG_COMPARATORS)
                 )
             return True
         return False
@@ -545,8 +544,8 @@ class SearchUtils:
         if key_type == cls._DATASET_IDENTIFIER:
             if comparator not in cls.VALID_DATASET_COMPARATORS:
                 raise MlflowException(
-                    "Invalid comparator '%s' "
-                    "not one of '%s" % (comparator, cls.VALID_DATASET_COMPARATORS)
+                    "Invalid comparator '{}' "
+                    "not one of '{}".format(comparator, cls.VALID_DATASET_COMPARATORS)
                 )
             return True
         return False

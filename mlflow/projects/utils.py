@@ -212,9 +212,9 @@ def _fetch_git_repo(uri, version, dst_dir):
             repo.git.checkout(version)
         except git.exc.GitCommandError as e:
             raise ExecutionException(
-                "Unable to checkout version '%s' of git repo %s"
+                f"Unable to checkout version '{version}' of git repo {uri}"
                 "- please ensure that the version exists in the repo. "
-                "Error: %s" % (version, uri, e)
+                f"Error: {e}"
             )
     else:
         g = git.cmd.Git(dst_dir)

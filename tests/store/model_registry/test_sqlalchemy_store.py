@@ -1133,7 +1133,7 @@ def test_search_registered_models(store):
     with pytest.raises(
         MlflowException, match=r"Invalid attribute key 'run_id' specified."
     ) as exception_context:
-        _search_registered_models(store, "run_id='%s'" % "somerunID")
+        _search_registered_models(store, "run_id='somerunID'")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     # cannot search by source_path

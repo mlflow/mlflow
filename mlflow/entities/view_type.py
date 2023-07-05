@@ -16,8 +16,8 @@ class ViewType:
     def from_string(cls, view_str):
         if view_str not in cls._STRING_TO_VIEW:
             raise Exception(
-                "Could not get valid view type corresponding to string %s. "
-                "Valid view types are %s" % (view_str, list(cls._STRING_TO_VIEW.keys()))
+                f"Could not get valid view type corresponding to string {view_str}. "
+                f"Valid view types are {list(cls._STRING_TO_VIEW.keys())}"
             )
         return cls._STRING_TO_VIEW[view_str]
 
@@ -25,8 +25,8 @@ class ViewType:
     def to_string(cls, view_type):
         if view_type not in cls._VIEW_TO_STRING:
             raise Exception(
-                "Could not get valid view type corresponding to string %s. "
-                "Valid view types are %s" % (view_type, list(cls._VIEW_TO_STRING.keys()))
+                f"Could not get valid view type corresponding to string {view_type}. "
+                f"Valid view types are {list(cls._VIEW_TO_STRING.keys())}"
             )
         return cls._VIEW_TO_STRING[view_type]
 
