@@ -216,7 +216,7 @@ def get_changed_flavors(changed_files, flavors):
 def get_matched_requirements(requirements, version=None):
     if not isinstance(requirements, dict):
         raise TypeError(
-            "Invalid object type for `requirements`: '{}'. Must be dict.".format(type(requirements))
+            f"Invalid object type for `requirements`: '{type(requirements)}'. Must be dict."
         )
 
     reqs = set()
@@ -338,7 +338,7 @@ def expand_config(config):
                 versions.append(cfg.minimum)
 
             for ver in versions:
-                requirements = ["{}=={}".format(package_info.pip_release, ver)]
+                requirements = [f"{package_info.pip_release}=={ver}"]
                 requirements.extend(get_matched_requirements(cfg.requirements or {}, str(ver)))
                 install = make_pip_install_command(requirements)
                 run = remove_comments(cfg.run)

@@ -121,7 +121,7 @@ def _validate_metric_name(name):
         )
     if path_not_unique(name):
         raise MlflowException(
-            "Invalid metric name: '{}'. {}".format(name, bad_path_message(name)),
+            f"Invalid metric name: '{name}'. {bad_path_message(name)}",
             INVALID_PARAMETER_VALUE,
         )
 
@@ -244,7 +244,7 @@ def _validate_param_name(name):
         )
     if path_not_unique(name):
         raise MlflowException(
-            "Invalid parameter name: '{}'. {}".format(name, bad_path_message(name)),
+            f"Invalid parameter name: '{name}'. {bad_path_message(name)}",
             INVALID_PARAMETER_VALUE,
         )
 
@@ -264,7 +264,7 @@ def _validate_tag_name(name):
         )
     if path_not_unique(name):
         raise MlflowException(
-            "Invalid tag name: '{}'. {}".format(name, bad_path_message(name)),
+            f"Invalid tag name: '{name}'. {bad_path_message(name)}",
             INVALID_PARAMETER_VALUE,
         )
 

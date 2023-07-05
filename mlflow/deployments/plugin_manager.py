@@ -99,7 +99,7 @@ class DeploymentPlugins(PluginManager):
             try:
                 plugin_obj = plugin_like.load()
             except (AttributeError, ImportError) as exc:
-                raise RuntimeError('Failed to load the plugin "{}": {}'.format(item, str(exc)))
+                raise RuntimeError(f'Failed to load the plugin "{item}": {exc}')
             self.registry[item] = plugin_obj
         else:
             plugin_obj = plugin_like

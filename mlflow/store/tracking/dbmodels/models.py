@@ -306,7 +306,7 @@ class SqlTag(Base):
     """
 
     def __repr__(self):
-        return "<SqlRunTag({}, {})>".format(self.key, self.value)
+        return f"<SqlRunTag({self.key}, {self.value})>"
 
     def to_mlflow_entity(self):
         """
@@ -358,7 +358,7 @@ class SqlMetric(Base):
     """
 
     def __repr__(self):
-        return "<SqlMetric({}, {}, {}, {})>".format(self.key, self.value, self.timestamp, self.step)
+        return f"<SqlMetric({self.key}, {self.value}, {self.timestamp}, {self.step})>"
 
     def to_mlflow_entity(self):
         """
@@ -457,7 +457,7 @@ class SqlParam(Base):
     """
 
     def __repr__(self):
-        return "<SqlParam({}, {})>".format(self.key, self.value)
+        return f"<SqlParam({self.key}, {self.value})>"
 
     def to_mlflow_entity(self):
         """
@@ -615,7 +615,7 @@ class SqlInputTag(Base):
     """
 
     def __repr__(self):
-        return "<SqlInputTag ({}, {}, {})>".format(self.input_uuid, self.name, self.value)
+        return f"<SqlInputTag ({self.input_uuid}, {self.name}, {self.value})>"
 
     def to_mlflow_entity(self):
         """

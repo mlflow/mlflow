@@ -504,7 +504,7 @@ class _SklearnCustomModelPicklingError(pickle.PicklingError):
         """
         super().__init__(
             f"Pickling custom sklearn model {sk_model.__class__.__name__} failed "
-            f"when saving model: {str(original_exception)}"
+            f"when saving model: {original_exception}"
         )
         self.original_exception = original_exception
 

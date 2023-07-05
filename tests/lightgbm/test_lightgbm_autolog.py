@@ -355,7 +355,7 @@ def test_lgb_autolog_logs_metrics_with_multi_metrics(bst_params, train_set):
     data = run.data
     client = MlflowClient()
     for metric_name in params["metric"]:
-        metric_key = "{}-{}".format(valid_names[0], metric_name)
+        metric_key = f"{valid_names[0]}-{metric_name}"
         metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
         assert metric_key in data.metrics
         assert len(metric_history) == 10

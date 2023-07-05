@@ -179,5 +179,5 @@ def _create_model_automl(
     except Exception as e:
         _logger.warning(e, exc_info=e, stack_info=True)
         raise MlflowException(
-            f"Error has occurred during training of AutoML model using FLAML: {repr(e)}"
+            f"Error has occurred during training of AutoML model using FLAML: {e!r}"
         )

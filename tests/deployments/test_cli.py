@@ -124,7 +124,7 @@ def test_run_local():
     )
     assert f"Deployed locally at the key {f_name}" in res.stdout
     assert f"using the model from {f_model_uri}." in res.stdout
-    assert "It's flavor is {} and config is {}".format(f_flavor, str({})) in res.stdout
+    assert f"It's flavor is {f_flavor} and config is {str({})}" in res.stdout
 
 
 @pytest.mark.skipif(

@@ -47,7 +47,7 @@ class DefaultExperimentProviderRegistry:
             except (AttributeError, ImportError) as exc:
                 warnings.warn(
                     "Failure attempting to register default experiment"
-                    + 'context provider "{}": {}'.format(entrypoint.name, str(exc)),
+                    + f'context provider "{entrypoint.name}": {exc}',
                     stacklevel=2,
                 )
 
