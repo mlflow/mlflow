@@ -665,7 +665,9 @@ def test_sklearn_compatible_with_mlflow_2_4_0(sklearn_knn_model):
 
     # Raise error if trying to pass params to model logged with mlflow <= 2.4.1
     with pytest.raises(
-        MlflowException, match=r"Parameters schema must be provided if `params` are provided."
+        MlflowException,
+        match=r"`params` can only be specified at inference "
+        r"time if the model signature defines a params schema.",
     ):
         pyfunc_loaded.predict(inference_dataframe, params={"top_k": 2})
 
@@ -678,7 +680,7 @@ def test_sklearn_compatible_with_mlflow_2_4_0(sklearn_knn_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    assert response.status_code == 500
+    assert response.status_code == 400
 
 
 def test_log_model_with_code_paths(sklearn_knn_model):

@@ -892,8 +892,9 @@ def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[Pa
         if params in [None, {}]:
             return params
         raise MlflowException(
-            "Parameters schema must be provided if `params` are provided."
-            "Please double check your model signature and ensure that params schema is provided."
+            "`params` can only be specified at inference time if the model signature "
+            "defines a params schema. This model does not define a params schema.",
+            INVALID_PARAMETER_VALUE,
         )
     if not isinstance(params, dict):
         raise MlflowException(
@@ -902,7 +903,8 @@ def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[Pa
     if not isinstance(schema, ParamSchema):
         raise MlflowException(
             "Parameters schema must be an instance of ParamSchema. "
-            f"Got type '{type(schema).__name__}'."
+            f"Got type '{type(schema).__name__}'.",
+            INVALID_PARAMETER_VALUE,
         )
     if any(not isinstance(k, str) for k in params.keys()):
         _logger.warning(
@@ -915,8 +917,8 @@ def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[Pa
     ignored_keys = set(params) - allowed_keys
     if ignored_keys:
         _logger.warning(
-            f"Invalid arguments {list(ignored_keys)} are ignored for inference. "
-            f"Supported arguments are: {allowed_keys}. "
+            f"Unrecognized params {list(ignored_keys)} are ignored for inference. "
+            f"Supported params are: {allowed_keys}. "
             "To enable them, please add corresponding schema in ModelSignature."
         )
 

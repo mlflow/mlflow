@@ -1099,8 +1099,8 @@ def test_enforce_params_schema():
     with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
         assert _enforce_params_schema(test_parameters, test_schema) == {"a": "str_a"}
         mock_warning.assert_called_once_with(
-            "Invalid arguments ['invalid_param'] are ignored for inference. "
-            "Supported arguments are: {'a'}. "
+            "Unrecognized params ['invalid_param'] are ignored for inference. "
+            "Supported params are: {'a'}. "
             "To enable them, please add corresponding schema in ModelSignature."
         )
 
@@ -1130,6 +1130,11 @@ def test_enforce_params_schema():
         ),
     ):
         _enforce_params_schema(test_parameters, test_schema)
+    # Raise error for non-1D array
+    with pytest.raises(MlflowException, match=r"received list with ndim 2"):
+        _enforce_params_schema(
+            {"a": [[1, 2], [3, 4]]}, ParamSchema([ParamSpec("a", DataType.long, [], (-1,))])
+        )
 
 
 def test_param_spec():

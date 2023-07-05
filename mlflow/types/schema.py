@@ -513,7 +513,7 @@ class ParamSpec:
             except ValueError as e:
                 raise MlflowException(
                     f"Failed to convert value {value} from type {type(value).__name__} "
-                    "to {t} for param {name}",
+                    f"to {t} for param {name}",
                     INVALID_PARAMETER_VALUE,
                 ) from e
 
@@ -548,7 +548,7 @@ class ParamSpec:
             if not _is_1d_array(value):
                 raise MlflowException(
                     f"Value must be a 1D array with shape (-1,) for param {spec}, "
-                    f"received {type(value).__name__}",
+                    f"received {type(value).__name__} with ndim {np.array(value).ndim}",
                     INVALID_PARAMETER_VALUE,
                 )
             return [
