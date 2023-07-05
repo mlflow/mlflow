@@ -1182,7 +1182,7 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
                     list(np.array(v, dtype=np_type)) for v in values
                 ]
 
-        if isinstance(result_type, ArrayType):
+        if isinstance(result_type, ArrayType) and isinstance(result_type.elementType, ArrayType):
             result_values = _convert_array_values(result, result_type)
             return pandas.Series(result_values)
 
@@ -1193,6 +1193,8 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
             result_dict = {}
             for field_name in result_type.fieldNames():
                 field_type = result_type[field_name].dataType
+
+                raise ValueError((field_name, result_type, result))
                 field_values = result[field_name]
 
                 if type(field_type) in spark_primitive_type_to_np_type:
@@ -1242,6 +1244,8 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
         if type(elem_type) == StringType:
             result = result.applymap(str)
 
+        if type(result_type) == ArrayType:
+            return pandas.Series(result.to_numpy().tolist())
         else:
             return result[result.columns[0]]
 
