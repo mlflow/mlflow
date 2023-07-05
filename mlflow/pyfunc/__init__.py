@@ -839,7 +839,7 @@ def _convert_spec_to_spark_type(spec):
     elif isinstance(spec, TensorSpec):
         data_type = DataType.from_numpy_type(spec.type)
         if data_type is None:
-            raise ValueError(
+            raise MlflowException(
                 f"Model output tensor spec type {spec.type} is not supported in spark_udf."
             )
 
@@ -1105,7 +1105,7 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
     if not any(isinstance(elem_type, x) for x in supported_types):
         raise MlflowException(
             message="Invalid result_type '{}'. Result type can only be one of or an array of one "
-            "of the following types: {}".format(str(elem_type), str(supported_types)),
+            "of the following types: {}".format(elem_type, supported_types),
             error_code=INVALID_PARAMETER_VALUE,
         )
 
