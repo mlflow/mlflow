@@ -21,6 +21,7 @@ select = [
   "UP004",
   "UP008",
   "UP031",
+  "UP034",
 ]
 force-exclude = true
 ignore = [

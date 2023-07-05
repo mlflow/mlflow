@@ -297,9 +297,9 @@ def test_custom_split_method(tmp_recipe_root_path: Path, tmp_recipe_exec_path: P
     with mock.patch.dict("sys.modules", {"steps.split": m_split}):
         split_step.run(str(split_output_dir))
 
-    train_dataframe = pd.read_parquet((split_output_dir / _OUTPUT_TRAIN_FILE_NAME))
-    validation_dataframe = pd.read_parquet((split_output_dir / _OUTPUT_VALIDATION_FILE_NAME))
-    test_dataframe = pd.read_parquet((split_output_dir / _OUTPUT_TEST_FILE_NAME))
+    train_dataframe = pd.read_parquet(split_output_dir / _OUTPUT_TRAIN_FILE_NAME)
+    validation_dataframe = pd.read_parquet(split_output_dir / _OUTPUT_VALIDATION_FILE_NAME)
+    test_dataframe = pd.read_parquet(split_output_dir / _OUTPUT_TEST_FILE_NAME)
     assert len(train_dataframe.index) == 500
     assert len(validation_dataframe.index) == 300
     assert len(test_dataframe.index) == 200

@@ -734,7 +734,7 @@ def test_train_step_with_predict_probability(
     transform_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "transform", "outputs")
 
     validation_dataset = pd.read_parquet(
-        (str(transform_step_output_dir / "transformed_validation_data.parquet"))
+        str(transform_step_output_dir / "transformed_validation_data.parquet")
     )
 
     output = model.predict(validation_dataset.drop("y", axis=1))
@@ -800,7 +800,7 @@ def test_train_step_with_predict_probability_with_custom_prefix(
     transform_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "transform", "outputs")
 
     validation_dataset = pd.read_parquet(
-        (str(transform_step_output_dir / "transformed_validation_data.parquet"))
+        str(transform_step_output_dir / "transformed_validation_data.parquet")
     )
 
     output = model.predict(validation_dataset.drop("y", axis=1))
@@ -854,7 +854,7 @@ def test_train_step_with_label_encoding(tmp_recipe_root_path: Path, tmp_recipe_e
     transform_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "transform", "outputs")
 
     validation_dataset = pd.read_parquet(
-        (str(transform_step_output_dir / "transformed_validation_data.parquet"))
+        str(transform_step_output_dir / "transformed_validation_data.parquet")
     )
 
     predicted_output = model.predict(validation_dataset.drop("y", axis=1))
