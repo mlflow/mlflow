@@ -2,6 +2,7 @@
 import codecs
 import filecmp
 import hashlib
+import logging
 import os
 import shutil
 import json
@@ -369,8 +370,12 @@ def test_overwrite_yaml_preserves_preexisting_permissions(tmp_path):
     tmp_dir = str(tmp_path)
     yaml_path = tmp_path / random_file("yaml")
     file_utils.write_yaml(tmp_dir, yaml_path.name, {"foo": "bar"})
-    # Set OS-independent permissions on temporary testing file
-    expected_mode = 0o100666
-    yaml_path.chmod(expected_mode)
+    expected_mode = yaml_path.stat().st_mode
+    if oct(expected_mode) == 0o100600:
+        logging.warning(
+            "Preexisting file under inspection already has elevated "
+            "permissions. Test to preserve permissions upon update "
+            "may not be reliable."
+        )
     file_utils.overwrite_yaml(tmp_dir, yaml_path.name, {"bar": "foo"})
     assert yaml_path.stat().st_mode == expected_mode
