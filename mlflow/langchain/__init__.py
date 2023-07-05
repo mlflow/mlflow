@@ -99,6 +99,7 @@ def get_default_conda_env():
 def save_model(
     lc_model,
     path,
+    rdocs,
     conda_env=None,
     code_paths=None,
     mlflow_model=None,
@@ -180,7 +181,7 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    model_data_kwargs = _save_model(lc_model, path)
+    model_data_kwargs = _save_model(lc_model, path, rdocs)
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -343,8 +344,10 @@ def log_model(
         metadata=metadata,
     )
 
+# from langchain.chains.retrieval_qa import RetrievalQA
 
-def _save_model(model, path):
+
+def _save_model(model, path, rdocs): # here rdocs refer to the retrieved docs
     import langchain
 
     model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
@@ -377,8 +380,24 @@ def _save_model(model, path):
         agent_primitive_path = os.path.join(path, _AGENT_PRIMITIVES_FILE_NAME)
         with open(agent_primitive_path, "w") as config_file:
             json.dump(temp_dict, config_file, indent=4)
+            
 
         model_data_kwargs[_AGENT_PRIMITIVES_DATA_KEY] = _AGENT_PRIMITIVES_FILE_NAME
+
+    elif isinstance(model, langchain.chains.RetrievalQA):
+        model.save(model_data_path)
+        with open(rdocs, 'r') as file:
+                data = file.read()
+        # pickle_file_path = r"C:\Users\RM\Documents\Dev\AzureMlCli\src\azureml-rag\src\azureml\rag\deployments\rqa_models5\retriever.pkl"
+        pickle_file_path = os.path.join(path,'retriever.pkl')
+        if not os.path.exists(pickle_file_path):
+            with open(pickle_file_path, 'wb') as file:
+                    cloudpickle.dump(data, file)
+            with open(pickle_file_path, 'rb') as file:
+                    loaded_data = cloudpickle.load(file)
+
+
+
     elif isinstance(model, langchain.chains.base.Chain):
         logger.warning(
             _UNSUPPORTED_MODEL_WARNING_MESSAGE,
