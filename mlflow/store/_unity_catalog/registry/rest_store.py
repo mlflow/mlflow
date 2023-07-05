@@ -143,7 +143,8 @@ def get_feature_dependencies(model_dir):
         == _DATABRICKS_FS_LOADER_MODULE
     ):
         raise MlflowException(
-            "This model was packaged by Databricks Feature Store and can only be registered on a Databricks cluster."
+            "This model was packaged by Databricks Feature Store and can only be registered on a "
+            "Databricks cluster."
         )
     return ""
 
