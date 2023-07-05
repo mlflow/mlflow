@@ -3251,3 +3251,65 @@ def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
     assert txt == card_data.text
     data = yaml.safe_load(tmp_path.joinpath(_CARD_DATA_FILE_NAME).read_text())
     assert data == card_data.data.to_dict()
+
+
+def test_uri_directory_renaming_handling_pipeline(model_path, small_seq2seq_pipeline):
+    with mlflow.start_run():
+        mlflow.transformers.save_model(transformers_model=small_seq2seq_pipeline, path=model_path)
+
+    absolute_model_directory = os.path.join(model_path, "model")
+    renamed_to_old_convention = os.path.join(model_path, "pipeline")
+    os.rename(absolute_model_directory, renamed_to_old_convention)
+
+    # remove the 'model_binary' entries to emulate older versions of MLflow
+    mlmodel_file = os.path.join(model_path, "MLmodel")
+    with open(mlmodel_file, "r") as yaml_file:
+        mlmodel = yaml.safe_load(yaml_file)
+
+    mlmodel["flavors"]["python_function"].pop("model_binary", None)
+    mlmodel["flavors"]["transformers"].pop("model_binary", None)
+
+    with open(mlmodel_file, "w") as yaml_file:
+        yaml.safe_dump(mlmodel, yaml_file)
+
+    loaded_model = mlflow.pyfunc.load_model(model_path)
+
+    prediction = loaded_model.predict(
+        "Dogs should be fed spaghetti bolognese, chili, and beef stew, according to my dog."
+    )
+    assert isinstance(prediction, pd.DataFrame)
+    assert isinstance(prediction["label"][0], str)
+
+
+def test_uri_directory_renaming_handling_components(model_path, small_seq2seq_pipeline):
+    components = {
+        "tokenizer": small_seq2seq_pipeline.tokenizer,
+        "model": small_seq2seq_pipeline.model,
+    }
+
+    with mlflow.start_run():
+        mlflow.transformers.save_model(transformers_model=components, path=model_path)
+
+    absolute_model_directory = os.path.join(model_path, "model")
+    renamed_to_old_convention = os.path.join(model_path, "pipeline")
+    os.rename(absolute_model_directory, renamed_to_old_convention)
+
+    # remove the 'model_binary' entries to emulate older versions of MLflow
+    mlmodel_file = os.path.join(model_path, "MLmodel")
+    with open(mlmodel_file, "r") as yaml_file:
+        mlmodel = yaml.safe_load(yaml_file)
+
+    mlmodel["flavors"]["python_function"].pop("model_binary", None)
+    mlmodel["flavors"]["transformers"].pop("model_binary", None)
+
+    with open(mlmodel_file, "w") as yaml_file:
+        yaml.safe_dump(mlmodel, yaml_file)
+
+    loaded_model = mlflow.pyfunc.load_model(model_path)
+
+    prediction = loaded_model.predict(
+        "I'd love it if I could swim as fast as a dolphin and do backflips from jumping out of "
+        "the water. I'm good on the whole eating raw mackerel and squid, though"
+    )
+    assert isinstance(prediction, pd.DataFrame)
+    assert isinstance(prediction["label"][0], str)
