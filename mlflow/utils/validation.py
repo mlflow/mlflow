@@ -145,22 +145,22 @@ def _validate_metric(key, value, timestamp, step):
     # since bool is an instance of Number check for bool additionally
     if not _is_numeric(value):
         raise MlflowException(
-            "Got invalid value %s for metric '%s' (timestamp=%s). Please specify value as a valid "
-            "double (64-bit floating point)" % (value, key, timestamp),
+            f"Got invalid value {value} for metric '{key}' (timestamp={timestamp}). "
+            "Please specify value as a valid double (64-bit floating point)",
             INVALID_PARAMETER_VALUE,
         )
 
     if not isinstance(timestamp, numbers.Number) or timestamp < 0:
         raise MlflowException(
-            "Got invalid timestamp %s for metric '%s' (value=%s). Timestamp must be a nonnegative "
-            "long (64-bit integer) " % (timestamp, key, value),
+            f"Got invalid timestamp {timestamp} for metric '{key}' (value={value}). "
+            "Timestamp must be a nonnegative long (64-bit integer) ",
             INVALID_PARAMETER_VALUE,
         )
 
     if not isinstance(step, numbers.Number):
         raise MlflowException(
-            "Got invalid step %s for metric '%s' (value=%s). Step must be a valid long "
-            "(64-bit integer)." % (step, key, value),
+            f"Got invalid step {step} for metric '{key}' (value={value}). "
+            "Step must be a valid long (64-bit integer).",
             INVALID_PARAMETER_VALUE,
         )
 
@@ -272,8 +272,8 @@ def _validate_tag_name(name):
 def _validate_length_limit(entity_name, limit, value):
     if value is not None and len(value) > limit:
         raise MlflowException(
-            "%s '%s' had length %s, which exceeded length limit of %s"
-            % (entity_name, value[:250], len(value), limit),
+            f"{entity_name} '{value[:250]}' had length {len(value)}, "
+            f"which exceeded length limit of {limit}",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

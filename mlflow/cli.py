@@ -236,8 +236,8 @@ def _user_args_to_dict(arguments, argument_type="P"):
             value = split[1]
         else:
             eprint(
-                "Invalid format for -%s parameter: '%s'. "
-                "Use -%s name=value." % (argument_type, arg, argument_type)
+                f"Invalid format for -{argument_type} parameter: '{arg}'. "
+                f"Use -{argument_type} name=value."
             )
             sys.exit(1)
         if name in user_dict:

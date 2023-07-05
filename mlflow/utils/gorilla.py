@@ -312,7 +312,7 @@ def apply(patch):
     else:
         if not settings.allow_hit:
             raise RuntimeError(
-                "An attribute named '%s' already exists at the destination "
+                "An attribute named '%s' already exists at the destination "  # noqa: UP031
                 "'%s'. Set a different name through the patch object to avoid "
                 "a name clash or set the setting 'allow_hit' to True to "
                 "overwrite the attribute. In the latter case, it is "
@@ -359,7 +359,7 @@ def revert(patch):
         # try to get attribute from parent classes if attribute not found in destination class.
         if original_name not in patch.destination.__dict__:
             raise RuntimeError(
-                "Cannot revert the attribute named '%s' since the setting "
+                "Cannot revert the attribute named '%s' since the setting "  # noqa: UP031
                 "'store_hit' was not set to True when applying the patch."
                 % (patch.destination.__name__,)
             )

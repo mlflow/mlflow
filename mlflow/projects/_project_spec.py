@@ -265,8 +265,8 @@ class Parameter:
         if local_path:
             if not os.path.exists(local_path):
                 raise ExecutionException(
-                    "Got value %s for parameter %s, but no such file or "
-                    "directory was found." % (user_param_value, self.name)
+                    f"Got value {user_param_value} for parameter {self.name}, but no such file or "
+                    "directory was found."
                 )
             return os.path.abspath(local_path)
         target_sub_dir = f"param_{key_position}"
