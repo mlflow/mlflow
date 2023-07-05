@@ -29,21 +29,27 @@ class DataType(Enum):
     # integers and boolean values. We do not use them here for now as most downstream tools are
     # most likely to use / expect native numpy types and would not be compatible with the extension
     # types.
-    boolean = (1, np.dtype("bool"), "BooleanType", bool)
+    boolean = (1, np.dtype("bool"), "BooleanType", np.dtype("bool"), bool)
     """Logical data (True, False) ."""
-    integer = (2, np.dtype("int32"), "IntegerType", int)
+    integer = (2, np.dtype("int32"), "IntegerType", np.dtype("int32"), int)
     """32b signed integer numbers."""
-    long = (3, np.dtype("int64"), "LongType", int)
+    long = (3, np.dtype("int64"), "LongType", np.dtype("int64"), int)
     """64b signed integer numbers. """
-    float = (4, np.dtype("float32"), "FloatType", float)
+    float = (4, np.dtype("float32"), "FloatType", np.dtype("float32"), float)
     """32b floating point numbers. """
-    double = (5, np.dtype("float64"), "DoubleType", float)
+    double = (5, np.dtype("float64"), "DoubleType", np.dtype("float64"), float)
     """64b floating point numbers. """
     string = (6, np.dtype("str"), "StringType", object, str)
     """Text data."""
     binary = (7, np.dtype("bytes"), "BinaryType", object, bytes)
     """Sequence of raw bytes."""
-    datetime = (8, np.dtype("datetime64[ns]"), "TimestampType", datetime.datetime)
+    datetime = (
+        8,
+        np.dtype("datetime64[ns]"),
+        "TimestampType",
+        np.dtype("datetime64[ns]"),
+        datetime.datetime,
+    )
     """64b datetime data."""
 
     def __repr__(self):
