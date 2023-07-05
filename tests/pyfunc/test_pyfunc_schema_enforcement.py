@@ -920,65 +920,169 @@ def test_schema_enforcement_for_list_inputs():
 def test_enforce_params_schema():
     # Correct parameters & schema
     test_parameters = {
-        "a": "str_a",
-        "b": np.int32(1),
-        "c": True,
-        "d": 1.0,
-        "e": np.float32(0.1),
-        "f": b"byte_g",
-        "g": np.int64(100),
-        "h": np.datetime64("2023-06-26 00:00:00"),
-        "i": ["a", "b", "c"],
-        "j": [True, False],
+        "str_param": "str_a",
+        "int_param": np.int32(1),
+        "bool_param": True,
+        "double_param": 1.0,
+        "float_param": np.float32(0.1),
+        "byte_param": b"byte_g",
+        "long_param": 100,
+        "datetime_param": np.datetime64("2023-06-26 00:00:00"),
+        "str_list": ["a", "b", "c"],
+        "bool_list": [True, False],
     }
     test_schema = ParamSchema(
         [
-            ParamSpec("a", DataType.string, "str_a", None),
-            ParamSpec("b", DataType.integer, np.int32(1), None),
-            ParamSpec("c", DataType.boolean, True, None),
-            ParamSpec("d", DataType.double, 1.0, None),
-            ParamSpec("e", DataType.float, np.float32(0.1), None),
-            ParamSpec("f", DataType.binary, b"byte_g", None),
-            ParamSpec("g", DataType.long, np.int64(100), None),
-            ParamSpec("h", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None),
-            ParamSpec("i", DataType.string, ["a", "b", "c"], (-1,)),
-            ParamSpec("j", DataType.boolean, [True, False], (-1,)),
+            ParamSpec("str_param", DataType.string, "str_a", None),
+            ParamSpec("int_param", DataType.integer, np.int32(1), None),
+            ParamSpec("bool_param", DataType.boolean, True, None),
+            ParamSpec("double_param", DataType.double, 1.0, None),
+            ParamSpec("float_param", DataType.float, np.float32(0.1), None),
+            ParamSpec("byte_param", DataType.binary, b"byte_g", None),
+            ParamSpec("long_param", DataType.long, 100, None),
+            ParamSpec(
+                "datetime_param", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None
+            ),
+            ParamSpec("str_list", DataType.string, ["a", "b", "c"], (-1,)),
+            ParamSpec("bool_list", DataType.boolean, [True, False], (-1,)),
         ]
     )
     assert _enforce_params_schema(test_parameters, test_schema) == test_parameters
 
-    params = {"a": np.array([1.0, 2.0])}
-    schema = ParamSchema([ParamSpec("a", DataType.double, np.array([1.0, 2.0]), (-1,))])
-    assert (_enforce_params_schema(params, schema)["a"] == params["a"]).all()
+    # Correct parameters & schema with array
+    params = {
+        "double_array": np.array([1.0, 2.0]),
+        "float_array": np.array([np.float32(1.0), np.float32(2.0)]),
+        "long_array": np.array([1, 2]),
+        "datetime_array": np.array(
+            [np.datetime64("2023-06-26 00:00:00"), np.datetime64("2023-06-26 00:00:00")]
+        ),
+    }
+    schema = ParamSchema(
+        [
+            ParamSpec("double_array", DataType.double, np.array([1.0, 2.0]), (-1,)),
+            ParamSpec(
+                "float_array", DataType.float, np.array([np.float32(1.0), np.float32(2.0)]), (-1,)
+            ),
+            ParamSpec("long_array", DataType.long, np.array([1, 2]), (-1,)),
+            ParamSpec(
+                "datetime_array",
+                DataType.datetime,
+                np.array(
+                    [np.datetime64("2023-06-26 00:00:00"), np.datetime64("2023-06-26 00:00:00")]
+                ),
+                (-1,),
+            ),
+        ]
+    )
+    for param, value in params.items():
+        assert (_enforce_params_schema(params, schema)[param] == value).all()
 
     # Converting parameters value type to corresponding schema type
-    params = {
-        "a": 123,
-        "b": 1,
-        "c": 0,
-        "d": 1,
-        "e": 0.1,
-        "f": "byte",
-        "g": 100,
-        "h": "2023-06-26 00:00:00",
-        "i": [1, 2, 3],
-        "j": [0, 0],
-    }
-    assert _enforce_params_schema(params, test_schema) == {
-        "a": "123",
-        "b": np.int32(1),
-        "c": False,
-        "d": 1.0,
-        "e": np.float32(0.1),
-        "f": b"byte",
-        "g": np.int64(100),
-        "h": np.datetime64("2023-06-26 00:00:00"),
-        "i": ["1", "2", "3"],
-        "j": [False, False],
-    }
-    params = {"a": np.array([1, 2])}
-    schema = ParamSchema([ParamSpec("a", DataType.double, np.array([1.0, 2.0]), (-1,))])
-    assert (_enforce_params_schema(params, schema)["a"] == params["a"]).all()
+    # 1. int -> long, float, double
+    assert _enforce_params_schema({"double_param": np.int32(1)}, test_schema)["double_param"] == 1.0
+    assert _enforce_params_schema({"float_param": np.int32(1)}, test_schema)[
+        "float_param"
+    ] == np.float32(1)
+    assert _enforce_params_schema({"long_param": np.int32(1)}, test_schema)["long_param"] == 1
+    # With array
+    for param in ["double_array", "float_array", "long_array"]:
+        assert (
+            _enforce_params_schema({param: [np.int32(1), np.int32(2)]}, schema)[param]
+            == params[param]
+        ).all()
+        assert (
+            _enforce_params_schema({param: np.array([np.int32(1), np.int32(2)])}, schema)[param]
+            == params[param]
+        ).all()
+
+    # 2. long -> float, double
+    assert _enforce_params_schema({"double_param": 1}, test_schema)["double_param"] == 1.0
+    assert _enforce_params_schema({"float_param": 1}, test_schema)["float_param"] == np.float32(1)
+    # With array
+    for param in ["double_array", "float_array"]:
+        assert (_enforce_params_schema({param: [1, 2]}, schema)[param] == params[param]).all()
+        assert (
+            _enforce_params_schema({param: np.array([1, 2])}, schema)[param] == params[param]
+        ).all()
+
+    # 3. float -> double
+    assert (
+        _enforce_params_schema({"double_param": np.float32(1)}, test_schema)["double_param"] == 1.0
+    )
+    assert np.isclose(
+        _enforce_params_schema({"double_param": np.float32(0.1)}, test_schema)["double_param"],
+        0.1,
+        atol=1e-6,
+    )
+    # With array
+    assert (
+        _enforce_params_schema({"double_array": [np.float32(1), np.float32(2)]}, schema)[
+            "double_array"
+        ]
+        == params["double_array"]
+    ).all()
+    assert (
+        _enforce_params_schema({"double_array": np.array([np.float32(1), np.float32(2)])}, schema)[
+            "double_array"
+        ]
+        == params["double_array"]
+    ).all()
+
+    # 4. any -> datetime (try conversion)
+    assert _enforce_params_schema({"datetime_param": "2023-07-01 00:00:00"}, test_schema)[
+        "datetime_param"
+    ] == np.datetime64("2023-07-01 00:00:00")
+    with pytest.raises(
+        MlflowException, match=r"Failed to convert value 1.0 from type float to DataType.datetime"
+    ):
+        _enforce_params_schema({"datetime_param": 1.0}, test_schema)
+    # With array
+    assert (
+        _enforce_params_schema(
+            {"datetime_array": ["2023-06-26 00:00:00", "2023-06-26 00:00:00"]}, schema
+        )["datetime_array"]
+        == params["datetime_array"]
+    ).all()
+    assert (
+        _enforce_params_schema(
+            {"datetime_array": np.array(["2023-06-26 00:00:00", "2023-06-26 00:00:00"])}, schema
+        )["datetime_array"]
+        == params["datetime_array"]
+    ).all()
+    with pytest.raises(
+        MlflowException, match=r"Failed to convert value 1.0 from type float to DataType.datetime"
+    ):
+        _enforce_params_schema({"datetime_array": [1.0, 2.0]}, schema)
+
+    # 5. raise error for any other conversions
+    error_msg = r"Incompatible types for param 'int_param'"
+    with pytest.raises(MlflowException, match=error_msg):
+        _enforce_params_schema({"int_param": np.float32(1)}, test_schema)
+    with pytest.raises(MlflowException, match=error_msg):
+        _enforce_params_schema({"int_param": "1"}, test_schema)
+    with pytest.raises(MlflowException, match=error_msg):
+        _enforce_params_schema({"int_param": np.datetime64("2023-06-06")}, test_schema)
+
+    error_msg = r"Incompatible types for param 'str_param'"
+    with pytest.raises(MlflowException, match=error_msg):
+        _enforce_params_schema({"str_param": np.float32(1)}, test_schema)
+    with pytest.raises(MlflowException, match=error_msg):
+        _enforce_params_schema({"str_param": b"string"}, test_schema)
+    with pytest.raises(MlflowException, match=error_msg):
+        _enforce_params_schema({"str_param": np.datetime64("2023-06-06")}, test_schema)
+
+    error_msg = r"Incompatible types for param 'byte_param'"
+    with pytest.raises(MlflowException, match=error_msg):
+        _enforce_params_schema({"byte_param": np.float32(1)}, test_schema)
+    with pytest.raises(MlflowException, match=error_msg):
+        _enforce_params_schema({"byte_param": "string"}, test_schema)
+
+    # With Array
+    with pytest.raises(MlflowException, match="Incompatible types for param 'float_array'"):
+        _enforce_params_schema(
+            {"float_array": [np.float32(1), np.float32(2), np.float64(3)]}, schema
+        )
 
     # Add default values if the parameter is not provided
     test_parameters = {"a": "str_a"}
@@ -1021,7 +1125,7 @@ def test_enforce_params_schema():
     with pytest.raises(
         MlflowException,
         match=re.escape(
-            "Value must be a scalar or 1D array for ParamSpec 'b': string "
+            "Value must be a 1D array with shape (-1,) for param 'b': string "
             "(default: []) (shape: (-1,)), received tuple"
         ),
     ):
@@ -1030,21 +1134,59 @@ def test_enforce_params_schema():
 
 def test_param_spec():
     # Convert default value type if it is not consistent with provided type
-    test_schema = ParamSchema([ParamSpec("a", DataType.string, 1.0)])
-    assert test_schema.params[0].default == "1.0"
+    # 1. int -> long, float, double
+    assert ParamSpec("a", DataType.long, np.int32(1)).default == 1
+    assert ParamSpec("a", DataType.float, np.int32(1)).default == np.float32(1)
+    assert ParamSpec("a", DataType.double, np.int32(1)).default == 1.0
+    # 2. long -> float, double
+    assert ParamSpec("a", DataType.float, 1).default == np.float32(1)
+    assert ParamSpec("a", DataType.double, 1).default == 1.0
+    # 3. float -> double
+    assert ParamSpec("a", DataType.double, np.float32(1)).default == 1.0
+    # 4. any -> datetime (try conversion)
+    assert ParamSpec("a", DataType.datetime, "2023-07-01 00:00:00").default == np.datetime64(
+        "2023-07-01 00:00:00"
+    )
+    # Raise error if default value can not be converted to specified type
+    with pytest.raises(MlflowException, match=r"Incompatible types for param 'a'"):
+        ParamSpec("a", DataType.integer, "1.0")
+    with pytest.raises(MlflowException, match=r"Incompatible types for param 'a'"):
+        ParamSpec("a", DataType.integer, [1.0, 2.0], (-1,))
+    with pytest.raises(MlflowException, match=r"Incompatible types for param 'a'"):
+        ParamSpec("a", DataType.string, True)
+    with pytest.raises(MlflowException, match=r"Incompatible types for param 'a'"):
+        ParamSpec("a", DataType.string, [1.0, 2.0], (-1,))
+    with pytest.raises(MlflowException, match=r"Incompatible types for param 'a'"):
+        ParamSpec("a", DataType.binary, "binary")
+    with pytest.raises(MlflowException, match=r"Incompatible types for param 'a'"):
+        ParamSpec("a", DataType.binary, [True, False], (-1,))
+    with pytest.raises(MlflowException, match=r"Failed to convert value"):
+        ParamSpec("a", DataType.datetime, 1.0)
+    with pytest.raises(MlflowException, match=r"Failed to convert value"):
+        ParamSpec("a", DataType.datetime, [1.0, 2.0], (-1,))
 
     # Raise error if shape is not specified for list value
     with pytest.raises(
-        MlflowException, match=r"Value must be a scalar with shape None for ParamSpec"
+        MlflowException,
+        match=re.escape(
+            "Value should be a scalar for param 'a': long (default: [1, 2, 3]) with shape None"
+        ),
     ):
         ParamSpec("a", DataType.long, [1, 2, 3], shape=None)
+    with pytest.raises(
+        MlflowException,
+        match=re.escape(
+            "Value should be a scalar for param 'a': integer (default: [1 2 3]) with shape None"
+        ),
+    ):
+        ParamSpec("a", DataType.integer, np.array([1, 2, 3]), shape=None)
 
     # Raise error if shape is specified for scalar value
     with pytest.raises(
         MlflowException,
         match=re.escape(
-            "Value must be a 1D array with shape (-1,) for ParamSpec 'a': boolean (default: True) "
-            "(shape: (-1,)), received scalar value True"
+            "Value must be a 1D array with shape (-1,) for param 'a': boolean (default: True) "
+            "(shape: (-1,)), received bool"
         ),
     ):
         ParamSpec("a", DataType.boolean, True, shape=(-1,))
@@ -1056,61 +1198,65 @@ def test_param_spec():
         ParamSpec("a", DataType.boolean, [True, False], (2,))
 
     # Raise error if default value is not scalar or 1D array
-    with pytest.raises(MlflowException, match=r"Value must be a scalar or 1D array for ParamSpec"):
+    with pytest.raises(
+        MlflowException,
+        match=re.escape(
+            "Value must be a 1D array with shape (-1,) for param 'a': boolean (default: {'a': 1}) "
+            "(shape: (-1,)), received dict"
+        ),
+    ):
         ParamSpec("a", DataType.boolean, {"a": 1}, (-1,))
-
-    # Raise error if default value can not be converted to specified type
-    with pytest.raises(MlflowException, match=r"Failed to convert value type for ParamSpec"):
-        ParamSpec("a", DataType.datetime, "string")
 
 
 def test_enforce_schema_in_python_model_predict():
     test_params = {
-        "a": "str_a",
-        "b": np.int32(1),
-        "c": True,
-        "d": 1.0,
-        "e": np.float32(0.1),
-        "f": b"byte_g",
-        "g": np.int64(100),
-        "h": np.datetime64("2023-06-26 00:00:00"),
-        "i": ["a", "b", "c"],
-        "j": [True, False],
-        "k": np.array([1.0, 2.0]),
+        "str_param": "str_a",
+        "int_param": np.int32(1),
+        "bool_param": True,
+        "double_param": 1.0,
+        "float_param": np.float32(0.1),
+        "byte_param": b"byte_g",
+        "long_param": 100,
+        "datetime_param": np.datetime64("2023-06-26 00:00:00"),
+        "str_list": ["a", "b", "c"],
+        "bool_list": [True, False],
+        "double_array": np.array([1.0, 2.0]),
     }
     test_schema = ParamSchema(
         [
-            ParamSpec("a", DataType.string, "str_a", None),
-            ParamSpec("b", DataType.integer, np.int32(1), None),
-            ParamSpec("c", DataType.boolean, True, None),
-            ParamSpec("d", DataType.double, 1.0, None),
-            ParamSpec("e", DataType.float, np.float32(0.1), None),
-            ParamSpec("f", DataType.binary, b"byte_g", None),
-            ParamSpec("g", DataType.long, np.int64(100), None),
-            ParamSpec("h", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None),
-            ParamSpec("i", DataType.string, ["a", "b", "c"], (-1,)),
-            ParamSpec("j", DataType.boolean, [True, False], (-1,)),
-            ParamSpec("k", DataType.double, [1.0, 2.0], (-1,)),
+            ParamSpec("str_param", DataType.string, "str_a", None),
+            ParamSpec("int_param", DataType.integer, np.int32(1), None),
+            ParamSpec("bool_param", DataType.boolean, True, None),
+            ParamSpec("double_param", DataType.double, 1.0, None),
+            ParamSpec("float_param", DataType.float, np.float32(0.1), None),
+            ParamSpec("byte_param", DataType.binary, b"byte_g", None),
+            ParamSpec("long_param", DataType.long, 100, None),
+            ParamSpec(
+                "datetime_param", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None
+            ),
+            ParamSpec("str_list", DataType.string, ["a", "b", "c"], (-1,)),
+            ParamSpec("bool_list", DataType.boolean, [True, False], (-1,)),
+            ParamSpec("double_array", DataType.double, [1.0, 2.0], (-1,)),
         ]
     )
 
     class TestPythonModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
             assert isinstance(params, dict)
-            assert isinstance(params["a"], str)
-            assert isinstance(params["b"], np.int32)
-            assert isinstance(params["c"], np.bool_)
-            assert isinstance(params["d"], np.float64)
-            assert isinstance(params["e"], np.float32)
-            assert isinstance(params["f"], np.bytes_)
-            assert isinstance(params["g"], np.int64)
-            assert isinstance(params["h"], np.datetime64)
-            assert isinstance(params["i"], list)
-            assert all(isinstance(x, str) for x in params["i"])
-            assert isinstance(params["j"], list)
-            assert all(isinstance(x, np.bool_) for x in params["j"])
-            assert isinstance(params["k"], list)
-            assert all(isinstance(x, np.float64) for x in params["k"])
+            assert DataType.is_instance(params["str_param"], DataType.string)
+            assert DataType.is_instance(params["int_param"], DataType.integer)
+            assert DataType.is_instance(params["bool_param"], DataType.boolean)
+            assert DataType.is_instance(params["double_param"], DataType.double)
+            assert DataType.is_instance(params["float_param"], DataType.float)
+            assert DataType.is_instance(params["byte_param"], DataType.binary)
+            assert DataType.is_instance(params["long_param"], DataType.long)
+            assert DataType.is_instance(params["datetime_param"], DataType.datetime)
+            assert isinstance(params["str_list"], list)
+            assert all(DataType.is_instance(x, DataType.string) for x in params["str_list"])
+            assert isinstance(params["bool_list"], list)
+            assert all(DataType.is_instance(x, DataType.boolean) for x in params["bool_list"])
+            assert isinstance(params["double_array"], list)
+            assert all(DataType.is_instance(x, DataType.double) for x in params["double_array"])
             return params
 
     signature = infer_signature(["input1"], params=test_params)
@@ -1125,72 +1271,127 @@ def test_enforce_schema_in_python_model_predict():
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     loaded_predict = loaded_model.predict(["a", "b"], params=test_params)
-    assert (loaded_predict["k"] == test_params["k"]).all()
-    loaded_predict.pop("k")
-    test_params.pop("k")
+    assert (loaded_predict["double_array"] == test_params["double_array"]).all()
+    loaded_predict.pop("double_array")
+    test_params.pop("double_array")
     assert loaded_predict == test_params
 
     # Automatically convert type if it's not consistent with schema
+    # 1. int -> long, float, double
+    params_int = {
+        "double_param": np.int32(1),
+        "float_param": np.int32(1),
+        "long_param": np.int32(1),
+    }
+    expected_params_int = {
+        "double_param": 1.0,
+        "float_param": np.float32(1),
+        "long_param": 1,
+    }
+    loaded_predict = loaded_model.predict(["a", "b"], params=params_int)
+    for param in params_int:
+        assert loaded_predict[param] == expected_params_int[param]
+
+    # 2. long -> float, double
+    params_long = {
+        "double_param": 1,
+        "float_param": 1,
+    }
+    expected_params_long = {
+        "double_param": 1.0,
+        "float_param": np.float32(1),
+    }
+    loaded_predict = loaded_model.predict(["a", "b"], params=params_long)
+    for param in params_long:
+        assert loaded_predict[param] == expected_params_long[param]
+
+    # 3. float -> double
+    params_float = {
+        "double_param": np.float32(1),
+    }
+    expected_params_float = {
+        "double_param": 1.0,
+    }
+    loaded_predict = loaded_model.predict(["a", "b"], params=params_float)
+    for param in params_float:
+        assert loaded_predict[param] == expected_params_float[param]
+
+    # 4. any -> datetime (try conversion)
+    params_datetime = {
+        "datetime_param": "2023-06-26 00:00:00",
+    }
+    expected_params_datetime = {
+        "datetime_param": np.datetime64("2023-06-26 00:00:00"),
+    }
+    loaded_predict = loaded_model.predict(["a", "b"], params=params_datetime)
+    for param in params_datetime:
+        assert loaded_predict[param] == expected_params_datetime[param]
+
+    # With array
     params = {
-        "a": 123,
-        "b": 1,
-        "c": 0,
-        "d": 1,
-        "e": 0.1,
-        "f": "byte",
-        "g": 100,
-        "h": "20230626",
-        "i": [1, 2, 3],
-        "j": [0, 0],
-        "k": np.array([1, 2]),
+        "int_array": np.array([np.int32(1), np.int32(2)]),
+        "double_array": np.array([1.0, 2.0]),
+        "float_array": np.array([np.float32(1.0), np.float32(2.0)]),
+        "long_array": np.array([1, 2]),
+        "datetime_array": np.array(
+            [np.datetime64("2023-06-26 00:00:00"), np.datetime64("2023-06-26 00:00:00")]
+        ),
     }
-    expect_params = {
-        "a": "123",
-        "b": np.int32(1),
-        "c": False,
-        "d": 1.0,
-        "e": np.float32(0.1),
-        "f": b"byte",
-        "g": np.int64(100),
-        "h": np.datetime64("20230626"),
-        "i": ["1", "2", "3"],
-        "j": [False, False],
-        "k": np.array([1.0, 2.0]),
-    }
-    loaded_predict = loaded_model.predict(["a", "b"], params=params)
-    assert (loaded_predict["k"] == expect_params["k"]).all()
-    loaded_predict.pop("k")
-    expect_params.pop("k")
-    assert loaded_predict == expect_params
 
     class TestPythonModelSimple(mlflow.pyfunc.PythonModel):
-        def __init__(self, params_type):
-            self.params_type = params_type
-
         def predict(self, context, model_input, params=None):
             assert isinstance(params, dict)
-            assert all(isinstance(x, self.params_type) for x in params["a"])
+            assert all(DataType.is_instance(x, DataType.integer) for x in params["int_array"])
+            assert all(DataType.is_instance(x, DataType.double) for x in params["double_array"])
+            assert all(DataType.is_instance(x, DataType.float) for x in params["float_array"])
+            assert all(DataType.is_instance(x, DataType.long) for x in params["long_array"])
+            assert all(isinstance(x, np.datetime64) for x in params["datetime_array"])
             return params
 
-    test_params = {"a": [1, 2, 3]}
-    signature = infer_signature(["input1"], params=test_params)
+    signature = infer_signature(["input1"], params=params)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            python_model=TestPythonModelSimple(np.int64),
+            python_model=TestPythonModelSimple(),
             artifact_path="test_model",
             signature=signature,
         )
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    loaded_predict = loaded_model.predict(["a", "b"], params=test_params)
-    assert loaded_predict["a"] == test_params["a"]
+    loaded_predict = loaded_model.predict(["a", "b"], params=params)
+    for param, value in params.items():
+        assert (loaded_predict[param] == value).all()
 
     # Automatically convert type if it's not consistent with schema
-    test_params = {"a": [1, 2, "3"]}
-    loaded_predict = loaded_model.predict(["a", "b"], params=test_params)
-    assert loaded_predict["a"] == [1, 2, 3]
+    # 1. int -> long, float, double
+    for param in ["double_array", "float_array", "long_array"]:
+        loaded_predict = loaded_model.predict(
+            ["a", "b"], params={param: np.array([np.int32(1), np.int32(2)])}
+        )
+        assert (loaded_predict[param] == params[param]).all()
+    # 2. long -> float, double
+    for param in ["double_array", "float_array"]:
+        loaded_predict = loaded_model.predict(["a", "b"], params={param: np.array([1, 2])})
+        assert (loaded_predict[param] == params[param]).all()
+    # 3. float -> double
+    loaded_predict = loaded_model.predict(
+        ["a", "b"], params={"double_array": np.array([np.float32(1), np.float32(2)])}
+    )
+    assert (loaded_predict["double_array"] == params["double_array"]).all()
+    # 4. any -> datetime (try conversion)
+    loaded_predict = loaded_model.predict(
+        ["a", "b"],
+        params={"datetime_array": np.array(["2023-06-26 00:00:00", "2023-06-26 00:00:00"])},
+    )
+    assert (loaded_predict["datetime_array"] == params["datetime_array"]).all()
 
     # Raise error if failing to convert the type
-    test_params = {"a": [1, 2, "invalid_value"]}
-    with pytest.raises(MlflowException, match=r"Failed to convert value type for ParamSpec"):
-        loaded_model.predict(["a", "b"], params=test_params)
+    with pytest.raises(
+        MlflowException, match=r"Failed to convert value 1.0 from type float to DataType.datetime"
+    ):
+        loaded_model.predict(["a", "b"], params={"datetime_array": [1.0, 2.0]})
+    with pytest.raises(MlflowException, match=r"Incompatible types for param 'int_array'"):
+        loaded_model.predict(["a", "b"], params={"int_array": np.array([1.0, 2.0])})
+    with pytest.raises(MlflowException, match=r"Incompatible types for param 'float_array'"):
+        loaded_model.predict(["a", "b"], params={"float_array": [True, False]})
+    with pytest.raises(MlflowException, match=r"Incompatible types for param 'double_array'"):
+        loaded_model.predict(["a", "b"], params={"double_array": [1.0, "2.0"]})

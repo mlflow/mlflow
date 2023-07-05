@@ -670,6 +670,39 @@ def test_enforce_tensor_spec_variable_signature():
         _enforce_tensor_spec(ragged_array, standard_spec)
 
 
+def test_datatype_is_instance():
+    assert DataType.is_instance("string", DataType.string)
+
+    assert DataType.is_instance(1, DataType.integer)
+    assert DataType.is_instance(np.int32(1), DataType.integer)
+    assert not DataType.is_instance(np.int64(1), DataType.integer)
+    # Note that isinstance(True, int) returns True
+    assert not DataType.is_instance(True, DataType.integer)
+
+    assert DataType.is_instance(1, DataType.long)
+    assert DataType.is_instance(np.int64(1), DataType.long)
+    assert not DataType.is_instance(np.int32(1), DataType.long)
+
+    assert DataType.is_instance(True, DataType.boolean)
+    assert DataType.is_instance(np.bool_(True), DataType.boolean)
+    assert not DataType.is_instance(1, DataType.boolean)
+
+    assert DataType.is_instance(1.0, DataType.double)
+    assert DataType.is_instance(np.float64(1.0), DataType.double)
+    assert not DataType.is_instance(np.float32(1.0), DataType.double)
+
+    assert DataType.is_instance(1.0, DataType.float)
+    assert DataType.is_instance(np.float32(1.0), DataType.float)
+    assert not DataType.is_instance(np.float64(1.0), DataType.float)
+
+    assert DataType.is_instance(b"bytes", DataType.binary)
+    assert DataType.is_instance(np.bytes_("bytes"), DataType.binary)
+    assert not DataType.is_instance("bytes", DataType.binary)
+
+    assert DataType.is_instance(np.datetime64("2023-06-26 00:00:00"), DataType.datetime)
+    assert not DataType.is_instance("2023-06-26 00:00:00", DataType.datetime)
+
+
 def test_infer_param_schema():
     test_parameters = {
         "a": "str_a",

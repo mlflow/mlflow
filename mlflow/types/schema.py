@@ -14,31 +14,32 @@ class DataType(Enum):
     MLflow data types.
     """
 
-    def __new__(cls, value, numpy_type, spark_type, pandas_type=None):
+    def __new__(cls, value, numpy_type, spark_type, pandas_type=None, python_type=None):
         res = object.__new__(cls)
         res._value_ = value
         res._numpy_type = numpy_type
         res._spark_type = spark_type
         res._pandas_type = pandas_type if pandas_type is not None else numpy_type
+        res._python_type = python_type if python_type is not None else numpy_type
         return res
 
     # NB: We only use pandas extension type for strings. There are also pandas extension types for
     # integers and boolean values. We do not use them here for now as most downstream tools are
     # most likely to use / expect native numpy types and would not be compatible with the extension
     # types.
-    boolean = (1, np.dtype("bool"), "BooleanType")
+    boolean = (1, np.dtype("bool"), "BooleanType", bool)
     """Logical data (True, False) ."""
-    integer = (2, np.dtype("int32"), "IntegerType")
+    integer = (2, np.dtype("int32"), "IntegerType", int)
     """32b signed integer numbers."""
-    long = (3, np.dtype("int64"), "LongType")
+    long = (3, np.dtype("int64"), "LongType", int)
     """64b signed integer numbers. """
-    float = (4, np.dtype("float32"), "FloatType")
+    float = (4, np.dtype("float32"), "FloatType", float)
     """32b floating point numbers. """
-    double = (5, np.dtype("float64"), "DoubleType")
+    double = (5, np.dtype("float64"), "DoubleType", float)
     """64b floating point numbers. """
-    string = (6, np.dtype("str"), "StringType", object)
+    string = (6, np.dtype("str"), "StringType", object, str)
     """Text data."""
-    binary = (7, np.dtype("bytes"), "BinaryType", object)
+    binary = (7, np.dtype("bytes"), "BinaryType", object, bytes)
     """Sequence of raw bytes."""
     datetime = (8, np.dtype("datetime64[ns]"), "TimestampType")
     """64b datetime data."""
@@ -59,9 +60,26 @@ class DataType(Enum):
 
         return getattr(pyspark.sql.types, self._spark_type)()
 
+    def to_python(self):
+        """Get equivalent python data type."""
+        return self._python_type
+
+    def get_all_types(self):
+        return [self.to_numpy(), self.to_pandas(), self.to_spark(), self.to_python()]
+
     @classmethod
     def get_spark_types(cls):
         return [dt.to_spark() for dt in cls._member_map_.values()]
+
+    @classmethod
+    # TODO: ADD TEST CASES
+    def is_instance(cls, value, data_type):
+        """
+        Check if the value is an instance of the given data type.
+        """
+        if data_type.name == "datetime":
+            return isinstance(value, np.datetime64)
+        return type(value) in data_type.get_all_types()
 
 
 class ColSpec:
@@ -450,6 +468,62 @@ class ParamSpec:
         )
 
     @classmethod
+    def enforce_param_datatype(cls, name, value, t: DataType):
+        """
+        Enforce the value matches the data type.
+
+        The following type conversions are allowed:
+
+        1. int -> long, float, double
+        2. long -> float, double
+        3. float -> double
+        4. any -> datetime (try conversion)
+
+        Any other type mismatch will raise error.
+
+        :param name: parameter name
+        :param value: parameter value
+        :param t: expected data type
+        """
+        if value is None:
+            return value
+
+        if not np.isscalar(value):
+            raise MlflowException(
+                f"Value should be a scalar for param {name}, got {value}", INVALID_PARAMETER_VALUE
+            )
+
+        if DataType.is_instance(value, t):
+            return value
+
+        if (
+            (
+                DataType.is_instance(value, DataType.integer)
+                and t in (DataType.long, DataType.float, DataType.double)
+            )
+            or (
+                DataType.is_instance(value, DataType.long)
+                and t in (DataType.float, DataType.double)
+            )
+            or (DataType.is_instance(value, DataType.float) and t == DataType.double)
+            or t == DataType.datetime
+        ):
+            try:
+                return np.array(value, dtype=t.to_numpy()).take(0)
+            except ValueError as e:
+                raise MlflowException(
+                    f"Failed to convert value {value} from type {type(value).__name__} "
+                    "to {t} for param {name}",
+                    INVALID_PARAMETER_VALUE,
+                ) from e
+
+        raise MlflowException(
+            f"Incompatible types for param {name}. Can not safely convert {type(value).__name__} "
+            f"to {t}.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    @classmethod
     def validate_type_and_shape(
         cls,
         spec: str,
@@ -468,51 +542,22 @@ class ParamSpec:
                 return True
             return False
 
-        try:
-            if shape is None:
-                if np.isscalar(value) or value is None:
-                    return (
-                        np.array(value, dtype=value_type.to_numpy()).take(0)
-                        if value is not None
-                        else None
-                    )
-                else:
-                    raise MlflowException(
-                        f"Value must be a scalar with shape None for ParamSpec {spec}, "
-                        f"received {type(value).__name__}",
-                        INVALID_PARAMETER_VALUE,
-                    )
-            elif shape == (-1,):
-                if _is_1d_array(value):
-                    return (
-                        # Note that .tolist() also converts the underlying type to native python
-                        list(np.array(value, dtype=value_type.to_numpy()))
-                        if value is not None
-                        else None
-                    )
-                elif np.isscalar(value):
-                    raise MlflowException(
-                        f"Value must be a 1D array with shape (-1,) for ParamSpec {spec}, "
-                        f"received scalar value {value}",
-                        INVALID_PARAMETER_VALUE,
-                    )
-                else:
-                    raise MlflowException(
-                        f"Value must be a scalar or 1D array for ParamSpec {spec}, "
-                        f"received {type(value).__name__}",
-                        INVALID_PARAMETER_VALUE,
-                    )
-            else:
+        if shape is None:
+            return cls.enforce_param_datatype(f"{spec} with shape None", value, value_type)
+        elif shape == (-1,):
+            if not _is_1d_array(value):
                 raise MlflowException(
-                    "Shape must be None for scalar value or (-1,) for 1D array value "
-                    f"for ParamSpec {spec}), received {shape}",
+                    f"Value must be a 1D array with shape (-1,) for param {spec}, "
+                    f"received {type(value).__name__}",
                     INVALID_PARAMETER_VALUE,
                 )
-
-        except ValueError as e:
+            return [
+                cls.enforce_param_datatype(f"{spec} internal values", v, value_type) for v in value
+            ]
+        else:
             raise MlflowException(
-                f"Failed to convert value type for ParamSpec {spec}: {e!r}\n"
-                f"Expected type {value_type}, value type {type(value).__name__}",
+                "Shape must be None for scalar value or (-1,) for 1D array value "
+                f"for ParamSpec {spec}), received {shape}",
                 INVALID_PARAMETER_VALUE,
             )
 
