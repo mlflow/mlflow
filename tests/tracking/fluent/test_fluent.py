@@ -57,28 +57,6 @@ from mlflow.environment_variables import (
 from tests.helper_functions import multi_context
 
 
-class HelperEnv:
-    def __init__(self):
-        pass
-
-    @classmethod
-    def assert_values(cls, exp_id, name):
-        assert MLFLOW_EXPERIMENT_NAME.get() == name
-        assert MLFLOW_EXPERIMENT_ID.get() == exp_id
-
-    @classmethod
-    def set_values(cls, experiment_id=None, name=None):
-        if experiment_id:
-            MLFLOW_EXPERIMENT_ID.set(str(experiment_id))
-        elif MLFLOW_EXPERIMENT_ID.get():
-            MLFLOW_EXPERIMENT_ID.unset()
-
-        if name:
-            MLFLOW_EXPERIMENT_NAME.set(str(name))
-        elif MLFLOW_EXPERIMENT_NAME.get():
-            MLFLOW_EXPERIMENT_NAME.unset()
-
-
 def create_run(
     run_id="",
     exp_id="",
@@ -175,7 +153,6 @@ def reset_experiment_id():
     its included
     """
     yield
-    HelperEnv.set_values()
     mlflow.tracking.fluent._active_experiment_id = None
 
 
@@ -204,38 +181,39 @@ def test_all_fluent_apis_are_included_in_dunder_all():
     assert set(apis).issubset(set(mlflow.__all__))
 
 
-def test_get_experiment_id_from_env():
+def test_get_experiment_id_from_env(monkeypatch):
     # When no env variables are set
-    HelperEnv.assert_values(None, None)
+    assert not MLFLOW_EXPERIMENT_NAME.is_defined
+    assert not MLFLOW_EXPERIMENT_ID.is_defined
     assert _get_experiment_id_from_env() is None
 
     # set only ID
     name = "random experiment %d" % random.randint(1, 1e6)
     exp_id = mlflow.create_experiment(name)
     assert exp_id is not None
-    HelperEnv.set_values(experiment_id=exp_id)
-    HelperEnv.assert_values(exp_id, None)
+    monkeypatch.delenv(MLFLOW_EXPERIMENT_NAME.name, raising=False)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, exp_id)
     assert _get_experiment_id_from_env() == exp_id
 
     # set only name
     name = "random experiment %d" % random.randint(1, 1e6)
     exp_id = mlflow.create_experiment(name)
     assert exp_id is not None
-    HelperEnv.set_values(name=name)
-    HelperEnv.assert_values(None, name)
+    monkeypatch.delenv(MLFLOW_EXPERIMENT_ID.name, raising=False)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, name)
     assert _get_experiment_id_from_env() == exp_id
 
     # create experiment from env name
     name = "random experiment %d" % random.randint(1, 1e6)
-    HelperEnv.set_values(name=name)
-    HelperEnv.assert_values(None, name)
+    monkeypatch.delenv(MLFLOW_EXPERIMENT_ID.name, raising=False)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, name)
     assert MlflowClient().get_experiment_by_name(name) is None
     assert _get_experiment_id_from_env() is not None
 
     # assert experiment creation from encapsulating function
     name = "random experiment %d" % random.randint(1, 1e6)
-    HelperEnv.set_values(name=name)
-    HelperEnv.assert_values(None, name)
+    monkeypatch.delenv(MLFLOW_EXPERIMENT_ID.name, raising=False)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, name)
     assert MlflowClient().get_experiment_by_name(name) is None
     assert _get_experiment_id() is not None
 
@@ -244,8 +222,8 @@ def test_get_experiment_id_from_env():
     exp_id = mlflow.create_experiment(name)
     random_id = random.randint(100, 1e6)
     assert exp_id != random_id
-    HelperEnv.set_values(experiment_id=random_id)
-    HelperEnv.assert_values(str(random_id), None)
+    monkeypatch.delenv(MLFLOW_EXPERIMENT_NAME.name, raising=False)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, random_id)
     with pytest.raises(
         MlflowException,
         match=(
@@ -260,8 +238,7 @@ def test_get_experiment_id_from_env():
     exp_id = mlflow.create_experiment(name)
     random_id = random.randint(100, 1e6)
     assert exp_id != random_id
-    HelperEnv.set_values(experiment_id=random_id, name=name)
-    HelperEnv.assert_values(str(random_id), name)
+    monkeypatch.setenvs({MLFLOW_EXPERIMENT_ID.name: random_id, MLFLOW_EXPERIMENT_NAME.name: name})
     with pytest.raises(
         MlflowException,
         match=(
@@ -277,8 +254,9 @@ def test_get_experiment_id_from_env():
     exp_id = mlflow.create_experiment(name)
     assert exp_id is not None
     random_id = random.randint(100, 1e6)
-    HelperEnv.set_values(name=invalid_name, experiment_id=random_id)
-    HelperEnv.assert_values(str(random_id), invalid_name)
+    monkeypatch.setenvs(
+        {MLFLOW_EXPERIMENT_ID.name: random_id, MLFLOW_EXPERIMENT_NAME.name: invalid_name}
+    )
     mlflow.set_experiment(experiment_id=exp_id)
     assert _get_experiment_id() == exp_id
 
@@ -320,11 +298,14 @@ def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_e
         assert _get_experiment_id() == exp_id
 
 
-def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_env_experiment_id():
+def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_env_experiment_id(
+    monkeypatch,
+):
     exp_name = "random experiment %d" % random.randint(1, 1e6)
     exp_id = mlflow.create_experiment(exp_name)
     notebook_id = str(int(exp_id) + 73)
-    HelperEnv.set_values(experiment_id=exp_id)
+    monkeypatch.delenv(MLFLOW_EXPERIMENT_NAME.name, raising=False)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, exp_id)
 
     with mock.patch(
         "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id",
