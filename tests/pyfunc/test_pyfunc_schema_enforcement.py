@@ -1,5 +1,6 @@
 import base64
 import decimal
+import json
 import numpy as np
 import pandas as pd
 import pytest
@@ -13,8 +14,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import infer_signature, Model, ModelSignature
 from mlflow.models.utils import _enforce_params_schema, _enforce_schema
 from mlflow.pyfunc import PyFuncModel
-
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.types import Schema, ColSpec, TensorSpec, ParamSchema, ParamSpec, DataType
+from mlflow.utils.proto_json_utils import dump_input_data
+
+from tests.helper_functions import pyfunc_serve_and_score_model
 
 
 class TestModel:
@@ -1055,7 +1059,16 @@ def test_enforce_params_schema():
     ):
         _enforce_params_schema({"datetime_array": [1.0, 2.0]}, schema)
 
-    # 5. raise error for any other conversions
+    # 5. string can be converted to bytes
+    assert (
+        _enforce_params_schema({"byte_param": "Ynl0ZQ==\n"}, test_schema)["byte_param"] == b"byte"
+    )
+    with pytest.raises(
+        MlflowException, match=r"Failed to convert value invalid from type str to DataType.binary"
+    ):
+        _enforce_params_schema({"byte_param": "invalid"}, test_schema)
+
+    # raise error for any other conversions
     error_msg = r"Incompatible types for param 'int_param'"
     with pytest.raises(MlflowException, match=error_msg):
         _enforce_params_schema({"int_param": np.float32(1)}, test_schema)
@@ -1075,8 +1088,6 @@ def test_enforce_params_schema():
     error_msg = r"Incompatible types for param 'byte_param'"
     with pytest.raises(MlflowException, match=error_msg):
         _enforce_params_schema({"byte_param": np.float32(1)}, test_schema)
-    with pytest.raises(MlflowException, match=error_msg):
-        _enforce_params_schema({"byte_param": "string"}, test_schema)
 
     # With Array
     with pytest.raises(MlflowException, match="Incompatible types for param 'float_array'"):
@@ -1162,7 +1173,7 @@ def test_param_spec():
     with pytest.raises(MlflowException, match=r"Incompatible types for param 'a'"):
         ParamSpec("a", DataType.string, [1.0, 2.0], (-1,))
     with pytest.raises(MlflowException, match=r"Incompatible types for param 'a'"):
-        ParamSpec("a", DataType.binary, "binary")
+        ParamSpec("a", DataType.binary, 1.0)
     with pytest.raises(MlflowException, match=r"Incompatible types for param 'a'"):
         ParamSpec("a", DataType.binary, [True, False], (-1,))
     with pytest.raises(MlflowException, match=r"Failed to convert value"):
@@ -1276,10 +1287,11 @@ def test_enforce_schema_in_python_model_predict():
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     loaded_predict = loaded_model.predict(["a", "b"], params=test_params)
-    assert (loaded_predict["double_array"] == test_params["double_array"]).all()
-    loaded_predict.pop("double_array")
-    test_params.pop("double_array")
-    assert loaded_predict == test_params
+    for param, value in test_params.items():
+        if param == "double_array":
+            assert (loaded_predict[param] == value).all()
+        else:
+            assert loaded_predict[param] == value
 
     # Automatically convert type if it's not consistent with schema
     # 1. int -> long, float, double
@@ -1311,28 +1323,88 @@ def test_enforce_schema_in_python_model_predict():
         assert loaded_predict[param] == expected_params_long[param]
 
     # 3. float -> double
-    params_float = {
-        "double_param": np.float32(1),
-    }
-    expected_params_float = {
-        "double_param": 1.0,
-    }
-    loaded_predict = loaded_model.predict(["a", "b"], params=params_float)
-    for param in params_float:
-        assert loaded_predict[param] == expected_params_float[param]
+    assert (
+        loaded_model.predict(
+            ["a", "b"],
+            params={
+                "double_param": np.float32(1),
+            },
+        )["double_param"]
+        == 1.0
+    )
 
     # 4. any -> datetime (try conversion)
-    params_datetime = {
-        "datetime_param": "2023-06-26 00:00:00",
-    }
-    expected_params_datetime = {
-        "datetime_param": np.datetime64("2023-06-26 00:00:00"),
-    }
-    loaded_predict = loaded_model.predict(["a", "b"], params=params_datetime)
-    for param in params_datetime:
-        assert loaded_predict[param] == expected_params_datetime[param]
+    assert loaded_model.predict(
+        ["a", "b"],
+        params={
+            "datetime_param": "2023-06-26 00:00:00",
+        },
+    )[
+        "datetime_param"
+    ] == np.datetime64("2023-06-26 00:00:00")
 
-    # With array
+    # 5. str -> bytes
+    assert (
+        loaded_model.predict(
+            ["a", "b"],
+            params={
+                "byte_param": "Ynl0ZQ==\n",
+            },
+        )["byte_param"]
+        == b"byte"
+    )
+    with pytest.raises(
+        MlflowException,
+        match=r"Failed to convert value invalid_base64 from type str to DataType.binary",
+    ):
+        loaded_model.predict(["a", "b"], params={"byte_param": "invalid_base64"})
+
+    # Test model serving
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=dump_input_data(["a", "b"], params=test_params),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 200
+    prediction = json.loads(response.content.decode("utf-8"))["predictions"]
+    for param, value in test_params.items():
+        if param == "double_array":
+            assert (prediction[param] == value).all()
+        elif param == "byte_param":
+            assert prediction[param] == base64.encodebytes(value).decode("ascii")
+        elif param == "datetime_param":
+            assert prediction[param] == np.datetime_as_string(value)
+        else:
+            assert prediction[param] == value
+
+    # Test invalid params for model serving
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=dump_input_data(["a", "b"], params={"double_param": "invalid"}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 400
+    assert (
+        "Incompatible types for param 'double_param'"
+        in json.loads(response.content.decode("utf-8"))["message"]
+    )
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=dump_input_data(["a", "b"], params={"byte_param": "invalid"}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 400
+    assert (
+        "Failed to convert value invalid from type str to DataType.binary"
+        in json.loads(response.content.decode("utf-8"))["message"]
+    )
+
+
+def test_enforce_schema_with_arrays_in_python_model_predict():
     params = {
         "int_array": np.array([np.int32(1), np.int32(2)]),
         "double_array": np.array([1.0, 2.0]),
@@ -1400,3 +1472,67 @@ def test_enforce_schema_in_python_model_predict():
         loaded_model.predict(["a", "b"], params={"float_array": [True, False]})
     with pytest.raises(MlflowException, match=r"Incompatible types for param 'double_array'"):
         loaded_model.predict(["a", "b"], params={"double_array": [1.0, "2.0"]})
+
+    # Test model serving
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=dump_input_data(["a", "b"], params=params),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 200
+    prediction = json.loads(response.content.decode("utf-8"))["predictions"]
+    for param, value in params.items():
+        if param == "datetime_array":
+            assert prediction[param] == list(map(np.datetime_as_string, value))
+        else:
+            assert (prediction[param] == value).all()
+
+    # Test invalid params for model serving
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=dump_input_data(["a", "b"], params={"datetime_array": [1.0, 2.0]}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 400
+    assert (
+        "Failed to convert value 1.0 from type float to DataType.datetime"
+        in json.loads(response.content.decode("utf-8"))["message"]
+    )
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=dump_input_data(["a", "b"], params={"int_array": np.array([1.0, 2.0])}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 400
+    assert (
+        "Incompatible types for param 'int_array'"
+        in json.loads(response.content.decode("utf-8"))["message"]
+    )
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=dump_input_data(["a", "b"], params={"float_array": [True, False]}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 400
+    assert (
+        "Incompatible types for param 'float_array'"
+        in json.loads(response.content.decode("utf-8"))["message"]
+    )
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=dump_input_data(["a", "b"], params={"double_array": [1.0, "2.0"]}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 400
+    assert (
+        "Incompatible types for param 'double_array'"
+        in json.loads(response.content.decode("utf-8"))["message"]
+    )

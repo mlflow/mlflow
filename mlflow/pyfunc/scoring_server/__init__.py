@@ -29,7 +29,6 @@ from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 # dependencies to the minimum here.
 # ALl of the mlflow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
-from mlflow.models.utils import _enforce_params_schema
 from mlflow.types import Schema
 from mlflow.utils import reraise
 from mlflow.utils.annotations import deprecated
@@ -317,8 +316,6 @@ def invocations(data, content_type, model, input_schema):
     # Do the prediction
     try:
         if params:
-            params_schema = model.metadata.get_params_schema()
-            params = _enforce_params_schema(params, params_schema)
             if inspect.signature(model.predict).parameters.get("params"):
                 raw_predictions = model.predict(data, params)
             else:
@@ -411,8 +408,6 @@ def _predict(model_uri, input_path, output_path, content_type):
         raise Exception(f"Unknown content type '{content_type}'")
 
     if params:
-        params_schema = pyfunc_model.metadata.get_params_schema()
-        params = _enforce_params_schema(params, params_schema)
         if inspect.signature(pyfunc_model.predict).parameters.get("params"):
             raw_predictions = pyfunc_model.predict(df, params)
         else:

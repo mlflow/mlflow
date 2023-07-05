@@ -462,7 +462,22 @@ class _CustomJsonEncoder(json.JSONEncoder):
             return o.isoformat()
 
         if isinstance(o, np.ndarray):
-            return o.tolist()
+            return [self.default(v) for v in o]
+
+        if isinstance(o, bytes):
+            return base64.encodebytes(o).decode("ascii")
+
+        if isinstance(o, (np.int64, np.int32)):
+            return int(o)
+
+        if isinstance(o, (np.float64, np.float32)):
+            return float(o)
+
+        if isinstance(o, np.bool_):
+            return bool(o)
+
+        if isinstance(o, np.datetime64):
+            return np.datetime_as_string(o)
 
         return super().default(o)
 
@@ -494,6 +509,8 @@ def dump_input_data(data, inputs_key="inputs", params: Optional[Dict[str, Any]] 
         post_data = {inputs_key: {k: get_jsonable_input(k, v) for k, v in data}}
     elif isinstance(data, np.ndarray):
         post_data = {inputs_key: data.tolist()}
+    elif isinstance(data, list):
+        post_data = {inputs_key: data}
     else:
         post_data = data
 

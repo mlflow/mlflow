@@ -1,3 +1,4 @@
+import base64
 import json
 from enum import Enum
 
@@ -478,7 +479,7 @@ class ParamSpec:
         2. long -> float, double
         3. float -> double
         4. any -> datetime (try conversion)
-
+        5. str -> bytes
         Any other type mismatch will raise error.
 
         :param name: parameter name
@@ -496,6 +497,16 @@ class ParamSpec:
         if DataType.is_instance(value, t):
             return value
 
+        if isinstance(value, str) and t == DataType.binary:
+            try:
+                return base64.decodebytes(value.encode("ascii"))
+            except Exception as e:
+                raise MlflowException(
+                    f"Failed to convert value {value} from type {type(value).__name__} "
+                    f"to {t} for param {name}",
+                    INVALID_PARAMETER_VALUE,
+                ) from e
+
         if (
             (
                 DataType.is_instance(value, DataType.integer)
@@ -509,6 +520,8 @@ class ParamSpec:
             or t == DataType.datetime
         ):
             try:
+                if t == DataType.datetime:
+                    return np.datetime64(value)
                 return np.array(value, dtype=t.to_numpy()).take(0)
             except ValueError as e:
                 raise MlflowException(
