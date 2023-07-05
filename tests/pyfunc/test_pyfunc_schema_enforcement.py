@@ -1064,7 +1064,7 @@ def test_param_spec():
         ParamSpec("a", DataType.datetime, "string")
 
 
-def test_enforce_schema_in_predict():
+def test_enforce_schema_in_python_model_predict():
     test_params = {
         "a": "str_a",
         "b": np.int32(1),
@@ -1095,11 +1095,7 @@ def test_enforce_schema_in_predict():
     )
 
     class TestPythonModel(mlflow.pyfunc.PythonModel):
-        def __init__(self, params_schema):
-            self.params_schema = params_schema
-
         def predict(self, context, model_input, params=None):
-            params = _enforce_params_schema(params, self.params_schema)
             assert isinstance(params, dict)
             assert isinstance(params["a"], str)
             assert isinstance(params["b"], np.int32)
@@ -1122,7 +1118,7 @@ def test_enforce_schema_in_predict():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            python_model=TestPythonModel(test_schema),
+            python_model=TestPythonModel(),
             artifact_path="test_model",
             signature=signature,
         )
@@ -1168,12 +1164,10 @@ def test_enforce_schema_in_predict():
     assert loaded_predict == expect_params
 
     class TestPythonModelSimple(mlflow.pyfunc.PythonModel):
-        def __init__(self, params_schema, params_type):
-            self.params_schema = params_schema
+        def __init__(self, params_type):
             self.params_type = params_type
 
         def predict(self, context, model_input, params=None):
-            params = _enforce_params_schema(params, self.params_schema)
             assert isinstance(params, dict)
             assert all(isinstance(x, self.params_type) for x in params["a"])
             return params
@@ -1182,7 +1176,7 @@ def test_enforce_schema_in_predict():
     signature = infer_signature(["input1"], params=test_params)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            python_model=TestPythonModelSimple(signature.params, np.int64),
+            python_model=TestPythonModelSimple(np.int64),
             artifact_path="test_model",
             signature=signature,
         )

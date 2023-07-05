@@ -422,8 +422,15 @@ class PyFuncModel:
             data = _enforce_schema(data, input_schema)
 
         if params:
-            params_schema = self.metadata.get_params_schema()
-            params = _enforce_params_schema(params, params_schema)
+            if hasattr(self.metadata, "get_params_schema"):
+                params_schema = self.metadata.get_params_schema()
+                params = _enforce_params_schema(params, params_schema)
+            else:
+                raise MlflowException(
+                    "Model with no params schema does not support params in predict. "
+                    "Please log the model with mlflow > 2.4.1.",
+                    INVALID_PARAMETER_VALUE,
+                )
 
         if "openai" in sys.modules and MLFLOW_OPENAI_RETRIES_ENABLED.get():
             from mlflow.openai.retry import openai_auto_retry_patch
