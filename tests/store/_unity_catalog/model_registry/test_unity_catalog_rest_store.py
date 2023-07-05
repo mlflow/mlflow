@@ -253,7 +253,7 @@ def test_create_model_version_fails_fs_packaged_model(store, feature_store_local
     with pytest.raises(
         MlflowException,
         match="This model was packaged by Databricks Feature Store and can only be registered on "
-              "a Databricks cluster.",
+        "a Databricks cluster.",
     ):
         store.create_model_version(name="model_1", source=str(feature_store_local_model_dir))
 
