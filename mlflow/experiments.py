@@ -136,8 +136,7 @@ def generate_csv_with_runs(experiment_id, filename):
     if filename:
         runs.to_csv(filename, index=False)
         click.echo(
-            "Experiment with ID %s has been exported as a CSV to file: %s."
-            % (experiment_id, filename)
+            f"Experiment with ID {experiment_id} has been exported as a CSV to file: {filename}."
         )
     else:
         click.echo(runs.to_csv(index=False))

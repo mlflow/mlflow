@@ -16,8 +16,8 @@ class ModelVersionStatus:
     def from_string(status_str):
         if status_str not in ModelVersionStatus._STRING_TO_STATUS:
             raise Exception(
-                "Could not get model version status corresponding to string %s. Valid status "
-                "strings: %s" % (status_str, list(ModelVersionStatus._STRING_TO_STATUS.keys()))
+                f"Could not get model version status corresponding to string {status_str}. "
+                f"Valid status strings: {list(ModelVersionStatus._STRING_TO_STATUS.keys())}"
             )
         return ModelVersionStatus._STRING_TO_STATUS[status_str]
 
@@ -25,8 +25,8 @@ class ModelVersionStatus:
     def to_string(status):
         if status not in ModelVersionStatus._STATUS_TO_STRING:
             raise Exception(
-                "Could not get string corresponding to model version status %s. Valid "
-                "statuses: %s" % (status, list(ModelVersionStatus._STATUS_TO_STRING.keys()))
+                f"Could not get string corresponding to model version status {status}. "
+                f"Valid statuses: {list(ModelVersionStatus._STATUS_TO_STRING.keys())}"
             )
         return ModelVersionStatus._STATUS_TO_STRING[status]
 

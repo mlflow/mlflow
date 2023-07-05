@@ -324,10 +324,10 @@ def _get_docker_command(image, active_run, docker_args=None, volumes=None, user_
                 system_var = os.environ.get(user_entry)
                 if system_var is None:
                     raise MlflowException(
-                        "This project expects the %s environment variables to "
-                        "be set on the machine running the project, but %s was "
+                        "This project expects the {} environment variables to "
+                        "be set on the machine running the project, but {} was "
                         "not set. Please ensure all expected environment variables "
-                        "are set" % (", ".join(user_env_vars), user_entry)
+                        "are set".format(", ".join(user_env_vars), user_entry)
                     )
                 env_vars[user_entry] = system_var
 
