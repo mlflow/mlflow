@@ -85,7 +85,7 @@ def convert_metric_value_to_float_if_tensorflow_tensor(x):
             return float(x)
         except Exception as e:
             raise MlflowException(
-                f"Failed to convert metric value to float: {repr(e)}",
+                f"Failed to convert metric value to float: {e!r}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

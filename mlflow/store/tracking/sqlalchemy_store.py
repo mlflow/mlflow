@@ -255,7 +255,7 @@ class SqlAlchemyStore(AbstractStore):
                     experiment.artifact_location = self._get_artifact_location(eid)
             except sqlalchemy.exc.IntegrityError as e:
                 raise MlflowException(
-                    "Experiment(name={}) already exists. Error: {}".format(name, str(e)),
+                    f"Experiment(name={name}) already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
                 )
 
@@ -506,7 +506,7 @@ class SqlAlchemyStore(AbstractStore):
             raise MlflowException(f"Run with id={run_uuid} not found", RESOURCE_DOES_NOT_EXIST)
         if len(runs) > 1:
             raise MlflowException(
-                "Expected only 1 run with id={}. Found {}.".format(run_uuid, len(runs)),
+                f"Expected only 1 run with id={run_uuid}. Found {len(runs)}.",
                 INVALID_STATE,
             )
 
@@ -1352,9 +1352,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_run_id(run_id)
         if datasets is not None:
             if not isinstance(datasets, list):
-                raise TypeError(
-                    "Argument 'datasets' should be a list, got '{}'".format(type(datasets))
-                )
+                raise TypeError(f"Argument 'datasets' should be a list, got '{type(datasets)}'")
             _validate_dataset_inputs(datasets)
 
         with self.ManagedSessionMaker() as session:

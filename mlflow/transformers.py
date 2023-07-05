@@ -151,7 +151,7 @@ def get_default_pip_requirements(model) -> List[str]:
         _logger.warning(
             "Could not infer model execution engine type due to huggingface_hub not "
             "being installed or unable to connect in online mode. Adding full "
-            f"dependency chain: {dependencies}. \nFailure cause: {str(e)}"
+            f"dependency chain: {dependencies}. \nFailure cause: {e}"
         )
         return dependencies
 
