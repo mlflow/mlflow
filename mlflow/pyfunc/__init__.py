@@ -828,8 +828,10 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
-def _parse_spark_datatype(spark, datatype: str):
-    return spark.createDataFrame([], datatype).schema[0].dataType
+def _parse_spark_datatype(datatype: str):
+    from pyspark.sql.functions import udf
+
+    return udf(lambda x: x, returnType=datatype).returnType
 
 
 def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LOCAL):
@@ -973,7 +975,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     result_type = "boolean" if result_type == "bool" else result_type
 
     if not isinstance(result_type, SparkDataType):
-        result_type = _parse_spark_datatype(spark, result_type)
+        result_type = _parse_spark_datatype(result_type)
 
     elem_type = result_type
     if isinstance(elem_type, ArrayType):

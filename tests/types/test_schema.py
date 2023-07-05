@@ -579,12 +579,10 @@ def test_spark_schema_inference(pandas_df_with_all_types):
         for t in schema.input_types():
             if t == DataType.datetime:
                 struct_fields.append(
-                    StructField("datetime", _parse_spark_datatype(spark, "timestamp"), True)
+                    StructField("datetime", _parse_spark_datatype("timestamp"), True)
                 )
             else:
-                struct_fields.append(
-                    StructField(t.name, _parse_spark_datatype(spark, t.name), True)
-                )
+                struct_fields.append(StructField(t.name, _parse_spark_datatype(t.name), True))
         spark_schema = StructType(struct_fields)
         sparkdf = spark.createDataFrame(pandas_df_with_all_types, schema=spark_schema)
         schema = _infer_schema(sparkdf)
