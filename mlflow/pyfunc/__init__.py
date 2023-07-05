@@ -926,6 +926,10 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
         ``pyspark.sql.types.DataType`` object or a DDL-formatted type string. Only a primitive
         type, an array ``pyspark.sql.types.ArrayType`` of primitive type, or a struct type
         containing fields of above 2 kinds of types are allowed.
+        If ``result_type`` param is not set, it tries to infer result type from model signature
+        output schema, if model output schema is not available, it fallbacks to use ``double``
+        type as the default result type.
+
         The following classes of result type are supported:
 
         - "int" or ``pyspark.sql.types.IntegerType``: The leftmost integer that can fit in an
