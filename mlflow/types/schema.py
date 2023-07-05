@@ -1,6 +1,7 @@
 import base64
-import json
+import datetime  # pylint: disable=unused-import
 from enum import Enum
+import json
 
 import numpy as np
 import string
@@ -42,7 +43,7 @@ class DataType(Enum):
     """Text data."""
     binary = (7, np.dtype("bytes"), "BinaryType", object, bytes)
     """Sequence of raw bytes."""
-    datetime = (8, np.dtype("datetime64[ns]"), "TimestampType")
+    datetime = (8, np.dtype("datetime64[ns]"), "TimestampType", datetime.datetime)
     """64b datetime data."""
 
     def __repr__(self):
@@ -73,7 +74,6 @@ class DataType(Enum):
         return [dt.to_spark() for dt in cls._member_map_.values()]
 
     @classmethod
-    # TODO: ADD TEST CASES
     def is_instance(cls, value, data_type):
         """
         Check if the value is an instance of the given data type.
@@ -438,7 +438,7 @@ class ParamSpec:
         name: str,
         type: Union[DataType, str],  # pylint: disable=redefined-builtin
         default: Union[DataType, List[DataType], None],
-        shape: Optional[tuple] = None,
+        shape: Optional[Tuple[int, ...]] = None,
     ):
         self._name = str(name)
         self._shape = tuple(shape) if shape is not None else None
@@ -604,6 +604,7 @@ class ParamSpec:
         default: Union[DataType, List[DataType], None]
         shape: Optional[Tuple[int, ...]]
 
+    # TODO: update this to be consistent with _CustomJsonEncoder
     def to_dict(self) -> ParamSpecTypedDict:
         type_conversion = {
             "integer": int,
