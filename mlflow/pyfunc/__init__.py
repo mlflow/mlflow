@@ -829,7 +829,7 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
-def _convert_spec_to_spark_type(spec):
+def _convert_model_output_spec_to_spark_type(spec):
     from mlflow.types.schema import ColSpec, TensorSpec, DataType
     from pyspark.sql.types import ArrayType
 
@@ -859,12 +859,12 @@ def _convert_spec_to_spark_type(spec):
 def _infer_spark_udf_return_type(model_output_schema):
     from pyspark.sql.types import StructType, StructField, ArrayType
 
-    if len(model_output_schema.inputs) == 1 and model_output_schema.inputs[0].name is None:
-        return _convert_spec_to_spark_type(model_output_schema.inputs[0])
+    if len(model_output_schema.inputs) == 1:
+        return _convert_model_output_spec_to_spark_type(model_output_schema.inputs[0])
 
     return StructType(
         [
-            StructField(name=spec.name or str(i), dataType=_convert_spec_to_spark_type(spec))
+            StructField(name=spec.name or str(i), dataType=_convert_model_output_spec_to_spark_type(spec))
             for i, spec in enumerate(model_output_schema.inputs)
         ]
     )
@@ -1193,8 +1193,6 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
             result_dict = {}
             for field_name in result_type.fieldNames():
                 field_type = result_type[field_name].dataType
-
-                raise ValueError((field_name, result_type, result))
                 field_values = result[field_name]
 
                 if type(field_type) in spark_primitive_type_to_np_type:
