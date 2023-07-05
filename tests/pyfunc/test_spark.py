@@ -411,9 +411,14 @@ def test_spark_udf_tensorspec_struct_return_type_inference(spark):
             "res.r1", "res.r2", "res.r3", "res.r4", "res.r5"
         )
         assert (
-            result_spark_df.schema.simpleString()
-            == "struct<r1:array<bigint>,r2:array<double>,r3:array<double>,"
-            "r4:array<array<double>>,r5:array<array<double>>>"
+            result_spark_df.schema.simpleString() ==
+            "struct<"
+            "r1:array<bigint>,"
+            "r2:array<double>,"
+            "r3:array<double>,"
+            "r4:array<array<double>>,"
+            "r5:array<array<double>>"
+            ">"
         )
         result = result_spark_df.toPandas()
         assert result["r1"].tolist() == [[1, 2]] * 2

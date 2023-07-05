@@ -848,7 +848,7 @@ def _convert_model_output_spec_to_spark_type(spec):
         elif len(spec.shape) == 2:
             return ArrayType(ArrayType(data_type.to_spark()))
         else:
-            raise ValueError(
+            raise MlflowException(
                 "Only one dimension or 2 dimensions tensors are supported as spark_udf "
                 f"return value, but model output '{spec.name}' has shape {spec.shape}."
             )
@@ -1162,8 +1162,8 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
                 elem_type = elem_type.elementType
                 if isinstance(elem_type, ArrayType):
                     raise MlflowException(
-                        f"Unsupported array<array<array<ElementType>>> type field "
-                        "in struct type."
+                        "Triple nested array type field in struct type is not supported: "
+                        f"{spark_type.simpleString()}."
                     )
                 array_dim = 2
 
