@@ -834,7 +834,7 @@ def test_spark_udf_datetime_with_model_schema(spark):
 
     inference_sample = X.sample(n=10, random_state=42)
     infer_spark_df = spark.createDataFrame(inference_sample.astype(timestamp_dtype))
-    pyfunc_udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, env_manager="local")
+    pyfunc_udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, env_manager="conda")
     result = infer_spark_df.select(pyfunc_udf(*X.columns).alias("predictions")).toPandas()
     np.testing.assert_almost_equal(result.to_numpy().squeeze(), model.predict(inference_sample))
 
