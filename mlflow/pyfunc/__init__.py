@@ -864,7 +864,9 @@ def _infer_spark_udf_return_type(model_output_schema):
 
     return StructType(
         [
-            StructField(name=spec.name or str(i), dataType=_convert_model_output_spec_to_spark_type(spec))
+            StructField(
+                name=spec.name or str(i), dataType=_convert_model_output_spec_to_spark_type(spec)
+            )
             for i, spec in enumerate(model_output_schema.inputs)
         ]
     )
@@ -1174,13 +1176,9 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
             np_type = spark_primitive_type_to_np_type[type(elem_type)]
 
             if array_dim == 1:
-                return [
-                    np.array(v, dtype=np_type) for v in values
-                ]
+                return [np.array(v, dtype=np_type) for v in values]
             else:
-                return [
-                    list(np.array(v, dtype=np_type)) for v in values
-                ]
+                return [list(np.array(v, dtype=np_type)) for v in values]
 
         if isinstance(result_type, ArrayType) and isinstance(result_type.elementType, ArrayType):
             result_values = _convert_array_values(result, result_type)
