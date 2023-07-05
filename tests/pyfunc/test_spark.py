@@ -407,6 +407,101 @@ def test_spark_udf_tensorspec_struct_return_type_inference(spark):
         )
 
 
+def test_spark_udf_single_1d_array_return_type_inference(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            input_len = len(model_input)
+            return [[1, 2]] * input_len
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=ModelSignature(
+            inputs=Schema([ColSpec("long")]),
+            outputs=Schema([
+                TensorSpec(np.dtype(np.int64), (2,)),
+            ])
+        ))
+
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            f"runs:/{run.info.run_id}/model",
+        )
+
+        data1 = spark.range(2).repartition(1)
+        result_spark_df = (
+            data1.select(udf("id").alias("res"))
+        )
+        assert (
+            result_spark_df.schema.simpleString() ==
+            "struct<res:array<bigint>>"
+        )
+        result = result_spark_df.toPandas()
+        assert result["res"].tolist() == [[1, 2]] * 2
+
+
+def test_spark_udf_single_2d_array_return_type_inference(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            input_len = len(model_input)
+            return [np.array([[1., 2., 3.], [4., 5., 6.]])] * input_len
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=ModelSignature(
+            inputs=Schema([ColSpec("long")]),
+            outputs=Schema([
+                TensorSpec(np.dtype(np.float64), (2, 3)),
+            ])
+        ))
+
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            f"runs:/{run.info.run_id}/model",
+        )
+
+        data1 = spark.range(2).repartition(1)
+        result_spark_df = (
+            data1.select(udf("id").alias("res"))
+        )
+        assert (
+            result_spark_df.schema.simpleString() ==
+            "struct<res:array<array<double>>>"
+        )
+        result = result_spark_df.toPandas()
+        np.testing.assert_almost_equal(
+            list(result["res"]), [[[1., 2., 3.], [4., 5., 6.]]] * 2
+        )
+
+
+def test_spark_udf_single_long_return_type_inference(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            input_len = len(model_input)
+            return [12] * input_len
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=ModelSignature(
+            inputs=Schema([ColSpec("long")]),
+            outputs=Schema([
+                ColSpec('long'),
+            ])
+        ))
+
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            f"runs:/{run.info.run_id}/model",
+        )
+
+        data1 = spark.range(2).repartition(1)
+        result_spark_df = (
+            data1.select(udf("id").alias("res"))
+        )
+        assert (
+            result_spark_df.schema.simpleString() ==
+            "struct<res:bigint>"
+        )
+        result = result_spark_df.toPandas()
+        assert result["res"].tolist() == [12] * 2
+
+
 def test_spark_udf_autofills_no_arguments(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):

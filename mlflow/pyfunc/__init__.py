@@ -1075,8 +1075,7 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
         if model_output_schema is None:
             _logger.warning(
                 "No 'result_type' provided for spark_udf and the model metadata does not "
-                "have an output schema. 'result_type' is set to 'double' type as the default "
-                "fallback."
+                "have an output schema. 'result_type' is set to 'double' type."
             )
             result_type = "double"
         else:
@@ -1090,6 +1089,8 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
     elem_type = result_type
     if isinstance(elem_type, ArrayType):
         elem_type = elem_type.elementType
+        if isinstance(elem_type, ArrayType):
+            elem_type = elem_type.elementType
 
     supported_types = [
         IntegerType,
@@ -1181,6 +1182,10 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
                     list(np.array(v, dtype=np_type)) for v in values
                 ]
 
+        if isinstance(result_type, ArrayType):
+            result_values = _convert_array_values(result, result_type)
+            return pandas.Series(result_values)
+
         if not isinstance(result, pandas.DataFrame):
             result = pandas.DataFrame(data=result)
 
@@ -1237,11 +1242,6 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
         if type(elem_type) == StringType:
             result = result.applymap(str)
 
-        if type(result_type) == ArrayType:
-            if isinstance(result, pd.DataFrame):
-                result = result.to_numpy()
-            result_values = _convert_array_values(result, result_type)
-            return pandas.Series(result_values)
         else:
             return result[result.columns[0]]
 
