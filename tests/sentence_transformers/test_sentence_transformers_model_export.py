@@ -428,4 +428,4 @@ def test_model_log_with_signature_inference(basic_model):
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     model_info = Model.load(model_uri)
-    assert model_info.signature == SIGNATURE
+    assert model_info.signature == SIGNATURE_FROM_EXAMPLE
