@@ -223,7 +223,6 @@ from typing import Any, Union, Iterator, Tuple
 
 import numpy as np
 import pandas
-import pandas as pd
 import yaml
 
 import mlflow
