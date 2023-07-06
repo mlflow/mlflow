@@ -629,6 +629,27 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
 
 
+def test_sklearn_compatible_with_mlflow_2_4_0(sklearn_knn_model):
+    model, inference_dataframe = sklearn_knn_model
+    model_predict = model.predict(inference_dataframe)
+
+    assert mlflow.__version__ > "2.4.0"
+    model_uri = "tests/sklearn/test_resources/test_model"
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_uri)
+
+    # predict is compatible
+    local_predict = pyfunc_loaded.predict(inference_dataframe)
+    np.testing.assert_array_almost_equal(local_predict, model_predict)
+
+    # Raise error if trying to pass params to model logged with mlflow <= 2.4.1
+    with pytest.raises(
+        MlflowException,
+        match=r"`params` can only be specified at inference "
+        r"time if the model signature defines a params schema.",
+    ):
+        pyfunc_loaded.predict(inference_dataframe, params={"top_k": 2})
+
+
 def test_log_model_with_code_paths(sklearn_knn_model):
     artifact_path = "model"
     with mlflow.start_run(), mock.patch(
