@@ -25,7 +25,7 @@ def client() -> TestClient:
                             "openai_api_key": "mykey",
                             "openai_api_base": "https://api.openai.com/v1",
                             "openai_api_version": "2023-05-10",
-                            "openai_api_type": "openai/v1/chat/completions",
+                            "openai_api_type": "openai",
                         },
                     },
                 },
@@ -59,29 +59,39 @@ def test_health(client: TestClient):
     assert response.json() == {"status": "OK"}
 
 
+def test_favicon(client: TestClient):
+    response = client.get("/favicon.ico")
+    assert response.status_code == 200
+
+
+def test_docs(client: TestClient):
+    response = client.get("/docs")
+    assert response.status_code == 200
+
+
 def test_search_routes(client: TestClient):
     response = client.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE)
     assert response.status_code == 200
-    assert response.json() == {
-        "routes": [
-            {
-                "name": "completions-gpt4",
-                "route_type": "llm/v1/completions",
-                "model": {
-                    "name": "gpt-4",
-                    "provider": "openai",
-                },
+    assert response.json()["routes"] == [
+        {
+            "name": "completions-gpt4",
+            "route_type": "llm/v1/completions",
+            "route_url": None,
+            "model": {
+                "name": "gpt-4",
+                "provider": "openai",
             },
-            {
-                "name": "chat-gpt4",
-                "route_type": "llm/v1/chat",
-                "model": {
-                    "name": "gpt-4",
-                    "provider": "openai",
-                },
+        },
+        {
+            "name": "chat-gpt4",
+            "route_type": "llm/v1/chat",
+            "route_url": None,
+            "model": {
+                "name": "gpt-4",
+                "provider": "openai",
             },
-        ]
-    }
+        },
+    ]
 
 
 def test_get_route(client: TestClient):
@@ -90,6 +100,7 @@ def test_get_route(client: TestClient):
     assert response.json() == {
         "name": "chat-gpt4",
         "route_type": "llm/v1/chat",
+        "route_url": None,
         "model": {
             "name": "gpt-4",
             "provider": "openai",

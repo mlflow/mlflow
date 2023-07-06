@@ -11,6 +11,7 @@ from mlflow.gateway.constants import (
 )
 from mlflow.gateway.utils import get_gateway_uri, assemble_uri_path
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -97,26 +98,23 @@ class MlflowGatewayClient:
         return Route(**response)
 
     @experimental
-    def search_routes(self, search_filter: Optional[str] = None):
+    def search_routes(self, page_token: Optional[str] = None) -> PagedList[Route]:
         """
-        Search for routes in the Gateway. Currently, this simply returns all configured routes.
+        Search for routes in the Gateway.
 
-        .. note::
-            Search is currently not implemented. Providing a `search_filter` term will raise an
-            exception. Leave the arguments empty to get a listing of all configured routes.
-
-        :param search_filter: An optional filter to apply to the search. Currently not used.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                           a prior ``search_routes()`` call.
         :return: Returns a list of all configured and initialized `Route` data for the MLflow
             Gateway Server. The return will be a list of dictionaries that detail the name, type,
             and model details of each active route endpoint.
         """
-        if search_filter:
-            raise MlflowException.invalid_parameter_value(
-                "Search functionality is not implemented. This API only returns all configured "
-                "routes with no `search_filter` defined."
-            )
-        response = self._call_endpoint("GET", MLFLOW_GATEWAY_CRUD_ROUTE_BASE).json()["routes"]
-        return [Route(**resp) for resp in response]
+        request_parameters = {"page_token": page_token} if page_token is not None else None
+        response_json = self._call_endpoint(
+            "GET", MLFLOW_GATEWAY_CRUD_ROUTE_BASE, json_body=json.dumps(request_parameters)
+        ).json()
+        routes = [Route(**resp) for resp in response_json["routes"]]
+        next_page_token = response_json.get("next_page_token")
+        return PagedList(routes, next_page_token)
 
     @experimental
     def create_route(self, name: str, route_type: str, model: Dict[str, Any]) -> Route:

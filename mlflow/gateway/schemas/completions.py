@@ -1,7 +1,6 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, Extra
-
+from ..base_models import ResponseModel
 from .chat import BaseRequestPayload, FinishReason
 from ..config import RouteType
 
@@ -10,7 +9,6 @@ class RequestPayload(BaseRequestPayload):
     prompt: str
 
     class Config:
-        extra = Extra.allow
         schema_extra = {
             "example": {
                 "prompt": "hello",
@@ -22,16 +20,16 @@ class RequestPayload(BaseRequestPayload):
         }
 
 
-class CandidateMetadata(BaseModel, extra=Extra.forbid):
+class CandidateMetadata(ResponseModel):
     finish_reason: Optional[FinishReason]
 
 
-class Candidate(BaseModel, extra=Extra.forbid):
+class Candidate(ResponseModel):
     text: str
     metadata: CandidateMetadata
 
 
-class Metadata(BaseModel, extra=Extra.forbid):
+class Metadata(ResponseModel):
     input_tokens: Optional[int]
     output_tokens: Optional[int]
     total_tokens: Optional[int]
@@ -39,12 +37,11 @@ class Metadata(BaseModel, extra=Extra.forbid):
     route_type: RouteType
 
 
-class ResponsePayload(BaseModel):
+class ResponsePayload(ResponseModel):
     candidates: List[Candidate]
     metadata: Metadata
 
     class Config:
-        extra = Extra.forbid
         schema_extra = {
             "example": {
                 "candidates": [

@@ -2,6 +2,7 @@ import pytest
 from requests.exceptions import HTTPError
 from unittest import mock
 
+from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
 from mlflow.gateway.envs import MLFLOW_GATEWAY_URI  # TODO: change to environment_variables import
 from mlflow.exceptions import MlflowException, InvalidUrlException
 import mlflow.gateway.utils
@@ -24,7 +25,7 @@ def basic_config_dict():
                         "openai_api_key": "mykey",
                         "openai_api_base": "https://api.openai.com/v1",
                         "openai_api_version": "2023-05-10",
-                        "openai_api_type": "openai/v1/chat/completions",
+                        "openai_api_type": "openai",
                     },
                 },
             },
@@ -73,7 +74,6 @@ def mixed_config_dict():
                     "provider": "anthropic",
                     "name": "claude-instant-1",
                     "config": {
-                        "anthropic_api_base": "https://api.anthropic.com/v1",
                         "anthropic_api_key": "key",
                     },
                 },
@@ -183,6 +183,7 @@ def test_query_individual_route(gateway, monkeypatch):
         "model": {"name": "text-davinci-003", "provider": "openai"},
         "name": "completions",
         "route_type": "llm/v1/completions",
+        "route_url": None,
     }
 
     route2 = gateway_client.get_route(name="chat")
@@ -191,6 +192,7 @@ def test_query_individual_route(gateway, monkeypatch):
         "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
         "name": "chat",
         "route_type": "llm/v1/chat",
+        "route_url": None,
     }
 
 
@@ -227,6 +229,43 @@ def test_search_mixed_routes(mixed_gateway):
     assert completions_route.model.provider == "anthropic"
 
 
+def test_search_routes_returns_expected_pages(tmp_path):
+    conf = tmp_path / "config.yaml"
+    base_route_config = {
+        "route_type": "llm/v1/completions",
+        "model": {
+            "name": "text-davinci-003",
+            "provider": "openai",
+            "config": {
+                "openai_api_key": "mykey",
+                "openai_api_base": "https://api.openai.com/v1",
+                "openai_api_version": "2023-05-10",
+                "openai_api_type": "openai",
+            },
+        },
+    }
+    num_routes = MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE + 5
+    gateway_route_names = [f"route_{i}" for i in range(num_routes)]
+    gateway_config_dict = {
+        "routes": [{"name": route_name, **base_route_config} for route_name in gateway_route_names]
+    }
+    save_yaml(conf, gateway_config_dict)
+    with Gateway(conf) as gateway:
+        gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
+        routes_page_1 = gateway_client.search_routes()
+        assert [route.name for route in routes_page_1] == gateway_route_names[
+            :MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
+        ]
+        assert routes_page_1.token
+
+        routes_page_2 = gateway_client.search_routes(page_token=routes_page_1.token)
+        assert len(routes_page_2) == 5
+        assert [route.name for route in routes_page_2] == gateway_route_names[
+            MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE:
+        ]
+        assert routes_page_2.token is None
+
+
 def test_query_invalid_route(gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
 
@@ -237,21 +276,19 @@ def test_query_invalid_route(gateway):
 def test_list_all_configured_routes(gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
 
-    # This is a non-functional filter applied only to ensure that print a warning
-    with pytest.raises(MlflowException, match="Search functionality is not implemented"):
-        gateway_client.search_routes(search_filter="where 'myroute' contains 'gpt'")
-
     routes = gateway_client.search_routes()
     assert all(isinstance(x, Route) for x in routes)
     assert routes[0].dict() == {
         "model": {"name": "text-davinci-003", "provider": "openai"},
         "name": "completions",
         "route_type": "llm/v1/completions",
+        "route_url": None,
     }
     assert routes[1].dict() == {
         "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
         "name": "chat",
         "route_type": "llm/v1/chat",
+        "route_url": None,
     }
 
 
@@ -370,7 +407,7 @@ def test_client_create_route_raises(gateway):
                 "provider": "openai",
                 "config": {
                     "openai_api_key": "mykey",
-                    "openai_api_type": "openai/v1/chat/completions",
+                    "openai_api_type": "openai",
                 },
             },
         )

@@ -1,3 +1,5 @@
+import base64
+import json
 import logging
 import posixpath
 import psutil
@@ -94,3 +96,39 @@ def assemble_uri_path(paths: List[str]) -> str:
     """
     stripped_paths = [path.strip("/").lstrip("/") for path in paths if path]
     return "/" + posixpath.join(*stripped_paths)
+
+
+class SearchRoutesToken:
+    def __init__(self, index: int):
+        self._index = index
+
+    @property
+    def index(self):
+        return self._index
+
+    @classmethod
+    def decode(cls, encoded_token: str):
+        try:
+            decoded_token = base64.b64decode(encoded_token)
+            parsed_token = json.loads(decoded_token)
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid SearchRoutes token: {encoded_token}"
+            ) from e
+
+        index = parsed_token.get("index")
+        if index is None or index < 0:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid SearchRoutes token: {encoded_token}"
+            ) from e
+
+        return cls(index=index)
+
+    def encode(self) -> str:
+        token_json = json.dumps(
+            {
+                "index": self.index,
+            }
+        )
+        encoded_token_bytes = base64.b64encode(bytes(token_json, "utf-8"))
+        return encoded_token_bytes.decode("utf-8")

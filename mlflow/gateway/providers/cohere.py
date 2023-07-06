@@ -17,10 +17,10 @@ class CohereProvider(BaseProvider):
         self.cohere_config: CohereConfig = config.model.config
 
     async def _request(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        headers = {"Authorization": f"Bearer {self.cohere_config.api_key}"}
+        headers = {"Authorization": f"Bearer {self.cohere_config.cohere_api_key}"}
         return await send_request(
             headers=headers,
-            base_url=self.cohere_config.api_base,
+            base_url="https://api.cohere.ai/v1",
             path=path,
             payload=payload,
         )
