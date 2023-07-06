@@ -303,6 +303,14 @@ def get_job_type():
         return _get_context_tag("jobTaskType")
 
 
+@_use_repl_context_if_available("jobType")
+def get_job_type_info():
+    try:
+        return _get_context_tag("jobType")
+    except Exception:
+        return None
+
+
 @_use_repl_context_if_available("commandRunId")
 def get_command_run_id():
     try:
