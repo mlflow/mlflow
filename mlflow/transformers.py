@@ -1597,7 +1597,65 @@ class _TransformersWrapper:
                     )
             return parsed
 
-    def predict(self, data, device=None):
+    def _override_inference_config(self, parameters):
+        if parameters:
+            _logger.warning(
+                "parameters provided to the `predict` method will override the inference "
+                "configuration saved with the model. If the parameters provided are not "
+                "valid for the pipeline, MlflowException will be raised."
+            )
+            if not isinstance(parameters, dict):
+                raise MlflowException(
+                    "Parameters must be a dictionary. Got type '{}'.".format(
+                        type(parameters).__name__
+                    )
+                )
+
+            # Override the inference configuration with any additional kwargs provided by the user.
+            self.inference_config.update(parameters)
+
+    def _validate_inference_config_and_return_output(self, data):
+        import transformers
+
+        try:
+            if isinstance(data, dict):
+                return self.pipeline(**data, **self.inference_config)
+            return self.pipeline(data, **self.inference_config)
+        except ValueError as e:
+            if "The following `model_kwargs` are not used by the model" in str(e):
+                raise MlflowException(
+                    "The parameters provided to the `predict` method are not valid "
+                    f"for pipeline {type(self.pipeline).__name__}. Caused by: {repr(e)}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                ) from e
+            if isinstance(
+                self.pipeline,
+                (
+                    transformers.AutomaticSpeechRecognitionPipeline,
+                    transformers.AudioClassificationPipeline,
+                ),
+            ) and "Malformed soundfile" in str(e):
+                raise MlflowException(
+                    "Failed to process the input audio data. Either the audio file is "
+                    "corrupted or a uri was passed in without overriding the default model "
+                    "signature. If submitting a string uri, please ensure that the model has "
+                    "been saved with a signature that defines a string input type.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                ) from e
+            raise
+
+    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
+        self._override_inference_config(params)
+
         if isinstance(data, pd.DataFrame):
             input_data = self._convert_pandas_to_dict(data)
         elif isinstance(data, dict):
@@ -1635,11 +1693,11 @@ class _TransformersWrapper:
                 for x in input_data
             )
 
-        predictions = self._predict(input_data, device)
+        predictions = self._predict(input_data)
 
         return predictions
 
-    def _predict(self, data, device):
+    def _predict(self, data):
         import transformers
 
         # NB: the ordering of these conditional statements matters. TranslationPipeline and
@@ -1707,8 +1765,6 @@ class _TransformersWrapper:
         include_prompt = self.inference_config.pop("include_prompt", True)
         # Optional stripping out of `\n` for specific generator pipelines.
         collapse_whitespace = self.inference_config.pop("collapse_whitespace", False)
-        if device is not None:
-            self.inference_config["device"] = device
 
         data = self._convert_cast_lists_from_np_back_to_list(data)
 
@@ -1716,30 +1772,8 @@ class _TransformersWrapper:
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
-
-        if isinstance(
-            self.pipeline,
-            (
-                transformers.AutomaticSpeechRecognitionPipeline,
-                transformers.AudioClassificationPipeline,
-            ),
-        ):
-            try:
-                raw_output = self.pipeline(data, **self.inference_config)
-            except ValueError as e:
-                if "Malformed soundfile" in str(e):
-                    raise MlflowException(
-                        "Failed to process the input audio data. Either the audio file is "
-                        "corrupted or a uri was passed in without overriding the default model "
-                        "signature. If submitting a string uri, please ensure that the model has "
-                        "been saved with a signature that defines a string input type.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    ) from e
-                raise
-        elif isinstance(data, dict):
-            raw_output = self.pipeline(**data, **self.inference_config)
         else:
-            raw_output = self.pipeline(data, **self.inference_config)
+            raw_output = self._validate_inference_config_and_return_output(data)
 
         # Handle the pipeline outputs
         if type(self.pipeline).__name__ in self._supported_custom_generator_types or isinstance(
@@ -2074,12 +2108,12 @@ class _TransformersWrapper:
                         elif isinstance(value, list) and all(
                             isinstance(elem, dict) for elem in value
                         ):
-                            output_coll.append(
-                                self._parse_lists_of_dict_to_list_of_str(value, target_dict_key)[0]
+                            output_coll.extend(
+                                self._parse_lists_of_dict_to_list_of_str(value, target_dict_key)
                             )
                 elif isinstance(output, list):
-                    output_coll.append(
-                        self._parse_lists_of_dict_to_list_of_str(output, target_dict_key)[0]
+                    output_coll.extend(
+                        self._parse_lists_of_dict_to_list_of_str(output, target_dict_key)
                     )
             return output_coll
         elif target_dict_key:

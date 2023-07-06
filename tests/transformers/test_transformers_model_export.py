@@ -1332,9 +1332,8 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
         ),
     ],
 )
-@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 def test_text2text_generation_pipeline_with_inference_configs(
-    text2text_generation_pipeline, model_path, data, result
+    text2text_generation_pipeline, tmp_path, data, result
 ):
     signature = infer_signature(
         data, mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data)
@@ -1348,13 +1347,14 @@ def test_text2text_generation_pipeline_with_inference_configs(
         "top_p": 0.85,
         "repetition_penalty": 1.15,
     }
+    model_path1 = tmp_path.joinpath("model1")
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
-        path=model_path,
+        path=model_path1,
         inference_config=inference_config,
         signature=signature,
     )
-    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path1)
 
     inference = pyfunc_loaded.predict(data)
 
@@ -1366,6 +1366,51 @@ def test_text2text_generation_pipeline_with_inference_configs(
         pd_input = pd.DataFrame(data)
     pd_inference = pyfunc_loaded.predict(pd_input)
     assert pd_inference == result
+
+    model_path2 = tmp_path.joinpath("model2")
+    signature_with_params = infer_signature(
+        data,
+        mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data),
+        inference_config,
+    )
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline,
+        path=model_path2,
+        signature=signature_with_params,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path2)
+
+    dict_inference = pyfunc_loaded.predict(
+        data,
+        params=inference_config,
+    )
+
+    assert dict_inference == inference
+
+
+def test_text2text_generation_pipeline_catch_error_in_kwargs(
+    text2text_generation_pipeline, model_path
+):
+    data = "muppet keyboard type"
+    parameters = {"top_k": 2, "num_beams": 5, "invalid_param": "invalid_param"}
+    signature = infer_signature(
+        data,
+        mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data),
+        params=parameters,
+    )
+
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline,
+        path=model_path,
+        signature=signature,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    with pytest.raises(
+        MlflowException,
+        match=r"The following `model_kwargs` are not used by the model: \['invalid_param'\]",
+    ):
+        pyfunc_loaded.predict(data, params=parameters)
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)

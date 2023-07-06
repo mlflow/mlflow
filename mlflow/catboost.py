@@ -22,6 +22,7 @@ CatBoost (native) format
 import os
 import yaml
 import contextlib
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow import pyfunc
@@ -328,7 +329,16 @@ class _CatboostModelWrapper:
     def __init__(self, cb_model):
         self.cb_model = cb_model
 
-    def predict(self, dataframe):
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
+        """
+        :param dataframe: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         return self.cb_model.predict(dataframe)
 
 

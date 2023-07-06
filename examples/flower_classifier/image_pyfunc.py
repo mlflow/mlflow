@@ -13,6 +13,7 @@ from PIL import Image
 import pip
 import yaml
 import tensorflow as tf
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow.utils import PYTHON_VERSION
@@ -54,13 +55,17 @@ class KerasImageClassifierPyfunc:
         probs_names = ["p({})".format(x) for x in domain]
         self._column_names = ["predicted_label", "predicted_label_id"] + probs_names
 
-    def predict(self, input):
+    def predict(self, input, params: Optional[Dict[str, Any]] = None):
         """
         Generate predictions for the data.
 
         :param input: pandas.DataFrame with one column containing images to be scored. The image
                      column must contain base64 encoded binary content of the image files. The image
                      format must be supported by PIL (e.g. jpeg or png).
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
 
         :return: pandas.DataFrame containing predictions with the following schema:
                      Predicted class: string,

@@ -14,6 +14,7 @@ Paddle (native) format
 import os
 import logging
 import yaml
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow import pyfunc
@@ -447,7 +448,16 @@ class _PaddleWrapper:
     def __init__(self, pd_model):
         self.pd_model = pd_model
 
-    def predict(self, data):
+    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         import pandas as pd
         import numpy as np
 

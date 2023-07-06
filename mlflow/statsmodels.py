@@ -15,6 +15,7 @@ statsmodels (native) format
 import logging
 import os
 import yaml
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow import pyfunc
@@ -327,7 +328,16 @@ class _StatsmodelsModelWrapper:
     def __init__(self, statsmodels_model):
         self.statsmodels_model = statsmodels_model
 
-    def predict(self, dataframe):
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
+        """
+        :param dataframe: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         from statsmodels.tsa.base.tsa_model import TimeSeriesModel
 
         model = self.statsmodels_model.model

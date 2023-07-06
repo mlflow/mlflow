@@ -12,6 +12,7 @@ import yaml
 import numpy as np
 from pathlib import Path
 from packaging.version import Version
+from typing import Any, Dict, Optional
 
 import pandas as pd
 
@@ -316,7 +317,7 @@ class _OnnxModelWrapper:
                     feeds[input_name] = feed.astype(np.float32)
         return feeds
 
-    def predict(self, data):
+    def predict(self, data, params: Optional[Dict[str, Any]] = None):
         """
         :param data: Either a pandas DataFrame, numpy.ndarray or a dictionary.
 
@@ -336,6 +337,10 @@ class _OnnxModelWrapper:
 
                       For more information about the ONNX Runtime, see
                       `<https://github.com/microsoft/onnxruntime>`_.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
         :return: Model predictions. If the input is a pandas.DataFrame, the predictions are returned
                  in a pandas.DataFrame. If the input is a numpy array or a dictionary the
                  predictions are returned in a dictionary.
