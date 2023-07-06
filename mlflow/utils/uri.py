@@ -316,8 +316,8 @@ def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
         dbfs_uri = "dbfs:" + dbfs_uri
     if not dbfs_uri.startswith(_DBFS_HDFS_URI_PREFIX):
         raise MlflowException(
-            "Path '%s' did not start with expected DBFS URI prefix '%s'"
-            % (dbfs_uri, _DBFS_HDFS_URI_PREFIX),
+            f"Path '{dbfs_uri}' did not start with expected DBFS URI "
+            f"prefix '{_DBFS_HDFS_URI_PREFIX}'",
         )
 
     return _DBFS_FUSE_PREFIX + dbfs_uri[len(_DBFS_HDFS_URI_PREFIX) :]

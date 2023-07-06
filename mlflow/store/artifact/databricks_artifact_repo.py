@@ -724,10 +724,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             raise MlflowException(
                 message=(
                     "The following failures occurred while uploading one or more artifacts"
-                    " to {artifact_root}: {failures}".format(
-                        artifact_root=self.artifact_uri,
-                        failures=failed_uploads,
-                    )
+                    f" to {self.artifact_uri}: {failed_uploads}"
                 )
             )
 

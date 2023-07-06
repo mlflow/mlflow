@@ -144,8 +144,8 @@ class DbfsRestArtifactRepository(ArtifactRepository):
             json_response = json.loads(response.text)
         except ValueError:
             raise MlflowException(
-                "API request to list files under DBFS path %s failed with status code %s. "
-                "Response body: %s" % (dbfs_path, response.status_code, response.text)
+                f"API request to list files under DBFS path {dbfs_path} failed with "
+                f"status code {response.status_code}. Response body: {response.text}"
             )
         # /api/2.0/dbfs/list will not have the 'files' key in the response for empty directories.
         infos = []

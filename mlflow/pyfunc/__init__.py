@@ -542,7 +542,7 @@ def _warn_dependency_requirement_mismatches(model_path):
 
     except Exception as e:
         _logger.warning(
-            f"Encountered an unexpected error ({repr(e)}) while detecting model dependency "
+            f"Encountered an unexpected error ({e!r}) while detecting model dependency "
             "mismatches. Set logging level to DEBUG to see the full traceback."
         )
         _logger.debug("", exc_info=True)
@@ -872,6 +872,12 @@ def _infer_spark_udf_return_type(model_output_schema):
     )
 
 
+def _parse_spark_datatype(datatype: str):
+    from pyspark.sql.functions import udf
+
+    return udf(lambda x: x, returnType=datatype).returnType
+
+
 def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -985,7 +991,6 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from mlflow.utils._spark_utils import _SparkDirectoryDistributor
     from pyspark.sql.functions import pandas_udf
-    from pyspark.sql.types import _parse_datatype_string
     from pyspark.sql.types import (
         ArrayType,
         DataType as SparkDataType,
@@ -1014,6 +1019,32 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
     should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
+
+    result_type = "boolean" if result_type == "bool" else result_type
+
+    if not isinstance(result_type, SparkDataType):
+        result_type = _parse_spark_datatype(result_type)
+
+    elem_type = result_type
+    if isinstance(elem_type, ArrayType):
+        elem_type = elem_type.elementType
+
+    supported_types = [
+        IntegerType,
+        LongType,
+        FloatType,
+        DoubleType,
+        StringType,
+        BooleanType,
+        SparkStructType,
+    ]
+
+    if not any(isinstance(elem_type, x) for x in supported_types):
+        raise MlflowException(
+            message="Invalid result_type '{}'. Result type can only be one of or an array of one "
+            "of the following types: {}".format(str(elem_type), str(supported_types)),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     local_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri,
@@ -1600,7 +1631,7 @@ def save_model(
         raise TypeError(f"save_model() got unexpected keyword arguments: {kwargs}")
     if code_path is not None:
         if not isinstance(code_path, list):
-            raise TypeError("Argument code_path should be a list, not {}".format(type(code_path)))
+            raise TypeError(f"Argument code_path should be a list, not {type(code_path)}")
 
     first_argument_set = {
         "loader_module": loader_module,

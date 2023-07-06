@@ -60,9 +60,7 @@ class ModelSignature:
 
     def __init__(self, inputs: Schema, outputs: Schema = None):
         if not isinstance(inputs, Schema):
-            raise TypeError(
-                "inputs must be mlflow.models.signature.Schema, got '{}'".format(type(inputs))
-            )
+            raise TypeError(f"inputs must be mlflow.models.signature.Schema, got '{type(inputs)}'")
         if outputs is not None and not isinstance(outputs, Schema):
             raise TypeError(
                 "outputs must be either None or mlflow.models.signature.Schema, "
@@ -192,7 +190,7 @@ class _TypeHints:
         self.output = output
 
     def __repr__(self):
-        return "<input: {}, output: {}>".format(self.input, self.output)
+        return f"<input: {self.input}, output: {self.output}>"
 
 
 def _extract_type_hints(f, input_arg_index):

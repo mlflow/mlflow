@@ -255,7 +255,7 @@ def test_meta_estimator_fit(dataset_binomial):
     assert loaded_model.stages[0].uid == ova_model.uid
 
     # assert no nested run spawned
-    query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run.info.run_id)
+    query = f"tags.{MLFLOW_PARENT_RUN_ID} = '{run.info.run_id}'"
     assert len(mlflow.search_runs([run.info.experiment_id])) == 1
     assert len(mlflow.search_runs([run.info.experiment_id], query)) == 0
 

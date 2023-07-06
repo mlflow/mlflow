@@ -74,17 +74,10 @@ disable=all
 # it should appear only once). See also the "--disable" option for examples.
 enable=signature-differs,
        line-too-long,
-       unused-variable,
-       undefined-variable,
        unused-import,
-       use-a-generator,
-       super-with-arguments,
-       useless-object-inheritance,
        consider-using-from-import,
        consider-merging-isinstance,
        consider-using-dict-items,
-       unnecessary-comprehension,
-       singleton-comparison,
        unnecessary-lambda-assignment,
        # Built-in rules
        # --------------

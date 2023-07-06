@@ -83,7 +83,7 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
             import IPython.core.display as icd
 
             orig_display = icd.display
-            icd.display = display  # pylint: disable=undefined-variable
+            icd.display = display  # noqa: F821
             ip_display(HTML(data=html_data, filename=html_file_path))
             icd.display = orig_display
         else:

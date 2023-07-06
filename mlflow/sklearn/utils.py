@@ -543,7 +543,7 @@ def _log_specialized_estimator_content(
             import matplotlib.pyplot as plt
         except ImportError as ie:
             _logger.warning(
-                f"Failed to import matplotlib (error: {repr(ie)}). Skipping artifact logging."
+                f"Failed to import matplotlib (error: {ie!r}). Skipping artifact logging."
             )
             return metrics
 
@@ -554,7 +554,7 @@ def _log_specialized_estimator_content(
                     with matplotlib.rc_context(_matplotlib_config):
                         display = artifact.function(**artifact.arguments)
                         display.ax_.set_title(artifact.title)
-                        artifact_path = "{}.png".format(artifact.name)
+                        artifact_path = f"{artifact.name}.png"
                         filepath = tmp_dir.path(artifact_path)
                         display.figure_.savefig(fname=filepath, format="png")
                         plt.close(display.figure_)

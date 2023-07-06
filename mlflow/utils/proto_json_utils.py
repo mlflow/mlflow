@@ -200,7 +200,7 @@ class MlflowFailedTypeConversion(MlflowException):
     def __init__(self, col_name, col_type, ex):
         super().__init__(
             message=f"Data is not compatible with model signature. "
-            f"Failed to convert column {col_name} to type '{col_type}'. Error: '{repr(ex)}'",
+            f"Failed to convert column {col_name} to type '{col_type}'. Error: '{ex!r}'",
             error_code=BAD_REQUEST,
         )
 
