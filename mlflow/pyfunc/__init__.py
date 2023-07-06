@@ -974,7 +974,7 @@ def _check_udf_return_array_type(array_type, parent_struct_type):
         return
 
     raise MlflowException(
-        f"'spark_udf' return type does not support array type {array_type}, "
+        f"'spark_udf' return type does not support the array type {array_type}, "
         f"an array type only supports one dimensional array with primitive type {primitive_types} "
         "elements or struct type elements, or double nested array consisting of "
         "primitive type elements."
