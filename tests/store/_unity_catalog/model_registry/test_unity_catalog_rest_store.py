@@ -168,7 +168,11 @@ def test_create_registered_model(mock_http, store):
 @pytest.fixture()
 def local_model_dir(tmp_path):
     fake_signature = ModelSignature(inputs=Schema([]), outputs=Schema([]))
-    fake_mlmodel_contents = {"signature": fake_signature.to_dict()}
+    fake_mlmodel_contents = {
+        "artifact_path": "some-artifact-path",
+        "run_id": "abc123",
+        "signature": fake_signature.to_dict(),
+    }
     with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)
     yield tmp_path
@@ -212,6 +216,29 @@ def test_create_model_version_missing_python_deps(store, local_model_dir):
         match="Unable to import necessary dependencies to access model version files",
     ):
         store.create_model_version(name=model_name, source=str(local_model_dir))
+
+
+@pytest.fixture()
+def feature_store_local_model_dir(tmp_path):
+    fake_signature = ModelSignature(inputs=Schema([]), outputs=Schema([]))
+    fake_mlmodel_contents = {
+        "artifact_path": "some-artifact-path",
+        "run_id": "abc123",
+        "signature": fake_signature.to_dict(),
+        "flavors": {"python_function": {"loader_module": "databricks.feature_store.mlflow_model"}},
+    }
+    with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
+        yaml.dump(fake_mlmodel_contents, handle)
+    yield tmp_path
+
+
+def test_create_model_version_fails_fs_packaged_model(store, feature_store_local_model_dir):
+    with pytest.raises(
+        MlflowException,
+        match="This model was packaged by Databricks Feature Store and can only be registered on "
+        "a Databricks cluster.",
+    ):
+        store.create_model_version(name="model_1", source=str(feature_store_local_model_dir))
 
 
 def test_create_model_version_missing_mlmodel(store, tmp_path):
@@ -458,6 +485,7 @@ def get_request_mock(
                         description=description,
                         run_id=run_id,
                         run_tracking_server_id=run_workspace_id,
+                        feature_deps="",
                     )
                 ),
             ): CreateModelVersionResponse(
@@ -524,6 +552,7 @@ def _assert_create_model_version_endpoints_called(
                 run_id=run_id,
                 description=description,
                 run_tracking_server_id=_get_workspace_id_for_run(run_id),
+                feature_deps="",
             ),
         ),
         (
@@ -582,7 +611,9 @@ def test_create_model_version_aws(store, local_model_dir):
     ) as request_mock, mock.patch(
         "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository",
         return_value=mock_artifact_repo,
-    ) as s3_artifact_repo_class_mock:
+    ) as s3_artifact_repo_class_mock, mock.patch.dict(
+        "sys.modules", {"boto3": {}}
+    ):
         store.create_model_version(name=model_name, source=source)
         # Verify that s3 artifact repo mock was called with expected args
         s3_artifact_repo_class_mock.assert_called_once_with(
