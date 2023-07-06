@@ -671,33 +671,168 @@ def test_enforce_tensor_spec_variable_signature():
         _enforce_tensor_spec(ragged_array, standard_spec)
 
 
-def test_datatype_is_instance():
-    assert DataType.is_instance("string", DataType.string)
+def test_datatype_type_check():
+    assert DataType.is_string("string")
 
-    assert DataType.is_instance(1, DataType.integer)
-    assert DataType.is_instance(np.int32(1), DataType.integer)
-    assert not DataType.is_instance(np.int64(1), DataType.integer)
+    assert DataType.is_integer(1)
+    assert DataType.is_integer(np.int32(1))
+    assert not DataType.is_integer(np.int64(1))
     # Note that isinstance(True, int) returns True
-    assert not DataType.is_instance(True, DataType.integer)
+    assert not DataType.is_integer(True)
 
-    assert DataType.is_instance(1, DataType.long)
-    assert DataType.is_instance(np.int64(1), DataType.long)
-    assert not DataType.is_instance(np.int32(1), DataType.long)
+    assert DataType.is_long(1)
+    assert DataType.is_long(np.int64(1))
+    assert not DataType.is_long(np.int32(1))
 
-    assert DataType.is_instance(True, DataType.boolean)
-    assert DataType.is_instance(np.bool_(True), DataType.boolean)
-    assert not DataType.is_instance(1, DataType.boolean)
+    assert DataType.is_boolean(True)
+    assert DataType.is_boolean(np.bool_(True))
+    assert not DataType.is_boolean(1)
 
-    assert DataType.is_instance(1.0, DataType.double)
-    assert DataType.is_instance(np.float64(1.0), DataType.double)
-    assert not DataType.is_instance(np.float32(1.0), DataType.double)
+    assert DataType.is_double(1.0)
+    assert DataType.is_double(np.float64(1.0))
+    assert not DataType.is_double(np.float32(1.0))
 
-    assert DataType.is_instance(1.0, DataType.float)
-    assert DataType.is_instance(np.float32(1.0), DataType.float)
-    assert not DataType.is_instance(np.float64(1.0), DataType.float)
+    assert DataType.is_float(1.0)
+    assert DataType.is_float(np.float32(1.0))
+    assert not DataType.is_float(np.float64(1.0))
 
-    assert DataType.is_instance(np.datetime64("2023-06-26 00:00:00"), DataType.datetime)
-    assert not DataType.is_instance("2023-06-26 00:00:00", DataType.datetime)
+    assert DataType.is_datetime(np.datetime64("2023-06-26 00:00:00"))
+    assert not DataType.is_datetime("2023-06-26 00:00:00")
+
+
+def test_param_spec_to_and_from_dict():
+    spec = ParamSpec("str_param", DataType.string, "str_a", None)
+    assert spec.to_dict() == {
+        "name": "str_param",
+        "type": "string",
+        "default": "str_a",
+        "shape": None,
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("str_array", DataType.string, ["str_a", "str_b"], (-1,))
+    assert spec.to_dict() == {
+        "name": "str_array",
+        "type": "string",
+        "default": ["str_a", "str_b"],
+        "shape": (-1,),
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("int_param", DataType.integer, np.int32(1), None)
+    assert spec.to_dict() == {
+        "name": "int_param",
+        "type": "integer",
+        "default": 1,
+        "shape": None,
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("int_array", DataType.integer, [np.int32(1), np.int32(2)], (-1,))
+    assert spec.to_dict() == {
+        "name": "int_array",
+        "type": "integer",
+        "default": [1, 2],
+        "shape": (-1,),
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("bool_param", DataType.boolean, True, None)
+    assert spec.to_dict() == {
+        "name": "bool_param",
+        "type": "boolean",
+        "default": True,
+        "shape": None,
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("bool_array", DataType.boolean, [True, False], (-1,))
+    assert spec.to_dict() == {
+        "name": "bool_array",
+        "type": "boolean",
+        "default": [True, False],
+        "shape": (-1,),
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("double_param", DataType.double, 1.0, None)
+    assert spec.to_dict() == {
+        "name": "double_param",
+        "type": "double",
+        "default": 1.0,
+        "shape": None,
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("double_array", DataType.double, [1.0, 2.0], (-1,))
+    assert spec.to_dict() == {
+        "name": "double_array",
+        "type": "double",
+        "default": [1.0, 2.0],
+        "shape": (-1,),
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("float_param", DataType.float, np.float32(0.1), None)
+    assert spec.to_dict() == {
+        "name": "float_param",
+        "type": "float",
+        "default": float(np.float32(0.1)),
+        "shape": None,
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("float_array", DataType.float, [np.float32(0.1), np.float32(0.2)], (-1,))
+    assert spec.to_dict() == {
+        "name": "float_array",
+        "type": "float",
+        "default": [float(np.float32(0.1)), float(np.float32(0.2))],
+        "shape": (-1,),
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("long_param", DataType.long, 100, None)
+    assert spec.to_dict() == {
+        "name": "long_param",
+        "type": "long",
+        "default": 100,
+        "shape": None,
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("long_array", DataType.long, [100, 200], (-1,))
+    assert spec.to_dict() == {
+        "name": "long_array",
+        "type": "long",
+        "default": [100, 200],
+        "shape": (-1,),
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec(
+        "datetime_param", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None
+    )
+    assert spec.to_dict() == {
+        "name": "datetime_param",
+        "type": "datetime",
+        "default": np.datetime_as_string(np.datetime64("2023-06-26 00:00:00")),
+        "shape": None,
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec(
+        "datetime_array",
+        DataType.datetime,
+        [np.datetime64("2023-06-26 00:00:00"), np.datetime64("2023-06-27 00:00:00")],
+        (-1,),
+    )
+    assert spec.to_dict() == {
+        "name": "datetime_array",
+        "type": "datetime",
+        "default": ["2023-06-26T00:00:00", "2023-06-27T00:00:00"],
+        "shape": (-1,),
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
 
 
 def test_infer_param_schema():

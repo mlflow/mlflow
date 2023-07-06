@@ -1,3 +1,4 @@
+import builtins
 import datetime  # pylint: disable=unused-import
 from enum import Enum
 import importlib.util
@@ -35,9 +36,9 @@ class DataType(Enum):
     """32b signed integer numbers."""
     long = (3, np.dtype("int64"), "LongType", np.dtype("int64"), int)
     """64b signed integer numbers. """
-    float = (4, np.dtype("float32"), "FloatType", np.dtype("float32"), float)
+    float = (4, np.dtype("float32"), "FloatType", np.dtype("float32"), builtins.float)
     """32b floating point numbers. """
-    double = (5, np.dtype("float64"), "DoubleType", np.dtype("float64"), float)
+    double = (5, np.dtype("float64"), "DoubleType", np.dtype("float64"), builtins.float)
     """64b floating point numbers. """
     string = (6, np.dtype("str"), "StringType", object, str)
     """Text data."""
@@ -72,6 +73,38 @@ class DataType(Enum):
         """Get equivalent python data type."""
         return self._python_type
 
+    @classmethod
+    def is_boolean(cls, value):
+        return type(value) in DataType.boolean.get_all_types()
+
+    @classmethod
+    def is_integer(cls, value):
+        return type(value) in DataType.integer.get_all_types()
+
+    @classmethod
+    def is_long(cls, value):
+        return type(value) in DataType.long.get_all_types()
+
+    @classmethod
+    def is_float(cls, value):
+        return type(value) in DataType.float.get_all_types()
+
+    @classmethod
+    def is_double(cls, value):
+        return type(value) in DataType.double.get_all_types()
+
+    @classmethod
+    def is_string(cls, value):
+        return type(value) in DataType.string.get_all_types()
+
+    @classmethod
+    def is_binary(cls, value):
+        return type(value) in DataType.binary.get_all_types()
+
+    @classmethod
+    def is_datetime(cls, value):
+        return type(value) in DataType.datetime.get_all_types() or isinstance(value, np.datetime64)
+
     def get_all_types(self):
         types = [self.to_numpy(), self.to_pandas(), self.to_python()]
         if importlib.util.find_spec("pyspark") is not None:
@@ -81,15 +114,6 @@ class DataType(Enum):
     @classmethod
     def get_spark_types(cls):
         return [dt.to_spark() for dt in cls._member_map_.values()]
-
-    @classmethod
-    def is_instance(cls, value, data_type):
-        """
-        Check if the value is an instance of the given data type.
-        """
-        if data_type.name == "datetime":
-            return isinstance(value, np.datetime64)
-        return type(value) in data_type.get_all_types()
 
 
 class ColSpec:
@@ -511,19 +535,13 @@ class ParamSpec:
                 f"Value should be a scalar for param {name}, got {value}", INVALID_PARAMETER_VALUE
             )
 
-        if DataType.is_instance(value, t):
+        if getattr(DataType, f"is_{t.name}")(value):
             return value
 
         if (
-            (
-                DataType.is_instance(value, DataType.integer)
-                and t in (DataType.long, DataType.float, DataType.double)
-            )
-            or (
-                DataType.is_instance(value, DataType.long)
-                and t in (DataType.float, DataType.double)
-            )
-            or (DataType.is_instance(value, DataType.float) and t == DataType.double)
+            (DataType.is_integer(value) and t in (DataType.long, DataType.float, DataType.double))
+            or (DataType.is_long(value) and t in (DataType.float, DataType.double))
+            or (DataType.is_float(value) and t == DataType.double)
             or t == DataType.datetime
         ):
             try:
@@ -610,29 +628,17 @@ class ParamSpec:
         default: Union[DataType, List[DataType], None]
         shape: Optional[Tuple[int, ...]]
 
-    # TODO: update this to be consistent with _CustomJsonEncoder
     def to_dict(self) -> ParamSpecTypedDict:
-        type_conversion = {
-            "integer": int,
-            "boolean": bool,
-            "float": float,
-            "long": int,
-            "datetime": str,
-        }
         if self.shape is None:
-            if self.type.name == "binary":
-                default_value = self.default.decode("utf-8")
-            elif self.type.name in type_conversion:
-                default_value = type_conversion[self.type.name](self.default)
+            if self.type.name == "datetime":
+                default_value = np.datetime_as_string(self.default)
             else:
-                default_value = self.default
+                default_value = self.type.to_python()(self.default)
         elif self.shape == (-1,):
-            if self.type.name == "binary":
-                default_value = [value.decode("utf-8") for value in self.default]
-            elif self.type.name in type_conversion:
-                default_value = list(map(type_conversion[self.type.name], self.default))
+            if self.type.name == "datetime":
+                default_value = list(map(np.datetime_as_string, self.default))
             else:
-                default_value = self.default
+                default_value = list(map(self.type.to_python(), self.default))
         return {
             "name": self.name,
             "type": self.type.name,
@@ -664,17 +670,10 @@ class ParamSpec:
             raise MlflowException(
                 "Missing keys in ParamSpec JSON. Expected to find keys `name`, `type` and `default`"
             )
-        if kwargs["type"] == "binary":
-            if kwargs.get("shape") is None:
-                default_value = kwargs["default"].encode("utf-8")
-            else:
-                default_value = [value.encode("utf-8") for value in kwargs["default"]]
-        else:
-            default_value = kwargs["default"]
         return cls(
             name=str(kwargs["name"]),
             type=DataType[kwargs["type"]],
-            default=default_value,
+            default=kwargs["default"],
             shape=kwargs.get("shape"),
         )
 
