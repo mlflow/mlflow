@@ -3263,7 +3263,7 @@ def test_uri_directory_renaming_handling_pipeline(model_path, small_seq2seq_pipe
 
     # remove the 'model_binary' entries to emulate older versions of MLflow
     mlmodel_file = os.path.join(model_path, "MLmodel")
-    with open(mlmodel_file, "r") as yaml_file:
+    with open(mlmodel_file) as yaml_file:
         mlmodel = yaml.safe_load(yaml_file)
 
     mlmodel["flavors"]["python_function"].pop("model_binary", None)
@@ -3274,9 +3274,7 @@ def test_uri_directory_renaming_handling_pipeline(model_path, small_seq2seq_pipe
 
     loaded_model = mlflow.pyfunc.load_model(model_path)
 
-    prediction = loaded_model.predict(
-        "Dogs should be fed spaghetti bolognese, chili, and beef stew, according to my dog."
-    )
+    prediction = loaded_model.predict("test")
     assert isinstance(prediction, pd.DataFrame)
     assert isinstance(prediction["label"][0], str)
 
@@ -3296,7 +3294,7 @@ def test_uri_directory_renaming_handling_components(model_path, small_seq2seq_pi
 
     # remove the 'model_binary' entries to emulate older versions of MLflow
     mlmodel_file = os.path.join(model_path, "MLmodel")
-    with open(mlmodel_file, "r") as yaml_file:
+    with open(mlmodel_file) as yaml_file:
         mlmodel = yaml.safe_load(yaml_file)
 
     mlmodel["flavors"]["python_function"].pop("model_binary", None)
@@ -3307,9 +3305,6 @@ def test_uri_directory_renaming_handling_components(model_path, small_seq2seq_pi
 
     loaded_model = mlflow.pyfunc.load_model(model_path)
 
-    prediction = loaded_model.predict(
-        "I'd love it if I could swim as fast as a dolphin and do backflips from jumping out of "
-        "the water. I'm good on the whole eating raw mackerel and squid, though"
-    )
+    prediction = loaded_model.predict("test")
     assert isinstance(prediction, pd.DataFrame)
     assert isinstance(prediction["label"][0], str)
