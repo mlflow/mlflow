@@ -6,21 +6,6 @@ on:
     branches:
       - master
       - branch-[0-9]+.[0-9]+
-  workflow_dispatch:
-    inputs:
-      repository:
-        description: >
-          [Optional] Repository name with owner. For example, mlflow/mlflow.
-           Defaults to the repository that triggered a workflow.
-        required: false
-        default: ""
-      ref:
-        description: >
-          [Optional] The branch, tag or SHA to checkout. When checking out the repository that
-           triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
-           uses the default branch.
-        required: false
-        default: ""
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
@@ -46,8 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
+
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/cache-pip
       - name: Add problem matchers
@@ -103,8 +87,6 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
@@ -123,8 +105,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
           submodules: recursive
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
@@ -153,8 +133,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
           submodules: recursive
       - name: Build
         run: |
@@ -226,8 +204,6 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -246,8 +222,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
           submodules: recursive
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
@@ -271,8 +245,6 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -299,8 +271,6 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -322,8 +292,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
           submodules: recursive
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
@@ -347,8 +315,6 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -368,8 +334,6 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
