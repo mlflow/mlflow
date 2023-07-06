@@ -736,6 +736,7 @@ _module_version_info_dict_patch = {
         "package_info": {"pip_release": "lightgbm"},
         "autologging": {"minimum": "2.3.1", "maximum": "3.1.0"},
     },
+    # TODO: Remove this after releasing MLflow 2.5.0
     # "gluon": {
     #     "package_info": {"pip_release": "mxnet"},
     #     "autologging": {"minimum": "1.5.1", "maximum": "1.7.0.post1"},
