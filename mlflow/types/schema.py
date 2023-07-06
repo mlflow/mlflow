@@ -1,4 +1,3 @@
-import base64
 import datetime  # pylint: disable=unused-import
 from enum import Enum
 import json
@@ -452,14 +451,22 @@ class ParamSpec:
         try:
             self._type = DataType[type] if isinstance(type, str) else type
         except KeyError:
+            supported_types = [t.name for t in DataType if t.name != "binary"]
             raise MlflowException(
                 f"Unsupported type '{type}', expected instance of DataType or "
-                f"one of {[t.name for t in DataType]}"
+                f"one of {supported_types}",
+                INVALID_PARAMETER_VALUE,
             )
         if not isinstance(self.type, DataType):
             raise TypeError(
                 "Expected mlflow.models.signature.Datatype or str for the 'type' "
                 f"argument, but got {self.type.__class__}"
+            )
+        if self.type == DataType.binary:
+            raise MlflowException(
+                f"Binary type is not supported for parameters, ParamSpec '{self.name}'"
+                "has type 'binary'",
+                INVALID_PARAMETER_VALUE,
             )
 
         # This line makes sure repr(self) works fine
@@ -485,7 +492,6 @@ class ParamSpec:
         2. long -> float, double
         3. float -> double
         4. any -> datetime (try conversion)
-        5. str -> bytes
 
         Any other type mismatch will raise error.
 
@@ -503,16 +509,6 @@ class ParamSpec:
 
         if DataType.is_instance(value, t):
             return value
-
-        if isinstance(value, str) and t == DataType.binary:
-            try:
-                return base64.decodebytes(value.encode("ascii"))
-            except Exception as e:
-                raise MlflowException(
-                    f"Failed to convert value {value} from type {type(value).__name__} "
-                    f"to {t} for param {name}",
-                    INVALID_PARAMETER_VALUE,
-                ) from e
 
         if (
             (

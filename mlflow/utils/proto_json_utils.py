@@ -464,9 +464,6 @@ class _CustomJsonEncoder(json.JSONEncoder):
         if isinstance(o, np.ndarray):
             return [self.default(v) for v in o]
 
-        if isinstance(o, bytes):
-            return base64.encodebytes(o).decode("ascii")
-
         if isinstance(o, (np.int64, np.int32)):
             return int(o)
 

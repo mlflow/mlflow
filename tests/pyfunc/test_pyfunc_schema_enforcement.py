@@ -929,7 +929,6 @@ def test_enforce_params_schema():
         "bool_param": True,
         "double_param": 1.0,
         "float_param": np.float32(0.1),
-        "byte_param": b"byte_g",
         "long_param": 100,
         "datetime_param": np.datetime64("2023-06-26 00:00:00"),
         "str_list": ["a", "b", "c"],
@@ -942,7 +941,6 @@ def test_enforce_params_schema():
             ParamSpec("bool_param", DataType.boolean, True, None),
             ParamSpec("double_param", DataType.double, 1.0, None),
             ParamSpec("float_param", DataType.float, np.float32(0.1), None),
-            ParamSpec("byte_param", DataType.binary, b"byte_g", None),
             ParamSpec("long_param", DataType.long, 100, None),
             ParamSpec(
                 "datetime_param", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None
@@ -1059,15 +1057,6 @@ def test_enforce_params_schema():
     ):
         _enforce_params_schema({"datetime_array": [1.0, 2.0]}, schema)
 
-    # 5. string can be converted to bytes
-    assert (
-        _enforce_params_schema({"byte_param": "Ynl0ZQ==\n"}, test_schema)["byte_param"] == b"byte"
-    )
-    with pytest.raises(
-        MlflowException, match=r"Failed to convert value invalid from type str to DataType.binary"
-    ):
-        _enforce_params_schema({"byte_param": "invalid"}, test_schema)
-
     # raise error for any other conversions
     error_msg = r"Incompatible types for param 'int_param'"
     with pytest.raises(MlflowException, match=error_msg):
@@ -1084,10 +1073,6 @@ def test_enforce_params_schema():
         _enforce_params_schema({"str_param": b"string"}, test_schema)
     with pytest.raises(MlflowException, match=error_msg):
         _enforce_params_schema({"str_param": np.datetime64("2023-06-06")}, test_schema)
-
-    error_msg = r"Incompatible types for param 'byte_param'"
-    with pytest.raises(MlflowException, match=error_msg):
-        _enforce_params_schema({"byte_param": np.float32(1)}, test_schema)
 
     # With Array
     with pytest.raises(MlflowException, match="Incompatible types for param 'float_array'"):
@@ -1172,10 +1157,8 @@ def test_param_spec():
         ParamSpec("a", DataType.string, True)
     with pytest.raises(MlflowException, match=r"Incompatible types for param 'a'"):
         ParamSpec("a", DataType.string, [1.0, 2.0], (-1,))
-    with pytest.raises(MlflowException, match=r"Incompatible types for param 'a'"):
+    with pytest.raises(MlflowException, match=r"Binary type is not supported for parameters"):
         ParamSpec("a", DataType.binary, 1.0)
-    with pytest.raises(MlflowException, match=r"Incompatible types for param 'a'"):
-        ParamSpec("a", DataType.binary, [True, False], (-1,))
     with pytest.raises(MlflowException, match=r"Failed to convert value"):
         ParamSpec("a", DataType.datetime, 1.0)
     with pytest.raises(MlflowException, match=r"Failed to convert value"):
@@ -1231,7 +1214,6 @@ def test_enforce_schema_in_python_model_predict():
         "bool_param": True,
         "double_param": 1.0,
         "float_param": np.float32(0.1),
-        "byte_param": b"byte_g",
         "long_param": 100,
         "datetime_param": np.datetime64("2023-06-26 00:00:00"),
         "str_list": ["a", "b", "c"],
@@ -1245,7 +1227,6 @@ def test_enforce_schema_in_python_model_predict():
             ParamSpec("bool_param", DataType.boolean, True, None),
             ParamSpec("double_param", DataType.double, 1.0, None),
             ParamSpec("float_param", DataType.float, np.float32(0.1), None),
-            ParamSpec("byte_param", DataType.binary, b"byte_g", None),
             ParamSpec("long_param", DataType.long, 100, None),
             ParamSpec(
                 "datetime_param", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None
@@ -1264,7 +1245,6 @@ def test_enforce_schema_in_python_model_predict():
             assert DataType.is_instance(params["bool_param"], DataType.boolean)
             assert DataType.is_instance(params["double_param"], DataType.double)
             assert DataType.is_instance(params["float_param"], DataType.float)
-            assert DataType.is_instance(params["byte_param"], DataType.binary)
             assert DataType.is_instance(params["long_param"], DataType.long)
             assert DataType.is_instance(params["datetime_param"], DataType.datetime)
             assert isinstance(params["str_list"], list)
@@ -1343,22 +1323,6 @@ def test_enforce_schema_in_python_model_predict():
         "datetime_param"
     ] == np.datetime64("2023-06-26 00:00:00")
 
-    # 5. str -> bytes
-    assert (
-        loaded_model.predict(
-            ["a", "b"],
-            params={
-                "byte_param": "Ynl0ZQ==\n",
-            },
-        )["byte_param"]
-        == b"byte"
-    )
-    with pytest.raises(
-        MlflowException,
-        match=r"Failed to convert value invalid_base64 from type str to DataType.binary",
-    ):
-        loaded_model.predict(["a", "b"], params={"byte_param": "invalid_base64"})
-
     # Test model serving
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
@@ -1371,8 +1335,6 @@ def test_enforce_schema_in_python_model_predict():
     for param, value in test_params.items():
         if param == "double_array":
             assert (prediction[param] == value).all()
-        elif param == "byte_param":
-            assert prediction[param] == base64.encodebytes(value).decode("ascii")
         elif param == "datetime_param":
             assert prediction[param] == np.datetime_as_string(value)
         else:
@@ -1391,17 +1353,14 @@ def test_enforce_schema_in_python_model_predict():
         in json.loads(response.content.decode("utf-8"))["message"]
     )
 
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=dump_input_data(["a", "b"], params={"byte_param": "invalid"}),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 400
-    assert (
-        "Failed to convert value invalid from type str to DataType.binary"
-        in json.loads(response.content.decode("utf-8"))["message"]
-    )
+    # Can not pass bytes to request
+    with pytest.raises(TypeError, match=r"Object of type bytes is not JSON serializable"):
+        pyfunc_serve_and_score_model(
+            model_info.model_uri,
+            data=dump_input_data(["a", "b"], params={"str_param": b"bytes"}),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+            extra_args=["--env-manager", "local"],
+        )
 
 
 def test_enforce_schema_with_arrays_in_python_model_predict():
