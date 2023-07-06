@@ -1270,6 +1270,11 @@ converts it to ONNX, logs to mlflow and makes a prediction using pyfunc predict(
 
 MXNet Gluon (``gluon``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. warning::
+
+    The ``gluon`` flavor is deprecated and will be removed in a future release.
+
 The ``gluon`` model flavor enables logging of `Gluon models
 <https://mxnet.incubator.apache.org/api/python/docs/api/gluon/index.html>`_ in MLflow format via
 the :py:func:`mlflow.gluon.save_model()` and :py:func:`mlflow.gluon.log_model()` methods. These
