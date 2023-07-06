@@ -137,8 +137,8 @@ def _load_model(local_model_dir):
 
 def get_feature_dependencies(model_dir):
     """
-    Gets the features which a model depends on. This functionality is only implemented on Databricks. In OSS mlflow,
-    the dependencies are always empty ("").
+    Gets the features which a model depends on. This functionality is only implemented on
+    Databricks. In OSS mlflow, the dependencies are always empty ("").
     """
     model = _load_model(model_dir)
     model_info = model.get_model_info()
