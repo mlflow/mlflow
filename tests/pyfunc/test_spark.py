@@ -520,8 +520,7 @@ def test_spark_udf_single_long_return_type_inference(spark):
 def test_spark_udf_triple_nested_array_return_type_not_supported(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
-            input_len = len(model_input)
-            return pd.DataFrame({'a': [np.random.rand(2, 3, 4)] * input_len})
+            raise NotImplementedError()
 
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(
@@ -529,17 +528,16 @@ def test_spark_udf_triple_nested_array_return_type_not_supported(spark):
             python_model=TestModel(),
         )
 
-    with pytest.raises(
-            Exception,
-            match="Triple nested array type field in struct type is not supported"
-    ):
-        udf = mlflow.pyfunc.spark_udf(
-            spark,
-            f"runs:/{run.info.run_id}/model",
-            result_type="a array<array<array<double>>>"
-        )
-        data1 = spark.range(2).repartition(1)
-        data1.select(udf("id").alias("res")).collect()
+    for result_type in ("array<array<array<double>>>", "a array<array<array<double>>>"):
+        with pytest.raises(
+                Exception,
+                match="'spark_udf' return type does not support array type"
+        ):
+            mlflow.pyfunc.spark_udf(
+                spark,
+                f"runs:/{run.info.run_id}/model",
+                result_type=result_type,
+            )
 
 
 def test_spark_udf_autofills_no_arguments(spark):

@@ -839,7 +839,8 @@ def _convert_model_output_spec_to_spark_type(spec):
         data_type = DataType.from_numpy_type(spec.type)
         if data_type is None:
             raise MlflowException(
-                f"Model output tensor spec type {spec.type} is not supported in spark_udf."
+                f"Model output tensor spec type {spec.type} is not supported in spark_udf.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         if len(spec.shape) == 1:
@@ -849,10 +850,14 @@ def _convert_model_output_spec_to_spark_type(spec):
         else:
             raise MlflowException(
                 "Only one dimension or 2 dimensions tensors are supported as spark_udf "
-                f"return value, but model output '{spec.name}' has shape {spec.shape}."
+                f"return value, but model output '{spec.name}' has shape {spec.shape}.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
     else:
-        raise ValueError(f"Unknown schema output spec {spec}.")
+        raise MlflowException(
+            f"Unknown schema output spec {spec}.",
+            error_code=INVALID_PARAMETER_VALUE
+        )
 
 
 def _infer_spark_udf_return_type(model_output_schema):
@@ -878,17 +883,17 @@ def _parse_spark_datatype(datatype: str):
 
 
 def _convert_array_values(values, spark_type, spark_primitive_type_to_np_type):
+    """
+    Convert list or numpy array values to spark dataframe column values.
+    """
     from pyspark.sql.types import ArrayType
 
+    # Get element type from a array<E> type or a array<array<E>> type.
+    # and get the array_dim value (1 or 2).
     array_dim = 1
     elem_type = spark_type.elementType
     if isinstance(elem_type, ArrayType):
         elem_type = elem_type.elementType
-        if isinstance(elem_type, ArrayType):
-            raise MlflowException(
-                "Triple nested array type field in struct type is not supported: "
-                f"{spark_type.simpleString()}."
-            )
         array_dim = 2
 
     if type(elem_type) not in spark_primitive_type_to_np_type:
@@ -903,6 +908,102 @@ def _convert_array_values(values, spark_type, spark_primitive_type_to_np_type):
         return [np.array(v, dtype=np_type) for v in values]
     else:
         return [list(np.array(v, dtype=np_type)) for v in values]
+
+
+def _get_spark_primitive_type():
+    from pyspark.sql.types import (
+        IntegerType,
+        LongType,
+        FloatType,
+        DoubleType,
+        StringType,
+        BooleanType,
+    )
+    return (
+        IntegerType,
+        LongType,
+        FloatType,
+        DoubleType,
+        StringType,
+        BooleanType,
+    )
+
+
+def _check_udf_return_struct_type(struct_type):
+    from pyspark.sql.types import StructType, ArrayType
+
+    primitive_types = _get_spark_primitive_type()
+
+    for field in struct_type.fields:
+        field_type = field.dataType
+
+        if isinstance(field_type, primitive_types):
+            pass
+        elif isinstance(field_type, ArrayType):
+            _check_udf_return_array_type(field_type, allow_nested_struct=False)
+        else:
+            raise MlflowException(
+                f"'spark_udf' return type does not support field type {field_type} "
+                "inside a struct type",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+
+def _check_udf_return_array_type(array_type, allow_nested_struct):
+    from pyspark.sql.types import ArrayType, StructType
+
+    elem_type = array_type.elementType
+    primitive_types = _get_spark_primitive_type()
+
+    if isinstance(elem_type, primitive_types):
+        # 1D array
+        return
+
+    if isinstance(elem_type, StructType):
+        if allow_nested_struct:
+            # Array of struct values.
+            _check_udf_return_struct_type(elem_type)
+            return
+
+        raise MlflowException(
+            f"'spark_udf' return type does not support struct type nesting struct type.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if (
+        isinstance(elem_type, ArrayType)
+        and isinstance(elem_type.elementType, primitive_types)
+    ):
+        # 2D array
+        return
+
+    raise MlflowException(
+        f"'spark_udf' return type does not support array type {array_type}, "
+        f"an array type only supports one dimensional array with primitive type {primitive_types} "
+        "elements or struct type elements, or double nested array consisting of "
+        "primitive type elements."
+    )
+
+
+def _check_udf_return_type(data_type):
+    from pyspark.sql.types import ArrayType, StructType
+
+    primitive_types = _get_spark_primitive_type()
+    if isinstance(data_type, primitive_types):
+        return
+
+    if isinstance(data_type, ArrayType):
+        _check_udf_return_array_type(data_type, allow_nested_struct=True)
+        return
+
+    if isinstance(data_type, StructType):
+        _check_udf_return_struct_type(data_type)
+        return
+
+    raise MlflowException(
+        f"'spark_udf' return type must be one of primitive types {primitive_types}, "
+        "struct type or array type."
+    )
 
 
 def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL):
@@ -1114,11 +1215,13 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
             result_type = "double"
         else:
             result_type = _infer_spark_udf_return_type(model_output_schema)
-    else:
-        result_type = "boolean" if result_type == "bool" else result_type
+
+    result_type = "boolean" if result_type == "bool" else result_type
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_spark_datatype(result_type)
+
+    _check_udf_return_type(result_type)
 
     elem_type = result_type
     if isinstance(elem_type, ArrayType):
