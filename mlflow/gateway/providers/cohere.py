@@ -20,7 +20,7 @@ class CohereProvider(BaseProvider):
         headers = {"Authorization": f"Bearer {self.cohere_config.cohere_api_key}"}
         return await send_request(
             headers=headers,
-            base_url=self.cohere_config.cohere_api_base,
+            base_url="https://api.cohere.ai/v1",
             path=path,
             payload=payload,
         )
