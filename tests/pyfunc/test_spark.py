@@ -43,6 +43,7 @@ from mlflow.models import ModelSignature
 from mlflow.pyfunc import spark_udf, PythonModel, PyFuncModel
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
 from mlflow.types import Schema, ColSpec, TensorSpec
+from pandas.testing import assert_frame_equal
 
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2, True]
@@ -380,22 +381,8 @@ def test_spark_udf_tensorspec_struct_return_type_inference(spark):
                         TensorSpec(np.dtype(np.int64), (2,), "r1"),
                         TensorSpec(np.dtype(np.float64), (2,), "r2"),
                         TensorSpec(np.dtype(np.float64), (2,), "r3"),
-                        TensorSpec(
-                            np.dtype(np.float64),
-                            (
-                                2,
-                                3,
-                            ),
-                            "r4",
-                        ),
-                        TensorSpec(
-                            np.dtype(np.float64),
-                            (
-                                2,
-                                3,
-                            ),
-                            "r5",
-                        ),
+                        TensorSpec(np.dtype(np.float64), (2, 3), "r4"),
+                        TensorSpec(np.dtype(np.float64), (2, 3), "r5"),
                     ]
                 ),
             ),
@@ -528,6 +515,31 @@ def test_spark_udf_single_long_return_type_inference(spark):
         assert result_spark_df.schema.simpleString() == "struct<res:bigint>"
         result = result_spark_df.toPandas()
         assert result["res"].tolist() == [12] * 2
+
+
+def test_spark_udf_triple_nested_array_return_type_not_supported(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            input_len = len(model_input)
+            return pd.DataFrame({'a': [np.random.rand(2, 3, 4)] * input_len})
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+        )
+
+    with pytest.raises(
+            Exception,
+            match="Triple nested array type field in struct type is not supported"
+    ):
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            f"runs:/{run.info.run_id}/model",
+            result_type="a array<array<array<double>>>"
+        )
+        data1 = spark.range(2).repartition(1)
+        data1.select(udf("id").alias("res")).collect()
 
 
 def test_spark_udf_autofills_no_arguments(spark):

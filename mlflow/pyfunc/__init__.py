@@ -878,6 +878,8 @@ def _parse_spark_datatype(datatype: str):
 
 
 def _convert_array_values(values, spark_type, spark_primitive_type_to_np_type):
+    from pyspark.sql.types import ArrayType
+
     array_dim = 1
     elem_type = spark_type.elementType
     if isinstance(elem_type, ArrayType):
@@ -1045,32 +1047,6 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
     should_use_nfs = nfs_root_dir is not None
     should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
 
-    result_type = "boolean" if result_type == "bool" else result_type
-
-    if not isinstance(result_type, SparkDataType):
-        result_type = _parse_spark_datatype(result_type)
-
-    elem_type = result_type
-    if isinstance(elem_type, ArrayType):
-        elem_type = elem_type.elementType
-
-    supported_types = [
-        IntegerType,
-        LongType,
-        FloatType,
-        DoubleType,
-        StringType,
-        BooleanType,
-        SparkStructType,
-    ]
-
-    if not any(isinstance(elem_type, x) for x in supported_types):
-        raise MlflowException(
-            message="Invalid result_type '{}'. Result type can only be one of or an array of one "
-            "of the following types: {}".format(str(elem_type), str(supported_types)),
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
     local_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri,
         output_path=_create_model_downloading_tmp_dir(should_use_nfs),
@@ -1142,7 +1118,7 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
         result_type = "boolean" if result_type == "bool" else result_type
 
     if not isinstance(result_type, SparkDataType):
-        result_type = _parse_datatype_string(result_type)
+        result_type = _parse_spark_datatype(result_type)
 
     elem_type = result_type
     if isinstance(elem_type, ArrayType):
@@ -1212,7 +1188,7 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
         }
 
         if isinstance(result_type, ArrayType) and isinstance(result_type.elementType, ArrayType):
-            result_values = _convert_array_values(result, result_type)
+            result_values = _convert_array_values(result, result_type, spark_primitive_type_to_np_type)
             return pandas.Series(result_values)
 
         if not isinstance(result, pandas.DataFrame):
@@ -1229,7 +1205,7 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
                     field_values = field_values.astype(np_type)
 
                 elif type(field_type) == ArrayType:
-                    field_values = _convert_array_values(field_values, field_type)
+                    field_values = _convert_array_values(field_values, field_type, spark_primitive_type_to_np_type)
                 else:
                     raise MlflowException(
                         f"Unsupported field type {field_type.simpleString()} in struct type.",
