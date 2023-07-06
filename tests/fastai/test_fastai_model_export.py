@@ -149,9 +149,7 @@ def test_model_log(fastai_model, model_path):
                     fastai_learner=model, artifact_path=artifact_path, conda_env=conda_env
                 )
 
-                model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-                )
+                model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
                 assert model_info.model_uri == model_uri
 
                 reloaded_model = mlflow.fastai.load_model(model_uri=model_uri)
@@ -187,9 +185,7 @@ def test_log_model_calls_register_model(fastai_model):
             conda_env=conda_env,
             registered_model_name="AdsModel1",
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         mlflow.register_model.assert_called_once_with(
             model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
         )
@@ -313,9 +309,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
             artifact_path=artifact_path,
             conda_env=fastai_custom_env,
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -338,9 +332,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(fastai_model,
             artifact_path=artifact_path,
             conda_env=fastai_custom_env,
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
 
