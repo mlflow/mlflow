@@ -544,6 +544,16 @@ def test_validate_path_is_safe_bad(path):
         validate_path_is_safe(path)
 
 
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
+@pytest.mark.parametrize(
+    "path",
+    ["C:\\path", "C:/path", "C:\\path\\..\\to\\file", "C:/path/../to/file"],
+)
+def test_validate_path_is_safe_windows_bad(path):
+    with pytest.raises(MlflowException, match="Invalid path"):
+        validate_path_is_safe(path)
+
+
 def test_path_validation(mlflow_client):
     experiment_id = mlflow_client.create_experiment("tags validation")
     created_run = mlflow_client.create_run(experiment_id)
