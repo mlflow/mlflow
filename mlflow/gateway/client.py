@@ -80,6 +80,7 @@ class MlflowGatewayClient:
         augmented_raise_for_status(response)
         return response
 
+    @experimental
     def get_route(self, name: str):
         """
         Get a specific query route from the gateway. The routes that are available to retrieve
@@ -96,6 +97,7 @@ class MlflowGatewayClient:
 
         return Route(**response)
 
+    @experimental
     def search_routes(self, page_token: Optional[str] = None) -> PagedList[Route]:
         """
         Search for routes in the Gateway.
@@ -114,6 +116,7 @@ class MlflowGatewayClient:
         next_page_token = response_json.get("next_page_token")
         return PagedList(routes, next_page_token)
 
+    @experimental
     def create_route(self, name: str, route_type: str, model: Dict[str, Any]) -> Route:
         """
         Create a new route in the Gateway.
@@ -189,6 +192,7 @@ class MlflowGatewayClient:
         ).json()
         return Route(**response)
 
+    @experimental
     def delete_route(self, name: str) -> None:
         """
         Delete an existing route in the Gateway.
@@ -224,6 +228,7 @@ class MlflowGatewayClient:
         route = assemble_uri_path([MLFLOW_GATEWAY_CRUD_ROUTE_BASE, name])
         self._call_endpoint("DELETE", route)
 
+    @experimental
     def query(self, route: str, data: Dict[str, Any]):
         """
         Submit a query to a configured provider route.
