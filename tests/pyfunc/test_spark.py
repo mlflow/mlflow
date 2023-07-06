@@ -536,7 +536,7 @@ def test_spark_udf_triple_nested_array_return_type_not_supported(spark):
     for result_type in ("array<array<array<double>>>", "a array<array<array<double>>>"):
         with pytest.raises(
                 Exception,
-                match="'spark_udf' return type does not support array type"
+                match="return type does not support the array type ArrayType\\(ArrayType\\(ArrayType"
         ):
             mlflow.pyfunc.spark_udf(
                 spark,

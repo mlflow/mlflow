@@ -997,8 +997,10 @@ def _check_udf_return_type(data_type):
         return
 
     raise MlflowException(
-        f"'spark_udf' return type must be one of primitive types {primitive_types}, "
-        "struct type or array type."
+        f"Invalid data type: {data_type}, 'spark_udf' return type must be one of primitive "
+        f"types {primitive_types}, struct type or array type, and struct type cannot contain "
+        "nested struct type, array type can contain nested struct type or nested array type, "
+        "but triple nested array type is not supported."
     )
 
 
