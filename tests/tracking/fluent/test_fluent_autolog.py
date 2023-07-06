@@ -17,7 +17,6 @@ import sklearn
 import xgboost
 import lightgbm
 import statsmodels
-import mxnet.gluon
 import pyspark
 import pyspark.ml
 import pytorch_lightning
@@ -35,7 +34,8 @@ library_to_mlflow_module_without_spark_datasource = {
     xgboost: mlflow.xgboost,
     lightgbm: mlflow.lightgbm,
     statsmodels: mlflow.statsmodels,
-    mxnet.gluon: mlflow.gluon,
+    # TODO: Remove this after releasing MLflow 2.5.0
+    # mxnet.gluon: mlflow.gluon,
     pyspark.ml: mlflow.pyspark.ml,
     pytorch_lightning: mlflow.pytorch,
     transformers: mlflow.transformers,
