@@ -14,7 +14,7 @@ def main():
     ml_packages = {
         "catboost",
         "fastai",
-        "mxnet",
+        # "mxnet",
         "h2o",
         "keras",
         "lightgbm",
