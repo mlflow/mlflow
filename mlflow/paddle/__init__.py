@@ -321,9 +321,7 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
     if model is None:
         return paddle.jit.load(pd_model_artifacts_path, **kwargs)
     elif not isinstance(model, paddle.Model):
-        raise TypeError(
-            "Invalid object type `{}` for `model`, must be `paddle.Model`".format(type(model))
-        )
+        raise TypeError(f"Invalid object type `{type(model)}` for `model`, must be `paddle.Model`")
     else:
         contains_pdparams = _contains_pdparams(local_model_path)
         if not contains_pdparams:

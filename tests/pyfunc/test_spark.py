@@ -648,7 +648,7 @@ def test_spark_udf_datetime_with_model_schema(spark):
 
 def test_spark_udf_string_datetime_with_model_schema(spark):
     X, y = datasets.load_iris(as_frame=True, return_X_y=True)
-    X = X.assign(timestamp=["2022-{:02d}-01".format(random.randint(1, 12)) for _ in range(len(X))])
+    X = X.assign(timestamp=[f"2022-{random.randint(1, 12):02d}-01" for _ in range(len(X))])
 
     month_extractor = FunctionTransformer(
         lambda df: df.assign(month=df["timestamp"].str.extract(r"^2022-0?(\d{1,2})-").astype(int)),

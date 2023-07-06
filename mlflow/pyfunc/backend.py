@@ -208,7 +208,7 @@ class PyFuncBackend(FlavorBackend):
                 except OSError as e:
                     # TODO: find approach for supporting MacOS/Windows system which does
                     #  not support prctl.
-                    warnings.warn(f"Setup libc.prctl PR_SET_PDEATHSIG failed, error {repr(e)}.")
+                    warnings.warn(f"Setup libc.prctl PR_SET_PDEATHSIG failed, error {e!r}.")
 
         else:
             setup_sigterm_on_parent_death = None
@@ -396,7 +396,7 @@ def _pyfunc_entrypoint(env_manager, model_uri, install_mlflow, enable_mlserver):
         # The pyfunc image runs the same server as the Sagemaker image
         pyfunc_entrypoint = (
             'ENTRYPOINT ["python", "-c", "from mlflow.models import container as C;'
-            f'C._serve({repr(env_manager)})"]'
+            f'C._serve({env_manager!r})"]'
         )
     else:
         entrypoint_code = "; ".join(

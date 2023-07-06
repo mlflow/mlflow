@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 from scipy.sparse import csr_matrix, csc_matrix
 
+from mlflow.pyfunc import _parse_spark_datatype
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _enforce_tensor_spec
 from mlflow.types import DataType
@@ -567,26 +568,26 @@ def test_all_numpy_dtypes():
 
 def test_spark_schema_inference(pandas_df_with_all_types):
     import pyspark
-    from pyspark.sql.types import _parse_datatype_string, StructField, StructType
+    from pyspark.sql.types import StructField, StructType
 
     pandas_df_with_all_types = pandas_df_with_all_types.drop(
         columns=["boolean_ext", "integer_ext", "string_ext"]
     )
     schema = _infer_schema(pandas_df_with_all_types)
     assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
-    spark_session = pyspark.sql.SparkSession(pyspark.SparkContext.getOrCreate())
-
-    struct_fields = []
-    for t in schema.input_types():
-        # pyspark _parse_datatype_string() expects "timestamp" instead of "datetime"
-        if t == DataType.datetime:
-            struct_fields.append(StructField("datetime", _parse_datatype_string("timestamp"), True))
-        else:
-            struct_fields.append(StructField(t.name, _parse_datatype_string(t.name), True))
-    spark_schema = StructType(struct_fields)
-    sparkdf = spark_session.createDataFrame(pandas_df_with_all_types, schema=spark_schema)
-    schema = _infer_schema(sparkdf)
-    assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
+    with pyspark.sql.SparkSession.builder.getOrCreate() as spark:
+        struct_fields = []
+        for t in schema.input_types():
+            if t == DataType.datetime:
+                struct_fields.append(
+                    StructField("datetime", _parse_spark_datatype("timestamp"), True)
+                )
+            else:
+                struct_fields.append(StructField(t.name, _parse_spark_datatype(t.name), True))
+        spark_schema = StructType(struct_fields)
+        sparkdf = spark.createDataFrame(pandas_df_with_all_types, schema=spark_schema)
+        schema = _infer_schema(sparkdf)
+        assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
 
 
 def test_spark_type_mapping(pandas_df_with_all_types):

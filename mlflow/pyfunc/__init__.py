@@ -563,7 +563,7 @@ def _warn_dependency_requirement_mismatches(model_path):
 
     except Exception as e:
         _logger.warning(
-            f"Encountered an unexpected error ({repr(e)}) while detecting model dependency "
+            f"Encountered an unexpected error ({e!r}) while detecting model dependency "
             "mismatches. Set logging level to DEBUG to see the full traceback."
         )
         _logger.debug("", exc_info=True)
@@ -859,6 +859,12 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
+def _parse_spark_datatype(datatype: str):
+    from pyspark.sql.functions import udf
+
+    return udf(lambda x: x, returnType=datatype).returnType
+
+
 def spark_udf(
     spark,
     model_uri,
@@ -979,7 +985,6 @@ def spark_udf(
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from mlflow.utils._spark_utils import _SparkDirectoryDistributor
     from pyspark.sql.functions import pandas_udf
-    from pyspark.sql.types import _parse_datatype_string
     from pyspark.sql.types import (
         ArrayType,
         DataType as SparkDataType,
@@ -1012,7 +1017,7 @@ def spark_udf(
     result_type = "boolean" if result_type == "bool" else result_type
 
     if not isinstance(result_type, SparkDataType):
-        result_type = _parse_datatype_string(result_type)
+        result_type = _parse_spark_datatype(result_type)
 
     elem_type = result_type
     if isinstance(elem_type, ArrayType):
@@ -1568,7 +1573,7 @@ def save_model(
         raise TypeError(f"save_model() got unexpected keyword arguments: {kwargs}")
     if code_path is not None:
         if not isinstance(code_path, list):
-            raise TypeError("Argument code_path should be a list, not {}".format(type(code_path)))
+            raise TypeError(f"Argument code_path should be a list, not {type(code_path)}")
 
     first_argument_set = {
         "loader_module": loader_module,

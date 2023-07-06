@@ -216,7 +216,7 @@ class TensorInfo:
         return cls(tensor_type, tensor_shape)
 
     def __repr__(self) -> str:
-        return "Tensor({type}, {shape})".format(type=repr(self.dtype.name), shape=repr(self.shape))
+        return f"Tensor({self.dtype.name!r}, {self.shape!r})"
 
 
 class TensorSpec:
@@ -290,7 +290,7 @@ class TensorSpec:
         if self.name is None:
             return repr(self._tensorInfo)
         else:
-            return "{name}: {info}".format(name=repr(self.name), info=repr(self._tensorInfo))
+            return f"{self.name!r}: {self._tensorInfo!r}"
 
 
 class Schema:

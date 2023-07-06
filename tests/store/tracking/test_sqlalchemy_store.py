@@ -1815,7 +1815,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             [r1, r2],
         ) == sorted(self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.status = '{}'".format(RunStatus.to_string(RunStatus.RUNNING))
+        filter_string = f"attribute.status = '{RunStatus.to_string(RunStatus.RUNNING)}'"
         assert sorted(
             [r1, r2],
         ) == sorted(self._search([e1, e2], filter_string))
@@ -1878,22 +1878,22 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = f"attribute.artifact_uri LIKE '%{r1}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[:16])
+        filter_string = f"attribute.artifact_uri LIKE '%{r1[:16]}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[-16:])
+        filter_string = f"attribute.artifact_uri LIKE '%{r1[-16:]}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1.upper())
+        filter_string = f"attribute.artifact_uri LIKE '%{r1.upper()}%'"
         assert self._search([e1, e2], filter_string) == []
 
-        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1.upper())
+        filter_string = f"attribute.artifact_uri ILIKE '%{r1.upper()}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
-        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[:16].upper())
+        filter_string = f"attribute.artifact_uri ILIKE '%{r1[:16].upper()}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
-        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[-16:].upper())
+        filter_string = f"attribute.artifact_uri ILIKE '%{r1[-16:].upper()}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
         for k, v in {"experiment_id": e1, "lifecycle_stage": "ACTIVE"}.items():

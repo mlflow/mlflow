@@ -164,7 +164,7 @@ class Project:
         _, file_extension = os.path.splitext(entry_point)
         ext_to_cmd = {".py": "python", ".sh": os.environ.get("SHELL", "bash")}
         if file_extension in ext_to_cmd:
-            command = "{} {}".format(ext_to_cmd[file_extension], quote(entry_point))
+            command = f"{ext_to_cmd[file_extension]} {quote(entry_point)}"
             if not is_string_type(command):
                 command = command.encode("utf-8")
             return EntryPoint(name=entry_point, parameters={}, command=command)
@@ -256,7 +256,7 @@ class Parameter:
     def _compute_uri_value(self, user_param_value):
         if not data_utils.is_uri(user_param_value):
             raise ExecutionException(
-                "Expected URI for parameter {} but got {}".format(self.name, user_param_value)
+                f"Expected URI for parameter {self.name} but got {user_param_value}"
             )
         return user_param_value
 
@@ -265,8 +265,8 @@ class Parameter:
         if local_path:
             if not os.path.exists(local_path):
                 raise ExecutionException(
-                    "Got value %s for parameter %s, but no such file or "
-                    "directory was found." % (user_param_value, self.name)
+                    f"Got value {user_param_value} for parameter {self.name}, but no such file or "
+                    "directory was found."
                 )
             return os.path.abspath(local_path)
         target_sub_dir = f"param_{key_position}"

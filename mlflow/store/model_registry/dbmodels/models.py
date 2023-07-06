@@ -198,7 +198,7 @@ class SqlRegisteredModelAlias(Base):
     __table_args__ = (PrimaryKeyConstraint("name", "alias", name="registered_model_alias_pk"),)
 
     def __repr__(self):
-        return "<SqlRegisteredModelAlias ({}, {}, {})>".format(self.name, self.alias, self.version)
+        return f"<SqlRegisteredModelAlias ({self.name}, {self.alias}, {self.version})>"
 
     # entity mappers
     def to_mlflow_entity(self):
