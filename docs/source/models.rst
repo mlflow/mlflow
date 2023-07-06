@@ -1273,7 +1273,7 @@ MXNet Gluon (``gluon``)
 
 .. warning::
 
-    The ``gluon`` flavor is deprecated and will be removed in a future release.
+    The ``gluon`` model flavor is deprecated and will be removed in a future release.
 
 The ``gluon`` model flavor enables logging of `Gluon models
 <https://mxnet.incubator.apache.org/api/python/docs/api/gluon/index.html>`_ in MLflow format via
