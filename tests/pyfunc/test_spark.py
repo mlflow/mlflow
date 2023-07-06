@@ -352,10 +352,15 @@ def test_spark_udf_colspec_struct_return_type_inference(spark):
         )
 
         result = result_spark_df.toPandas()
-        assert result["r1"].tolist() == [1] * 2
-        np.testing.assert_almost_equal(result["r2"].tolist(), [1.5] * 2)
-        assert result["r3"].tolist() == [True] * 2
-        assert result["r4"].tolist() == ["abc"] * 2
+        expected_data = {
+            "r1": [1] * 2,
+            "r2": [1.5] * 2,
+            "r3": [True] * 2,
+            "r4": ["abc"] * 2,
+        }
+
+        expected_df = pd.DataFrame(expected_data)
+        assert_frame_equal(result, expected_df, check_dtype=False)
 
 
 def test_spark_udf_tensorspec_struct_return_type_inference(spark):
