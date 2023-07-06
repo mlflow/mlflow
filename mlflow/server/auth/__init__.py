@@ -9,6 +9,7 @@ Usage
 
 import logging
 import uuid
+import re
 from typing import Callable
 
 from flask import Flask, request, make_response, Response, flash, render_template_string
@@ -97,6 +98,12 @@ from mlflow.protos.model_registry_pb2 import (
     CreateRegisteredModel,
     SearchRegisteredModels,
 )
+from mlflow.protos.mlflow_artifacts_pb2 import (
+    DownloadArtifact,
+    UploadArtifact,
+    ListArtifacts as MlflowArtifactsListArtifacts,
+    DeleteArtifact,
+)
 from mlflow.utils.proto_json_utils import parse_dict, message_to_json
 from mlflow.utils.search_utils import SearchUtils
 
@@ -178,6 +185,25 @@ def _get_permission_from_experiment_id() -> Permission:
     )
 
 
+_EXPERIMENT_ID_PATTERN = re.compile(r"^/experiments/(\d+)/")
+
+
+def _get_experiment_id_from_view_args():
+    if artifact_path := request.view_args.get("artifact_path"):
+        if m := _EXPERIMENT_ID_PATTERN.match(artifact_path):
+            return m.group(1)
+    return None
+
+
+def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
+    if experiment_id := _get_experiment_id_from_view_args():
+        username = request.authorization.username
+        return _get_permission_from_store_or_default(
+            lambda: store.get_experiment_permission(experiment_id, username).permission
+        )
+    return get_permission(auth_config.default_permission)
+
+
 def _get_permission_from_experiment_name() -> Permission:
     experiment_name = _get_request_param("experiment_name")
     store_exp = _get_tracking_store().get_experiment_by_name(experiment_name)
@@ -230,6 +256,14 @@ def validate_can_delete_experiment():
 
 def validate_can_manage_experiment():
     return _get_permission_from_experiment_id().can_manage
+
+
+def validate_can_read_experiment_artifact_proxy():
+    return _get_permission_from_experiment_id_artifact_proxy().can_read
+
+
+def validate_can_update_experiment_artifact_proxy():
+    return _get_permission_from_experiment_id_artifact_proxy().can_update
 
 
 def validate_can_read_run():
@@ -317,6 +351,11 @@ BEFORE_REQUEST_HANDLERS = {
     LogParam: validate_can_update_run,
     GetMetricHistory: validate_can_read_run,
     ListArtifacts: validate_can_read_run,
+    # Routes for artifact proxy
+    DownloadArtifact: validate_can_read_experiment_artifact_proxy,
+    UploadArtifact: validate_can_update_experiment_artifact_proxy,
+    MlflowArtifactsListArtifacts: validate_can_read_experiment_artifact_proxy,
+    DeleteArtifact: validate_can_update_experiment_artifact_proxy,
     # Routes for model registry
     GetRegisteredModel: validate_can_read_registered_model,
     DeleteRegisteredModel: validate_can_delete_registered_model,
