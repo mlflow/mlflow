@@ -179,6 +179,201 @@ Step 8: Send Requests Using the Client API
 ------------------------------------------
 See the :ref:`MLflowGatewayClient <gateway_client_api>` section for further information.
 
+.. _gateway-concepts:
+
+Concepts
+========
+
+There are several concepts that are referred to within the MLflow AI Gateway APIs, the configuration definitions, examples, and documentation.
+Becoming familiar with these terms will help in configuring new endpoints (routes) and ease the use of the interface APIs for the AI Gateway.
+
+.. _providers:
+
+Providers
+---------
+The MLflow AI Gateway is designed to support a variety of model providers.
+A provider represents the source of the machine learning models, such as OpenAI, Anthropic, and so on.
+Each provider has its specific characteristics and configurations that are encapsulated within the model part of a route in the MLflow AI Gateway.
+
+Supported Provider Models
+~~~~~~~~~~~~~~~~~~~~~~~~~
+The table below presents a non-exhaustive list of models and a corresponding route type within the MLflow AI Gateway.
+With the rapid development of LLMs, there is no guarantee that this list will be up to date at all times. However, the associations listed
+below can be used as a helpful guide when configuring a given route for any newly released model types as they become available with a given provider.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Route Type
+     - Provider
+     - Model Examples
+     - Supported
+   * - llm/v1/completions
+     - OpenAI
+     - gpt-3.5-turbo, gpt-4
+     - ✓
+   * - llm/v1/completions
+     - Anthropic
+     - claude-1, claude-1.3-100k
+     - ✓
+   * - llm/v1/completions
+     - Cohere
+     - command, command-light-nightly
+     - ✓
+   * - llm/v1/completions
+     - Azure OpenAI
+     - text-davinci-003, gpt-35-turbo
+     - ✓
+   * - llm/v1/chat
+     - OpenAI
+     - gpt-3.5-turbo, gpt-4
+     - ✓
+   * - llm/v1/chat
+     - Anthropic
+     -
+     - ✗
+   * - llm/v1/chat
+     - Cohere
+     -
+     - ✗
+   * - llm/v1/chat
+     - Azure OpenAI
+     - gpt-35-turbo, gpt-4
+     - ✓
+   * - llm/v1/embeddings
+     - OpenAI
+     - text-embedding-ada-002
+     - ✓
+   * - llm/v1/embeddings
+     - Anthropic
+     -
+     - ✗
+   * - llm/v1/embeddings
+     - Cohere
+     - embed-english-v2.0, embed-multilingual-v2.0
+     - ✓
+   * - llm/v1/embeddings
+     - Azure OpenAI
+     - text-embedding-ada-002
+     - ✓
+
+Within each model block in the configuration file, the provider field is used to specify the name
+of the provider for that model. This is a string value that needs to correspond to a provider the MLflow AI Gateway supports.
+
+Here's an example of a provider configuration within a route:
+
+.. code-block:: yaml
+
+    routes:
+        - name: chat
+          type: llm/v1/chat
+          model:
+            provider: openai
+            name: gpt-4
+            config:
+              openai_api_base: https://api.openai.com/v1
+              openai_api_key: $OPENAI_API_KEY
+
+In the above configuration, ``openai`` is the `provider` for the model.
+
+As of now, the MLflow AI Gateway supports the following providers:
+
+* **openai**: This is used for models offered by `OpenAI <https://platform.openai.com/>`_ and the `Azure <https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/>`_ integrations for Azure OpenAI and Azure OpenAI with AAD.
+* **anthropic**: This is used for models offered by `Anthropic <https://docs.anthropic.com/claude/docs>`_.
+* **cohere**: This is used for models offered by `Cohere <https://docs.cohere.com/docs>`_.
+
+More providers are being added continually. Check the latest version of the MLflow AI Gateway Docs for the
+most up-to-date list of supported providers.
+
+Remember, the provider you specify must be one that the MLflow AI Gateway supports. If the provider
+is not supported, the Gateway will return an error when trying to route requests to that provider.
+
+Routes
+------
+
+`Routes` are central to how the MLflow AI Gateway functions. Each route acts as a proxy endpoint for the
+user, forwarding requests to the underlying `model` and `provider` specified in the configuration file.
+
+A route in the MLflow AI Gateway consists of the following fields:
+
+* **name**: This is the unique identifier for the route. This will be part of the URL when making API calls via the MLflow AI Gateway.
+
+* **type**: The type of the route corresponds to the type of language model interaction you desire. For instance, ``llm/v1/completions`` for text completion operations, ``llm/v1/embeddings`` for text embeddings, and ``llm/v1/chat`` for chat operations.
+
+* **model**: Defines the model to which this route will forward requests. The model contains the following details:
+
+    * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for `OpenAI`'s ``GPT-3`` models.
+    * **name**: The name of the model to use. For example, ``gpt-3.5-turbo`` for `OpenAI`'s ``GPT-3.5-Turbo`` model.
+    * **config**: Contains any additional configuration details required for the model. This includes specifying the API base URL and the API key.
+
+Here's an example of a route configuration:
+
+.. code-block:: yaml
+
+    routes:
+        - name: completions
+          type: chat/completions
+          model:
+            provider: openai
+            name: gpt-3.5-turbo
+            config:
+              openai_api_base: https://api.openai.com/v1
+              openai_api_key: $OPENAI_API_KEY
+
+In the example above, a request sent to the completions route would be forwarded to the
+``gpt-3.5-turbo`` model provided by ``openai``.
+
+The routes in the configuration file can be updated at any time, and the MLflow AI Gateway will
+automatically update its available routes without requiring a restart. This feature provides you
+with the flexibility to add, remove, or modify routes as your needs change. It enables 'hot-swapping'
+of routes, providing a seamless experience for any applications or services that interact with the MLflow AI Gateway.
+
+When defining routes in the configuration file, ensure that each name is unique to prevent conflicts.
+Duplicate route names will raise an ``MlflowException``.
+
+Models
+------
+
+The ``model`` section within a ``route`` specifies which model is to be used for generating responses.
+This configuration block needs to contain a ``name`` field which is used to specify the exact model instance to be used.
+
+Different endpoint types are often associated with specific models.
+For instance, the `llm/v1/chat` and `llm/v1/completions` endpoints are generally associated with
+conversational models, while `llm/v1/embeddings` endpoints would typically be associated with
+embedding or transformer models. The model you choose should be appropriate for the type of endpoint specified.
+
+Here's an example of a model name configuration within a route:
+
+.. code-block:: yaml
+
+    routes:
+      - name: embeddings
+        type: llm/v1/embeddings
+        model:
+          provider: openai
+          name: text-embedding-ada-002
+          config:
+            openai_api_base: https://api.openai.com/v1
+            openai_api_key: $OPENAI_API_KEY
+
+
+In the above configuration, ``text-embedding-ada-002`` is the model used for the embeddings endpoint.
+
+When specifying a model, it is critical that the provider supports the model you are requesting.
+For instance, ``openai`` as a provider supports models like ``text-embedding-ada-002``, but other providers
+may not. If the model is not supported by the provider, the MLflow AI Gateway will return an HTTP 4xx error
+when trying to route requests to that model.
+
+.. important::
+
+    Always check the latest documentation of the specified provider to ensure that the model you want
+    to use is supported for the type of endpoint you're configuring.
+
+Remember, the model you choose directly affects the results of the responses you'll get from the
+API calls. Therefore, choose a model that fits your use-case requirements. For instance,
+for generating conversational responses, you would typically choose a chat model.
+Conversely, for generating embeddings of text, you would choose an embedding model.
+
 Configuring the AI Gateway
 ==========================
 
@@ -542,202 +737,6 @@ This endpoint allows you to submit a query to a configured provider route. The d
 These examples cover the primary ways you might interact with the MLflow AI Gateway via its REST API.
 
 **Note:** Please remember to replace "http://my.gateway:8888" with the URL of your actual MLflow AI Gateway Server.
-
-
-.. _gateway-concepts:
-
-Concepts
-========
-
-There are several concepts that are referred to within the MLflow AI Gateway APIs, the configuration definitions, examples, and documentation.
-Becoming familiar with these terms will help in configuring new endpoints (routes) and ease the use of the interface APIs for the AI Gateway.
-
-.. _providers:
-
-Providers
----------
-The MLflow AI Gateway is designed to support a variety of model providers.
-A provider represents the source of the machine learning models, such as OpenAI, Anthropic, and so on.
-Each provider has its specific characteristics and configurations that are encapsulated within the model part of a route in the MLflow AI Gateway.
-
-Supported Provider Models
-~~~~~~~~~~~~~~~~~~~~~~~~~
-The table below presents a non-exhaustive list of models and a corresponding route type within the MLflow AI Gateway.
-With the rapid development of LLMs, there is no guarantee that this list will be up to date at all times. However, the associations listed
-below can be used as a helpful guide when configuring a given route for any newly released model types as they become available with a given provider.
-
-.. list-table::
-   :header-rows: 1
-
-   * - Route Type
-     - Provider
-     - Model Examples
-     - Supported
-   * - llm/v1/completions
-     - OpenAI
-     - gpt-3.5-turbo, gpt-4
-     - ✓
-   * - llm/v1/completions
-     - Anthropic
-     - claude-1, claude-1.3-100k
-     - ✓
-   * - llm/v1/completions
-     - Cohere
-     - command, command-light-nightly
-     - ✓
-   * - llm/v1/completions
-     - Azure OpenAI
-     - text-davinci-003, gpt-35-turbo
-     - ✓
-   * - llm/v1/chat
-     - OpenAI
-     - gpt-3.5-turbo, gpt-4
-     - ✓
-   * - llm/v1/chat
-     - Anthropic
-     -
-     - ✗
-   * - llm/v1/chat
-     - Cohere
-     -
-     - ✗
-   * - llm/v1/chat
-     - Azure OpenAI
-     - gpt-35-turbo, gpt-4
-     - ✓
-   * - llm/v1/embeddings
-     - OpenAI
-     - text-embedding-ada-002
-     - ✓
-   * - llm/v1/embeddings
-     - Anthropic
-     -
-     - ✗
-   * - llm/v1/embeddings
-     - Cohere
-     - embed-english-v2.0, embed-multilingual-v2.0
-     - ✓
-   * - llm/v1/embeddings
-     - Azure OpenAI
-     - text-embedding-ada-002
-     - ✓
-
-Within each model block in the configuration file, the provider field is used to specify the name
-of the provider for that model. This is a string value that needs to correspond to a provider the MLflow AI Gateway supports.
-
-Here's an example of a provider configuration within a route:
-
-.. code-block:: yaml
-
-    routes:
-        - name: chat
-          type: llm/v1/chat
-          model:
-            provider: openai
-            name: gpt-4
-            config:
-              openai_api_base: https://api.openai.com/v1
-              openai_api_key: $OPENAI_API_KEY
-
-In the above configuration, ``openai`` is the `provider` for the model.
-
-As of now, the MLflow AI Gateway supports the following providers:
-
-* **openai**: This is used for models offered by `OpenAI <https://platform.openai.com/>`_ and the `Azure <https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/>`_ integrations for Azure OpenAI and Azure OpenAI with AAD.
-* **anthropic**: This is used for models offered by `Anthropic <https://docs.anthropic.com/claude/docs>`_.
-* **cohere**: This is used for models offered by `Cohere <https://docs.cohere.com/docs>`_.
-
-More providers are being added continually. Check the latest version of the MLflow AI Gateway Docs for the
-most up-to-date list of supported providers.
-
-Remember, the provider you specify must be one that the MLflow AI Gateway supports. If the provider
-is not supported, the Gateway will return an error when trying to route requests to that provider.
-
-Routes
-------
-
-`Routes` are central to how the MLflow AI Gateway functions. Each route acts as a proxy endpoint for the
-user, forwarding requests to the underlying `model` and `provider` specified in the configuration file.
-
-A route in the MLflow AI Gateway consists of the following fields:
-
-* **name**: This is the unique identifier for the route. This will be part of the URL when making API calls via the MLflow AI Gateway.
-
-* **type**: The type of the route corresponds to the type of language model interaction you desire. For instance, ``llm/v1/completions`` for text completion operations, ``llm/v1/embeddings`` for text embeddings, and ``llm/v1/chat`` for chat operations.
-
-* **model**: Defines the model to which this route will forward requests. The model contains the following details:
-
-    * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for `OpenAI`'s ``GPT-3`` models.
-    * **name**: The name of the model to use. For example, ``gpt-3.5-turbo`` for `OpenAI`'s ``GPT-3.5-Turbo`` model.
-    * **config**: Contains any additional configuration details required for the model. This includes specifying the API base URL and the API key.
-
-Here's an example of a route configuration:
-
-.. code-block:: yaml
-
-    routes:
-        - name: completions
-          type: chat/completions
-          model:
-            provider: openai
-            name: gpt-3.5-turbo
-            config:
-              openai_api_base: https://api.openai.com/v1
-              openai_api_key: $OPENAI_API_KEY
-
-In the example above, a request sent to the completions route would be forwarded to the
-``gpt-3.5-turbo`` model provided by ``openai``.
-
-The routes in the configuration file can be updated at any time, and the MLflow AI Gateway will
-automatically update its available routes without requiring a restart. This feature provides you
-with the flexibility to add, remove, or modify routes as your needs change. It enables 'hot-swapping'
-of routes, providing a seamless experience for any applications or services that interact with the MLflow AI Gateway.
-
-When defining routes in the configuration file, ensure that each name is unique to prevent conflicts.
-Duplicate route names will raise an ``MlflowException``.
-
-Models
-------
-
-The ``model`` section within a ``route`` specifies which model is to be used for generating responses.
-This configuration block needs to contain a ``name`` field which is used to specify the exact model instance to be used.
-
-Different endpoint types are often associated with specific models.
-For instance, the `llm/v1/chat` and `llm/v1/completions` endpoints are generally associated with
-conversational models, while `llm/v1/embeddings` endpoints would typically be associated with
-embedding or transformer models. The model you choose should be appropriate for the type of endpoint specified.
-
-Here's an example of a model name configuration within a route:
-
-.. code-block:: yaml
-
-    routes:
-      - name: embeddings
-        type: llm/v1/embeddings
-        model:
-          provider: openai
-          name: text-embedding-ada-002
-          config:
-            openai_api_base: https://api.openai.com/v1
-            openai_api_key: $OPENAI_API_KEY
-
-
-In the above configuration, ``text-embedding-ada-002`` is the model used for the embeddings endpoint.
-
-When specifying a model, it is critical that the provider supports the model you are requesting.
-For instance, ``openai`` as a provider supports models like ``text-embedding-ada-002``, but other providers
-may not. If the model is not supported by the provider, the MLflow AI Gateway will return an HTTP 4xx error
-when trying to route requests to that model.
-
-.. important::
-
-    Always check the latest documentation of the specified provider to ensure that the model you want
-    to use is supported for the type of endpoint you're configuring.
-
-Remember, the model you choose directly affects the results of the responses you'll get from the
-API calls. Therefore, choose a model that fits your use-case requirements. For instance,
-for generating conversational responses, you would typically choose a chat model.
-Conversely, for generating embeddings of text, you would choose an embedding model.
 
 MLflow AI Gateway API Documentation
 ===================================
