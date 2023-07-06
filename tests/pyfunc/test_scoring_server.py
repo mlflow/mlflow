@@ -578,6 +578,7 @@ def test_serving_model_with_param_schema(sklearn_model, model_path):
         model_uri=os.path.abspath(model_path),
         data=json.dumps(dataframe),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON + "; charset=UTF-8",
+        extra_args=["--env-manager", "local"],
     )
     expect_status_code(response, 200)
 
@@ -588,8 +589,14 @@ def test_serving_model_with_param_schema(sklearn_model, model_path):
         model_uri=os.path.abspath(model_path),
         data=json.dumps(payload),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON + "; charset=UTF-8",
+        extra_args=["--env-manager", "local"],
     )
     expect_status_code(response, 400)
+    assert (
+        "Failed to convert value invalid_value1 from type str to "
+        "DataType.datetime for param 'param1'"
+        in json.loads(response.content.decode("utf-8"))["message"]
+    )
 
     # Ignore parameters specified in payload if it is not defined in ParamSchema
     payload = dataframe.copy()
@@ -598,6 +605,7 @@ def test_serving_model_with_param_schema(sklearn_model, model_path):
         model_uri=os.path.abspath(model_path),
         data=json.dumps(payload),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON + "; charset=UTF-8",
+        extra_args=["--env-manager", "local"],
     )
     expect_status_code(response, 200)
 

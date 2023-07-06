@@ -1,5 +1,6 @@
 import datetime  # pylint: disable=unused-import
 from enum import Enum
+import importlib.util
 import json
 
 import numpy as np
@@ -72,7 +73,10 @@ class DataType(Enum):
         return self._python_type
 
     def get_all_types(self):
-        return [self.to_numpy(), self.to_pandas(), self.to_spark(), self.to_python()]
+        types = [self.to_numpy(), self.to_pandas(), self.to_python()]
+        if importlib.util.find_spec("pyspark") is not None:
+            types.append(self.to_spark())
+        return types
 
     @classmethod
     def get_spark_types(cls):
