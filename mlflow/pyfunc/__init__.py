@@ -877,6 +877,32 @@ def _parse_spark_datatype(datatype: str):
     return udf(lambda x: x, returnType=datatype).returnType
 
 
+def _convert_array_values(values, spark_type, spark_primitive_type_to_np_type):
+    array_dim = 1
+    elem_type = spark_type.elementType
+    if isinstance(elem_type, ArrayType):
+        elem_type = elem_type.elementType
+        if isinstance(elem_type, ArrayType):
+            raise MlflowException(
+                "Triple nested array type field in struct type is not supported: "
+                f"{spark_type.simpleString()}."
+            )
+        array_dim = 2
+
+    if type(elem_type) not in spark_primitive_type_to_np_type:
+        raise MlflowException(
+            "Unsupported array type field with element type "
+            f"{elem_type.simpleString()} in struct type.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    np_type = spark_primitive_type_to_np_type[type(elem_type)]
+
+    if array_dim == 1:
+        return [np.array(v, dtype=np_type) for v in values]
+    else:
+        return [list(np.array(v, dtype=np_type)) for v in values]
+
+
 def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -1184,31 +1210,6 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
             BooleanType: np.bool_,
             StringType: np.str_,
         }
-
-        def _convert_array_values(values, spark_type):
-            array_dim = 1
-            elem_type = spark_type.elementType
-            if isinstance(elem_type, ArrayType):
-                elem_type = elem_type.elementType
-                if isinstance(elem_type, ArrayType):
-                    raise MlflowException(
-                        "Triple nested array type field in struct type is not supported: "
-                        f"{spark_type.simpleString()}."
-                    )
-                array_dim = 2
-
-            if type(elem_type) not in spark_primitive_type_to_np_type:
-                raise MlflowException(
-                    "Unsupported array type field with element type "
-                    f"{elem_type.simpleString()} in struct type.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            np_type = spark_primitive_type_to_np_type[type(elem_type)]
-
-            if array_dim == 1:
-                return [np.array(v, dtype=np_type) for v in values]
-            else:
-                return [list(np.array(v, dtype=np_type)) for v in values]
 
         if isinstance(result_type, ArrayType) and isinstance(result_type.elementType, ArrayType):
             result_values = _convert_array_values(result, result_type)
