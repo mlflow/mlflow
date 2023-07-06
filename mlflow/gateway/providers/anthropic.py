@@ -18,7 +18,7 @@ class AnthropicProvider(BaseProvider):
             raise TypeError(f"Invalid config type {config.model.config}")
         self.anthropic_config: AnthropicConfig = config.model.config
         self.headers = {"x-api-key": self.anthropic_config.anthropic_api_key}
-        self.base_url = "https://api.anthropic.com/"
+        self.base_url = "https://api.anthropic.com/v1/"
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
