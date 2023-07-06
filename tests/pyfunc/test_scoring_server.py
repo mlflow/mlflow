@@ -20,7 +20,7 @@ from mlflow.models import ModelSignature, infer_signature
 from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
 from mlflow.pyfunc import PythonModel
 from mlflow.pyfunc.scoring_server import get_cmd
-from mlflow.types import Schema, ColSpec, DataType
+from mlflow.types import Schema, ColSpec, DataType, ParamSchema, ParamSpec
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.utils import env_manager as _EnvManager
@@ -396,7 +396,8 @@ def test_parse_json_input_records_oriented():
     }
     p1 = pd.DataFrame.from_dict(data)
     records_content = json.dumps({"dataframe_records": p1.to_dict(orient="records")})
-    p2 = pyfunc_scoring_server.infer_and_parse_json_input(records_content)
+    records_content, _ = pyfunc_scoring_server._split_data_and_params(records_content)
+    p2 = pyfunc_scoring_server.infer_and_parse_data(records_content)
     # "records" orient may shuffle column ordering. Hence comparing each column Series
     for col in data:
         assert all(p1[col] == p2[col])
@@ -411,7 +412,8 @@ def test_parse_json_input_split_oriented():
     }
     p1 = pd.DataFrame.from_dict(data)
     split_content = json.dumps({"dataframe_split": p1.to_dict(orient="split")})
-    p2 = pyfunc_scoring_server.infer_and_parse_json_input(split_content)
+    split_content, _ = pyfunc_scoring_server._split_data_and_params(split_content)
+    p2 = pyfunc_scoring_server.infer_and_parse_data(split_content)
     assert all(p1 == p2)
 
 
@@ -426,7 +428,8 @@ def test_records_oriented_json_to_df():
         ]
       }
     """
-    df = pyfunc_scoring_server.infer_and_parse_json_input(jstr)
+    jstr, _ = pyfunc_scoring_server._split_data_and_params(jstr)
+    df = pyfunc_scoring_server.infer_and_parse_data(jstr)
     assert set(df.columns) == {"zip", "cost", "score"}
     assert {str(dt) for dt in df.dtypes} == {"object", "float64", "int64"}
 
@@ -448,7 +451,8 @@ def test_split_oriented_json_to_df():
         }  
       }
     """
-    df = pyfunc_scoring_server.infer_and_parse_json_input(jstr)
+    jstr, _ = pyfunc_scoring_server._split_data_and_params(jstr)
+    df = pyfunc_scoring_server.infer_and_parse_data(jstr)
 
     assert set(df.columns) == {"zip", "cost", "count"}
     assert {str(dt) for dt in df.dtypes} == {"object", "float64", "int64"}
@@ -466,9 +470,11 @@ def test_parse_with_schema(pandas_df_with_all_types):
     schema = Schema([ColSpec(c, c) for c in pandas_df_with_all_types.columns])
     df = _shuffle_pdf(pandas_df_with_all_types)
     json_str = json.dumps({"dataframe_split": df.to_dict(orient="split")}, cls=NumpyEncoder)
-    df = pyfunc_scoring_server.infer_and_parse_json_input(json_str, schema=schema)
+    json_str, _ = pyfunc_scoring_server._split_data_and_params(json_str)
+    df = pyfunc_scoring_server.infer_and_parse_data(json_str, schema=schema)
     json_str = json.dumps({"dataframe_records": df.to_dict(orient="records")}, cls=NumpyEncoder)
-    df = pyfunc_scoring_server.infer_and_parse_json_input(json_str, schema=schema)
+    json_str, _ = pyfunc_scoring_server._split_data_and_params(json_str)
+    df = pyfunc_scoring_server.infer_and_parse_data(json_str, schema=schema)
     assert schema == infer_signature(df[schema.input_names()]).inputs
 
     # The current behavior with pandas json parse with type hints is weird. In some cases, the
@@ -494,7 +500,8 @@ def test_parse_with_schema(pandas_df_with_all_types):
             ColSpec("boolean", "bad_boolean"),
         ]
     )
-    df = pyfunc_scoring_server.infer_and_parse_json_input(bad_df, schema=schema)
+    bad_df, _ = pyfunc_scoring_server._split_data_and_params(bad_df)
+    df = pyfunc_scoring_server.infer_and_parse_data(bad_df, schema=schema)
     # Unfortunately, the current behavior of pandas parse is to force numbers to int32 even if
     # they don't fit:
     assert df["bad_integer"].dtype == np.int32
@@ -513,7 +520,7 @@ def test_parse_with_schema(pandas_df_with_all_types):
 
 def test_serving_model_with_schema(pandas_df_with_all_types):
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             return [[k, str(v)] for k, v in model_input.dtypes.items()]
 
     schema = Schema([ColSpec(c, c) for c in pandas_df_with_all_types.columns])
@@ -557,6 +564,52 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
         assert response_json == [[k, str(v)] for k, v in expected_types.items()]
 
 
+def test_serving_model_with_param_schema(sklearn_model, model_path):
+    dataframe = {
+        "dataframe_split": pd.DataFrame(sklearn_model.inference_data).to_dict(orient="split")
+    }
+    signature = infer_signature(sklearn_model.inference_data)
+    param_schema = ParamSchema([ParamSpec("param1", DataType.datetime, np.datetime64("20230701"))])
+    signature.params = param_schema
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path, signature=signature)
+
+    # Success if passing no parameters
+    response = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=json.dumps(dataframe),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON + "; charset=UTF-8",
+        extra_args=["--env-manager", "local"],
+    )
+    expect_status_code(response, 200)
+
+    # Raise error if invalid value is passed
+    payload = dataframe.copy()
+    payload.update({"params": {"param1": "invalid_value1"}})
+    response = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=json.dumps(payload),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON + "; charset=UTF-8",
+        extra_args=["--env-manager", "local"],
+    )
+    expect_status_code(response, 400)
+    assert (
+        "Failed to convert value invalid_value1 from type str to "
+        "DataType.datetime for param 'param1'"
+        in json.loads(response.content.decode("utf-8"))["message"]
+    )
+
+    # Ignore parameters specified in payload if it is not defined in ParamSchema
+    payload = dataframe.copy()
+    payload.update({"params": {"invalid_param": "value"}})
+    response = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=json.dumps(payload),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON + "; charset=UTF-8",
+        extra_args=["--env-manager", "local"],
+    )
+    expect_status_code(response, 200)
+
+
 def test_get_jsonnable_obj():
     from mlflow.pyfunc.scoring_server import _get_jsonable_obj
 
@@ -569,7 +622,7 @@ def test_get_jsonnable_obj():
 
 def test_parse_json_input_including_path():
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             return 1
 
     with mlflow.start_run() as run:

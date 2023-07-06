@@ -11,6 +11,7 @@ import time
 import platform
 import json
 import signal
+from typing import Any, Dict, Optional
 
 import mlflow
 import mlflow.version
@@ -2659,7 +2660,13 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 message=f"There was an error while retrieving the deployment: {exc}\n"
             )
 
-    def predict(self, deployment_name=None, inputs=None, endpoint=None):
+    def predict(
+        self,
+        deployment_name=None,
+        inputs=None,
+        endpoint=None,
+        params: Optional[Dict[str, Any]] = None,
+    ):
         """
         Compute predictions from the specified deployment using the provided PyFunc input.
 
@@ -2715,7 +2722,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             )
             response = sage_client.invoke_endpoint(
                 EndpointName=deployment_name,
-                Body=dump_input_data(inputs, inputs_key="instances"),
+                Body=dump_input_data(inputs, inputs_key="instances", params=params),
                 ContentType="application/json",
             )
             response_body = response["Body"].read().decode("utf-8")
