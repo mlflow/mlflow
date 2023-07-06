@@ -59,7 +59,6 @@ class AnthropicProvider(BaseProvider):
 
         payload["prompt"] = f"\n\nHuman: {payload['prompt']}\n\nAssistant:"
 
-        print("BASE URL", self.base_url)
         resp = await send_request(
             headers=self.headers,
             base_url=self.base_url,
