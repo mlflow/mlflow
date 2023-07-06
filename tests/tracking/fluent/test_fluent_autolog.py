@@ -75,6 +75,9 @@ def reset_global_states():
         except Exception:
             pass
 
+    # TODO: Remove this after releasing MLflow 2.5.0
+    mlflow.utils.import_hooks._post_import_hooks.pop("mxnet.gluon", None)
+
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
 

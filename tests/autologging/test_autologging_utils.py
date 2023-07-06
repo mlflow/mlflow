@@ -766,8 +766,9 @@ _module_version_info_dict_patch = {
         ("fastai", "2.4.1", True),
         ("fastai", "2.3.1", False),
         ("fastai", "1.0.60", False),
-        ("gluon", "1.6.1", True),
-        ("gluon", "1.5.0", False),
+        # TODO: Remove this after releasing MLflow 2.5.0
+        # ("gluon", "1.6.1", True),
+        # ("gluon", "1.5.0", False),
         ("keras", "2.2.4", True),
         ("keras", "2.2.3", False),
         ("lightgbm", "2.3.1", True),
