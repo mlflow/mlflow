@@ -37,11 +37,14 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
     batch_metrics_logger,
 )
+from mlflow.utils.annotations import deprecated
+
 
 FLAVOR_NAME = "gluon"
 _MODEL_SAVE_PATH = "net"
 
 
+@deprecated(since="2.5.0")
 def load_model(model_uri, ctx, dst_path=None):
     """
     Load a Gluon model from a local file or a run.
@@ -143,6 +146,7 @@ def _load_pyfunc(path):
     return _GluonModelWrapper(m)
 
 
+@deprecated(since="2.5.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="mxnet"))
 def save_model(
     gluon_model,
@@ -289,6 +293,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+@deprecated(since="2.5.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="mxnet"))
 def log_model(
     gluon_model,
@@ -366,6 +371,7 @@ def log_model(
     )
 
 
+@deprecated(since="2.5.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_models=True,
