@@ -21,7 +21,7 @@ jobs:
   r:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
+    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow' || (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     defaults:
       run:
         shell: bash --noprofile --norc -exo pipefail {0}

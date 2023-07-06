@@ -42,7 +42,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v3
         with:
@@ -96,6 +96,7 @@ jobs:
   # The python skinny tests cover the subset of mlflow functionality
   # while also verifying certain dependencies are omitted.
   python-skinny:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -114,6 +115,7 @@ jobs:
       - uses: ./.github/actions/untracked
 
   python:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
@@ -145,6 +147,7 @@ jobs:
       - uses: ./.github/actions/untracked
 
   database:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -216,6 +219,7 @@ jobs:
       - uses: ./.github/actions/untracked
 
   java:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -259,6 +263,7 @@ jobs:
   # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
   # run these tests in a separate job.
   models:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -286,6 +291,7 @@ jobs:
   # When the shap cross version tests are passing in a new release version of shap, this pin should
   # be removed.
   evaluate:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -309,6 +315,7 @@ jobs:
       - uses: ./.github/actions/untracked
 
   pyfunc:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -332,6 +339,7 @@ jobs:
       - uses: ./.github/actions/untracked
 
   sagemaker:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -352,6 +360,7 @@ jobs:
       - uses: ./.github/actions/untracked
 
   windows:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: windows-latest
     timeout-minutes: 120
     steps:
