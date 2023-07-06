@@ -921,7 +921,7 @@ def test_schema_enforcement_for_list_inputs():
     pd.testing.assert_frame_equal(pd_check, pd_data)
 
 
-def test_enforce_params_schema():
+def test_enforce_params_schema_with_success():
     # Correct parameters & schema
     test_parameters = {
         "str_param": "str_a",
@@ -1035,10 +1035,7 @@ def test_enforce_params_schema():
     assert _enforce_params_schema({"datetime_param": "2023-07-01 00:00:00"}, test_schema)[
         "datetime_param"
     ] == np.datetime64("2023-07-01 00:00:00")
-    with pytest.raises(
-        MlflowException, match=r"Failed to convert value 1.0 from type float to DataType.datetime"
-    ):
-        _enforce_params_schema({"datetime_param": 1.0}, test_schema)
+
     # With array
     assert (
         _enforce_params_schema(
@@ -1052,33 +1049,6 @@ def test_enforce_params_schema():
         )["datetime_array"]
         == params["datetime_array"]
     ).all()
-    with pytest.raises(
-        MlflowException, match=r"Failed to convert value 1.0 from type float to DataType.datetime"
-    ):
-        _enforce_params_schema({"datetime_array": [1.0, 2.0]}, schema)
-
-    # raise error for any other conversions
-    error_msg = r"Incompatible types for param 'int_param'"
-    with pytest.raises(MlflowException, match=error_msg):
-        _enforce_params_schema({"int_param": np.float32(1)}, test_schema)
-    with pytest.raises(MlflowException, match=error_msg):
-        _enforce_params_schema({"int_param": "1"}, test_schema)
-    with pytest.raises(MlflowException, match=error_msg):
-        _enforce_params_schema({"int_param": np.datetime64("2023-06-06")}, test_schema)
-
-    error_msg = r"Incompatible types for param 'str_param'"
-    with pytest.raises(MlflowException, match=error_msg):
-        _enforce_params_schema({"str_param": np.float32(1)}, test_schema)
-    with pytest.raises(MlflowException, match=error_msg):
-        _enforce_params_schema({"str_param": b"string"}, test_schema)
-    with pytest.raises(MlflowException, match=error_msg):
-        _enforce_params_schema({"str_param": np.datetime64("2023-06-06")}, test_schema)
-
-    # With Array
-    with pytest.raises(MlflowException, match="Incompatible types for param 'float_array'"):
-        _enforce_params_schema(
-            {"float_array": [np.float32(1), np.float32(2), np.float64(3)]}, schema
-        )
 
     # Add default values if the parameter is not provided
     test_parameters = {"a": "str_a"}
@@ -1104,6 +1074,64 @@ def test_enforce_params_schema():
     test_parameters = {1: 1.0}
     test_schema = ParamSchema([ParamSpec("1", DataType.double, 1.0)])
     assert _enforce_params_schema(test_parameters, test_schema) == {"1": 1.0}
+
+
+def test_enforce_params_schema_errors():
+    # Raise error when failing to convert value to DataType.datetime
+    test_schema = ParamSchema(
+        [ParamSpec("datetime_param", DataType.datetime, np.datetime64("2023-06-06"))]
+    )
+    with pytest.raises(
+        MlflowException, match=r"Failed to convert value 1.0 from type float to DataType.datetime"
+    ):
+        _enforce_params_schema({"datetime_param": 1.0}, test_schema)
+    # With array
+    test_schema = ParamSchema(
+        [
+            ParamSpec(
+                "datetime_array",
+                DataType.datetime,
+                np.array([np.datetime64("2023-06-06"), np.datetime64("2023-06-06")]),
+                (-1,),
+            )
+        ]
+    )
+    with pytest.raises(
+        MlflowException, match=r"Failed to convert value 1.0 from type float to DataType.datetime"
+    ):
+        _enforce_params_schema({"datetime_array": [1.0, 2.0]}, test_schema)
+
+    # Raise error when failing to convert value to DataType.float
+    test_schema = ParamSchema([ParamSpec("float_param", DataType.float, np.float32(1))])
+    with pytest.raises(MlflowException, match=r"Incompatible types for param 'float_param'"):
+        _enforce_params_schema({"float_param": "a"}, test_schema)
+    # With array
+    test_schema = ParamSchema(
+        [ParamSpec("float_array", DataType.float, np.array([np.float32(1), np.float32(2)]), (-1,))]
+    )
+    with pytest.raises(MlflowException, match=r"Incompatible types for param 'float_array'"):
+        _enforce_params_schema(
+            {"float_array": [np.float32(1), np.float32(2), np.float64(3)]}, test_schema
+        )
+
+    # Raise error for any other conversions
+    error_msg = r"Incompatible types for param 'int_param'"
+    test_schema = ParamSchema([ParamSpec("int_param", DataType.long, np.int32(1))])
+    with pytest.raises(MlflowException, match=error_msg):
+        _enforce_params_schema({"int_param": np.float32(1)}, test_schema)
+    with pytest.raises(MlflowException, match=error_msg):
+        _enforce_params_schema({"int_param": "1"}, test_schema)
+    with pytest.raises(MlflowException, match=error_msg):
+        _enforce_params_schema({"int_param": np.datetime64("2023-06-06")}, test_schema)
+
+    error_msg = r"Incompatible types for param 'str_param'"
+    test_schema = ParamSchema([ParamSpec("str_param", DataType.string, "1")])
+    with pytest.raises(MlflowException, match=error_msg):
+        _enforce_params_schema({"str_param": np.float32(1)}, test_schema)
+    with pytest.raises(MlflowException, match=error_msg):
+        _enforce_params_schema({"str_param": b"string"}, test_schema)
+    with pytest.raises(MlflowException, match=error_msg):
+        _enforce_params_schema({"str_param": np.datetime64("2023-06-06")}, test_schema)
 
     # Raise error if parameters is not dictionary
     with pytest.raises(MlflowException, match=r"Parameters must be a dictionary. Got type 'int'."):
@@ -1133,7 +1161,18 @@ def test_enforce_params_schema():
         )
 
 
-def test_param_spec():
+def test_param_spec_with_success():
+    # Normal cases
+    assert ParamSpec("a", DataType.long, 1).default == 1
+    assert ParamSpec("a", DataType.string, "1").default == "1"
+    assert ParamSpec("a", DataType.boolean, True).default is True
+    assert ParamSpec("a", DataType.double, 1.0).default == 1.0
+    assert ParamSpec("a", DataType.float, np.float32(1)).default == np.float32(1)
+    assert ParamSpec("a", DataType.datetime, np.datetime64("2023-06-06")).default == np.datetime64(
+        "2023-06-06"
+    )
+    assert ParamSpec("a", DataType.integer, np.int32(1)).default == 1
+
     # Convert default value type if it is not consistent with provided type
     # 1. int -> long, float, double
     assert ParamSpec("a", DataType.long, np.int32(1)).default == 1
@@ -1148,6 +1187,9 @@ def test_param_spec():
     assert ParamSpec("a", DataType.datetime, "2023-07-01 00:00:00").default == np.datetime64(
         "2023-07-01 00:00:00"
     )
+
+
+def test_param_spec_errors():
     # Raise error if default value can not be converted to specified type
     with pytest.raises(MlflowException, match=r"Incompatible types for param 'a'"):
         ParamSpec("a", DataType.integer, "1.0")
