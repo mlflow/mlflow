@@ -131,9 +131,7 @@ def test_model_log(h2o_iris_model):
     try:
         artifact_path = "gbm_model"
         model_info = mlflow.h2o.log_model(h2o_model=h2o_model, artifact_path=artifact_path)
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert model_info.model_uri == model_uri
         # Load model
         h2o_model_loaded = mlflow.h2o.load_model(model_uri=model_uri)
@@ -287,9 +285,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
             h2o_model=h2o_iris_model.model, artifact_path=artifact_path, conda_env=h2o_custom_env
         )
         model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
+            f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -311,9 +307,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(h2o_iris_mode
             h2o_model=h2o_iris_model.model, artifact_path=artifact_path, conda_env=h2o_custom_env
         )
         model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
+            f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         )
 
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
