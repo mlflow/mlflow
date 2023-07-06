@@ -389,9 +389,7 @@ def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run, use_dfs
             spark_model=spark_model_iris.model,
             dfs_tmpdir=dfs_tmpdir,
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
         reloaded_model = sparkm.load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmpdir)
         preds_df = reloaded_model.transform(spark_model_iris.spark_df)
@@ -468,9 +466,7 @@ def test_sparkml_estimator_model_log(
             spark_model=spark_model_estimator.model,
             dfs_tmpdir=dfs_tmpdir,
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
         reloaded_model = sparkm.load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmpdir)
         preds_df = reloaded_model.transform(spark_model_estimator.spark_df)
@@ -492,9 +488,7 @@ def test_log_model_calls_register_model(tmp_path, spark_model_iris):
             dfs_tmpdir=dfs_tmp_dir,
             registered_model_name="AdsModel1",
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         mlflow.register_model.assert_called_once_with(
             model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
         )
@@ -651,9 +645,7 @@ def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_director
             artifact_path=artifact_path,
             conda_env=spark_custom_env,
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert model_info.model_uri == model_uri
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -679,9 +671,7 @@ def test_sparkml_model_log_persists_requirements_in_mlflow_model_directory(
             artifact_path=artifact_path,
             conda_env=spark_custom_env,
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")

@@ -1,0 +1,11 @@
+name: "pipdeptree"
+description: "pipdeptree"
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      run: |
+        pip install pipdeptree
+    - shell: bash
+      run: |
+        pipdeptree --all

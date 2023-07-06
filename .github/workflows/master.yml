@@ -59,6 +59,7 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh --ml
           pip install -r requirements/lint-requirements.txt
+      - uses: ./.github/actions/pipdeptree
       - name: Test custom pylint-plugins
         run: |
           pytest pylint_plugins/tests
@@ -133,6 +134,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --ml
+      - uses: ./.github/actions/pipdeptree
       - name: Import check
         run: |
           python tests/check_mlflow_lazily_imports_ml_packages.py
@@ -227,6 +229,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
+      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           cd mlflow/java
@@ -248,6 +251,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --ml
+      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           ./dev/run-python-flavor-tests.sh;
@@ -270,6 +274,7 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install pyspark
+      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
@@ -296,6 +301,7 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install pyspark "numpy<1.24.0"
+      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
@@ -318,6 +324,7 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install tensorflow pyspark
+      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
@@ -338,6 +345,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --ml
+      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           ./dev/run-python-sagemaker-tests.sh;
@@ -366,6 +374,7 @@ jobs:
           pip install datasets
           # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
           pip install tensorflow
+      - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils /tmp/winutils
