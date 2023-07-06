@@ -2,14 +2,12 @@ from mlflow.gateway import query, set_gateway_uri
 
 
 def main():
-    gateway_uri = "http://localhost:5000"
-
-    # Using the fluent API
-    set_gateway_uri(gateway_uri)
+    # Set the URI for the MLflow AI Gateway
+    set_gateway_uri("http://localhost:5000")
 
     # Completions request
     response_completions = query(
-        route="completions-claude",
+        route="completions",
         data={
             "prompt": "How many average size European ferrets can fit inside a standard olympic "
             "size swimming pool?",

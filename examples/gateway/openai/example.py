@@ -1,13 +1,9 @@
-import json
-import requests
-from mlflow.gateway import query, set_gateway_uri, MlflowGatewayClient
+from mlflow.gateway import query, set_gateway_uri
 
 
 def main():
-    gateway_uri = "http://localhost:5000"
-
-    # Using the fluent API
-    set_gateway_uri(gateway_uri)
+    # Set the URI for the MLflow AI Gateway
+    set_gateway_uri("http://localhost:5000")
 
     # Completions example
     response_completions = query(
@@ -22,7 +18,7 @@ def main():
 
     # Chat example
     response_chat = query(
-        route="completions",
+        route="chat",
         data={
             "messages": [
                 {

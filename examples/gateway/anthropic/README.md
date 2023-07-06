@@ -1,20 +1,6 @@
 ## Example route configuration for Anthropic
 
-To set up your MLflow configuration file, include a single route for the completions endpoint as follows:
-
-```yaml
-routes:
-  - name: completions-claude
-    route_type: llm/v1/completions
-    model:
-      provider: anthropic
-      name: claude-1.3-100k
-      config:
-        anthropic_api_base: https://api.anthropic.com/v1
-        anthropic_api_key: $ANTHROPIC_API_KEY
-```
-
-Please replace `$ANTHROPIC_API_KEY` with your actual Anthropic API Key, which you will generate in the next step.
+To set up your MLflow configuration file, include a single route for the completions endpoint as shown in the [anthropic configuration](config.yaml) YAML file.
 
 ## Obtaining and Setting the Anthropic API Key
 

@@ -5,7 +5,7 @@ routes:
       provider: cohere
       name: command
       config:
-        api_key: $COHERE_API_KEY
+        cohere_api_key: $COHERE_API_KEY
 
   - name: embeddings
     route_type: llm/v1/embeddings
@@ -13,4 +13,4 @@ routes:
       provider: cohere
       name: embed-english-light-v2.0
       config:
-        api_key: $COHERE_API_KEY
+        cohere_api_key: $COHERE_API_KEY

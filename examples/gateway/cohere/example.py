@@ -2,10 +2,8 @@ from mlflow.gateway import query, set_gateway_uri
 
 
 def main():
-    gateway_uri = "http://localhost:5000"
-
-    # Using the fluent API
-    set_gateway_uri(gateway_uri)
+    # Set the URI for the MLflow AI Gateway
+    set_gateway_uri("http://localhost:5000")
 
     # Completions request
     response_completions = query(

@@ -1,5 +1,5 @@
 routes:
-  - name: completions-claude
+  - name: completions
     route_type: llm/v1/completions
     model:
       provider: anthropic

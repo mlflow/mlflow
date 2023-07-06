@@ -1,18 +1,8 @@
 ## Example route configuration for OpenAI
 
-Create or modify your MLflow configuration file. It should include a single route, for instance, to the `completions` endpoint. The structure of the configuration file should look like this:
+To view an example of OpenAI route configurations, see [the configuration example](config.yaml) YAML file for OpenAI.
 
-```yaml
-routes:
-  - name: completions
-    route_type: llm/v1/completions
-    model:
-      provider: openai
-      name: gpt-4
-      config:
-        openai_api_base: https://api.openai.com/v1
-        openai_api_key: $OPENAI_API_KEY
-```
+This configuration shows all 3 supported endpoint types: chat, completions, and embeddings.
 
 ## Setting the OpenAI API Key
 

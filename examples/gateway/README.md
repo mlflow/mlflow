@@ -40,10 +40,10 @@ Each provider has a distinct set of allowable route types (i.e., chat, completio
 specific requirements for the initialization of the routes to interface with their services.
 For full examples of configurations and supported route types, see:
 
-- [OpenAI](./openai.yaml)
-- [Anthropic](./anthropic.yaml)
-- [Cohere](./cohere.yaml)
-- [AzureOpenAI](./azure_openai.yaml)
+- [OpenAI](openai/config.yaml)
+- [Anthropic](anthropic/config.yaml)
+- [Cohere](cohere/config.yaml)
+- [AzureOpenAI](azure_openai/config.yaml)
 
 ## Step 3: Setting Access Keys
 
@@ -52,10 +52,10 @@ See information on specific methods of obtaining and setting the access keys wit
 ## Step 4: Starting the MLflow Gateway Service
 
 With the MLflow configuration file in place and access key(s) set, you can now start the MLflow Gateway service.
-Replace `config.yaml` with the actual path to your MLflow configuration file:
+Replace `<provider>` with the actual path to the MLflow configuration file for the provider of your choice:
 
 ```sh
-mlflow gateway start --config-path examples/gateway/config.yaml
+mlflow gateway start --config-path examples/gateway/<provider>/config.yaml
 ```
 
 ## Step 5: Accessing the Interactive API Documentation
@@ -70,5 +70,5 @@ After successfully setting up the MLflow Gateway Service, you can send a test re
 Replace <provider> with the name of the provider example test script that you'd like to use:
 
 ```sh
-python examples/gateway/<provider>/<provider>_example.py
+python examples/gateway/<provider>/example.py
 ```
