@@ -74,7 +74,6 @@ def mixed_config_dict():
                     "provider": "anthropic",
                     "name": "claude-instant-1",
                     "config": {
-                        "anthropic_api_base": "https://api.anthropic.com/v1",
                         "anthropic_api_key": "key",
                     },
                 },

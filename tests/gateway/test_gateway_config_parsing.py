@@ -166,7 +166,6 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
     assert claude.model.provider == "anthropic"
     claude_conf = claude.model.config
     assert claude_conf.anthropic_api_key == "api_key"
-    assert claude_conf.anthropic_api_base == "https://api.anthropic.com/"
 
 
 def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
