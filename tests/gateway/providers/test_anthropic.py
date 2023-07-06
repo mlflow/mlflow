@@ -32,7 +32,6 @@ def completions_config():
             "provider": "anthropic",
             "name": "claude-instant-1",
             "config": {
-                "anthropic_api_base": "https://api.anthropic.com/v1",
                 "anthropic_api_key": "key",
             },
         },
@@ -152,7 +151,6 @@ def chat_config():
             "provider": "anthropic",
             "name": "claude-instant-1",
             "config": {
-                "anthropic_api_base": "https://api.anthropic.com/v1",
                 "anthropic_api_key": "key",
             },
         },
@@ -181,7 +179,6 @@ def embedding_config():
             "provider": "anthropic",
             "name": "claude-1.3-100k",
             "config": {
-                "anthropic_api_base": "https://api.anthropic.com/v1",
                 "anthropic_api_key": "key",
             },
         },

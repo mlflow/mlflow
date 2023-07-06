@@ -37,7 +37,6 @@ class RouteType(str, Enum):
 
 class CohereConfig(ConfigModel):
     cohere_api_key: str
-    cohere_api_base: str = "https://api.cohere.ai/v1"
 
     # pylint: disable=no-self-argument
     @validator("cohere_api_key", pre=True)
@@ -110,7 +109,6 @@ class OpenAIConfig(ConfigModel):
 
 class AnthropicConfig(ConfigModel):
     anthropic_api_key: str
-    anthropic_api_base: str = "https://api.anthropic.com/"
 
     # pylint: disable=no-self-argument
     @validator("anthropic_api_key", pre=True)
