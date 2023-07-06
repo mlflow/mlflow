@@ -100,11 +100,20 @@ routes that the Gateway service should expose. Let's create a file with three ro
             openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
+.. note::
+
+    Route configuration management on Databricks is handled differently than in Open Source MLflow.
+    See :ref:`route creation and deletion in Databricks <databricks_gateway_crud>` for guidance and examples.
+
 Save this file to a location on the system that is going to be running the MLflow AI Gateway server.
 
 Step 4: Start the Gateway Service
 ---------------------------------
 You're now ready to start the Gateway service!
+
+.. note::
+
+    Databricks does not require manual starting of the MLflow AI Gateway server. After a route is created, it is ready to receive traffic.
 
 Use the MLflow AI Gateway ``start`` command and specify the path to your configuration file:
 
@@ -381,6 +390,73 @@ The MLflow AI Gateway service relies on a user-provided configuration file, writ
 that defines the routes and providers available to the service. The configuration file dictates
 how the gateway interacts with various language model providers and determines the end-points that
 users can access.
+
+.. note::
+
+    The configuration for the MLflow AI Gateway on `Databricks` is not performed with the use of a YAML configuration file. Rather, there are specific APIs that are used for management of the AI Gateway routes within `Databricks`.
+    See details on creating and deleting routes on `Databricks` :ref:`here <databricks_gateway_crud>`.
+
+.. _databricks_gateway_crud:
+
+AI Gateway Configuration on Databricks
+--------------------------------------
+
+The MLflow AI Gateway on Databricks does not utilize YAML configuration files for CRUD operations with routes. Instead, there are specific API endpoints that are used to create, updated, and delete
+routes that will manage request traffic to LLM providers and services.
+
+Creating a Route in Databricks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When using the MLflow AI Gateway on Databricks, the creation of a route is not handled through a YAML configuration.
+Instead, there is an endpoint available to create a route from a provided dictionary-based configuration.
+
+* ``POST /api/2.0/gateway/routes`` **Databricks-only API** [CreateRoute]: This endpoint creates a new route based on the provided configuration.
+
+An example usage of the ``CreateRoute`` API in Databricks to construct a new completions-based route using ``text-davinci-003`` in OpenAI is shown below:
+
+.. code-block:: python
+
+    import requests
+    from mlflow.gateway import MlflowGatewayClient
+
+    client = MlflowGatewayClient("databricks")
+
+    openai_api_key = ...
+    new_route = gateway_client.create_route(
+        "my-new-route",
+        "llm/v1/completions",
+        {
+            "name": "question-answering-bot-1",
+            "provider": "openai",
+            "config": {
+                "openai_api_key": openai_api_key,
+                "openai_api_version": "2023-05-10",
+                "openai_api_type": "openai/v1/chat/completions",
+            },
+        },
+    )
+
+
+After executing, the route ``https://<your workspace>.databricks.com/api/2.0/gateway/routes/my-completions/invocations`` can be queried directly through REST or can be interacted with
+via the the client or fluent APIs, just as in Open Source MLflow.
+
+Deleting a Route in Databricks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In order to remove a configured route from the MLflow AI Gateway server on Databricks, a management endpoint for deletion is available that will delete a route based on
+its configured ``name``.
+
+* ``DELETE /api/2.0/gateway/routes`` **Databricks-only API** [DeleteRoute]: This endpoint deletes a route from the AI Gateway service based on the provided name.
+
+An example usage of the ``DeleteRoute`` API in Databricks is:
+
+.. code-block:: python
+
+    from mlflow.gateway import MlflowGatewayClient
+
+    gateway_client = MlflowGatewayClient("databricks")
+    gateway_client.delete_route("my-existing-route")
+
 
 AI Gateway Configuration
 ------------------------
