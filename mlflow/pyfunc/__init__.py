@@ -910,29 +910,23 @@ def _convert_array_values(values, spark_type, spark_primitive_type_to_np_type):
         return [list(np.array(v, dtype=np_type)) for v in values]
 
 
-def _get_spark_primitive_type():
-    from pyspark.sql.types import (
-        IntegerType,
-        LongType,
-        FloatType,
-        DoubleType,
-        StringType,
-        BooleanType,
-    )
+def _get_spark_primitive_types():
+    from pyspark.sql import types
+
     return (
-        IntegerType,
-        LongType,
-        FloatType,
-        DoubleType,
-        StringType,
-        BooleanType,
+        types.IntegerType,
+        types.LongType,
+        types.FloatType,
+        types.DoubleType,
+        types.StringType,
+        types.BooleanType,
     )
 
 
 def _check_udf_return_struct_type(struct_type):
     from pyspark.sql.types import StructType, ArrayType
 
-    primitive_types = _get_spark_primitive_type()
+    primitive_types = _get_spark_primitive_types()
 
     for field in struct_type.fields:
         field_type = field.dataType
@@ -940,7 +934,7 @@ def _check_udf_return_struct_type(struct_type):
         if isinstance(field_type, primitive_types):
             pass
         elif isinstance(field_type, ArrayType):
-            _check_udf_return_array_type(field_type, allow_nested_struct=False)
+            _check_udf_return_array_type(field_type, parent_struct_type=struct_type)
         else:
             raise MlflowException(
                 f"'spark_udf' return type does not support field type {field_type} "
@@ -949,24 +943,26 @@ def _check_udf_return_struct_type(struct_type):
             )
 
 
-def _check_udf_return_array_type(array_type, allow_nested_struct):
+def _check_udf_return_array_type(array_type, parent_struct_type):
     from pyspark.sql.types import ArrayType, StructType
 
     elem_type = array_type.elementType
-    primitive_types = _get_spark_primitive_type()
+    primitive_types = _get_spark_primitive_types()
 
     if isinstance(elem_type, primitive_types):
         # 1D array
         return
 
     if isinstance(elem_type, StructType):
-        if allow_nested_struct:
+        if parent_struct_type is None:
             # Array of struct values.
             _check_udf_return_struct_type(elem_type)
             return
 
         raise MlflowException(
-            f"'spark_udf' return type does not support struct type nesting struct type.",
+            "'spark_udf' return type does not support struct type nesting struct type.",
+            f"but the parent struct type {parent_struct_type} contains nested struct type "
+            f"{elem_type}.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -988,12 +984,12 @@ def _check_udf_return_array_type(array_type, allow_nested_struct):
 def _check_udf_return_type(data_type):
     from pyspark.sql.types import ArrayType, StructType
 
-    primitive_types = _get_spark_primitive_type()
+    primitive_types = _get_spark_primitive_types()
     if isinstance(data_type, primitive_types):
         return
 
     if isinstance(data_type, ArrayType):
-        _check_udf_return_array_type(data_type, allow_nested_struct=True)
+        _check_udf_return_array_type(data_type, parent_struct_type=None)
         return
 
     if isinstance(data_type, StructType):
