@@ -993,20 +993,20 @@ def _check_udf_return_type(data_type):
         return
 
     raise MlflowException(
-        f"Invalid data type: {data_type}, 'spark_udf' return type must be one of following "
-        "types:\n"
-        "Primitive types:"
-        " - int"
-        " - long"
-        " - float"
-        " - double"
-        " - string"
-        " - bool"
-        "Compound types:"
-        " - array<primitive-type>"
-        " - array<array<primitive-type>>"
-        " - struct<field<primitive-type or array<primitive-type>>, ...>"
-        " - array<struct<field<primitive-type>, ...>>"
+        f"""Invalid data type: {data_type}, 'spark_udf' return type must be one of following types:
+Primitive types:
+ - int
+ - long
+ - float
+ - double
+ - string
+ - bool
+or compound types such as:
+ - array<primitive-type>
+ - array<array<primitive-type>>
+ - struct<field<primitive-type or array<primitive-type>>, ...>
+ - array<struct<field<primitive-type>, ...>>
+Please check the provided data type."""
     )
 
 
