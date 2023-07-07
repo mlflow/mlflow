@@ -218,16 +218,6 @@ def save_model(
         mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    else:
-        input_columns = [
-            ColSpec(type=DataType.string, name=input_key) for input_key in lc_model.input_keys
-        ]
-        input_schema = Schema(input_columns)
-        output_columns = [
-            ColSpec(type=DataType.string, name=output_key) for output_key in lc_model.output_keys
-        ]
-        output_schema = Schema(output_columns)
-        mlflow_model.signature = ModelSignature(input_schema, output_schema)
 
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
@@ -468,6 +458,18 @@ def log_model(
                     unserializable_object=unserializable_object_name_map[type(lc_model).__name__]
                 )
             )
+
+    # infer signature if signature is not provided
+    if signature is None:
+        input_columns = [
+            ColSpec(type=DataType.string, name=input_key) for input_key in lc_model.input_keys
+        ]
+        input_schema = Schema(input_columns)
+        output_columns = [
+            ColSpec(type=DataType.string, name=output_key) for output_key in lc_model.output_keys
+        ]
+        output_schema = Schema(output_columns)
+        signature = ModelSignature(input_schema, output_schema)
 
     return Model.log(
         artifact_path=artifact_path,
