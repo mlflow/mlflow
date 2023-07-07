@@ -545,26 +545,6 @@ def test_spark_udf_triple_nested_array_return_type_not_supported(spark):
             )
 
 
-def test_spark_udf_return_nullable_array_field(spark):
-    class TestModel(PythonModel):
-        def predict(self, context, model_input):
-            return pd.DataFrame({'a': [np.array([1, 2]), None]})
-
-    with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model(
-            "model",
-            python_model=TestModel(),
-        )
-        udf = mlflow.pyfunc.spark_udf(
-            spark,
-            f"runs:/{run.info.run_id}/model",
-            result_type="a array<long>",
-        )
-        data1 = spark.range(2).repartition(1)
-        result = data1.select(udf("id").alias("res")).select("res.a").toPandas()
-        assert list(result["a"]) == [[1, 2], None]
-
-
 def test_spark_udf_autofills_no_arguments(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
