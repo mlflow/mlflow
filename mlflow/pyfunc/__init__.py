@@ -1209,9 +1209,9 @@ Primitive types:
  - boolean
 or compound types:
  - array<primitive>: An array of primitives, e.g., array<int>.
- - array<array<primitive>>: A double nested array type consists of primitive type elements,
-   e.g., array<array<int>>.
- - struct<...>: A struct type, its field type can be primitive, array<primitive>,
+ - array<array<primitive>>: A 2D array of primitives, e.g., array<array<int>>.
+ - struct<field: primitive | array<primitive> | array<array<primitive>>, ...>:
+   A struct type, its field type can be primitive, array<primitive>,
    or array<array<primitive>>, e.g., struct<a:int,b:array<int>>.
  - array<struct<...>>: An array of structs, e.g., array<struct<a:int,b:array<int>>>.
 """
