@@ -978,6 +978,8 @@ def _check_udf_return_type(data_type):
     if isinstance(data_type, StructType):
         return _check_udf_return_struct_type(data_type)
 
+    return False
+
 
 def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL):
     """
@@ -1206,11 +1208,12 @@ Primitive types:
  - string
  - boolean
 or compound types:
- - array<primitive>: An array of primitives
- - array<array<primitive>>: A double nested array type consists of primitive type elements.
+ - array<primitive>: An array of primitives, e.g., array<int>.
+ - array<array<primitive>>: A double nested array type consists of primitive type elements,
+   e.g., array<array<int>>.
  - struct<...>: A struct type, its field type can be primitive, array<primitive>,
-   or array<array<primitive>>.
- - array<struct<...>>: An array of structs.
+   or array<array<primitive>>, e.g., struct<a:int,b:array<int>>.
+ - array<struct<...>>: An array of structs, e.g., array<struct<a:int,b:array<int>>>.
 """
         )
 

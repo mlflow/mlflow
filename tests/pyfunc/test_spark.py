@@ -321,8 +321,8 @@ def test_spark_udf_colspec_struct_return_type_inference(spark):
                 "r4": ["abc"] * input_len,
             }
 
-    with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model(
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
             "model",
             python_model=TestModel(),
             signature=ModelSignature(
@@ -338,10 +338,7 @@ def test_spark_udf_colspec_struct_return_type_inference(spark):
             ),
         )
 
-        udf = mlflow.pyfunc.spark_udf(
-            spark,
-            f"runs:/{run.info.run_id}/model",
-        )
+        udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri)
 
         data1 = spark.range(2).repartition(1)
         result_spark_df = data1.withColumn("res", udf("id")).select(
@@ -375,8 +372,8 @@ def test_spark_udf_tensorspec_struct_return_type_inference(spark):
                 "r5": np.array([[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]] * input_len),
             }
 
-    with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model(
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
             "model",
             python_model=TestModel(),
             signature=ModelSignature(
@@ -393,10 +390,7 @@ def test_spark_udf_tensorspec_struct_return_type_inference(spark):
             ),
         )
 
-        udf = mlflow.pyfunc.spark_udf(
-            spark,
-            f"runs:/{run.info.run_id}/model",
-        )
+        udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri)
 
         data1 = spark.range(2).repartition(1)
         result_spark_df = data1.withColumn("res", udf("id")).select(
@@ -429,8 +423,8 @@ def test_spark_udf_single_1d_array_return_type_inference(spark):
             input_len = len(model_input)
             return [[1, 2]] * input_len
 
-    with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model(
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
             "model",
             python_model=TestModel(),
             signature=ModelSignature(
@@ -443,10 +437,7 @@ def test_spark_udf_single_1d_array_return_type_inference(spark):
             ),
         )
 
-        udf = mlflow.pyfunc.spark_udf(
-            spark,
-            f"runs:/{run.info.run_id}/model",
-        )
+        udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri)
 
         data1 = spark.range(2).repartition(1)
         result_spark_df = data1.select(udf("id").alias("res"))
@@ -461,8 +452,8 @@ def test_spark_udf_single_2d_array_return_type_inference(spark):
             input_len = len(model_input)
             return [np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])] * input_len
 
-    with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model(
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
             "model",
             python_model=TestModel(),
             signature=ModelSignature(
@@ -475,10 +466,7 @@ def test_spark_udf_single_2d_array_return_type_inference(spark):
             ),
         )
 
-        udf = mlflow.pyfunc.spark_udf(
-            spark,
-            f"runs:/{run.info.run_id}/model",
-        )
+        udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri)
 
         data1 = spark.range(2).repartition(1)
         result_spark_df = data1.select(udf("id").alias("res"))
@@ -495,8 +483,8 @@ def test_spark_udf_single_long_return_type_inference(spark):
             input_len = len(model_input)
             return [12] * input_len
 
-    with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model(
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
             "model",
             python_model=TestModel(),
             signature=ModelSignature(
@@ -509,10 +497,7 @@ def test_spark_udf_single_long_return_type_inference(spark):
             ),
         )
 
-        udf = mlflow.pyfunc.spark_udf(
-            spark,
-            f"runs:/{run.info.run_id}/model",
-        )
+        udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri)
 
         data1 = spark.range(2).repartition(1)
         result_spark_df = data1.select(udf("id").alias("res"))
@@ -536,6 +521,9 @@ def test_check_spark_udf_return_type(spark):
     assert not _check("struct<x: struct<a: long, b: boolean>>")
     assert not _check("struct<x: array<struct<a: long, b: boolean>>>")
     assert not _check("struct<a: array<struct<a: int>>>")
+    assert not _check("timestamp")
+    assert not _check("array<timestamp>")
+    assert not _check("struct<a: int, b: timestamp>")
 
 
 def test_spark_udf_autofills_no_arguments(spark):
