@@ -427,7 +427,6 @@ class UcModelRegistryStore(BaseRestStore):
             return None
         return run.data.tags.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
 
-<<<<<<< HEAD
     def _validate_model_signature(self, local_model_path):
         # Import Model here instead of in the top level, to avoid circular import; the
         # mlflow.models.model module imports from MLflow tracking, which triggers an import of
@@ -444,10 +443,6 @@ class UcModelRegistryStore(BaseRestStore):
                 "model signature (https://mlflow.org/docs/latest/models.html#model-signature) "
                 "specifying both input and output type specifications."
             ) from e
-=======
-    def _validate_model_signature(self, local_model_dir):
-        model = _load_model(local_model_dir)
->>>>>>> master
         signature_required_explanation = (
             "All models in the Unity Catalog must be logged with a "
             "model signature containing both input and output "
