@@ -426,10 +426,9 @@ class PyFuncModel:
                 params_schema = self.metadata.get_params_schema()
                 params = _enforce_params_schema(params, params_schema)
             else:
-                raise MlflowException(
+                raise MlflowException.invalid_parameter_value(
                     "Model with no params schema does not support params in predict. "
                     "Please log the model with mlflow > 2.4.1.",
-                    INVALID_PARAMETER_VALUE,
                 )
 
         if "openai" in sys.modules and MLFLOW_OPENAI_RETRIES_ENABLED.get():
@@ -1099,9 +1098,15 @@ def spark_udf(
 
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
-    params_schema = model_metadata.get_params_schema()
     if params:
-        params = _enforce_params_schema(params, params_schema)
+        if hasattr(model_metadata, "get_params_schema"):
+            params_schema = model_metadata.get_params_schema()
+            params = _enforce_params_schema(params, params_schema)
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "Model with no params schema does not support params in predict. "
+                "Please log the model with mlflow > 2.4.1.",
+            )
 
     def _predict_row_batch(predict_fn, args):
         input_schema = model_metadata.get_input_schema()
