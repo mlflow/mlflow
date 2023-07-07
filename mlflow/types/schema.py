@@ -8,7 +8,7 @@ import numpy as np
 import string
 from typing import Dict, Any, List, Union, Optional, Tuple, TypedDict
 
-from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
+from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 
 
@@ -480,10 +480,9 @@ class ParamSpec:
             self._type = DataType[type] if isinstance(type, str) else type
         except KeyError:
             supported_types = [t.name for t in DataType if t.name != "binary"]
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 f"Unsupported type '{type}', expected instance of DataType or "
                 f"one of {supported_types}",
-                INVALID_PARAMETER_VALUE,
             )
         if not isinstance(self.type, DataType):
             raise TypeError(
@@ -491,10 +490,9 @@ class ParamSpec:
                 f"argument, but got {self.type.__class__}"
             )
         if self.type == DataType.binary:
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 f"Binary type is not supported for parameters, ParamSpec '{self.name}'"
                 "has type 'binary'",
-                INVALID_PARAMETER_VALUE,
             )
 
         # This line makes sure repr(self) works fine
@@ -528,22 +526,21 @@ class ParamSpec:
         :param t: expected data type
         """
         if value is None:
-            return value
+            return
 
         if t == DataType.datetime:
             try:
                 return np.datetime64(value).item()
             except ValueError as e:
-                raise MlflowException(
+                raise MlflowException.invalid_parameter_value(
                     f"Failed to convert value {value} from type {type(value).__name__} "
-                    f"to {t} for param {name}",
-                    INVALID_PARAMETER_VALUE,
+                    f"to {t} for param {name}"
                 ) from e
 
         # Note that np.isscalar(datetime.date(...)) is False
         if not np.isscalar(value):
-            raise MlflowException(
-                f"Value should be a scalar for param {name}, got {value}", INVALID_PARAMETER_VALUE
+            raise MlflowException.invalid_parameter_value(
+                f"Value should be a scalar for param {name}, got {value}"
             )
 
         # Always convert to python native type for params
@@ -558,16 +555,14 @@ class ParamSpec:
             try:
                 return DataType[t.name].to_python()(value)
             except ValueError as e:
-                raise MlflowException(
+                raise MlflowException.invalid_parameter_value(
                     f"Failed to convert value {value} from type {type(value).__name__} "
-                    f"to {t} for param {name}",
-                    INVALID_PARAMETER_VALUE,
+                    f"to {t} for param {name}"
                 ) from e
 
-        raise MlflowException(
+        raise MlflowException.invalid_parameter_value(
             f"Incompatible types for param {name}. Can not safely convert {type(value).__name__} "
             f"to {t}.",
-            INVALID_PARAMETER_VALUE,
         )
 
     @classmethod
@@ -583,29 +578,23 @@ class ParamSpec:
         """
 
         def _is_1d_array(value):
-            if not isinstance(value, (list, np.ndarray)):
-                return False
-            if np.array(value).ndim == 1:
-                return True
-            return False
+            return isinstance(value, (list, np.ndarray)) and np.array(value).ndim == 1
 
         if shape is None:
             return cls.enforce_param_datatype(f"{spec} with shape None", value, value_type)
         elif shape == (-1,):
             if not _is_1d_array(value):
-                raise MlflowException(
+                raise MlflowException.invalid_parameter_value(
                     f"Value must be a 1D array with shape (-1,) for param {spec}, "
                     f"received {type(value).__name__} with ndim {np.array(value).ndim}",
-                    INVALID_PARAMETER_VALUE,
                 )
             return [
                 cls.enforce_param_datatype(f"{spec} internal values", v, value_type) for v in value
             ]
         else:
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 "Shape must be None for scalar value or (-1,) for 1D array value "
                 f"for ParamSpec {spec}), received {shape}",
-                INVALID_PARAMETER_VALUE,
             )
 
     @property
@@ -676,10 +665,9 @@ class ParamSpec:
         The dictionary is expected to contain `name`, `type` and `default` keys.
         """
         if not {"name", "type", "default"} <= set(kwargs.keys()):
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 "Missing keys in ParamSpec JSON. Expected to find "
                 "keys `name`, `type` and `default`",
-                INVALID_PARAMETER_VALUE,
             )
         return cls(
             name=str(kwargs["name"]),
@@ -698,12 +686,12 @@ class ParamSchema:
 
     def __init__(self, params: List[ParamSpec]):
         if not all(isinstance(x, ParamSpec) for x in params):
-            raise MlflowException(
-                f"ParamSchema inputs only accept {ParamSchema.__class__}", INVALID_PARAMETER_VALUE
+            raise MlflowException.invalid_parameter_value(
+                f"ParamSchema inputs only accept {ParamSchema.__class__}"
             )
         if duplicates := self._find_duplicates(params):
-            raise MlflowException(
-                f"Duplicated parameters found in schema: {duplicates}", INVALID_PARAMETER_VALUE
+            raise MlflowException.invalid_parameter_value(
+                f"Duplicated parameters found in schema: {duplicates}"
             )
         self._params = params
 

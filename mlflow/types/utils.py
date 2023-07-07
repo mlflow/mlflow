@@ -480,9 +480,8 @@ def _infer_type_and_shape(value):
     if isinstance(value, (list, np.ndarray, pd.Series)):
         ndim = np.array(value).ndim
         if ndim != 1:
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 f"Expected parameters to be 1D array or scalar, got {ndim}D array",
-                INVALID_PARAMETER_VALUE,
             )
         if all(DataType.is_datetime(v) for v in value):
             return DataType.datetime, (-1,)
@@ -495,20 +494,18 @@ def _infer_type_and_shape(value):
             value_type = _infer_numpy_dtype(np.array(value).dtype)
             return value_type, None
         except (Exception, MlflowException) as e:
-            raise MlflowException(
-                f"Failed to infer schema for parameter {value}: {e!r}", INVALID_PARAMETER_VALUE
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to infer schema for parameter {value}: {e!r}"
             )
-    raise MlflowException(
+    raise MlflowException.invalid_parameter_value(
         f"Expected parameters to be 1D array or scalar, got {type(value).__name__}",
-        INVALID_PARAMETER_VALUE,
     )
 
 
 def _infer_param_schema(parameters: Dict[str, Any]):
     if not isinstance(parameters, dict):
-        raise MlflowException(
+        raise MlflowException.invalid_parameter_value(
             f"Expected parameters to be dict, got {type(parameters).__name__}",
-            INVALID_PARAMETER_VALUE,
         )
 
     param_specs = []
@@ -521,9 +518,8 @@ def _infer_param_schema(parameters: Dict[str, Any]):
             invalid_params.append((name, value, e))
 
     if invalid_params:
-        raise MlflowException(
+        raise MlflowException.invalid_parameter_value(
             f"Failed to infer schema for parameters: {invalid_params}",
-            INVALID_PARAMETER_VALUE,
         )
 
     return ParamSchema(param_specs)
