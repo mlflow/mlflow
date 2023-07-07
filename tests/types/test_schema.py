@@ -702,6 +702,42 @@ def test_datatype_type_check():
     assert not DataType.is_datetime("2023-06-26 00:00:00")
 
 
+def test_param_schema_find_duplicates():
+    with pytest.raises(
+        MlflowException, match=re.escape("Duplicated parameters found in schema: ['param1']")
+    ):
+        ParamSchema(
+            [
+                ParamSpec("param1", DataType.string, "default1", None),
+                ParamSpec("param1", DataType.string, "default1", None),
+                ParamSpec("param2", DataType.string, "default2", None),
+            ]
+        )
+
+    with pytest.raises(
+        MlflowException, match=re.escape("Duplicated parameters found in schema: ['param1']")
+    ):
+        ParamSchema(
+            [
+                ParamSpec("param1", DataType.string, "default1", None),
+                ParamSpec("param2", DataType.string, "default2", None),
+                ParamSpec("param1", DataType.string, "default1", None),
+            ]
+        )
+
+    with pytest.raises(
+        MlflowException, match=re.escape("Duplicated parameters found in schema: ['param3']")
+    ):
+        ParamSchema(
+            [
+                ParamSpec("param1", DataType.string, "default1", None),
+                ParamSpec("param2", DataType.string, "default2", None),
+                ParamSpec("param3", DataType.string, "default3", None),
+                ParamSpec("param3", DataType.string, "default3", None),
+            ]
+        )
+
+
 def test_param_spec_to_and_from_dict():
     spec = ParamSpec("str_param", DataType.string, "str_a", None)
     assert spec.to_dict() == {
