@@ -1236,7 +1236,7 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
                 if len(args) != 1:
                     raise Exception(
                         "If passing a StructType column, there should be only one "
-                        "input column, but got %d" % len(args)
+                        f"input column, but got {len(args)}."
                     )
                 pdf = x
         if pdf is None:
