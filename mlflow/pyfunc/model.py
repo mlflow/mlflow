@@ -65,6 +65,13 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+def _log_warning_if_params_not_in_predict_signature(logger, params):
+    logger.warning(
+        "The underlying model does not support passing additional parameters to the predict"
+        f" function. `params` {params} will be ignored."
+    )
+
+
 class PythonModel:
     """
     Represents a generic Python model that evaluates inputs and produces API-compatible outputs.
@@ -137,6 +144,8 @@ class _FunctionPythonModel(PythonModel):
         """
         if inspect.signature(self.func).parameters.get("params"):
             return self.func(model_input, params)
+        else:
+            _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.func(model_input)
 
 
@@ -399,8 +408,5 @@ class _PythonModelPyfuncWrapper:
                     self.context, self._convert_input(model_input), params
                 )
             else:
-                _logger.warning(
-                    "The python_model does not support passing additional parameters to the predict"
-                    f" function. `params` {params} will be ignored."
-                )
+                _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.python_model.predict(self.context, self._convert_input(model_input))

@@ -249,7 +249,10 @@ from mlflow.pyfunc.model import (  # pylint: disable=unused-import
     PythonModelContext,
     get_default_conda_env,
 )
-from mlflow.pyfunc.model import get_default_pip_requirements
+from mlflow.pyfunc.model import (
+    get_default_pip_requirements,
+    _log_warning_if_params_not_in_predict_signature,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import (
@@ -452,6 +455,8 @@ class PyFuncModel:
         # to the `predict()` method if it defines the `params` argument
         if inspect.signature(self._predict_fn).parameters.get("params"):
             return self._predict_fn(data, params)
+        else:
+            _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self._predict_fn(data)
 
     @experimental
@@ -645,6 +650,7 @@ class _ServedPyFuncModel(PyFuncModel):
         if inspect.signature(self._client.invoke).parameters.get("params"):
             result = self._client.invoke(data, params).get_predictions()
         else:
+            _log_warning_if_params_not_in_predict_signature(_logger, params)
             result = self._client.invoke(data).get_predictions()
         if isinstance(result, pandas.DataFrame):
             result = result[result.columns[0]]
