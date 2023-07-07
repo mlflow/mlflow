@@ -112,24 +112,30 @@ class MinPythonVersion(Command):
         print(MINIMUM_SUPPORTED_PYTHON_VERSION)
 
 
+skinny_package_data = [
+    # include alembic files to enable usage of the skinny client with SQL databases
+    # if users install sqlalchemy and alembic independently
+    *alembic_files,
+    *extra_files,
+    *recipes_template_files,
+    *recipes_files,
+]
+
 setup(
     name="mlflow" if not _is_mlflow_skinny else "mlflow-skinny",
     version=version,
     packages=find_packages(exclude=["tests", "tests.*"]),
-    package_data={
-        "mlflow": (
-            js_files
-            + models_container_server_files
-            + alembic_files
-            + extra_files
-            + recipes_template_files
-            + recipes_files
-        ),
-    }
-    if not _is_mlflow_skinny
-    # include alembic files to enable usage of the skinny client with SQL databases
-    # if users install sqlalchemy and alembic independently
-    else {"mlflow": alembic_files + extra_files},
+    package_data=(
+        {"mlflow": skinny_package_data}
+        if _is_mlflow_skinny
+        else {
+            "mlflow": [
+                *skinny_package_data,
+                *js_files,
+                *models_container_server_files,
+            ]
+        }
+    ),
     install_requires=CORE_REQUIREMENTS if not _is_mlflow_skinny else SKINNY_REQUIREMENTS,
     extras_require={
         "extras": [
