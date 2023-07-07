@@ -201,7 +201,7 @@ def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_versio
         def __init__(self):
             pass
 
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             import sklearn
 
             return model_input.apply(lambda row: sklearn.__version__, axis=1)
@@ -251,7 +251,7 @@ def test_spark_udf_env_manager_predict_sklearn_model(spark, sklearn_model, model
 
 def test_spark_udf_with_single_arg(spark):
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             return [",".join(map(str, model_input.columns.tolist()))] * len(model_input)
 
     with mlflow.start_run() as run:
@@ -273,7 +273,7 @@ def test_spark_udf_with_single_arg(spark):
 
 def test_spark_udf_with_struct_return_type(spark):
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             input_len = len(model_input)
             return {
                 "r1": [1] * input_len,
@@ -545,7 +545,7 @@ def test_check_spark_udf_return_type(type_str, expected):
 
 def test_spark_udf_autofills_no_arguments(spark):
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             return [model_input.columns] * len(model_input)
 
     signature = ModelSignature(
@@ -648,7 +648,7 @@ def test_spark_udf_autofills_no_arguments(spark):
 
 def test_spark_udf_autofills_column_names_with_schema(spark):
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             return [model_input.columns] * len(model_input)
 
     signature = ModelSignature(
@@ -685,7 +685,7 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
 
 def test_spark_udf_with_datetime_columns(spark):
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             return [model_input.columns] * len(model_input)
 
     signature = ModelSignature(
@@ -711,7 +711,7 @@ def test_spark_udf_with_datetime_columns(spark):
 
 def test_spark_udf_over_empty_partition(spark):
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             if len(model_input) == 0:
                 raise ValueError("Empty input is not allowed.")
             else:
@@ -926,7 +926,7 @@ def test_spark_udf_with_col_spec_type_input(spark):
     )
 
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             assert model_input.to_dict() == input_pdf.to_dict()
             return model_input[["c_int", "c_float"]]
 
@@ -995,7 +995,7 @@ def test_spark_udf_stdin_scoring_server(spark):
 )
 def test_spark_udf_array_of_structs(spark):
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             return [[("str", 0, 1, 0.0, 0.1, True)]] * len(model_input)
 
     signature = ModelSignature(inputs=Schema([ColSpec("long", "a")]))
