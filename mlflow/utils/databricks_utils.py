@@ -313,10 +313,6 @@ def get_job_type_info():
         return None
 
 
-def get_experiment_name_from_job_id(job_id):
-    return "jobs:/" + job_id
-
-
 @_use_repl_context_if_available("commandRunId")
 def get_command_run_id():
     try:
