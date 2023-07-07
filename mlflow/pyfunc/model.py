@@ -144,8 +144,7 @@ class _FunctionPythonModel(PythonModel):
         """
         if inspect.signature(self.func).parameters.get("params"):
             return self.func(model_input, params)
-        else:
-            _log_warning_if_params_not_in_predict_signature(_logger, params)
+        _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.func(model_input)
 
 
@@ -407,6 +406,5 @@ class _PythonModelPyfuncWrapper:
                 return self.python_model.predict(
                     self.context, self._convert_input(model_input), params
                 )
-            else:
-                _log_warning_if_params_not_in_predict_signature(_logger, params)
+            _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.python_model.predict(self.context, self._convert_input(model_input))

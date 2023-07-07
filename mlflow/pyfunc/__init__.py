@@ -455,8 +455,7 @@ class PyFuncModel:
         # to the `predict()` method if it defines the `params` argument
         if inspect.signature(self._predict_fn).parameters.get("params"):
             return self._predict_fn(data, params)
-        else:
-            _log_warning_if_params_not_in_predict_signature(_logger, params)
+        _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self._predict_fn(data)
 
     @experimental
@@ -1331,6 +1330,7 @@ def spark_udf(
             def batch_predict_fn(pdf, params=None):
                 if inspect.signature(client.invoke).parameters.get("params"):
                     return client.invoke(pdf, params=params).get_predictions()
+                _log_warning_if_params_not_in_predict_signature(_logger, params)
                 return client.invoke(pdf).get_predictions()
 
         elif env_manager == _EnvManager.LOCAL:
@@ -1342,6 +1342,7 @@ def spark_udf(
             def batch_predict_fn(pdf, params=None):
                 if inspect.signature(loaded_model.predict).parameters.get("params"):
                     return loaded_model.predict(pdf, params=params)
+                _log_warning_if_params_not_in_predict_signature(_logger, params)
                 return loaded_model.predict(pdf)
 
         try:
