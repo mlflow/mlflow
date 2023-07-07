@@ -880,7 +880,7 @@ def test_infer_param_schema():
         "bool_param": True,
         "double_param": 1.0,
         "float_param": np.float32(0.1),
-        "long_param": 100,
+        "long_param": np.int64(100),
         "datetime_param": np.datetime64("2023-06-26 00:00:00"),
         "str_list": ["a", "b", "c"],
         "bool_list": [True, False],

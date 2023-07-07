@@ -508,7 +508,7 @@ class ParamSpec:
         )
 
     @classmethod
-    def enforce_param_datatype(cls, name, value, t: DataType):
+    def enforce_param_datatype(cls, name, value, dtype: DataType):
         """
         Enforce the value matches the data type.
 
@@ -528,13 +528,13 @@ class ParamSpec:
         if value is None:
             return
 
-        if t == DataType.datetime:
+        if dtype == DataType.datetime:
             try:
                 return np.datetime64(value).item()
             except ValueError as e:
                 raise MlflowException.invalid_parameter_value(
                     f"Failed to convert value {value} from type {type(value).__name__} "
-                    f"to {t} for param {name}"
+                    f"to {dtype} for param {name}"
                 ) from e
 
         # Note that np.isscalar(datetime.date(...)) is False
@@ -544,25 +544,28 @@ class ParamSpec:
             )
 
         # Always convert to python native type for params
-        if getattr(DataType, f"is_{t.name}")(value):
-            return DataType[t.name].to_python()(value)
+        if getattr(DataType, f"is_{dtype.name}")(value):
+            return DataType[dtype.name].to_python()(value)
 
         if (
-            (DataType.is_integer(value) and t in (DataType.long, DataType.float, DataType.double))
-            or (DataType.is_long(value) and t in (DataType.float, DataType.double))
-            or (DataType.is_float(value) and t == DataType.double)
+            (
+                DataType.is_integer(value)
+                and dtype in (DataType.long, DataType.float, DataType.double)
+            )
+            or (DataType.is_long(value) and dtype in (DataType.float, DataType.double))
+            or (DataType.is_float(value) and dtype == DataType.double)
         ):
             try:
-                return DataType[t.name].to_python()(value)
+                return DataType[dtype.name].to_python()(value)
             except ValueError as e:
                 raise MlflowException.invalid_parameter_value(
                     f"Failed to convert value {value} from type {type(value).__name__} "
-                    f"to {t} for param {name}"
+                    f"to {dtype} for param {name}"
                 ) from e
 
         raise MlflowException.invalid_parameter_value(
             f"Incompatible types for param {name}. Can not safely convert {type(value).__name__} "
-            f"to {t}.",
+            f"to {dtype}.",
         )
 
     @classmethod
