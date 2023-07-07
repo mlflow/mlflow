@@ -933,13 +933,10 @@ def _check_udf_return_struct_type(struct_type):
         if isinstance(field_type, primitive_types):
             pass
         elif isinstance(field_type, ArrayType):
-            _check_udf_return_array_type(field_type, parent_struct_type=struct_type)
+            if not _check_udf_return_array_type(field_type, parent_struct_type=struct_type):
+                return False
         else:
-            raise MlflowException(
-                f"'spark_udf' return type does not support field type {field_type} "
-                "inside a struct type",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+            return False
 
 
 def _check_udf_return_array_type(array_type, parent_struct_type):
@@ -950,31 +947,20 @@ def _check_udf_return_array_type(array_type, parent_struct_type):
 
     if isinstance(elem_type, primitive_types):
         # 1D array
-        return
+        return True
 
     if isinstance(elem_type, StructType):
         if parent_struct_type is None:
             # Array of struct values.
-            _check_udf_return_struct_type(elem_type)
-            return
+            return _check_udf_return_struct_type(elem_type)
 
-        raise MlflowException(
-            "'spark_udf' return type does not support struct type nesting struct type.",
-            f"but the parent struct type {parent_struct_type} contains nested struct type "
-            f"{elem_type}.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+        return False
 
     if isinstance(elem_type, ArrayType) and isinstance(elem_type.elementType, primitive_types):
         # 2D array
-        return
+        return True
 
-    raise MlflowException(
-        f"'spark_udf' return type does not support the array type {array_type}, "
-        f"an array type only supports one dimensional array with primitive type {primitive_types} "
-        "elements or struct type elements, or double nested array consisting of "
-        "primitive type elements."
-    )
+    return False
 
 
 def _check_udf_return_type(data_type):
@@ -982,32 +968,13 @@ def _check_udf_return_type(data_type):
 
     primitive_types = _get_spark_primitive_types()
     if isinstance(data_type, primitive_types):
-        return
+        return True
 
     if isinstance(data_type, ArrayType):
-        _check_udf_return_array_type(data_type, parent_struct_type=None)
-        return
+        return _check_udf_return_array_type(data_type, parent_struct_type=None)
 
     if isinstance(data_type, StructType):
-        _check_udf_return_struct_type(data_type)
-        return
-
-    raise MlflowException(
-        f"""Invalid data type: {data_type}, 'spark_udf' return type must be one of following types:
-Primitive types:
- - int
- - long
- - float
- - double
- - string
- - bool
-or compound types such as:
- - array<primitive-type>
- - array<array<primitive-type>>
- - struct<field<primitive-type or array<primitive-type>>, ...>
- - array<struct<field<primitive-type>, ...>>
-Please check the provided data type."""
-    )
+        return _check_udf_return_struct_type(data_type)
 
 
 def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL):
@@ -1225,7 +1192,23 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_spark_datatype(result_type)
 
-    _check_udf_return_type(result_type)
+    if not _check_udf_return_type(result_type):
+        raise MlflowException(
+            f"""Invalid data type: {data_type}, 'spark_udf' return type must be one of following types:
+Primitive types:
+ - int
+ - long
+ - float
+ - double
+ - string
+ - bool
+or compound types such as:
+ - array<primitive>: A array type consists of primitive type elements.
+ - array<array<primitive>>: A double nested array type consists of primitive type elements.
+ - struct<field_name: field_type, ...>: A struct type, its field type can be either primitive or array type.
+ - array<struct<...>>: A array type consists of struct type elements.
+Please check the provided data type."""
+        )
 
     def _predict_row_batch(predict_fn, args):
         input_schema = model_metadata.get_input_schema()
