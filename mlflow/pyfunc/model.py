@@ -3,11 +3,13 @@ The ``mlflow.pyfunc.model`` module defines logic for saving and loading custom "
 models with a user-defined ``PythonModel`` subclass.
 """
 
+import inspect
+import logging
 import os
 import posixpath
 import shutil
 import yaml
-from typing import Dict, List
+from typing import Any, Dict, List, Optional
 from abc import ABCMeta, abstractmethod
 
 import cloudpickle
@@ -41,6 +43,9 @@ CONFIG_KEY_PYTHON_MODEL = "python_model"
 CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
 
 
+_logger = logging.getLogger(__name__)
+
+
 def get_default_pip_requirements():
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
@@ -58,6 +63,13 @@ def get_default_conda_env():
              :class:`PythonModel` is provided.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
+
+
+def _log_warning_if_params_not_in_predict_signature(logger, params):
+    logger.warning(
+        "The underlying model does not support passing additional parameters to the predict"
+        f" function. `params` {params} will be ignored."
+    )
 
 
 class PythonModel:
@@ -89,7 +101,7 @@ class PythonModel:
         return _extract_type_hints(self.predict, input_arg_index=1)
 
     @abstractmethod
-    def predict(self, context, model_input):
+    def predict(self, context, model_input, params: Optional[Dict[str, Any]] = None):
         """
         Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
         For more information about the pyfunc input/output API, see the :ref:`pyfunc-inference-api`.
@@ -97,6 +109,10 @@ class PythonModel:
         :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
                         can use to perform inference.
         :param model_input: A pyfunc-compatible input for the model to evaluate.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
         """
 
 
@@ -114,7 +130,21 @@ class _FunctionPythonModel(PythonModel):
     def _get_type_hints(self):
         return _extract_type_hints(self.func, input_arg_index=0)
 
-    def predict(self, context, model_input):
+    def predict(self, context, model_input, params: Optional[Dict[str, Any]] = None):
+        """
+        :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                        can use to perform inference.
+        :param model_input: A pyfunc-compatible input for the model to evaluate.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
+        if inspect.signature(self.func).parameters.get("params"):
+            return self.func(model_input, params)
+        _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.func(model_input)
 
 
@@ -361,5 +391,20 @@ class _PythonModelPyfuncWrapper:
 
         return model_input
 
-    def predict(self, model_input):
+    def predict(self, model_input, params: Optional[Dict[str, Any]] = None):
+        """
+        :param model_input: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
+        if params:
+            if inspect.signature(self.python_model.predict).parameters.get("params"):
+                return self.python_model.predict(
+                    self.context, self._convert_input(model_input), params
+                )
+            _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.python_model.predict(self.context, self._convert_input(model_input))
