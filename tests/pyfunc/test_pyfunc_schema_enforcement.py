@@ -1,4 +1,5 @@
 import base64
+import datetime
 import decimal
 import numpy as np
 import pandas as pd
@@ -978,9 +979,7 @@ def test_enforce_params_schema_with_success():
     # Converting parameters value type to corresponding schema type
     # 1. int -> long, float, double
     assert _enforce_params_schema({"double_param": np.int32(1)}, test_schema)["double_param"] == 1.0
-    assert _enforce_params_schema({"float_param": np.int32(1)}, test_schema)[
-        "float_param"
-    ] == np.float32(1)
+    assert _enforce_params_schema({"float_param": np.int32(1)}, test_schema)["float_param"] == 1.0
     assert _enforce_params_schema({"long_param": np.int32(1)}, test_schema)["long_param"] == 1
     # With array
     for param in ["double_array", "float_array", "long_array"]:
@@ -995,7 +994,7 @@ def test_enforce_params_schema_with_success():
 
     # 2. long -> float, double
     assert _enforce_params_schema({"double_param": 1}, test_schema)["double_param"] == 1.0
-    assert _enforce_params_schema({"float_param": 1}, test_schema)["float_param"] == np.float32(1)
+    assert _enforce_params_schema({"float_param": 1}, test_schema)["float_param"] == 1.0
     # With array
     for param in ["double_array", "float_array"]:
         assert (_enforce_params_schema({param: [1, 2]}, schema)[param] == params[param]).all()
@@ -1162,19 +1161,19 @@ def test_param_spec_with_success():
     assert ParamSpec("a", DataType.string, "1").default == "1"
     assert ParamSpec("a", DataType.boolean, True).default is True
     assert ParamSpec("a", DataType.double, 1.0).default == 1.0
-    assert ParamSpec("a", DataType.float, np.float32(1)).default == np.float32(1)
-    assert ParamSpec("a", DataType.datetime, np.datetime64("2023-06-06")).default == np.datetime64(
-        "2023-06-06"
+    assert ParamSpec("a", DataType.float, np.float32(1)).default == 1
+    assert ParamSpec("a", DataType.datetime, np.datetime64("2023-06-06")).default == datetime.date(
+        2023, 6, 6
     )
     assert ParamSpec("a", DataType.integer, np.int32(1)).default == 1
 
     # Convert default value type if it is not consistent with provided type
     # 1. int -> long, float, double
     assert ParamSpec("a", DataType.long, np.int32(1)).default == 1
-    assert ParamSpec("a", DataType.float, np.int32(1)).default == np.float32(1)
+    assert ParamSpec("a", DataType.float, np.int32(1)).default == 1.0
     assert ParamSpec("a", DataType.double, np.int32(1)).default == 1.0
     # 2. long -> float, double
-    assert ParamSpec("a", DataType.float, 1).default == np.float32(1)
+    assert ParamSpec("a", DataType.float, 1).default == 1.0
     assert ParamSpec("a", DataType.double, 1).default == 1.0
     # 3. float -> double
     assert ParamSpec("a", DataType.double, np.float32(1)).default == 1.0

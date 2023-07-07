@@ -49,7 +49,7 @@ class DataType(Enum):
         np.dtype("datetime64[ns]"),
         "TimestampType",
         np.dtype("datetime64[ns]"),
-        datetime.datetime,
+        datetime.date,
     )
     """64b datetime data."""
 
@@ -535,19 +535,27 @@ class ParamSpec:
                 f"Value should be a scalar for param {name}, got {value}", INVALID_PARAMETER_VALUE
             )
 
+        if t == DataType.datetime:
+            try:
+                return np.datetime64(value).item()
+            except ValueError as e:
+                raise MlflowException(
+                    f"Failed to convert value {value} from type {type(value).__name__} "
+                    f"to {t} for param {name}",
+                    INVALID_PARAMETER_VALUE,
+                ) from e
+
+        # Always convert to python native type for params
         if getattr(DataType, f"is_{t.name}")(value):
-            return value
+            return DataType[t.name].to_python()(value)
 
         if (
             (DataType.is_integer(value) and t in (DataType.long, DataType.float, DataType.double))
             or (DataType.is_long(value) and t in (DataType.float, DataType.double))
             or (DataType.is_float(value) and t == DataType.double)
-            or t == DataType.datetime
         ):
             try:
-                if t == DataType.datetime:
-                    return np.datetime64(value)
-                return np.array(value, dtype=t.to_numpy()).take(0)
+                return DataType[t.name].to_python()(value)
             except ValueError as e:
                 raise MlflowException(
                     f"Failed to convert value {value} from type {type(value).__name__} "
@@ -630,15 +638,15 @@ class ParamSpec:
 
     def to_dict(self) -> ParamSpecTypedDict:
         if self.shape is None:
-            if self.type.name == "datetime":
-                default_value = np.datetime_as_string(self.default)
-            else:
-                default_value = self.type.to_python()(self.default)
+            default_value = (
+                self.default.isoformat() if self.type.name == "datetime" else self.default
+            )
         elif self.shape == (-1,):
-            if self.type.name == "datetime":
-                default_value = list(map(np.datetime_as_string, self.default))
-            else:
-                default_value = list(map(self.type.to_python(), self.default))
+            default_value = (
+                [v.isoformat() for v in self.default]
+                if self.type.name == "datetime"
+                else self.default
+            )
         return {
             "name": self.name,
             "type": self.type.name,

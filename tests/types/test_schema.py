@@ -1,3 +1,4 @@
+import datetime
 import json
 import math
 import re
@@ -696,6 +697,7 @@ def test_datatype_type_check():
     assert DataType.is_float(np.float32(1.0))
     assert not DataType.is_float(np.float64(1.0))
 
+    assert DataType.is_datetime(datetime.date(2023, 6, 26))
     assert DataType.is_datetime(np.datetime64("2023-06-26 00:00:00"))
     assert not DataType.is_datetime("2023-06-26 00:00:00")
 
@@ -815,7 +817,7 @@ def test_param_spec_to_and_from_dict():
     assert spec.to_dict() == {
         "name": "datetime_param",
         "type": "datetime",
-        "default": np.datetime_as_string(np.datetime64("2023-06-26 00:00:00")),
+        "default": "2023-06-26T00:00:00",
         "shape": None,
     }
     assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
