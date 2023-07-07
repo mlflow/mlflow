@@ -52,9 +52,7 @@ if __name__ == "__main__":
 
     # Log the spaCy model using mlflow
     mlflow.spacy.log_model(spacy_model=nlp, artifact_path="model")
-    model_uri = "runs:/{run_id}/{artifact_path}".format(
-        run_id=mlflow.active_run().info.run_id, artifact_path="model"
-    )
+    model_uri = f"runs:/{mlflow.active_run().info.run_id}/model"
 
     print("Model saved in run %s" % mlflow.active_run().info.run_uuid)
 

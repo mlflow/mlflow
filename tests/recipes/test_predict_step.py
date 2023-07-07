@@ -93,9 +93,7 @@ def test_predict_step_runs(
         model_uri = train_log_and_register_model(model_name, is_dummy=True)
     else:
         run_id, _ = train_and_log_model(is_dummy=True)
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=run_id, artifact_path="train/model"
-        )
+        model_uri = f"runs:/{run_id}/train/model"
 
     recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
     recipe_config.update(

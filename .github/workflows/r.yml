@@ -21,7 +21,7 @@ jobs:
   r:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
+    if: github.event_name == 'push' || (github.event_name == 'schedule' && github.repository == 'mlflow/mlflow') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     defaults:
       run:
         shell: bash --noprofile --norc -exo pipefail {0}
@@ -82,7 +82,8 @@ jobs:
         run: |
           pip install -e $(git rev-parse --show-toplevel)
           H2O_VERSION=$(Rscript -e "print(packageVersion('h2o'))" | grep -Eo '[0-9][0-9.]+')
-          pip install xgboost tensorflow "h2o==$H2O_VERSION"
+          # test-keras-model.R fails with tensorflow>=2.13.0
+          pip install xgboost 'tensorflow<2.13.0' "h2o==$H2O_VERSION"
           Rscript -e 'source(".install-mlflow-r.R", echo=TRUE)'
       - name: Run tests
         env:
