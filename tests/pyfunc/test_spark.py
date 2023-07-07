@@ -529,11 +529,13 @@ def test_check_spark_udf_return_type(spark):
     assert _check("array<array<double>>")
     assert _check("a long, b boolean, c array<double>, d array<array<double>>")
     assert _check("array<struct<a: int, b: boolean>>")
+    assert _check("array<struct<a: array<int>>>")
 
     assert not _check("array<array<array<float>>>")
     assert not _check("a array<array<array<int>>>")
     assert not _check("struct<x: struct<a: long, b: boolean>>")
     assert not _check("struct<x: array<struct<a: long, b: boolean>>>")
+    assert not _check("struct<a: array<struct<a: int>>>")
 
 
 def test_spark_udf_autofills_no_arguments(spark):

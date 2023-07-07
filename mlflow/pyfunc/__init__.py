@@ -933,7 +933,7 @@ def _check_udf_return_struct_type(struct_type):
         if isinstance(field_type, primitive_types):
             pass
         elif isinstance(field_type, ArrayType):
-            if not _check_udf_return_array_type(field_type, parent_struct_type=struct_type):
+            if not _check_udf_return_array_type(field_type, allow_nested_struct=False):
                 return False
         else:
             return False
@@ -941,7 +941,7 @@ def _check_udf_return_struct_type(struct_type):
     return True
 
 
-def _check_udf_return_array_type(array_type, parent_struct_type):
+def _check_udf_return_array_type(array_type, allow_nested_struct):
     from pyspark.sql.types import ArrayType, StructType
 
     elem_type = array_type.elementType
@@ -952,7 +952,7 @@ def _check_udf_return_array_type(array_type, parent_struct_type):
         return True
 
     if isinstance(elem_type, StructType):
-        if parent_struct_type is None:
+        if allow_nested_struct:
             # Array of struct values.
             return _check_udf_return_struct_type(elem_type)
 
@@ -973,7 +973,7 @@ def _check_udf_return_type(data_type):
         return True
 
     if isinstance(data_type, ArrayType):
-        return _check_udf_return_array_type(data_type, parent_struct_type=None)
+        return _check_udf_return_array_type(data_type, allow_nested_struct=True)
 
     if isinstance(data_type, StructType):
         return _check_udf_return_struct_type(data_type)
