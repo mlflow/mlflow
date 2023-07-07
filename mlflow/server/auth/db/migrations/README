@@ -1,0 +1,13 @@
+# Database schema migration for MLflow Authentication
+
+## Autogenerate revision script
+
+```sh
+alembic revision --autogenerate -m "<message>"
+```
+
+## Run migration
+
+```sh
+alembic upgrade head
+```
