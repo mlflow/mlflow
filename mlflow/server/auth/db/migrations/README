@@ -1,8 +1,9 @@
 # Database schema migration for MLflow Authentication
 
-## Autogenerate revision script
+## Autogenerate a migration script
 
 ```sh
+cd mlflow/server/auth/db/migrations
 alembic revision --autogenerate -m "<message>"
 ```
 
