@@ -6,21 +6,6 @@ on:
     branches:
       - master
       - branch-[0-9]+.[0-9]+
-  workflow_dispatch:
-    inputs:
-      repository:
-        description: >
-          [Optional] Repository name with owner. For example, mlflow/mlflow.
-           Defaults to the repository that triggered a workflow.
-        required: false
-        default: ""
-      ref:
-        description: >
-          [Optional] The branch, tag or SHA to checkout. When checking out the repository that
-           triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
-           uses the default branch.
-        required: false
-        default: ""
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
@@ -42,12 +27,9 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v3
-        with:
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/cache-pip
       - name: Add problem matchers
@@ -96,14 +78,13 @@ jobs:
   # The python skinny tests cover the subset of mlflow functionality
   # while also verifying certain dependencies are omitted.
   python-skinny:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
@@ -114,6 +95,7 @@ jobs:
       - uses: ./.github/actions/untracked
 
   python:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
@@ -121,8 +103,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
           submodules: recursive
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
@@ -145,13 +125,12 @@ jobs:
       - uses: ./.github/actions/untracked
 
   database:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
           submodules: recursive
       - name: Build
         run: |
@@ -216,14 +195,13 @@ jobs:
       - uses: ./.github/actions/untracked
 
   java:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -236,13 +214,12 @@ jobs:
           mvn clean package -q
 
   flavors:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
           submodules: recursive
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
@@ -259,14 +236,13 @@ jobs:
   # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
   # run these tests in a separate job.
   models:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -286,14 +262,13 @@ jobs:
   # When the shap cross version tests are passing in a new release version of shap, this pin should
   # be removed.
   evaluate:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -309,13 +284,12 @@ jobs:
       - uses: ./.github/actions/untracked
 
   pyfunc:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
           submodules: recursive
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
@@ -332,14 +306,13 @@ jobs:
       - uses: ./.github/actions/untracked
 
   sagemaker:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -352,14 +325,13 @@ jobs:
       - uses: ./.github/actions/untracked
 
   windows:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: windows-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java

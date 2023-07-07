@@ -230,9 +230,7 @@ def test_log_model(sequential_model, data, sequential_predicted):
     try:
         artifact_path = "pytorch"
         model_info = mlflow.pytorch.log_model(sequential_model, artifact_path=artifact_path)
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert model_info.model_uri == model_uri
 
         sequential_model_loaded = mlflow.pytorch.load_model(model_uri=model_uri)
@@ -253,9 +251,7 @@ def test_log_model_calls_register_model(module_scoped_subclassed_model):
             pickle_module=custom_pickle_module,
             registered_model_name="AdsModel1",
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         mlflow.register_model.assert_called_once_with(
             model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
         )
@@ -473,9 +469,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
             conda_env=pytorch_custom_env,
         )
         model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
+            f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -502,9 +496,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
             conda_env=pytorch_custom_env,
         )
         model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
+            f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         )
 
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
@@ -653,9 +645,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
             artifacts={"pytorch_model": model_path},
         )
         pyfunc_model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
-            )
+            f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
         )
 
     # Deploy the custom pyfunc model and ensure that it is able to successfully load its
@@ -716,9 +706,7 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
             pytorch_model=module_scoped_subclassed_model,
             pickle_module=custom_pickle_module,
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
     import_module_fn = importlib.import_module
     imported_modules = []
@@ -784,9 +772,7 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
             artifact_path=artifact_path, pytorch_model=module_scoped_subclassed_model
         )
         model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
+            f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         )
 
     model_conf_path = os.path.join(model_path, "MLmodel")
