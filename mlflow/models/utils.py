@@ -898,7 +898,8 @@ def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[Pa
         )
     if not isinstance(params, dict):
         raise MlflowException(
-            f"Parameters must be a dictionary. Got type '{type(params).__name__}'."
+            f"Parameters must be a dictionary. Got type '{type(params).__name__}'.",
+            INVALID_PARAMETER_VALUE,
         )
     if not isinstance(schema, ParamSchema):
         raise MlflowException(

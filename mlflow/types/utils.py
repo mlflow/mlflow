@@ -480,6 +480,7 @@ def _infer_param_schema(parameters: Dict[str, Any]):
     if not isinstance(parameters, dict):
         raise MlflowException(
             f"Expected parameters to be dict, got {type(parameters).__name__}",
+            INVALID_PARAMETER_VALUE,
         )
 
     def _infer_type_and_shape(value):

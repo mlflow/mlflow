@@ -676,7 +676,9 @@ class ParamSpec:
         """
         if not {"name", "type", "default"} <= set(kwargs.keys()):
             raise MlflowException(
-                "Missing keys in ParamSpec JSON. Expected to find keys `name`, `type` and `default`"
+                "Missing keys in ParamSpec JSON. Expected to find "
+                "keys `name`, `type` and `default`",
+                INVALID_PARAMETER_VALUE,
             )
         return cls(
             name=str(kwargs["name"]),
@@ -695,9 +697,13 @@ class ParamSchema:
 
     def __init__(self, params: List[ParamSpec]):
         if not all(isinstance(x, ParamSpec) for x in params):
-            raise MlflowException(f"ParamSchema inputs only accept {ParamSchema.__class__}")
+            raise MlflowException(
+                f"ParamSchema inputs only accept {ParamSchema.__class__}", INVALID_PARAMETER_VALUE
+            )
         if duplicates := self._find_duplicates(params):
-            raise MlflowException(f"Duplicated parameters found in schema: {duplicates}")
+            raise MlflowException(
+                f"Duplicated parameters found in schema: {duplicates}", INVALID_PARAMETER_VALUE
+            )
         self._params = params
 
     @staticmethod
