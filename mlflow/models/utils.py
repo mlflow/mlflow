@@ -159,19 +159,7 @@ class _Example:
                         )
                 except ImportError:
                     pass
-                raise TypeError(
-                    "Expected one of the following types:\n"
-                    "- pandas.DataFrame\n"
-                    "- numpy.ndarray\n"
-                    "- dictionary of (name -> numpy.ndarray)\n"
-                    "- scipy.sparse.csr_matrix\n"
-                    "- scipy.sparse.csc_matrix\n"
-                    "- dict\n"
-                    "- list\n"
-                    "- str\n"
-                    "- bytes\n"
-                    "but got '{}'".format(type(input_example)),
-                )
+                input_ex = None
             return input_ex
 
         def _handle_dataframe_input(df):
@@ -205,6 +193,20 @@ class _Example:
             }
         else:
             self._inference_data = _coerce_to_pandas_df(input_example)
+            if self._inference_data is None:
+                raise TypeError(
+                    "Expected one of the following types:\n"
+                    "- pandas.DataFrame\n"
+                    "- numpy.ndarray\n"
+                    "- dictionary of (name -> numpy.ndarray)\n"
+                    "- scipy.sparse.csr_matrix\n"
+                    "- scipy.sparse.csc_matrix\n"
+                    "- dict\n"
+                    "- list\n"
+                    "- str\n"
+                    "- bytes\n"
+                    "but got '{}'".format(type(input_example)),
+                )
             self.data = _handle_dataframe_input(self._inference_data)
             self.info = {
                 "artifact_path": example_filename,
