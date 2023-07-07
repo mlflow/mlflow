@@ -544,3 +544,41 @@ def _check_requirement_satisfied(requirement_str):
         )
 
     return None
+
+
+def _warn_dependency_requirement_mismatches(model_path):
+    """
+    Inspects the model's dependencies and prints a warning if the current Python environment
+    doesn't satisfy them.
+    """
+    from mlflow.utils.environment import _REQUIREMENTS_FILE_NAME
+
+    req_file_path = os.path.join(model_path, _REQUIREMENTS_FILE_NAME)
+    if not os.path.exists(req_file_path):
+        return
+
+    try:
+        mismatch_infos = []
+        for req in _parse_requirements(req_file_path, is_constraint=False):
+            req_line = req.req_str
+            mismatch_info = _check_requirement_satisfied(req_line)
+            if mismatch_info is not None:
+                mismatch_infos.append(str(mismatch_info))
+
+        if len(mismatch_infos) > 0:
+            mismatch_str = " - " + "\n - ".join(mismatch_infos)
+            warning_msg = (
+                "Detected one or more mismatches between the model's dependencies and the current "
+                f"Python environment:\n{mismatch_str}\n"
+                "To fix the mismatches, call `mlflow.pyfunc.get_model_dependencies(model_uri)` "
+                "to fetch the model's environment and install dependencies using the resulting "
+                "environment file."
+            )
+            _logger.warning(warning_msg)
+
+    except Exception as e:
+        _logger.warning(
+            f"Encountered an unexpected error ({e!r}) while detecting model dependency "
+            "mismatches. Set logging level to DEBUG to see the full traceback."
+        )
+        _logger.debug("", exc_info=True)
