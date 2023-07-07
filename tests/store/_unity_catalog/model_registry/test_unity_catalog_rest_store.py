@@ -71,9 +71,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.utils.proto_json_utils import message_to_json
 from tests.helper_functions import mock_http_200
 
-# pylint: disable=unused-import
-from tests.store._unity_catalog.utils import (
-    mock_databricks_uc_host_creds,
+from tests.store._unity_catalog.conftest import (
     _REGISTRY_HOST_CREDS,
     _TRACKING_HOST_CREDS,
 )

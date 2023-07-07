@@ -35,7 +35,7 @@ from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec
 
 
-from tests.store._unity_catalog.utils import mock_databricks_uc_host_creds, configure_client_for_uc
+from tests.store._unity_catalog.conftest import mock_databricks_uc_host_creds, configure_client_for_uc
 
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,

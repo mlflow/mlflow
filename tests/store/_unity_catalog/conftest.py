@@ -21,8 +21,8 @@ def mock_databricks_uc_host_creds():
         raise Exception(f"Got unexpected store URI {uri}")
 
     with mock.patch(
-        "mlflow.store._unity_catalog.registry.rest_store.get_databricks_host_creds",
-        side_effect=mock_host_creds,
+            "mlflow.store._unity_catalog.registry.rest_store.get_databricks_host_creds",
+            side_effect=mock_host_creds,
     ):
         yield
 
