@@ -1206,11 +1206,11 @@ Primitive types:
  - string
  - boolean
 or compound types:
- - array<primitive>: A array type consists of primitive type elements.
+ - array<primitive>: An array of primitives
  - array<array<primitive>>: A double nested array type consists of primitive type elements.
- - struct<field_name: field_type, ...>: A struct type, its field type can be either primitive
-   or array type.
- - array<struct<...>>: A array type consists of struct type elements.
+ - struct<...>: A struct type, its field type can be primitive, array<primitive>,
+   or array<array<primitive>>.
+ - array<struct<...>>: An array of structs.
 """
         )
 
