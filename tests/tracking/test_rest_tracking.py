@@ -528,6 +528,23 @@ def test_validate_path_is_safe_good(path):
     validate_path_is_safe(path)
 
 
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
+@pytest.mark.parametrize(
+    "path",
+    [
+        "path\\",
+        "path\\to\\file",
+        "\\path\\to\\file",
+        # relative path from current directory of C: drive
+        "C:path\\to\\file",
+        "C:path/to/file",
+    ],
+)
+def test_validate_path_is_safe_windows_good(path):
+    validate_path_is_safe(path)
+
+
+@pytest.mark.skipif(is_windows(), reason="This test does not pass on Windows")
 @pytest.mark.parametrize(
     "path",
     [
@@ -547,7 +564,31 @@ def test_validate_path_is_safe_bad(path):
 @pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
 @pytest.mark.parametrize(
     "path",
-    ["C:\\path", "C:/path", "C:\\path\\..\\to\\file", "C:/path/../to/file"],
+    [
+        "../path",
+        "../../path",
+        "./../path",
+        "path/../to/file",
+        "path/../../to/file",
+        "..\\path",
+        "..\\..\\path",
+        ".\\..\\path",
+        "path\\..\\to\\file",
+        "path\\..\\..\\to\\file",
+        # Drive-relative absolute paths
+        "C:\\path",
+        "C:/path",
+        "C:\\path\to\file",
+        "C:\\path/to/file",
+        "C:\\path\\..\\to\\file",
+        "C:/path/../to/file"
+        # UNC(Universal Naming Convention) paths
+        "\\\\path\\to\\file",
+        "\\\\path/to/file",
+        "\\\\.\\C:\\path\\to\\file",
+        "\\\\?\\C:\\path\\to\\file",
+        "\\\\?\\UNC/path/to/file",
+    ],
 )
 def test_validate_path_is_safe_windows_bad(path):
     with pytest.raises(MlflowException, match="Invalid path"):
