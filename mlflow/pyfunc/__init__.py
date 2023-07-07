@@ -1198,8 +1198,7 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
 
     if not _check_udf_return_type(result_type):
         raise MlflowException(
-            f"""Invalid 'spark_udf' result type: {result_type}.
-'spark_udf' return type must be one of the following types:
+            f"""Invalid 'spark_udf' result type: {result_type}. It must be one of the following types:
 Primitive types:
  - int
  - long
@@ -1207,13 +1206,12 @@ Primitive types:
  - double
  - string
  - boolean
-or compound types:
+Compound types:
  - array<primitive>: An array of primitives, e.g., array<int>.
  - array<array<primitive>>: A 2D array of primitives, e.g., array<array<int>>.
  - struct<field: primitive | array<primitive> | array<array<primitive>>, ...>:
-   A struct type, its field type can be primitive, array<primitive>,
-   or array<array<primitive>>, e.g., struct<a:int,b:array<int>>.
- - array<struct<...>>: An array of structs, e.g., array<struct<a:int,b:array<int>>>.
+   A struct with primitive, array<primitive>, or array<array<primitive>>,
+   e.g., struct<a:int, b:array<int>>.
 """
         )
 
