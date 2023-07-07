@@ -201,9 +201,7 @@ def test_model_log(sklearn_logreg_model, model_path):
                     artifact_path=artifact_path,
                     conda_env=conda_env,
                 )
-                model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-                )
+                model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
                 assert model_info.model_uri == model_uri
 
                 reloaded_logsklearn_knn_model = mlflow.sklearn.load_model(model_uri=model_uri)
@@ -235,9 +233,7 @@ def test_log_model_calls_register_model(sklearn_logreg_model):
             conda_env=conda_env,
             registered_model_name="AdsModel1",
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert_register_model_called_with_local_model_path(
             register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
             model_uri=model_uri,
@@ -446,9 +442,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
             artifact_path=artifact_path,
             conda_env=sklearn_custom_env,
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -473,9 +467,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
             artifact_path=artifact_path,
             conda_env=sklearn_custom_env,
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
@@ -536,9 +528,7 @@ def test_model_log_uses_cloudpickle_serialization_format_by_default(sklearn_knn_
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model.model, artifact_path=artifact_path)
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     sklearn_conf = _get_flavor_configuration(

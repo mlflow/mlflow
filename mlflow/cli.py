@@ -236,8 +236,8 @@ def _user_args_to_dict(arguments, argument_type="P"):
             value = split[1]
         else:
             eprint(
-                "Invalid format for -%s parameter: '%s'. "
-                "Use -%s name=value." % (argument_type, arg, argument_type)
+                f"Invalid format for -{argument_type} parameter: '{arg}'. "
+                f"Use -{argument_type} name=value."
             )
             sys.exit(1)
         if name in user_dict:
@@ -612,7 +612,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
         except InvalidUrlException as iue:
             click.echo(
                 click.style(
-                    f"An exception {repr(iue)} was raised during the deletion of a model artifact",
+                    f"An exception {iue!r} was raised during the deletion of a model artifact",
                     fg="yellow",
                 )
             )

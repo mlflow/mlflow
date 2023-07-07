@@ -13,7 +13,6 @@ import pandas as pd
 import re
 from typing import Union, List, Optional, Dict, Any, NamedTuple
 from urllib.parse import urlparse
-
 import yaml
 
 import mlflow
@@ -151,7 +150,7 @@ def get_default_pip_requirements(model) -> List[str]:
         _logger.warning(
             "Could not infer model execution engine type due to huggingface_hub not "
             "being installed or unable to connect in online mode. Adding full "
-            f"dependency chain: {dependencies}. \nFailure cause: {str(e)}"
+            f"dependency chain: {dependencies}. \nFailure cause: {e}"
         )
         return dependencies
 
@@ -869,7 +868,13 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
 
     model_instance = getattr(transformers, flavor_config[_PIPELINE_MODEL_TYPE_KEY])
     local_path = pathlib.Path(path)
-    model_path = local_path.joinpath(flavor_config.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME))
+    # NB: Path resolution for models that were saved prior to 2.4.1 release when the pathing for
+    #     the saved pipeline or component artifacts was handled by duplicate entries for components
+    #     (artifacts/pipeline/* and artifacts/components/*) and pipelines were saved via the
+    #     "artifacts/pipeline/*" path. In order to load the older formats after the change, the
+    #     presence of the new path key is checked.
+    model_path = local_path.joinpath(flavor_config.get(_MODEL_BINARY_KEY, "pipeline"))
+
     conf = {
         "task": flavor_config[_TASK_KEY],
     }

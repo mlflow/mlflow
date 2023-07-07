@@ -7,9 +7,6 @@ from mlflow.tracking.default_experiment.databricks_notebook_experiment_provider 
     DatabricksNotebookExperimentProvider,
     DatabricksRepoNotebookExperimentProvider,
 )
-from mlflow.tracking.default_experiment.databricks_job_experiment_provider import (
-    DatabricksJobExperimentProvider,
-)
 
 
 _logger = logging.getLogger(__name__)
@@ -17,7 +14,6 @@ _logger = logging.getLogger(__name__)
 # the current context where the MLflow client is running when the user has not explicitly set
 # an experiment. The order below is the order in which the these providers are registered.
 _EXPERIMENT_PROVIDERS = (
-    DatabricksJobExperimentProvider,
     DatabricksRepoNotebookExperimentProvider,
     DatabricksNotebookExperimentProvider,
 )
@@ -47,7 +43,7 @@ class DefaultExperimentProviderRegistry:
             except (AttributeError, ImportError) as exc:
                 warnings.warn(
                     "Failure attempting to register default experiment"
-                    + 'context provider "{}": {}'.format(entrypoint.name, str(exc)),
+                    + f'context provider "{entrypoint.name}": {exc}',
                     stacklevel=2,
                 )
 

@@ -9,3 +9,61 @@ force-exclude = '''
   | examples/recipes/
 )
 '''
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+select = [
+  "E",
+  "F",
+  "C4",
+  "UP004",
+  "UP008",
+  "UP031",
+  "UP034",
+]
+force-exclude = true
+ignore = [
+  "E402",  # module-import-not-at-top-of-file
+  "E501",  # line-too-long
+  "E741",  # ambiguous-variable-name
+  "F401",  # unused-import
+  "F402",  # import-shadowed-by-loop-var
+  "F403",  # undefined-local-with-import-star
+  "F811",  # redefined-while-unused
+]
+exclude = [
+  # Exclude a variety of commonly ignored directories.
+  ".bzr",
+  ".direnv",
+  ".eggs",
+  ".git",
+  ".git-rewrite",
+  ".hg",
+  ".mypy_cache",
+  ".nox",
+  ".pants.d",
+  ".pytype",
+  ".ruff_cache",
+  ".svn",
+  ".tox",
+  ".venv",
+  "__pypackages__",
+  "_build",
+  "buck-out",
+  "build",
+  "dist",
+  "node_modules",
+  "venv",
+  # Files/directories in mlflow repository
+  "setup.py",
+  "docs",
+  "examples",
+  "mlflow/protos",
+  "mlflow/ml_package_versions.py",
+  "mlflow/server/js",
+  "mlflow/store/db_migrations",
+  "mlflow/temporary_db_migrations_for_pre_1_users",
+  "tests/protos",
+]

@@ -348,9 +348,7 @@ def test_model_log(model, data, predicted):
                 mlflow.start_run()
             artifact_path = "keras_model"
             model_info = mlflow.tensorflow.log_model(model, artifact_path=artifact_path)
-            model_uri = "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
+            model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
             assert model_info.model_uri == model_uri
 
             # Load model
@@ -371,9 +369,7 @@ def test_log_model_calls_register_model(model):
         mlflow.tensorflow.log_model(
             model, artifact_path=artifact_path, registered_model_name="AdsModel1"
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert_register_model_called_with_local_model_path(
             register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
             model_uri=model_uri,
@@ -510,9 +506,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(model, keras_
     with mlflow.start_run():
         mlflow.tensorflow.log_model(model, artifact_path=artifact_path, conda_env=keras_custom_env)
         model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
+            f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         )
 
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
@@ -524,9 +518,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model,
     with mlflow.start_run():
         mlflow.tensorflow.log_model(model, artifact_path=artifact_path, conda_env=keras_custom_env)
         model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
+            f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)

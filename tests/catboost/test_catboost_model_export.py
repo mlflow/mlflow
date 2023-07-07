@@ -236,7 +236,7 @@ def test_log_model(cb_model, tmp_path):
         _mlflow_conda_env(conda_env, additional_pip_deps=["catboost"])
 
         model_info = mlflow.catboost.log_model(model, artifact_path, conda_env=conda_env)
-        model_uri = "runs:/{}/{}".format(mlflow.active_run().info.run_id, artifact_path)
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert model_info.model_uri == model_uri
 
         loaded_model = mlflow.catboost.load_model(model_uri)
@@ -267,7 +267,7 @@ def test_log_model_calls_register_model(cb_model, tmp_path):
             conda_env=conda_env_path,
             registered_model_name=registered_model_name,
         )
-        model_uri = "runs:/{}/{}".format(run.info.run_id, artifact_path)
+        model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
         assert_register_model_called_with_local_model_path(
             register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
             model_uri=model_uri,

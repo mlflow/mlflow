@@ -53,8 +53,8 @@ def test_databricks_job_run_context_tags():
         workspace_info_mock,
     ):
         assert DatabricksJobRunContext().tags() == {
-            MLFLOW_SOURCE_NAME: "jobs/{job_id}/run/{job_run_id}".format(
-                job_id=job_id_mock.return_value, job_run_id=job_run_id_mock.return_value
+            MLFLOW_SOURCE_NAME: (
+                f"jobs/{job_id_mock.return_value}/run/{job_run_id_mock.return_value}"
             ),
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.JOB),
             MLFLOW_DATABRICKS_JOB_ID: job_id_mock.return_value,
@@ -81,8 +81,8 @@ def test_databricks_job_run_context_tags():
         workspace_info_mock,
     ):
         assert DatabricksJobRunContext().tags() == {
-            MLFLOW_SOURCE_NAME: "jobs/{job_id}/run/{job_run_id}".format(
-                job_id=job_id_mock.return_value, job_run_id=job_run_id_mock.return_value
+            MLFLOW_SOURCE_NAME: (
+                f"jobs/{job_id_mock.return_value}/run/{job_run_id_mock.return_value}"
             ),
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.JOB),
             MLFLOW_DATABRICKS_JOB_ID: job_id_mock.return_value,

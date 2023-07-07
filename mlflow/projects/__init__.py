@@ -189,8 +189,7 @@ def _run(
 
     supported_backends = ["databricks", "kubernetes"] + list(loader.MLFLOW_BACKENDS.keys())
     raise ExecutionException(
-        "Got unsupported execution mode %s. Supported "
-        "values: %s" % (backend_name, supported_backends)
+        f"Got unsupported execution mode {backend_name}. Supported values: {supported_backends}"
     )
 
 

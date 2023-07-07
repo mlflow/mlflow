@@ -1138,7 +1138,7 @@ def test_evaluate_restores_env(tmp_path, env_manager, iris_dataset):
         def __init__(self):
             pass
 
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             if sklearn.__version__ == "0.22.1":
                 pred_value = 1
             else:
@@ -1212,7 +1212,7 @@ def test_evaluate_terminates_model_servers(multiclass_logistic_regressor_model_u
         os_mock.assert_has_calls([mock.call(1, signal.SIGTERM), mock.call(2, signal.SIGTERM)])
 
 
-def test_evaluate_stdin_scoring_server(monkeypatch):
+def test_evaluate_stdin_scoring_server():
     X, y = sklearn.datasets.load_iris(return_X_y=True)
     X = X[::5]
     y = y[::5]

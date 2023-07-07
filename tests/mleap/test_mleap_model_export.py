@@ -153,9 +153,7 @@ def test_mleap_model_log(spark_model_iris):
             artifact_path=artifact_path,
             registered_model_name="Model1",
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert model_info.model_uri == model_uri
         assert_register_model_called_with_local_model_path(
             mlflow.tracking._model_registry.fluent._register_model, model_uri, "Model1"

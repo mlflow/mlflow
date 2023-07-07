@@ -599,8 +599,8 @@ class FileStore(AbstractStore):
                 )
                 if more_retries == 0:
                     raise MlflowException(
-                        "Model Version creation error (name={}). Error: {}. Giving up after "
-                        "{} attempts.".format(name, e, self.CREATE_MODEL_VERSION_RETRIES)
+                        f"Model Version creation error (name={name}). Error: {e}. Giving up after "
+                        f"{self.CREATE_MODEL_VERSION_RETRIES} attempts."
                     )
 
     def update_model_version(self, name, version, description):

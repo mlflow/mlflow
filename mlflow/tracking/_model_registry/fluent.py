@@ -114,9 +114,8 @@ def _register_model(
         local_model_path=local_model_path,
     )
     eprint(
-        "Created version '{version}' of model '{model_name}'.".format(
-            version=create_version_response.version, model_name=create_version_response.name
-        )
+        f"Created version '{create_version_response.version}' of model "
+        f"'{create_version_response.name}'."
     )
     return create_version_response
 

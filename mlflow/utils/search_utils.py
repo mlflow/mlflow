@@ -284,8 +284,7 @@ class SearchUtils:
         entity_type = cls._trim_backticks(entity_type)
         if entity_type not in cls._VALID_IDENTIFIERS:
             raise MlflowException(
-                "Invalid entity type '%s'. "
-                "Valid values are %s" % (entity_type, cls._IDENTIFIERS),
+                f"Invalid entity type '{entity_type}'. Valid values are {cls._IDENTIFIERS}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -336,7 +335,7 @@ class SearchUtils:
         if identifier_type == cls._METRIC_IDENTIFIER:
             if token.ttype not in cls.NUMERIC_VALUE_TYPES:
                 raise MlflowException(
-                    "Expected numeric value type for metric. Found {}".format(token.value),
+                    f"Expected numeric value type for metric. Found {token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return token.value
@@ -390,7 +389,7 @@ class SearchUtils:
             else:
                 raise MlflowException(
                     "Expected a quoted string value for dataset attributes. "
-                    "Got value {value}".format(value=token.value),
+                    f"Got value {token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         else:
@@ -405,17 +404,17 @@ class SearchUtils:
         base_error_string = "Invalid comparison clause"
         if len(tokens) != 3:
             raise MlflowException(
-                "{}. Expected 3 tokens found {}".format(base_error_string, len(tokens)),
+                f"{base_error_string}. Expected 3 tokens found {len(tokens)}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         if not isinstance(tokens[0], Identifier):
             raise MlflowException(
-                "{}. Expected 'Identifier' found '{}'".format(base_error_string, str(tokens[0])),
+                f"{base_error_string}. Expected 'Identifier' found '{tokens[0]}'",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         if not isinstance(tokens[1], Token) and tokens[1].ttype != TokenType.Operator.Comparison:
             raise MlflowException(
-                "{}. Expected comparison found '{}'".format(base_error_string, str(tokens[1])),
+                f"{base_error_string}. Expected comparison found '{tokens[1]}'",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         if not isinstance(tokens[2], Token) and (
@@ -423,7 +422,7 @@ class SearchUtils:
             or isinstance(tokens[2], Identifier)
         ):
             raise MlflowException(
-                "{}. Expected value token found '{}'".format(base_error_string, str(tokens[2])),
+                f"{base_error_string}. Expected value token found '{tokens[2]}'",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -488,8 +487,8 @@ class SearchUtils:
         if key_type == cls._METRIC_IDENTIFIER:
             if comparator not in cls.VALID_METRIC_COMPARATORS:
                 raise MlflowException(
-                    "Invalid comparator '%s' "
-                    "not one of '%s" % (comparator, cls.VALID_METRIC_COMPARATORS),
+                    f"Invalid comparator '{comparator}' "
+                    f"not one of '{cls.VALID_METRIC_COMPARATORS}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -500,8 +499,8 @@ class SearchUtils:
         if key_type == cls._PARAM_IDENTIFIER:
             if comparator not in cls.VALID_PARAM_COMPARATORS:
                 raise MlflowException(
-                    "Invalid comparator '%s' "
-                    "not one of '%s'" % (comparator, cls.VALID_PARAM_COMPARATORS),
+                    f"Invalid comparator '{comparator}' "
+                    f"not one of '{cls.VALID_PARAM_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -512,8 +511,7 @@ class SearchUtils:
         if key_type == cls._TAG_IDENTIFIER:
             if comparator not in cls.VALID_TAG_COMPARATORS:
                 raise MlflowException(
-                    "Invalid comparator '%s' "
-                    "not one of '%s" % (comparator, cls.VALID_TAG_COMPARATORS)
+                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}"
                 )
             return True
         return False
@@ -523,8 +521,8 @@ class SearchUtils:
         if key_type == cls._ATTRIBUTE_IDENTIFIER and key_name not in cls.NUMERIC_ATTRIBUTES:
             if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
-                    "Invalid comparator '{}' not one of "
-                    "'{}".format(comparator, cls.VALID_STRING_ATTRIBUTE_COMPARATORS)
+                    "Invalid comparator '{comparator}' not one of "
+                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}'"
                 )
             return True
         return False
@@ -545,8 +543,8 @@ class SearchUtils:
         if key_type == cls._DATASET_IDENTIFIER:
             if comparator not in cls.VALID_DATASET_COMPARATORS:
                 raise MlflowException(
-                    "Invalid comparator '%s' "
-                    "not one of '%s" % (comparator, cls.VALID_DATASET_COMPARATORS)
+                    f"Invalid comparator '{comparator}' "
+                    f"not one of '{cls.VALID_DATASET_COMPARATORS}"
                 )
             return True
         return False
@@ -938,8 +936,8 @@ class SearchExperimentsUtils(SearchUtils):
         if key_type == cls._ATTRIBUTE_IDENTIFIER:
             if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
-                    "Invalid comparator '{}' not one of "
-                    "'{}".format(comparator, cls.VALID_STRING_ATTRIBUTE_COMPARATORS)
+                    "Invalid comparator '{comparator}' not one of "
+                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}'"
                 )
             return True
         return False

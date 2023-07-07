@@ -6,9 +6,6 @@ import mlflow.tracking.default_experiment.registry
 from mlflow.tracking.default_experiment.databricks_notebook_experiment_provider import (
     DatabricksNotebookExperimentProvider,
 )
-from mlflow.tracking.default_experiment.databricks_job_experiment_provider import (
-    DatabricksJobExperimentProvider,
-)
 from mlflow.tracking.default_experiment.registry import (
     DefaultExperimentProviderRegistry,
     get_experiment_id,
@@ -71,7 +68,6 @@ def _currently_registered_default_experiment_provider_classes():
 def test_registry_instance_defaults():
     expected_classes = {
         DatabricksNotebookExperimentProvider,
-        DatabricksJobExperimentProvider,
     }
     assert expected_classes.issubset(_currently_registered_default_experiment_provider_classes())
 

@@ -7,21 +7,6 @@ on:
       - requirements/skinny-requirements.yaml
   schedule:
     - cron: "0 13 * * *"
-  workflow_dispatch:
-    inputs:
-      repository:
-        description: >
-          [Optional] Repository name with owner. For example, mlflow/mlflow.
-           Defaults to the repository that triggered a workflow.
-        required: false
-        default: ""
-      ref:
-        description: >
-          [Optional] The branch, tag or SHA to checkout. When checking out the repository that
-           triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
-           uses the default branch.
-        required: false
-        default: ""
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
@@ -40,7 +25,7 @@ jobs:
   skinny:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/mlflow') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     steps:
       - uses: actions/checkout@v3
         with:

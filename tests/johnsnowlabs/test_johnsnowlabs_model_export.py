@@ -103,7 +103,7 @@ def validate_model(original_model, new_model):
 
 
 @pytest.fixture
-def jsl_model(model_path, load_and_init_model):
+def jsl_model(load_and_init_model):
     yield load_and_init_model
 
 
@@ -256,9 +256,7 @@ def test_johnsnowlabs_model_log(tmp_path, jsl_model, should_start_run, use_dfs_t
             spark_model=jsl_model,
             dfs_tmpdir=dfs_tmpdir,
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
         reloaded_model = mlflow.johnsnowlabs.load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmpdir)
         validate_model(jsl_model, reloaded_model)
@@ -278,9 +276,7 @@ def test_log_model_calls_register_model(tmp_path, jsl_model):
             dfs_tmpdir=dfs_tmp_dir,
             registered_model_name="AdsModel1",
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert_register_model_called_with_local_model_path(
             register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
             model_uri=model_uri,

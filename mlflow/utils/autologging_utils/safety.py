@@ -328,7 +328,7 @@ def safe_patch(
         destination, function_name, bypass_descriptor_protocol=True
     )
     if original_fn != raw_original_obj:
-        raise RuntimeError(f"Unsupport patch on {str(destination)}.{function_name}")
+        raise RuntimeError(f"Unsupport patch on {destination}.{function_name}")
     elif isinstance(original_fn, property):
         is_property_method = True
 
@@ -774,7 +774,7 @@ def _validate_autologging_run(autologging_integration, run_id):
     )
     assert RunStatus.is_terminated(
         RunStatus.from_string(run.info.status)
-    ), "Autologging run with id {} has a non-terminal status '{}'".format(run_id, run.info.status)
+    ), f"Autologging run with id {run_id} has a non-terminal status '{run.info.status}'"
 
 
 class ValidationExemptArgument(typing.NamedTuple):

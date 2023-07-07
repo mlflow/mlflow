@@ -425,7 +425,7 @@ class Recipe:
                 ) from None
             else:
                 raise MlflowException(
-                    f"Failed to construct Recipe {class_name}. Error: {repr(e)}",
+                    f"Failed to construct Recipe {class_name}. Error: {e!r}",
                     error_code=INTERNAL_ERROR,
                 ) from None
 
