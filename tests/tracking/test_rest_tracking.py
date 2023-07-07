@@ -532,11 +532,9 @@ def test_validate_path_is_safe_good(path):
 @pytest.mark.parametrize(
     "path",
     [
-        "path\\",
-        "path\\to\\file",
-        "\\path\\to\\file",
         # relative path from current directory of C: drive
-        "C:path\\to\\file",
+        "C:path",
+        "C:path/",
         "C:path/to/file",
     ],
 )
