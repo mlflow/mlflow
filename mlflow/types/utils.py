@@ -513,7 +513,7 @@ def _infer_param_schema(parameters: Dict[str, Any]):
     for name, value in parameters.items():
         try:
             value_type, shape = _infer_type_and_shape(value)
-            param_specs.append(ParamSpec(name=name, type=value_type, default=value, shape=shape))
+            param_specs.append(ParamSpec(name=name, dtype=value_type, default=value, shape=shape))
         except Exception as e:
             invalid_params.append((name, value, e))
 

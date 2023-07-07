@@ -742,7 +742,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("str_param", DataType.string, "str_a", None)
     assert spec.to_dict() == {
         "name": "str_param",
-        "type": "string",
+        "dtype": "string",
         "default": "str_a",
         "shape": None,
     }
@@ -751,7 +751,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("str_array", DataType.string, ["str_a", "str_b"], (-1,))
     assert spec.to_dict() == {
         "name": "str_array",
-        "type": "string",
+        "dtype": "string",
         "default": ["str_a", "str_b"],
         "shape": (-1,),
     }
@@ -760,7 +760,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("int_param", DataType.integer, np.int32(1), None)
     assert spec.to_dict() == {
         "name": "int_param",
-        "type": "integer",
+        "dtype": "integer",
         "default": 1,
         "shape": None,
     }
@@ -769,7 +769,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("int_array", DataType.integer, [np.int32(1), np.int32(2)], (-1,))
     assert spec.to_dict() == {
         "name": "int_array",
-        "type": "integer",
+        "dtype": "integer",
         "default": [1, 2],
         "shape": (-1,),
     }
@@ -778,7 +778,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("bool_param", DataType.boolean, True, None)
     assert spec.to_dict() == {
         "name": "bool_param",
-        "type": "boolean",
+        "dtype": "boolean",
         "default": True,
         "shape": None,
     }
@@ -787,7 +787,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("bool_array", DataType.boolean, [True, False], (-1,))
     assert spec.to_dict() == {
         "name": "bool_array",
-        "type": "boolean",
+        "dtype": "boolean",
         "default": [True, False],
         "shape": (-1,),
     }
@@ -796,7 +796,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("double_param", DataType.double, 1.0, None)
     assert spec.to_dict() == {
         "name": "double_param",
-        "type": "double",
+        "dtype": "double",
         "default": 1.0,
         "shape": None,
     }
@@ -805,7 +805,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("double_array", DataType.double, [1.0, 2.0], (-1,))
     assert spec.to_dict() == {
         "name": "double_array",
-        "type": "double",
+        "dtype": "double",
         "default": [1.0, 2.0],
         "shape": (-1,),
     }
@@ -814,7 +814,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("float_param", DataType.float, np.float32(0.1), None)
     assert spec.to_dict() == {
         "name": "float_param",
-        "type": "float",
+        "dtype": "float",
         "default": float(np.float32(0.1)),
         "shape": None,
     }
@@ -823,7 +823,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("float_array", DataType.float, [np.float32(0.1), np.float32(0.2)], (-1,))
     assert spec.to_dict() == {
         "name": "float_array",
-        "type": "float",
+        "dtype": "float",
         "default": [float(np.float32(0.1)), float(np.float32(0.2))],
         "shape": (-1,),
     }
@@ -832,7 +832,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("long_param", DataType.long, 100, None)
     assert spec.to_dict() == {
         "name": "long_param",
-        "type": "long",
+        "dtype": "long",
         "default": 100,
         "shape": None,
     }
@@ -841,7 +841,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("long_array", DataType.long, [100, 200], (-1,))
     assert spec.to_dict() == {
         "name": "long_array",
-        "type": "long",
+        "dtype": "long",
         "default": [100, 200],
         "shape": (-1,),
     }
@@ -852,7 +852,7 @@ def test_param_spec_to_and_from_dict():
     )
     assert spec.to_dict() == {
         "name": "datetime_param",
-        "type": "datetime",
+        "dtype": "datetime",
         "default": "2023-06-26T00:00:00",
         "shape": None,
     }
@@ -866,7 +866,7 @@ def test_param_spec_to_and_from_dict():
     )
     assert spec.to_dict() == {
         "name": "datetime_array",
-        "type": "datetime",
+        "dtype": "datetime",
         "default": ["2023-06-26T00:00:00", "2023-06-27T00:00:00"],
         "shape": (-1,),
     }

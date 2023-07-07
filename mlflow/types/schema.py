@@ -469,7 +469,7 @@ class ParamSpec:
     def __init__(
         self,
         name: str,
-        type: Union[DataType, str],  # pylint: disable=redefined-builtin
+        dtype: Union[DataType, str],
         default: Union[DataType, List[DataType], None],
         shape: Optional[Tuple[int, ...]] = None,
     ):
@@ -477,34 +477,34 @@ class ParamSpec:
         self._shape = tuple(shape) if shape is not None else None
 
         try:
-            self._type = DataType[type] if isinstance(type, str) else type
+            self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
         except KeyError:
             supported_types = [t.name for t in DataType if t.name != "binary"]
             raise MlflowException.invalid_parameter_value(
-                f"Unsupported type '{type}', expected instance of DataType or "
+                f"Unsupported type '{dtype}', expected instance of DataType or "
                 f"one of {supported_types}",
             )
-        if not isinstance(self.type, DataType):
+        if not isinstance(self.dtype, DataType):
             raise TypeError(
-                "Expected mlflow.models.signature.Datatype or str for the 'type' "
-                f"argument, but got {self.type.__class__}"
+                "Expected mlflow.models.signature.Datatype or str for the 'dtype' "
+                f"argument, but got {self.dtype.__class__}"
             )
-        if self.type == DataType.binary:
+        if self.dtype == DataType.binary:
             raise MlflowException.invalid_parameter_value(
                 f"Binary type is not supported for parameters, ParamSpec '{self.name}'"
-                "has type 'binary'",
+                "has dtype 'binary'",
             )
 
         # This line makes sure repr(self) works fine
         self._default = default
-        self._default = self.validate_type_and_shape(repr(self), default, self.type, self.shape)
+        self._default = self.validate_type_and_shape(repr(self), default, self.dtype, self.shape)
 
     @classmethod
     def validate_param_spec(
         cls, value: Union[DataType, List[DataType], None], param_spec: "ParamSpec"
     ):
         return cls.validate_type_and_shape(
-            repr(param_spec), value, param_spec.type, param_spec.shape
+            repr(param_spec), value, param_spec.dtype, param_spec.shape
         )
 
     @classmethod
@@ -603,9 +603,9 @@ class ParamSpec:
         return self._name
 
     @property
-    def type(self) -> DataType:
+    def dtype(self) -> DataType:
         """The parameter data type."""
-        return self._type
+        return self._dtype
 
     @property
     def default(self) -> Union[DataType, List[DataType], None]:
@@ -622,24 +622,24 @@ class ParamSpec:
 
     class ParamSpecTypedDict(TypedDict):
         name: str
-        type: str
+        dtype: str
         default: Union[DataType, List[DataType], None]
         shape: Optional[Tuple[int, ...]]
 
     def to_dict(self) -> ParamSpecTypedDict:
         if self.shape is None:
             default_value = (
-                self.default.isoformat() if self.type.name == "datetime" else self.default
+                self.default.isoformat() if self.dtype.name == "datetime" else self.default
             )
         elif self.shape == (-1,):
             default_value = (
                 [v.isoformat() for v in self.default]
-                if self.type.name == "datetime"
+                if self.dtype.name == "datetime"
                 else self.default
             )
         return {
             "name": self.name,
-            "type": self.type.name,
+            "dtype": self.dtype.name,
             "default": default_value,
             "shape": self.shape,
         }
@@ -648,7 +648,7 @@ class ParamSpec:
         if isinstance(other, ParamSpec):
             return (
                 self.name == other.name
-                and self.type == other.type
+                and self.dtype == other.dtype
                 and self.default == other.default
                 and self.shape == other.shape
             )
@@ -656,22 +656,22 @@ class ParamSpec:
 
     def __repr__(self) -> str:
         shape = f" (shape: {self.shape})" if self.shape is not None else ""
-        return f"{self.name!r}: {self.type!r} (default: {self.default}){shape}"
+        return f"{self.name!r}: {self.dtype!r} (default: {self.default}){shape}"
 
     @classmethod
     def from_json_dict(cls, **kwargs):
         """
         Deserialize from a json loaded dictionary.
-        The dictionary is expected to contain `name`, `type` and `default` keys.
+        The dictionary is expected to contain `name`, `dtype` and `default` keys.
         """
-        if not {"name", "type", "default"} <= set(kwargs.keys()):
+        if not {"name", "dtype", "default"} <= set(kwargs.keys()):
             raise MlflowException.invalid_parameter_value(
                 "Missing keys in ParamSpec JSON. Expected to find "
-                "keys `name`, `type` and `default`",
+                "keys `name`, `dtype` and `default`",
             )
         return cls(
             name=str(kwargs["name"]),
-            type=DataType[kwargs["type"]],
+            dtype=DataType[kwargs["dtype"]],
             default=kwargs["default"],
             shape=kwargs.get("shape"),
         )
