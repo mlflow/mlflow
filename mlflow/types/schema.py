@@ -1,5 +1,5 @@
 import builtins
-import datetime  # pylint: disable=unused-import
+from datetime import date
 from enum import Enum
 import importlib.util
 import json
@@ -49,7 +49,7 @@ class DataType(Enum):
         np.dtype("datetime64[ns]"),
         "TimestampType",
         np.dtype("datetime64[ns]"),
-        datetime.date,
+        date,
     )
     """64b datetime data."""
 

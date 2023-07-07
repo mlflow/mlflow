@@ -886,7 +886,7 @@ def test_infer_param_schema():
         "bool_list": [True, False],
         "double_array": np.array([1.0, 2.0]),
         "float_array": np.array([np.float32(0.1), np.float32(0.2)]),
-        "long_array": np.array([100, 200]),
+        "long_array": np.array([np.int64(100), np.int64(200)]),
         "datetime_array": np.array([datetime.date(2023, 6, 26)]),
         "str_array": np.array(["a", "b", "c"]),
         "bool_array": np.array([True, False]),
