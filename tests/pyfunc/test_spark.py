@@ -403,8 +403,7 @@ def test_spark_udf_tensorspec_struct_return_type_inference(spark):
             "res.r1", "res.r2", "res.r3", "res.r4", "res.r5"
         )
         assert (
-            result_spark_df.schema.simpleString() ==
-            "struct<"
+            result_spark_df.schema.simpleString() == "struct<"
             "r1:array<bigint>,"
             "r2:array<double>,"
             "r3:array<double>,"
@@ -535,8 +534,8 @@ def test_spark_udf_triple_nested_array_return_type_not_supported(spark):
 
     for result_type in ("array<array<array<double>>>", "a array<array<array<double>>>"):
         with pytest.raises(
-                Exception,
-                match="return type does not support the array type ArrayType\\(ArrayType\\(ArrayType"
+            Exception,
+            match="return type does not support the array type ArrayType\\(ArrayType\\(ArrayType",
         ):
             mlflow.pyfunc.spark_udf(
                 spark,

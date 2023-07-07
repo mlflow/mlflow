@@ -855,8 +855,7 @@ def _convert_model_output_spec_to_spark_type(spec):
             )
     else:
         raise MlflowException(
-            f"Unknown schema output spec {spec}.",
-            error_code=INVALID_PARAMETER_VALUE
+            f"Unknown schema output spec {spec}.", error_code=INVALID_PARAMETER_VALUE
         )
 
 
@@ -966,10 +965,7 @@ def _check_udf_return_array_type(array_type, parent_struct_type):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if (
-        isinstance(elem_type, ArrayType)
-        and isinstance(elem_type.elementType, primitive_types)
-    ):
+    if isinstance(elem_type, ArrayType) and isinstance(elem_type.elementType, primitive_types):
         # 2D array
         return
 
@@ -997,10 +993,20 @@ def _check_udf_return_type(data_type):
         return
 
     raise MlflowException(
-        f"Invalid data type: {data_type}, 'spark_udf' return type must be one of primitive "
-        f"types {primitive_types}, struct type or array type, and struct type cannot contain "
-        "nested struct type, array type can contain nested struct type or nested array type, "
-        "but triple nested array type is not supported."
+        f"Invalid data type: {data_type}, 'spark_udf' return type must be one of following "
+        "types:\n"
+        "Primitive types:"
+        " - int"
+        " - long"
+        " - float"
+        " - double"
+        " - string"
+        " - bool"
+        "Compound types:"
+        " - array<primitive-type>"
+        " - array<array<primitive-type>>"
+        " - struct<field<primitive-type or array<primitive-type>>, ...>"
+        " - array<struct<field<primitive-type>, ...>>"
     )
 
 
@@ -1062,7 +1068,7 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
         containing fields of above 2 kinds of types are allowed.
         If ``result_type`` param is not set, it tries to infer result type from model signature
         output schema, if model output schema is not available, it fallbacks to use ``double``
-        type as the default result type.
+        type.
 
         The following classes of result type are supported:
 
@@ -1221,29 +1227,6 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
 
     _check_udf_return_type(result_type)
 
-    elem_type = result_type
-    if isinstance(elem_type, ArrayType):
-        elem_type = elem_type.elementType
-        if isinstance(elem_type, ArrayType):
-            elem_type = elem_type.elementType
-
-    supported_types = [
-        IntegerType,
-        LongType,
-        FloatType,
-        DoubleType,
-        StringType,
-        BooleanType,
-        SparkStructType,
-    ]
-
-    if not any(isinstance(elem_type, x) for x in supported_types):
-        raise MlflowException(
-            message="Invalid result_type '{}'. Result type can only be one of or an array of one "
-            "of the following types: {}".format(elem_type, supported_types),
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
     def _predict_row_batch(predict_fn, args):
         input_schema = model_metadata.get_input_schema()
         pdf = None
@@ -1289,7 +1272,9 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
         }
 
         if isinstance(result_type, ArrayType) and isinstance(result_type.elementType, ArrayType):
-            result_values = _convert_array_values(result, result_type, spark_primitive_type_to_np_type)
+            result_values = _convert_array_values(
+                result, result_type, spark_primitive_type_to_np_type
+            )
             return pandas.Series(result_values)
 
         if not isinstance(result, pandas.DataFrame):
@@ -1306,7 +1291,9 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
                     field_values = field_values.astype(np_type)
 
                 elif type(field_type) == ArrayType:
-                    field_values = _convert_array_values(field_values, field_type, spark_primitive_type_to_np_type)
+                    field_values = _convert_array_values(
+                        field_values, field_type, spark_primitive_type_to_np_type
+                    )
                 else:
                     raise MlflowException(
                         f"Unsupported field type {field_type.simpleString()} in struct type.",
