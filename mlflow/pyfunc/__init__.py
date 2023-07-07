@@ -1205,13 +1205,13 @@ Primitive types:
  - double
  - string
  - boolean
-or compound types such as:
+or compound types:
  - array<primitive>: A array type consists of primitive type elements.
  - array<array<primitive>>: A double nested array type consists of primitive type elements.
  - struct<field_name: field_type, ...>: A struct type, its field type can be either primitive
    or array type.
  - array<struct<...>>: A array type consists of struct type elements.
-Please check the provided data type."""
+"""
         )
 
     def _predict_row_batch(predict_fn, args):
