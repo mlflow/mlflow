@@ -530,11 +530,6 @@ class ParamSpec:
         if value is None:
             return value
 
-        if not np.isscalar(value):
-            raise MlflowException(
-                f"Value should be a scalar for param {name}, got {value}", INVALID_PARAMETER_VALUE
-            )
-
         if t == DataType.datetime:
             try:
                 return np.datetime64(value).item()
@@ -544,6 +539,12 @@ class ParamSpec:
                     f"to {t} for param {name}",
                     INVALID_PARAMETER_VALUE,
                 ) from e
+
+        # Note that np.isscalar(datetime.date(...)) is False
+        if not np.isscalar(value):
+            raise MlflowException(
+                f"Value should be a scalar for param {name}, got {value}", INVALID_PARAMETER_VALUE
+            )
 
         # Always convert to python native type for params
         if getattr(DataType, f"is_{t.name}")(value):

@@ -849,6 +849,12 @@ def test_infer_param_schema():
         "str_list": ["a", "b", "c"],
         "bool_list": [True, False],
         "double_array": np.array([1.0, 2.0]),
+        "float_array": np.array([np.float32(0.1), np.float32(0.2)]),
+        "long_array": np.array([100, 200]),
+        "datetime_array": np.array([datetime.date(2023, 6, 26)]),
+        "str_array": np.array(["a", "b", "c"]),
+        "bool_array": np.array([True, False]),
+        "int_array": np.array([np.int32(1), np.int32(2)]),
     }
     test_schema = ParamSchema(
         [
@@ -864,9 +870,19 @@ def test_infer_param_schema():
             ParamSpec("str_list", DataType.string, ["a", "b", "c"], (-1,)),
             ParamSpec("bool_list", DataType.boolean, [True, False], (-1,)),
             ParamSpec("double_array", DataType.double, [1.0, 2.0], (-1,)),
+            ParamSpec("float_array", DataType.float, [np.float32(0.1), np.float32(0.2)], (-1,)),
+            ParamSpec("long_array", DataType.long, [100, 200], (-1,)),
+            ParamSpec("datetime_array", DataType.datetime, [datetime.date(2023, 6, 26)], (-1,)),
+            ParamSpec("str_array", DataType.string, ["a", "b", "c"], (-1,)),
+            ParamSpec("bool_array", DataType.boolean, [True, False], (-1,)),
+            ParamSpec("int_array", DataType.integer, [1, 2], (-1,)),
         ]
     )
     assert _infer_param_schema(test_params) == test_schema
+
+    assert _infer_param_schema({"datetime_param": datetime.date(2023, 6, 26)}) == ParamSchema(
+        [ParamSpec("datetime_param", DataType.datetime, datetime.date(2023, 6, 26), None)]
+    )
 
     # Raise error if parameters is not dictionary
     with pytest.raises(MlflowException, match=r"Expected parameters to be dict, got list"):

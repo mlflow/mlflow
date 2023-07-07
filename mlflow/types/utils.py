@@ -476,33 +476,38 @@ def _infer_schema_from_type_hint(type_hint, examples=None):
         return None
 
 
+def _infer_type_and_shape(value):
+    if isinstance(value, (list, np.ndarray, pd.Series)):
+        ndim = np.array(value).ndim
+        if ndim != 1:
+            raise MlflowException(
+                f"Expected parameters to be 1D array or scalar, got {ndim}D array",
+                INVALID_PARAMETER_VALUE,
+            )
+        if all(DataType.is_datetime(v) for v in value):
+            return DataType.datetime, (-1,)
+        value_type = _infer_numpy_dtype(np.array(value).dtype)
+        return value_type, (-1,)
+    elif DataType.is_datetime(value):
+        return DataType.datetime, None
+    elif np.isscalar(value):
+        try:
+            value_type = _infer_numpy_dtype(np.array(value).dtype)
+            return value_type, None
+        except (Exception, MlflowException) as e:
+            raise MlflowException(
+                f"Failed to infer schema for parameter {value}: {e!r}", INVALID_PARAMETER_VALUE
+            )
+    raise MlflowException(
+        f"Expected parameters to be 1D array or scalar, got {type(value).__name__}",
+        INVALID_PARAMETER_VALUE,
+    )
+
+
 def _infer_param_schema(parameters: Dict[str, Any]):
     if not isinstance(parameters, dict):
         raise MlflowException(
             f"Expected parameters to be dict, got {type(parameters).__name__}",
-            INVALID_PARAMETER_VALUE,
-        )
-
-    def _infer_type_and_shape(value):
-        if isinstance(value, (list, np.ndarray, pd.Series)):
-            ndim = np.array(value).ndim
-            if ndim != 1:
-                raise MlflowException(
-                    f"Expected parameters to be 1D array or scalar, got {ndim}D array",
-                    INVALID_PARAMETER_VALUE,
-                )
-            value_type = _infer_numpy_dtype(np.array(value).dtype)
-            return value_type, (-1,)
-        elif np.isscalar(value):
-            try:
-                value_type = _infer_numpy_dtype(np.array(value).dtype)
-                return value_type, None
-            except (Exception, MlflowException) as e:
-                raise MlflowException(
-                    f"Failed to infer schema for parameter {value}: {e!r}", INVALID_PARAMETER_VALUE
-                )
-        raise MlflowException(
-            f"Expected parameters to be 1D array or scalar, got {type(value).__name__}",
             INVALID_PARAMETER_VALUE,
         )
 

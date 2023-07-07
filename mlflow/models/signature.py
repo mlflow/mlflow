@@ -69,8 +69,8 @@ class ModelSignature:
             )
         if params and not isinstance(params, ParamSchema):
             raise TypeError(
-                "params must be either None or mlflow.models.signature.ParamSchema, "
-                "got '{}'".format(type(params))
+                "If params are provided, they must by of type mlflow.models.signature.ParamSchema. "
+                "Got '{}'".format(type(params))
             )
         self.inputs = inputs
         self.outputs = outputs
