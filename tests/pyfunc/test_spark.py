@@ -521,27 +521,19 @@ def test_spark_udf_single_long_return_type_inference(spark):
         assert result["res"].tolist() == [12] * 2
 
 
-def test_spark_udf_triple_nested_array_return_type_not_supported(spark):
-    class TestModel(PythonModel):
-        def predict(self, context, model_input):
-            raise NotImplementedError()
+def test_check_spark_udf_return_type(spark):
+    def _check(type_str):
+        return mlflow.pyfunc._check_udf_return_type(mlflow.pyfunc._parse_spark_datatype(type_str))
 
-    with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model(
-            "model",
-            python_model=TestModel(),
-        )
+    assert _check("array<double>")
+    assert _check("array<array<double>>")
+    assert _check("a long, b boolean, c array<double>, d array<array<double>>")
+    assert _check("array<struct<a: int, b: boolean>>")
 
-    for result_type in ("array<array<array<double>>>", "a array<array<array<double>>>"):
-        with pytest.raises(
-            Exception,
-            match="return type does not support the array type ArrayType\\(ArrayType\\(ArrayType",
-        ):
-            mlflow.pyfunc.spark_udf(
-                spark,
-                f"runs:/{run.info.run_id}/model",
-                result_type=result_type,
-            )
+    assert not _check("array<array<array<float>>>")
+    assert not _check("a array<array<array<int>>>")
+    assert not _check("struct<x: struct<a: long, b: boolean>>")
+    assert not _check("struct<x: array<struct<a: long, b: boolean>>>")
 
 
 def test_spark_udf_autofills_no_arguments(spark):

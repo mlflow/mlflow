@@ -938,6 +938,8 @@ def _check_udf_return_struct_type(struct_type):
         else:
             return False
 
+    return True
+
 
 def _check_udf_return_array_type(array_type, parent_struct_type):
     from pyspark.sql.types import ArrayType, StructType
@@ -1201,7 +1203,7 @@ Primitive types:
  - float
  - double
  - string
- - bool
+ - boolean
 or compound types such as:
  - array<primitive>: A array type consists of primitive type elements.
  - array<array<primitive>>: A double nested array type consists of primitive type elements.
