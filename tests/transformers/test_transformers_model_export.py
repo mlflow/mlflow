@@ -3308,3 +3308,36 @@ def test_uri_directory_renaming_handling_components(model_path, small_seq2seq_pi
     prediction = loaded_model.predict("test")
     assert isinstance(prediction, pd.DataFrame)
     assert isinstance(prediction["label"][0], str)
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.2"), reason="Feature does not exist"
+)
+def test_whisper_model_supports_timestamps(model_path, whisper_pipeline, raw_audio_file):
+    pipe = transformers.pipeline(
+        "automatic-speech-recognition",
+        model="openai/whisper-tiny",
+        chunk_length_s=30,
+    )
+
+    inference_config = {
+        "return_timestamps": "word",
+        "chunk_length_s": 60,
+        "batch_size": 16,
+    }
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=pipe,
+            artifact_path="model",
+            inference_config=inference_config,
+        )
+
+    model_uri = model_info.model_uri
+    whisper = mlflow.transformers.load_model(model_uri)
+
+    prediction = whisper(raw_audio_file, return_timestamps="word")
+    whisper_pyfunc = mlflow.pyfunc.load_model(model_uri)
+    prediction_inference = json.loads(whisper_pyfunc.predict(raw_audio_file)[0])
+
+    assert isinstance(prediction["chunks"][0]["timestamp"], tuple)
+    assert prediction == prediction_inference
