@@ -510,6 +510,13 @@ def test_check_spark_udf_return_type(spark):
     def _check(type_str):
         return mlflow.pyfunc._check_udf_return_type(mlflow.pyfunc._parse_spark_datatype(type_str))
 
+    assert _check("int")
+    assert _check("bigint")
+    assert _check("float")
+    assert _check("double")
+    assert _check("boolean")
+    assert _check("string")
+
     assert _check("array<double>")
     assert _check("array<array<double>>")
     assert _check("a long, b boolean, c array<double>, d array<array<double>>")
