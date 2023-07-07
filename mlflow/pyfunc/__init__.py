@@ -365,6 +365,20 @@ def _load_model_env(path):
     return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
 
 
+def _validate_params(params, model_metadata):
+    if params:
+        if hasattr(model_metadata, "get_params_schema"):
+            params_schema = model_metadata.get_params_schema()
+            return _enforce_params_schema(params, params_schema)
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "This model was not logged with a params schema and does not support "
+                "providing the params argument."
+                "Please log the model with mlflow > 2.4.1 and specify a params schema.",
+            )
+    return
+
+
 class PyFuncModel:
     """
     MLflow 'python function' model.
@@ -421,15 +435,7 @@ class PyFuncModel:
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
 
-        if params:
-            if hasattr(self.metadata, "get_params_schema"):
-                params_schema = self.metadata.get_params_schema()
-                params = _enforce_params_schema(params, params_schema)
-            else:
-                raise MlflowException.invalid_parameter_value(
-                    "Model with no params schema does not support params in predict. "
-                    "Please log the model with mlflow > 2.4.1.",
-                )
+        params = _validate_params(params, self.metadata)
 
         if "openai" in sys.modules and MLFLOW_OPENAI_RETRIES_ENABLED.get():
             from mlflow.openai.retry import openai_auto_retry_patch
@@ -1098,15 +1104,7 @@ def spark_udf(
 
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
-    if params:
-        if hasattr(model_metadata, "get_params_schema"):
-            params_schema = model_metadata.get_params_schema()
-            params = _enforce_params_schema(params, params_schema)
-        else:
-            raise MlflowException.invalid_parameter_value(
-                "Model with no params schema does not support params in predict. "
-                "Please log the model with mlflow > 2.4.1.",
-            )
+    params = _validate_params(params, model_metadata)
 
     def _predict_row_batch(predict_fn, args):
         input_schema = model_metadata.get_input_schema()
