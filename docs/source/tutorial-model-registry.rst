@@ -50,7 +50,7 @@ Once you have the Run ID, you can register the model in the Model Registry.
 
 In the MLflow UI, you can register a model by clicking the ``Register Model`` button in the upper right corner of the run's page. This is marked with the red **2** in the previous screenshot.
 
-You may also register a model with the MLflow API's ``mlflow.register_model`` function. You must set the ``model_uri`` and ``name`` parameters. The ``model_uri`` parameter must be set to the **directory** of your experiment's model artifact. The ``name`` argument will be the name used in the Model Registry. You may also pass a dictionary of tags with the ``tags`` parameter. The function returns an object of type :pyclass:`mlflow.entities.model_registry.ModelVersion` that contains the registered model's metadata. For example:
+You may also register a model with the MLflow API's ``mlflow.register_model`` function. You must set the ``model_uri`` and ``name`` parameters. The ``model_uri`` parameter must be set to the **directory** of your experiment's model artifact. The ``name`` argument will be the name used in the Model Registry. You may also pass a dictionary of tags with the ``tags`` parameter. The function returns an object of type :py:class:`mlflow.entities.model_registry.ModelVersion` that contains the registered model's metadata. For example:
 
 .. code-block:: python
 
@@ -93,6 +93,7 @@ In the confirmation dialog, you'll see a checkbox that is selected. You generall
 You may also transition a model version from one registry state to another using the MLflow API. The following code snippet transitions the model version with the given ``name`` and ``version`` to the ``Staging`` state:
 
 .. code-block:: python
+
     from mlflow import MlflowClient 
 
     client = MlflowClient()
