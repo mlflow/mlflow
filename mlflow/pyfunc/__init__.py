@@ -872,7 +872,7 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
-def _convert_model_output_spec_to_spark_type(spec):
+def _cast_spec_to_spark_type(spec):
     from mlflow.types.schema import ColSpec, TensorSpec, DataType
     from pyspark.sql.types import ArrayType
 
@@ -904,16 +904,14 @@ def _convert_model_output_spec_to_spark_type(spec):
 
 
 def _infer_spark_udf_return_type(model_output_schema):
-    from pyspark.sql.types import StructType, StructField, ArrayType
+    from pyspark.sql.types import StructType, StructField
 
     if len(model_output_schema.inputs) == 1:
-        return _convert_model_output_spec_to_spark_type(model_output_schema.inputs[0])
+        return _cast_spec_to_spark_type(model_output_schema.inputs[0])
 
     return StructType(
         [
-            StructField(
-                name=spec.name or str(i), dataType=_convert_model_output_spec_to_spark_type(spec)
-            )
+            StructField(name=spec.name or str(i), dataType=_cast_spec_to_spark_type(spec))
             for i, spec in enumerate(model_output_schema.inputs)
         ]
     )
@@ -929,8 +927,6 @@ def _convert_array_values(values, elem_type, array_dim, spark_primitive_type_to_
     """
     Convert list or numpy array values to spark dataframe column values.
     """
-    from pyspark.sql.types import ArrayType
-
     np_type = spark_primitive_type_to_np_type.get(type(elem_type))
     if np_type is None:
         raise MlflowException(
@@ -959,20 +955,21 @@ def _get_spark_primitive_types():
 
 
 def _check_udf_return_struct_type(struct_type):
-    from pyspark.sql.types import StructType, ArrayType
+    from pyspark.sql.types import ArrayType
 
     primitive_types = _get_spark_primitive_types()
 
     for field in struct_type.fields:
         field_type = field.dataType
-
         if isinstance(field_type, primitive_types):
-            pass
-        elif isinstance(field_type, ArrayType):
-            if not _check_udf_return_array_type(field_type, allow_struct=False):
-                return False
-        else:
-            return False
+            continue
+
+        if isinstance(field_type, ArrayType) and _check_udf_return_array_type(
+            field_type, allow_struct=False
+        ):
+            continue
+
+        return False
 
     return True
 
@@ -987,16 +984,16 @@ def _check_udf_return_array_type(array_type, allow_struct):
         # 1D array
         return True
 
+    if isinstance(elem_type, ArrayType) and isinstance(elem_type.elementType, primitive_types):
+        # 2D array
+        return True
+
     if isinstance(elem_type, StructType):
         if allow_struct:
             # Array of struct values.
             return _check_udf_return_struct_type(elem_type)
 
         return False
-
-    if isinstance(elem_type, ArrayType) and isinstance(elem_type.elementType, primitive_types):
-        # 2D array
-        return True
 
     return False
 
@@ -1226,22 +1223,19 @@ def spark_udf(
 
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
-    model_output_schema = model_metadata.get_output_schema()
-
     if result_type is None:
-        if model_output_schema is None:
+        if model_output_schema := model_metadata.get_output_schema():
+            result_type = _infer_spark_udf_return_type(model_output_schema)
+        else:
             _logger.warning(
                 "No 'result_type' provided for spark_udf and the model does not "
                 "have an output schema. 'result_type' is set to 'double' type."
             )
-            result_type = "double"
-        else:
-            result_type = _infer_spark_udf_return_type(model_output_schema)
-
-    result_type = "boolean" if result_type == "bool" else result_type
-
-    if not isinstance(result_type, SparkDataType):
-        result_type = _parse_spark_datatype(result_type)
+            result_type = DoubleType()
+    else:
+        if isinstance(result_type, str):
+            result_type = "boolean" if result_type == "bool" else result_type
+            result_type = _parse_spark_datatype(result_type)
 
     if not _check_udf_return_type(result_type):
         raise MlflowException(
