@@ -3745,7 +3745,7 @@ only inferred for built-in flavors.
         )
 
 Next, we add the ``log_model()`` function. This function is little more than a wrapper around the
-:py:func:`mlflow.models.Model.log()` method to enable loggig our custom model as an artifact to the
+:py:func:`mlflow.models.Model.log()` method to enable logging our custom model as an artifact to the
 curren MLflow run. Any flavor-specific parameters (e.g. ``serialization_format``) introduced in the
 ``save_model()`` function also need to be added in the ``log_model()`` function. We also need to
 pass the ``flavor`` module to the :py:func:`mlflow.models.Model.log()` method which internally calls
