@@ -24,7 +24,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import infer_signature, Model
 from mlflow.models.utils import _read_example
 from mlflow.utils.file_utils import TempDir
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration

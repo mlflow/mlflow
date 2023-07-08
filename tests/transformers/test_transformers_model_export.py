@@ -30,7 +30,6 @@ from mlflow.models.utils import _read_example
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.transformers import (
     _build_pipeline_from_model_input,
     get_default_pip_requirements,

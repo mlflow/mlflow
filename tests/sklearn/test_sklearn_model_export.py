@@ -30,11 +30,11 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec
 
 
+# pylint: disable=unused-import
 from tests.store._unity_catalog.conftest import (
     mock_databricks_uc_host_creds,
     configure_client_for_uc,

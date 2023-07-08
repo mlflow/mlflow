@@ -29,7 +29,6 @@ from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types.schema import Schema, TensorSpec
 from mlflow.utils.conda import get_or_create_conda_env
 from mlflow.utils.environment import _mlflow_conda_env

@@ -33,7 +33,6 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _compare_logged_code_paths,
     _mlflow_major_version_string,
-    assert_register_model_called_with_local_model_path,
 )
 
 if Version(mx.__version__) >= Version("2.0.0"):
