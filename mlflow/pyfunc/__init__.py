@@ -893,7 +893,7 @@ def _convert_model_output_spec_to_spark_type(spec):
             return ArrayType(ArrayType(data_type.to_spark()))
         else:
             raise MlflowException(
-                "Only one dimension or 2 dimensions tensors are supported as spark_udf "
+                "Only 1D or 2D tensors are supported as spark_udf "
                 f"return value, but model output '{spec.name}' has shape {spec.shape}.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -988,7 +988,7 @@ def _check_udf_return_array_type(array_type, allow_struct):
         return True
 
     if isinstance(elem_type, StructType):
-        if allow_nested_struct:
+        if allow_struct:
             # Array of struct values.
             return _check_udf_return_struct_type(elem_type)
 
@@ -1226,10 +1226,12 @@ def spark_udf(
 
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
+    model_output_schema = model_metadata.get_output_schema()
+
     if result_type is None:
-        if model_output_schema := model_metadata.get_output_schema():
+        if model_output_schema is None:
             _logger.warning(
-                "No 'result_type' provided for spark_udf and the model metadata does not "
+                "No 'result_type' provided for spark_udf and the model does not "
                 "have an output schema. 'result_type' is set to 'double' type."
             )
             result_type = "double"
