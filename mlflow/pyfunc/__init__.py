@@ -925,27 +925,19 @@ def _parse_spark_datatype(datatype: str):
     return udf(lambda x: x, returnType=datatype).returnType
 
 
-def _convert_array_values(values, spark_type, spark_primitive_type_to_np_type):
+def _convert_array_values(values, elem_type, array_dim, spark_primitive_type_to_np_type):
     """
     Convert list or numpy array values to spark dataframe column values.
     """
     from pyspark.sql.types import ArrayType
 
-    # Get element type from a array<E> type or a array<array<E>> type.
-    # and get the array_dim value (1 or 2).
-    array_dim = 1
-    elem_type = spark_type.elementType
-    if isinstance(elem_type, ArrayType):
-        elem_type = elem_type.elementType
-        array_dim = 2
-
-    if type(elem_type) not in spark_primitive_type_to_np_type:
+    np_type = spark_primitive_type_to_np_type.get(type(elem_type))
+    if np_type is None:
         raise MlflowException(
             "Unsupported array type field with element type "
             f"{elem_type.simpleString()} in struct type.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    np_type = spark_primitive_type_to_np_type[type(elem_type)]
 
     if array_dim == 1:
         return [np.array(v, dtype=np_type) for v in values]
@@ -977,7 +969,7 @@ def _check_udf_return_struct_type(struct_type):
         if isinstance(field_type, primitive_types):
             pass
         elif isinstance(field_type, ArrayType):
-            if not _check_udf_return_array_type(field_type, allow_nested_struct=False):
+            if not _check_udf_return_array_type(field_type, allow_struct=False):
                 return False
         else:
             return False
@@ -985,7 +977,7 @@ def _check_udf_return_struct_type(struct_type):
     return True
 
 
-def _check_udf_return_array_type(array_type, allow_nested_struct):
+def _check_udf_return_array_type(array_type, allow_struct):
     from pyspark.sql.types import ArrayType, StructType
 
     elem_type = array_type.elementType
@@ -1017,7 +1009,7 @@ def _check_udf_return_type(data_type):
         return True
 
     if isinstance(data_type, ArrayType):
-        return _check_udf_return_array_type(data_type, allow_nested_struct=True)
+        return _check_udf_return_array_type(data_type, allow_struct=True)
 
     if isinstance(data_type, StructType):
         return _check_udf_return_struct_type(data_type)
@@ -1234,10 +1226,8 @@ def spark_udf(
 
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
-    model_output_schema = model_metadata.get_output_schema()
-
     if result_type is None:
-        if model_output_schema is None:
+        if model_output_schema := model_metadata.get_output_schema():
             _logger.warning(
                 "No 'result_type' provided for spark_udf and the model metadata does not "
                 "have an output schema. 'result_type' is set to 'double' type."
@@ -1318,7 +1308,7 @@ Compound types:
 
         if isinstance(result_type, ArrayType) and isinstance(result_type.elementType, ArrayType):
             result_values = _convert_array_values(
-                result, result_type, spark_primitive_type_to_np_type
+                result, result_type.elementType.elementType, 2, spark_primitive_type_to_np_type
             )
             return pandas.Series(result_values)
 
@@ -1335,9 +1325,16 @@ Compound types:
                     np_type = spark_primitive_type_to_np_type[type(field_type)]
                     field_values = field_values.astype(np_type)
 
-                elif type(field_type) == ArrayType:
+                elif isinstance(field_type, ArrayType):
+                    if isinstance(field_type.elementType, ArrayType):
+                        array_dim = 2
+                        elem_type = field_type.elementType.elementType
+                    else:
+                        array_dim = 1
+                        elem_type = field_type.elementType
+
                     field_values = _convert_array_values(
-                        field_values, field_type, spark_primitive_type_to_np_type
+                        field_values, elem_type, array_dim, spark_primitive_type_to_np_type
                     )
                 else:
                     raise MlflowException(
