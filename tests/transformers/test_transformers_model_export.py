@@ -1388,29 +1388,66 @@ def test_text2text_generation_pipeline_with_inference_configs(
     assert dict_inference == inference
 
 
-def test_text2text_generation_pipeline_catch_error_in_kwargs(
-    text2text_generation_pipeline, model_path
-):
+def test_text2text_generation_pipeline_with_params(text2text_generation_pipeline, tmp_path):
     data = "muppet keyboard type"
-    parameters = {"top_k": 2, "num_beams": 5, "invalid_param": "invalid_param"}
+    parameters = {"top_k": 2, "num_beams": 5}
+    generated_output = mlflow.transformers.generate_signature_output(
+        text2text_generation_pipeline, data
+    )
     signature = infer_signature(
         data,
-        mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data),
-        params=parameters,
+        generated_output,
+        parameters,
     )
 
+    model_path = tmp_path / "model1"
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
         path=model_path,
         signature=signature,
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    pyfunc_loaded.predict(data, parameters)
 
+    parameters.update({"invalid_param": "invalid_param"})
+    model_path = tmp_path / "model2"
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline,
+        path=model_path,
+        signature=infer_signature(
+            data,
+            generated_output,
+            parameters,
+        ),
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     with pytest.raises(
         MlflowException,
-        match=r"The following `model_kwargs` are not used by the model: \['invalid_param'\]",
+        match=r"The params provided to the `predict` method are "
+        r"not valid for pipeline Text2TextGenerationPipeline.",
     ):
-        pyfunc_loaded.predict(data, params=parameters)
+        pyfunc_loaded.predict(data, parameters)
+
+    with pytest.raises(MlflowException, match=r"Invalid parameters found"):
+        pyfunc_loaded.predict(data, {"top_k": "2"})
+
+    model_path = tmp_path / "model3"
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline,
+        model_path,
+        signature=infer_signature(
+            data,
+            generated_output,
+            params={"invalid_param": "value"},
+        ),
+    )
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+    with pytest.raises(
+        MlflowException,
+        match=r"The params provided to the `predict` method are not "
+        r"valid for pipeline Text2TextGenerationPipeline.",
+    ):
+        loaded_pyfunc.predict(data, {"invalid_param": "random_value"})
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)

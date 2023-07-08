@@ -848,5 +848,5 @@ class _PyFuncModelWrapper:
                                                release without warning.
         :return: List with model predictions.
         """
-        output_level = params.get("output_level", "")
+        output_level = params.get("output_level", "") if params else ""
         return self.spark_model.predict(text, output_level=output_level).reset_index().to_json()

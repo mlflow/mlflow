@@ -8,6 +8,7 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.models import ModelInputExample, ModelSignature, Model, infer_pip_requirements
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
@@ -349,5 +350,11 @@ class _SentenceTransformerModelWrapper:
 
         # The encode API has additional parameters that we can add as kwargs.
         # See https://www.sbert.net/docs/package_reference/SentenceTransformer.html#sentence_transformers.SentenceTransformer.encode
-        params = params or {}
-        return self.model.encode(sentences, **params)  # numpy array
+        if params:
+            try:
+                return self.model.encode(sentences, **params)
+            except TypeError as e:
+                raise MlflowException.invalid_parameter_value(
+                    "Received invalid parameter value for `params` argument"
+                ) from e
+        return self.model.encode(sentences)

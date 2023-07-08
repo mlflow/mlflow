@@ -1602,22 +1602,16 @@ class _TransformersWrapper:
                     )
             return parsed
 
-    def _override_inference_config(self, parameters):
-        if parameters:
+    def _override_inference_config(self, params):
+        if params:
             _logger.warning(
-                "parameters provided to the `predict` method will override the inference "
-                "configuration saved with the model. If the parameters provided are not "
+                "params provided to the `predict` method will override the inference "
+                "configuration saved with the model. If the params provided are not "
                 "valid for the pipeline, MlflowException will be raised."
             )
-            if not isinstance(parameters, dict):
-                raise MlflowException(
-                    "Parameters must be a dictionary. Got type '{}'.".format(
-                        type(parameters).__name__
-                    )
-                )
 
             # Override the inference configuration with any additional kwargs provided by the user.
-            self.inference_config.update(parameters)
+            self.inference_config.update(params)
 
     def _validate_inference_config_and_return_output(self, data):
         import transformers
@@ -1628,10 +1622,9 @@ class _TransformersWrapper:
             return self.pipeline(data, **self.inference_config)
         except ValueError as e:
             if "The following `model_kwargs` are not used by the model" in str(e):
-                raise MlflowException(
-                    "The parameters provided to the `predict` method are not valid "
-                    f"for pipeline {type(self.pipeline).__name__}. Caused by: {repr(e)}",
-                    error_code=INVALID_PARAMETER_VALUE,
+                raise MlflowException.invalid_parameter_value(
+                    "The params provided to the `predict` method are not valid "
+                    f"for pipeline {type(self.pipeline).__name__}.",
                 ) from e
             if isinstance(
                 self.pipeline,
@@ -1640,12 +1633,11 @@ class _TransformersWrapper:
                     transformers.AudioClassificationPipeline,
                 ),
             ) and "Malformed soundfile" in str(e):
-                raise MlflowException(
+                raise MlflowException.invalid_parameter_value(
                     "Failed to process the input audio data. Either the audio file is "
                     "corrupted or a uri was passed in without overriding the default model "
                     "signature. If submitting a string uri, please ensure that the model has "
                     "been saved with a signature that defines a string input type.",
-                    error_code=INVALID_PARAMETER_VALUE,
                 ) from e
             raise
 
