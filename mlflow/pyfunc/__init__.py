@@ -980,12 +980,13 @@ def _check_udf_return_array_type(array_type, allow_struct):
     elem_type = array_type.elementType
     primitive_types = _get_spark_primitive_types()
 
-    if isinstance(elem_type, primitive_types):
-        # 1D array
-        return True
-
-    if isinstance(elem_type, ArrayType) and isinstance(elem_type.elementType, primitive_types):
-        # 2D array
+    if (
+        # 1D array of primitives
+        isinstance(elem_type, primitive_types)
+        or
+        # 2D array of primitives
+        (isinstance(elem_type, ArrayType) and isinstance(elem_type.elementType, primitive_types))
+    ):
         return True
 
     if isinstance(elem_type, StructType):
