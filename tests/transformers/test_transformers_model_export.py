@@ -3251,3 +3251,94 @@ def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
     assert txt == card_data.text
     data = yaml.safe_load(tmp_path.joinpath(_CARD_DATA_FILE_NAME).read_text())
     assert data == card_data.data.to_dict()
+
+
+def test_uri_directory_renaming_handling_pipeline(model_path, small_seq2seq_pipeline):
+    with mlflow.start_run():
+        mlflow.transformers.save_model(transformers_model=small_seq2seq_pipeline, path=model_path)
+
+    absolute_model_directory = os.path.join(model_path, "model")
+    renamed_to_old_convention = os.path.join(model_path, "pipeline")
+    os.rename(absolute_model_directory, renamed_to_old_convention)
+
+    # remove the 'model_binary' entries to emulate older versions of MLflow
+    mlmodel_file = os.path.join(model_path, "MLmodel")
+    with open(mlmodel_file) as yaml_file:
+        mlmodel = yaml.safe_load(yaml_file)
+
+    mlmodel["flavors"]["python_function"].pop("model_binary", None)
+    mlmodel["flavors"]["transformers"].pop("model_binary", None)
+
+    with open(mlmodel_file, "w") as yaml_file:
+        yaml.safe_dump(mlmodel, yaml_file)
+
+    loaded_model = mlflow.pyfunc.load_model(model_path)
+
+    prediction = loaded_model.predict("test")
+    assert isinstance(prediction, pd.DataFrame)
+    assert isinstance(prediction["label"][0], str)
+
+
+def test_uri_directory_renaming_handling_components(model_path, small_seq2seq_pipeline):
+    components = {
+        "tokenizer": small_seq2seq_pipeline.tokenizer,
+        "model": small_seq2seq_pipeline.model,
+    }
+
+    with mlflow.start_run():
+        mlflow.transformers.save_model(transformers_model=components, path=model_path)
+
+    absolute_model_directory = os.path.join(model_path, "model")
+    renamed_to_old_convention = os.path.join(model_path, "pipeline")
+    os.rename(absolute_model_directory, renamed_to_old_convention)
+
+    # remove the 'model_binary' entries to emulate older versions of MLflow
+    mlmodel_file = os.path.join(model_path, "MLmodel")
+    with open(mlmodel_file) as yaml_file:
+        mlmodel = yaml.safe_load(yaml_file)
+
+    mlmodel["flavors"]["python_function"].pop("model_binary", None)
+    mlmodel["flavors"]["transformers"].pop("model_binary", None)
+
+    with open(mlmodel_file, "w") as yaml_file:
+        yaml.safe_dump(mlmodel, yaml_file)
+
+    loaded_model = mlflow.pyfunc.load_model(model_path)
+
+    prediction = loaded_model.predict("test")
+    assert isinstance(prediction, pd.DataFrame)
+    assert isinstance(prediction["label"][0], str)
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.2"), reason="Feature does not exist"
+)
+def test_whisper_model_supports_timestamps(model_path, whisper_pipeline, raw_audio_file):
+    pipe = transformers.pipeline(
+        "automatic-speech-recognition",
+        model="openai/whisper-tiny",
+        chunk_length_s=30,
+    )
+
+    inference_config = {
+        "return_timestamps": "word",
+        "chunk_length_s": 60,
+        "batch_size": 16,
+    }
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=pipe,
+            artifact_path="model",
+            inference_config=inference_config,
+        )
+
+    model_uri = model_info.model_uri
+    whisper = mlflow.transformers.load_model(model_uri)
+
+    prediction = whisper(raw_audio_file, return_timestamps="word")
+    whisper_pyfunc = mlflow.pyfunc.load_model(model_uri)
+    prediction_inference = json.loads(whisper_pyfunc.predict(raw_audio_file)[0])
+
+    first_timestamp = prediction["chunks"][0]["timestamp"]
+    assert isinstance(first_timestamp, tuple)
+    assert prediction_inference["chunks"][0]["timestamp"][1] == first_timestamp[1]
