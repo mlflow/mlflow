@@ -504,7 +504,7 @@ class _SklearnCustomModelPicklingError(pickle.PicklingError):
         """
         super().__init__(
             f"Pickling custom sklearn model {sk_model.__class__.__name__} failed "
-            f"when saving model: {str(original_exception)}"
+            f"when saving model: {original_exception}"
         )
         self.original_exception = original_exception
 
@@ -1710,6 +1710,9 @@ def _autolog(
         if Version(sklearn.__version__) <= Version("0.24.2"):
             import sklearn.utils.metaestimators
 
+            if not hasattr(sklearn.utils.metaestimators, "_IffHasAttrDescriptor"):
+                return
+
             # pylint: disable=redefined-builtin,unused-argument
             def patched_IffHasAttrDescriptor__get__(self, obj, type=None):
                 """
@@ -1807,7 +1810,8 @@ def _autolog(
                 flavor_name, sklearn.metrics, metric_name, patched_metric_api, manage_run=False
             )
 
-        if Version(sklearn.__version__) > Version("1.2.2"):
+        # `sklearn.metrics.SCORERS` was removed in scikit-learn 1.3
+        if hasattr(sklearn.metrics, "get_scorer_names"):
             for scoring in sklearn.metrics.get_scorer_names():
                 scorer = sklearn.metrics.get_scorer(scoring)
                 safe_patch(flavor_name, scorer, "_score_func", patched_metric_api, manage_run=False)

@@ -1,3 +1,5 @@
+import time
+
 from collections import defaultdict
 from importlib import reload
 from itertools import zip_longest
@@ -37,9 +39,6 @@ from mlflow.entities import (
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking.fluent import (
-    _EXPERIMENT_ID_ENV_VAR,
-    _EXPERIMENT_NAME_ENV_VAR,
-    _RUN_ID_ENV_VAR,
     _get_experiment_id,
     _get_experiment_id_from_env,
     search_runs,
@@ -48,32 +47,14 @@ from mlflow.tracking.fluent import (
     get_run,
 )
 from mlflow.utils import mlflow_tags, get_results_from_paginated_fn
-from mlflow.utils.file_utils import TempDir
 from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.environment_variables import (
+    MLFLOW_RUN_ID,
+    MLFLOW_EXPERIMENT_ID,
+    MLFLOW_EXPERIMENT_NAME,
+)
 
 from tests.helper_functions import multi_context
-
-
-class HelperEnv:
-    def __init__(self):
-        pass
-
-    @classmethod
-    def assert_values(cls, exp_id, name):
-        assert os.environ.get(_EXPERIMENT_NAME_ENV_VAR) == name
-        assert os.environ.get(_EXPERIMENT_ID_ENV_VAR) == exp_id
-
-    @classmethod
-    def set_values(cls, experiment_id=None, name=None):
-        if experiment_id:
-            os.environ[_EXPERIMENT_ID_ENV_VAR] = str(experiment_id)
-        elif os.environ.get(_EXPERIMENT_ID_ENV_VAR):
-            del os.environ[_EXPERIMENT_ID_ENV_VAR]
-
-        if name:
-            os.environ[_EXPERIMENT_NAME_ENV_VAR] = str(name)
-        elif os.environ.get(_EXPERIMENT_NAME_ENV_VAR):
-            del os.environ[_EXPERIMENT_NAME_ENV_VAR]
 
 
 def create_run(
@@ -172,7 +153,6 @@ def reset_experiment_id():
     its included
     """
     yield
-    HelperEnv.set_values()
     mlflow.tracking.fluent._active_experiment_id = None
 
 
@@ -201,96 +181,93 @@ def test_all_fluent_apis_are_included_in_dunder_all():
     assert set(apis).issubset(set(mlflow.__all__))
 
 
-def test_get_experiment_id_from_env():
+def test_get_experiment_id_from_env(monkeypatch):
     # When no env variables are set
-    HelperEnv.assert_values(None, None)
+    assert not MLFLOW_EXPERIMENT_NAME.is_defined
+    assert not MLFLOW_EXPERIMENT_ID.is_defined
     assert _get_experiment_id_from_env() is None
 
     # set only ID
-    with TempDir(chdr=True):
-        name = "random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
-        assert exp_id is not None
-        HelperEnv.set_values(experiment_id=exp_id)
-        HelperEnv.assert_values(exp_id, None)
-        assert _get_experiment_id_from_env() == exp_id
+    name = "random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(name)
+    assert exp_id is not None
+    monkeypatch.delenv(MLFLOW_EXPERIMENT_NAME.name, raising=False)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, exp_id)
+    assert _get_experiment_id_from_env() == exp_id
 
     # set only name
-    with TempDir(chdr=True):
-        name = "random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
-        assert exp_id is not None
-        HelperEnv.set_values(name=name)
-        HelperEnv.assert_values(None, name)
-        assert _get_experiment_id_from_env() == exp_id
+    name = "random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(name)
+    assert exp_id is not None
+    monkeypatch.delenv(MLFLOW_EXPERIMENT_ID.name, raising=False)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, name)
+    assert _get_experiment_id_from_env() == exp_id
 
     # create experiment from env name
-    with TempDir(chdr=True):
-        name = "random experiment %d" % random.randint(1, 1e6)
-        HelperEnv.set_values(name=name)
-        HelperEnv.assert_values(None, name)
-        assert MlflowClient().get_experiment_by_name(name) is None
-        assert _get_experiment_id_from_env() is not None
+    name = "random experiment %d" % random.randint(1, 1e6)
+    monkeypatch.delenv(MLFLOW_EXPERIMENT_ID.name, raising=False)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, name)
+    assert MlflowClient().get_experiment_by_name(name) is None
+    assert _get_experiment_id_from_env() is not None
 
     # assert experiment creation from encapsulating function
-    with TempDir(chdr=True):
-        name = "random experiment %d" % random.randint(1, 1e6)
-        HelperEnv.set_values(name=name)
-        HelperEnv.assert_values(None, name)
-        assert MlflowClient().get_experiment_by_name(name) is None
-        assert _get_experiment_id() is not None
+    name = "random experiment %d" % random.randint(1, 1e6)
+    monkeypatch.delenv(MLFLOW_EXPERIMENT_ID.name, raising=False)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, name)
+    assert MlflowClient().get_experiment_by_name(name) is None
+    assert _get_experiment_id() is not None
 
     # assert raises from conflicting experiment_ids
-    with TempDir(chdr=True):
-        name = "random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
-        random_id = random.randint(100, 1e6)
-        assert exp_id != random_id
-        HelperEnv.set_values(experiment_id=random_id)
-        HelperEnv.assert_values(str(random_id), None)
-        with pytest.raises(
-            MlflowException,
-            match=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment variable value `{random_id}` "
-            "does not exist in the tracking server",
-        ):
-            _get_experiment_id_from_env()
+    name = "random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(name)
+    random_id = random.randint(100, 1e6)
+    assert exp_id != random_id
+    monkeypatch.delenv(MLFLOW_EXPERIMENT_NAME.name, raising=False)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, random_id)
+    with pytest.raises(
+        MlflowException,
+        match=(
+            f"The provided {MLFLOW_EXPERIMENT_ID.name} environment variable value "
+            f"`{random_id}` does not exist in the tracking server"
+        ),
+    ):
+        _get_experiment_id_from_env()
 
     # assert raises from name to id mismatch
-    with TempDir(chdr=True):
-        name = "random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
-        random_id = random.randint(100, 1e6)
-        assert exp_id != random_id
-        HelperEnv.set_values(experiment_id=random_id, name=name)
-        HelperEnv.assert_values(str(random_id), name)
-        with pytest.raises(
-            MlflowException,
-            match=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment variable value `{random_id}` "
-            "does not match the experiment id",
-        ):
-            _get_experiment_id_from_env()
+    name = "random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(name)
+    random_id = random.randint(100, 1e6)
+    assert exp_id != random_id
+    monkeypatch.setenvs({MLFLOW_EXPERIMENT_ID.name: random_id, MLFLOW_EXPERIMENT_NAME.name: name})
+    with pytest.raises(
+        MlflowException,
+        match=(
+            f"The provided {MLFLOW_EXPERIMENT_ID.name} environment variable value "
+            f"`{random_id}` does not match the experiment id"
+        ),
+    ):
+        _get_experiment_id_from_env()
 
     # assert does not raise if active experiment is set with invalid env variables
-    with TempDir(chdr=True):
-        invalid_name = "invalid experiment"
-        name = "random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
-        assert exp_id is not None
-        random_id = random.randint(100, 1e6)
-        HelperEnv.set_values(name=invalid_name, experiment_id=random_id)
-        HelperEnv.assert_values(str(random_id), invalid_name)
-        mlflow.set_experiment(experiment_id=exp_id)
-        assert _get_experiment_id() == exp_id
+    invalid_name = "invalid experiment"
+    name = "random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(name)
+    assert exp_id is not None
+    random_id = random.randint(100, 1e6)
+    monkeypatch.setenvs(
+        {MLFLOW_EXPERIMENT_ID.name: random_id, MLFLOW_EXPERIMENT_NAME.name: invalid_name}
+    )
+    mlflow.set_experiment(experiment_id=exp_id)
+    assert _get_experiment_id() == exp_id
 
 
 def test_get_experiment_id_with_active_experiment_returns_active_experiment_id():
     # Create a new experiment and set that as active experiment
-    with TempDir(chdr=True):
-        name = "Random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
-        assert exp_id is not None
-        mlflow.set_experiment(name)
-        assert _get_experiment_id() == exp_id
+    name = "Random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(name)
+    assert exp_id is not None
+    mlflow.set_experiment(name)
+    assert _get_experiment_id() == exp_id
 
 
 def test_get_experiment_id_with_no_active_experiments_returns_zero():
@@ -308,11 +285,10 @@ def test_get_experiment_id_in_databricks_detects_notebook_id_by_default():
 
 
 def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_experiment_id():
-    with TempDir(chdr=True):
-        exp_name = "random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(exp_name)
-        mlflow.set_experiment(exp_name)
-        notebook_id = str(int(exp_id) + 73)
+    exp_name = "random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(exp_name)
+    mlflow.set_experiment(exp_name)
+    notebook_id = str(int(exp_id) + 73)
 
     with mock.patch(
         "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id",
@@ -322,12 +298,14 @@ def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_e
         assert _get_experiment_id() == exp_id
 
 
-def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_env_experiment_id():
-    with TempDir(chdr=True):
-        exp_name = "random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(exp_name)
-        notebook_id = str(int(exp_id) + 73)
-        HelperEnv.set_values(experiment_id=exp_id)
+def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_env_experiment_id(
+    monkeypatch,
+):
+    exp_name = "random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(exp_name)
+    notebook_id = str(int(exp_id) + 73)
+    monkeypatch.delenv(MLFLOW_EXPERIMENT_NAME.name, raising=False)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, exp_id)
 
     with mock.patch(
         "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id",
@@ -338,12 +316,11 @@ def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_
 
 
 def test_get_experiment_by_id():
-    with TempDir(chdr=True):
-        name = "Random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
+    name = "Random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(name)
 
-        experiment = mlflow.get_experiment(exp_id)
-        assert experiment.experiment_id == exp_id
+    experiment = mlflow.get_experiment(exp_id)
+    assert experiment.experiment_id == exp_id
 
 
 def test_get_experiment_by_id_with_is_in_databricks_job():
@@ -356,17 +333,21 @@ def test_get_experiment_by_id_with_is_in_databricks_job():
 
 
 def test_get_experiment_by_name():
-    with TempDir(chdr=True):
-        name = "Random experiment %d" % random.randint(1, 1e6)
-        exp_id = mlflow.create_experiment(name)
+    name = "Random experiment %d" % random.randint(1, 1e6)
+    exp_id = mlflow.create_experiment(name)
 
-        experiment = mlflow.get_experiment_by_name(name)
-        assert experiment.experiment_id == exp_id
+    experiment = mlflow.get_experiment_by_name(name)
+    assert experiment.experiment_id == exp_id
 
 
 def test_search_experiments(tmp_path):
     sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
     mlflow.set_tracking_uri(sqlite_uri)
+    # Why do we need this line? If we didn't have this line, the first `mlflow.create_experiment`
+    # call in the loop below would create two experiments, the default experiment (when the sqlite
+    # database is initialized) and another one with the specified name. They might have the same
+    # creation time, which makes the search order non-deterministic and this test flaky.
+    mlflow.search_experiments()
 
     num_all_experiments = SEARCH_MAX_RESULTS_DEFAULT + 1  # +1 for the default experiment
     num_active_experiments = SEARCH_MAX_RESULTS_DEFAULT // 2
@@ -375,10 +356,13 @@ def test_search_experiments(tmp_path):
     active_experiment_names = [f"active_{i}" for i in range(num_active_experiments)]
     tag_values = ["x", "x", "y"]
     for tag, active_experiment_name in zip_longest(tag_values, active_experiment_names):
+        # Sleep to ensure that each experiment has a different creation time
+        time.sleep(0.001)
         mlflow.create_experiment(active_experiment_name, tags={"tag": tag} if tag else None)
 
     deleted_experiment_names = [f"deleted_{i}" for i in range(num_deleted_experiments)]
     for deleted_experiment_name in deleted_experiment_names:
+        time.sleep(0.001)
         exp_id = mlflow.create_experiment(deleted_experiment_name)
         mlflow.delete_experiment(exp_id)
 
@@ -792,18 +776,16 @@ def test_start_run_existing_run(empty_active_run_stack):  # pylint: disable=unus
 
 
 def test_start_run_existing_run_from_environment(
-    empty_active_run_stack,
+    empty_active_run_stack, monkeypatch
 ):  # pylint: disable=unused-argument
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
 
     run_id = uuid.uuid4().hex
-    env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: run_id})
+    monkeypatch.setenv(MLFLOW_RUN_ID.name, run_id)
     mock_get_store = mock.patch("mlflow.tracking.fluent._get_store")
 
-    with env_patch, mock_get_store, mock.patch.object(
-        MlflowClient, "get_run", return_value=mock_run
-    ):
+    with mock_get_store, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
         active_run = start_run()
 
         assert is_from_run(active_run, mock_run)
@@ -811,15 +793,14 @@ def test_start_run_existing_run_from_environment(
 
 
 def test_start_run_existing_run_from_environment_with_set_environment(
-    empty_active_run_stack,
+    empty_active_run_stack, monkeypatch
 ):  # pylint: disable=unused-argument
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
 
     run_id = uuid.uuid4().hex
-    env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: run_id})
-
-    with env_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+    monkeypatch.setenv(MLFLOW_RUN_ID.name, run_id)
+    with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
         set_experiment("test-run")
         with pytest.raises(
             MlflowException, match="active run ID does not match environment run ID"

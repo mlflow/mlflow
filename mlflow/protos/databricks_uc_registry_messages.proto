@@ -29,6 +29,9 @@ message RegisteredModel {
 
   // Registered Model Aliases on this model.
   repeated RegisteredModelAlias aliases = 6;
+
+  // Tags associated with this model.
+  repeated RegisteredModelTag tags = 7;
 }
 
 message RegisteredModelAlias {
@@ -37,6 +40,22 @@ message RegisteredModelAlias {
 
   // Model version number that the alias references.
   optional string version = 2;
+}
+
+message RegisteredModelTag {
+  // Name (key) of the tag.
+  optional string key = 1;
+
+  // Value of the tag associated with the key, could be empty
+  optional string value = 2;
+}
+
+message ModelVersionTag {
+  // Name (key) of the tag.
+  optional string key = 1;
+
+  // Value of the tag associated with the key, could be empty
+  optional string value = 2;
 }
 
 enum ModelVersionStatus {
@@ -96,6 +115,9 @@ message ModelVersion {
 
   // Registered Model Aliases on this model version.
   repeated RegisteredModelAlias aliases = 14;
+
+  // Tags associated with this model version.
+  repeated ModelVersionTag tags = 15;
 }
 
 enum ModelVersionOperation {
@@ -149,6 +171,9 @@ message CreateRegisteredModelRequest {
 
   // Register models under this name
   optional string name = 1 [(validate_required) = true];
+
+  // Tags associated with registered model.
+  repeated RegisteredModelTag tags = 2;
 
   // Optional description for registered model.
   optional string description = 3;
@@ -232,6 +257,9 @@ message CreateModelVersionRequest {
 
   // Optional field to list features the model depends on
   optional string feature_deps = 6;
+
+  // Tags associated with model version.
+  repeated ModelVersionTag tags = 7;
 }
 
 message CreateModelVersionResponse {
@@ -381,6 +409,70 @@ message DeleteRegisteredModelAliasRequest {
 }
 
 message DeleteRegisteredModelAliasResponse {
+}
+
+message SetRegisteredModelTagRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[SetRegisteredModelTagResponse]";
+
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
+
+  // Name (key) of the tag
+  optional string key = 2 [(validate_required) = true];
+
+  // Value of the tag associated with the key, could be empty
+  optional string value = 3;
+}
+
+message SetRegisteredModelTagResponse {
+}
+
+message DeleteRegisteredModelTagRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[DeleteRegisteredModelTagResponse]";
+
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
+
+  // Name (key) of the tag
+  optional string key = 2 [(validate_required) = true];
+}
+
+message DeleteRegisteredModelTagResponse {
+}
+
+message SetModelVersionTagRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[SetModelVersionTagResponse]";
+
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
+
+  // Model version number
+  optional string version = 2 [(validate_required) = true];
+
+  // Name (key) of the tag
+  optional string key = 3 [(validate_required) = true];
+
+  // Value of the tag associated with the key, could be empty
+  optional string value = 4;
+}
+
+message SetModelVersionTagResponse {
+}
+
+message DeleteModelVersionTagRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[DeleteModelVersionTagResponse]";
+
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
+
+  // Model version number
+  optional string version = 2 [(validate_required) = true];
+
+  // Name (key) of the tag
+  optional string key = 3 [(validate_required) = true];
+}
+
+message DeleteModelVersionTagResponse {
 }
 
 message GetModelVersionByAliasRequest {

@@ -8,21 +8,23 @@ import re
 from copy import deepcopy
 import inspect
 import logging
-from typing import List, Dict, Any, Union, get_type_hints, TYPE_CHECKING
+from typing import List, Dict, Any, Optional, Union, get_type_hints, TYPE_CHECKING
 
 
 import pandas as pd
 import numpy as np
 
+from mlflow import environment_variables
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.utils import _Example, ModelInputExample
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
-from mlflow.types.schema import Schema
-from mlflow.types.utils import _infer_schema, _infer_schema_from_type_hint
+from mlflow.types.schema import ParamSchema, Schema
+from mlflow.types.utils import _infer_param_schema, _infer_schema, _infer_schema_from_type_hint
 from mlflow.utils.uri import append_to_uri_path
 
 
@@ -49,25 +51,30 @@ _LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE = (
 
 class ModelSignature:
     """
-    ModelSignature specifies schema of model's inputs and outputs.
+    ModelSignature specifies schema of model's inputs, outputs and params.
 
-    ModelSignature can be :py:func:`inferred <mlflow.models.infer_signature>` from training dataset
-    and model predictions using or constructed by hand by passing an input and output
-    :py:class:`Schema <mlflow.types.Schema>`.
+    ModelSignature can be :py:func:`inferred <mlflow.models.infer_signature>` from training
+    dataset, model predictions using and params for inference, or constructed by hand by
+    passing an input and output :py:class:`Schema <mlflow.types.Schema>`, and params
+    :py:class:`ParamSchema <mlflow.types.ParamSchema>`.
     """
 
-    def __init__(self, inputs: Schema, outputs: Schema = None):
+    def __init__(self, inputs: Schema, outputs: Schema = None, params: ParamSchema = None):
         if not isinstance(inputs, Schema):
-            raise TypeError(
-                "inputs must be mlflow.models.signature.Schema, got '{}'".format(type(inputs))
-            )
+            raise TypeError(f"inputs must be mlflow.models.signature.Schema, got '{type(inputs)}'")
         if outputs is not None and not isinstance(outputs, Schema):
             raise TypeError(
                 "outputs must be either None or mlflow.models.signature.Schema, "
                 "got '{}'".format(type(inputs))
             )
+        if params and not isinstance(params, ParamSchema):
+            raise TypeError(
+                "If params are provided, they must by of type mlflow.models.signature.ParamSchema. "
+                "Got '{}'".format(type(params))
+            )
         self.inputs = inputs
         self.outputs = outputs
+        self.params = params
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -82,6 +89,7 @@ class ModelSignature:
         return {
             "inputs": self.inputs.to_json(),
             "outputs": self.outputs.to_json() if self.outputs is not None else None,
+            "params": self.params.to_json() if self.params else None,
         }
 
     @classmethod
@@ -91,22 +99,29 @@ class ModelSignature:
 
         :param signature_dict: Dictionary representation of model signature.
                                Expected dictionary format:
-                               `{'inputs': <json string>, 'outputs': <json string>" }`
+                               `{'inputs': <json string>,
+                               'outputs': <json string>,
+                               'params': <json string>" }`
 
         :return: ModelSignature populated with the data form the dictionary.
         """
         inputs = Schema.from_json(signature_dict["inputs"])
         if "outputs" in signature_dict and signature_dict["outputs"] is not None:
             outputs = Schema.from_json(signature_dict["outputs"])
-            return cls(inputs, outputs)
         else:
-            return cls(inputs)
+            outputs = None
+        if (params := signature_dict.get("params")) is not None:
+            params = ParamSchema.from_json(params)
+            return cls(inputs, outputs, params)
+        else:
+            return cls(inputs, outputs)
 
     def __eq__(self, other) -> bool:
         return (
             isinstance(other, ModelSignature)
             and self.inputs == other.inputs
             and self.outputs == other.outputs
+            and self.params == other.params
         )
 
     def __repr__(self) -> str:
@@ -114,18 +129,24 @@ class ModelSignature:
             "inputs: \n"
             "  {}\n"
             "outputs: \n"
-            "  {}\n".format(repr(self.inputs), repr(self.outputs))
+            "  {}\n"
+            "params: \n"
+            "  {}\n".format(repr(self.inputs), repr(self.outputs), repr(self.params))
         )
 
 
 def infer_signature(
-    model_input: Any, model_output: "MlflowInferableDataset" = None
+    model_input: Any,
+    model_output: "MlflowInferableDataset" = None,
+    params: Optional[Dict[str, Any]] = None,
 ) -> ModelSignature:
     """
-    Infer an MLflow model signature from the training data (input) and model predictions (output).
+    Infer an MLflow model signature from the training data (input), model predictions (output)
+    and parameters (for inference).
 
     The signature represents model input and output as data frames with (optionally) named columns
-    and data type specified as one of types defined in :py:class:`mlflow.types.DataType`.
+    and data type specified as one of types defined in :py:class:`mlflow.types.DataType`. It also
+    includes parameters schema for inference, .
     This method will raise an exception if the user data contains incompatible types or is not
     passed in one of the supported formats listed below.
 
@@ -147,11 +168,53 @@ def infer_signature(
     :param model_input: Valid input to the model. E.g. (a subset of) the training dataset.
     :param model_output: Valid model output. E.g. Model predictions for the (subset of) training
                          dataset.
+    :param params: Valid parameters for inference. It should be a dictionary of parameters
+                   that can be set on the model during inference by passing `params` to pyfunc
+                   `predict` method.
+
+                   An example of valid parameters:
+
+                   .. code-block:: python
+
+                        from mlflow.models import infer_signature
+                        from mlflow.transformers import generate_signature_output
+
+                        # Define parameters for inference
+                        params = {
+                            "num_beams": 5,
+                            "max_length": 30,
+                            "do_sample": True,
+                            "remove_invalid_values": True,
+                        }
+
+                        # Infer the signature including parameters
+                        signature = infer_signature(
+                            data,
+                            generate_signature_output(model, data),
+                            params=params,
+                        )
+
+                        # Saving model with model signature
+                        mlflow.transformers.save_model(
+                            model,
+                            path=model_path,
+                            signature=signature,
+                        )
+
+                        pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+                        # Passing params to `predict` function directly
+                        result = pyfunc_loaded.predict(data, params=params)
+
+                   .. Note:: Experimental: This parameter may change or be removed in a future
+                                           release without warning.
+
     :return: ModelSignature
     """
     inputs = _infer_schema(model_input)
     outputs = _infer_schema(model_output) if model_output is not None else None
-    return ModelSignature(inputs, outputs)
+    params = _infer_param_schema(params) if params else None
+    return ModelSignature(inputs, outputs, params)
 
 
 # `t\w*\.` matches the `typing` module or its alias
@@ -190,7 +253,7 @@ class _TypeHints:
         self.output = output
 
     def __repr__(self):
-        return "<input: {}, output: {}>".format(self.input, self.output)
+        return f"<input: {self.input}, output: {self.output}>"
 
 
 def _extract_type_hints(f, input_arg_index):
@@ -255,7 +318,9 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
     return ModelSignature(inputs=input_schema, outputs=output_schema)
 
 
-def _infer_signature_from_input_example(input_example, wrapped_model):
+def _infer_signature_from_input_example(
+    input_example: ModelInputExample, wrapped_model
+) -> Optional[ModelSignature]:
     """
     Infer the signature from an example input and a PyFunc wrapped model. Catches all exceptions.
 
@@ -266,9 +331,10 @@ def _infer_signature_from_input_example(input_example, wrapped_model):
         `wrapped_model`.
     """
     try:
-        input_schema = _infer_schema(input_example)
+        input_ex = _Example(input_example).inference_data
+        input_schema = _infer_schema(input_ex)
         # Copy the input example so that it is not mutated by predict()
-        prediction = wrapped_model.predict(deepcopy(input_example))
+        prediction = wrapped_model.predict(deepcopy(input_ex))
         # For column-based inputs, 1D numpy arrays likely signify row-based predictions. Thus, we
         # convert them to a Pandas series for inferring as a single ColSpec Schema.
         if (
@@ -280,6 +346,8 @@ def _infer_signature_from_input_example(input_example, wrapped_model):
         output_schema = _infer_schema(prediction)
         return ModelSignature(input_schema, output_schema)
     except Exception as e:
+        if environment_variables._MLFLOW_TESTING.get():
+            raise
         _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE, repr(e))
         _logger.debug("", exc_info=True)
         return None

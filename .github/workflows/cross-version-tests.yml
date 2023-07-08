@@ -41,7 +41,7 @@ jobs:
   set-matrix:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/mlflow') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       is_matrix_empty: ${{ steps.set-matrix.outputs.is_matrix_empty }}
@@ -190,6 +190,7 @@ jobs:
       - name: Check package versions
         run: |
           python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:
           MLFLOW_CONDA_HOME: /usr/share/miniconda

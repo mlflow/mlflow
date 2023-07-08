@@ -41,6 +41,14 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     DeleteRegisteredModelAliasResponse,
     GetModelVersionByAliasRequest,
     GetModelVersionByAliasResponse,
+    SetRegisteredModelTagRequest,
+    SetRegisteredModelTagResponse,
+    DeleteRegisteredModelTagRequest,
+    DeleteRegisteredModelTagResponse,
+    SetModelVersionTagRequest,
+    SetModelVersionTagResponse,
+    DeleteModelVersionTagRequest,
+    DeleteModelVersionTagResponse,
     TemporaryCredentials,
     MODEL_VERSION_OPERATION_READ_WRITE,
 )
@@ -62,6 +70,8 @@ from mlflow.store.model_registry.rest_store import BaseRestStore
 from mlflow.store._unity_catalog.registry.utils import (
     model_version_from_uc_proto,
     registered_model_from_uc_proto,
+    uc_model_version_tag_from_mlflow_tags,
+    uc_registered_model_tag_from_mlflow_tags,
     get_full_name_from_sc,
 )
 from mlflow.utils.annotations import experimental
@@ -77,6 +87,7 @@ _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
     UcModelRegistryService, _REST_API_PATH_PREFIX
 )
+_DATABRICKS_FS_LOADER_MODULE = "databricks.feature_store.mlflow_model"
 
 _logger = logging.getLogger(__name__)
 
@@ -105,6 +116,42 @@ def _raise_unsupported_method(method, message=None):
         messages.append(message)
     messages.append("See the user guide for more information")
     raise MlflowException(" ".join(messages))
+
+
+def _load_model(local_model_dir):
+    # Import Model here instead of in the top level, to avoid circular import; the
+    # mlflow.models.model module imports from MLflow tracking, which triggers an import of
+    # this file during store registry initialization
+    from mlflow.models.model import Model
+
+    try:
+        return Model.load(local_model_dir)
+    except Exception as e:
+        raise MlflowException(
+            "Unable to load model metadata. Ensure the source path of the model "
+            "being registered points to a valid MLflow model directory "
+            "(see https://mlflow.org/docs/latest/models.html#storage-format) containing a "
+            "model signature (https://mlflow.org/docs/latest/models.html#model-signature) "
+            "specifying both input and output type specifications."
+        ) from e
+
+
+def get_feature_dependencies(model_dir):
+    """
+    Gets the features which a model depends on. This functionality is only implemented on
+    Databricks. In OSS mlflow, the dependencies are always empty ("").
+    """
+    model = _load_model(model_dir)
+    model_info = model.get_model_info()
+    if (
+        model_info.flavors.get("python_function", {}).get("loader_module")
+        == _DATABRICKS_FS_LOADER_MODULE
+    ):
+        raise MlflowException(
+            "This model was packaged by Databricks Feature Store and can only be registered on a "
+            "Databricks cluster."
+        )
+    return ""
 
 
 @experimental
@@ -146,6 +193,10 @@ class UcModelRegistryStore(BaseRestStore):
             GetRun: GetRun.Response,
             SetRegisteredModelAliasRequest: SetRegisteredModelAliasResponse,
             DeleteRegisteredModelAliasRequest: DeleteRegisteredModelAliasResponse,
+            SetRegisteredModelTagRequest: SetRegisteredModelTagResponse,
+            DeleteRegisteredModelTagRequest: DeleteRegisteredModelTagResponse,
+            SetModelVersionTagRequest: SetModelVersionTagResponse,
+            DeleteModelVersionTagRequest: DeleteModelVersionTagResponse,
             GetModelVersionByAliasRequest: GetModelVersionByAliasResponse,
         }
         return method_to_response[method]()
@@ -170,10 +221,13 @@ class UcModelRegistryStore(BaseRestStore):
                  created in the backend.
         """
         _validate_model_name(name)
-        _require_arg_unspecified(arg_name="tags", arg_value=tags, default_values=[[], None])
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
-            CreateRegisteredModelRequest(name=full_name, description=description)
+            CreateRegisteredModelRequest(
+                name=full_name,
+                description=description,
+                tags=uc_registered_model_tag_from_mlflow_tags(tags),
+            )
         )
         response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
         return registered_model_from_uc_proto(response_proto.registered_model)
@@ -290,7 +344,11 @@ class UcModelRegistryStore(BaseRestStore):
         :param tag: :py:class:`mlflow.entities.model_registry.RegisteredModelTag` instance to log.
         :return: None
         """
-        _raise_unsupported_method(method="set_registered_model_tag")
+        full_name = get_full_name_from_sc(name, self.spark)
+        req_body = message_to_json(
+            SetRegisteredModelTagRequest(name=full_name, key=tag.key, value=tag.value)
+        )
+        self._call_endpoint(SetRegisteredModelTagRequest, req_body)
 
     def delete_registered_model_tag(self, name, key):
         """
@@ -300,7 +358,9 @@ class UcModelRegistryStore(BaseRestStore):
         :param key: Registered model tag key.
         :return: None
         """
-        _raise_unsupported_method(method="delete_registered_model_tag")
+        full_name = get_full_name_from_sc(name, self.spark)
+        req_body = message_to_json(DeleteRegisteredModelTagRequest(name=full_name, key=key))
+        self._call_endpoint(DeleteRegisteredModelTagRequest, req_body)
 
     # CRUD API for ModelVersion objects
     def _finalize_model_version(self, name, version):
@@ -370,21 +430,7 @@ class UcModelRegistryStore(BaseRestStore):
         return run.data.tags.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
 
     def _validate_model_signature(self, local_model_dir):
-        # Import Model here instead of in the top level, to avoid circular import; the
-        # mlflow.models.model module imports from MLflow tracking, which triggers an import of
-        # this file during store registry initialization
-        from mlflow.models.model import Model
-
-        try:
-            model = Model.load(local_model_dir)
-        except Exception as e:
-            raise MlflowException(
-                "Unable to load model metadata. Ensure the source path of the model "
-                "being registered points to a valid MLflow model directory "
-                "(see https://mlflow.org/docs/latest/models.html#storage-format) containing a "
-                "model signature (https://mlflow.org/docs/latest/models.html#model-signature) "
-                "specifying both input and output type specifications."
-            ) from e
+        model = _load_model(local_model_dir)
         signature_required_explanation = (
             "All models in the Unity Catalog must be logged with a "
             "model signature containing both input and output "
@@ -420,7 +466,6 @@ class UcModelRegistryStore(BaseRestStore):
                  created in the backend.
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
-        _require_arg_unspecified(arg_name="tags", arg_value=tags, default_values=[[], None])
         headers, run = self._get_run_and_headers(run_id)
         source_workspace_id = self._get_workspace_id(headers)
         notebook_id = self._get_notebook_id(run)
@@ -435,15 +480,6 @@ class UcModelRegistryStore(BaseRestStore):
             header_base64 = base64.b64encode(header_json.encode())
             extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: header_base64}
         full_name = get_full_name_from_sc(name, self.spark)
-        req_body = message_to_json(
-            CreateModelVersionRequest(
-                name=full_name,
-                source=source,
-                run_id=run_id,
-                description=description,
-                run_tracking_server_id=source_workspace_id,
-            )
-        )
         with tempfile.TemporaryDirectory() as tmpdir:
             try:
                 local_model_dir = mlflow.artifacts.download_artifacts(
@@ -457,6 +493,18 @@ class UcModelRegistryStore(BaseRestStore):
                     f"it via mlflow.artifacts.download_artifacts()"
                 ) from e
             self._validate_model_signature(local_model_dir)
+            feature_deps = get_feature_dependencies(local_model_dir)
+            req_body = message_to_json(
+                CreateModelVersionRequest(
+                    name=full_name,
+                    source=source,
+                    run_id=run_id,
+                    description=description,
+                    tags=uc_model_version_tag_from_mlflow_tags(tags),
+                    run_tracking_server_id=source_workspace_id,
+                    feature_deps=feature_deps,
+                )
+            )
             model_version = self._call_endpoint(
                 CreateModelVersionRequest, req_body, extra_headers=extra_headers
             ).model_version
@@ -586,7 +634,11 @@ class UcModelRegistryStore(BaseRestStore):
         :param version: Registered model version.
         :param tag: :py:class:`mlflow.entities.model_registry.ModelVersionTag` instance to log.
         """
-        _raise_unsupported_method(method="set_model_version_tag")
+        full_name = get_full_name_from_sc(name, self.spark)
+        req_body = message_to_json(
+            SetModelVersionTagRequest(name=full_name, version=version, key=tag.key, value=tag.value)
+        )
+        self._call_endpoint(SetModelVersionTagRequest, req_body)
 
     def delete_model_version_tag(self, name, version, key):
         """
@@ -596,7 +648,11 @@ class UcModelRegistryStore(BaseRestStore):
         :param version: Registered model version.
         :param key: Tag key.
         """
-        _raise_unsupported_method(method="delete_model_version_tag")
+        full_name = get_full_name_from_sc(name, self.spark)
+        req_body = message_to_json(
+            DeleteModelVersionTagRequest(name=full_name, version=version, key=key)
+        )
+        self._call_endpoint(DeleteModelVersionTagRequest, req_body)
 
     def set_registered_model_alias(self, name, alias, version):
         """

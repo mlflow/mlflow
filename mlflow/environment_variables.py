@@ -2,6 +2,7 @@
 This module defines environment variables used in MLflow.
 """
 import os
+from pathlib import Path
 
 
 class _EnvironmentVariable:
@@ -23,6 +24,9 @@ class _EnvironmentVariable:
 
     def set(self, value):
         os.environ[self.name] = value
+
+    def unset(self):
+        os.environ.pop(self.name, None)
 
     def get(self):
         """
@@ -68,6 +72,14 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
             )
         return lowercased in ["true", "1"]
 
+
+#: Specifies the tracking URI.
+#: (default: ``None``)
+MLFLOW_TRACKING_URI = _EnvironmentVariable("MLFLOW_TRACKING_URI", str, None)
+
+#: Specifies the registry URI.
+#: (default: ``None``)
+MLFLOW_REGISTRY_URI = _EnvironmentVariable("MLFLOW_REGISTRY_URI", str, None)
 
 #: Specifies the ``dfs_tmpdir`` parameter to use for ``mlflow.spark.save_model``,
 #: ``mlflow.spark.log_model`` and ``mlflow.spark.load_model``. See
@@ -249,8 +261,6 @@ MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE", False
 )
 
-#: Private environment variable that should be set to True when running MLflow tests.
-_MLFLOW_OPENAI_TESTING = _BooleanEnvironmentVariable("MLFLOW_OPENAI_TESTING", False)
 
 #: Specifies the name of the Databricks secret scope to use for storing OpenAI API keys.
 MLFLOW_OPENAI_SECRET_SCOPE = _EnvironmentVariable("MLFLOW_OPENAI_SECRET_SCOPE", str, None)
@@ -272,7 +282,7 @@ MLFLOW_ENABLE_MULTIPART_DOWNLOAD = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_MULTIPART_DOWNLOAD", True
 )
 
-#: Private environment variable that should be set to True when running MLflow tests
+#: Private environment variable that's set to ``True`` while running tests.
 _MLFLOW_TESTING = _BooleanEnvironmentVariable("MLFLOW_TESTING", False)
 
 #: Specifies the username used to authenticate with a tracking server.
@@ -282,3 +292,60 @@ MLFLOW_TRACKING_USERNAME = _EnvironmentVariable("MLFLOW_TRACKING_USERNAME", str,
 #: Specifies the password used to authenticate with a tracking server.
 #: (default: ``None``)
 MLFLOW_TRACKING_PASSWORD = _EnvironmentVariable("MLFLOW_TRACKING_PASSWORD", str, None)
+
+#: Specifies and takes precedence for setting the basic/bearer auth on http requests.
+#: (default: ``None``)
+MLFLOW_TRACKING_TOKEN = _EnvironmentVariable("MLFLOW_TRACKING_TOKEN", str, None)
+
+#: Specifies whether to verify TLS connection in ``requests.request`` function,
+#: see https://requests.readthedocs.io/en/master/api/
+#: (default: ``False``).
+MLFLOW_TRACKING_INSECURE_TLS = _BooleanEnvironmentVariable("MLFLOW_TRACKING_INSECURE_TLS", False)
+
+#: Sets the ``verify`` param in ``requests.request`` function,
+#: see https://requests.readthedocs.io/en/master/api/
+#: (default: ``None``)
+MLFLOW_TRACKING_SERVER_CERT_PATH = _EnvironmentVariable(
+    "MLFLOW_TRACKING_SERVER_CERT_PATH", str, None
+)
+
+#: Sets the ``cert`` param in ``requests.request`` function,
+#: see https://requests.readthedocs.io/en/master/api/
+#: (default: ``None``)
+MLFLOW_TRACKING_CLIENT_CERT_PATH = _EnvironmentVariable(
+    "MLFLOW_TRACKING_CLIENT_CERT_PATH", str, None
+)
+
+#: Specified the ID of the run to log data to.
+#: (default: ``None``)
+MLFLOW_RUN_ID = _EnvironmentVariable("MLFLOW_RUN_ID", str, None)
+
+#: Specifies the default root directory for tracking `FileStore`.
+#: (default: ``None``)
+MLFLOW_TRACKING_DIR = _EnvironmentVariable("MLFLOW_TRACKING_DIR", str, None)
+
+#: Specifies the default root directory for registry `FileStore`.
+#: (default: ``None``)
+MLFLOW_REGISTRY_DIR = _EnvironmentVariable("MLFLOW_REGISTRY_DIR", str, None)
+
+#: Specifies the default experiment ID to create run to.
+#: (default: ``None``)
+MLFLOW_EXPERIMENT_ID = _EnvironmentVariable("MLFLOW_EXPERIMENT_ID", str, None)
+
+#: Specifies the default experiment name to create run to.
+#: (default: ``None``)
+MLFLOW_EXPERIMENT_NAME = _EnvironmentVariable("MLFLOW_EXPERIMENT_NAME", str, None)
+
+#: Specified the path to the configuration file for MLflow Authentication.
+#: (default: ``None``)
+MLFLOW_AUTH_CONFIG_PATH = _EnvironmentVariable("MLFLOW_AUTH_CONFIG_PATH", str, None)
+
+#: Specifies the root directory to create Python virtual environments in.
+#: (default: ``~/.mlflow/envs``)
+MLFLOW_ENV_ROOT = _EnvironmentVariable(
+    "MLFLOW_ENV_ROOT", str, str(Path.home().joinpath(".mlflow", "envs"))
+)
+
+#: Private environment variable that should be set to ``True`` when running autologging tests.
+#: (default: ``False``)
+_MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TESTING", False)

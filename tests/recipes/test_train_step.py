@@ -30,12 +30,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RECIPE_STEP_NAME,
 )
 
-# pylint: disable=unused-import
-from tests.recipes.helper_functions import tmp_recipe_root_path, tmp_recipe_exec_path
-
-
-# pylint: enable=unused-import
-
 
 # Sets up the train step output dir
 def setup_train_dataset(recipe_root: Path, recipe: str = "regression"):
@@ -225,7 +219,7 @@ def test_train_step(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
 
 
 @mock.patch("mlflow.recipes.steps.train._REBALANCING_CUTOFF", 50)
-def test_train_step_imbalanced_data(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, capsys):
+def test_train_step_imbalanced_data(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
     train_step_output_dir = setup_train_dataset(
         tmp_recipe_exec_path, recipe="classification/multiclass"
     )
@@ -365,13 +359,13 @@ def classifier_estimator_fn(estimator_params=None):
     return SGDClassifier(random_state=42, **(estimator_params or {}))
 
 
-def classifier_with_predict_proba_estimator_fn(estimator_params=None):
+def sklearn_logistic_regression():
     from sklearn.linear_model import LogisticRegression
 
     return LogisticRegression()
 
 
-def classifier_with_xgboost_model(estimator_params=None):
+def xgb_classifier():
     import xgboost as xgb
 
     return xgb.XGBClassifier()
@@ -458,22 +452,17 @@ def test_train_steps_autologs(tmp_recipe_root_path: Path, tmp_recipe_exec_path: 
 
 @pytest.mark.parametrize("use_tuning", [True, False])
 def test_train_steps_with_correct_tags(
-    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, use_tuning
+    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, use_tuning, monkeypatch
 ):
-    with mock.patch.dict(
-        os.environ,
-        {
-            _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "train",
-        },
-    ):
-        train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
-        recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-        recipe_steps_dir.mkdir(parents=True)
-        train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
-        m_train = Mock()
-        m_train.estimator_fn = estimator_fn
-        with mock.patch.dict("sys.modules", {"steps.train": m_train}):
-            train_step.run(str(train_step_output_dir))
+    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR, "train")
+    train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
+    m_train = Mock()
+    m_train.estimator_fn = estimator_fn
+    monkeypatch.setitem(sys.modules, "steps.train", m_train)
+    train_step.run(str(train_step_output_dir))
 
     assert os.path.exists(train_step_output_dir / "run_id")
 
@@ -613,20 +602,16 @@ def test_automl(
     automl,
     primary_metric,
     generate_custom_metrics,
+    monkeypatch,
 ):
-    with mock.patch.dict(
-        os.environ,
-        {
-            _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "train",
-        },
-    ):
-        train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
+    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR, "train")
+    train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    if generate_custom_metrics:
         recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-        recipe_steps_dir.mkdir(parents=True)
-        if generate_custom_metrics:
-            recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-            recipe_steps_dir.joinpath("custom_metrics.py").write_text(
-                """
+        recipe_steps_dir.joinpath("custom_metrics.py").write_text(
+            """
 def weighted_mean_squared_error(eval_df, builtin_metrics):
     from sklearn.metrics import mean_squared_error
 
@@ -635,72 +620,67 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
         eval_df["target"],
         sample_weight=1 / eval_df["prediction"].values,
     )
-        """
-            )
-        if automl:
-            train_step = setup_train_step_with_automl(
-                tmp_recipe_root_path,
-                primary_metric=primary_metric,
-                generate_custom_metrics=generate_custom_metrics,
-            )
-        else:
-            train_step = setup_train_step_with_tuning(
-                tmp_recipe_root_path,
-                use_tuning=True,
-                with_hardcoded_params=False,
-            )
-        m_train = Mock()
-        m_train.estimator_fn = estimator_fn
-        with mock.patch.dict("sys.modules", {"steps.train": m_train}):
-            train_step._validate_and_apply_step_config()
-            train_step._run(str(train_step_output_dir))
-
-        with open(train_step_output_dir / "run_id") as f:
-            run_id = f.read()
-
-        metrics = MlflowClient().get_run(run_id).data.metrics
-        assert f"training_{primary_metric}" in metrics
-
-
-def test_tuning_multiclass(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
-    with mock.patch.dict(
-        os.environ,
-        {
-            _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "train",
-        },
-    ):
-        train_step_output_dir = setup_train_dataset(
-            tmp_recipe_exec_path, recipe="classification/multiclass"
+"""
         )
-        recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-        recipe_steps_dir.mkdir(parents=True)
-
+    if automl:
+        train_step = setup_train_step_with_automl(
+            tmp_recipe_root_path,
+            primary_metric=primary_metric,
+            generate_custom_metrics=generate_custom_metrics,
+        )
+    else:
         train_step = setup_train_step_with_tuning(
             tmp_recipe_root_path,
             use_tuning=True,
             with_hardcoded_params=False,
-            recipe="classification",
         )
+    m_train = Mock()
+    m_train.estimator_fn = estimator_fn
+    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+        train_step._validate_and_apply_step_config()
+        train_step._run(str(train_step_output_dir))
 
-        _old_import_module = importlib.import_module
+    with open(train_step_output_dir / "run_id") as f:
+        run_id = f.read()
 
-        def _import_module(name: str, package: str = None):
-            if "steps" in name:
-                return _old_import_module("tests.recipes.test_train_step")
-            else:
-                return _old_import_module(name, package)
+    metrics = MlflowClient().get_run(run_id).data.metrics
+    assert f"training_{primary_metric}" in metrics
 
-        imp_pkg = MagicMock(name="api")
-        imp_pkg.side_effect = _import_module
-        with mock.patch("importlib.import_module", new=imp_pkg):
-            train_step._validate_and_apply_step_config()
-            train_step._run(str(train_step_output_dir))
 
-        with open(train_step_output_dir / "run_id") as f:
-            run_id = f.read()
+def test_tuning_multiclass(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, monkeypatch):
+    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR, "train")
+    train_step_output_dir = setup_train_dataset(
+        tmp_recipe_exec_path, recipe="classification/multiclass"
+    )
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
 
-        metrics = MlflowClient().get_run(run_id).data.metrics
-        assert "training_f1_score" in metrics
+    train_step = setup_train_step_with_tuning(
+        tmp_recipe_root_path,
+        use_tuning=True,
+        with_hardcoded_params=False,
+        recipe="classification",
+    )
+
+    _old_import_module = importlib.import_module
+
+    def _import_module(name: str, package: str = None):
+        if "steps" in name:
+            return _old_import_module("tests.recipes.test_train_step")
+        else:
+            return _old_import_module(name, package)
+
+    imp_pkg = MagicMock(name="api")
+    imp_pkg.side_effect = _import_module
+    with mock.patch("importlib.import_module", new=imp_pkg):
+        train_step._validate_and_apply_step_config()
+        train_step._run(str(train_step_output_dir))
+
+    with open(train_step_output_dir / "run_id") as f:
+        run_id = f.read()
+
+    metrics = MlflowClient().get_run(run_id).data.metrics
+    assert "training_f1_score" in metrics
 
 
 def test_train_step_with_predict_probability(
@@ -734,10 +714,7 @@ def test_train_step_with_predict_probability(
             tracking_uri=mlflow.get_tracking_uri()
         )
     )
-    with mock.patch(
-        "steps.train.estimator_fn",
-        classifier_with_predict_proba_estimator_fn,
-    ):
+    with mock.patch("steps.train.estimator_fn", return_value=sklearn_logistic_regression()):
         recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
         train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
         train_step.run(str(train_step_output_dir))
@@ -757,7 +734,7 @@ def test_train_step_with_predict_probability(
     transform_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "transform", "outputs")
 
     validation_dataset = pd.read_parquet(
-        (str(transform_step_output_dir / "transformed_validation_data.parquet"))
+        str(transform_step_output_dir / "transformed_validation_data.parquet")
     )
 
     output = model.predict(validation_dataset.drop("y", axis=1))
@@ -809,10 +786,7 @@ def test_train_step_with_predict_probability_with_custom_prefix(
             tracking_uri=mlflow.get_tracking_uri()
         )
     )
-    with mock.patch(
-        "steps.train.estimator_fn",
-        classifier_with_predict_proba_estimator_fn,
-    ):
+    with mock.patch("steps.train.estimator_fn", return_value=sklearn_logistic_regression()):
         recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
         train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
         train_step.run(str(train_step_output_dir))
@@ -826,7 +800,7 @@ def test_train_step_with_predict_probability_with_custom_prefix(
     transform_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "transform", "outputs")
 
     validation_dataset = pd.read_parquet(
-        (str(transform_step_output_dir / "transformed_validation_data.parquet"))
+        str(transform_step_output_dir / "transformed_validation_data.parquet")
     )
 
     output = model.predict(validation_dataset.drop("y", axis=1))
@@ -866,10 +840,7 @@ def test_train_step_with_label_encoding(tmp_recipe_root_path: Path, tmp_recipe_e
             tracking_uri=mlflow.get_tracking_uri()
         )
     )
-    with mock.patch(
-        "steps.train.estimator_fn",
-        classifier_with_xgboost_model,
-    ):
+    with mock.patch("steps.train.estimator_fn", return_value=xgb_classifier()):
         recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
         train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
         train_step.run(str(train_step_output_dir))
@@ -883,7 +854,7 @@ def test_train_step_with_label_encoding(tmp_recipe_root_path: Path, tmp_recipe_e
     transform_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "transform", "outputs")
 
     validation_dataset = pd.read_parquet(
-        (str(transform_step_output_dir / "transformed_validation_data.parquet"))
+        str(transform_step_output_dir / "transformed_validation_data.parquet")
     )
 
     predicted_output = model.predict(validation_dataset.drop("y", axis=1))
@@ -926,10 +897,7 @@ def test_train_step_with_probability_calibration(
             tracking_uri=mlflow.get_tracking_uri()
         )
     )
-    with mock.patch(
-        "steps.train.estimator_fn",
-        classifier_with_predict_proba_estimator_fn,
-    ):
+    with mock.patch("steps.train.estimator_fn", return_value=sklearn_logistic_regression()):
         recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
         train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
         train_step.run(str(train_step_output_dir))

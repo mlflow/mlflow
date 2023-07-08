@@ -9,8 +9,6 @@ Usage
 
 import logging
 import uuid
-import os
-from pathlib import Path
 from typing import Callable
 
 from flask import Flask, request, make_response, Response, flash, render_template_string
@@ -101,21 +99,10 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.utils.proto_json_utils import parse_dict, message_to_json
 from mlflow.utils.search_utils import SearchUtils
-from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
-
-_AUTH_CONFIG_PATH_ENV_VAR = "MLFLOW_AUTH_CONFIG_PATH"
 
 _logger = logging.getLogger(__name__)
 
-
-def _get_auth_config_path():
-    return os.environ.get(
-        _AUTH_CONFIG_PATH_ENV_VAR, (Path(__file__).parent / "basic_auth.ini").resolve()
-    )
-
-
-auth_config_path = _get_auth_config_path()
-auth_config = read_auth_config(auth_config_path)
+auth_config = read_auth_config()
 store = SqlAlchemyStore()
 
 
@@ -129,12 +116,12 @@ def is_unprotected_route(path: str) -> bool:
 
 
 def make_basic_auth_response() -> Response:
-    res = make_response()
-    res.status_code = 401
-    res.set_data(
-        "You are not authenticated. Please set the environment variables "
-        f"{MLFLOW_TRACKING_USERNAME.name} and {MLFLOW_TRACKING_PASSWORD.name}."
+    res = make_response(
+        "You are not authenticated. Please see "
+        "https://www.mlflow.org/docs/latest/auth/index.html#authenticating-to-mlflow "
+        "on how to authenticate."
     )
+    res.status_code = 401
     res.headers["WWW-Authenticate"] = 'Basic realm="mlflow"'
     return res
 

@@ -62,71 +62,74 @@ def test_dir(files_dir):
     return files_dir
 
 
-class TestDbfsFuseArtifactRepository:
-    @pytest.mark.parametrize("artifact_path", [None, "output", ""])
-    def test_log_artifact(self, dbfs_fuse_artifact_repo, test_file, artifact_path, artifact_dir):
-        dbfs_fuse_artifact_repo.log_artifact(test_file, artifact_path)
-        expected_file_path = os.path.join(
-            artifact_dir,
-            artifact_path if artifact_path else "",
-            os.path.basename(test_file),
-        )
-        with open(expected_file_path, "rb") as handle:
-            data = handle.read()
-        assert data == TEST_FILE_1_CONTENT
-
-    def test_log_artifact_empty_file(self, dbfs_fuse_artifact_repo, test_dir, artifact_dir):
-        dbfs_fuse_artifact_repo.log_artifact(os.path.join(test_dir, "empty-file"))
-        expected_file_path = os.path.join(artifact_dir, "empty-file")
-        with open(expected_file_path, "rb") as handle:
-            data = handle.read()
-        assert data == b""
-
-    @pytest.mark.parametrize(
-        "artifact_path",
-        [
-            None,
-            "",  # should behave like '/' and exclude base name of logged_dir
-            "abc",
-            # We should add '.',
-        ],
+@pytest.mark.parametrize("artifact_path", [None, "output", ""])
+def test_log_artifact(dbfs_fuse_artifact_repo, test_file, artifact_path, artifact_dir):
+    dbfs_fuse_artifact_repo.log_artifact(test_file, artifact_path)
+    expected_file_path = os.path.join(
+        artifact_dir,
+        artifact_path if artifact_path else "",
+        os.path.basename(test_file),
     )
-    def test_log_artifacts(self, dbfs_fuse_artifact_repo, test_dir, artifact_path, artifact_dir):
-        dbfs_fuse_artifact_repo.log_artifacts(test_dir, artifact_path)
-        artifact_dst_path = os.path.join(artifact_dir, artifact_path if artifact_path else "")
-        assert os.path.exists(artifact_dst_path)
-        expected_contents = {
-            "subdir/test.txt": TEST_FILE_2_CONTENT,
-            "test.txt": TEST_FILE_3_CONTENT,
-            "empty-file": b"",
-        }
-        for filename, contents in expected_contents.items():
-            with open(os.path.join(artifact_dst_path, filename), "rb") as handle:
-                assert handle.read() == contents
+    with open(expected_file_path, "rb") as handle:
+        data = handle.read()
+    assert data == TEST_FILE_1_CONTENT
 
-    def test_list_artifacts(self, dbfs_fuse_artifact_repo, test_dir):
-        assert len(dbfs_fuse_artifact_repo.list_artifacts()) == 0
-        dbfs_fuse_artifact_repo.log_artifacts(test_dir)
-        artifacts = dbfs_fuse_artifact_repo.list_artifacts()
-        assert len(artifacts) == 3
-        assert artifacts[0].path == "empty-file"
-        assert artifacts[0].is_dir is False
-        assert artifacts[0].file_size == 0
-        assert artifacts[1].path == "subdir"
-        assert artifacts[1].is_dir is True
-        assert artifacts[1].file_size is None
-        assert artifacts[2].path == "test.txt"
-        assert artifacts[2].is_dir is False
-        assert artifacts[2].file_size == 23
 
-    def test_download_artifacts(self, dbfs_fuse_artifact_repo, test_dir):
-        dbfs_fuse_artifact_repo.log_artifacts(test_dir)
-        local_download_dir = dbfs_fuse_artifact_repo.download_artifacts("")
-        expected_contents = {
-            "subdir/test.txt": TEST_FILE_2_CONTENT,
-            "test.txt": TEST_FILE_3_CONTENT,
-            "empty-file": b"",
-        }
-        for filename, contents in expected_contents.items():
-            with open(os.path.join(local_download_dir, filename), "rb") as handle:
-                assert handle.read() == contents
+def test_log_artifact_empty_file(dbfs_fuse_artifact_repo, test_dir, artifact_dir):
+    dbfs_fuse_artifact_repo.log_artifact(os.path.join(test_dir, "empty-file"))
+    expected_file_path = os.path.join(artifact_dir, "empty-file")
+    with open(expected_file_path, "rb") as handle:
+        data = handle.read()
+    assert data == b""
+
+
+@pytest.mark.parametrize(
+    "artifact_path",
+    [
+        None,
+        "",  # should behave like '/' and exclude base name of logged_dir
+        "abc",
+        # We should add '.',
+    ],
+)
+def test_log_artifacts(dbfs_fuse_artifact_repo, test_dir, artifact_path, artifact_dir):
+    dbfs_fuse_artifact_repo.log_artifacts(test_dir, artifact_path)
+    artifact_dst_path = os.path.join(artifact_dir, artifact_path if artifact_path else "")
+    assert os.path.exists(artifact_dst_path)
+    expected_contents = {
+        "subdir/test.txt": TEST_FILE_2_CONTENT,
+        "test.txt": TEST_FILE_3_CONTENT,
+        "empty-file": b"",
+    }
+    for filename, contents in expected_contents.items():
+        with open(os.path.join(artifact_dst_path, filename), "rb") as handle:
+            assert handle.read() == contents
+
+
+def test_list_artifacts(dbfs_fuse_artifact_repo, test_dir):
+    assert len(dbfs_fuse_artifact_repo.list_artifacts()) == 0
+    dbfs_fuse_artifact_repo.log_artifacts(test_dir)
+    artifacts = dbfs_fuse_artifact_repo.list_artifacts()
+    assert len(artifacts) == 3
+    assert artifacts[0].path == "empty-file"
+    assert artifacts[0].is_dir is False
+    assert artifacts[0].file_size == 0
+    assert artifacts[1].path == "subdir"
+    assert artifacts[1].is_dir is True
+    assert artifacts[1].file_size is None
+    assert artifacts[2].path == "test.txt"
+    assert artifacts[2].is_dir is False
+    assert artifacts[2].file_size == 23
+
+
+def test_download_artifacts(dbfs_fuse_artifact_repo, test_dir):
+    dbfs_fuse_artifact_repo.log_artifacts(test_dir)
+    local_download_dir = dbfs_fuse_artifact_repo.download_artifacts("")
+    expected_contents = {
+        "subdir/test.txt": TEST_FILE_2_CONTENT,
+        "test.txt": TEST_FILE_3_CONTENT,
+        "empty-file": b"",
+    }
+    for filename, contents in expected_contents.items():
+        with open(os.path.join(local_download_dir, filename), "rb") as handle:
+            assert handle.read() == contents

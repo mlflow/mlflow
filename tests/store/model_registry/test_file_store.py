@@ -103,7 +103,8 @@ def test_list_registered_model(store, registered_model_names, rm_data):
         assert name == rm_data[name]["name"]
 
 
-def test_rename_registered_model(store, registered_model_names, rm_data):
+@pytest.mark.usefixtures(rm_data.__name__)
+def test_rename_registered_model(store, registered_model_names):
     # Error cases
     model_name = registered_model_names[0]
     with pytest.raises(MlflowException, match=r"Registered model name cannot be empty\."):
@@ -125,7 +126,8 @@ def _extract_names(registered_models):
     return [rm.name for rm in registered_models]
 
 
-def test_delete_registered_model(store, registered_model_names, rm_data):
+@pytest.mark.usefixtures(rm_data.__name__)
+def test_delete_registered_model(store, registered_model_names):
     model_name = registered_model_names[random_int(0, len(registered_model_names) - 1)]
 
     # Error cases
@@ -1481,7 +1483,7 @@ def test_pyfunc_model_registry_with_file_store(store):
     from mlflow.pyfunc import PythonModel
 
     class MyModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             return 7
 
     mlflow.set_registry_uri(path_to_local_file_uri(store.root_directory))

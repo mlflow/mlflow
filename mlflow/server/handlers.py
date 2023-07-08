@@ -1194,9 +1194,7 @@ def _log_model():
         model = json.loads(request_message.model_json)
     except Exception:
         raise MlflowException(
-            "Malformed model info. \n {} \n is not a valid JSON.".format(
-                request_message.model_json
-            ),
+            f"Malformed model info. \n {request_message.model_json} \n is not a valid JSON.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

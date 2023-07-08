@@ -1,6 +1,7 @@
 from collections import namedtuple
 import pytest
 import numpy as np
+from packaging.version import Version
 import pandas as pd
 import os
 from unittest import mock
@@ -164,9 +165,7 @@ def test_model_log(pd_model, model_path, tmp_path):
         model_info = mlflow.paddle.log_model(
             pd_model=model, artifact_path=artifact_path, conda_env=conda_env
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert model_info.model_uri == model_uri
 
         reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_uri)
@@ -195,9 +194,7 @@ def test_log_model_calls_register_model(pd_model):
             artifact_path=artifact_path,
             registered_model_name="AdsModel1",
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         mlflow.register_model.assert_called_once_with(
             model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
         )
@@ -269,9 +266,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(pd_mod
         mlflow.paddle.log_model(
             pd_model=pd_model.model, artifact_path=artifact_path, conda_env=pd_custom_env
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -388,9 +383,7 @@ def test_model_built_in_high_level_api_log(pd_model_built_in_high_level_api, mod
         _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
 
         mlflow.paddle.log_model(pd_model=model, artifact_path=artifact_path, conda_env=conda_env)
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
         reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_uri)
         low_level_test_dataset = [x[0] for x in test_dataset]
@@ -478,9 +471,7 @@ def test_log_model_built_in_high_level_api(
         mlflow.paddle.log_model(
             pd_model=model, artifact_path=artifact_path, conda_env=conda_env, training=True
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
         model_retrain = paddle.Model(UCIHousing())
         optim = paddle.optimizer.Adam(learning_rate=0.015, parameters=model.parameters())
@@ -569,7 +560,13 @@ def test_pyfunc_serve_and_score(pd_model):
     model, inference_dataframe = pd_model
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.paddle.log_model(model, artifact_path, extra_pip_requirements=[PROTOBUF_REQUIREMENT])
+        mlflow.paddle.log_model(
+            model,
+            artifact_path,
+            extra_pip_requirements=[PROTOBUF_REQUIREMENT]
+            if Version(paddle.__version__) < Version("2.5.0")
+            else None,
+        )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     resp = pyfunc_serve_and_score_model(

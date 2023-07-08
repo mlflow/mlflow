@@ -255,7 +255,7 @@ def test_meta_estimator_fit(dataset_binomial):
     assert loaded_model.stages[0].uid == ova_model.uid
 
     # assert no nested run spawned
-    query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run.info.run_id)
+    query = f"tags.{MLFLOW_PARENT_RUN_ID} = '{run.info.run_id}'"
     assert len(mlflow.search_runs([run.info.experiment_id])) == 1
     assert len(mlflow.search_runs([run.info.experiment_id], query)) == 0
 
@@ -728,7 +728,7 @@ def test_basic_post_training_datasets_autologging(dataset_iris_binomial, log_dat
     estimator = LogisticRegression(maxIter=1, family="binomial", regParam=5.0, fitIntercept=False)
 
     with mlflow.start_run() as run:
-        model = estimator.fit(dataset_iris_binomial)  # pylint: disable=unused-variable
+        estimator.fit(dataset_iris_binomial)
 
     run_id = run.info.run_id
     client = MlflowClient()
@@ -749,7 +749,7 @@ def test_post_training_datasets_with_evaluate_autologging(dataset_iris_binomial)
         model = estimator.fit(dataset_iris_binomial)
         mce = MulticlassClassificationEvaluator(metricName="logLoss")
         pred_result = model.transform(eval_dataset)
-        logloss = mce.evaluate(pred_result)  # pylint: disable=unused-variable
+        mce.evaluate(pred_result)
 
     run_id = run.info.run_id
     client = MlflowClient()
@@ -767,7 +767,7 @@ def test_post_training_datasets_without_explicit_run(dataset_iris_binomial):
     model = estimator.fit(dataset_iris_binomial)
     mce = MulticlassClassificationEvaluator(metricName="logLoss")
     pred_result = model.transform(eval_dataset)
-    logloss = mce.evaluate(pred_result)  # pylint: disable=unused-variable
+    mce.evaluate(pred_result)
 
     run_id = getattr(model, "_mlflow_run_id")
     client = MlflowClient()

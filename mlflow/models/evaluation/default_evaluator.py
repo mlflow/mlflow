@@ -749,7 +749,7 @@ class DefaultEvaluator(ModelEvaluator):
                 raise e
 
             _logger.warning(
-                f"Shap evaluation failed. Reason: {repr(e)}. "
+                f"Shap evaluation failed. Reason: {e!r}. "
                 "Set logging level to DEBUG to see the full traceback."
             )
             _logger.debug("", exc_info=True)
@@ -761,7 +761,7 @@ class DefaultEvaluator(ModelEvaluator):
             #   then fallback to shap explainer saver, and shap explainer will call `model.save`
             #   for sklearn model, there is no `.save` method, so error will happen.
             _logger.warning(
-                f"Logging explainer failed. Reason: {repr(e)}. "
+                f"Logging explainer failed. Reason: {e!r}. "
                 "Set logging level to DEBUG to see the full traceback."
             )
             _logger.debug("", exc_info=True)
@@ -812,7 +812,7 @@ class DefaultEvaluator(ModelEvaluator):
                 self.metrics["score"] = score
             except Exception as e:
                 _logger.warning(
-                    f"Computing sklearn model score failed: {repr(e)}. Set logging level to "
+                    f"Computing sklearn model score failed: {e!r}. Set logging level to "
                     "DEBUG to see the full traceback."
                 )
                 _logger.debug("", exc_info=True)

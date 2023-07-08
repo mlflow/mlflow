@@ -1,6 +1,5 @@
 import io
 import pickle
-import os
 import pytest
 from unittest import mock
 
@@ -9,8 +8,8 @@ from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.tracking._model_registry.utils import _get_store, get_registry_uri, set_registry_uri
-from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 
 
 # Disable mocking tracking URI here, as we want to test setting the tracking URI via
@@ -67,31 +66,27 @@ def test_default_get_registry_uri_with_tracking_uri_set():
         assert get_registry_uri() == tracking_uri
 
 
-def test_get_store_rest_store_from_arg():
-    env = {_TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050"}  # should be ignored
-    with mock.patch.dict(os.environ, env):
-        store = _get_store("http://some/path")
-        assert isinstance(store, RestStore)
-        assert store.get_host_creds().host == "http://some/path"
+def test_get_store_rest_store_from_arg(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACKING_URI.name, "https://my-tracking-server:5050")
+    store = _get_store("http://some/path")
+    assert isinstance(store, RestStore)
+    assert store.get_host_creds().host == "http://some/path"
 
 
-def test_fallback_to_tracking_store():
-    env = {_TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050"}
-    with mock.patch.dict(os.environ, env):
-        store = _get_store()
-        assert isinstance(store, RestStore)
-        assert store.get_host_creds().host == "https://my-tracking-server:5050"
-        assert store.get_host_creds().token is None
+def test_fallback_to_tracking_store(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACKING_URI.name, "https://my-tracking-server:5050")
+    store = _get_store()
+    assert isinstance(store, RestStore)
+    assert store.get_host_creds().host == "https://my-tracking-server:5050"
+    assert store.get_host_creds().token is None
 
 
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
 def test_get_store_sqlalchemy_store(db_type, monkeypatch):
-    monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
-    patch_create_engine = mock.patch("sqlalchemy.create_engine")
     uri = f"{db_type}://hostname/database"
-    env = {_TRACKING_URI_ENV_VAR: uri}
-
-    with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, mock.patch(
+    monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
+    monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
+    with mock.patch("sqlalchemy.create_engine") as mock_create_engine, mock.patch(
         "mlflow.store.db.utils._initialize_tables"
     ), mock.patch(
         "mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore."
@@ -105,10 +100,9 @@ def test_get_store_sqlalchemy_store(db_type, monkeypatch):
 
 
 @pytest.mark.parametrize("bad_uri", ["badsql://imfake", "yoursql://hi"])
-def test_get_store_bad_uris(bad_uri):
-    env = {_TRACKING_URI_ENV_VAR: bad_uri}
-
-    with mock.patch.dict(os.environ, env), pytest.raises(
+def test_get_store_bad_uris(bad_uri, monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACKING_URI.name, bad_uri)
+    with pytest.raises(
         UnsupportedModelRegistryStoreURIException,
         match="Model registry functionality is unavailable",
     ):
@@ -131,7 +125,7 @@ def test_get_store_caches_on_store_uri(tmp_path):
 
 
 @pytest.mark.parametrize("store_uri", ["databricks-uc", "databricks-uc://profile"])
-def test_get_store_uc_registry_uri(store_uri, reset_registry_uri):
+def test_get_store_uc_registry_uri(store_uri):
     assert isinstance(_get_store(store_uri), UcModelRegistryStore)
 
 

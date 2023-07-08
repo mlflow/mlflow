@@ -388,7 +388,16 @@ def raw_audio_file():
 @pytest.fixture()
 @flaky()
 def whisper_pipeline():
-    return transformers.pipeline(model="openai/whisper-tiny")
+    task = "automatic-speech-recognition"
+    architecture = "openai/whisper-tiny"
+    model = transformers.WhisperForConditionalGeneration.from_pretrained(architecture)
+    tokenizer = transformers.WhisperTokenizer.from_pretrained(architecture)
+    feature_extractor = transformers.WhisperFeatureExtractor.from_pretrained(architecture)
+    if Version(transformers.__version__) > Version("4.30.2"):
+        model.generation_config.alignment_heads = [[2, 2], [3, 0], [3, 2], [3, 3], [3, 4], [3, 5]]
+    return transformers.pipeline(
+        task=task, model=model, tokenizer=tokenizer, feature_extractor=feature_extractor
+    )
 
 
 @pytest.fixture()
@@ -833,7 +842,7 @@ def test_multi_modal_component_save_and_load(component_multi_modal, model_path, 
 
 @flaky()
 def test_pipeline_saved_model_with_processor_cannot_be_loaded_as_pipeline(
-    component_multi_modal, model_path, image_for_test
+    component_multi_modal, model_path
 ):
     invalid_pipeline = transformers.pipeline(
         task="visual-question-answering", **component_multi_modal
@@ -1062,9 +1071,7 @@ def test_transformers_log_with_extra_pip_requirements(small_multi_modal_pipeline
         )
 
 
-def test_transformers_log_with_duplicate_pip_requirements(
-    small_multi_modal_pipeline, tmp_path, capsys
-):
+def test_transformers_log_with_duplicate_pip_requirements(small_multi_modal_pipeline, capsys):
     with mlflow.start_run():
         mlflow.transformers.log_model(
             small_multi_modal_pipeline,
@@ -1078,9 +1085,7 @@ def test_transformers_log_with_duplicate_pip_requirements(
     )
 
 
-def test_transformers_log_with_duplicate_extra_pip_requirements(
-    small_multi_modal_pipeline, tmp_path, capsys
-):
+def test_transformers_log_with_duplicate_extra_pip_requirements(small_multi_modal_pipeline, capsys):
     with mlflow.start_run():
         mlflow.transformers.log_model(
             small_multi_modal_pipeline,
@@ -1846,7 +1851,7 @@ def test_infer_signature_from_example_only(
         assert model.saved_input_example_info is None
 
 
-def test_qa_pipeline_pyfunc_predict(small_qa_pipeline, tmp_path):
+def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
     artifact_path = "qa_model"
     with mlflow.start_run():
         mlflow.transformers.log_model(
@@ -1902,7 +1907,7 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline, tmp_path):
     assert values.to_dict(orient="records") == [{0: "Run"}]
 
 
-def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline, tmp_path):
+def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
     artifact_path = "text_classifier_model"
     with mlflow.start_run():
         mlflow.transformers.log_model(
@@ -1946,7 +1951,7 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline, tmp_pa
     assert len(values.to_dict()["score"]) == 1
 
 
-def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline, tmp_path):
+def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline):
     artifact_path = "zero_shot_classifier_model"
     with mlflow.start_run():
         mlflow.transformers.log_model(
@@ -2003,7 +2008,7 @@ def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline, tmp_path):
     assert len(values.to_dict()["labels"]) == 6
 
 
-def test_table_question_answering_pyfunc_predict(table_question_answering_pipeline, tmp_path):
+def test_table_question_answering_pyfunc_predict(table_question_answering_pipeline):
     artifact_path = "table_qa_model"
     with mlflow.start_run():
         mlflow.transformers.log_model(
@@ -3246,3 +3251,94 @@ def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
     assert txt == card_data.text
     data = yaml.safe_load(tmp_path.joinpath(_CARD_DATA_FILE_NAME).read_text())
     assert data == card_data.data.to_dict()
+
+
+def test_uri_directory_renaming_handling_pipeline(model_path, small_seq2seq_pipeline):
+    with mlflow.start_run():
+        mlflow.transformers.save_model(transformers_model=small_seq2seq_pipeline, path=model_path)
+
+    absolute_model_directory = os.path.join(model_path, "model")
+    renamed_to_old_convention = os.path.join(model_path, "pipeline")
+    os.rename(absolute_model_directory, renamed_to_old_convention)
+
+    # remove the 'model_binary' entries to emulate older versions of MLflow
+    mlmodel_file = os.path.join(model_path, "MLmodel")
+    with open(mlmodel_file) as yaml_file:
+        mlmodel = yaml.safe_load(yaml_file)
+
+    mlmodel["flavors"]["python_function"].pop("model_binary", None)
+    mlmodel["flavors"]["transformers"].pop("model_binary", None)
+
+    with open(mlmodel_file, "w") as yaml_file:
+        yaml.safe_dump(mlmodel, yaml_file)
+
+    loaded_model = mlflow.pyfunc.load_model(model_path)
+
+    prediction = loaded_model.predict("test")
+    assert isinstance(prediction, pd.DataFrame)
+    assert isinstance(prediction["label"][0], str)
+
+
+def test_uri_directory_renaming_handling_components(model_path, small_seq2seq_pipeline):
+    components = {
+        "tokenizer": small_seq2seq_pipeline.tokenizer,
+        "model": small_seq2seq_pipeline.model,
+    }
+
+    with mlflow.start_run():
+        mlflow.transformers.save_model(transformers_model=components, path=model_path)
+
+    absolute_model_directory = os.path.join(model_path, "model")
+    renamed_to_old_convention = os.path.join(model_path, "pipeline")
+    os.rename(absolute_model_directory, renamed_to_old_convention)
+
+    # remove the 'model_binary' entries to emulate older versions of MLflow
+    mlmodel_file = os.path.join(model_path, "MLmodel")
+    with open(mlmodel_file) as yaml_file:
+        mlmodel = yaml.safe_load(yaml_file)
+
+    mlmodel["flavors"]["python_function"].pop("model_binary", None)
+    mlmodel["flavors"]["transformers"].pop("model_binary", None)
+
+    with open(mlmodel_file, "w") as yaml_file:
+        yaml.safe_dump(mlmodel, yaml_file)
+
+    loaded_model = mlflow.pyfunc.load_model(model_path)
+
+    prediction = loaded_model.predict("test")
+    assert isinstance(prediction, pd.DataFrame)
+    assert isinstance(prediction["label"][0], str)
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.2"), reason="Feature does not exist"
+)
+def test_whisper_model_supports_timestamps(model_path, whisper_pipeline, raw_audio_file):
+    pipe = transformers.pipeline(
+        "automatic-speech-recognition",
+        model="openai/whisper-tiny",
+        chunk_length_s=30,
+    )
+
+    inference_config = {
+        "return_timestamps": "word",
+        "chunk_length_s": 60,
+        "batch_size": 16,
+    }
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=pipe,
+            artifact_path="model",
+            inference_config=inference_config,
+        )
+
+    model_uri = model_info.model_uri
+    whisper = mlflow.transformers.load_model(model_uri)
+
+    prediction = whisper(raw_audio_file, return_timestamps="word")
+    whisper_pyfunc = mlflow.pyfunc.load_model(model_uri)
+    prediction_inference = json.loads(whisper_pyfunc.predict(raw_audio_file)[0])
+
+    first_timestamp = prediction["chunks"][0]["timestamp"]
+    assert isinstance(first_timestamp, tuple)
+    assert prediction_inference["chunks"][0]["timestamp"][1] == first_timestamp[1]

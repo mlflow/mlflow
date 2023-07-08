@@ -271,7 +271,8 @@ def test_logging_failures_are_handled_as_expected():
         # Verify that the run termination operation was still performed successfully
         assert run.info.status == "KILLED"
 
-        assert "Failed to perform one or more operations on the run with ID {run_id}".format(
-            run_id=run.info.run_id
-        ) in str(exc.value)
+        assert (
+            f"Failed to perform one or more operations on the run with ID {run.info.run_id}"
+            in str(exc.value)
+        )
         assert "Batch logging failed!" in str(exc.value)

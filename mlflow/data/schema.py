@@ -12,7 +12,7 @@ class TensorDatasetSchema:
     def __init__(self, features: Schema, targets: Schema = None):
         if not isinstance(features, Schema):
             raise MlflowException(
-                "features must be mlflow.types.Schema, got '{}'".format(type(features)),
+                f"features must be mlflow.types.Schema, got '{type(features)}'",
                 INVALID_PARAMETER_VALUE,
             )
         if targets is not None and not isinstance(targets, Schema):

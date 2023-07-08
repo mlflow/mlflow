@@ -424,19 +424,22 @@ def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exce
 
 @mock_sagemaker_aws_services
 def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_tags_from_local(
-    pretrained_model, sagemaker_client, sagemaker_deployment_client
+    pretrained_model, sagemaker_client, sagemaker_deployment_client, monkeypatch
 ):
     expected_tags = [{"Key": "key1", "Value": "value1"}, {"Key": "key2", "Value": "value2"}]
 
     name = "test-app"
-    with mock.patch.dict(os.environ, {}, clear=True):
-        sagemaker_deployment_client.create_deployment(
-            name=name,
-            model_uri=pretrained_model.model_uri,
-            config=dict(
-                tags={"key1": "value1", "key2": "value2"},
-            ),
-        )
+    monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+    monkeypatch.delenv("AWS_SECRET_ACCESS_KEY", raising=False)
+    monkeypatch.delenv("AWS_SESSION_TOKEN", raising=False)
+    monkeypatch.delenv("AWS_DEFAULT_REGION", raising=False)
+    sagemaker_deployment_client.create_deployment(
+        name=name,
+        model_uri=pretrained_model.model_uri,
+        config={
+            "tags": {"key1": "value1", "key2": "value2"},
+        },
+    )
 
     endpoint_description = sagemaker_client.describe_endpoint(EndpointName=name)
     endpoint_production_variants = endpoint_description["ProductionVariants"]
@@ -453,7 +456,7 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_tags_
 @pytest.mark.parametrize("proxies_enabled", [True, False])
 @mock_sagemaker_aws_services
 def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_names_and_env_from_local(
-    proxies_enabled, pretrained_model, sagemaker_client, sagemaker_deployment_client
+    proxies_enabled, pretrained_model, sagemaker_client, sagemaker_deployment_client, monkeypatch
 ):
     expected_model_environment = {
         "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
@@ -468,26 +471,28 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_names
             "https_proxy": "https://user:password@proxy.example.net:1234",
             "no_proxy": "localhost",
         }
+        for k, v in proxy_variables.items():
+            monkeypatch.setenv(k, v)
         expected_model_environment.update(proxy_variables)
         name = "test-app-proxies"
-        with mock.patch.dict(os.environ, proxy_variables, clear=True):
-            sagemaker_deployment_client.create_deployment(
-                name=name,
-                model_uri=pretrained_model.model_uri,
-                config=dict(
-                    env={"DISABLE_NGINX": "true", "GUNCORN_CMD_ARGS": '"--timeout 60"'},
-                ),
-            )
+        sagemaker_deployment_client.create_deployment(
+            name=name,
+            model_uri=pretrained_model.model_uri,
+            config={
+                "env": {"DISABLE_NGINX": "true", "GUNCORN_CMD_ARGS": '"--timeout 60"'},
+            },
+        )
     else:
         name = "test-app"
-        with mock.patch.dict(os.environ, {}, clear=True):
-            sagemaker_deployment_client.create_deployment(
-                name=name,
-                model_uri=pretrained_model.model_uri,
-                config=dict(
-                    env={"DISABLE_NGINX": "true", "GUNCORN_CMD_ARGS": '"--timeout 60"'},
-                ),
-            )
+        for k in ("http_proxy", "https_proxy", "no_proxy"):
+            monkeypatch.delenv(k, raising=False)
+        sagemaker_deployment_client.create_deployment(
+            name=name,
+            model_uri=pretrained_model.model_uri,
+            config={
+                "env": {"DISABLE_NGINX": "true", "GUNCORN_CMD_ARGS": '"--timeout 60"'},
+            },
+        )
 
     region_name = sagemaker_client.meta.region_name
     s3_client = boto3.client("s3", region_name=region_name)
@@ -543,7 +548,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
             pretrained_model.model_uri,
             region_name,
             {**environment_variables, **proxy_variables},
-            config=["env={}".format(json.dumps(override_environment_variables))],
+            config=[f"env={json.dumps(override_environment_variables)}"],
         )
     else:
         proxy_variables = {
@@ -557,7 +562,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
             pretrained_model.model_uri,
             region_name,
             {**environment_variables, **proxy_variables},
-            config=["env={}".format(json.dumps(override_environment_variables))],
+            config=[f"env={json.dumps(override_environment_variables)}"],
         )
 
     s3_client = boto3.client("s3", region_name=region_name)
@@ -616,7 +621,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_tags_from_l
 @pytest.mark.parametrize("proxies_enabled", [True, False])
 @mock_sagemaker_aws_services
 def test_create_deployment_creates_sagemaker_and_s3_resources_with_expected_names_and_env_from_s3(
-    proxies_enabled, pretrained_model, sagemaker_client, sagemaker_deployment_client
+    proxies_enabled, pretrained_model, sagemaker_client, sagemaker_deployment_client, monkeypatch
 ):
     local_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
     artifact_path = "model"
@@ -624,9 +629,7 @@ def test_create_deployment_creates_sagemaker_and_s3_resources_with_expected_name
     default_bucket = mfs._get_default_s3_bucket(region_name)
     s3_artifact_repo = S3ArtifactRepository(f"s3://{default_bucket}")
     s3_artifact_repo.log_artifacts(local_model_path, artifact_path=artifact_path)
-    model_s3_uri = "s3://{bucket_name}/{artifact_path}".format(
-        bucket_name=default_bucket, artifact_path=pretrained_model.model_path
-    )
+    model_s3_uri = f"s3://{default_bucket}/{pretrained_model.model_path}"
     expected_model_environment = {
         "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
         "SERVING_ENVIRONMENT": "SageMaker",
@@ -638,20 +641,22 @@ def test_create_deployment_creates_sagemaker_and_s3_resources_with_expected_name
             "https_proxy": "http://user:password@proxy.example.net:1234",
             "no_proxy": "localhost",
         }
+        for k, v in proxy_variables.items():
+            monkeypatch.setenv(k, v)
         expected_model_environment.update(proxy_variables)
         name = "test-app-proxies"
-        with mock.patch.dict(os.environ, proxy_variables, clear=True):
-            sagemaker_deployment_client.create_deployment(
-                name=name,
-                model_uri=model_s3_uri,
-            )
+        sagemaker_deployment_client.create_deployment(
+            name=name,
+            model_uri=model_s3_uri,
+        )
     else:
+        for k in ("http_proxy", "https_proxy", "no_proxy"):
+            monkeypatch.delenv(k, raising=False)
         name = "test-app"
-        with mock.patch.dict(os.environ, {}, clear=True):
-            sagemaker_deployment_client.create_deployment(
-                name=name,
-                model_uri=model_s3_uri,
-            )
+        sagemaker_deployment_client.create_deployment(
+            name=name,
+            model_uri=model_s3_uri,
+        )
 
     endpoint_description = sagemaker_client.describe_endpoint(EndpointName=name)
     endpoint_production_variants = endpoint_description["ProductionVariants"]
@@ -689,9 +694,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
     default_bucket = mfs._get_default_s3_bucket(region_name)
     s3_artifact_repo = S3ArtifactRepository(f"s3://{default_bucket}")
     s3_artifact_repo.log_artifacts(local_model_path, artifact_path=artifact_path)
-    model_s3_uri = "s3://{bucket_name}/{artifact_path}".format(
-        bucket_name=default_bucket, artifact_path=pretrained_model.model_path
-    )
+    model_s3_uri = f"s3://{default_bucket}/{pretrained_model.model_path}"
     environment_variables = {"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}
     expected_model_environment = {
         "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
@@ -1209,16 +1212,12 @@ def test_update_deployment_in_replace_mode_with_archiving_does_not_delete_resour
         model["ModelName"] for model in sagemaker_client.list_models()["Models"]
     ]
 
-    model_uri = "runs:/{run_id}/{artifact_path}".format(
-        run_id=pretrained_model.run_id, artifact_path=pretrained_model.model_path
-    )
+    model_uri = f"runs:/{pretrained_model.run_id}/{pretrained_model.model_path}"
     sk_model = mlflow.sklearn.load_model(model_uri=model_uri)
     new_artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sk_model, artifact_path=new_artifact_path)
-        new_model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=new_artifact_path
-        )
+        new_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{new_artifact_path}"
     sagemaker_deployment_client.update_deployment(
         name=name,
         model_uri=new_model_uri,

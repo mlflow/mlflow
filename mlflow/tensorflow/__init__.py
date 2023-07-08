@@ -666,8 +666,8 @@ def _load_tf1_estimator_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_s
     loaded_sig = loaded.signatures
     if tf_signature_def_key not in loaded_sig:
         raise MlflowException(
-            "Could not find signature def key %s. Available keys are: %s"
-            % (tf_signature_def_key, list(loaded_sig.keys()))
+            f"Could not find signature def key {tf_signature_def_key}. "
+            f"Available keys are: {list(loaded_sig.keys())}"
         )
     return loaded_sig[tf_signature_def_key]
 

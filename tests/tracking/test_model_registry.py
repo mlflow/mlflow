@@ -10,7 +10,7 @@ from mlflow.exceptions import MlflowException
 from mlflow import MlflowClient
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.os import is_windows
-from tests.tracking.integration_test_utils import _terminate_server, _init_server
+from tests.tracking.integration_test_utils import _init_server
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
@@ -21,11 +21,10 @@ def client(request, tmp_path):
         path = tmp_path.joinpath("sqlalchemy.db").as_uri()
         backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
 
-    url, process = _init_server(
+    with _init_server(
         backend_uri=backend_uri, root_artifact_uri=tmp_path.joinpath("artifacts").as_uri()
-    )
-    yield MlflowClient(url)
-    _terminate_server(process)
+    ) as url:
+        yield MlflowClient(url)
 
 
 def assert_is_between(start_time, end_time, expected_time):

@@ -237,5 +237,5 @@ class ArtifactRepository:
 def verify_artifact_path(artifact_path):
     if artifact_path and path_not_unique(artifact_path):
         raise MlflowException(
-            "Invalid artifact path: '{}'. {}".format(artifact_path, bad_path_message(artifact_path))
+            f"Invalid artifact path: '{artifact_path}'. {bad_path_message(artifact_path)}"
         )

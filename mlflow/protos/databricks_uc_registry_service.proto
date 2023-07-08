@@ -205,4 +205,52 @@ service UcModelRegistryService {
       rpc_doc_title:"(Unity Catalog) Get ModelVersion By Alias",
     };
   }
+
+  rpc SetRegisteredModelTag (SetRegisteredModelTagRequest) returns (SetRegisteredModelTagResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/registered-models/set-tag"
+        since {major: 2, minor: 0},
+      }],
+      visibility:PUBLIC_UNDOCUMENTED,
+      rpc_doc_title:"(Unity Catalog) Set RegisteredModel Tag",
+    };
+  }
+
+  rpc DeleteRegisteredModelTag (DeleteRegisteredModelTagRequest) returns (DeleteRegisteredModelTagResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/unity-catalog/registered-models/delete-tag"
+        since {major: 2, minor: 0},
+      }],
+      visibility:PUBLIC_UNDOCUMENTED,
+      rpc_doc_title:"(Unity Catalog) Delete RegisteredModel Tag",
+    };
+  }
+
+  rpc SetModelVersionTag (SetModelVersionTagRequest) returns (SetModelVersionTagResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/model-versions/set-tag"
+        since {major: 2, minor: 0},
+      }],
+      visibility:PUBLIC_UNDOCUMENTED,
+      rpc_doc_title:"(Unity Catalog) Set ModelVersion Tag",
+    };
+  }
+
+  rpc DeleteModelVersionTag (DeleteModelVersionTagRequest) returns (DeleteModelVersionTagResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/unity-catalog/model-versions/delete-tag"
+        since {major: 2, minor: 0},
+      }],
+      visibility:PUBLIC_UNDOCUMENTED,
+      rpc_doc_title:"(Unity Catalog) Delete ModelVersion Tag",
+    };
+  }
 }

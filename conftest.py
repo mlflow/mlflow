@@ -142,7 +142,7 @@ def clean_up_envs():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def set_mlflow_testing():
+def enable_mlflow_testing():
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv(_MLFLOW_TESTING.name, "TRUE")
         yield

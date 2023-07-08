@@ -349,12 +349,9 @@ def patched_fit(original, self, *args, **kwargs):
     """
     if not MIN_REQ_VERSION <= _pl_version <= MAX_REQ_VERSION:
         warnings.warn(
-            (
-                "Autologging is known to be compatible with pytorch-lightning versions between "
-                "%s and %s and may not succeed with packages "
-                "outside this range."
-            )
-            % (MIN_REQ_VERSION, MAX_REQ_VERSION)
+            "Autologging is known to be compatible with pytorch-lightning versions between "
+            f"{MIN_REQ_VERSION} and {MAX_REQ_VERSION} and may not succeed with packages "
+            "outside this range."
         )
 
     with _pytorch_autolog.disable_pytorch_autologging():

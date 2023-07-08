@@ -704,7 +704,7 @@ class Endpoint(TimestampedResource):
 
     @property
     def arn_descriptor(self):
-        return ":endpoint/{endpoint_name}".format(endpoint_name=self.endpoint_name)
+        return f":endpoint/{self.endpoint_name}"
 
     @property
     def status(self):
@@ -760,7 +760,7 @@ class TransformJob(TimestampedResource):
 
     @property
     def arn_descriptor(self):
-        return ":transform-job/{job_name}".format(job_name=self.job_name)
+        return f":transform-job/{self.job_name}"
 
     @property
     def status(self):
@@ -943,7 +943,7 @@ class EndpointConfig(TimestampedResource):
 
     @property
     def arn_descriptor(self):
-        return ":endpoint-config/{config_name}".format(config_name=self.config_name)
+        return f":endpoint-config/{self.config_name}"
 
 
 class EndpointConfigSummary:
@@ -1003,7 +1003,7 @@ class Model(TimestampedResource):
 
     @property
     def arn_descriptor(self):
-        return ":model/{model_name}".format(model_name=self.model_name)
+        return f":model/{self.model_name}"
 
 
 class ModelSummary:

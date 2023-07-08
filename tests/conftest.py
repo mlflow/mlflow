@@ -7,39 +7,21 @@ from unittest import mock
 import pytest
 
 import mlflow
+from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.os import is_windows
 
 from tests.autologging.fixtures import enable_test_mode
 
 
-@pytest.fixture
-def reset_mock():
-    cache = []
-
-    def set_mock(obj, attr, mock):
-        cache.append((obj, attr, getattr(obj, attr)))
-        setattr(obj, attr, mock)
-
-    yield set_mock
-
-    for obj, attr, value in cache:
-        setattr(obj, attr, value)
-    cache[:] = []
-
-
 @pytest.fixture(autouse=True)
 def tracking_uri_mock(tmp_path, request):
-    try:
-        if "notrackingurimock" not in request.keywords:
-            tracking_uri = path_to_local_sqlite_uri(os.path.join(tmp_path, "mlruns.sqlite"))
-            mlflow.set_tracking_uri(tracking_uri)
-            os.environ["MLFLOW_TRACKING_URI"] = tracking_uri
-        yield str(tmp_path)
-    finally:
-        mlflow.set_tracking_uri(None)
-        if "notrackingurimock" not in request.keywords:
-            del os.environ["MLFLOW_TRACKING_URI"]
+    if "notrackingurimock" not in request.keywords:
+        tracking_uri = path_to_local_sqlite_uri(os.path.join(tmp_path, "mlruns.sqlite"))
+        with _use_tracking_uri(tracking_uri):
+            yield tracking_uri
+    else:
+        yield None
 
 
 @pytest.fixture(autouse=True)

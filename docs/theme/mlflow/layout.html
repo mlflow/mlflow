@@ -22,6 +22,7 @@
   <title>{{ title|striptags|e }}{{ titlesuffix }}</title>
   {% endblock %}
   {# CANONICAL #} 
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   <link rel="canonical" href="https://mlflow.org/docs/latest/{{ pagename }}.html">
   {# FAVICON #}
   {% if favicon %}
@@ -101,7 +102,6 @@
 {%- endfor %}
 
 <body class="wy-body-for-nav" role="document">
-
   {% if gtm_id %}
     <!-- Google Tag Manager (noscript) -->
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{gtm_id}}"

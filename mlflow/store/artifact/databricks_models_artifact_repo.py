@@ -90,8 +90,8 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 json_response = json.loads(response.text)
             except Exception:
                 raise MlflowException(
-                    "API request to list files under path `%s` failed with status code %s. "
-                    "Response body: %s" % (path, response.status_code, response.text)
+                    f"API request to list files under path `{path}` failed with status code "
+                    f"{response.status_code}. Response body: {response.text}"
                 )
             artifact_list = json_response.get("files", [])
             next_page_token = json_response.get("next_page_token", None)
@@ -122,8 +122,8 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             json_response = json.loads(response.text)
         except ValueError:
             raise MlflowException(
-                "API request to get presigned uri to for file under path `%s` failed with"
-                " status code %s. Response body: %s" % (path, response.status_code, response.text)
+                f"API request to get presigned uri to for file under path `{path}` failed with"
+                f" status code {response.status_code}. Response body: {response.text}"
             )
         return json_response.get("signed_uri", None), json_response.get("headers", None)
 

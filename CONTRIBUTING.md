@@ -5,7 +5,7 @@ We welcome community contributions to MLflow. This page provides useful informat
 **Table of Contents**
 
 - [Governance](#governance)
-- [Maintainers](#maintainers)
+- [Core Members](#core-members)
 - [Contribution process](#contribution-process)
 - [Contribution guidelines](#contribution-guidelines)
   - [Write designs for significant changes](#write-designs-for-significant-changes)
@@ -54,15 +54,16 @@ Governance of MLflow is conducted by the Technical Steering Committee
 The founding technical charter can be found
 [here](https://github.com/mlflow/mlflow/blob/master/mlflow-charter.pdf).
 
-## Maintainers
+## Core Members
 
-MLflow is currently maintained by the following members with significant contributions from hundreds of exceptionally talented community members.
+MLflow is currently maintained by the following core members with significant contributions from hundreds of exceptionally talented community members.
 
 - [Harutaka Kawamura](https://github.com/harupy)
 - [Weichen Xu](https://github.com/WeichenXu123)
 - [Corey Zumar](https://github.com/dbczumar)
 - [Ben Wilson](https://github.com/BenWilson2)
 - [Serena Ruan](https://github.com/serena-ruan)
+- [Gabriel Fu](https://github.com/gabrielfu)
 
 ## Contribution process
 

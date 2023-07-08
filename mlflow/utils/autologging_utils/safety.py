@@ -2,7 +2,6 @@ import abc
 import inspect
 import itertools
 import functools
-import os
 import uuid
 from abc import abstractmethod
 from contextlib import contextmanager
@@ -21,8 +20,7 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (
     set_non_mlflow_warnings_behavior_for_current_thread,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
-
-_AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
+from mlflow.environment_variables import _MLFLOW_AUTOLOGGING_TESTING
 
 _AUTOLOGGING_PATCHES = {}
 
@@ -278,7 +276,7 @@ def is_testing():
         - Disables exception handling for patched function logic, ensuring that patch code
           executes without errors during testing
     """
-    return os.environ.get(_AUTOLOGGING_TEST_MODE_ENV_VAR, "false") == "true"
+    return _MLFLOW_AUTOLOGGING_TESTING.get()
 
 
 def safe_patch(
@@ -330,7 +328,7 @@ def safe_patch(
         destination, function_name, bypass_descriptor_protocol=True
     )
     if original_fn != raw_original_obj:
-        raise RuntimeError(f"Unsupport patch on {str(destination)}.{function_name}")
+        raise RuntimeError(f"Unsupport patch on {destination}.{function_name}")
     elif isinstance(original_fn, property):
         is_property_method = True
 
@@ -776,7 +774,7 @@ def _validate_autologging_run(autologging_integration, run_id):
     )
     assert RunStatus.is_terminated(
         RunStatus.from_string(run.info.status)
-    ), "Autologging run with id {} has a non-terminal status '{}'".format(run_id, run.info.status)
+    ), f"Autologging run with id {run_id} has a non-terminal status '{run.info.status}'"
 
 
 class ValidationExemptArgument(typing.NamedTuple):

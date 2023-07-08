@@ -1270,6 +1270,11 @@ converts it to ONNX, logs to mlflow and makes a prediction using pyfunc predict(
 
 MXNet Gluon (``gluon``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. warning::
+
+    The ``gluon`` model flavor is deprecated and will be removed in a future release.
+
 The ``gluon`` model flavor enables logging of `Gluon models
 <https://mxnet.incubator.apache.org/api/python/docs/api/gluon/index.html>`_ in MLflow format via
 the :py:func:`mlflow.gluon.save_model()` and :py:func:`mlflow.gluon.log_model()` methods. These
@@ -3740,7 +3745,7 @@ only inferred for built-in flavors.
         )
 
 Next, we add the ``log_model()`` function. This function is little more than a wrapper around the
-:py:func:`mlflow.models.Model.log()` method to enable loggig our custom model as an artifact to the
+:py:func:`mlflow.models.Model.log()` method to enable logging our custom model as an artifact to the
 curren MLflow run. Any flavor-specific parameters (e.g. ``serialization_format``) introduced in the
 ``save_model()`` function also need to be added in the ``log_model()`` function. We also need to
 pass the ``flavor`` module to the :py:func:`mlflow.models.Model.log()` method which internally calls

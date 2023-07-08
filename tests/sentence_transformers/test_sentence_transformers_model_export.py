@@ -59,7 +59,7 @@ def test_model_save_and_load(model_path, basic_model):
     assert all(len(x) == 384 for x in encoded_multi)
 
 
-def test_dependency_mapping(model_path, basic_model):
+def test_dependency_mapping():
     pip_requirements = mlflow.sentence_transformers.get_default_pip_requirements()
 
     expected_requirements = {"sentence-transformers", "torch", "transformers"}
@@ -290,10 +290,11 @@ def test_log_model_with_code_paths(basic_model):
         add_mock.assert_called()
 
 
-def test_default_signature_assignment(model_path, basic_model):
+def test_default_signature_assignment():
     expected_signature = {
         "inputs": '[{"type": "string"}]',
         "outputs": '[{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": ' "[-1]}}]",
+        "params": None,
     }
 
     default_signature = mlflow.sentence_transformers._get_default_signature()
@@ -323,15 +324,20 @@ def test_model_pyfunc_save_load(basic_model, model_path):
     np.testing.assert_array_equal(emb1, emb3)
 
 
-def test_spark_udf(basic_model, model_path, spark):
+def test_spark_udf(basic_model, spark):
+    params = {"batch_size": 16}
     with mlflow.start_run():
-        model_info = mlflow.sentence_transformers.log_model(basic_model, "my_model")
+        signature = infer_signature(SENTENCES, basic_model.encode(SENTENCES), params)
+        model_info = mlflow.sentence_transformers.log_model(
+            basic_model, "my_model", signature=signature
+        )
 
     result_type = ArrayType(DoubleType())
     loaded_model = mlflow.pyfunc.spark_udf(
         spark,
         model_info.model_uri,
         result_type=result_type,
+        params=params,
     )
 
     df = spark.createDataFrame([("hello MLflow",), ("bye world",)], ["text"])
@@ -387,13 +393,17 @@ SIGNATURE = infer_signature(
     model_input=SENTENCES,
     model_output=SentenceTransformer("all-MiniLM-L6-v2").encode(SENTENCES),
 )
+SIGNATURE_FROM_EXAMPLE = infer_signature(
+    model_input=pd.DataFrame([SENTENCES], columns=[0, 1]),
+    model_output=SentenceTransformer("all-MiniLM-L6-v2").encode(SENTENCES),
+)
 
 
 @pytest.mark.parametrize(
     "example, signature, expected_signature",
     [
         (None, None, mlflow.sentence_transformers._get_default_signature()),
-        (SENTENCES, None, SIGNATURE),
+        (SENTENCES, None, SIGNATURE_FROM_EXAMPLE),
         (None, SIGNATURE, SIGNATURE),
         (SENTENCES, SIGNATURE, SIGNATURE),
     ],
@@ -424,4 +434,4 @@ def test_model_log_with_signature_inference(basic_model):
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     model_info = Model.load(model_uri)
-    assert model_info.signature == SIGNATURE
+    assert model_info.signature == SIGNATURE_FROM_EXAMPLE

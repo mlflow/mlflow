@@ -347,9 +347,7 @@ def test_model_log(model, data, predicted):
                 mlflow.start_run()
             artifact_path = "keras_model"
             model_info = mlflow.tensorflow.log_model(model, artifact_path=artifact_path)
-            model_uri = "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
+            model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
             assert model_info.model_uri == model_uri
 
             # Load model
@@ -370,9 +368,7 @@ def test_log_model_calls_register_model(model):
         mlflow.tensorflow.log_model(
             model, artifact_path=artifact_path, registered_model_name="AdsModel1"
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         mlflow.register_model.assert_called_once_with(
             model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
         )
@@ -507,9 +503,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(model, keras_
     with mlflow.start_run():
         mlflow.tensorflow.log_model(model, artifact_path=artifact_path, conda_env=keras_custom_env)
         model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
+            f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         )
 
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
@@ -521,9 +515,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model,
     with mlflow.start_run():
         mlflow.tensorflow.log_model(model, artifact_path=artifact_path, conda_env=keras_custom_env)
         model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
+            f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -593,7 +585,7 @@ def test_save_model_with_tf_save_format(model_path):
     assert not args[0].endswith(".h5")
 
 
-def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path):
+def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path, data):
     """Ensures that keras models saved with save_format="tf" can be loaded."""
     mlflow.tensorflow.save_model(
         tf_keras_model, path=model_path, keras_model_kwargs={"save_format": "tf"}
@@ -611,10 +603,10 @@ def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path):
     ), "Expected directory containing saved_model.pb"
 
     model_loaded = mlflow.tensorflow.load_model(model_path)
-    assert tf_keras_model.to_json() == model_loaded.to_json()
+    np.testing.assert_allclose(model_loaded.predict(data[0]), tf_keras_model.predict(data[0]))
 
 
-def test_load_without_save_format(tf_keras_model, model_path):
+def test_load_without_save_format(tf_keras_model, model_path, data):
     """Ensures that keras models without save_format can still be loaded."""
     mlflow.tensorflow.save_model(
         tf_keras_model, path=model_path, keras_model_kwargs={"save_format": "h5"}
@@ -627,7 +619,7 @@ def test_load_without_save_format(tf_keras_model, model_path):
     model_conf.save(model_conf_path)
 
     model_loaded = mlflow.tensorflow.load_model(model_path)
-    assert tf_keras_model.to_json() == model_loaded.to_json()
+    np.testing.assert_allclose(model_loaded.predict(data[0]), tf_keras_model.predict(data[0]))
 
 
 # TODO: Remove skipif condition `not Version(tf.__version__).is_devrelease` once
