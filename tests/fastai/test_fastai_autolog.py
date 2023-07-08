@@ -287,9 +287,7 @@ def test_fastai_autolog_save_and_early_stop_logs(fastai_random_data_run_with_cal
 
     assert len(metric_history) == num_of_epochs
 
-    model_uri = "runs:/{run_id}/{artifact_path}".format(
-        run_id=run.info.run_id, artifact_path="model"
-    )
+    model_uri = f"runs:/{run.info.run_id}/model"
 
     model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
     reloaded_model = mlflow.fastai.load_model(model_uri=model_uri)
