@@ -1198,7 +1198,8 @@ def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL)
 
     if not _check_udf_return_type(result_type):
         raise MlflowException(
-            f"""Invalid 'spark_udf' result type: {result_type}. It must be one of the following types:
+            f"""Invalid 'spark_udf' result type: {result_type}.
+It must be one of the following types:
 Primitive types:
  - int
  - long
