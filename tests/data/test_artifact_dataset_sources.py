@@ -104,7 +104,7 @@ def test_local_load(dst_path, tmp_path):
     file_dataset_source = resolve_dataset_source(file_path)
     assert file_dataset_source._get_source_type() == "local"
     assert file_dataset_source.load(dst_path=dst_path) == dst_path or file_path
-    with open(file_path, "r") as f:
+    with open(file_path) as f:
         assert f.read() == "text"
 
     # Test directory paths with pathlib.Path
@@ -133,5 +133,5 @@ def test_s3_load(mock_s3_bucket, dst_path, tmp_path):
     downloaded_source = s3_dataset_source.load(dst_path=dst_path)
     if dst_path is not None:
         assert downloaded_source == os.path.join(dst_path, "myfile.txt")
-    with open(downloaded_source, "r") as f:
+    with open(downloaded_source) as f:
         assert f.read() == "text"
