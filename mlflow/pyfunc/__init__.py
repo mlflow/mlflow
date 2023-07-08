@@ -872,7 +872,7 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
-def _cast_spec_to_spark_type(spec):
+def _cast_output_spec_to_spark_type(spec):
     from mlflow.types.schema import ColSpec, TensorSpec, DataType
     from pyspark.sql.types import ArrayType
 
@@ -907,11 +907,11 @@ def _infer_spark_udf_return_type(model_output_schema):
     from pyspark.sql.types import StructType, StructField
 
     if len(model_output_schema.inputs) == 1:
-        return _cast_spec_to_spark_type(model_output_schema.inputs[0])
+        return _cast_output_spec_to_spark_type(model_output_schema.inputs[0])
 
     return StructType(
         [
-            StructField(name=spec.name or str(i), dataType=_cast_spec_to_spark_type(spec))
+            StructField(name=spec.name or str(i), dataType=_cast_output_spec_to_spark_type(spec))
             for i, spec in enumerate(model_output_schema.inputs)
         ]
     )
