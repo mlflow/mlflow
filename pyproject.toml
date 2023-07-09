@@ -73,6 +73,4 @@ exclude = [
   "tests/protos",
 ]
 [tool.ruff.per-file-ignores]
-"dev/*" = ["T201", "T203"]
-"tests/resources/example_project/greeter.py" = ["T201", "T203"]
-"tests/resources/mlflow-test-plugin/mlflow_test_plugin/fake_deployment_plugin.py" = ["T201", "T203"]
+"dev/*" = ["T201"]

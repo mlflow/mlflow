@@ -14,4 +14,4 @@ if __name__ == "__main__":
     if args.excitement is not None:
         greeting.append("!" * args.excitement)
     # pylint: disable-next=print-function
-    print(" ".join(greeting))
+    print(" ".join(greeting))  # noqa: T201
