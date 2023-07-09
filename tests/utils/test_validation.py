@@ -191,9 +191,9 @@ def test_validate_run_id_bad(run_id):
 
 
 def test_validate_batch_log_limits():
-    too_many_metrics = [Metric("metric-key-%s" % i, 1, 0, i * 2) for i in range(1001)]
-    too_many_params = [Param("param-key-%s" % i, "b") for i in range(101)]
-    too_many_tags = [RunTag("tag-key-%s" % i, "b") for i in range(101)]
+    too_many_metrics = [Metric(f"metric-key-{i}", 1, 0, i * 2) for i in range(1001)]
+    too_many_params = [Param(f"param-key-{i}", "b") for i in range(101)]
+    too_many_tags = [RunTag(f"tag-key-{i}", "b") for i in range(101)]
 
     good_kwargs = {"metrics": [], "params": [], "tags": []}
     bad_kwargs = {

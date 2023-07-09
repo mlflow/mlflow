@@ -136,7 +136,7 @@ def test_response_with_unknown_fields(request):
 def _args(host_creds, endpoint, method, json_body):
     res = {
         "host_creds": host_creds,
-        "endpoint": "/api/2.0/mlflow/%s" % endpoint,
+        "endpoint": f"/api/2.0/mlflow/{endpoint}",
         "method": method,
     }
     if method == "GET":

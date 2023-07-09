@@ -615,7 +615,7 @@ def _get_experiment_by_name():
     store_exp = _get_tracking_store().get_experiment_by_name(request_message.experiment_name)
     if store_exp is None:
         raise MlflowException(
-            "Could not find experiment with name '%s'" % request_message.experiment_name,
+            f"Could not find experiment with name '{request_message.experiment_name}'",
             error_code=RESOURCE_DOES_NOT_EXIST,
         )
     experiment = store_exp.to_proto()

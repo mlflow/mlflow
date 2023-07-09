@@ -240,7 +240,7 @@ def _get_git_url_if_present(uri):
         repo = Repo(uri, search_parent_directories=True)
 
         # Repo url
-        repo_url = "file://%s" % repo.working_tree_dir
+        repo_url = f"file://{repo.working_tree_dir}"
 
         # Sub directory
         rlpath = uri.replace(repo.working_tree_dir, "")

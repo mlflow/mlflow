@@ -21,4 +21,4 @@ def local_git_repo(tmp_path):
 
 @pytest.fixture
 def local_git_repo_uri(local_git_repo):
-    return "file://%s" % local_git_repo
+    return f"file://{local_git_repo}"

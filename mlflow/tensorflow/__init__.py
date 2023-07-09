@@ -719,7 +719,7 @@ def _load_pyfunc(path):
             )
             return _KerasModelWrapper(m, model_meta.signature)
         else:
-            raise MlflowException("Unsupported backend '%s'" % K._BACKEND)
+            raise MlflowException(f"Unsupported backend '{K._BACKEND}'")
     if model_type == _MODEL_TYPE_TF1_ESTIMATOR:
         flavor_conf = _get_flavor_configuration(path, FLAVOR_NAME)
 

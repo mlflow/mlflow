@@ -80,9 +80,9 @@ if __name__ == "__main__":
 
     # Print out ElasticNet model metrics
     print("Elasticnet model (alpha={:f}, l1_ratio={:f}):".format(alpha, l1_ratio))
-    print("  RMSE: %s" % rmse)
-    print("  MAE: %s" % mae)
-    print("  R2: %s" % r2)
+    print(f"  RMSE: {rmse}")
+    print(f"  MAE: {mae}")
+    print(f"  R2: {r2}")
 
     # Infer model signature
     predictions = lr.predict(train_x)

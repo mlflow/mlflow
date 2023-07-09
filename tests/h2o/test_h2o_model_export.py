@@ -45,7 +45,7 @@ def h2o_iris_model():
         {
             "feature1": list(iris.data[:, 0]),
             "feature2": list(iris.data[:, 1]),
-            "target": (["Flower %d" % i for i in iris.target]),
+            "target": ([f"Flower {i}" for i in iris.target]),
         }
     )
     train, test = data.split_frame(ratios=[0.7])  # pylint: disable=unbalanced-tuple-unpacking

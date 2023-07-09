@@ -241,7 +241,7 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
         },
     }
     experiment_id = mlflow_client.create_experiment(
-        "Run A Lot (parent_run_id=%s)" % (parent_run_id_kwarg)
+        f"Run A Lot (parent_run_id={parent_run_id_kwarg})"
     )
     created_run = mlflow_client.create_run(experiment_id, **create_run_kwargs)
     run_id = created_run.info.run_id
@@ -776,13 +776,13 @@ def test_artifacts(mlflow_client, tmp_path):
     all_artifacts = download_artifacts(
         run_id=run_id, artifact_path=".", tracking_uri=mlflow_client.tracking_uri
     )
-    assert open("%s/my.file" % all_artifacts).read() == "Hello, World!"
-    assert open("%s/dir/my.file" % all_artifacts).read() == "Hello, World!"
+    assert open(f"{all_artifacts}/my.file").read() == "Hello, World!"
+    assert open(f"{all_artifacts}/dir/my.file").read() == "Hello, World!"
 
     dir_artifacts = download_artifacts(
         run_id=run_id, artifact_path="dir", tracking_uri=mlflow_client.tracking_uri
     )
-    assert open("%s/my.file" % dir_artifacts).read() == "Hello, World!"
+    assert open(f"{dir_artifacts}/my.file").read() == "Hello, World!"
 
 
 def test_search_pagination(mlflow_client):

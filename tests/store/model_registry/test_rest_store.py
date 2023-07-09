@@ -44,7 +44,7 @@ def store(creds):
 
 
 def _args(host_creds, endpoint, method, json_body):
-    res = {"host_creds": host_creds, "endpoint": "/api/2.0/mlflow/%s" % endpoint, "method": method}
+    res = {"host_creds": host_creds, "endpoint": f"/api/2.0/mlflow/{endpoint}", "method": method}
     if method == "GET":
         res["params"] = json.loads(json_body)
     else:

@@ -953,7 +953,7 @@ def validate_search_runs(results, data, output_format):
         expected_df["end_time"] = pd.to_datetime(expected_df["end_time"], unit="ms", utc=True)
         pd.testing.assert_frame_equal(results, expected_df, check_like=True, check_frame_type=False)
     else:
-        raise Exception("Invalid output format %s" % output_format)
+        raise Exception(f"Invalid output format {output_format}")
 
 
 def test_search_runs_attributes(search_runs_output_format):

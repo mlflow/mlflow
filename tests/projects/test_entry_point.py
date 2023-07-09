@@ -116,7 +116,7 @@ def test_uri_parameter():
         dst_dir = tmp.path()
         # Test that we don't attempt to locally download parameters of type URI
         entry_point.compute_command(
-            user_parameters={"uri": "file://%s" % dst_dir}, storage_dir=dst_dir
+            user_parameters={"uri": f"file://{dst_dir}"}, storage_dir=dst_dir
         )
         assert download_uri_mock.call_count == 0
         # Test that we raise an exception if a local path is passed to a parameter of type URI
@@ -219,7 +219,7 @@ def test_path_params():
         "mlflow.tracking.artifact_utils._download_artifact_from_uri"
     ) as download_uri_mock, TempDir() as tmp:
         dest_path = tmp.path()
-        download_path = "%s/data_file.csv" % dest_path
+        download_path = f"{dest_path}/data_file.csv"
         download_uri_mock.return_value = download_path
         user_3 = {"alpha": 0.001}
         final_3, extra_3 = entry_point.compute_parameters(user_3, dest_path)
@@ -231,7 +231,7 @@ def test_path_params():
         "mlflow.tracking.artifact_utils._download_artifact_from_uri"
     ) as download_uri_mock, TempDir() as tmp:
         dest_path = tmp.path()
-        download_path = "%s/images.tgz" % dest_path
+        download_path = f"{dest_path}/images.tgz"
         download_uri_mock.return_value = download_path
         user_4 = {"data": "s3://another.example.test/data_stash/images.tgz"}
         final_4, extra_4 = entry_point.compute_parameters(user_4, dest_path)

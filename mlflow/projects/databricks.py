@@ -132,7 +132,7 @@ class DatabricksJobRunner:
             host_creds=host_creds,
             endpoint="/api/2.0/dbfs/get-status",
             method="GET",
-            json={"path": "/%s" % dbfs_path},
+            json={"path": f"/{dbfs_path}"},
         )
         try:
             json_response_obj = json.loads(response.text)
@@ -181,7 +181,7 @@ class DatabricksJobRunner:
                 DBFS_EXPERIMENT_DIR_BASE,
                 str(experiment_id),
                 "projects-code",
-                "%s.tar.gz" % tarfile_hash,
+                f"{tarfile_hash}.tar.gz",
             )
             tar_size = file_utils._get_local_file_size(temp_tar_filename)
             dbfs_fuse_uri = posixpath.join("/dbfs", dbfs_path)
@@ -214,7 +214,7 @@ class DatabricksJobRunner:
                  `Runs Get <https://docs.databricks.com/api/latest/jobs.html#runs-get>`_ API.
         """
         if is_release_version():
-            mlflow_lib = {"pypi": {"package": "mlflow==%s" % VERSION}}
+            mlflow_lib = {"pypi": {"package": f"mlflow=={VERSION}"}}
         else:
             # When running a non-release version as the client the same version will not be
             # available within Databricks.
@@ -224,7 +224,7 @@ class DatabricksJobRunner:
                 "MLFlow will fallback the MLFlow version provided by the runtime. "
                 "This might lead to unforeseen issues. "
             )
-            mlflow_lib = {"pypi": {"package": "'mlflow<=%s'" % VERSION}}
+            mlflow_lib = {"pypi": {"package": f"'mlflow<={VERSION}'"}}
 
         # Check syntax of JSON - if it contains libraries and new_cluster, pull those out
         if "new_cluster" in cluster_spec:
@@ -244,7 +244,7 @@ class DatabricksJobRunner:
 
         # Make jobs API request to launch run.
         req_body_json = {
-            "run_name": "MLflow Run for %s" % project_uri,
+            "run_name": f"MLflow Run for {project_uri}",
             "new_cluster": cluster_spec,
             "shell_command_task": {"command": command, "env_vars": env_vars},
             "libraries": libraries,

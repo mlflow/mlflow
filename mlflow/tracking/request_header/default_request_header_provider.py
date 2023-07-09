@@ -2,7 +2,7 @@ from mlflow.tracking.request_header.abstract_request_header_provider import Requ
 from mlflow import __version__
 
 _USER_AGENT = "User-Agent"
-_DEFAULT_HEADERS = {_USER_AGENT: "mlflow-python-client/%s" % __version__}
+_DEFAULT_HEADERS = {_USER_AGENT: f"mlflow-python-client/{__version__}"}
 
 
 class DefaultRequestHeaderProvider(RequestHeaderProvider):
