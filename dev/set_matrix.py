@@ -122,7 +122,7 @@ def read_yaml(location, if_error=None):
         raise
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def get_released_versions(package_name):
     url = f"https://pypi.org/pypi/{package_name}/json"
     response = requests.get(url)
