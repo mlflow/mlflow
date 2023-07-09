@@ -64,7 +64,7 @@ def http_request(
     hostname = host_creds.host
     auth_str = None
     if host_creds.username and host_creds.password:
-        basic_auth_str = f"{host_creds.username}:{host_creds.password}".encode("utf-8")
+        basic_auth_str = f"{host_creds.username}:{host_creds.password}".encode()
         auth_str = "Basic " + base64.standard_b64encode(basic_auth_str).decode("utf-8")
     elif host_creds.token:
         auth_str = "Bearer %s" % host_creds.token
