@@ -257,9 +257,9 @@ def test_classifier_binary():
     if _is_plotting_supported():
         plot_names.extend(
             [
-                "training_confusion_matrix",
-                "training_roc_curve",
-                "training_precision_recall_curve",
+                "training_confusion_matrix.png",
+                "training_roc_curve.png",
+                "training_precision_recall_curve.png",
             ]
         )
 
@@ -318,7 +318,7 @@ def test_classifier_multi_class():
 
     plot_names = []
     if _is_plotting_supported():
-        plot_names = ["training_confusion_matrix"]
+        plot_names = ["training_confusion_matrix.png"]
 
     assert all(x in artifacts for x in plot_names)
 
