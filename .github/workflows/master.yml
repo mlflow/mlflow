@@ -53,18 +53,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # pylint is ridiculously slow. It takes ~15 minutes to run on all files.
+          # pylint is ridiculously slow. It takes ~3 minutes to run on all files.
           # To fail fast for faster iteration, first run pylint only on changed files,
           # then run it on all files in the next step.
           changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
           pre-commit run --files $changed_files
-      - name: Run pre-commit (pylint)
+      - name: Run pre-commit (all files)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
           if echo "$changed_files" | grep -q '\.py$'; then
-            pre-commit run --all-files pylint
+            pre-commit run --all-files
           fi
       - name: Update error messages
         if: always() && steps.run-pre-commit.outcome == 'failure'
