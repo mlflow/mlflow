@@ -25,6 +25,8 @@ select = [
   "UP015",
   "UP031",
   "UP034",
+  "T201",
+  "T203",
 ]
 force-exclude = true
 ignore = [
@@ -70,3 +72,7 @@ exclude = [
   "mlflow/temporary_db_migrations_for_pre_1_users",
   "tests/protos",
 ]
+[tool.ruff.per-file-ignores]
+"dev/*" = ["T201", "T203"]
+"tests/resources/example_project/greeter.py" = ["T201", "T203"]
+"tests/resources/mlflow-test-plugin/mlflow_test_plugin/fake_deployment_plugin.py" = ["T201", "T203"]
