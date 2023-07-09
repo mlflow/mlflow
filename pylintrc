@@ -83,7 +83,6 @@ enable=signature-differs,
        # --------------
        # Custom rules
        pytest-raises-without-match,
-       print-function,
        unittest-assert-raises,
        pytest-raises-multiple-statements,
        use-f-string,
