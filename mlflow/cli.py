@@ -194,7 +194,7 @@ def run(
         try:
             backend_config = json.loads(backend_config)
         except ValueError as e:
-            eprint("Invalid backend config JSON. Parse error: %s" % e)
+            eprint(f"Invalid backend config JSON. Parse error: {e}")
             raise
     if backend == "kubernetes":
         if backend_config is None:
@@ -241,7 +241,7 @@ def _user_args_to_dict(arguments, argument_type="P"):
             )
             sys.exit(1)
         if name in user_dict:
-            eprint("Repeated parameter: '%s'" % name)
+            eprint(f"Repeated parameter: '{name}'")
             sys.exit(1)
         user_dict[name] = value
     return user_dict

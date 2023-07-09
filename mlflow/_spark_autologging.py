@@ -193,7 +193,7 @@ class PythonSubscriber(metaclass=ExceptionSafeClass):
 
     def toString(self):
         # For debugging
-        return "PythonSubscriber<replId=%s>" % self.replId()
+        return f"PythonSubscriber<replId={self.replId()}>"
 
     def ping(self):
         return None
