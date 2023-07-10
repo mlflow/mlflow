@@ -16,7 +16,7 @@ from mlflow.store.model_registry import (
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.tracking._model_registry import utils, DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-
+from mlflow.utils.arguments_utils import _get_arg_names
 
 _logger = logging.getLogger(__name__)
 
@@ -192,7 +192,8 @@ class ModelRegistryClient:
         """
         tags = tags if tags else {}
         tags = [ModelVersionTag(key, str(value)) for key, value in tags.items()]
-        try:
+        arg_names = _get_arg_names(self.store.create_model_version)
+        if "local_model_path" in arg_names:
             mv = self.store.create_model_version(
                 name,
                 source,
@@ -202,8 +203,8 @@ class ModelRegistryClient:
                 description,
                 local_model_path=local_model_path,
             )
-        except TypeError:
-            # We catch TypeError here and fall back to calling create_model_version without
+        else:
+            # Fall back to calling create_model_version without
             # local_model_path since old model registry store implementations may not
             # support the local_model_path argument.
             mv = self.store.create_model_version(name, source, run_id, tags, run_link, description)

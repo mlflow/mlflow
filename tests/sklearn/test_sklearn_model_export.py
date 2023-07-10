@@ -34,7 +34,6 @@ from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec
 
 
-
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,

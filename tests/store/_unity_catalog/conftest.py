@@ -18,6 +18,7 @@ def mock_host_creds(uri):
         return _REGISTRY_HOST_CREDS
     raise Exception(f"Got unexpected store URI {uri}")
 
+
 @pytest.fixture
 def mock_databricks_uc_host_creds():
     with mock.patch(
