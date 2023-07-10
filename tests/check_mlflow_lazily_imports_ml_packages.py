@@ -5,7 +5,7 @@ Tests that `import mlflow` and `mlflow.autolog()` do not import ML packages.
 import sys
 import importlib
 import logging
-import mlflow  # pylint: disable=unused-import
+import mlflow
 
 logger = logging.getLogger()
 
