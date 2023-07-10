@@ -533,7 +533,7 @@ class FileStore(AbstractStore):
         run_link=None,
         description=None,
         local_model_path=None,
-    ):  # pylint: disable=unused-argument
+    ):
         """
         Create a new model version from given source and run ID.
 

@@ -432,7 +432,7 @@ def _get_deps_from_requirement_file(model_uri):
 def assert_register_model_called_with_local_model_path(
     register_model_mock, model_uri, registered_model_name
 ):
-    [register_model_call_args] = register_model_mock.call_args_list
+    register_model_call_args = register_model_mock.call_args
     assert register_model_call_args.args == (model_uri, registered_model_name)
     assert (
         register_model_call_args.kwargs["await_registration_for"] == DEFAULT_AWAIT_MAX_SLEEP_SECONDS
