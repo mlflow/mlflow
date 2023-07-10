@@ -16,6 +16,7 @@ from mlflow.store.model_registry import (
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.tracking._model_registry import utils, DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.validation import _validate_model_name
 
 
 _logger = logging.getLogger(__name__)
@@ -58,11 +59,11 @@ class ModelRegistryClient:
          :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                   created by backend.
         """
-        # TODO: Do we want to validate the name is legit here - non-empty without "/" and ":" ?
-        #       Those are constraints applicable to any backend, given the model URI format.
-        tags = tags if tags else {}
-        tags = [RegisteredModelTag(key, str(value)) for key, value in tags.items()]
-        return self.store.create_registered_model(name, tags, description)
+        _validate_model_name(name)
+        registered_tags = (
+            [RegisteredModelTag(key, str(value)) for key, value in tags.items()] if tags else []
+        )
+        return self.store.create_registered_model(name, registered_tags, description)
 
     def update_registered_model(self, name, description):
         """

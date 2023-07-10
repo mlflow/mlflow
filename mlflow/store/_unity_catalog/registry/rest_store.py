@@ -77,6 +77,7 @@ from mlflow.store._unity_catalog.registry.utils import (
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds, is_databricks_uri
 from mlflow.utils._spark_utils import _get_active_spark_session
+from mlflow.utils.validation import _validate_model_name
 
 
 _DATABRICKS_ORG_ID_HEADER = "x-databricks-org-id"
@@ -219,6 +220,7 @@ class UcModelRegistryStore(BaseRestStore):
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created in the backend.
         """
+        _validate_model_name(name)
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
             CreateRegisteredModelRequest(

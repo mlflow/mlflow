@@ -1353,12 +1353,7 @@ def test_enforce_schema_in_python_model_predict():
     )
 
     # 4. any -> datetime (try conversion)
-    assert loaded_model.predict(
-        ["a", "b"],
-        params={
-            "datetime_param": "2023-06-26 00:00:00",
-        },
-    )[
+    assert loaded_model.predict(["a", "b"], params={"datetime_param": "2023-06-26 00:00:00",},)[
         "datetime_param"
     ] == np.datetime64("2023-06-26 00:00:00")
 

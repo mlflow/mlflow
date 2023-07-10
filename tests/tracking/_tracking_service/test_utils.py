@@ -163,9 +163,7 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_
     uri = f"{db_type}://hostname/database"
     artifact_uri = "file:artifact/path"
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
-    with mock.patch(
-        "sqlalchemy.create_engine",
-    ) as mock_create_engine, mock.patch(
+    with mock.patch("sqlalchemy.create_engine",) as mock_create_engine, mock.patch(
         "mlflow.store.db.utils._verify_schema"
     ), mock.patch("mlflow.store.db.utils._initialize_tables"), mock.patch(
         "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
