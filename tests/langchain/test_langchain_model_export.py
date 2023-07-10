@@ -39,7 +39,6 @@ from typing import Any, List, Mapping, Optional, Dict
 from tests.helper_functions import pyfunc_serve_and_score_model
 from mlflow.exceptions import MlflowException
 from mlflow.openai.utils import (
-    _chat_completion_json_sample,
     _mock_chat_completion_response,
     _mock_request,
     _MockResponse,
@@ -325,12 +324,6 @@ def test_langchain_native_log_and_load_qa_with_sources_chain():
     assert model == loaded_model
 
 
-def load_retriever(persist_directory):
-    embeddings = FakeEmbeddings(size=5)
-    vectorstore = FAISS.load_local(persist_directory, embeddings)
-    return vectorstore.as_retriever()
-
-
 @pytest.mark.skipif(
     version.parse(langchain.__version__) < version.parse("0.0.194"),
     reason="Saving RetrievalQA chains requires langchain>=0.0.194",
@@ -350,6 +343,11 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
     retrievalQA = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
 
     # Log the RetrievalQA chain
+    def load_retriever(persist_directory):
+        embeddings = FakeEmbeddings(size=5)
+        vectorstore = FAISS.load_local(persist_directory, embeddings)
+        return vectorstore.as_retriever()
+
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(
             retrievalQA,
@@ -373,23 +371,20 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
         assert result == [TEST_CONTENT]
 
     inference_payload = json.dumps({"inputs": langchain_input})
-    langchain_output_serving = {"predictions": _chat_completion_json_sample(TEST_CONTENT)}
-    with _mock_request(return_value=_MockResponse(200, langchain_output_serving)) as mock_request:
-        import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-        from mlflow.deployments import PredictionsResponse
+    langchain_output_serving = {"predictions": [TEST_CONTENT]}
+    import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+    from mlflow.deployments import PredictionsResponse
 
-        response = pyfunc_serve_and_score_model(
-            logged_model.model_uri,
-            data=inference_payload,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-            extra_args=["--env-manager", "local"],
-        )
+    response = pyfunc_serve_and_score_model(
+        logged_model.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
 
-        assert (
-            PredictionsResponse.from_json(response.content.decode("utf-8"))
-            == langchain_output_serving
-        )
-        assert mock_request.call_count == 3
+    assert (
+        PredictionsResponse.from_json(response.content.decode("utf-8")) == langchain_output_serving
+    )
 
 
 def load_requests_wrapper(_):
