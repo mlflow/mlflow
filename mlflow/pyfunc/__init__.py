@@ -920,7 +920,8 @@ def _infer_spark_udf_return_type(model_output_schema):
 def _parse_spark_datatype(datatype: str):
     from pyspark.sql.functions import udf
 
-    return udf(lambda x: x, returnType=datatype).returnType
+    return_type = "boolean" if datatype == "bool" else datatype
+    return udf(lambda x: x, returnType=return_type).returnType
 
 
 def _convert_array_values(values, elem_type, array_dim, spark_primitive_type_to_np_type):
@@ -1235,7 +1236,6 @@ def spark_udf(
             result_type = DoubleType()
     else:
         if isinstance(result_type, str):
-            result_type = "boolean" if result_type == "bool" else result_type
             result_type = _parse_spark_datatype(result_type)
 
     if not _check_udf_return_type(result_type):
