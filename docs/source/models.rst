@@ -344,11 +344,12 @@ valid model inputs (e.g. the training dataset with target column omitted) and va
 (e.g. model predictions generated on the training dataset).
 
 .. note::
-    :ref:`MLflow model deployment tools <built-in-deployment>` commonly serve the Python
-    Function (pyfunc) flavor of MLflow models. Hence, when passing a signature object to your log_model
-    or save_model call, it is recommended that the signature represent the inputs and outputs of the
-    model's PyFunc flavor. This is especially important when the PyFunc flavor's input schema differs
-    from that of the test dataset (such as the :ref:`pmdarima model flavor <pmdarima-flavor>`).
+    Model signatures are utilized in :ref:`MLflow model deployment tools <built-in-deployment>`, which
+    commonly serve the Python Function (PyFunc) flavor of MLflow models. Hence, when passing a signature 
+    object to your log_model or save_model call, it is recommended that the signature represent the
+    inputs and outputs of the model's PyFunc flavor. This is especially important when the model loaded
+    as a PyFunc model has an input schema that is different from the test dataset schema (as is the case with
+    the :ref:`pmdarima model flavor <pmdarima-flavor>`).
 
 
 Column-based Signature Example
@@ -427,7 +428,7 @@ on the ``MNIST dataset``:
 
     with mlflow.start_run():
         model.fit(x_train, y_train, epochs=5)
-        # Take the first three training examples as the model input example
+        # Take the first three training examples as the model input example.
         input_example = x_train[:3, :]
         mlflow.tensorflow.log_model(model, "mnist_cnn", input_example=input_example)
 
