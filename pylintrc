@@ -75,6 +75,7 @@ disable=all
 enable=signature-differs,
        line-too-long,
        unused-import,
+       unused-arguments,
        consider-using-from-import,
        consider-merging-isinstance,
        consider-using-dict-items,
