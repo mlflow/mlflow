@@ -7,13 +7,14 @@ MLflow 2.4.2 is a patch release containing the following bug fixes and changes:
 Bug fixes:
 
 - [Models] Add compatibility for legacy transformers serialization (#8964, @BenWilson2)
-- [Models] Fix model downloading in UC (#8764, #8728, @smurching)
-- [Models] Support feature_deps in ModelVersion creation for UC (#8867, #8815, @AveshCSingh)
+- [Models] Fix downloading MLmodel files from alias-based models:/ URIs (#8764, @smurching)
+- [Models] Fix reading model flavor config from URI for models in UC (#8728, @smurching)
+- [Models] Support `feature_deps` in ModelVersion creation for UC (#8867, #8815, @AveshCSingh)
 - [Models] Add support for listing artifacts in UC model registry artifact repo (#8803, @smurching)
 
 Documentation updates:
 
-- [Examples] Add question_answering and summarization examples and docs with LLMs (#8695, @dbczumar)
+- [Examples] Add question-answering and summarization examples and docs with LLMs (#8695, @dbczumar)
 - [Examples] Add johnsnowlabs flavor example and doc (#8689, @C-K-Loan)
 
 Small bug fixes and documentation updates:
