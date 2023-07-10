@@ -6,6 +6,7 @@ from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
 from mlflow.gateway.envs import MLFLOW_GATEWAY_URI  # TODO: change to environment_variables import
 from mlflow.exceptions import MlflowException, InvalidUrlException
 import mlflow.gateway.utils
+from mlflow.gateway.utils import assemble_url
 from mlflow.gateway import set_gateway_uri, MlflowGatewayClient
 from mlflow.gateway.config import Route
 from tests.gateway.tools import Gateway, save_yaml
@@ -172,7 +173,7 @@ def test_create_gateway_client_with_overriden_env_variable(gateway, monkeypatch)
     assert gateway_client.get_route("chat").route_type == "llm/v1/chat"
 
 
-def test_query_individual_route(gateway, monkeypatch):
+def test_get_individual_routes(gateway, monkeypatch):
     monkeypatch.setenv(MLFLOW_GATEWAY_URI.name, gateway.url)
 
     gateway_client = MlflowGatewayClient()
@@ -183,7 +184,7 @@ def test_query_individual_route(gateway, monkeypatch):
         "model": {"name": "text-davinci-003", "provider": "openai"},
         "name": "completions",
         "route_type": "llm/v1/completions",
-        "route_url": None,
+        "route_url": assemble_url(gateway.url, "api/2.0/gateway/routes/completions"),
     }
 
     route2 = gateway_client.get_route(name="chat")
@@ -192,11 +193,11 @@ def test_query_individual_route(gateway, monkeypatch):
         "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
         "name": "chat",
         "route_type": "llm/v1/chat",
-        "route_url": None,
+        "route_url": assemble_url(gateway.url, "api/2.0/gateway/routes/chat"),
     }
 
 
-def test_query_mixed_routes(mixed_gateway, monkeypatch):
+def test_get_mixed_routes(mixed_gateway, monkeypatch):
     monkeypatch.setenv(MLFLOW_GATEWAY_URI.name, mixed_gateway.url)
 
     gateway_client = MlflowGatewayClient()
@@ -205,12 +206,16 @@ def test_query_mixed_routes(mixed_gateway, monkeypatch):
     assert chat_route.name == "chat"
     assert chat_route.model.name == "gpt-3.5-turbo"
     assert chat_route.model.provider == "openai"
+    assert chat_route.route_url == assemble_url(mixed_gateway.url, "api/2.0/gateway/routes/chat")
 
     completions_route = gateway_client.get_route(name="completions")
     assert completions_route.route_type == "llm/v1/completions"
     assert completions_route.name == "completions"
     assert completions_route.model.name == "claude-instant-1"
     assert completions_route.model.provider == "anthropic"
+    assert completions_route.route_url == assemble_url(
+        mixed_gateway.url, "api/2.0/gateway/routes/completions"
+    )
 
 
 def test_search_mixed_routes(mixed_gateway):
@@ -222,11 +227,15 @@ def test_search_mixed_routes(mixed_gateway):
     assert chat_route.route_type == "llm/v1/chat"
     assert chat_route.name == "chat"
     assert chat_route.model.provider == "openai"
+    assert chat_route.route_url == assemble_url(mixed_gateway.url, "api/2.0/gateway/routes/chat")
 
     completions_route = routes[1]
     assert completions_route.route_type == "llm/v1/completions"
     assert completions_route.name == "completions"
     assert completions_route.model.provider == "anthropic"
+    assert completions_route.route_url == assemble_url(
+        mixed_gateway.url, "api/2.0/gateway/routes/completions"
+    )
 
 
 def test_search_routes_returns_expected_pages(tmp_path):
@@ -282,13 +291,13 @@ def test_list_all_configured_routes(gateway):
         "model": {"name": "text-davinci-003", "provider": "openai"},
         "name": "completions",
         "route_type": "llm/v1/completions",
-        "route_url": None,
+        "route_url": assemble_url(gateway.url, "api/2.0/gateway/routes/completions"),
     }
     assert routes[1].dict() == {
         "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
         "name": "chat",
         "route_type": "llm/v1/chat",
-        "route_url": None,
+        "route_url": assemble_url(gateway.url, "api/2.0/gateway/routes/chat"),
     }
 
 

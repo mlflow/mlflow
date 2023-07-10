@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 import posixpath
+
 import psutil
 import re
 from typing import Optional, List
@@ -96,6 +97,18 @@ def assemble_uri_path(paths: List[str]) -> str:
     """
     stripped_paths = [path.strip("/").lstrip("/") for path in paths if path]
     return "/" + posixpath.join(*stripped_paths)
+
+
+def assemble_url(base_url: str, route: str) -> str:
+    """
+    Joins a base URL and a route to form a complete URL.
+
+    :param base_url: The base URL. Should include the scheme and domain, e.g.,
+                     ``http://127.0.0.1:6000``.
+    :param route: The route to be appended to the base URL, e.g., ``/api/2.0/gateway/routes/``.
+    :return: The complete URL formed by joining the base URL and the route.
+    """
+    return base_url.rstrip("/") + "/" + route.lstrip("/")
 
 
 class SearchRoutesToken:

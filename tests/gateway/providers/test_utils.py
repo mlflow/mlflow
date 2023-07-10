@@ -2,6 +2,7 @@ import pytest
 from mlflow.gateway.providers.utils import (
     rename_payload_keys,
 )
+from mlflow.gateway.utils import assemble_url
 
 
 def test_rename_payload_keys():
@@ -33,3 +34,20 @@ def test_rename_payload_keys():
 )
 def test_rename_payload_keys_parametrized(payload, mapping, expected):
     assert rename_payload_keys(payload, mapping) == expected
+
+
+@pytest.mark.parametrize(
+    "base_url, route",
+    [
+        ("http://127.0.0.1:6000", "/api/2.0/gateway/routes/test"),
+        ("http://127.0.0.1:6000/", "/api/2.0/gateway/routes/test"),
+        ("http://127.0.0.1:6000/api/2.0/gateway", "/routes/test"),
+        ("http://127.0.0.1:6000/api/2.0/gateway/", "/routes/test"),
+        ("http://127.0.0.1:6000", "api/2.0/gateway/routes/test"),
+        ("http://127.0.0.1:6000/", "api/2.0/gateway/routes/test"),
+        ("http://127.0.0.1:6000/api/2.0/gateway", "routes/test"),
+        ("http://127.0.0.1:6000/api/2.0/gateway/", "routes/test"),
+    ],
+)
+def test_assemble_url(base_url, route):
+    assert assemble_url(base_url, route) == "http://127.0.0.1:6000/api/2.0/gateway/routes/test"

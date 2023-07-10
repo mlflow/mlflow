@@ -9,7 +9,7 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
 )
-from mlflow.gateway.utils import get_gateway_uri, assemble_uri_path
+from mlflow.gateway.utils import get_gateway_uri, assemble_uri_path, assemble_url
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
@@ -93,7 +93,7 @@ class MlflowGatewayClient:
         """
         route = assemble_uri_path([MLFLOW_GATEWAY_CRUD_ROUTE_BASE, name])
         response = self._call_endpoint("GET", route).json()
-
+        response["route_url"] = assemble_url(self._gateway_uri, route)
         return Route(**response)
 
     def search_routes(self, page_token: Optional[str] = None) -> PagedList[Route]:
@@ -110,6 +110,18 @@ class MlflowGatewayClient:
         response_json = self._call_endpoint(
             "GET", MLFLOW_GATEWAY_CRUD_ROUTE_BASE, json_body=json.dumps(request_parameters)
         ).json()
+
+        # NB: avoiding a comprehension so as not to double the memory allocation
+        for resp in response_json["routes"]:
+            # Assemble the URI path from the base route and the route name
+            uri_path = assemble_uri_path([MLFLOW_GATEWAY_CRUD_ROUTE_BASE, resp["name"]])
+
+            # Assemble the full URL from the gateway URI and the URI path
+            full_url = assemble_url(self._gateway_uri, uri_path)
+
+            # Update the 'route_url' field in the route dictionary
+            resp["route_url"] = full_url
+
         routes = [Route(**resp) for resp in response_json["routes"]]
         next_page_token = response_json.get("next_page_token")
         return PagedList(routes, next_page_token)
