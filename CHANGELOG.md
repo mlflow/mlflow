@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2.4.2 (2023-07-10)
+
+MLflow 2.4.2 includes several major features and improvements
+
+Bug fixes:
+
+- [Models] Add compatibility for legacy transformers serialization (#8964, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#8867, #8815, @AveshCSingh; #8966, @BenWilson2; #8895, #8886, #8884, #8881, @harupy; #8846, #8803, #8764, #8728, #8760, @smurching; #8695, @dbczumar; #8689, @C-K-Loan
+
 ## 2.4.1 (2023-06-09)
 
 MLflow 2.4.1 is a patch release containing the following features, bug fixes and changes:
