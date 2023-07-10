@@ -2085,15 +2085,3 @@ def _save_model_with_loader_module_and_data_path(
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
     return mlflow_model
-
-
-loader_template = """
-
-import importlib
-import os
-import sys
-
-def load_pyfunc():
-    {update_path}return importlib.import_module('{main}')._load_pyfunc('{data_path}')
-
-"""
