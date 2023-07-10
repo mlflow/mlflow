@@ -936,9 +936,15 @@ def _convert_array_values(values, elem_type, array_dim, spark_primitive_type_to_
         )
 
     if array_dim == 1:
-        return [np.array(v, dtype=np_type) for v in values]
+        return [
+            np.array(v, dtype=np_type) if v is not None else None
+            for v in values
+        ]
     else:
-        return [list(np.array(v, dtype=np_type)) for v in values]
+        return [
+            list(np.array(v, dtype=np_type)) if v is not None else None
+            for v in values
+        ]
 
 
 def _get_spark_primitive_types():
