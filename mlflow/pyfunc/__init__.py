@@ -1140,11 +1140,7 @@ def spark_udf(
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from mlflow.utils._spark_utils import _SparkDirectoryDistributor
     from pyspark.sql.functions import pandas_udf
-    from pyspark.sql.types import (
-        ArrayType,
-        DataType as SparkDataType,
-        StructType as SparkStructType,
-    )
+    from pyspark.sql.types import ArrayType, StructType as SparkStructType
     from pyspark.sql.types import (
         DoubleType,
         IntegerType,

@@ -95,7 +95,7 @@ def mock_databricks_host_creds():
 
 
 @pytest.fixture
-def store(mock_databricks_host_creds):
+def store(mock_databricks_host_creds):  # pylint: disable=unused-argument
     with mock.patch("databricks_cli.configure.provider.get_config"):
         yield UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks")
 
@@ -289,7 +289,7 @@ def test_create_model_version_missing_output_signature(store, tmp_path):
 
 
 @mock_http_200
-def test_update_registered_model_name(mock_http, store):
+def test_update_registered_model_name(mock_http, store):  # pylint: disable=unused-argument
     name = "model_1"
     new_name = "model_2"
     with pytest.raises(
@@ -455,7 +455,7 @@ def test_get_run_and_headers_returns_none_if_request_fails(store, status_code, r
 
 def test_get_run_and_headers_returns_none_if_tracking_uri_not_databricks(
     mock_databricks_host_creds, tmp_path
-):
+):  # pylint: disable=unused-argument
     with mock.patch("databricks_cli.configure.provider.get_config"):
         store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri=str(tmp_path))
         mock_response = mock.MagicMock(autospec=Response)
@@ -487,10 +487,10 @@ def get_request_mock(
         host_creds,
         endpoint,
         method,
-        max_retries=None,
-        backoff_factor=None,
-        retry_codes=None,
-        timeout=None,
+        max_retries=None,  # pylint: disable=unused-argument
+        backoff_factor=None,  # pylint: disable=unused-argument
+        retry_codes=None,  # pylint: disable=unused-argument
+        timeout=None,  # pylint: disable=unused-argument
         **kwargs,
     ):
         run_workspace_id = _get_workspace_id_for_run(run_id)
