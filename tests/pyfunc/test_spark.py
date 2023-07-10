@@ -40,7 +40,13 @@ import mlflow.pyfunc
 import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
-from mlflow.pyfunc import spark_udf, PythonModel, PyFuncModel
+from mlflow.pyfunc import (
+    spark_udf,
+    PythonModel,
+    PyFuncModel,
+    _check_udf_return_type,
+    _parse_spark_datatype,
+)
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
 from mlflow.types import Schema, ColSpec, TensorSpec
 from pandas.testing import assert_frame_equal
@@ -506,31 +512,35 @@ def test_spark_udf_single_long_return_type_inference(spark):
         assert result["res"].tolist() == [12] * 2
 
 
-def test_check_spark_udf_return_type(spark):
-    def _check(type_str):
-        return mlflow.pyfunc._check_udf_return_type(mlflow.pyfunc._parse_spark_datatype(type_str))
-
-    assert _check("int")
-    assert _check("bigint")
-    assert _check("float")
-    assert _check("double")
-    assert _check("boolean")
-    assert _check("string")
-
-    assert _check("array<double>")
-    assert _check("array<array<double>>")
-    assert _check("a long, b boolean, c array<double>, d array<array<double>>")
-    assert _check("array<struct<a: int, b: boolean>>")
-    assert _check("array<struct<a: array<int>>>")
-
-    assert not _check("array<array<array<float>>>")
-    assert not _check("a array<array<array<int>>>")
-    assert not _check("struct<x: struct<a: long, b: boolean>>")
-    assert not _check("struct<x: array<struct<a: long, b: boolean>>>")
-    assert not _check("struct<a: array<struct<a: int>>>")
-    assert not _check("timestamp")
-    assert not _check("array<timestamp>")
-    assert not _check("struct<a: int, b: timestamp>")
+@pytest.mark.parametrize(
+    ("type_str", "expected"),
+    [
+        # Good
+        ("int", True),
+        ("bigint", True),
+        ("float", True),
+        ("double", True),
+        ("boolean", True),
+        ("string", True),
+        ("array<double>", True),
+        ("array<array<double>>", True),
+        ("a long, b boolean, c array<double>, d array<array<double>>", True),
+        ("array<struct<a: int, b: boolean>>", True),
+        ("array<struct<a: array<int>>>", True),
+        # Bad
+        ("array<array<array<float>>>", False),
+        ("a array<array<array<int>>>", False),
+        ("struct<x: struct<a: long, b: boolean>>", False),
+        ("struct<x: array<struct<a: long, b: boolean>>>", False),
+        ("struct<a: array<struct<a: int>>>", False),
+        ("timestamp", False),
+        ("array<timestamp>", False),
+        ("struct<a: int, b: timestamp>", False),
+    ],
+)
+@pytest.mark.usefixtures("spark")
+def test_check_spark_udf_return_type(type_str, expected):
+    assert _check_udf_return_type(_parse_spark_datatype(type_str)) == expected
 
 
 def test_spark_udf_autofills_no_arguments(spark):
