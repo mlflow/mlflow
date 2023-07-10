@@ -36,7 +36,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _CustomMetric,
     _CustomArtifact,
 )
-from mlflow.models.utils import plot_lines  # pylint: disable=unused-import
+
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
