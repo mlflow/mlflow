@@ -359,13 +359,12 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
     assert loaded_model == retrievalQA
 
-    # Serve the chain
     loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     langchain_input = {"query": "What did the president say about Ketanji Brown Jackson"}
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        result = loaded_pyfunc_model.predict([langchain_input])
-        assert result == [TEST_CONTENT]
+    result = loaded_pyfunc_model.predict([langchain_input])
+    assert result == [TEST_CONTENT]
 
+    # Serve the chain
     inference_payload = json.dumps({"inputs": langchain_input})
     langchain_output_serving = {"predictions": [TEST_CONTENT]}
 
