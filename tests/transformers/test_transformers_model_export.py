@@ -3314,7 +3314,6 @@ def test_uri_directory_renaming_handling_components(model_path, small_seq2seq_pi
     Version(transformers.__version__) < Version("4.29.2"), reason="Feature does not exist"
 )
 def test_whisper_model_supports_timestamps(raw_audio_file, whisper_pipeline):
-
     inference_config = {
         "return_timestamps": "word",
         "chunk_length_s": 60,
