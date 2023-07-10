@@ -3313,21 +3313,17 @@ def test_uri_directory_renaming_handling_components(model_path, small_seq2seq_pi
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.2"), reason="Feature does not exist"
 )
-def test_whisper_model_supports_timestamps(raw_audio_file):
-    pipe = transformers.pipeline(
-        "automatic-speech-recognition",
-        model="openai/whisper-tiny",
-        chunk_length_s=30,
-    )
+def test_whisper_model_supports_timestamps(raw_audio_file, whisper_pipeline):
 
     inference_config = {
         "return_timestamps": "word",
         "chunk_length_s": 60,
         "batch_size": 16,
     }
+
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
-            transformers_model=pipe,
+            transformers_model=whisper_pipeline,
             artifact_path="model",
             inference_config=inference_config,
         )
