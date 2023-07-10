@@ -36,8 +36,12 @@ def mock_store():
 
 @pytest.fixture
 def mock_registry_store():
-    with mock.patch("mlflow.tracking._model_registry.utils._get_store") as mock_get_store:
-        yield mock_get_store.return_value
+    mock_store = mock.MagicMock()
+    mock_store.create_model_version = mock.create_autospec(
+        SqlAlchemyModelRegistryStore.create_model_version
+    )
+    with mock.patch("mlflow.tracking._model_registry.utils._get_store", return_value=mock_store):
+        yield mock_store
 
 
 @pytest.fixture
@@ -684,7 +688,7 @@ def test_set_model_version_tag(mock_registry_store_with_get_latest_version):
         "model_name", 1, ModelVersionTag(key="tag1", value="foobar")
     )
 
-    mock_registry_store_with_get_latest_version.reset_mock()
+    mock_registry_store_with_get_latest_version.set_model_version_tag.reset_mock()
 
     # set_model_version_tag using stage
     MlflowClient().set_model_version_tag("model_name", key="tag1", value="foobar", stage="Staging")
@@ -708,7 +712,7 @@ def test_delete_model_version_tag(mock_registry_store_with_get_latest_version):
         "model_name", 1, "tag1"
     )
 
-    mock_registry_store_with_get_latest_version.reset_mock()
+    mock_registry_store_with_get_latest_version.delete_model_version_tag.reset_mock()
 
     # delete_model_version_tag using stage
     MlflowClient().delete_model_version_tag("model_name", key="tag1", stage="Staging")
