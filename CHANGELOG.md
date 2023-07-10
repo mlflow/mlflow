@@ -11,15 +11,18 @@ Bug fixes:
 - [Models] Fix reading model flavor config from URI for models in UC (#8728, @smurching)
 - [Models] Support `feature_deps` in ModelVersion creation for UC (#8867, #8815, @AveshCSingh)
 - [Models] Add support for listing artifacts in UC model registry artifact repo (#8803, @smurching)
+- [Core] Include resources for recipes in mlflow-skinny (#8895, @harupy)
+- [UI] Enable datasets tracking UI (#8886, @harupy)
+- [Artifacts] Use `MLFLOW_ENABLE_MULTIPART_DOWNLOAD` in `DatabricksArtifactRepository` (#8884, @harupy)
 
 Documentation updates:
 
-- [Examples] Add question-answering and summarization examples and docs with LLMs (#8695, @dbczumar)
-- [Examples] Add johnsnowlabs flavor example and doc (#8689, @C-K-Loan)
+- [Examples / Docs] Add question-answering and summarization examples and docs with LLMs (#8695, @dbczumar)
+- [Examples / Docs] Add johnsnowlabs flavor example and doc (#8689, @C-K-Loan)
 
 Small bug fixes and documentation updates:
 
-#8966, @BenWilson2; #8895, #8886, #8884, #8881, @harupy; #8846, #8760, @smurching
+#8966, @BenWilson2; #8881, @harupy; #8846, #8760, @smurching
 
 ## 2.4.1 (2023-06-09)
 
