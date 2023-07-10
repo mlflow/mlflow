@@ -569,15 +569,15 @@ class Model:
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, metadata=metadata)
-            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
-            mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
-            tracking_uri = _resolve_tracking_uri()
             if (
                 (tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks")
                 and kwargs.get("signature") is None
                 and kwargs.get("input_example") is None
             ):
                 _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
+            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
+            mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
+            tracking_uri = _resolve_tracking_uri()
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model)
             except MlflowException:
