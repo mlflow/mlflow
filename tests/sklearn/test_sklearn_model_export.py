@@ -1,4 +1,6 @@
+from packaging.version import Version
 from pathlib import Path
+import pickle
 from unittest import mock
 import os
 import pytest
@@ -633,7 +635,12 @@ def test_sklearn_compatible_with_mlflow_2_4_0(sklearn_knn_model):
     model, inference_dataframe = sklearn_knn_model
     model_predict = model.predict(inference_dataframe)
 
-    assert mlflow.__version__ > "2.4.0"
+    # save test model
+    model_data_path = "tests/sklearn/test_resources/test_model/model.pkl"
+    with open(model_data_path, "wb") as out:
+        pickle.dump(model, out, protocol=pickle.DEFAULT_PROTOCOL)
+
+    assert Version(mlflow.__version__) > Version("2.4.0")
     model_uri = "tests/sklearn/test_resources/test_model"
     pyfunc_loaded = mlflow.pyfunc.load_model(model_uri)
 
