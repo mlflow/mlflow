@@ -15,12 +15,6 @@ from mlflow.store.db.utils import _get_alembic_config, _verify_schema
 from mlflow.store.db.base_sql_model import Base
 
 # pylint: disable=unused-import
-from mlflow.store.model_registry.dbmodels.models import (
-    SqlRegisteredModel,
-    SqlModelVersion,
-    SqlRegisteredModelTag,
-    SqlModelVersionTag,
-)
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from tests.store.dump_schema import dump_db_schema
