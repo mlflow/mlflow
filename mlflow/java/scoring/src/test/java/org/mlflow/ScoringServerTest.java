@@ -78,7 +78,7 @@ public class ScoringServerTest {
     HttpResponse response = httpClient.execute(getRequest);
     Assert.assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
     String responseBody = getHttpResponseBody(response);
-    Assert.assertEquals("2.4.1", responseBody);
+    Assert.assertEquals("2.4.2", responseBody);
     server.stop();
   }
 
