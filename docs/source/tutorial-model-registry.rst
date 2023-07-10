@@ -22,9 +22,9 @@ Get your experiment's ``Run ID``
 
 The MLflow Model Registry works with the MLflow Tracking component. As a result, the Model Registry uses the same experiment ``Run ID`` to identify a model. Using the skills you learned in :ref:`tutorial-tracking-ui`, choose an experiment that you want to register and deploy. 
 
-In the MLflow UI, the Run ID is prominently located in the upper left position of an experiment's run:
+In the MLflow UI, the Run ID is prominently located in the upper left position of the run's details page:
 
-.. figure:: ../../_static/images/tk use the one from ui tutorial tk
+.. figure:: _static/images/tutorial-model-registry/run-details.png
    :alt: screenshot showing the location of Run ID in the MLflow UI
 
 You may also retrieve the Run ID using the MLflow API. For example, the following code snippet retrieves the Run ID for the run with the lowest ``val_rmse`` error:
@@ -71,7 +71,7 @@ The MLflow Registry has a simple model lifecycle. A particular version of the mo
 - ``Production`` : The version deployed for use. 
 - ``Archived``: This version of the model is no longer deployed. It is available for record-keeping, auditing, post-mortem analysis, and so forth.
 
-.. image :: ../../_static/images/tutorial-model-registry/model-lifecycle.png
+.. image :: _static/images/tutorial-model-registry/registry-lifecycle.png
    :alt: Model lifecycle
 
 It is possible to transition from any state to any other state (e.g., ``None`` directly to ``Production``) but the above diagram shows the intended flow: models are registered and then staged and then deployed. If a model is not moving towards deployment, it should be archived.
