@@ -161,7 +161,7 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
             "mvn"
             " --batch-mode dependency:copy-dependencies"
             " -DoutputDirectory=/opt/java/jars \\\n && "
-            'rm "${SETTINGS_XML}"\n'
+            'rm -f "${SETTINGS_XML}"\n'
         )
 
 
