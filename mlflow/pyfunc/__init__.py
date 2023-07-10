@@ -1239,7 +1239,7 @@ def spark_udf(
             result_type = _parse_spark_datatype(result_type)
 
     if not _check_udf_return_type(result_type):
-        raise MlflowException(
+        raise MlflowException.invalid_parameter_value(
             f"""Invalid 'spark_udf' result type: {result_type}.
 It must be one of the following types:
 Primitive types:
