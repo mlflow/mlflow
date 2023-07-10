@@ -62,12 +62,12 @@ from mlflow.environment_variables import (
 )
 
 if TYPE_CHECKING:
-    import pandas  # pylint: disable=unused-import
-    import matplotlib  # pylint: disable=unused-import
+    import pandas
+    import matplotlib
     import matplotlib.figure
-    import plotly  # pylint: disable=unused-import
-    import numpy  # pylint: disable=unused-import
-    import PIL  # pylint: disable=unused-import
+    import plotly
+    import numpy
+    import PIL
 
 _active_run_stack = []
 _active_experiment_id = None
