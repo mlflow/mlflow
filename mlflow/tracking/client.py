@@ -48,11 +48,11 @@ from mlflow.utils.mlflow_tags import (
 )
 
 if TYPE_CHECKING:
-    import pandas  # pylint: disable=unused-import
-    import matplotlib  # pylint: disable=unused-import
-    import plotly  # pylint: disable=unused-import
-    import numpy  # pylint: disable=unused-import
-    import PIL  # pylint: disable=unused-import
+    import pandas
+    import matplotlib
+    import plotly
+    import numpy
+    import PIL
 
 _logger = logging.getLogger(__name__)
 

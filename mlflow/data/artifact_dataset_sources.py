@@ -7,7 +7,6 @@ from urllib.parse import urlparse
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.artifact_repository_registry import get_registered_artifact_repositories
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_local_uri
@@ -59,7 +58,7 @@ def register_artifact_dataset_sources():
         try:
             registered_source_schemes.add(scheme)
             dataset_source = _create_dataset_source_for_artifact_repo(
-                scheme=scheme, dataset_source_name=dataset_source_name, artifact_repo=artifact_repo
+                scheme=scheme, dataset_source_name=dataset_source_name
             )
             register_dataset_source(dataset_source)
         except Exception as e:
@@ -69,9 +68,7 @@ def register_artifact_dataset_sources():
             )
 
 
-def _create_dataset_source_for_artifact_repo(
-    scheme: str, dataset_source_name: str, artifact_repo: ArtifactRepository
-):
+def _create_dataset_source_for_artifact_repo(scheme: str, dataset_source_name: str):
     from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 
     if scheme in ["", "file"]:

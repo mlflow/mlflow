@@ -75,6 +75,7 @@ disable=all
 enable=signature-differs,
        line-too-long,
        unused-import,
+       unused-arguments,
        consider-using-from-import,
        consider-merging-isinstance,
        consider-using-dict-items,
@@ -83,7 +84,6 @@ enable=signature-differs,
        # --------------
        # Custom rules
        pytest-raises-without-match,
-       print-function,
        unittest-assert-raises,
        pytest-raises-multiple-statements,
        use-f-string,

@@ -117,6 +117,14 @@ class DataType(Enum):
     def get_spark_types(cls):
         return [dt.to_spark() for dt in cls._member_map_.values()]
 
+    @classmethod
+    def from_numpy_type(cls, np_type):
+        for dt in cls._member_map_.values():
+            if np_type == dt.to_numpy():
+                return dt
+
+        return None
+
 
 class ColSpec:
     """

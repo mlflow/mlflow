@@ -272,7 +272,7 @@ def test_create_model_version_missing_output_signature(store, tmp_path):
 
 
 @mock_http_200
-def test_update_registered_model_name(mock_http, store):
+def test_update_registered_model_name(mock_http, store):  # pylint: disable=unused-argument
     name = "model_1"
     new_name = "model_2"
     with pytest.raises(
@@ -470,10 +470,10 @@ def get_request_mock(
         host_creds,
         endpoint,
         method,
-        max_retries=None,
-        backoff_factor=None,
-        retry_codes=None,
-        timeout=None,
+        max_retries=None,  # pylint: disable=unused-argument
+        backoff_factor=None,  # pylint: disable=unused-argument
+        retry_codes=None,  # pylint: disable=unused-argument
+        timeout=None,  # pylint: disable=unused-argument
         **kwargs,
     ):
         run_workspace_id = _get_workspace_id_for_run(run_id)
