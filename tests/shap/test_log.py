@@ -2,7 +2,9 @@ import json
 import pytest
 from unittest import mock
 
+from numba import njit
 import numpy as np
+from packaging.version import Version
 import pandas as pd
 import sklearn
 from sklearn.datasets import load_diabetes, fetch_california_housing
@@ -312,7 +314,51 @@ def create_identity_function():
     return identity
 
 
+@pytest.mark.skipif(Version(shap.__version__) < Version("0.42.0"), reason="numba njit compatible")
+def test_pyfunc_serve_and_score_njit():
+    # Create a numba-compatible identify link function due to breaking changes in shap
+    # version 0.42.0. Python functions can no longer be passed to the numba jit compiler
+    # with the changes introduced in that version.
+    @njit
+    def identity_function(x):
+        return x
+
+    X, y = get_housing_data()
+
+    reg = sklearn.ensemble.RandomForestRegressor(n_estimators=10).fit(X, y)
+    model = shap.Explainer(
+        reg.predict,
+        masker=X,
+        algorithm="permutation",
+        # `link` defaults to `shap.links.identity` which is decorated by `numba.jit` and causes
+        # the following error when loading the explainer for serving:
+        # ```
+        # Exception: The passed link function needs to be callable and have a callable
+        # .inverse property!
+        # ```
+        # As a workaround, use an identify function that's NOT decorated by `numba.jit`.
+        link=identity_function,
+    )
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.shap.log_explainer(model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=pd.DataFrame(X[:3]),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    decoded_json = json.loads(resp.content.decode("utf-8"))
+    scores = pd.DataFrame(data=decoded_json["predictions"]).values
+    np.testing.assert_allclose(scores, model(X[:3]).values, rtol=100, atol=100)
+
+
+@pytest.mark.skipif(Version(shap.__version__) > Version("0.41.0"), reason="numba jit compatible")
 def test_pyfunc_serve_and_score():
+    # Note: this implementation of an identify function is only compatible with versions of
+    # shap <= 0.41.0. A breaking change was introduced with how numba is used with shap in version
+    # 0.42.0.
     X, y = get_housing_data()
 
     reg = sklearn.ensemble.RandomForestRegressor(n_estimators=10).fit(X, y)
