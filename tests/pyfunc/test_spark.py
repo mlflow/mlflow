@@ -515,6 +515,7 @@ def test_spark_udf_single_long_return_type_inference(spark):
 @pytest.mark.parametrize(
     ("type_str", "expected"),
     [
+        # Good
         ("int", True),
         ("bigint", True),
         ("float", True),
@@ -526,6 +527,7 @@ def test_spark_udf_single_long_return_type_inference(spark):
         ("a long, b boolean, c array<double>, d array<array<double>>", True),
         ("array<struct<a: int, b: boolean>>", True),
         ("array<struct<a: array<int>>>", True),
+        # Bad
         ("array<array<array<float>>>", False),
         ("a array<array<array<int>>>", False),
         ("struct<x: struct<a: long, b: boolean>>", False),
