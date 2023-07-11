@@ -23,12 +23,6 @@ PYTEST_RAISES_WITHOUT_MATCH = Message(
     reason="`pytest.raises` without `match` argument can lead to false positives.",
 )
 
-PRINT_FUNCTION = Message(
-    id="W0002",
-    name="print-function",
-    message="`print()` should not be used. Consider using a logger instead.",
-    reason="`print()` should not be used.",
-)
 
 UNITTEST_PYTEST_RAISES = Message(
     id="W0003",

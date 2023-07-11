@@ -416,7 +416,7 @@ def _load_model(path, agent_path=None, tools_path=None, agent_primitive_path=Non
             )
 
         if os.path.exists(agent_primitive_path):
-            with open(agent_primitive_path, "r") as config_file:
+            with open(agent_primitive_path) as config_file:
                 kwargs = json.load(config_file)
 
         model = initialize_agent(tools=tools, llm=llm, agent_path=agent_path, **kwargs)

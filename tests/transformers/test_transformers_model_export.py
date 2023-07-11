@@ -3395,7 +3395,7 @@ def test_uri_directory_renaming_handling_components(model_path, small_seq2seq_pi
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.2"), reason="Feature does not exist"
 )
-def test_whisper_model_supports_timestamps(model_path, whisper_pipeline, raw_audio_file):
+def test_whisper_model_supports_timestamps(raw_audio_file):
     pipe = transformers.pipeline(
         "automatic-speech-recognition",
         model="openai/whisper-tiny",

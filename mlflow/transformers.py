@@ -214,7 +214,7 @@ def save_model(
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
     metadata: Dict[str, Any] = None,
-    **kwargs,
+    **kwargs,  # pylint: disable=unused-argument
 ) -> None:
     """
     Save a trained transformers model to a path on the local file system.
@@ -1502,7 +1502,7 @@ class _TransformersModel(NamedTuple):
         feature_extractor=None,
         image_processor=None,
         processor=None,
-        **kwargs,
+        **kwargs,  # pylint: disable=unused-argument
     ):
         cls._validate_submitted_types(
             model, tokenizer, feature_extractor, image_processor, processor
