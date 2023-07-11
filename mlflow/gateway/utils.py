@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.envs import MLFLOW_GATEWAY_URI  # TODO: change to environment_variables import
-
+from mlflow.utils.uri import append_to_uri_path
 
 _logger = logging.getLogger(__name__)
 _gateway_uri: Optional[str] = None
@@ -102,16 +102,23 @@ def assemble_uri_path(paths: List[str]) -> str:
         return "/"
 
 
-def join_url(base_url: str, route: str) -> str:
+def resolve_route_url(base_url: str, route: str) -> str:
     """
-    Joins a base URL and a route to form a complete URL.
+    Performs a validation on whether the returned value is a fully qualified url (as the case
+    with Databricks) or requires the assembly of a fully qualified url by appending the
+    Route return route_url to the base url of the AI Gateway server.
 
     :param base_url: The base URL. Should include the scheme and domain, e.g.,
                      ``http://127.0.0.1:6000``.
-    :param route: The route to be appended to the base URL, e.g., ``/api/2.0/gateway/routes/``.
-    :return: The complete URL formed by joining the base URL and the route.
+    :param route: The route to be appended to the base URL, e.g., ``/api/2.0/gateway/routes/`` or,
+                  in the case of Databricks, the fully qualified url.
+    :return: The complete URL, either directly returned or formed and returned by joining the
+             base URL and the route path.
     """
-    return base_url.rstrip("/") + "/" + route.lstrip("/")
+    if _is_valid_uri(route):
+        return route
+    else:
+        return append_to_uri_path(base_url, route)
 
 
 class SearchRoutesToken:

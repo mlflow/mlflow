@@ -16,7 +16,7 @@ from mlflow.gateway.config import Route
 from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
 from mlflow.gateway.envs import MLFLOW_GATEWAY_URI
 import mlflow.gateway.utils
-from mlflow.gateway.utils import join_url
+from mlflow.gateway.utils import resolve_route_url
 from tests.gateway.tools import Gateway, save_yaml
 
 
@@ -102,7 +102,7 @@ def test_fluent_get_valid_route(gateway):
         "model": {"name": "text-davinci-003", "provider": "openai"},
         "name": "completions",
         "route_type": "llm/v1/completions",
-        "route_url": join_url(gateway.url, "api/2.0/gateway/routes/completions"),
+        "route_url": resolve_route_url(gateway.url, "gateway/completions/invocations"),
     }
 
 
@@ -122,13 +122,13 @@ def test_fluent_search_routes(gateway):
         "model": {"name": "text-davinci-003", "provider": "openai"},
         "name": "completions",
         "route_type": "llm/v1/completions",
-        "route_url": join_url(gateway.url, "api/2.0/gateway/routes/completions"),
+        "route_url": resolve_route_url(gateway.url, "gateway/completions/invocations"),
     }
     assert routes[1].dict() == {
         "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
         "name": "chat",
         "route_type": "llm/v1/chat",
-        "route_url": join_url(gateway.url, "api/2.0/gateway/routes/chat"),
+        "route_url": resolve_route_url(gateway.url, "gateway/chat/invocations"),
     }
 
 

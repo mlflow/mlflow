@@ -2,7 +2,7 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.utils import (
-    join_url,
+    resolve_route_url,
     is_valid_endpoint_name,
     check_configuration_route_name_collisions,
     _is_valid_uri,
@@ -17,18 +17,27 @@ import mlflow.gateway.envs
 @pytest.mark.parametrize(
     "base_url, route",
     [
-        ("http://127.0.0.1:6000", "/api/2.0/gateway/routes/test"),
-        ("http://127.0.0.1:6000/", "/api/2.0/gateway/routes/test"),
-        ("http://127.0.0.1:6000/api/2.0/gateway", "/routes/test"),
-        ("http://127.0.0.1:6000/api/2.0/gateway/", "/routes/test"),
-        ("http://127.0.0.1:6000", "api/2.0/gateway/routes/test"),
-        ("http://127.0.0.1:6000/", "api/2.0/gateway/routes/test"),
-        ("http://127.0.0.1:6000/api/2.0/gateway", "routes/test"),
-        ("http://127.0.0.1:6000/api/2.0/gateway/", "routes/test"),
+        ("http://127.0.0.1:6000", "gateway/test/invocations"),
+        ("http://127.0.0.1:6000/", "/gateway/test/invocations"),
+        ("http://127.0.0.1:6000/gateway", "/test/invocations"),
+        ("http://127.0.0.1:6000/gateway/", "/test/invocations"),
+        ("http://127.0.0.1:6000", "gateway/test/invocations"),
+        ("http://127.0.0.1:6000/", "/gateway/test/invocations"),
+        ("http://127.0.0.1:6000/gateway", "test/invocations"),
+        ("http://127.0.0.1:6000/gateway/", "test/invocations"),
     ],
 )
-def test_join_url(base_url, route):
-    assert join_url(base_url, route) == "http://127.0.0.1:6000/api/2.0/gateway/routes/test"
+def test_resolve_route_url(base_url, route):
+    assert resolve_route_url(base_url, route) == "http://127.0.0.1:6000/gateway/test/invocations"
+
+
+@pytest.mark.parametrize("base_url", ["databricks", "databricks://my.workspace"])
+def test_resolve_route_url_qualified_url_ignores_base(base_url):
+    route = "https://my.databricks.workspace/api/2.0/gateway/chat/invocations"
+
+    resolved = resolve_route_url(base_url, route)
+
+    assert resolved == route
 
 
 @pytest.mark.parametrize(
