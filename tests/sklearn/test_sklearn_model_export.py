@@ -242,18 +242,19 @@ def test_log_model_calls_register_model(sklearn_logreg_model):
 
 def test_log_model_call_register_model_to_uc(configure_client_for_uc, sklearn_logreg_model):
     artifact_path = "linear"
-    # mock_model_version = ModelVersion(
-    #     name="AdsModel1",
-    #     version=1,
-    #     creation_timestamp=123,
-    #     status=ModelVersionStatus.to_string(ModelVersionStatus.READY),
-    # )
-    mock_uc_store = mock.MagicMock(autospec=UcModelRegistryStore)
-    mock_create_mv = mock.create_autospec(
-        UcModelRegistryStore.create_model_version
+    mock_model_version = ModelVersion(
+        name="AdsModel1",
+        version=1,
+        creation_timestamp=123,
+        status=ModelVersionStatus.to_string(ModelVersionStatus.READY),
     )
-    mock_uc_store.create_model_version = mock_create_mv
-    with mock.patch("mlflow.store._unity_catalog.registry.rest_store.UcModelRegistryStore", return_value=mock_uc_store), TempDir(chdr=True, remove_on_exit=True) as tmp:
+    # mock_uc_store = mock.MagicMock(autospec=UcModelRegistryStore)
+    # mock_uc_store.create_model_version = mock.create_autospec(
+    #     UcModelRegistryStore.create_model_version
+    # )
+    with mock.patch.object(UcModelRegistryStore, "create_registered_model"), mock.patch.object(
+        UcModelRegistryStore, "create_model_version", return_value=mock_model_version, autospec=True
+    ) as mock_create_mv, TempDir(chdr=True, remove_on_exit=True) as tmp:
         with mlflow.start_run():
             conda_env = os.path.join(tmp.path(), "conda_env.yaml")
             _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
