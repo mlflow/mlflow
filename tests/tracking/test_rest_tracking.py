@@ -55,7 +55,6 @@ from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
-    _terminate_server,
     _init_server,
     _send_rest_tracking_post_request,
 )
@@ -75,10 +74,8 @@ def mlflow_client(request, tmp_path):
             len("file://") :
         ]
 
-    url, process = _init_server(backend_uri, root_artifact_uri=tmp_path.as_uri())
-    yield MlflowClient(url)
-
-    _terminate_server(process)
+    with _init_server(backend_uri, root_artifact_uri=tmp_path.as_uri()) as url:
+        yield MlflowClient(url)
 
 
 @pytest.fixture()
@@ -1031,7 +1028,7 @@ def test_get_metric_history_bulk_respects_max_results(mlflow_client):
     ]
 
 
-def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch, tmp_path):
+def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
     from mlflow.server.handlers import get_metric_history_bulk_handler
 
     path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
@@ -1044,7 +1041,10 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch,
         def __init__(self, args_dict):
             self.args_dict = args_dict
 
-        def to_dict(self, flat):
+        def to_dict(
+            self,
+            flat,  # pylint: disable=unused-argument
+        ):
             return self.args_dict
 
         def get(self, key, default=None):
@@ -1178,7 +1178,7 @@ def test_create_model_version_with_path_source(mlflow_client):
     assert "To use a local path as a model version" in response.json()["message"]
 
 
-def test_create_model_version_with_non_local_source(mlflow_client, monkeypatch):
+def test_create_model_version_with_non_local_source(mlflow_client):
     name = "model"
     mlflow_client.create_registered_model(name)
     exp_id = mlflow_client.create_experiment("test")
@@ -1420,12 +1420,11 @@ def test_create_model_version_with_file_uri(mlflow_client):
 
 def test_create_model_version_with_file_uri_env_var(tmp_path):
     backend_uri = tmp_path.joinpath("file").as_uri()
-    url, process = _init_server(
+    with _init_server(
         backend_uri,
         root_artifact_uri=tmp_path.as_uri(),
         extra_env={"MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE": "true"},
-    )
-    try:
+    ) as url:
         mlflow_client = MlflowClient(url)
 
         name = "test"
@@ -1441,8 +1440,6 @@ def test_create_model_version_with_file_uri_env_var(tmp_path):
             },
         )
         assert response.status_code == 200
-    finally:
-        _terminate_server(process)
 
 
 def test_logging_model_with_local_artifact_uri(mlflow_client):

@@ -31,8 +31,8 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
 )
 from mlflow.utils.time_utils import get_current_time_millis
-from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 from mlflow.utils.os import is_windows
+from mlflow.environment_variables import MLFLOW_RUN_ID
 
 MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage"])
 
@@ -146,20 +146,18 @@ def test_set_experiment_with_deleted_experiment():
 
 
 @pytest.mark.usefixtures("reset_active_experiment")
-def test_set_experiment_with_zero_id(reset_mock):
-    reset_mock(
+def test_set_experiment_with_zero_id():
+    mock_experiment = MockExperiment(experiment_id=0, lifecycle_stage=LifecycleStage.ACTIVE)
+    with mock.patch.object(
         MlflowClient,
         "get_experiment_by_name",
-        mock.Mock(
-            return_value=MockExperiment(experiment_id=0, lifecycle_stage=LifecycleStage.ACTIVE)
-        ),
-    )
-    reset_mock(MlflowClient, "create_experiment", mock.Mock())
-
-    mlflow.set_experiment("my_exp")
-
-    MlflowClient.get_experiment_by_name.assert_called_once()
-    MlflowClient.create_experiment.assert_not_called()
+        mock.Mock(return_value=mock_experiment),
+    ) as get_experiment_by_name_mock, mock.patch.object(
+        MlflowClient, "create_experiment"
+    ) as create_experiment_mock:
+        mlflow.set_experiment("my_exp")
+        get_experiment_by_name_mock.assert_called_once()
+        create_experiment_mock.assert_not_called()
 
 
 def test_start_run_context_manager():
@@ -652,10 +650,10 @@ def test_with_startrun():
     assert mlflow.active_run() is None
 
 
-def test_parent_create_run():
+def test_parent_create_run(monkeypatch):
     with mlflow.start_run() as parent_run:
         parent_run_id = parent_run.info.run_id
-    os.environ[_RUN_ID_ENV_VAR] = parent_run_id
+    monkeypatch.setenv(MLFLOW_RUN_ID.name, parent_run_id)
     with mlflow.start_run() as parent_run:
         assert parent_run.info.run_id == parent_run_id
         with pytest.raises(Exception, match="To start a nested run"):

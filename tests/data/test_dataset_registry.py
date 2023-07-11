@@ -31,13 +31,20 @@ def test_register_constructor_function_performs_validation():
     registry = DatasetRegistry()
 
     def from_good_function(
-        path: str, name: Optional[str] = None, digest: Optional[str] = None
+        # pylint: disable=unused-argument
+        path: str,
+        name: Optional[str] = None,
+        digest: Optional[str] = None,
     ) -> Dataset:
         pass
 
     registry.register_constructor(from_good_function)
 
-    def bad_name_fn(name: Optional[str] = None, digest: Optional[str] = None) -> Dataset:
+    def bad_name_fn(
+        # pylint: disable=unused-argument
+        name: Optional[str] = None,
+        digest: Optional[str] = None,
+    ) -> Dataset:
         pass
 
     with pytest.raises(MlflowException, match="Constructor name must start with"):
@@ -48,34 +55,48 @@ def test_register_constructor_function_performs_validation():
             constructor_fn=from_good_function, constructor_name="bad_name"
         )
 
-    def from_no_name_fn(digest: Optional[str] = None) -> Dataset:
+    def from_no_name_fn(
+        digest: Optional[str] = None,  # pylint: disable=unused-argument
+    ) -> Dataset:
         pass
 
     with pytest.raises(MlflowException, match="must define an optional parameter named 'name'"):
         registry.register_constructor(from_no_name_fn)
 
-    def from_no_digest_fn(name: Optional[str] = None) -> Dataset:
+    def from_no_digest_fn(
+        name: Optional[str] = None,  # pylint: disable=unused-argument
+    ) -> Dataset:
         pass
 
     with pytest.raises(MlflowException, match="must define an optional parameter named 'digest'"):
         registry.register_constructor(from_no_digest_fn)
 
     def from_bad_return_type_fn(
-        path: str, name: Optional[str] = None, digest: Optional[str] = None
+        # pylint: disable=unused-argument
+        path: str,
+        name: Optional[str] = None,
+        digest: Optional[str] = None,
     ) -> str:
         pass
 
     with pytest.raises(MlflowException, match="must have a return type annotation.*Dataset"):
         registry.register_constructor(from_bad_return_type_fn)
 
-    def from_no_return_type_fn(path: str, name: Optional[str] = None, digest: Optional[str] = None):
+    def from_no_return_type_fn(
+        # pylint: disable=unused-argument
+        path: str,
+        name: Optional[str] = None,
+        digest: Optional[str] = None,
+    ):
         pass
 
     with pytest.raises(MlflowException, match="must have a return type annotation.*Dataset"):
         registry.register_constructor(from_no_return_type_fn)
 
 
-def test_register_constructor_from_entrypoints_and_call(dataset_registry, tmp_path):
+def test_register_constructor_from_entrypoints_and_call(
+    dataset_registry, tmp_path
+):  # pylint: disable=unused-argument
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
     from mlflow_test_plugin.dummy_dataset import DummyDataset
@@ -96,7 +117,9 @@ def test_register_constructor_from_entrypoints_and_call(dataset_registry, tmp_pa
     assert dataset.digest == "foo"
 
 
-def test_register_constructor_and_call(dataset_registry, dataset_source_registry, tmp_path):
+def test_register_constructor_and_call(
+    dataset_registry, dataset_source_registry, tmp_path
+):  # pylint: disable=unused-argument
     dataset_source_registry.register(TestDatasetSource)
 
     def from_test(data_list, source, name=None, digest=None) -> TestDataset:

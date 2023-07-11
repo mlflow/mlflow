@@ -151,7 +151,7 @@ def sqlite_store():
     fd, temp_dbfile = tempfile.mkstemp()
     # Close handle immediately so that we can remove the file later on in Windows
     os.close(fd)
-    db_uri = "sqlite:///%s" % temp_dbfile
+    db_uri = f"sqlite:///{temp_dbfile}"
     store = SqlAlchemyStore(db_uri, "artifact_folder")
     yield (store, db_uri)
     os.remove(temp_dbfile)
@@ -161,7 +161,7 @@ def sqlite_store():
 @pytest.fixture(scope="function")
 def file_store():
     ROOT_LOCATION = os.path.join(tempfile.gettempdir(), "test_mlflow_gc")
-    file_store_uri = "file:///%s" % ROOT_LOCATION
+    file_store_uri = f"file:///{ROOT_LOCATION}"
     yield (FileStore(ROOT_LOCATION), file_store_uri)
     shutil.rmtree(ROOT_LOCATION)
 
@@ -393,7 +393,7 @@ def test_mlflow_gc_experiments(get_store_details, request):
 )
 def test_mlflow_models_serve(enable_mlserver):
     class MyModel(pyfunc.PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             return np.array([1, 2, 3])
 
     model = MyModel()

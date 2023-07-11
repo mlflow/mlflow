@@ -13,7 +13,6 @@ import pandas as pd
 import re
 from typing import Union, List, Optional, Dict, Any, NamedTuple
 from urllib.parse import urlparse
-
 import yaml
 
 import mlflow
@@ -151,7 +150,7 @@ def get_default_pip_requirements(model) -> List[str]:
         _logger.warning(
             "Could not infer model execution engine type due to huggingface_hub not "
             "being installed or unable to connect in online mode. Adding full "
-            f"dependency chain: {dependencies}. \nFailure cause: {str(e)}"
+            f"dependency chain: {dependencies}. \nFailure cause: {e}"
         )
         return dependencies
 
@@ -215,7 +214,7 @@ def save_model(
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
     metadata: Dict[str, Any] = None,
-    **kwargs,
+    **kwargs,  # pylint: disable=unused-argument
 ) -> None:
     """
     Save a trained transformers model to a path on the local file system.
@@ -869,7 +868,13 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
 
     model_instance = getattr(transformers, flavor_config[_PIPELINE_MODEL_TYPE_KEY])
     local_path = pathlib.Path(path)
-    model_path = local_path.joinpath(flavor_config.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME))
+    # NB: Path resolution for models that were saved prior to 2.4.1 release when the pathing for
+    #     the saved pipeline or component artifacts was handled by duplicate entries for components
+    #     (artifacts/pipeline/* and artifacts/components/*) and pipelines were saved via the
+    #     "artifacts/pipeline/*" path. In order to load the older formats after the change, the
+    #     presence of the new path key is checked.
+    model_path = local_path.joinpath(flavor_config.get(_MODEL_BINARY_KEY, "pipeline"))
+
     conf = {
         "task": flavor_config[_TASK_KEY],
     }
@@ -1497,7 +1502,7 @@ class _TransformersModel(NamedTuple):
         feature_extractor=None,
         image_processor=None,
         processor=None,
-        **kwargs,
+        **kwargs,  # pylint: disable=unused-argument
     ):
         cls._validate_submitted_types(
             model, tokenizer, feature_extractor, image_processor, processor
@@ -1597,7 +1602,57 @@ class _TransformersWrapper:
                     )
             return parsed
 
-    def predict(self, data, device=None):
+    def _override_inference_config(self, params):
+        if params:
+            _logger.warning(
+                "params provided to the `predict` method will override the inference "
+                "configuration saved with the model. If the params provided are not "
+                "valid for the pipeline, MlflowException will be raised."
+            )
+
+            # Override the inference configuration with any additional kwargs provided by the user.
+            self.inference_config.update(params)
+
+    def _validate_inference_config_and_return_output(self, data):
+        import transformers
+
+        try:
+            if isinstance(data, dict):
+                return self.pipeline(**data, **self.inference_config)
+            return self.pipeline(data, **self.inference_config)
+        except ValueError as e:
+            if "The following `model_kwargs` are not used by the model" in str(e):
+                raise MlflowException.invalid_parameter_value(
+                    "The params provided to the `predict` method are not valid "
+                    f"for pipeline {type(self.pipeline).__name__}.",
+                ) from e
+            if isinstance(
+                self.pipeline,
+                (
+                    transformers.AutomaticSpeechRecognitionPipeline,
+                    transformers.AudioClassificationPipeline,
+                ),
+            ) and "Malformed soundfile" in str(e):
+                raise MlflowException.invalid_parameter_value(
+                    "Failed to process the input audio data. Either the audio file is "
+                    "corrupted or a uri was passed in without overriding the default model "
+                    "signature. If submitting a string uri, please ensure that the model has "
+                    "been saved with a signature that defines a string input type.",
+                ) from e
+            raise
+
+    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
+        self._override_inference_config(params)
+
         if isinstance(data, pd.DataFrame):
             input_data = self._convert_pandas_to_dict(data)
         elif isinstance(data, dict):
@@ -1619,7 +1674,7 @@ class _TransformersWrapper:
             input_data = data
         else:
             raise MlflowException(
-                "Input data must be either a pandas.DataFrame, a string, List[str], "
+                "Input data must be either a pandas.DataFrame, a string, bytes, List[str], "
                 "List[Dict[str, str]], List[Dict[str, Union[str, List[str]]]], "
                 "or Dict[str, Union[str, List[str]]].",
                 error_code=INVALID_PARAMETER_VALUE,
@@ -1635,11 +1690,11 @@ class _TransformersWrapper:
                 for x in input_data
             )
 
-        predictions = self._predict(input_data, device)
+        predictions = self._predict(input_data)
 
         return predictions
 
-    def _predict(self, data, device):
+    def _predict(self, data):
         import transformers
 
         # NB: the ordering of these conditional statements matters. TranslationPipeline and
@@ -1707,8 +1762,6 @@ class _TransformersWrapper:
         include_prompt = self.inference_config.pop("include_prompt", True)
         # Optional stripping out of `\n` for specific generator pipelines.
         collapse_whitespace = self.inference_config.pop("collapse_whitespace", False)
-        if device is not None:
-            self.inference_config["device"] = device
 
         data = self._convert_cast_lists_from_np_back_to_list(data)
 
@@ -1716,30 +1769,8 @@ class _TransformersWrapper:
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
-
-        if isinstance(
-            self.pipeline,
-            (
-                transformers.AutomaticSpeechRecognitionPipeline,
-                transformers.AudioClassificationPipeline,
-            ),
-        ):
-            try:
-                raw_output = self.pipeline(data, **self.inference_config)
-            except ValueError as e:
-                if "Malformed soundfile" in str(e):
-                    raise MlflowException(
-                        "Failed to process the input audio data. Either the audio file is "
-                        "corrupted or a uri was passed in without overriding the default model "
-                        "signature. If submitting a string uri, please ensure that the model has "
-                        "been saved with a signature that defines a string input type.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    ) from e
-                raise
-        elif isinstance(data, dict):
-            raw_output = self.pipeline(**data, **self.inference_config)
         else:
-            raw_output = self.pipeline(data, **self.inference_config)
+            raw_output = self._validate_inference_config_and_return_output(data)
 
         # Handle the pipeline outputs
         if type(self.pipeline).__name__ in self._supported_custom_generator_types or isinstance(
@@ -2074,12 +2105,12 @@ class _TransformersWrapper:
                         elif isinstance(value, list) and all(
                             isinstance(elem, dict) for elem in value
                         ):
-                            output_coll.append(
-                                self._parse_lists_of_dict_to_list_of_str(value, target_dict_key)[0]
+                            output_coll.extend(
+                                self._parse_lists_of_dict_to_list_of_str(value, target_dict_key)
                             )
                 elif isinstance(output, list):
-                    output_coll.append(
-                        self._parse_lists_of_dict_to_list_of_str(output, target_dict_key)[0]
+                    output_coll.extend(
+                        self._parse_lists_of_dict_to_list_of_str(output, target_dict_key)
                     )
             return output_coll
         elif target_dict_key:

@@ -15,17 +15,11 @@ from mlflow.recipes.steps.predict import PredictStep, _INPUT_FILE_NAME, _SCORED_
 from mlflow.recipes.steps.register import _REGISTERED_MV_INFO_FILE
 from mlflow.utils.file_utils import read_yaml
 
-# pylint: disable=unused-import
 from tests.recipes.helper_functions import (
-    enter_test_recipe_directory,
-    enter_recipe_example_directory,
     get_random_id,
-    registry_uri_path,
-    tmp_recipe_exec_path,
-    tmp_recipe_root_path,
     train_and_log_model,
     train_log_and_register_model,
-)  # pylint: enable=unused-import
+)
 
 
 @pytest.fixture(scope="module")
@@ -99,9 +93,7 @@ def test_predict_step_runs(
         model_uri = train_log_and_register_model(model_name, is_dummy=True)
     else:
         run_id, _ = train_and_log_model(is_dummy=True)
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=run_id, artifact_path="train/model"
-        )
+        model_uri = f"runs:/{run_id}/train/model"
 
     recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
     recipe_config.update(
@@ -297,7 +289,7 @@ def test_predict_correctly_handles_save_modes(
         output_path = "table_" + get_random_id()
         sdf.write.format("delta").saveAsTable(output_path)
     else:
-        output_file = "output_{}.{}".format(get_random_id(), using)
+        output_file = f"output_{get_random_id()}.{using}"
         output_path = str(predict_step_output_dir / output_file)
         sdf.coalesce(1).write.format(using).save(output_path)
 

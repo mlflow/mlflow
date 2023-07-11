@@ -16,7 +16,7 @@ import os
 import shutil
 import types
 from packaging import version
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 import cloudpickle
@@ -25,7 +25,7 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.environment_variables import _MLFLOW_OPENAI_TESTING
+from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
@@ -629,7 +629,7 @@ def _load_model(
             )
 
         if os.path.exists(agent_primitive_path):
-            with open(agent_primitive_path, "r") as config_file:
+            with open(agent_primitive_path) as config_file:
                 kwargs = json.load(config_file)
 
         model = initialize_agent(tools=tools, llm=llm, agent_path=agent_path, **kwargs)
@@ -640,7 +640,20 @@ class _LangChainModelWrapper:
     def __init__(self, lc_model):
         self.lc_model = lc_model
 
-    def predict(self, data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]]) -> List[str]:
+    def predict(  # pylint: disable=unused-argument
+        self,
+        data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]],
+        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+    ) -> List[str]:
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
         if isinstance(data, pd.DataFrame):
@@ -661,7 +674,18 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
     A wrapper class that should be used for testing purposes only.
     """
 
-    def predict(self, data):
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         import langchain
         from tests.langchain.test_langchain_model_export import _mock_async_request
 
@@ -679,7 +703,7 @@ def _load_pyfunc(path):
     Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
     :param path: Local filesystem path to the MLflow Model with the ``langchain`` flavor.
     """
-    wrapper_cls = _TestLangChainWrapper if _MLFLOW_OPENAI_TESTING.get() else _LangChainModelWrapper
+    wrapper_cls = _TestLangChainWrapper if _MLFLOW_TESTING.get() else _LangChainModelWrapper
     return wrapper_cls(_load_model_from_local_fs(path))
 
 

@@ -70,6 +70,19 @@ def register_model(
         Name: RandomForestRegressionModel
         Version: 1
     """
+    return _register_model(
+        model_uri=model_uri, name=name, await_registration_for=await_registration_for, tags=tags
+    )
+
+
+def _register_model(
+    model_uri,
+    name,
+    await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    *,
+    tags: Optional[Dict[str, Any]] = None,
+    local_model_path=None,
+) -> ModelVersion:
     client = MlflowClient()
     try:
         create_model_response = client.create_registered_model(name)
@@ -86,24 +99,23 @@ def register_model(
         else:
             raise e
 
+    run_id = None
+    source = model_uri
     if RunsArtifactRepository.is_runs_uri(model_uri):
         source = RunsArtifactRepository.get_underlying_uri(model_uri)
         (run_id, _) = RunsArtifactRepository.parse_runs_uri(model_uri)
-        create_version_response = client.create_model_version(
-            name, source, run_id, tags=tags, await_creation_for=await_registration_for
-        )
-    else:
-        create_version_response = client.create_model_version(
-            name,
-            source=model_uri,
-            run_id=None,
-            tags=tags,
-            await_creation_for=await_registration_for,
-        )
+
+    create_version_response = client._create_model_version(
+        name=name,
+        source=source,
+        run_id=run_id,
+        tags=tags,
+        await_creation_for=await_registration_for,
+        local_model_path=local_model_path,
+    )
     eprint(
-        "Created version '{version}' of model '{model_name}'.".format(
-            version=create_version_response.version, model_name=create_version_response.name
-        )
+        f"Created version '{create_version_response.version}' of model "
+        f"'{create_version_response.name}'."
     )
     return create_version_response
 

@@ -1,5 +1,8 @@
 version: 2.1
 
+orbs:
+  win: circleci/windows@5.0.0
+
 jobs:
   build_doc_r:
     machine:
@@ -89,9 +92,19 @@ jobs:
       - store_artifacts:
           path: examples/recipes/regression/notebooks/dark-jupyter.html
 
+  # A job to get a free Windows VM for testing. See https://circleci.com/docs/ssh-access-jobs/ for how to set up SSH access.
+  windows:
+    executor:
+      name: win/default
+      size: "medium"
+
+    steps:
+      - checkout
+
 workflows:
   build:
     jobs:
       - build_doc
       - build_doc_r
       - mlflow-recipes
+      - windows

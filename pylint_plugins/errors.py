@@ -23,12 +23,6 @@ PYTEST_RAISES_WITHOUT_MATCH = Message(
     reason="`pytest.raises` without `match` argument can lead to false positives.",
 )
 
-PRINT_FUNCTION = Message(
-    id="W0002",
-    name="print-function",
-    message="`print()` should not be used. Consider using a logger instead.",
-    reason="`print()` should not be used.",
-)
 
 UNITTEST_PYTEST_RAISES = Message(
     id="W0003",
@@ -50,15 +44,6 @@ PYTEST_RAISES_MULTIPLE_STATEMENTS = Message(
     ),
 )
 
-USE_SET_LITERAL = Message(
-    id="W0005",
-    name="use-set-literal",
-    message=(
-        "Use set literal (e.g. `{'a', 'b'}`) instead of applying `set()` on "
-        "list or tuple literal (e.g. `set(['a', 'b'])`)"
-    ),
-    reason="`{1, 2}` is more efficient than `set([1, 2])`.",
-)
 
 USE_F_STRING = Message(
     id="W0006",

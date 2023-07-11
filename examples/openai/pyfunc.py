@@ -9,7 +9,7 @@ import logging
 logging.getLogger("mlflow").setLevel(logging.ERROR)
 
 # Uncomment the following lines to run this script without using a real OpenAI API key.
-# os.environ["MLFLOW_OPENAI_TESTING"] = "true"
+# os.environ["MLFLOW_TESTING"] = "true"
 # os.environ["OPENAI_API_KEY"] = "test"
 
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."

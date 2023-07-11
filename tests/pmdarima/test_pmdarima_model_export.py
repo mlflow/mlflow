@@ -17,7 +17,6 @@ from mlflow.models.utils import _read_example
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec
 from mlflow.utils.environment import _mlflow_conda_env
@@ -31,6 +30,7 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _compare_logged_code_paths,
     _mlflow_major_version_string,
+    assert_register_model_called_with_local_model_path,
 )
 
 
@@ -113,12 +113,13 @@ def test_pmdarima_autoarima_pyfunc_save_and_load(auto_arima_model, model_path):
 @pytest.mark.parametrize("use_signature", [True, False])
 @pytest.mark.parametrize("use_example", [True, False])
 def test_pmdarima_signature_and_examples_saved_correctly(
-    auto_arima_model, test_data, model_path, use_signature, use_example
+    auto_arima_model, model_path, use_signature, use_example
 ):
     # NB: Signature inference will only work on the first element of the tuple return
     prediction = auto_arima_model.predict(n_periods=20, return_conf_int=True, alpha=0.05)
-    signature = infer_signature(test_data, prediction[0]) if use_signature else None
-    example = test_data[0:5].copy(deep=False) if use_example else None
+    test_data = pd.DataFrame({"n_periods": [30]})
+    signature = infer_signature(test_data, prediction[0]) if use_signature or use_example else None
+    example = test_data if use_example else None
     mlflow.pmdarima.save_model(
         auto_arima_model, path=model_path, signature=signature, input_example=example
     )
@@ -211,7 +212,7 @@ def test_pmdarima_log_model(auto_arima_model, tmp_path, should_start_run):
 
 def test_pmdarima_log_model_calls_register_model(auto_arima_object_model, tmp_path):
     artifact_path = "pmdarima"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["pmdarima"])
@@ -222,21 +223,21 @@ def test_pmdarima_log_model_calls_register_model(auto_arima_object_model, tmp_pa
             registered_model_name="PmdarimaModel",
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        mlflow.register_model.assert_called_once_with(
-            model_uri, "PmdarimaModel", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        assert_register_model_called_with_local_model_path(
+            mlflow.tracking._model_registry.fluent._register_model, model_uri, "PmdarimaModel"
         )
 
 
 def test_pmdarima_log_model_no_registered_model_name(auto_arima_model, tmp_path):
     artifact_path = "pmdarima"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["pmdarima"])
         mlflow.pmdarima.log_model(
             pmdarima_model=auto_arima_model, artifact_path=artifact_path, conda_env=str(conda_env)
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
 def test_pmdarima_model_save_persists_specified_conda_env_in_mlflow_model_directory(

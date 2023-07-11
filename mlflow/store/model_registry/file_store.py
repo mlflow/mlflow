@@ -43,7 +43,6 @@ from mlflow.utils.validation import (
     _validate_tag_name,
     _validate_model_alias_name,
 )
-from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (
     is_directory,
     list_subdirs,
@@ -61,13 +60,11 @@ from mlflow.utils.file_utils import (
     contains_path_separator,
 )
 from mlflow.utils.time_utils import get_current_time_millis
-
-
-_REGISTRY_DIR_ENV_VAR = "MLFLOW_REGISTRY_DIR"
+from mlflow.environment_variables import MLFLOW_REGISTRY_DIR
 
 
 def _default_root_dir():
-    return get_env(_REGISTRY_DIR_ENV_VAR) or os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
+    return MLFLOW_REGISTRY_DIR.get() or os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
 
 
 def _validate_model_name(name):
@@ -528,7 +525,14 @@ class FileStore(AbstractStore):
             )
 
     def create_model_version(
-        self, name, source, run_id=None, tags=None, run_link=None, description=None
+        self,
+        name,
+        source,
+        run_id=None,
+        tags=None,
+        run_link=None,
+        description=None,
+        local_model_path=None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -595,8 +599,8 @@ class FileStore(AbstractStore):
                 )
                 if more_retries == 0:
                     raise MlflowException(
-                        "Model Version creation error (name={}). Error: {}. Giving up after "
-                        "{} attempts.".format(name, e, self.CREATE_MODEL_VERSION_RETRIES)
+                        f"Model Version creation error (name={name}). Error: {e}. Giving up after "
+                        f"{self.CREATE_MODEL_VERSION_RETRIES} attempts."
                     )
 
     def update_model_version(self, name, version, description):

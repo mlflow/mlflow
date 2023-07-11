@@ -25,6 +25,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.uri import is_databricks_uri, is_http_uri
 from mlflow.utils.string_utils import quote
 from mlflow.version import is_release_version, VERSION
+from mlflow.environment_variables import MLFLOW_TRACKING_URI, MLFLOW_EXPERIMENT_ID
 
 # Base directory within driver container for storing files related to MLflow
 DB_CONTAINER_BASE = "/databricks/mlflow"
@@ -137,8 +138,8 @@ class DatabricksJobRunner:
             json_response_obj = json.loads(response.text)
         except Exception:
             raise MlflowException(
-                "API request to check existence of file at DBFS path %s failed with status code "
-                "%s. Response body: %s" % (dbfs_path, response.status_code, response.text)
+                f"API request to check existence of file at DBFS path {dbfs_path} failed with "
+                f"status code {response.status_code}. Response body: {response.text}"
             )
         # If request fails with a RESOURCE_DOES_NOT_EXIST error, the file does not exist on DBFS
         error_code_field = "error_code"
@@ -146,8 +147,8 @@ class DatabricksJobRunner:
             if json_response_obj[error_code_field] == "RESOURCE_DOES_NOT_EXIST":
                 return False
             raise ExecutionException(
-                "Got unexpected error response when checking whether file %s "
-                "exists in DBFS: %s" % (dbfs_path, json_response_obj)
+                f"Got unexpected error response when checking whether file {dbfs_path} "
+                f"exists in DBFS: {json_response_obj}"
             )
         return True
 
@@ -267,8 +268,8 @@ class DatabricksJobRunner:
         tracking_uri = _get_tracking_uri_for_run()
         dbfs_fuse_uri = self._upload_project_to_dbfs(work_dir, experiment_id)
         env_vars = {
-            tracking._TRACKING_URI_ENV_VAR: tracking_uri,
-            tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
+            MLFLOW_TRACKING_URI.name: tracking_uri,
+            MLFLOW_EXPERIMENT_ID.name: experiment_id,
         }
         _logger.info("=== Running entry point %s of project %s on Databricks ===", entry_point, uri)
         # Launch run on Databricks

@@ -172,7 +172,7 @@ def _get_repl_id():
     if repl_id:
         return repl_id
     main_file = sys.argv[0] if len(sys.argv) > 0 else "<console>"
-    return "PythonSubscriber[{filename}][{id}]".format(filename=main_file, id=uuid.uuid4().hex)
+    return f"PythonSubscriber[{main_file}][{uuid.uuid4().hex}]"
 
 
 class PythonSubscriber(metaclass=ExceptionSafeClass):
@@ -193,7 +193,7 @@ class PythonSubscriber(metaclass=ExceptionSafeClass):
 
     def toString(self):
         # For debugging
-        return "PythonSubscriber<replId=%s>" % self.replId()
+        return f"PythonSubscriber<replId={self.replId()}>"
 
     def ping(self):
         return None

@@ -61,7 +61,6 @@ from mlflow.utils.validation import (
     _validate_param_keys_unique,
     _validate_experiment_name,
 )
-from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (
     is_directory,
     list_subdirs,
@@ -95,12 +94,11 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RUN_NAME,
     _get_run_name_from_tags,
 )
-
-_TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
+from mlflow.environment_variables import MLFLOW_TRACKING_DIR
 
 
 def _default_root_dir():
-    return get_env(_TRACKING_DIR_ENV_VAR) or os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
+    return MLFLOW_TRACKING_DIR.get() or os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
 
 
 def _read_persisted_experiment_dict(experiment_dict):
@@ -768,8 +766,8 @@ class FileStore(AbstractStore):
         metric_parts = metric_line.strip().split(" ")
         if len(metric_parts) != 2 and len(metric_parts) != 3:
             raise MlflowException(
-                "Metric '%s' is malformed; persisted metric data contained %s "
-                "fields. Expected 2 or 3 fields." % (metric_name, len(metric_parts)),
+                f"Metric '{metric_name}' is malformed; persisted metric data contained "
+                f"{len(metric_parts)} fields. Expected 2 or 3 fields.",
                 databricks_pb2.INTERNAL_ERROR,
             )
         ts = int(metric_parts[0])
@@ -933,7 +931,7 @@ class FileStore(AbstractStore):
     def _log_run_metric(self, run_info, metric):
         metric_path = self._get_metric_path(run_info.experiment_id, run_info.run_id, metric.key)
         make_containing_dirs(metric_path)
-        append_to(metric_path, "{} {} {}\n".format(metric.timestamp, metric.value, metric.step))
+        append_to(metric_path, f"{metric.timestamp} {metric.value} {metric.step}\n")
 
     def _writeable_value(self, tag_value):
         if tag_value is None:
@@ -992,8 +990,8 @@ class FileStore(AbstractStore):
         experiment = self.get_experiment(experiment_id)
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
-                "The experiment {} must be in the 'active' "
-                "lifecycle_stage to set tags".format(experiment.experiment_id),
+                f"The experiment {experiment.experiment_id} must be in the 'active' "
+                "lifecycle_stage to set tags",
                 error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
             )
         tag_path = self._get_experiment_tag_path(experiment_id, tag.key)

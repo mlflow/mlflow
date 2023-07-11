@@ -28,6 +28,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
 )
 from mlflow.utils.rest_utils import augmented_raise_for_status
+from mlflow.environment_variables import MLFLOW_TRACKING_URI, MLFLOW_RUN_ID, MLFLOW_EXPERIMENT_ID
 
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")
@@ -211,9 +212,9 @@ def _fetch_git_repo(uri, version, dst_dir):
             repo.git.checkout(version)
         except git.exc.GitCommandError as e:
             raise ExecutionException(
-                "Unable to checkout version '%s' of git repo %s"
+                f"Unable to checkout version '{version}' of git repo {uri}"
                 "- please ensure that the version exists in the repo. "
-                "Error: %s" % (version, uri, e)
+                f"Error: {e}"
             )
     else:
         g = git.cmd.Git(dst_dir)
@@ -335,7 +336,7 @@ def get_run_env_vars(run_id, experiment_id):
     to run MLflow projects.
     """
     return {
-        tracking._RUN_ID_ENV_VAR: run_id,
-        tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri(),
-        tracking._EXPERIMENT_ID_ENV_VAR: str(experiment_id),
+        MLFLOW_RUN_ID.name: run_id,
+        MLFLOW_TRACKING_URI.name: tracking.get_tracking_uri(),
+        MLFLOW_EXPERIMENT_ID.name: str(experiment_id),
     }

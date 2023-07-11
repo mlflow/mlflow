@@ -28,9 +28,7 @@ def get_conda_command(conda_env_name):
     #  Checking for newer conda versions
     if os.name != "nt" and ("CONDA_EXE" in os.environ or "MLFLOW_CONDA_HOME" in os.environ):
         conda_path = get_conda_bin_executable("conda")
-        activate_conda_env = [
-            "source {}/../etc/profile.d/conda.sh".format(os.path.dirname(conda_path))
-        ]
+        activate_conda_env = [f"source {os.path.dirname(conda_path)}/../etc/profile.d/conda.sh"]
         activate_conda_env += [f"conda activate {conda_env_name} 1>&2"]
     else:
         activate_path = get_conda_bin_executable("activate")

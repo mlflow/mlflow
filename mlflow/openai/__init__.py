@@ -31,6 +31,7 @@ import logging
 from enum import Enum
 from string import Formatter
 import itertools
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow import pyfunc
@@ -61,7 +62,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types import Schema, ColSpec
-from mlflow.environment_variables import _MLFLOW_OPENAI_TESTING, MLFLOW_OPENAI_SECRET_SCOPE
+from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_OPENAI_SECRET_SCOPE
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
@@ -525,7 +526,18 @@ class _OpenAIWrapper:
         else:
             return data[self.variables].to_dict(orient="records")
 
-    def predict(self, data):
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         if self.variables:
@@ -559,7 +571,18 @@ class _TestOpenAIWrapper(_OpenAIWrapper):
     A wrapper class that should be used for testing purposes only.
     """
 
-    def predict(self, data):
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         from mlflow.openai.utils import _mock_chat_completion_request
 
         with _mock_chat_completion_request():
@@ -572,7 +595,7 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``openai`` flavor.
     """
-    wrapper_cls = _TestOpenAIWrapper if _MLFLOW_OPENAI_TESTING.get() else _OpenAIWrapper
+    wrapper_cls = _TestOpenAIWrapper if _MLFLOW_TESTING.get() else _OpenAIWrapper
     return wrapper_cls(_load_model(path))
 
 

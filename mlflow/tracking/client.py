@@ -32,7 +32,7 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri, is_databricks_unity_catalog_uri
@@ -48,11 +48,11 @@ from mlflow.utils.mlflow_tags import (
 )
 
 if TYPE_CHECKING:
-    import pandas  # pylint: disable=unused-import
-    import matplotlib  # pylint: disable=unused-import
-    import plotly  # pylint: disable=unused-import
-    import numpy  # pylint: disable=unused-import
-    import PIL  # pylint: disable=unused-import
+    import pandas
+    import matplotlib
+    import plotly
+    import numpy
+    import PIL
 
 _logger = logging.getLogger(__name__)
 
@@ -1303,7 +1303,7 @@ class MlflowClient:
                         f"Unsupported file extension for plotly figure: '{file_extension}'"
                     )
             else:
-                raise TypeError("Unsupported figure object type: '{}'".format(type(figure)))
+                raise TypeError(f"Unsupported figure object type: '{type(figure)}'")
 
     def log_image(
         self, run_id: str, image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str
@@ -1387,7 +1387,7 @@ class MlflowClient:
             if x.min() < low or x.max() > high:
                 msg = (
                     "Out-of-range values are detected. "
-                    "Clipping array (dtype: '{}') to [{}, {}]".format(x.dtype, low, high)
+                    f"Clipping array (dtype: '{x.dtype}') to [{low}, {high}]"
                 )
                 _logger.warning(msg)
                 x = np.clip(x, low, high)
@@ -1428,7 +1428,7 @@ class MlflowClient:
 
                 if image.ndim not in [2, 3]:
                     raise ValueError(
-                        "`image` must be a 2D or 3D array but got a {}D array".format(image.ndim)
+                        f"`image` must be a 2D or 3D array but got a {image.ndim}D array"
                     )
 
                 if (image.ndim == 3) and (image.shape[2] not in [1, 3, 4]):
@@ -1447,7 +1447,7 @@ class MlflowClient:
                 Image.fromarray(image).save(tmp_path)
 
             else:
-                raise TypeError("Unsupported image object type: '{}'".format(type(image)))
+                raise TypeError(f"Unsupported image object type: '{type(image)}'")
 
     def _check_artifact_file_string(self, artifact_file: str):
         """
@@ -1758,7 +1758,6 @@ class MlflowClient:
         """
         return self._tracking_client.list_artifacts(run_id, path)
 
-    @deprecated("mlflow.artifacts.download_artifacts", "2.0")
     def download_artifacts(self, run_id: str, path: str, dst_path: Optional[str] = None) -> str:
         """
         Download an artifact file or directory from a run to a local directory if applicable,
@@ -2525,6 +2524,60 @@ class MlflowClient:
 
     # Model Version Methods
 
+    def _create_model_version(
+        self,
+        name: str,
+        source: str,
+        run_id: Optional[str] = None,
+        tags: Optional[Dict[str, Any]] = None,
+        run_link: Optional[str] = None,
+        description: Optional[str] = None,
+        await_creation_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        local_model_path: Optional[str] = None,
+    ) -> ModelVersion:
+        tracking_uri = self._tracking_client.tracking_uri
+        if (
+            not run_link
+            and is_databricks_uri(tracking_uri)
+            and tracking_uri != self._registry_uri
+            and not is_databricks_unity_catalog_uri(self._registry_uri)
+        ):
+            if not run_id:
+                eprint(
+                    "Warning: no run_link will be recorded with the model version "
+                    "because no run_id was given"
+                )
+            else:
+                run_link = get_databricks_run_url(tracking_uri, run_id)
+        new_source = source
+        if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
+            # Print out some info for user since the copy may take a while for large models.
+            eprint(
+                "=== Copying model files from the source location to the model"
+                + " registry workspace ==="
+            )
+            new_source = _upload_artifacts_to_databricks(
+                source, run_id, tracking_uri, self._registry_uri
+            )
+            # NOTE: we can't easily delete the target temp location due to the async nature
+            # of the model version creation - printing to let the user know.
+            eprint(
+                "=== Source model files were copied to %s" % new_source
+                + " in the model registry workspace. You may want to delete the files once the"
+                + " model version is in 'READY' status. You can also find this location in the"
+                + " `source` field of the created model version. ==="
+            )
+        return self._get_registry_client().create_model_version(
+            name=name,
+            source=new_source,
+            run_id=run_id,
+            tags=tags,
+            run_link=run_link,
+            description=description,
+            await_creation_for=await_creation_for,
+            local_model_path=local_model_path,
+        )
+
     def create_model_version(
         self,
         name: str,
@@ -2597,41 +2650,9 @@ class MlflowClient:
             Status: READY
             Stage: None
         """
-        tracking_uri = self._tracking_client.tracking_uri
-        if (
-            not run_link
-            and is_databricks_uri(tracking_uri)
-            and tracking_uri != self._registry_uri
-            and not is_databricks_unity_catalog_uri(self._registry_uri)
-        ):
-            if not run_id:
-                eprint(
-                    "Warning: no run_link will be recorded with the model version "
-                    "because no run_id was given"
-                )
-            else:
-                run_link = get_databricks_run_url(tracking_uri, run_id)
-        new_source = source
-        if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
-            # Print out some info for user since the copy may take a while for large models.
-            eprint(
-                "=== Copying model files from the source location to the model"
-                + " registry workspace ==="
-            )
-            new_source = _upload_artifacts_to_databricks(
-                source, run_id, tracking_uri, self._registry_uri
-            )
-            # NOTE: we can't easily delete the target temp location due to the async nature
-            # of the model version creation - printing to let the user know.
-            eprint(
-                "=== Source model files were copied to %s" % new_source
-                + " in the model registry workspace. You may want to delete the files once the"
-                + " model version is in 'READY' status. You can also find this location in the"
-                + " `source` field of the created model version. ==="
-            )
-        return self._get_registry_client().create_model_version(
+        return self._create_model_version(
             name=name,
-            source=new_source,
+            source=source,
             run_id=run_id,
             tags=tags,
             run_link=run_link,

@@ -21,6 +21,7 @@ import weakref
 from collections import defaultdict, OrderedDict
 from copy import deepcopy
 from packaging.version import Version
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow import pyfunc
@@ -489,7 +490,42 @@ def _load_pyfunc(path):
         )
         path = os.path.join(path, pyfunc_flavor_conf["model_path"])
 
-    return _load_model_from_local_file(path=path, serialization_format=serialization_format)
+    return _SklearnModelWrapper(
+        _load_model_from_local_file(path=path, serialization_format=serialization_format)
+    )
+
+
+class _SklearnModelWrapper:
+    def __init__(self, sklearn_model):
+        self.sklearn_model = sklearn_model
+
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
+        return self.sklearn_model.predict(data)
+
+    def predict_proba(
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
+        return self.sklearn_model.predict_proba(data)
 
 
 class _SklearnCustomModelPicklingError(pickle.PicklingError):
@@ -504,7 +540,7 @@ class _SklearnCustomModelPicklingError(pickle.PicklingError):
         """
         super().__init__(
             f"Pickling custom sklearn model {sk_model.__class__.__name__} failed "
-            f"when saving model: {str(original_exception)}"
+            f"when saving model: {original_exception}"
         )
         self.original_exception = original_exception
 
@@ -1710,6 +1746,9 @@ def _autolog(
         if Version(sklearn.__version__) <= Version("0.24.2"):
             import sklearn.utils.metaestimators
 
+            if not hasattr(sklearn.utils.metaestimators, "_IffHasAttrDescriptor"):
+                return
+
             # pylint: disable=redefined-builtin,unused-argument
             def patched_IffHasAttrDescriptor__get__(self, obj, type=None):
                 """
@@ -1807,7 +1846,8 @@ def _autolog(
                 flavor_name, sklearn.metrics, metric_name, patched_metric_api, manage_run=False
             )
 
-        if Version(sklearn.__version__) > Version("1.2.2"):
+        # `sklearn.metrics.SCORERS` was removed in scikit-learn 1.3
+        if hasattr(sklearn.metrics, "get_scorer_names"):
             for scoring in sklearn.metrics.get_scorer_names():
                 scorer = sklearn.metrics.get_scorer(scoring)
                 safe_patch(flavor_name, scorer, "_score_func", patched_metric_api, manage_run=False)

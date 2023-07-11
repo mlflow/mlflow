@@ -27,7 +27,7 @@ def spark():
 def set_envs(monkeypatch):
     monkeypatch.setenvs(
         {
-            "MLFLOW_OPENAI_TESTING": "true",
+            "MLFLOW_TESTING": "true",
             "OPENAI_API_KEY": "test",
         }
     )
@@ -346,7 +346,7 @@ def test_spark_udf(tmp_path, spark):
 
 
 class ChatCompletionModel(mlflow.pyfunc.PythonModel):
-    def predict(self, context, model_input):
+    def predict(self, context, model_input, params=None):
         completion = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "What is MLflow?"}],

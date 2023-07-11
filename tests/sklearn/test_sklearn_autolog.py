@@ -257,9 +257,9 @@ def test_classifier_binary():
     if _is_plotting_supported():
         plot_names.extend(
             [
-                "{}.png".format("training_confusion_matrix"),
-                "{}.png".format("training_roc_curve"),
-                "{}.png".format("training_precision_recall_curve"),
+                "training_confusion_matrix.png",
+                "training_roc_curve.png",
+                "training_precision_recall_curve.png",
             ]
         )
 
@@ -318,7 +318,7 @@ def test_classifier_multi_class():
 
     plot_names = []
     if _is_plotting_supported():
-        plot_names = ["{}.png".format("training_confusion_matrix")]
+        plot_names = ["training_confusion_matrix.png"]
 
     assert all(x in artifacts for x in plot_names)
 
@@ -996,7 +996,7 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
 
     # ensure throwing_X throws when sliced
     with pytest.raises(IndexError, match="DO NOT SLICE ME"):
-        _ = throwing_X[:5]
+        throwing_X[:5]
 
     mlflow.sklearn.autolog()
     model = sklearn.linear_model.LinearRegression()
@@ -1125,7 +1125,7 @@ def test_sklearn_autolog_log_datasets_with_predict():
         mlflow.sklearn.autolog(log_datasets=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
-        y_pred = model.predict(X)  # pylint: disable=unused-variable
+        model.predict(X)
 
     run_id = run.info.run_id
     client = MlflowClient()
@@ -1160,7 +1160,7 @@ def test_sklearn_autolog_log_datasets_without_explicit_run():
     mlflow.sklearn.autolog(log_datasets=True)
     model = sklearn.linear_model.LinearRegression()
     model.fit(X, y)
-    y_pred = model.predict(X)  # pylint: disable=unused-variable
+    model.predict(X)
 
     run_id = getattr(model, "_mlflow_run_id")
     client = MlflowClient()

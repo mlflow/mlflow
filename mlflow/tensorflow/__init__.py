@@ -18,6 +18,7 @@ from collections import namedtuple
 import pandas
 from packaging.version import Version
 from threading import RLock
+from typing import Any, Dict, Optional
 import numpy as np
 import importlib
 import yaml
@@ -666,8 +667,8 @@ def _load_tf1_estimator_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_s
     loaded_sig = loaded.signatures
     if tf_signature_def_key not in loaded_sig:
         raise MlflowException(
-            "Could not find signature def key %s. Available keys are: %s"
-            % (tf_signature_def_key, list(loaded_sig.keys()))
+            f"Could not find signature def key {tf_signature_def_key}. "
+            f"Available keys are: {list(loaded_sig.keys())}"
         )
     return loaded_sig[tf_signature_def_key]
 
@@ -758,7 +759,18 @@ class _TF2Wrapper:
         self.model = model
         self.infer = infer
 
-    def predict(self, data):
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         import tensorflow
 
         feed_dict = {}
@@ -802,7 +814,18 @@ class _TF2ModuleWrapper:
         self.model = model
         self.signature = signature
 
-    def predict(self, data):
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         import tensorflow
 
         if isinstance(data, (np.ndarray, list)):
@@ -823,7 +846,18 @@ class _KerasModelWrapper:
         self.keras_model = keras_model
         self.signature = signature
 
-    def predict(self, data):
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         if isinstance(data, pandas.DataFrame):
             # This line is for backwards compatibility:
             # If model signature is not None, when calling

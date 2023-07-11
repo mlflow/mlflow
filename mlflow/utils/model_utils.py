@@ -99,7 +99,7 @@ def _get_flavor_configuration_from_ml_model_file(ml_model_file, flavor_name):
 def _validate_code_paths(code_paths):
     if code_paths is not None:
         if not isinstance(code_paths, list):
-            raise TypeError("Argument code_paths should be a list, not {}".format(type(code_paths)))
+            raise TypeError(f"Argument code_paths should be a list, not {type(code_paths)}")
 
 
 def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):

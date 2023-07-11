@@ -97,7 +97,7 @@ def convert_to_dataset_feature_statistics(
     quantiles_to_get = [x * 10 / 100 for x in range(10 + 1)]
     try:
         quantiles = df.select_dtypes(include="number").quantile(quantiles_to_get)
-    except:
+    except Exception:
         raise MlflowException("Error in generating quantiles")
 
     for key in df:

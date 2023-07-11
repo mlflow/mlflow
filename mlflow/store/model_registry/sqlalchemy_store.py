@@ -24,7 +24,6 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
 )
-from mlflow.store.db.base_sql_model import Base
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.store.model_registry.dbmodels.models import (
@@ -95,7 +94,6 @@ class SqlAlchemyStore(AbstractStore):
             mlflow.store.db.utils._initialize_tables(self.engine)
         # Verify that all model registry tables exist.
         SqlAlchemyStore._verify_registry_tables_exist(self.engine)
-        Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(
             SessionMaker, self.db_type
@@ -150,16 +148,6 @@ class SqlAlchemyStore(AbstractStore):
         # loading_relationships.html#relationship-loading-techniques
         return [sqlalchemy.orm.subqueryload(SqlModelVersion.model_version_tags)]
 
-    def _save_to_db(self, session, objs):
-        """
-        Store in db
-        """
-        if type(objs) is list:
-            session.add_all(objs)
-        else:
-            # single object
-            session.add(objs)
-
     def create_registered_model(self, name, tags=None, description=None):
         """
         Create a new registered model in backend store.
@@ -189,12 +177,12 @@ class SqlAlchemyStore(AbstractStore):
                 registered_model.registered_model_tags = [
                     SqlRegisteredModelTag(key=key, value=value) for key, value in tags_dict.items()
                 ]
-                self._save_to_db(session, registered_model)
+                session.add(registered_model)
                 session.flush()
                 return registered_model.to_mlflow_entity()
             except sqlalchemy.exc.IntegrityError as e:
                 raise MlflowException(
-                    "Registered Model (name={}) already exists. Error: {}".format(name, str(e)),
+                    f"Registered Model (name={name}) already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
                 )
 
@@ -240,7 +228,7 @@ class SqlAlchemyStore(AbstractStore):
             updated_time = get_current_time_millis()
             sql_registered_model.description = description
             sql_registered_model.last_updated_time = updated_time
-            self._save_to_db(session, [sql_registered_model])
+            session.add(sql_registered_model)
             session.flush()
             return sql_registered_model.to_mlflow_entity()
 
@@ -262,9 +250,7 @@ class SqlAlchemyStore(AbstractStore):
                     sql_model_version.name = new_name
                     sql_model_version.last_updated_time = updated_time
                 sql_registered_model.last_updated_time = updated_time
-                self._save_to_db(
-                    session, [sql_registered_model] + sql_registered_model.model_versions
-                )
+                session.add_all([sql_registered_model] + sql_registered_model.model_versions)
                 session.flush()
                 return sql_registered_model.to_mlflow_entity()
             except sqlalchemy.exc.IntegrityError as e:
@@ -615,7 +601,14 @@ class SqlAlchemyStore(AbstractStore):
     # CRUD API for ModelVersion objects
 
     def create_model_version(
-        self, name, source, run_id=None, tags=None, run_link=None, description=None
+        self,
+        name,
+        source,
+        run_id=None,
+        tags=None,
+        run_link=None,
+        description=None,
+        local_model_path=None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -663,7 +656,7 @@ class SqlAlchemyStore(AbstractStore):
                     model_version.model_version_tags = [
                         SqlModelVersionTag(key=key, value=value) for key, value in tags_dict.items()
                     ]
-                    self._save_to_db(session, [sql_registered_model, model_version])
+                    session.add_all([sql_registered_model, model_version])
                     session.flush()
                     model_version_entity = self._populate_model_version_aliases(
                         session, name, model_version.to_mlflow_entity()
@@ -760,7 +753,7 @@ class SqlAlchemyStore(AbstractStore):
             sql_model_version = self._get_sql_model_version(session, name=name, version=version)
             sql_model_version.description = description
             sql_model_version.last_updated_time = updated_time
-            self._save_to_db(session, [sql_model_version])
+            session.add(sql_model_version)
             model_version_entity = self._populate_model_version_aliases(
                 session, name, sql_model_version.to_mlflow_entity()
             )
@@ -809,7 +802,7 @@ class SqlAlchemyStore(AbstractStore):
             sql_model_version.last_updated_time = last_updated_time
             sql_registered_model = sql_model_version.registered_model
             sql_registered_model.last_updated_time = last_updated_time
-            self._save_to_db(session, [*model_versions, sql_model_version, sql_registered_model])
+            session.add_all([*model_versions, sql_model_version, sql_registered_model])
             model_version_entity = self._populate_model_version_aliases(
                 session, name, sql_model_version.to_mlflow_entity()
             )
@@ -841,7 +834,7 @@ class SqlAlchemyStore(AbstractStore):
             sql_model_version.run_id = "REDACTED-RUN-ID"
             sql_model_version.run_link = "REDACTED-RUN-LINK"
             sql_model_version.status_message = None
-            self._save_to_db(session, [sql_registered_model, sql_model_version])
+            session.add_all([sql_registered_model, sql_model_version])
 
     def get_model_version(self, name, version):
         """

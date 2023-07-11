@@ -1,7 +1,8 @@
 import decimal
 import json
+import logging
 import os
-from typing import Union, Any, Dict, List
+from typing import Union, Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -9,7 +10,7 @@ import pandas as pd
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.models import Model
 from mlflow.store.artifact.utils.models import get_model_name_and_version
-from mlflow.types import DataType, Schema, TensorSpec
+from mlflow.types import DataType, ParamSchema, Schema, TensorSpec, ParamSpec
 from mlflow.types.utils import TensorsNotSupportedException, clean_tensor_type
 from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import (
@@ -34,6 +35,8 @@ PyFuncInput = Union[
     pd.DataFrame, pd.Series, np.ndarray, "csc_matrix", "csr_matrix", List[Any], Dict[str, Any], str
 ]
 PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list, str]
+
+_logger = logging.getLogger(__name__)
 
 
 class _Example:
@@ -119,7 +122,7 @@ class _Example:
         def _handle_dataframe_nans(df: pd.DataFrame):
             return df.where(df.notnull(), None)
 
-        def _handle_dataframe_input(input_ex):
+        def _coerce_to_pandas_df(input_ex):
             if isinstance(input_ex, dict):
                 if all(_is_scalar(x) for x in input_ex.values()):
                     input_ex = pd.DataFrame([input_ex])
@@ -137,9 +140,7 @@ class _Example:
             elif isinstance(input_ex, list):
                 for i, x in enumerate(input_ex):
                     if isinstance(x, np.ndarray) and len(x.shape) > 1:
-                        raise TensorsNotSupportedException(
-                            "Row '{}' has shape {}".format(i, x.shape)
-                        )
+                        raise TensorsNotSupportedException(f"Row '{i}' has shape {x.shape}")
                 if all(_is_scalar(x) for x in input_ex):
                     input_ex = pd.DataFrame([input_ex], columns=range(len(input_ex)))
                 else:
@@ -158,21 +159,21 @@ class _Example:
                         )
                 except ImportError:
                     pass
-                raise TypeError(
-                    "Unexpected type of input_example. Expected one of "
-                    "(pandas.DataFrame, numpy.ndarray, dict, list), "
-                    "got {}".format(type(input_example))
-                )
-            result = _handle_dataframe_nans(input_ex).to_dict(orient="split")
+                input_ex = None
+            return input_ex
+
+        def _handle_dataframe_input(df):
+            result = _handle_dataframe_nans(df).to_dict(orient="split")
             # Do not include row index
             del result["index"]
-            if all(input_ex.columns == range(len(input_ex.columns))):
+            if all(df.columns == range(len(df.columns))):
                 # No need to write default column index out
                 del result["columns"]
             return result
 
         example_filename = "input_example.json"
         if _is_ndarray(input_example):
+            self._inference_data = input_example
             self.data = _handle_ndarray_input(input_example)
             self.info = {
                 "artifact_path": example_filename,
@@ -180,6 +181,7 @@ class _Example:
                 "format": "tf-serving",
             }
         elif _is_sparse_matrix(input_example):
+            self._inference_data = input_example
             self.data = _handle_sparse_matrix(input_example)
             if isinstance(input_example, csc_matrix):
                 example_type = "sparse_matrix_csc"
@@ -190,7 +192,22 @@ class _Example:
                 "type": example_type,
             }
         else:
-            self.data = _handle_dataframe_input(input_example)
+            self._inference_data = _coerce_to_pandas_df(input_example)
+            if self._inference_data is None:
+                raise TypeError(
+                    "Expected one of the following types:\n"
+                    "- pandas.DataFrame\n"
+                    "- numpy.ndarray\n"
+                    "- dictionary of (name -> numpy.ndarray)\n"
+                    "- scipy.sparse.csr_matrix\n"
+                    "- scipy.sparse.csc_matrix\n"
+                    "- dict\n"
+                    "- list\n"
+                    "- str\n"
+                    "- bytes\n"
+                    "but got '{}'".format(type(input_example)),
+                )
+            self.data = _handle_dataframe_input(self._inference_data)
             self.info = {
                 "artifact_path": example_filename,
                 "type": "dataframe",
@@ -201,6 +218,13 @@ class _Example:
         """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`."""
         with open(os.path.join(parent_dir_path, self.info["artifact_path"]), "w") as f:
             json.dump(self.data, f, cls=NumpyEncoder)
+
+    @property
+    def inference_data(self):
+        """
+        Returns the input example in a form that PyFunc wrapped models can score.
+        """
+        return self._inference_data
 
 
 def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: str):
@@ -389,7 +413,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
             return values.astype(np.dtype("datetime64[ns]"), errors="raise")
         except ValueError as e:
             raise MlflowException(
-                "Failed to convert column {} from type {} to {}.".format(name, values.dtype, t)
+                "Failed to convert column {name} from type {values.dtype} to {t}."
             ) from e
     if t == DataType.double and values.dtype == decimal.Decimal:
         # NB: Pyspark Decimal column get converted to decimal.Decimal when converted to pandas
@@ -399,7 +423,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
             return pd.to_numeric(values, errors="raise")
         except ValueError:
             raise MlflowException(
-                "Failed to convert column {} from type {} to {}.".format(name, values.dtype, t)
+                f"Failed to convert column {name} from type {values.dtype} to {t}."
             )
 
     numpy_type = t.to_numpy()
@@ -642,9 +666,9 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     if isinstance(pf_input, pd.Series):
         pf_input = pd.DataFrame(pf_input)
     if not input_schema.is_tensor_spec():
-        if isinstance(pf_input, (list, np.ndarray, dict, pd.Series, str)):
+        if isinstance(pf_input, (list, np.ndarray, dict, pd.Series, str, bytes)):
             try:
-                if isinstance(pf_input, str):
+                if isinstance(pf_input, (str, bytes)):
                     pf_input = pd.DataFrame([pf_input])
                 elif isinstance(pf_input, dict) and all(
                     _is_scalar(value) for value in pf_input.values()
@@ -863,3 +887,58 @@ def get_model_version_from_model_uri(model_uri):
     (name, version) = get_model_name_and_version(client, model_uri)
     model_version = client.get_model_version(name, version)
     return model_version
+
+
+def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[ParamSchema]):
+    if schema is None:
+        if params in [None, {}]:
+            return params
+        raise MlflowException.invalid_parameter_value(
+            "`params` can only be specified at inference time if the model signature "
+            "defines a params schema. This model does not define a params schema.",
+        )
+    if not isinstance(params, dict):
+        raise MlflowException.invalid_parameter_value(
+            f"Parameters must be a dictionary. Got type '{type(params).__name__}'.",
+        )
+    if not isinstance(schema, ParamSchema):
+        raise MlflowException.invalid_parameter_value(
+            "Parameters schema must be an instance of ParamSchema. "
+            f"Got type '{type(schema).__name__}'.",
+        )
+    if any(not isinstance(k, str) for k in params.keys()):
+        _logger.warning(
+            "Keys in parameters should be of type `str`, but received non-string keys."
+            "Converting all keys to string..."
+        )
+        params = {str(k): v for k, v in params.items()}
+
+    allowed_keys = {param.name for param in schema.params}
+    ignored_keys = set(params) - allowed_keys
+    if ignored_keys:
+        _logger.warning(
+            f"Unrecognized params {list(ignored_keys)} are ignored for inference. "
+            f"Supported params are: {allowed_keys}. "
+            "To enable them, please add corresponding schema in ModelSignature."
+        )
+
+    params = {k: params[k] for k in params if k in allowed_keys}
+
+    invalid_params = set()
+    for param_spec in schema.params:
+        if param_spec.name in params:
+            try:
+                params[param_spec.name] = ParamSpec.validate_param_spec(
+                    params[param_spec.name], param_spec
+                )
+            except MlflowException as e:
+                invalid_params.add((param_spec.name, e.message))
+        else:
+            params[param_spec.name] = param_spec.default
+
+    if invalid_params:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid parameters found: {invalid_params!r}",
+        )
+
+    return params

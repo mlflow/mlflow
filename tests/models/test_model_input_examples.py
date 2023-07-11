@@ -3,7 +3,9 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn import datasets
 from sklearn.base import BaseEstimator, ClassifierMixin
+import sklearn.neighbors as knn
 from scipy.sparse import csr_matrix, csc_matrix
 from unittest import mock
 
@@ -221,7 +223,7 @@ class DummySklearnModel(BaseEstimator, ClassifierMixin):
     def __init__(self, output_shape=(1,)):
         self.output_shape = output_shape
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None):  # pylint: disable=unused-argument
         return self
 
     def predict(self, X):
@@ -291,9 +293,11 @@ def test_infer_signature_from_example_can_be_disabled():
     assert mlflow_model.signature is None
 
 
-def test_infer_signature_silently_fails():
+def test_infer_signature_silently_fails(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TESTING", "false")
+
     class ErrorModel(BaseEstimator, ClassifierMixin):
-        def fit(self, X, y=None):
+        def fit(self, X, y=None):  # pylint: disable=unused-argument
             return self
 
         def predict(self, X):
@@ -305,3 +309,81 @@ def test_infer_signature_silently_fails():
             AnyStringWith("Failed to infer the model signature from the input example."),
             AnyStringWith("oh no!"),
         )
+
+
+@pytest.fixture(scope="module")
+def iris_model():
+    X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+    return knn.KNeighborsClassifier().fit(X, y)
+
+
+@pytest.mark.parametrize(
+    "input_example",
+    [
+        {
+            "sepal length (cm)": 5.1,
+            "sepal width (cm)": 3.5,
+            "petal length (cm)": 1.4,
+            "petal width (cm)": 0.2,
+        },
+        [5.1, 3.5, 1.4, 0.2],
+        pd.DataFrame(
+            {
+                "sepal length (cm)": 5.1,
+                "sepal width (cm)": 3.5,
+                "petal length (cm)": 1.4,
+                "petal width (cm)": 0.2,
+            },
+            index=[0],
+        ),
+    ],
+)
+def test_infer_signature_on_multi_column_input_examples(input_example, iris_model):
+    artifact_path = "model"
+
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            iris_model, artifact_path=artifact_path, input_example=input_example
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    mlflow_model = Model.load(model_uri)
+    input_columns = mlflow_model.signature.inputs.inputs
+    assert len(input_columns) == 4
+    assert all(col.type == DataType.double for col in input_columns)
+    assert mlflow_model.signature.outputs == Schema([ColSpec(type=DataType.long)])
+
+
+@pytest.mark.parametrize(
+    "input_example",
+    ["some string", bytes([1, 2, 3])],
+)
+def test_infer_signature_on_scalar_input_examples(input_example):
+    class IdentitySklearnModel(BaseEstimator, ClassifierMixin):
+        def fit(self, X, y=None):  # pylint: disable=unused-argument
+            return self
+
+        def predict(self, X):
+            if isinstance(X, pd.DataFrame):
+                return X
+            raise Exception("Unsupported input type")
+
+    artifact_path = "model"
+
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            IdentitySklearnModel(), artifact_path=artifact_path, input_example=input_example
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    mlflow_model = Model.load(model_uri)
+    signature = mlflow_model.signature
+    assert isinstance(signature, ModelSignature)
+    assert signature.inputs.inputs[0].name == 0
+    t = DataType.string if isinstance(input_example, str) else DataType.binary
+    assert signature == ModelSignature(
+        inputs=Schema([ColSpec(name=0, type=t)]),
+        outputs=Schema([ColSpec(name=0, type=t)]),
+    )
+    # test that a single string still passes pyfunc schema enforcement
+    mlflow.pyfunc.load_model(model_uri).predict(input_example)

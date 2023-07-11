@@ -35,7 +35,7 @@ class __MLflowPaddleCallback(paddle.callbacks.Callback, metaclass=ExceptionSafeA
             self._log_metrics(logs, epoch)
             self.epoch = epoch
 
-    def on_train_begin(self, logs=None):
+    def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
         params = {
             "optimizer_name": self.model._optimizer.__class__.__name__,
             "learning_rate": self.model._optimizer._learning_rate,
@@ -43,7 +43,7 @@ class __MLflowPaddleCallback(paddle.callbacks.Callback, metaclass=ExceptionSafeA
         self.client.log_params(self.run_id, params)
         self.client.flush(synchronous=True)
 
-    def on_train_end(self, logs=None):
+    def on_train_end(self, logs=None):  # pylint: disable=unused-argument
         self.metrics_logger.flush()
         self.client.flush(synchronous=True)
 

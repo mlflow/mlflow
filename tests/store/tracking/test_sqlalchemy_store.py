@@ -54,7 +54,6 @@ from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.os import is_windows
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
-from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 from mlflow.store.tracking.dbmodels.models import (
     SqlParam,
     SqlTag,
@@ -67,6 +66,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlInput,
     SqlDataset,
 )
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
 from tests.store.tracking.test_file_store import assert_dataset_inputs_equal
@@ -77,60 +77,68 @@ ARTIFACT_URI = "artifact_folder"
 pytestmark = pytest.mark.notrackingurimock
 
 
-class TestParseDbUri(unittest.TestCase):
-    def test_correct_db_type_from_uri(self):
-        # try each the main drivers per supported database type
-        target_db_type_uris = {
-            "sqlite": ("pysqlite", "pysqlcipher"),
-            "postgresql": (
-                "psycopg2",
-                "pg8000",
-                "psycopg2cffi",
-                "pypostgresql",
-                "pygresql",
-                "zxjdbc",
-            ),
-            "mysql": (
-                "mysqldb",
-                "pymysql",
-                "mysqlconnector",
-                "cymysql",
-                "oursql",
-                "gaerdbms",
-                "pyodbc",
-                "zxjdbc",
-            ),
-            "mssql": ("pyodbc", "mxodbc", "pymssql", "zxjdbc", "adodbapi"),
-        }
-        for target_db_type, drivers in target_db_type_uris.items():
-            # try the driver-less version, which will revert SQLAlchemy to the default driver
-            uri = "%s://..." % target_db_type
-            parsed_db_type = extract_db_type_from_uri(uri)
-            assert target_db_type == parsed_db_type
-            # try each of the popular drivers (per SQLAlchemy's dialect pages)
-            for driver in drivers:
-                uri = f"{target_db_type}+{driver}://..."
-                parsed_db_type = extract_db_type_from_uri(uri)
-                assert target_db_type == parsed_db_type
+def db_types_and_drivers():
+    d = {
+        "sqlite": [
+            "pysqlite",
+            "pysqlcipher",
+        ],
+        "postgresql": [
+            "psycopg2",
+            "pg8000",
+            "psycopg2cffi",
+            "pypostgresql",
+            "pygresql",
+            "zxjdbc",
+        ],
+        "mysql": [
+            "mysqldb",
+            "pymysql",
+            "mysqlconnector",
+            "cymysql",
+            "oursql",
+            "gaerdbms",
+            "pyodbc",
+            "zxjdbc",
+        ],
+        "mssql": [
+            "pyodbc",
+            "mxodbc",
+            "pymssql",
+            "zxjdbc",
+            "adodbapi",
+        ],
+    }
+    for db_type, drivers in d.items():
+        for driver in drivers:
+            yield db_type, driver
 
-    def _db_uri_error(self, db_uris, expected_message_regex):
-        for db_uri in db_uris:
-            with pytest.raises(MlflowException, match=expected_message_regex):
-                extract_db_type_from_uri(db_uri)
 
-    def test_fail_on_unsupported_db_type(self):
-        bad_db_uri_strings = [
-            "oracle://...",
-            "oracle+cx_oracle://...",
-            "snowflake://...",
-            "://...",
-            "abcdefg",
-        ]
-        self._db_uri_error(bad_db_uri_strings, r"Invalid database engine")
+@pytest.mark.parametrize(("db_type", "driver"), db_types_and_drivers())
+def test_correct_db_type_from_uri(db_type, driver):
+    assert extract_db_type_from_uri(f"{db_type}+{driver}://...") == db_type
+    # try the driver-less version, which will revert SQLAlchemy to the default driver
+    assert extract_db_type_from_uri(f"{db_type}://...") == db_type
 
-    def test_fail_on_multiple_drivers(self):
-        bad_db_uri_strings = ["mysql+pymsql+pyodbc://..."]
-        self._db_uri_error(bad_db_uri_strings, r"Invalid database URI")
+
+@pytest.mark.parametrize(
+    "db_uri",
+    [
+        "oracle://...",
+        "oracle+cx_oracle://...",
+        "snowflake://...",
+        "://...",
+        "abcdefg",
+    ],
+)
+def test_fail_on_unsupported_db_type(db_uri):
+    with pytest.raises(MlflowException, match=r"Invalid database engine"):
+        extract_db_type_from_uri(db_uri)
+
+
+def test_fail_on_multiple_drivers():
+    with pytest.raises(MlflowException, match=r"Invalid database URI"):
+        extract_db_type_from_uri("mysql+pymsql+pyodbc://...")
 
 
 class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
@@ -141,14 +149,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         return self._run_factory()
 
     def _setup_db_uri(self):
-        if _TRACKING_URI_ENV_VAR in os.environ:
+        if uri := MLFLOW_TRACKING_URI.get():
             self.temp_dbfile = None
-            self.db_url = os.getenv(_TRACKING_URI_ENV_VAR)
+            self.db_url = uri
         else:
             fd, self.temp_dbfile = tempfile.mkstemp()
             # Close handle immediately so that we can remove the file later on in Windows
             os.close(fd)
-            self.db_url = "{}{}".format(DB_URI, self.temp_dbfile)
+            self.db_url = f"{DB_URI}{self.temp_dbfile}"
 
     def setUp(self):
         self._setup_db_uri()
@@ -1807,7 +1815,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             [r1, r2],
         ) == sorted(self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.status = '{}'".format(RunStatus.to_string(RunStatus.RUNNING))
+        filter_string = f"attribute.status = '{RunStatus.to_string(RunStatus.RUNNING)}'"
         assert sorted(
             [r1, r2],
         ) == sorted(self._search([e1, e2], filter_string))
@@ -1870,22 +1878,22 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = f"attribute.artifact_uri LIKE '%{r1}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[:16])
+        filter_string = f"attribute.artifact_uri LIKE '%{r1[:16]}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[-16:])
+        filter_string = f"attribute.artifact_uri LIKE '%{r1[-16:]}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1.upper())
+        filter_string = f"attribute.artifact_uri LIKE '%{r1.upper()}%'"
         assert self._search([e1, e2], filter_string) == []
 
-        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1.upper())
+        filter_string = f"attribute.artifact_uri ILIKE '%{r1.upper()}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
-        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[:16].upper())
+        filter_string = f"attribute.artifact_uri ILIKE '%{r1[:16].upper()}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
-        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[-16:].upper())
+        filter_string = f"attribute.artifact_uri ILIKE '%{r1[-16:].upper()}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
         for k, v in {"experiment_id": e1, "lifecycle_stage": "ACTIVE"}.items():
@@ -2253,14 +2261,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             filter_string="dataset.name = 'name1'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id2, run_id1}
+        assert {r.info.run_id for r in result} == {run_id2, run_id1}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="dataset.digest = 'digest2'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id3, run_id1}
+        assert {r.info.run_id for r in result} == {run_id3, run_id1}
 
         result = self.store.search_runs(
             [exp_id],
@@ -2274,70 +2282,70 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             filter_string="dataset.context = 'train'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id2, run_id1}
+        assert {r.info.run_id for r in result} == {run_id2, run_id1}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="dataset.context = 'test'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id3}
+        assert {r.info.run_id for r in result} == {run_id3}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="dataset.context = 'test' and dataset.name = 'name2'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id3}
+        assert {r.info.run_id for r in result} == {run_id3}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="dataset.name = 'name2' and dataset.context = 'test'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id3}
+        assert {r.info.run_id for r in result} == {run_id3}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="datasets.name IN ('name1', 'name2')",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+        assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="datasets.digest IN ('digest1', 'digest2')",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+        assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="datasets.name LIKE 'Name%'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == set()
+        assert {r.info.run_id for r in result} == set()
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="datasets.name ILIKE 'Name%'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+        assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="datasets.context ILIKE 'test%'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id3}
+        assert {r.info.run_id for r in result} == {run_id3}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="datasets.context IN ('test', 'train')",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+        assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
 
     def test_search_datasets(self):
         exp_id1 = self._experiment_factory("test_search_datasets_1")

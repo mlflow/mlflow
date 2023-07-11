@@ -7,6 +7,7 @@ import mlflow
 from mlflow.recipes.utils.execution import get_step_output_path
 from mlflow.tracking import MlflowClient
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+from mlflow.utils.file_utils import chdir
 
 _logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ class ModelArtifact(Artifact):
     def load(self):
         run_id = read_run_id(self._recipe_root)
         if run_id:
-            with _use_tracking_uri(self._tracking_uri, self._recipe_root):
+            with _use_tracking_uri(self._tracking_uri), chdir(self._recipe_root):
                 return mlflow.pyfunc.load_model(f"runs:/{run_id}/{self._step_name}/model")
         log_artifact_not_found_warning(self._name, self._step_name)
         return None
@@ -86,7 +87,7 @@ class TransformerArtifact(Artifact):
     def load(self):
         run_id = read_run_id(self._recipe_root)
         if run_id:
-            with _use_tracking_uri(self._tracking_uri, self._recipe_root):
+            with _use_tracking_uri(self._tracking_uri), chdir(self._recipe_root):
                 return mlflow.sklearn.load_model(f"runs:/{run_id}/{self._step_name}/transformer")
         log_artifact_not_found_warning(self._name, self._step_name)
         return None
@@ -109,7 +110,7 @@ class RunArtifact(Artifact):
     def load(self):
         run_id = read_run_id(self._recipe_root)
         if run_id:
-            with _use_tracking_uri(self._tracking_uri, self._recipe_root):
+            with _use_tracking_uri(self._tracking_uri), chdir(self._recipe_root):
                 return MlflowClient().get_run(run_id)
         log_artifact_not_found_warning(self._name, self._step_name)
         return None
@@ -132,7 +133,7 @@ class ModelVersionArtifact(Artifact):
     def load(self):
         if os.path.exists(self._path):
             registered_model_info = RegisteredModelVersionInfo.from_json(path=self._path)
-            with _use_tracking_uri(self._tracking_uri, self._recipe_root):
+            with _use_tracking_uri(self._tracking_uri), chdir(self._recipe_root):
                 return MlflowClient().get_model_version(
                     name=registered_model_info.name, version=registered_model_info.version
                 )
