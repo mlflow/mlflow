@@ -11,17 +11,17 @@ LangChain (native) format
 .. _LangChain:
     https://python.langchain.com/en/latest/index.html
 """
+import json
 import logging
 import os
 import shutil
 import types
-from packaging import version
 from typing import Any, Dict, List, Optional, Union
 
-import pandas as pd
 import cloudpickle
-import json
+import pandas as pd
 import yaml
+from packaging import version
 
 import mlflow
 from mlflow import pyfunc
@@ -29,6 +29,7 @@ from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
+from mlflow.openai.utils import TEST_CONTENT
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
@@ -53,7 +54,6 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.openai.utils import TEST_CONTENT
 
 logger = logging.getLogger(mlflow.__name__)
 
@@ -390,11 +390,12 @@ def log_model(
     """
     import langchain
     from langchain.chains import (
-        RetrievalQA,
         APIChain,
         HypotheticalDocumentEmbedder,
+        RetrievalQA,
         SQLDatabaseChain,
     )
+
     from mlflow.langchain.retriever_wrapper import RetrieverWrapper
 
     unserializable_object_name_map = {
@@ -495,11 +496,12 @@ def log_model(
 def _save_model(model, path, loader_fn, persist_dir):
     import langchain
     from langchain.chains import (
-        RetrievalQA,
         APIChain,
         HypotheticalDocumentEmbedder,
+        RetrievalQA,
         SQLDatabaseChain,
     )
+
     from mlflow.langchain.retriever_wrapper import RetrieverWrapper
 
     model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
@@ -593,13 +595,14 @@ def _load_model(
     loader_fn_path=None,
     persist_dir=None,
 ):
-    from langchain.chains.loading import load_chain
     from langchain.chains import (
-        RetrievalQA,
         APIChain,
         HypotheticalDocumentEmbedder,
+        RetrievalQA,
         SQLDatabaseChain,
     )
+    from langchain.chains.loading import load_chain
+
     from mlflow.langchain.retriever_wrapper import RetrieverWrapper
 
     unserializable_object_name_map = {
@@ -697,6 +700,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         :return: Model predictions.
         """
         import langchain
+
         from tests.langchain.test_langchain_model_export import _mock_async_request
 
         if isinstance(
