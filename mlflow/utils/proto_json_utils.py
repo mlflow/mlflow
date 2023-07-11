@@ -462,19 +462,7 @@ class _CustomJsonEncoder(json.JSONEncoder):
             return o.isoformat()
 
         if isinstance(o, np.ndarray):
-            return [self.default(v) for v in o]
-
-        if isinstance(o, (np.int64, np.int32)):
-            return int(o)
-
-        if isinstance(o, (np.float64, np.float32)):
-            return float(o)
-
-        if isinstance(o, np.bool_):
-            return bool(o)
-
-        if isinstance(o, np.datetime64):
-            return np.datetime_as_string(o)
+            return o.tolist()
 
         return super().default(o)
 

@@ -677,7 +677,7 @@ def test_sklearn_compatible_with_mlflow_2_4_0(sklearn_knn_model, tmp_path):
     # save test model
     tmp_path.joinpath("MLmodel").write_text(
         """
-artifact_path: test_model
+artifact_path: model
 flavors:
   python_function:
     env:
@@ -698,6 +698,28 @@ run_id: 8146a2ae86104f5b853351e600fc9d7b
 utc_time_created: '2023-07-04 07:19:43.561797'
 """
     )
+    tmp_path.joinpath("python_env.yaml").write_text(
+        """
+python: 3.8.16
+build_dependencies:
+   - pip==23.1.2
+   - setuptools==56.0.0
+   - wheel==0.40.0
+dependencies:
+   - -r requirements.txt    
+"""
+    )
+    tmp_path.joinpath("requirements.txt").write_text(
+        """
+mlflow==2.4
+cloudpickle==2.2.1
+numpy==1.24.4
+psutil==5.9.5
+scikit-learn==1.2.2
+scipy==1.10.1
+"""
+    )
+    # with open(os.path.join(model_path, "model.pkl"), "wb") as out:
     with open(tmp_path / "model.pkl", "wb") as out:
         pickle.dump(model, out, protocol=pickle.DEFAULT_PROTOCOL)
 
@@ -729,7 +751,7 @@ utc_time_created: '2023-07-04 07:19:43.561797'
     ):
         pyfunc_loaded.predict(inference_dataframe, params={"top_k": 2})
 
-    # Raise error if trying to pass params to model logged with mlflow <= 2.4.1 for model serving
+    # Raise error if trying to pass params to model logged with mlflow < 2.5.0 for model serving
     response = pyfunc_serve_and_score_model(
         model_uri,
         data=json.dumps(
@@ -739,6 +761,11 @@ utc_time_created: '2023-07-04 07:19:43.561797'
         extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 400
+    assert (
+        "`params` can only be specified at inference time if the model "
+        "signature defines a params schema."
+        in json.loads(response.content.decode("utf-8"))["message"]
+    )
 
 
 def test_log_model_with_code_paths(sklearn_knn_model):

@@ -569,7 +569,9 @@ def test_serving_model_with_param_schema(sklearn_model, model_path):
         "dataframe_split": pd.DataFrame(sklearn_model.inference_data).to_dict(orient="split")
     }
     signature = infer_signature(sklearn_model.inference_data)
-    param_schema = ParamSchema([ParamSpec("param1", DataType.datetime, np.datetime64("20230701"))])
+    param_schema = ParamSchema(
+        [ParamSpec("param1", DataType.datetime, np.datetime64("2023-07-01"))]
+    )
     signature.params = param_schema
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path, signature=signature)
 

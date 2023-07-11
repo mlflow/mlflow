@@ -2664,7 +2664,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         self,
         deployment_name=None,
         inputs=None,
-        endpoint=None,
+        endpoint=None,  # pylint: disable=unused-argument
         params: Optional[Dict[str, Any]] = None,
     ):
         """

@@ -1207,6 +1207,8 @@ def test_param_spec_errors():
         ParamSpec("a", DataType.datetime, 1.0)
     with pytest.raises(MlflowException, match=r"Failed to convert value"):
         ParamSpec("a", DataType.datetime, [1.0, 2.0], (-1,))
+    with pytest.raises(MlflowException, match=r"Invalid value for param 'a'"):
+        ParamSpec("a", DataType.datetime, np.datetime64("20230606"))
 
     # Raise error if shape is not specified for list value
     with pytest.raises(
@@ -1368,6 +1370,19 @@ def test_enforce_schema_in_python_model_predict():
     ] == np.datetime64("2023-06-26 00:00:00")
 
     # Test model serving
+    # params in payload should be json serializable
+    test_params = {
+        "str_param": "str_a",
+        "int_param": 1,
+        "bool_param": True,
+        "double_param": 1.0,
+        "float_param": 0.1,
+        "long_param": 100,
+        "datetime_param": datetime.datetime(2023, 6, 6, 0, 0, 0),
+        "str_list": ["a", "b", "c"],
+        "bool_list": [True, False],
+        "double_array": np.array([1.0, 2.0]),
+    }
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=dump_input_data(["a", "b"], params=test_params),
@@ -1380,11 +1395,14 @@ def test_enforce_schema_in_python_model_predict():
         if param == "double_array":
             assert (prediction[param] == value).all()
         elif param == "datetime_param":
-            assert prediction[param] == np.datetime_as_string(value)
+            assert prediction[param] == value.isoformat()
         else:
             assert prediction[param] == value
 
     # Test invalid params for model serving
+    with pytest.raises(TypeError, match=r"Object of type int32 is not JSON serializable"):
+        dump_input_data(["a", "b"], params={"int_param": np.int32(1)})
+
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=dump_input_data(["a", "b"], params={"double_param": "invalid"}),
@@ -1421,11 +1439,11 @@ def test_enforce_schema_with_arrays_in_python_model_predict():
     class TestPythonModelSimple(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
             assert isinstance(params, dict)
-            assert all(DataType.is_instance(x, DataType.integer) for x in params["int_array"])
-            assert all(DataType.is_instance(x, DataType.double) for x in params["double_array"])
-            assert all(DataType.is_instance(x, DataType.float) for x in params["float_array"])
-            assert all(DataType.is_instance(x, DataType.long) for x in params["long_array"])
-            assert all(isinstance(x, np.datetime64) for x in params["datetime_array"])
+            assert all(DataType.is_integer(x) for x in params["int_array"])
+            assert all(DataType.is_double(x) for x in params["double_array"])
+            assert all(DataType.is_float(x) for x in params["float_array"])
+            assert all(DataType.is_long(x) for x in params["long_array"])
+            assert all(DataType.is_datetime(x) for x in params["datetime_array"])
             return params
 
     signature = infer_signature(["input1"], params=params)

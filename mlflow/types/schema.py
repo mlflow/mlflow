@@ -540,7 +540,13 @@ class ParamSpec:
 
         if dtype == DataType.datetime:
             try:
-                return np.datetime64(value).item()
+                datetime_value = np.datetime64(value).item()
+                if isinstance(datetime_value, int):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid value for param {name}, it should "
+                        f"be convertible to datetime.date/datetime, got {value}"
+                    )
+                return datetime_value
             except ValueError as e:
                 raise MlflowException.invalid_parameter_value(
                     f"Failed to convert value {value} from type {type(value).__name__} "

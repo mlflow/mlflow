@@ -377,7 +377,7 @@ def _validate_params(params, model_metadata):
             raise MlflowException.invalid_parameter_value(
                 "This model was not logged with a params schema and does not support "
                 "providing the params argument."
-                "Please log the model with mlflow > 2.4.1 and specify a params schema.",
+                "Please log the model with mlflow >= 2.5.0 and specify a params schema.",
             )
     return
 
