@@ -144,32 +144,31 @@ def _decode_json_input(json_input):
     :return: A dictionary representation of the JSON input.
     """
     if isinstance(json_input, dict):
-        decoded_input = json_input
-    else:
-        try:
-            decoded_input = json.loads(json_input)
-        except json.decoder.JSONDecodeError as ex:
-            raise MlflowException(
-                message=(
-                    "Failed to parse input from JSON. Ensure that input is a valid JSON"
-                    f" formatted string. Error: '{ex}'. Input: \n{json_input}\n"
-                ),
-                error_code=BAD_REQUEST,
-            )
+        return json_input
+
+    try:
+        decoded_input = json.loads(json_input)
+    except json.decoder.JSONDecodeError as ex:
+        raise MlflowException(
+            message=(
+                "Failed to parse input from JSON. Ensure that input is a valid JSON"
+                f" formatted string. Input: \n{json_input}\n"
+            ),
+            error_code=BAD_REQUEST,
+        ) from ex
 
     if isinstance(decoded_input, dict):
         return decoded_input
     if isinstance(decoded_input, list):
-        message = "Received a list"
         raise MlflowException(
-            message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
+            message=f"{REQUIRED_INPUT_FORMAT}. Received a list. {SCORING_PROTOCOL_CHANGE_INFO}",
             error_code=BAD_REQUEST,
         )
-    else:
-        message = f"Received unexpected input type '{type(decoded_input)}'"
-        raise MlflowException(
-            message=f"{REQUIRED_INPUT_FORMAT}. {message}.", error_code=BAD_REQUEST
-        )
+
+    raise MlflowException(
+        message=f"{REQUIRED_INPUT_FORMAT}. Received unexpected input type '{type(decoded_input)}.",
+        error_code=BAD_REQUEST,
+    )
 
 
 def _split_data_and_params(json_input):
@@ -197,9 +196,8 @@ def infer_and_parse_data(data, schema: Schema = None):
     if input_format in (INSTANCES, INPUTS):
         return parse_tf_serving_input(data, schema=schema)
 
-    elif input_format in (DF_SPLIT, DF_RECORDS):
-        # NB: skip the dataframe_ prefix
-        pandas_orient = input_format[10:]
+    if input_format in (DF_SPLIT, DF_RECORDS):
+        pandas_orient = input_format[10:]  # skip the dataframe_ prefix
         return dataframe_from_parsed_json(
             data[input_format], pandas_orient=pandas_orient, schema=schema
         )
