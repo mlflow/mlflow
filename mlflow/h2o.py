@@ -10,6 +10,7 @@ H20 (native) format
 import os
 import warnings
 import yaml
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow import pyfunc
@@ -269,7 +270,18 @@ class _H2OModelWrapper:
     def __init__(self, h2o_model):
         self.h2o_model = h2o_model
 
-    def predict(self, dataframe):
+    def predict(
+        self, dataframe, params: Optional[Dict[str, Any]] = None
+    ):  # pylint: disable=unused-argument
+        """
+        :param dataframe: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         import h2o
 
         predicted = self.h2o_model.predict(h2o.H2OFrame(dataframe)).as_data_frame()

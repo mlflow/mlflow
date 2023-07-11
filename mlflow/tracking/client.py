@@ -48,11 +48,11 @@ from mlflow.utils.mlflow_tags import (
 )
 
 if TYPE_CHECKING:
-    import pandas  # pylint: disable=unused-import
-    import matplotlib  # pylint: disable=unused-import
-    import plotly  # pylint: disable=unused-import
-    import numpy  # pylint: disable=unused-import
-    import PIL  # pylint: disable=unused-import
+    import pandas
+    import matplotlib
+    import plotly
+    import numpy
+    import PIL
 
 _logger = logging.getLogger(__name__)
 
@@ -2524,6 +2524,60 @@ class MlflowClient:
 
     # Model Version Methods
 
+    def _create_model_version(
+        self,
+        name: str,
+        source: str,
+        run_id: Optional[str] = None,
+        tags: Optional[Dict[str, Any]] = None,
+        run_link: Optional[str] = None,
+        description: Optional[str] = None,
+        await_creation_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        local_model_path: Optional[str] = None,
+    ) -> ModelVersion:
+        tracking_uri = self._tracking_client.tracking_uri
+        if (
+            not run_link
+            and is_databricks_uri(tracking_uri)
+            and tracking_uri != self._registry_uri
+            and not is_databricks_unity_catalog_uri(self._registry_uri)
+        ):
+            if not run_id:
+                eprint(
+                    "Warning: no run_link will be recorded with the model version "
+                    "because no run_id was given"
+                )
+            else:
+                run_link = get_databricks_run_url(tracking_uri, run_id)
+        new_source = source
+        if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
+            # Print out some info for user since the copy may take a while for large models.
+            eprint(
+                "=== Copying model files from the source location to the model"
+                + " registry workspace ==="
+            )
+            new_source = _upload_artifacts_to_databricks(
+                source, run_id, tracking_uri, self._registry_uri
+            )
+            # NOTE: we can't easily delete the target temp location due to the async nature
+            # of the model version creation - printing to let the user know.
+            eprint(
+                "=== Source model files were copied to %s" % new_source
+                + " in the model registry workspace. You may want to delete the files once the"
+                + " model version is in 'READY' status. You can also find this location in the"
+                + " `source` field of the created model version. ==="
+            )
+        return self._get_registry_client().create_model_version(
+            name=name,
+            source=new_source,
+            run_id=run_id,
+            tags=tags,
+            run_link=run_link,
+            description=description,
+            await_creation_for=await_creation_for,
+            local_model_path=local_model_path,
+        )
+
     def create_model_version(
         self,
         name: str,
@@ -2596,41 +2650,9 @@ class MlflowClient:
             Status: READY
             Stage: None
         """
-        tracking_uri = self._tracking_client.tracking_uri
-        if (
-            not run_link
-            and is_databricks_uri(tracking_uri)
-            and tracking_uri != self._registry_uri
-            and not is_databricks_unity_catalog_uri(self._registry_uri)
-        ):
-            if not run_id:
-                eprint(
-                    "Warning: no run_link will be recorded with the model version "
-                    "because no run_id was given"
-                )
-            else:
-                run_link = get_databricks_run_url(tracking_uri, run_id)
-        new_source = source
-        if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
-            # Print out some info for user since the copy may take a while for large models.
-            eprint(
-                "=== Copying model files from the source location to the model"
-                + " registry workspace ==="
-            )
-            new_source = _upload_artifacts_to_databricks(
-                source, run_id, tracking_uri, self._registry_uri
-            )
-            # NOTE: we can't easily delete the target temp location due to the async nature
-            # of the model version creation - printing to let the user know.
-            eprint(
-                "=== Source model files were copied to %s" % new_source
-                + " in the model registry workspace. You may want to delete the files once the"
-                + " model version is in 'READY' status. You can also find this location in the"
-                + " `source` field of the created model version. ==="
-            )
-        return self._get_registry_client().create_model_version(
+        return self._create_model_version(
             name=name,
-            source=new_source,
+            source=source,
             run_id=run_id,
             tags=tags,
             run_link=run_link,
