@@ -248,10 +248,6 @@ def test_log_model_call_register_model_to_uc(configure_client_for_uc, sklearn_lo
         creation_timestamp=123,
         status=ModelVersionStatus.to_string(ModelVersionStatus.READY),
     )
-    # mock_uc_store = mock.MagicMock(autospec=UcModelRegistryStore)
-    # mock_uc_store.create_model_version = mock.create_autospec(
-    #     UcModelRegistryStore.create_model_version
-    # )
     with mock.patch.object(UcModelRegistryStore, "create_registered_model"), mock.patch.object(
         UcModelRegistryStore, "create_model_version", return_value=mock_model_version, autospec=True
     ) as mock_create_mv, TempDir(chdr=True, remove_on_exit=True) as tmp:
@@ -268,7 +264,7 @@ def test_log_model_call_register_model_to_uc(configure_client_for_uc, sklearn_lo
             run_id = active_run.info.run_id
             [(args, kwargs)] = mock_create_mv.call_args_list
             expected_source = os.path.join(active_run.info.artifact_uri, artifact_path)
-            assert args == ("AdsModel1", expected_source, run_id, [], None, None)
+            assert args[1:] == ("AdsModel1", expected_source, run_id, [], None, None)
             assert kwargs["local_model_path"].startswith(tempfile.gettempdir())
 
 
