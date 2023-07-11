@@ -26,6 +26,7 @@ from packaging import version
 import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import _MLFLOW_TESTING
+from mlflow.langchain.retriever_wrapper import RetrieverWrapper
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
@@ -102,6 +103,23 @@ def get_default_conda_env():
              :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
+
+
+def _get_map_of_special_chain_class_name_to_kwargs_name():
+    from langchain.chains import (
+        APIChain,
+        HypotheticalDocumentEmbedder,
+        RetrievalQA,
+        SQLDatabaseChain,
+    )
+
+    return {
+        RetrievalQA.__name__: "retriever",
+        APIChain.__name__: "requests_wrapper",
+        HypotheticalDocumentEmbedder.__name__: "embeddings",
+        SQLDatabaseChain.__name__: "database",
+        RetrieverWrapper.__name__: "retriever",
+    }
 
 
 @experimental
@@ -389,22 +407,8 @@ def log_model(
              metadata of the logged model.
     """
     import langchain
-    from langchain.chains import (
-        APIChain,
-        HypotheticalDocumentEmbedder,
-        RetrievalQA,
-        SQLDatabaseChain,
-    )
 
-    from mlflow.langchain.retriever_wrapper import RetrieverWrapper
-
-    unserializable_object_name_map = {
-        RetrievalQA.__name__: "retriever",
-        APIChain.__name__: "requests_wrapper",
-        HypotheticalDocumentEmbedder.__name__: "embeddings",
-        SQLDatabaseChain.__name__: "database",
-        RetrieverWrapper.__name__: "retriever_wrapper",
-    }
+    special_chains = _get_map_of_special_chain_class_name_to_kwargs_name()
 
     if not isinstance(
         lc_model, (langchain.chains.base.Chain, langchain.agents.agent.AgentExecutor)
@@ -432,17 +436,8 @@ def log_model(
             type(lc_model.agent.llm_chain.llm).__name__,
         )
 
-    if isinstance(
-        lc_model,
-        (
-            RetrievalQA,
-            APIChain,
-            HypotheticalDocumentEmbedder,
-            SQLDatabaseChain,
-            RetrieverWrapper,
-        ),
-    ):
-        if isinstance(lc_model, RetrievalQA) and version.parse(
+    if type(lc_model).__name__ in special_chains:
+        if isinstance(lc_model, langchain.chains.RetrievalQA) and version.parse(
             langchain.__version__
         ) < version.parse("0.0.194"):
             raise mlflow.MlflowException.invalid_parameter_value(
@@ -458,8 +453,8 @@ def log_model(
             )
         if not isinstance(loader_fn, types.FunctionType):
             raise mlflow.MlflowException.invalid_parameter_value(
-                "The `loader_fn` must be a function that retruns a {unserializable_object}.".format(
-                    unserializable_object=unserializable_object_name_map[type(lc_model).__name__]
+                "The `loader_fn` must be a function that returns a {kwargs}.".format(
+                    kwargs=special_chains[type(lc_model).__name__]
                 )
             )
 
@@ -495,17 +490,11 @@ def log_model(
 
 def _save_model(model, path, loader_fn, persist_dir):
     import langchain
-    from langchain.chains import (
-        APIChain,
-        HypotheticalDocumentEmbedder,
-        RetrievalQA,
-        SQLDatabaseChain,
-    )
-
-    from mlflow.langchain.retriever_wrapper import RetrieverWrapper
 
     model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
     model_data_kwargs = {_MODEL_DATA_KEY: _MODEL_DATA_FILE_NAME}
+
+    special_chains = _get_map_of_special_chain_class_name_to_kwargs_name()
 
     if isinstance(model, langchain.chains.llm.LLMChain):
         model.save(model_data_path)
@@ -537,16 +526,7 @@ def _save_model(model, path, loader_fn, persist_dir):
 
         model_data_kwargs[_AGENT_PRIMITIVES_DATA_KEY] = _AGENT_PRIMITIVES_FILE_NAME
 
-    elif isinstance(
-        model,
-        (
-            RetrievalQA,
-            APIChain,
-            HypotheticalDocumentEmbedder,
-            SQLDatabaseChain,
-            RetrieverWrapper,
-        ),
-    ):
+    elif type(model).__name__ in special_chains:
         # Save loader_fn by pickling
         loader_fn_path = os.path.join(path, _LOADER_FN_FILE_NAME)
         with open(loader_fn_path, "wb") as f:
@@ -595,26 +575,12 @@ def _load_model(
     loader_fn_path=None,
     persist_dir=None,
 ):
-    from langchain.chains import (
-        APIChain,
-        HypotheticalDocumentEmbedder,
-        RetrievalQA,
-        SQLDatabaseChain,
-    )
     from langchain.chains.loading import load_chain
 
-    from mlflow.langchain.retriever_wrapper import RetrieverWrapper
-
-    unserializable_object_name_map = {
-        RetrievalQA.__name__: "retriever",
-        APIChain.__name__: "requests_wrapper",
-        HypotheticalDocumentEmbedder.__name__: "embeddings",
-        SQLDatabaseChain.__name__: "database",
-        RetrieverWrapper.__name__: "retriever",
-    }
+    special_chains = _get_map_of_special_chain_class_name_to_kwargs_name()
 
     model = None
-    if key := unserializable_object_name_map.get(model_type):
+    if key := special_chains.get(model_type):
         if loader_fn_path is None:
             raise mlflow.MlflowException.invalid_parameter_value(
                 "Missing file for loader_fn which is required to build the model."
@@ -708,7 +674,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
             (
                 langchain.chains.llm.LLMChain,
                 langchain.chains.RetrievalQA,
-                mlflow.langchain.retriever_wrapper.RetrieverWrapper,
+                RetrieverWrapper,
             ),
         ):
             mockContent = TEST_CONTENT
