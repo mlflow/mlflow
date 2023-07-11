@@ -47,7 +47,7 @@ def test_is_valid_endpoint_name(name, expected):
 
 def test_check_configuration_route_name_collisions():
     config = {"routes": [{"name": "name1"}, {"name": "name2"}, {"name": "name1"}]}
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="Duplicate names found in route configurations"):
         check_configuration_route_name_collisions(config)
 
 
@@ -88,7 +88,7 @@ def test_set_gateway_uri(monkeypatch):
     assert mlflow.gateway.utils._gateway_uri == valid_uri
 
     invalid_uri = "localhost"
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="The gateway uri provided is missing required"):
         set_gateway_uri(invalid_uri)
 
 
@@ -96,7 +96,7 @@ def test_get_gateway_uri(monkeypatch):
     monkeypatch.setattr("mlflow.gateway.utils._gateway_uri", None)
     monkeypatch.setattr("mlflow.gateway.envs.MLFLOW_GATEWAY_URI.get", lambda: None)
 
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="No Gateway server uri has been set"):
         get_gateway_uri()
 
     valid_uri = "http://localhost"
@@ -120,13 +120,11 @@ def test_get_gateway_uri(monkeypatch):
     ],
 )
 def test_search_routes_token(index, should_raise):
+    token = SearchRoutesToken(index)
+    encoded_token = token.encode()
     if should_raise:
-        with pytest.raises(MlflowException):
-            token = SearchRoutesToken(index)
-            encoded_token = token.encode()
+        with pytest.raises(MlflowException, match="Invalid SearchRoutes token"):
             SearchRoutesToken.decode(encoded_token)
     else:
-        token = SearchRoutesToken(index)
-        encoded_token = token.encode()
         decoded_token = SearchRoutesToken.decode(encoded_token)
         assert decoded_token.index == token.index
