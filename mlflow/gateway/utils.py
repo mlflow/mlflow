@@ -96,10 +96,13 @@ def assemble_uri_path(paths: List[str]) -> str:
     :return: A string representing the complete assembled URI path.
     """
     stripped_paths = [path.strip("/").lstrip("/") for path in paths if path]
-    return "/" + posixpath.join(*stripped_paths)
+    if stripped_paths:
+        return "/" + posixpath.join(*stripped_paths)
+    else:
+        return "/"
 
 
-def assemble_url(base_url: str, route: str) -> str:
+def join_url(base_url: str, route: str) -> str:
     """
     Joins a base URL and a route to form a complete URL.
 
@@ -124,16 +127,16 @@ class SearchRoutesToken:
         try:
             decoded_token = base64.b64decode(encoded_token)
             parsed_token = json.loads(decoded_token)
+            index = int(parsed_token.get("index"))
         except Exception as e:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid SearchRoutes token: {encoded_token}"
             ) from e
 
-        index = parsed_token.get("index")
         if index is None or index < 0:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid SearchRoutes token: {encoded_token}"
-            ) from e
+            )
 
         return cls(index=index)
 
