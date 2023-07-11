@@ -1847,6 +1847,9 @@ def test_infer_signature_from_example_only(
             assert set(saved_example[0].keys()).intersection(example.keys()) == set(
                 saved_example[0].keys()
             )
+        assert model.saved_input_example_info["type"] == "dataframe"
+        orient = "split" if pipeline_name == "zero_shot_pipeline" else "values"
+        assert model.saved_input_example_info["pandas_orient"] == orient
     else:
         assert model.saved_input_example_info is None
 
