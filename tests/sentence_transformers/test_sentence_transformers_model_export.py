@@ -15,7 +15,6 @@ from mlflow import pyfunc
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.environment import _mlflow_conda_env
 from pyspark.sql import SparkSession
 from pyspark.sql.types import ArrayType, DoubleType
@@ -25,6 +24,7 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
     _mlflow_major_version_string,
     pyfunc_serve_and_score_model,
+    assert_register_model_called_with_local_model_path,
 )
 
 
@@ -143,7 +143,7 @@ def test_load_from_remote_uri(model_path, basic_model, mock_s3_bucket):
 
 def test_log_model_calls_register_model(tmp_path, basic_model):
     artifact_path = "sentence_transformer"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(
@@ -156,16 +156,16 @@ def test_log_model_calls_register_model(tmp_path, basic_model):
             registered_model_name="My super cool encoder",
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        mlflow.register_model.assert_called_once_with(
-            model_uri,
-            "My super cool encoder",
-            await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        assert_register_model_called_with_local_model_path(
+            register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
+            model_uri=model_uri,
+            registered_model_name="My super cool encoder",
         )
 
 
 def test_log_model_with_no_registered_model_name(tmp_path, basic_model):
     artifact_path = "sentence_transformer"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(
@@ -176,7 +176,7 @@ def test_log_model_with_no_registered_model_name(tmp_path, basic_model):
             artifact_path=artifact_path,
             conda_env=str(conda_env),
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
 def test_log_with_pip_requirements(tmp_path, basic_model):
