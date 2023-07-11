@@ -1,3 +1,4 @@
+from typing import List
 import os
 import shutil
 import langchain
@@ -7,9 +8,11 @@ import transformers
 import json
 import importlib
 import sqlite3
+import numpy as np
 
-
+from langchain.embeddings.base import Embeddings
 import openai
+from pydantic import BaseModel
 from contextlib import contextmanager
 from packaging import version
 from langchain import SQLDatabase
@@ -38,6 +41,7 @@ from pyspark.sql import SparkSession
 from typing import Any, List, Mapping, Optional, Dict
 from tests.helper_functions import pyfunc_serve_and_score_model
 from mlflow.exceptions import MlflowException
+from mlflow.langchain.retriever_wrapper import RetrieverWrapper
 from mlflow.openai.utils import (
     _mock_chat_completion_response,
     _mock_request,
@@ -378,6 +382,103 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
     assert (
         PredictionsResponse.from_json(response.content.decode("utf-8")) == langchain_output_serving
     )
+
+
+# Define a special embedding for testing
+class DeterministicDummyEmbeddings(Embeddings, BaseModel):
+    size: int
+
+    def _get_embedding(self, text: str) -> List[float]:
+        seed = abs(hash(text)) % (10**8)
+        np.random.seed(seed)
+        return list(np.random.normal(size=self.size))
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        return [self._get_embedding(t) for t in texts]
+
+    def embed_query(self, text: str) -> List[float]:
+        return self._get_embedding(text)
+
+
+def test_log_and_load_retriever_wrapper(tmp_path):
+    # Create the vector db, persist the db to a local fs folder
+    loader = TextLoader("tests/langchain/state_of_the_union.txt")
+    documents = loader.load()
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    docs = text_splitter.split_documents(documents)
+    embeddings = DeterministicDummyEmbeddings(size=5)
+    db = FAISS.from_documents(docs, embeddings)
+    persist_dir = str(tmp_path / "faiss_index")
+    db.save_local(persist_dir)
+
+    # Create the RetrieverWrapper
+    retriever_wrapper = RetrieverWrapper(retriever=db.as_retriever())
+
+    # Log the RetrieverWrapper
+    def load_retriever(persist_directory):
+        # pylint: disable=lazy-builtin-import
+        from typing import List
+
+        # pylint: enable=lazy-builtin-import
+        import numpy as np
+        from pydantic import BaseModel
+        from langchain.embeddings.base import Embeddings
+
+        class DeterministicDummyEmbeddings(Embeddings, BaseModel):
+            size: int
+
+            def _get_embedding(self, text: str) -> List[float]:
+                if isinstance(text, np.ndarray):
+                    text = text.item()
+                seed = abs(hash(text)) % (10**8)
+                np.random.seed(seed)
+                return list(np.random.normal(size=self.size))
+
+            def embed_documents(self, texts: List[str]) -> List[List[float]]:
+                return [self._get_embedding(t) for t in texts]
+
+            def embed_query(self, text: str) -> List[float]:
+                return self._get_embedding(text)
+
+        embeddings = DeterministicDummyEmbeddings(size=5)
+        vectorstore = FAISS.load_local(persist_directory, embeddings)
+        return vectorstore.as_retriever()
+
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(
+            retriever_wrapper,
+            "retrieval_qa_chain",
+            loader_fn=load_retriever,
+            persist_dir=persist_dir,
+        )
+
+    # Remove the persist_dir
+    shutil.rmtree(persist_dir)
+
+    # Load the RetrieverWrapper
+    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
+    assert loaded_model == retriever_wrapper
+
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+    query = "What did the president say about Ketanji Brown Jackson"
+    langchain_input = {"query": query}
+    result = loaded_pyfunc_model.predict([langchain_input])
+    expected_result = db.as_retriever().get_relevant_documents(query)
+    assert result == [expected_result]
+
+    # RetrieverWrapper is not servable since it returns Document objects
+    inference_payload = json.dumps({"inputs": langchain_input})
+    response = pyfunc_serve_and_score_model(
+        logged_model.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    with pytest.raises(
+        MlflowException,
+        match="Predictions response contents are not valid JSON",
+    ):
+        PredictionsResponse.from_json(response.content.decode("utf-8"))
 
 
 def load_requests_wrapper(_):

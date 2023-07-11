@@ -395,12 +395,14 @@ def log_model(
         HypotheticalDocumentEmbedder,
         SQLDatabaseChain,
     )
+    from mlflow.langchain.retriever_wrapper import RetrieverWrapper
 
     unserializable_object_name_map = {
         RetrievalQA.__name__: "retriever",
         APIChain.__name__: "requests_wrapper",
         HypotheticalDocumentEmbedder.__name__: "embeddings",
         SQLDatabaseChain.__name__: "database",
+        RetrieverWrapper.__name__: "retriever_wrapper",
     }
 
     if not isinstance(
@@ -436,6 +438,7 @@ def log_model(
             APIChain,
             HypotheticalDocumentEmbedder,
             SQLDatabaseChain,
+            RetrieverWrapper,
         ),
     ):
         if isinstance(lc_model, RetrievalQA) and version.parse(
@@ -497,6 +500,7 @@ def _save_model(model, path, loader_fn, persist_dir):
         HypotheticalDocumentEmbedder,
         SQLDatabaseChain,
     )
+    from mlflow.langchain.retriever_wrapper import RetrieverWrapper
 
     model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
     model_data_kwargs = {_MODEL_DATA_KEY: _MODEL_DATA_FILE_NAME}
@@ -538,6 +542,7 @@ def _save_model(model, path, loader_fn, persist_dir):
             APIChain,
             HypotheticalDocumentEmbedder,
             SQLDatabaseChain,
+            RetrieverWrapper,
         ),
     ):
         # Save loader_fn by pickling
@@ -595,12 +600,14 @@ def _load_model(
         HypotheticalDocumentEmbedder,
         SQLDatabaseChain,
     )
+    from mlflow.langchain.retriever_wrapper import RetrieverWrapper
 
     unserializable_object_name_map = {
         RetrievalQA.__name__: "retriever",
         APIChain.__name__: "requests_wrapper",
         HypotheticalDocumentEmbedder.__name__: "embeddings",
         SQLDatabaseChain.__name__: "database",
+        RetrieverWrapper.__name__: "retriever",
     }
 
     model = None
@@ -610,7 +617,10 @@ def _load_model(
                 "Missing file for loader_fn which is required to build the model."
             )
         kwargs = {key: _load_from_pickle(loader_fn_path, persist_dir)}
-        model = load_chain(path, **kwargs)
+        if model_type == RetrieverWrapper.__name__:
+            model = RetrieverWrapper.load(path, **kwargs)
+        else:
+            model = load_chain(path, **kwargs)
     elif agent_path is None and tools_path is None:
         model = load_chain(path)
     else:
@@ -689,7 +699,14 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         import langchain
         from tests.langchain.test_langchain_model_export import _mock_async_request
 
-        if isinstance(self.lc_model, (langchain.chains.llm.LLMChain, langchain.chains.RetrievalQA)):
+        if isinstance(
+            self.lc_model,
+            (
+                langchain.chains.llm.LLMChain,
+                langchain.chains.RetrievalQA,
+                mlflow.langchain.retriever_wrapper.RetrieverWrapper,
+            ),
+        ):
             mockContent = TEST_CONTENT
         elif isinstance(self.lc_model, langchain.agents.agent.AgentExecutor):
             mockContent = f"Final Answer: {TEST_CONTENT}"
