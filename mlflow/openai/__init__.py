@@ -527,8 +527,8 @@ class _OpenAIWrapper:
             return data[self.variables].to_dict(orient="records")
 
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None
-    ):  # pylint: disable=unused-argument
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
         """
         :param data: Model input data.
         :param params: Additional parameters to pass to the model for inference.
@@ -572,8 +572,8 @@ class _TestOpenAIWrapper(_OpenAIWrapper):
     """
 
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None
-    ):  # pylint: disable=unused-argument
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
         """
         :param data: Model input data.
         :param params: Additional parameters to pass to the model for inference.

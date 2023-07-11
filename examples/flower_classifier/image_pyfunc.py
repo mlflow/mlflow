@@ -56,8 +56,8 @@ class KerasImageClassifierPyfunc:
         self._column_names = ["predicted_label", "predicted_label_id"] + probs_names
 
     def predict(
-        self, input, params: Optional[Dict[str, Any]] = None
-    ):  # pylint: disable=unused-argument
+        self, input, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
         """
         Generate predictions for the data.
 

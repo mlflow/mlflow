@@ -430,7 +430,7 @@ class _LangChainModelWrapper:
     def predict(  # pylint: disable=unused-argument
         self,
         data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]],
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ) -> List[str]:
         """
         :param data: Model input data.
@@ -462,8 +462,8 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
     """
 
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None
-    ):  # pylint: disable=unused-argument
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
         """
         :param data: Model input data.
         :param params: Additional parameters to pass to the model for inference.

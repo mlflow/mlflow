@@ -104,8 +104,8 @@ class _GluonModelWrapper:
         self.gluon_model = gluon_model
 
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None
-    ):  # pylint: disable=unused-argument
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
         """
         :param data: Either a pandas DataFrame or a numpy array containing input array values.
                      If the input is a DataFrame, it will be converted to an array first by a

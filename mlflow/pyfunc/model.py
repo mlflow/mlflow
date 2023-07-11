@@ -131,8 +131,11 @@ class _FunctionPythonModel(PythonModel):
         return _extract_type_hints(self.func, input_arg_index=0)
 
     def predict(
-        self, context, model_input, params: Optional[Dict[str, Any]] = None
-    ):  # pylint: disable=unused-argument
+        self,
+        context,  # pylint: disable=unused-argument
+        model_input,
+        params: Optional[Dict[str, Any]] = None,
+    ):
         """
         :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
                         can use to perform inference.

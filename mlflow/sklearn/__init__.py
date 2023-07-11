@@ -500,8 +500,8 @@ class _SklearnModelWrapper:
         self.sklearn_model = sklearn_model
 
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None
-    ):  # pylint: disable=unused-argument
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
         """
         :param data: Model input data.
         :param params: Additional parameters to pass to the model for inference.
@@ -514,8 +514,8 @@ class _SklearnModelWrapper:
         return self.sklearn_model.predict(data)
 
     def predict_proba(
-        self, data, params: Optional[Dict[str, Any]] = None
-    ):  # pylint: disable=unused-argument
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
         """
         :param data: Model input data.
         :param params: Additional parameters to pass to the model for inference.
