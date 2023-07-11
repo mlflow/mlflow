@@ -29,6 +29,7 @@ from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 # dependencies to the minimum here.
 # ALl of the mlflow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
+from mlflow.pyfunc.model import _log_warning_if_params_not_in_predict_signature
 from mlflow.types import Schema
 from mlflow.utils import reraise
 from mlflow.utils.annotations import deprecated
@@ -268,10 +269,9 @@ def invocations(data, content_type, model, input_schema):
     type_parts = list(map(str.strip, content_type.split(";")))
     mime_type = type_parts[0]
     parameter_value_pairs = type_parts[1:]
-    parameter_values = {}
-    for parameter_value_pair in parameter_value_pairs:
-        (key, _, value) = parameter_value_pair.partition("=")
-        parameter_values[key] = value
+    parameter_values = {
+        key: value for pair in parameter_value_pairs for key, _, value in [pair.partition("=")]
+    }
 
     charset = parameter_values.get("charset", "utf-8").lower()
     if charset != "utf-8":
@@ -317,6 +317,7 @@ def invocations(data, content_type, model, input_schema):
             if inspect.signature(model.predict).parameters.get("params"):
                 raw_predictions = model.predict(data, params)
             else:
+                _log_warning_if_params_not_in_predict_signature(_logger, params)
                 raw_predictions = model.predict(data)
         else:
             raw_predictions = model.predict(data)
@@ -409,6 +410,7 @@ def _predict(model_uri, input_path, output_path, content_type):
         if inspect.signature(pyfunc_model.predict).parameters.get("params"):
             raw_predictions = pyfunc_model.predict(df, params)
         else:
+            _log_warning_if_params_not_in_predict_signature(_logger, params)
             raw_predictions = pyfunc_model.predict(df)
     else:
         raw_predictions = pyfunc_model.predict(df)
