@@ -28,7 +28,8 @@ AUTOLOGGING_INTEGRATIONS_TO_TEST = {
     mlflow.xgboost: "xgboost",
     mlflow.lightgbm: "lightgbm",
     mlflow.pytorch: "torch",
-    mlflow.gluon: "mxnet.gluon",
+    # TODO: Remove this after releasing MLflow 2.5.0
+    # mlflow.gluon: "mxnet.gluon",
     mlflow.fastai: "fastai",
     mlflow.statsmodels: "statsmodels",
     mlflow.spark: "pyspark",

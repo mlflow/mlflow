@@ -21,6 +21,7 @@ import weakref
 from collections import defaultdict, OrderedDict
 from copy import deepcopy
 from packaging.version import Version
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow import pyfunc
@@ -489,7 +490,42 @@ def _load_pyfunc(path):
         )
         path = os.path.join(path, pyfunc_flavor_conf["model_path"])
 
-    return _load_model_from_local_file(path=path, serialization_format=serialization_format)
+    return _SklearnModelWrapper(
+        _load_model_from_local_file(path=path, serialization_format=serialization_format)
+    )
+
+
+class _SklearnModelWrapper:
+    def __init__(self, sklearn_model):
+        self.sklearn_model = sklearn_model
+
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
+        return self.sklearn_model.predict(data)
+
+    def predict_proba(
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
+        return self.sklearn_model.predict_proba(data)
 
 
 class _SklearnCustomModelPicklingError(pickle.PicklingError):

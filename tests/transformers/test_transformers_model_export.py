@@ -30,7 +30,6 @@ from mlflow.models.utils import _read_example
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.transformers import (
     _build_pipeline_from_model_input,
     get_default_pip_requirements,
@@ -63,6 +62,7 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     pyfunc_serve_and_score_model,
     _get_deps_from_requirement_file,
+    assert_register_model_called_with_local_model_path,
 )
 
 pytestmark = pytest.mark.large
@@ -927,7 +927,7 @@ def test_load_pipeline_from_remote_uri_succeeds(small_seq2seq_pipeline, model_pa
 
 def test_transformers_log_model_calls_register_model(small_qa_pipeline, tmp_path):
     artifact_path = "transformers"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["transformers", "torch", "torchvision"])
@@ -938,10 +938,10 @@ def test_transformers_log_model_calls_register_model(small_qa_pipeline, tmp_path
             registered_model_name="Question-Answering Model 1",
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        mlflow.register_model.assert_called_once_with(
-            model_uri,
-            "Question-Answering Model 1",
-            await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        assert_register_model_called_with_local_model_path(
+            register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
+            model_uri=model_uri,
+            registered_model_name="Question-Answering Model 1",
         )
 
 
@@ -959,7 +959,7 @@ def test_transformers_log_model_with_no_registered_model_name(small_vision_model
             "tokenizer": small_vision_model.tokenizer,
         }
     artifact_path = "transformers"
-    registered_model_patch = mock.patch("mlflow.register_model")
+    registered_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), registered_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["tensorflow", "transformers"])
@@ -968,7 +968,7 @@ def test_transformers_log_model_with_no_registered_model_name(small_vision_model
             artifact_path=artifact_path,
             conda_env=str(conda_env),
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         model_path = pathlib.Path(_download_artifact_from_uri(artifact_uri=model_uri))
         model_config = Model.load(str(model_path.joinpath("MLmodel")))
@@ -1332,9 +1332,8 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
         ),
     ],
 )
-@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 def test_text2text_generation_pipeline_with_inference_configs(
-    text2text_generation_pipeline, model_path, data, result
+    text2text_generation_pipeline, tmp_path, data, result
 ):
     signature = infer_signature(
         data, mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data)
@@ -1348,13 +1347,14 @@ def test_text2text_generation_pipeline_with_inference_configs(
         "top_p": 0.85,
         "repetition_penalty": 1.15,
     }
+    model_path1 = tmp_path.joinpath("model1")
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
-        path=model_path,
+        path=model_path1,
         inference_config=inference_config,
         signature=signature,
     )
-    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path1)
 
     inference = pyfunc_loaded.predict(data)
 
@@ -1366,6 +1366,88 @@ def test_text2text_generation_pipeline_with_inference_configs(
         pd_input = pd.DataFrame(data)
     pd_inference = pyfunc_loaded.predict(pd_input)
     assert pd_inference == result
+
+    model_path2 = tmp_path.joinpath("model2")
+    signature_with_params = infer_signature(
+        data,
+        mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data),
+        inference_config,
+    )
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline,
+        path=model_path2,
+        signature=signature_with_params,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path2)
+
+    dict_inference = pyfunc_loaded.predict(
+        data,
+        params=inference_config,
+    )
+
+    assert dict_inference == inference
+
+
+def test_text2text_generation_pipeline_with_params(text2text_generation_pipeline, tmp_path):
+    data = "muppet keyboard type"
+    parameters = {"top_k": 2, "num_beams": 5}
+    generated_output = mlflow.transformers.generate_signature_output(
+        text2text_generation_pipeline, data
+    )
+    signature = infer_signature(
+        data,
+        generated_output,
+        parameters,
+    )
+
+    model_path = tmp_path / "model1"
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline,
+        path=model_path,
+        signature=signature,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    pyfunc_loaded.predict(data, parameters)
+
+    parameters.update({"invalid_param": "invalid_param"})
+    model_path = tmp_path / "model2"
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline,
+        path=model_path,
+        signature=infer_signature(
+            data,
+            generated_output,
+            parameters,
+        ),
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    with pytest.raises(
+        MlflowException,
+        match=r"The params provided to the `predict` method are "
+        r"not valid for pipeline Text2TextGenerationPipeline.",
+    ):
+        pyfunc_loaded.predict(data, parameters)
+
+    with pytest.raises(MlflowException, match=r"Invalid parameters found"):
+        pyfunc_loaded.predict(data, {"top_k": "2"})
+
+    model_path = tmp_path / "model3"
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline,
+        model_path,
+        signature=infer_signature(
+            data,
+            generated_output,
+            params={"invalid_param": "value"},
+        ),
+    )
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+    with pytest.raises(
+        MlflowException,
+        match=r"The params provided to the `predict` method are not "
+        r"valid for pipeline Text2TextGenerationPipeline.",
+    ):
+        loaded_pyfunc.predict(data, {"invalid_param": "random_value"})
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
@@ -3357,3 +3439,89 @@ def test_whisper_model_serve_and_score_with_timestamps_with_kwargs(
             "text"
         ]
     )
+
+
+def test_uri_directory_renaming_handling_pipeline(model_path, small_seq2seq_pipeline):
+    with mlflow.start_run():
+        mlflow.transformers.save_model(transformers_model=small_seq2seq_pipeline, path=model_path)
+
+    absolute_model_directory = os.path.join(model_path, "model")
+    renamed_to_old_convention = os.path.join(model_path, "pipeline")
+    os.rename(absolute_model_directory, renamed_to_old_convention)
+
+    # remove the 'model_binary' entries to emulate older versions of MLflow
+    mlmodel_file = os.path.join(model_path, "MLmodel")
+    with open(mlmodel_file) as yaml_file:
+        mlmodel = yaml.safe_load(yaml_file)
+
+    mlmodel["flavors"]["python_function"].pop("model_binary", None)
+    mlmodel["flavors"]["transformers"].pop("model_binary", None)
+
+    with open(mlmodel_file, "w") as yaml_file:
+        yaml.safe_dump(mlmodel, yaml_file)
+
+    loaded_model = mlflow.pyfunc.load_model(model_path)
+
+    prediction = loaded_model.predict("test")
+    assert isinstance(prediction, pd.DataFrame)
+    assert isinstance(prediction["label"][0], str)
+
+
+def test_uri_directory_renaming_handling_components(model_path, small_seq2seq_pipeline):
+    components = {
+        "tokenizer": small_seq2seq_pipeline.tokenizer,
+        "model": small_seq2seq_pipeline.model,
+    }
+
+    with mlflow.start_run():
+        mlflow.transformers.save_model(transformers_model=components, path=model_path)
+
+    absolute_model_directory = os.path.join(model_path, "model")
+    renamed_to_old_convention = os.path.join(model_path, "pipeline")
+    os.rename(absolute_model_directory, renamed_to_old_convention)
+
+    # remove the 'model_binary' entries to emulate older versions of MLflow
+    mlmodel_file = os.path.join(model_path, "MLmodel")
+    with open(mlmodel_file) as yaml_file:
+        mlmodel = yaml.safe_load(yaml_file)
+
+    mlmodel["flavors"]["python_function"].pop("model_binary", None)
+    mlmodel["flavors"]["transformers"].pop("model_binary", None)
+
+    with open(mlmodel_file, "w") as yaml_file:
+        yaml.safe_dump(mlmodel, yaml_file)
+
+    loaded_model = mlflow.pyfunc.load_model(model_path)
+
+    prediction = loaded_model.predict("test")
+    assert isinstance(prediction, pd.DataFrame)
+    assert isinstance(prediction["label"][0], str)
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.2"), reason="Feature does not exist"
+)
+def test_whisper_model_supports_timestamps(raw_audio_file, whisper_pipeline):
+    inference_config = {
+        "return_timestamps": "word",
+        "chunk_length_s": 60,
+        "batch_size": 16,
+    }
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=whisper_pipeline,
+            artifact_path="model",
+            inference_config=inference_config,
+        )
+
+    model_uri = model_info.model_uri
+    whisper = mlflow.transformers.load_model(model_uri)
+
+    prediction = whisper(raw_audio_file, return_timestamps="word")
+    whisper_pyfunc = mlflow.pyfunc.load_model(model_uri)
+    prediction_inference = json.loads(whisper_pyfunc.predict(raw_audio_file)[0])
+
+    first_timestamp = prediction["chunks"][0]["timestamp"]
+    assert isinstance(first_timestamp, tuple)
+    assert prediction_inference["chunks"][0]["timestamp"][1] == first_timestamp[1]

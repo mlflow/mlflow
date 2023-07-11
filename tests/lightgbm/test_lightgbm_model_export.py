@@ -25,7 +25,6 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
@@ -34,6 +33,7 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _compare_logged_code_paths,
     _mlflow_major_version_string,
+    assert_register_model_called_with_local_model_path,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
@@ -181,9 +181,7 @@ def test_model_log(lgb_model, model_path):
                 model_info = mlflow.lightgbm.log_model(
                     lgb_model=model, artifact_path=artifact_path, conda_env=conda_env
                 )
-                model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-                )
+                model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
                 assert model_info.model_uri == model_uri
                 reloaded_model = mlflow.lightgbm.load_model(model_uri=model_uri)
                 np.testing.assert_array_almost_equal(
@@ -204,7 +202,7 @@ def test_model_log(lgb_model, model_path):
 
 def test_log_model_calls_register_model(lgb_model):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["lightgbm"])
@@ -214,24 +212,24 @@ def test_log_model_calls_register_model(lgb_model):
             conda_env=conda_env,
             registered_model_name="AdsModel1",
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
-        mlflow.register_model.assert_called_once_with(
-            model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
+        assert_register_model_called_with_local_model_path(
+            register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
+            model_uri=model_uri,
+            registered_model_name="AdsModel1",
         )
 
 
 def test_log_model_no_registered_model_name(lgb_model):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["lightgbm"])
         mlflow.lightgbm.log_model(
             lgb_model=lgb_model.model, artifact_path=artifact_path, conda_env=conda_env
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
@@ -349,9 +347,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         mlflow.lightgbm.log_model(
             lgb_model=lgb_model.model, artifact_path=artifact_path, conda_env=lgb_custom_env
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -372,9 +368,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(lgb_model, lg
         mlflow.lightgbm.log_model(
             lgb_model=lgb_model.model, artifact_path=artifact_path, conda_env=lgb_custom_env
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")

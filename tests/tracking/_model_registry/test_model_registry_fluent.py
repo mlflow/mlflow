@@ -23,18 +23,19 @@ def test_register_model_with_runs_uri():
     )
     create_version_patch = mock.patch.object(
         MlflowClient,
-        "create_model_version",
+        "_create_model_version",
         return_value=ModelVersion("Model 1", "1", creation_timestamp=123),
     )
     with get_uri_patch, create_model_patch, create_version_patch:
         register_model("runs:/run12345/path/to/model", "Model 1")
         MlflowClient.create_registered_model.assert_called_once_with("Model 1")
-        MlflowClient.create_model_version.assert_called_once_with(
-            "Model 1",
-            "s3:/path/to/source",
-            "run12345",
+        MlflowClient._create_model_version.assert_called_once_with(
+            name="Model 1",
+            source="s3:/path/to/source",
+            run_id="run12345",
             tags=None,
             await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+            local_model_path=None,
         )
 
 
@@ -44,18 +45,19 @@ def test_register_model_with_non_runs_uri():
     )
     create_version_patch = mock.patch.object(
         MlflowClient,
-        "create_model_version",
+        "_create_model_version",
         return_value=ModelVersion("Model 1", "1", creation_timestamp=123),
     )
     with create_model_patch, create_version_patch:
         register_model("s3:/some/path/to/model", "Model 1")
         MlflowClient.create_registered_model.assert_called_once_with("Model 1")
-        MlflowClient.create_model_version.assert_called_once_with(
-            "Model 1",
+        MlflowClient._create_model_version.assert_called_once_with(
+            name="Model 1",
             run_id=None,
             tags=None,
             source="s3:/some/path/to/model",
             await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+            local_model_path=None,
         )
 
 
@@ -68,18 +70,19 @@ def test_register_model_with_existing_registered_model(error_code):
     )
     create_version_patch = mock.patch.object(
         MlflowClient,
-        "create_model_version",
+        "_create_model_version",
         return_value=ModelVersion("Model 1", "1", creation_timestamp=123),
     )
     with create_model_patch, create_version_patch:
         register_model("s3:/some/path/to/model", "Model 1")
         MlflowClient.create_registered_model.assert_called_once_with("Model 1")
-        MlflowClient.create_model_version.assert_called_once_with(
-            "Model 1",
+        MlflowClient._create_model_version.assert_called_once_with(
+            name="Model 1",
             run_id=None,
             source="s3:/some/path/to/model",
             tags=None,
             await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+            local_model_path=None,
         )
 
 
@@ -114,16 +117,17 @@ def test_register_model_with_tags():
     )
     create_version_patch = mock.patch.object(
         MlflowClient,
-        "create_model_version",
+        "_create_model_version",
         return_value=ModelVersion("Model 1", "1", creation_timestamp=123),
     )
     with get_uri_patch, create_model_patch, create_version_patch:
         register_model("runs:/run12345/path/to/model", "Model 1", tags=tags)
         MlflowClient.create_registered_model.assert_called_once_with("Model 1")
-        MlflowClient.create_model_version.assert_called_once_with(
-            "Model 1",
-            "s3:/path/to/source",
-            "run12345",
+        MlflowClient._create_model_version.assert_called_once_with(
+            name="Model 1",
+            source="s3:/path/to/source",
+            run_id="run12345",
             tags=tags,
             await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+            local_model_path=None,
         )

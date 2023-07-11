@@ -736,10 +736,11 @@ _module_version_info_dict_patch = {
         "package_info": {"pip_release": "lightgbm"},
         "autologging": {"minimum": "2.3.1", "maximum": "3.1.0"},
     },
-    "gluon": {
-        "package_info": {"pip_release": "mxnet"},
-        "autologging": {"minimum": "1.5.1", "maximum": "1.7.0.post1"},
-    },
+    # TODO: Remove this after releasing MLflow 2.5.0
+    # "gluon": {
+    #     "package_info": {"pip_release": "mxnet"},
+    #     "autologging": {"minimum": "1.5.1", "maximum": "1.7.0.post1"},
+    # },
     "fastai": {
         "package_info": {"pip_release": "fastai"},
         "autologging": {"minimum": "2.4.1", "maximum": "2.4.1"},
@@ -765,8 +766,9 @@ _module_version_info_dict_patch = {
         ("fastai", "2.4.1", True),
         ("fastai", "2.3.1", False),
         ("fastai", "1.0.60", False),
-        ("gluon", "1.6.1", True),
-        ("gluon", "1.5.0", False),
+        # TODO: Remove this after releasing MLflow 2.5.0
+        # ("gluon", "1.6.1", True),
+        # ("gluon", "1.5.0", False),
         ("keras", "2.2.4", True),
         ("keras", "2.2.3", False),
         ("lightgbm", "2.3.1", True),

@@ -73,7 +73,7 @@ class APIRequest:
     request_json: dict
     results: list[tuple[int, str]]
 
-    def call_api(self, retry_queue: queue.Queue, status_tracker: StatusTracker):
+    def call_api(self, status_tracker: StatusTracker):
         """
         Calls the LangChain API and stores results.
         """
@@ -125,7 +125,6 @@ def process_api_requests(
                 # call API
                 executor.submit(
                     next_request.call_api,
-                    retry_queue=retry_queue,
                     status_tracker=status_tracker,
                 )
                 next_request = None  # reset next_request to empty

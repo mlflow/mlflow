@@ -103,7 +103,6 @@ def test_mlflow_run_example(directory, params, tmp_path):
     ("directory", "command"),
     [
         ("docker", ["docker", "build", "-t", "mlflow-docker-example", "-f", "Dockerfile", "."]),
-        ("gluon", ["python", "train.py"]),
         ("keras", ["python", "train.py"]),
         (
             "lightgbm/lightgbm_native",

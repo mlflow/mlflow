@@ -8,6 +8,7 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.models import ModelInputExample, ModelSignature, Model, infer_pip_requirements
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
@@ -332,7 +333,16 @@ class _SentenceTransformerModelWrapper:
     def __init__(self, model):
         self.model = model
 
-    def predict(self, sentences):
+    def predict(self, sentences, params: Optional[Dict[str, Any]] = None):
+        """
+        :param sentences: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         # When the input is a single string, it is transformed into a DataFrame with one column
         # and row, but the encode function does not accept DataFrame input
         if type(sentences) == pd.DataFrame:
@@ -340,4 +350,11 @@ class _SentenceTransformerModelWrapper:
 
         # The encode API has additional parameters that we can add as kwargs.
         # See https://www.sbert.net/docs/package_reference/SentenceTransformer.html#sentence_transformers.SentenceTransformer.encode
-        return self.model.encode(sentences)  # numpy array
+        if params:
+            try:
+                return self.model.encode(sentences, **params)
+            except TypeError as e:
+                raise MlflowException.invalid_parameter_value(
+                    "Received invalid parameter value for `params` argument"
+                ) from e
+        return self.model.encode(sentences)

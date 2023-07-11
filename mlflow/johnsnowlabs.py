@@ -51,6 +51,7 @@ import posixpath
 import shutil
 import sys
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 import yaml
 
@@ -370,8 +371,8 @@ def _save_model_metadata(
     input_example=None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    remote_model_path=None,
-    store_license=False,
+    remote_model_path=None,  # pylint: disable=unused-argument
+    store_license=False,  # pylint: disable=unused-argument
 ):
     """
     Saves model metadata into the passed-in directory.
@@ -645,7 +646,9 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     return nlp.load(path=local_model_path)
 
 
-def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):
+def load_model(
+    model_uri, dfs_tmpdir=None, dst_path=None, **kwargs
+):  # pylint: disable=unused-argument
     """
     Load the Johnsnowlabs MlFlow model from the path.
 
@@ -836,12 +839,16 @@ class _PyFuncModelWrapper:
         self.spark = spark or _get_or_create_sparksession()
         self.spark_model = spark_model
 
-    def predict(self, text, output_level=""):
+    def predict(self, text, params: Optional[Dict[str, Any]] = None):
         """
         Generate predictions given input data in a pandas DataFrame.
 
-        :param output_level:
         :param text: pandas DataFrame containing input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
         :return: List with model predictions.
         """
+        output_level = params.get("output_level", "") if params else ""
         return self.spark_model.predict(text, output_level=output_level).reset_index().to_json()
