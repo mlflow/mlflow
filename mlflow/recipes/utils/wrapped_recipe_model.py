@@ -17,7 +17,9 @@ class WrappedRecipeModel(PythonModel):
     def load_context(self, context):
         self._classifier = mlflow.sklearn.load_model(context.artifacts["model_path"])
 
-    def predict(self, context, model_input, params: Optional[Dict[str, Any]] = None):
+    def predict(
+        self, context, model_input, params: Optional[Dict[str, Any]] = None
+    ):  # pylint: disable=unused-argument
         """
         :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
                         can use to perform inference.

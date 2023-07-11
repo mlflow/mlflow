@@ -448,7 +448,9 @@ class _PaddleWrapper:
     def __init__(self, pd_model):
         self.pd_model = pd_model
 
-    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None
+    ):  # pylint: disable=unused-argument
         """
         :param data: Model input data.
         :param params: Additional parameters to pass to the model for inference.

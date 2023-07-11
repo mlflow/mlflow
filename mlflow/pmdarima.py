@@ -343,7 +343,9 @@ class _PmdarimaModelWrapper:
         self.pmdarima_model = pmdarima_model
         self._pmdarima_version = pmdarima.__version__
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
+    def predict(
+        self, dataframe, params: Optional[Dict[str, Any]] = None
+    ) -> pd.DataFrame:  # pylint: disable=unused-argument
         """
         :param dataframe: Model input data.
         :param params: Additional parameters to pass to the model for inference.

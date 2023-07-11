@@ -427,7 +427,7 @@ class _LangChainModelWrapper:
     def __init__(self, lc_model):
         self.lc_model = lc_model
 
-    def predict(
+    def predict(  # pylint: disable=unused-argument
         self,
         data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]],
         params: Optional[Dict[str, Any]] = None,
@@ -461,7 +461,9 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
     A wrapper class that should be used for testing purposes only.
     """
 
-    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None
+    ):  # pylint: disable=unused-argument
         """
         :param data: Model input data.
         :param params: Additional parameters to pass to the model for inference.

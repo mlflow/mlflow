@@ -759,7 +759,9 @@ class _TF2Wrapper:
         self.model = model
         self.infer = infer
 
-    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None
+    ):  # pylint: disable=unused-argument
         """
         :param data: Model input data.
         :param params: Additional parameters to pass to the model for inference.
@@ -812,7 +814,9 @@ class _TF2ModuleWrapper:
         self.model = model
         self.signature = signature
 
-    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None
+    ):  # pylint: disable=unused-argument
         """
         :param data: Model input data.
         :param params: Additional parameters to pass to the model for inference.
@@ -842,7 +846,9 @@ class _KerasModelWrapper:
         self.keras_model = keras_model
         self.signature = signature
 
-    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None
+    ):  # pylint: disable=unused-argument
         """
         :param data: Model input data.
         :param params: Additional parameters to pass to the model for inference.

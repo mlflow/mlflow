@@ -465,7 +465,9 @@ class _LGBModelWrapper:
     def __init__(self, lgb_model):
         self.lgb_model = lgb_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
+    def predict(
+        self, dataframe, params: Optional[Dict[str, Any]] = None
+    ):  # pylint: disable=unused-argument
         """
         :param dataframe: Model input data.
         :param params: Additional parameters to pass to the model for inference.

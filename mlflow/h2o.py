@@ -270,7 +270,9 @@ class _H2OModelWrapper:
     def __init__(self, h2o_model):
         self.h2o_model = h2o_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
+    def predict(
+        self, dataframe, params: Optional[Dict[str, Any]] = None
+    ):  # pylint: disable=unused-argument
         """
         :param dataframe: Model input data.
         :param params: Additional parameters to pass to the model for inference.
