@@ -19,13 +19,16 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
 )
+from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 
 
 @pytest.fixture
 def mock_store():
-    with mock.patch("mlflow.tracking._model_registry.utils._get_store") as mock_get_store:
-        yield mock_get_store.return_value
+    mock_store = mock.MagicMock()
+    mock_store.create_model_version = mock.create_autospec(SqlAlchemyStore.create_model_version)
+    with mock.patch("mlflow.tracking._model_registry.utils._get_store", return_value=mock_store):
+        yield mock_store
 
 
 def newModelRegistryClient():
