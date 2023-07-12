@@ -2220,8 +2220,7 @@ def test_extract_raw_model_for_sklearn():
     _, raw_model = _extract_raw_model(pyfunc_model)
     assert raw_model == model_impl
 
-    pyfunc_model = mlflow.pyfunc.PyFuncModel(
-        model_meta=mlflow_model, model_impl=_SklearnModelWrapper(model_impl)
-    )
+    model_impl = _SklearnModelWrapper(model_impl)
+    pyfunc_model = mlflow.pyfunc.PyFuncModel(model_meta=mlflow_model, model_impl=model_impl)
     _, raw_model = _extract_raw_model(pyfunc_model)
     assert raw_model == model_impl
