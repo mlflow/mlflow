@@ -349,3 +349,7 @@ MLFLOW_ENV_ROOT = _EnvironmentVariable(
 #: Private environment variable that should be set to ``True`` when running autologging tests.
 #: (default: ``False``)
 _MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TESTING", False)
+
+#: (Experimental, may be changed or removed)
+#: Specifies the uri of a Mlflow Gateway Server instance to be used with the Gateway Client APIs
+MLFLOW_GATEWAY_URI = _EnvironmentVariable("MLFLOW_GATEWAY_URI", str, None)

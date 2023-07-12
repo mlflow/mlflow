@@ -9,7 +9,7 @@ from typing import Optional, List
 from urllib.parse import urlparse
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.envs import MLFLOW_GATEWAY_URI  # TODO: change to environment_variables import
+from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.annotations import experimental
 

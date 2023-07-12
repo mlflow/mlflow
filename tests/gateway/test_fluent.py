@@ -14,7 +14,7 @@ from mlflow.gateway import (
 )
 from mlflow.gateway.config import Route
 from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
-from mlflow.gateway.envs import MLFLOW_GATEWAY_URI
+from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 import mlflow.gateway.utils
 from mlflow.gateway.utils import resolve_route_url
 from tests.gateway.tools import Gateway, save_yaml
