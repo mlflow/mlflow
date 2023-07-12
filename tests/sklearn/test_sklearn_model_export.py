@@ -672,7 +672,7 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
 
 
 @pytest.mark.skipif(
-    Version(sklearn.__version__) > Version("1.2.2"),
+    Version(sklearn.__version__) != Version("1.2.2"),
     reason="'sklearn.metrics._dist_metrics' doesn't have attribute 'EuclideanDistance'",
 )
 def test_sklearn_compatible_with_mlflow_2_4_0(sklearn_knn_model, tmp_path):
@@ -681,7 +681,7 @@ def test_sklearn_compatible_with_mlflow_2_4_0(sklearn_knn_model, tmp_path):
 
     # save test model
     tmp_path.joinpath("MLmodel").write_text(
-        """
+        f"""
 artifact_path: model
 flavors:
   python_function:
@@ -696,7 +696,7 @@ flavors:
     code: null
     pickled_model: model.pkl
     serialization_format: cloudpickle
-    sklearn_version: 1.2.2
+    sklearn_version: {sklearn.__version__}
 mlflow_version: 2.4.0
 model_uuid: c9833d74b1ff4013a1c9eff05d39eeef
 run_id: 8146a2ae86104f5b853351e600fc9d7b
@@ -715,13 +715,13 @@ dependencies:
 """
     )
     tmp_path.joinpath("requirements.txt").write_text(
-        """
+        f"""
 mlflow==2.4.0
-cloudpickle==2.2.1
-numpy==1.24.4
-psutil==5.9.5
-scikit-learn==1.2.2
-scipy==1.10.1
+cloudpickle
+numpy
+psutil
+scikit-learn=={sklearn.__version__}
+scipy
 """
     )
     # with open(os.path.join(model_path, "model.pkl"), "wb") as out:
