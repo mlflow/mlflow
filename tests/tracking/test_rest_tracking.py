@@ -580,11 +580,13 @@ def test_set_experiment_tag(mlflow_client):
     experiment_id = mlflow_client.create_experiment("SetExperimentTagTest")
     mlflow_client.set_experiment_tag(experiment_id, "dataset", "imagenet1K")
     experiment = mlflow_client.get_experiment(experiment_id)
-    assert "dataset" in experiment.tags and experiment.tags["dataset"] == "imagenet1K"
+    assert "dataset" in experiment.tags
+    assert experiment.tags["dataset"] == "imagenet1K"
     # test that updating a tag works
     mlflow_client.set_experiment_tag(experiment_id, "dataset", "birdbike")
     experiment = mlflow_client.get_experiment(experiment_id)
-    assert "dataset" in experiment.tags and experiment.tags["dataset"] == "birdbike"
+    assert "dataset" in experiment.tags
+    assert experiment.tags["dataset"] == "birdbike"
     # test that setting a tag on 1 experiment does not impact another experiment.
     experiment_id_2 = mlflow_client.create_experiment("SetExperimentTagTest2")
     experiment2 = mlflow_client.get_experiment(experiment_id_2)
@@ -593,15 +595,15 @@ def test_set_experiment_tag(mlflow_client):
     mlflow_client.set_experiment_tag(experiment_id_2, "dataset", "birds200")
     experiment = mlflow_client.get_experiment(experiment_id)
     experiment2 = mlflow_client.get_experiment(experiment_id_2)
-    assert "dataset" in experiment.tags and experiment.tags["dataset"] == "birdbike"
-    assert "dataset" in experiment2.tags and experiment2.tags["dataset"] == "birds200"
+    assert "dataset" in experiment.tags
+    assert experiment.tags["dataset"] == "birdbike"
+    assert "dataset" in experiment2.tags
+    assert experiment2.tags["dataset"] == "birds200"
     # test can set multi-line tags
     mlflow_client.set_experiment_tag(experiment_id, "multiline tag", "value2\nvalue2\nvalue2")
     experiment = mlflow_client.get_experiment(experiment_id)
-    assert (
-        "multiline tag" in experiment.tags
-        and experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
-    )
+    assert "multiline tag" in experiment.tags
+    assert experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
 
 
 def test_set_experiment_tag_with_empty_string_as_value(mlflow_client):
@@ -621,7 +623,8 @@ def test_delete_tag(mlflow_client):
     mlflow_client.log_param(run_id, "param", "value")
     mlflow_client.set_tag(run_id, "taggity", "do-dah")
     run = mlflow_client.get_run(run_id)
-    assert "taggity" in run.data.tags and run.data.tags["taggity"] == "do-dah"
+    assert "taggity" in run.data.tags
+    assert run.data.tags["taggity"] == "do-dah"
     mlflow_client.delete_tag(run_id, "taggity")
     run = mlflow_client.get_run(run_id)
     assert "taggity" not in run.data.tags

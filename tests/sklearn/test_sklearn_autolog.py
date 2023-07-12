@@ -1305,7 +1305,10 @@ def test_autolog_disabled_on_sklearn_cross_val_api(cross_val_func_name):
 
     def assert_autolog_disabled_during_exec_cross_val_fun(run_):
         params, metrics, tags, artifacts = get_run_data(run_.info.run_id)
-        assert params == {} and metrics == {} and tags == {} and artifacts == []
+        assert params == {}
+        assert metrics == {}
+        assert tags == {}
+        assert artifacts == []
 
     diabetes = sklearn.datasets.load_diabetes()
     X = diabetes.data[:150]
