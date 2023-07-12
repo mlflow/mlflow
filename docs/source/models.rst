@@ -3022,6 +3022,25 @@ This input format requires that both the bitrate has been set prior to conversio
     audio transformers pipelines being set as expecting ``binary`` (``bytes``) data. The serving endpoint cannot accept a union of types, so a particular model instance must choose one
     or the other as an allowed input type.
 
+SentenceTransformers (``sentence_transformers``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. attention::
+    The ``sentence_transformers`` flavor is in active development and is marked as Experimental. Public APIs may change and new
+    features are subject to be added as additional functionality is brought to the flavor.
+
+The ``sentence_transformers`` model flavor enables logging of
+`sentence-transformers models <https://www.sbert.net/docs/pretrained_models.html>`_ in MLflow format via
+the :py:func:`mlflow.sentence_transformers.save_model()` and :py:func:`mlflow.sentence_transformers.log_model()` functions.
+Use of these functions also adds the ``python_function`` flavor to the MLflow Models that they produce, allowing the model to be
+interpreted as a generic Python function for inference via :py:func:`mlflow.pyfunc.load_model()`.
+You can also use the :py:func:`mlflow.sentence_transformers.load_model()` function to load a saved or logged MLflow
+Model with the ``sentence_transformers`` flavor as a native ``sentence-transformers`` model.
+
+Example:
+
+.. literalinclude:: ../../examples/sentence_transformers/simple.py
+    :language: python
 
 .. _model-evaluation:
 
