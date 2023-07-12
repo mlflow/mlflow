@@ -43,6 +43,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.datasets import load_iris, load_breast_cancer
 from sklearn.metrics import precision_score, recall_score, f1_score
+from sklearn.svm import LinearSVC
 
 from tempfile import TemporaryDirectory
 from os.path import join as path_join
@@ -2224,3 +2225,36 @@ def test_extract_raw_model_for_sklearn():
     pyfunc_model = mlflow.pyfunc.PyFuncModel(model_meta=mlflow_model, model_impl=model_impl)
     _, raw_model = _extract_raw_model(pyfunc_model)
     assert raw_model == model_impl
+
+
+@pytest.mark.parametrize(
+    "baseline_model_uri",
+    [("svm_model_uri")],
+    indirect=["baseline_model_uri"],
+)
+def test_default_evaluator_for_pyfunc_model(baseline_model_uri, breast_cancer_dataset):
+    data = load_breast_cancer()
+    raw_model = LinearSVC()
+    raw_model.fit(data.data, data.target)
+
+    mlflow_model = Model()
+    mlflow.pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn")
+    pyfunc_model = mlflow.pyfunc.PyFuncModel(model_meta=mlflow_model, model_impl=raw_model)
+
+    with mlflow.start_run() as run:
+        evaluate_model_helper(
+            pyfunc_model,
+            baseline_model_uri,
+            breast_cancer_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=breast_cancer_dataset._constructor_args["targets"],
+            evaluators="default",
+            eval_baseline_model_only=False,
+        )
+    run_data = get_run_data(run.info.run_id)
+    assert set(run_data.artifacts) == {
+        "confusion_matrix.png",
+        "shap_feature_importance_plot.png",
+        "shap_beeswarm_plot.png",
+        "shap_summary_plot.png",
+    }

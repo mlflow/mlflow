@@ -514,10 +514,12 @@ class _SklearnModelWrapper:
         return self.sklearn_model.predict(data)
 
     def predict_proba(self, *args, **kwargs):
-        return self.sklearn_model.predict_proba(*args, **kwargs)
+        if hasattr(self.sklearn_model, "predict_proba"):
+            return self.sklearn_model.predict_proba(*args, **kwargs)
 
     def score(self, *args, **kwargs):
-        return self.sklearn_model.score(*args, **kwargs)
+        if hasattr(self.sklearn_model, "score"):
+            return self.sklearn_model.score(*args, **kwargs)
 
 
 class _SklearnCustomModelPicklingError(pickle.PicklingError):
