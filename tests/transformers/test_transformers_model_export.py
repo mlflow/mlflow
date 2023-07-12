@@ -472,7 +472,7 @@ def test_instance_extraction(small_qa_pipeline):
 
 
 @pytest.mark.parametrize(
-    ["model", "result"],
+    ("model", "result"),
     [
         ("small_qa_pipeline", True),
         ("small_seq2seq_pipeline", True),
@@ -1319,7 +1319,7 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
 
 
 @pytest.mark.parametrize(
-    "data, result",
+    ("data", "result"),
     [
         ("muppet keyboard type", ["A muppet is typing on a keyboard."]),
         (
@@ -1555,7 +1555,7 @@ def test_invalid_input_to_text_generation_pipeline(text_generation_pipeline, inv
 
 
 @pytest.mark.parametrize(
-    "inference_payload, result",
+    ("inference_payload", "result"),
     [
         ("Riding a <mask> on the beach is fun!", ["bike"]),
         (["If I had <mask>, I would fly to the top of a mountain"], ["wings"]),
@@ -1641,7 +1641,7 @@ def test_zero_shot_classification_pipeline(zero_shot_pipeline, model_path, data)
 
 
 @pytest.mark.parametrize(
-    "query, result",
+    ("query", "result"),
     [
         ({"query": "What should we order more of?"}, ["apples"]),
         (
@@ -1687,7 +1687,7 @@ def test_table_question_answering_pipeline(
 
 
 @pytest.mark.parametrize(
-    "data, result",
+    ("data", "result"),
     [
         ("I've got a lovely bunch of coconuts!", ["Ich habe eine schöne Haufe von Kokos!"]),
         (
@@ -1806,7 +1806,7 @@ def test_classifier_pipeline(text_classification_pipeline, model_path, data):
 
 
 @pytest.mark.parametrize(
-    "data, result",
+    ("data", "result"),
     [
         (
             "I have a dog and his name is Willy!",
@@ -1876,7 +1876,7 @@ def test_conversational_pipeline(conversational_pipeline, model_path):
 
 
 @pytest.mark.parametrize(
-    "pipeline_name, example, in_signature, out_signature",
+    ("pipeline_name", "example", "in_signature", "out_signature"),
     [
         (
             "fill_mask_pipeline",
@@ -2443,8 +2443,14 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
 
 
 @pytest.mark.parametrize(
-    "pipeline_input, pipeline_output, expected_output, flavor_config, include_prompt, "
-    "collapse_whitespace",
+    (
+        "pipeline_input",
+        "pipeline_output",
+        "expected_output",
+        "flavor_config",
+        "include_prompt",
+        "collapse_whitespace",
+    ),
     [
         (
             "What answers?",
@@ -2681,7 +2687,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
 
 
 @pytest.mark.parametrize(
-    ["pipeline_name", "data", "result"],
+    ("pipeline_name", "data", "result"),
     [
         (
             "small_qa_pipeline",

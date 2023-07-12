@@ -419,7 +419,7 @@ def test_get_workspace_id_returns_expected_id(store):
 
 
 @pytest.mark.parametrize(
-    "status_code,response_text",
+    ("status_code", "response_text"),
     [
         (403, "{}"),
         (500, "<html><div>Not real json</div></html>"),
