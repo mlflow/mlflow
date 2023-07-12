@@ -252,8 +252,8 @@ def fill_mask_pipeline():
 def text2text_generation_pipeline():
     task = "text2text-generation"
     architecture = "mrm8488/t5-base-finetuned-common_gen"
-    model = transformers.AutoModelWithLMHead.from_pretrained(architecture)
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+    model = transformers.T5ForConditionalGeneration.from_pretrained(architecture)
+    tokenizer = transformers.T5TokenizerFast.from_pretrained(architecture)
 
     return transformers.pipeline(
         task=task,
