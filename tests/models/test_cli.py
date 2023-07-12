@@ -28,6 +28,7 @@ import mlflow.models.cli as models_cli
 from mlflow.environment_variables import MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
+from mlflow.pyfunc.backend import PyFuncBackend
 from mlflow.pyfunc.scoring_server import (
     CONTENT_TYPE_JSON,
     CONTENT_TYPE_CSV,
@@ -331,6 +332,119 @@ def test_predict(iris_data, sk_model):
         assert all(expected == actual)
 
 
+def test_predict_arguments_check(iris_data, sk_model):
+    with TempDir(chdr=True) as tmp:
+        with mlflow.start_run():
+            mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+        model_registry_uri = "models:/{name}/{stage}".format(name="impredicting", stage="None")
+        input_json_path = tmp.path("input.json")
+        input_csv_path = tmp.path("input.csv")
+        output_json_path = tmp.path("output.json")
+        x, _ = iris_data
+        with open(input_json_path, "w") as f:
+            json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
+
+        pd.DataFrame(x).to_csv(input_csv_path, index=False)
+
+        # Throw errors for invalid content_type
+        prc = subprocess.run(
+            [
+                "mlflow",
+                "models",
+                "predict",
+                "-m",
+                model_registry_uri,
+                "-i",
+                input_json_path,
+                "-o",
+                output_json_path,
+                "-t",
+                "invalid",
+                "--env-manager",
+                "local",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env_with_tracking_uri(),
+            check=False,
+        )
+        assert prc.returncode != 0
+        assert "Invalid content type" in prc.stderr.decode("utf-8")
+
+        # Throw errors for invalid input_path
+        prc = subprocess.run(
+            [
+                "mlflow",
+                "models",
+                "predict",
+                "-m",
+                model_registry_uri,
+                "-i",
+                f'{input_json_path}"; echo ThisIsABug! "',
+                "-o",
+                output_json_path,
+                "--env-manager",
+                "local",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env_with_tracking_uri(),
+            check=False,
+        )
+        assert prc.returncode != 0
+        assert "ThisIsABug!" not in prc.stdout.decode("utf-8")
+        assert "Invalid input path" in prc.stderr.decode("utf-8")
+
+        prc = subprocess.run(
+            [
+                "mlflow",
+                "models",
+                "predict",
+                "-m",
+                model_registry_uri,
+                "-i",
+                f'{input_csv_path}"; echo ThisIsABug! "',
+                "-o",
+                output_json_path,
+                "-t",
+                "csv",
+                "--env-manager",
+                "local",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env_with_tracking_uri(),
+            check=False,
+        )
+        assert prc.returncode != 0
+        assert "ThisIsABug!" not in prc.stdout.decode("utf-8")
+        assert "Invalid input path" in prc.stderr.decode("utf-8")
+
+        # Throw errors for invalid output_path
+        prc = subprocess.run(
+            [
+                "mlflow",
+                "models",
+                "predict",
+                "-m",
+                model_registry_uri,
+                "-i",
+                input_json_path,
+                "-o",
+                f'{output_json_path}"; echo ThisIsABug! "',
+                "--env-manager",
+                "local",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env_with_tracking_uri(),
+            check=False,
+        )
+        assert prc.returncode != 0
+        assert "ThisIsABug!" not in prc.stdout.decode("utf-8")
+        assert "Invalid output path" in prc.stderr.decode("utf-8")
+
+
 def test_prepare_env_passes(sk_model):
     if no_conda:
         pytest.skip("This test requires conda.")
@@ -572,6 +686,16 @@ def test_env_manager_unsupported_value():
             ["--model-uri", "model", "--env-manager", "abc"],
             catch_exceptions=False,
         )
+
+    with mock.patch(
+        "mlflow.models.cli.get_flavor_backend", return_value=PyFuncBackend({})
+    ), mock.patch("mlflow.pyfunc.backend._download_artifact_from_uri", return_value=""):
+        with pytest.raises(MlflowException, match=r"Invalid value for `host`"):
+            CliRunner().invoke(
+                models_cli.serve,
+                ["--model-uri", "runs:/run_id/model", "--host", "localhost & echo BUG"],
+                catch_exceptions=False,
+            )
 
 
 def test_change_conda_env_root_location(tmp_path, sk_model):

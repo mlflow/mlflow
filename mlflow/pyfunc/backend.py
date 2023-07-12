@@ -9,6 +9,7 @@ import ctypes
 import signal
 from pathlib import Path
 
+from mlflow.exceptions import MlflowException
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import (
     _build_image,
@@ -141,6 +142,32 @@ class PyFuncBackend(FlavorBackend):
         # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
+
+        # Validate parameters prior running the command to avoid potential exploitation
+        if content_type not in ["json", "csv"]:
+            raise MlflowException.invalid_parameter_value(f"Invalid content type '{content_type}'")
+
+        if input_path is not None:
+            if content_type == "json":
+                if not os.path.isfile(input_path):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid input path '{input_path}'"
+                    )
+            elif content_type == "csv":
+                import pandas as pd
+
+                try:
+                    pd.read_csv(input_path)
+                except Exception as e:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid input path '{input_path}'"
+                    ) from e
+
+        if output_path is not None:
+            if '"' in output_path:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid output path '{output_path}': \" is not allowed"
+                )
 
         if self._env_manager != _EnvManager.LOCAL:
             command = (
