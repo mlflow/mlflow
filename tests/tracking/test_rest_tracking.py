@@ -650,6 +650,7 @@ def test_validate_path_is_safe_bad(path):
         r"/Windows\..\Windows\System32\services.msc",
         r"/Windows\..\Windows\System32\diskmgmt.msc",
         r"/Windows\..\Windows\System32\eventvwr.msc",
+        r"/Windows/System32/drivers/etc/hosts",
     ],
 )
 def test_validate_path_is_safe_windows_bad(path):

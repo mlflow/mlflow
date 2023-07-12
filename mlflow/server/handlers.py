@@ -532,7 +532,8 @@ def validate_path_is_safe(path):
     if (
         any((s in path) for s in _OS_ALT_SEPS)
         or ".." in path.split(os.sep)
-        or pathlib.Path(path).is_absolute()
+        or pathlib.PureWindowsPath(path).is_absolute()
+        or pathlib.PurePosixPath(path).is_absolute()
     ):
         raise MlflowException(f"Invalid path: {path}", error_code=INVALID_PARAMETER_VALUE)
 
