@@ -103,7 +103,7 @@ def test_set_gateway_uri(monkeypatch):
 
 def test_get_gateway_uri(monkeypatch):
     monkeypatch.setattr("mlflow.gateway.utils._gateway_uri", None)
-    monkeypatch.setattr("mlflow.gateway.envs.MLFLOW_GATEWAY_URI.get", lambda: None)
+    monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
 
     with pytest.raises(MlflowException, match="No Gateway server uri has been set"):
         get_gateway_uri()
@@ -112,8 +112,8 @@ def test_get_gateway_uri(monkeypatch):
     monkeypatch.setattr("mlflow.gateway.utils._gateway_uri", valid_uri)
     assert get_gateway_uri() == valid_uri
 
-    monkeypatch.setattr("mlflow.gateway.utils._gateway_uri", None)
-    monkeypatch.setattr("mlflow.gateway.envs.MLFLOW_GATEWAY_URI.get", lambda: valid_uri)
+    monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
+    set_gateway_uri(valid_uri)
     assert get_gateway_uri() == valid_uri
 
 

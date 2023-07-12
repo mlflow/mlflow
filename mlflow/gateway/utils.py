@@ -96,10 +96,7 @@ def assemble_uri_path(paths: List[str]) -> str:
     :return: A string representing the complete assembled URI path.
     """
     stripped_paths = [path.strip("/").lstrip("/") for path in paths if path]
-    if stripped_paths:
-        return "/" + posixpath.join(*stripped_paths)
-    else:
-        return "/"
+    return "/" + posixpath.join(*stripped_paths) if stripped_paths else "/"
 
 
 def resolve_route_url(base_url: str, route: str) -> str:
@@ -115,10 +112,7 @@ def resolve_route_url(base_url: str, route: str) -> str:
     :return: The complete URL, either directly returned or formed and returned by joining the
              base URL and the route path.
     """
-    if _is_valid_uri(route):
-        return route
-    else:
-        return append_to_uri_path(base_url, route)
+    return route if _is_valid_uri(route) else append_to_uri_path(base_url, route)
 
 
 class SearchRoutesToken:
