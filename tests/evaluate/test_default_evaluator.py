@@ -2004,7 +2004,9 @@ def test_evaluate_question_answering_with_targets():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
-    assert results.metrics == {"exact_match": 1.0}
+    assert set(results.metrics.keys()) == set(["exact_match", "mean_perplexity", "percent_toxic"])
+    assert results.metrics["exact_match"] == 1.0
+    assert results.metrics["percent_toxic"] == 0.0
 
 
 def question_classifier(inputs):
@@ -2049,7 +2051,8 @@ def test_evaluate_question_answering_without_targets():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
-    assert results.metrics == {}
+    assert set(results.metrics.keys()) == set(["mean_perplexity", "percent_toxic"])
+    assert results.metrics["percent_toxic"] == 0.0
 
 
 def test_evaluate_text_summarization_with_targets():
@@ -2070,7 +2073,12 @@ def test_evaluate_text_summarization_with_targets():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
-    assert results.metrics == {"rouge1": 1.0, "rouge2": 0.0, "rougeL": 1.0, "rougeLsum": 1.0}
+    assert set(results.metrics.keys()) == set(["rouge1", "rouge2", "rougeL", "rougeLsum", "mean_perplexity", "percent_toxic"])
+    assert results.metrics["rouge1"] == 1.0
+    assert results.metrics["rouge2"] == 0.0
+    assert results.metrics["rougeL"] == 1.0
+    assert results.metrics["rougeLsum"] == 1.0
+    assert results.metrics["percent_toxic"] == 0.0
 
 
 def another_language_model(x):
@@ -2095,7 +2103,12 @@ def test_evaluate_text_summarization_with_targets_no_type_hints():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
-    assert results.metrics == {"rouge1": 1.0, "rouge2": 0.0, "rougeL": 1.0, "rougeLsum": 1.0}
+    assert set(results.metrics.keys()) == set(["rouge1", "rouge2", "rougeL", "rougeLsum", "mean_perplexity", "percent_toxic"])
+    assert results.metrics["rouge1"] == 1.0
+    assert results.metrics["rouge2"] == 0.0
+    assert results.metrics["rougeL"] == 1.0
+    assert results.metrics["rougeLsum"] == 1.0
+    assert results.metrics["percent_toxic"] == 0.0
 
 
 def test_evaluate_text_summarization_without_targets():
@@ -2115,7 +2128,8 @@ def test_evaluate_text_summarization_without_targets():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
-    assert results.metrics == {}
+    assert set(results.metrics.keys()) == set(["mean_perplexity", "percent_toxic"])
+    assert results.metrics["percent_toxic"] == 0.0
 
 
 def test_evaluate_text_summarization_fails_to_load_metric():
@@ -2159,7 +2173,7 @@ def test_evaluate_text():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
-    assert results.metrics == {}
+    assert set(results.metrics.keys()) == set(["mean_perplexity", "percent_toxic"])
 
 
 def accuracy(eval_df, _builtin_metrics):
@@ -2185,7 +2199,9 @@ def test_evaluate_text_custom_metrics():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
-    assert results.metrics == {"accuracy": 1.0}
+    assert set(results.metrics.keys()) == set(["accuracy", "mean_perplexity", "percent_toxic"])
+    assert results.metrics["accuracy"] == 1.0
+    assert results.metrics["percent_toxic"] == 0.0
 
 
 def test_eval_results_table_json_can_be_prefixed_with_metric_prefix():

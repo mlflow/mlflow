@@ -34,3 +34,4 @@ shap
 evaluate
 nltk
 rouge_score
+py-readability-metrics
