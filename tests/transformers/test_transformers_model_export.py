@@ -2817,6 +2817,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 "inputs": '[{"type": "string", "name": "question"}, {"type": "string", '
                 '"name": "context"}]',
                 "outputs": '[{"type": "string"}]',
+                "params": None,
             },
         ),
         (
@@ -2832,6 +2833,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 '"hypothesis_template"}]',
                 "outputs": '[{"type": "string", "name": "sequence"}, {"type": "string", '
                 '"name": "labels"}, {"type": "double", "name": "scores"}]',
+                "params": None,
             },
         ),
         (
@@ -2841,6 +2843,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 "inputs": '[{"type": "string"}]',
                 "outputs": '[{"type": "string", "name": "label"}, {"type": "double", "name": '
                 '"score"}]',
+                "params": None,
             },
         ),
         (
@@ -2853,42 +2856,71 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 "inputs": '[{"type": "string", "name": "query"}, {"type": "string", "name": '
                 '"table"}]',
                 "outputs": '[{"type": "string"}]',
+                "params": None,
             },
         ),
         (
             "summarizer_pipeline",
             "If you write enough tests, you can be sure that your code isn't broken.",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
         (
             "translation_pipeline",
             "No, I am your father.",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
         (
             "text_generation_pipeline",
             ["models are", "apples are"],
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
         (
             "text2text_generation_pipeline",
             ["man apple pie", "dog pizza eat"],
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
         (
             "fill_mask_pipeline",
             "Juggling <mask> is remarkably dangerous",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
         (
             "conversational_pipeline",
             "What's shaking, my robot homie?",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
         (
             "ner_pipeline",
             "Blue apples are not a thing",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
     ],
 )
