@@ -924,8 +924,8 @@ def _parse_spark_datatype(datatype: str):
 
 
 def _is_none_or_nan(value):
-    # if value is not numeric type, `np.isnan(value)` raises error,
-    # so we add condition `isinstance(value, float)` before it.
+    # The condition `isinstance(value, float)` is needed to avoid error
+    # from `np.isnan(value)` if value is a non-numeric type.
     return value is None or isinstance(value, float) and np.isnan(value)
 
 
