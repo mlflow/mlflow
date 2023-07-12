@@ -351,6 +351,7 @@ nitpick_ignore = [
     ("py:class", "scipy.sparse._csr.csr_matrix"),
     ("py:class", "scipy.sparse._csc.csc_matrix"),
     ("py:class", "pathlib.Path"),
+    ("py:class", "pydantic.main.BaseModel"),
 ]
 
 
