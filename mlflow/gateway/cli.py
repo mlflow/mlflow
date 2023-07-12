@@ -1,6 +1,7 @@
 import click
 from .runner import run_app
 from .config import _validate_config
+from mlflow.utils.annotations import experimental
 
 
 def validate_config_path(_ctx, _param, value):
@@ -16,6 +17,7 @@ def commands():
     pass
 
 
+@experimental
 @commands.command("start", help="Start the MLflow Gateway service")
 @click.option(
     "--config-path",
