@@ -19,6 +19,7 @@ from mlflow.models.evaluation.artifacts import (
     JsonEvaluationArtifact,
 )
 from mlflow.pyfunc import _ServedPyFuncModel
+from mlflow.sklearn import _SklearnModelWrapper
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.utils.time_utils import get_current_time_millis
 
@@ -79,7 +80,9 @@ def _infer_model_type_by_labels(labels):
 def _extract_raw_model(model):
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
     if model_loader_module == "mlflow.sklearn" and not isinstance(model, _ServedPyFuncModel):
-        return model_loader_module, model._model_impl.sklearn_model
+        if isinstance(model._model_impl, _SklearnModelWrapper):
+            return model_loader_module, model._model_impl.sklearn_model
+        return model_loader_module, model._model_impl
     else:
         return model_loader_module, None
 
