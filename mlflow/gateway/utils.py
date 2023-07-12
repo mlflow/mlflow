@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.envs import MLFLOW_GATEWAY_URI  # TODO: change to environment_variables import
 from mlflow.utils.uri import append_to_uri_path
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 _gateway_uri: Optional[str] = None
@@ -63,7 +64,16 @@ def _is_valid_uri(uri: str):
         return False
 
 
+@experimental
 def set_gateway_uri(gateway_uri: str):
+    """
+    Sets the uri of a configured and running MLflow AI Gateway server in a global context.
+    Providing a valid uri and calling this function is required in order to use the MLflow
+    AI Gateway fluent APIs.
+
+    :param gateway_uri: The full uri of a running MLflow AI Gateway server or, if running on
+                        Databricks, "databricks".
+    """
     if not _is_valid_uri(gateway_uri):
         raise MlflowException.invalid_parameter_value(
             "The gateway uri provided is missing required elements. Ensure that the schema "
@@ -74,7 +84,13 @@ def set_gateway_uri(gateway_uri: str):
     _gateway_uri = gateway_uri
 
 
+@experimental
 def get_gateway_uri() -> str:
+    """
+    Returns the currently set MLflow AI Gateway server uri iff set.
+    If the Gateway uri has not been set by using ``set_gateway_uri``, an ``MlflowException``
+    is raised.
+    """
     global _gateway_uri
     if _gateway_uri is not None:
         return _gateway_uri
