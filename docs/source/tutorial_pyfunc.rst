@@ -5,9 +5,9 @@ Store and Load Custom Models Using `mlflow.pyfunc`
 
 When you save your Python project in MLflow with ``log_model``, the particularl "flavor" of MLflow you're using will store the model in the appropriate format. For instance, ``mlflow.keras.log_model`` will save your Keras model as an HDF5 file.
 
-The most general and flexible flavor of the MLflow Model format is the **"pyfunc"** format. This "Python Function" format allows you to wrap a customized Python function for inferencing. Using pyfunc also allows you full customization of your model initialization, data preparation, inferencing, reporting, and so forth, all of which may be attractive even if you are using a more specific flavor of MLflow Model.
+The most general and flexible flavor of the MLflow Model format is the **"pyfunc"** format. This "Python Function" format allows you to wrap a customized Python function for inferencing. Using pyfunc also allows you full customization of your model initialization, data preparation, inferencing, reporting, and so forth, all of which may be attractive even if you are using a more specific flavor of MLflow.
 
-This tutorial will show how to save and load models in the pyfunc format. It will also show how to use an MLflow Model with the pyfunc flavor to deploy a model in a Docker container.
+This tutorial will show how to save and load models in the pyfunc format. It will also show how to serve an MLflow model as a REST endpoint and how to deploy a model in a Docker container.
 
 .. _setup:
 
@@ -32,7 +32,7 @@ For this tutorial, we will train a logistic regression model using scikit-learn.
 
 Create a file called **train.py** and add the following code:
 
-.. code block: python
+.. code-block:: python
 
     from sklearn.datasets import load_iris
     from sklearn.linear_model import LogisticRegression
@@ -53,6 +53,7 @@ Create a file called **train.py** and add the following code:
     def predict_and_track(classifier : LogisticRegression, X : pd.DataFrame, y : pd.Series) -> float:
         predictions = classifier.predict(X)
         score = accuracy_score(y, predictions)
+        mlflow.log_metric("accuracy", score)
         return score
 
 
@@ -60,7 +61,6 @@ Create a file called **train.py** and add the following code:
         X, y = load_iris(return_X_y=True, as_frame=True)
         classifier = build_and_train_model(X, y)
         score = predict_and_track(classifier, X, y)
-        mlflow.log_metric("accuracy", score)
         signature = mlflow.models.infer_signature(X, y)
         return classifier, signature
 
@@ -75,14 +75,16 @@ Once you've created the file, run it with:
 
     python train.py
 
+.. note:: You may receive a warning that the solver failed to converge. However, if you check the accuracy of ``predictions`` vs ``y``, you will see that the model is highly accurate.
+
 The code:
 
 1. Imports necessary modules from ``sklearn`` and ``mlflow``. 
 2. Starts an MLflow run (``with mlflow.start_run() as run``)
-3. Within ``initialize_and_train``: loads the iris dataset 
+3. Within ``initialize_and_train()``: loads the iris dataset 
 4. Specifies and fits a ``LogisticRegression`` model (``build_and_train_model``)
-5. Calculates the accuracy of the model (``predict_and_track``)
-6. Logs the accuracy to MLflow as a metric
+5. Calculates the accuracy of the model and logs it to MLflow (``predict_and_track``)
+6. Infers the signature of the model using the ``infer_signature`` function and the input data and labels
 7. Returns the model and the signature of the model
 
 What it doesn't do is log the model! Because there is an sklearn flavor for MLflow, we could do so by adding a single line of code to main:
@@ -92,8 +94,6 @@ What it doesn't do is log the model! Because there is an sklearn flavor for MLfl
     mlflow.sklearn.log_model(classifier, "model", signature=signature)
 
 However, for the purposes of this tutorial, we'll create a custom model and log it using ``mlflow.pyfunc.log_model``. 
-
-.. note:: You may receive a warning that the solver failed to converge. However, if you check the accuracy of ``predictions`` vs ``y``, you will see that the model is highly accurate.
 
 Create a Custom ``pyfunc`` Model
 --------------------------------
@@ -141,11 +141,13 @@ Add the following code to **train.py**. Note that you must *add* the line ``run_
             run_id = store_pyfunc_model(classifier, signature)
 
 
-Starting at the entry point, you can see that the code does not change in the creation of ``classifier`` and ``signature``. These values are passed to ``store_pyfunc_model``. The first thing that ``store_pyfunc_model`` does is confirm that the MLflow Tracking Server is running on a URI that starts with ``http`` or ``https``, as discussed in :ref:`setup`.
+Starting at the entry point, you can see that the code does not change the creation of ``classifier`` and ``signature``. These values are passed to ``store_pyfunc_model``. 
+
+The first thing that ``store_pyfunc_model`` does is confirm that the MLflow Tracking Server is running on a URI that starts with ``http`` or ``https``, as discussed in :ref:`setup`.
 
 The code then uses the ``joblib`` library to serialize the model to disk. Using serialization/deserialization to save and load the model and related files can make for clear and efficient code, but it is not required. You can store any type of file in the ``artifacts`` directory: JSON files, binary weight files, vector database files, and so forth. 
 
-The ``"iris_classifier.joblib"`` file is added to an ``artifacts`` dictionary at the key ``"classifier"``.
+The ``artifacts`` dictionary is then created. Its ``classifier`` key is set to the name of the file containing the serialized model: ``"iris_classifier.joblib"``.
 
 An instance of the ``IrisClassifier`` class is then instantiated. This class derives from :py:class:`mlflow.pyfunc.PythonModel`. As discussed at the beginning of this section, this class implements the ``load_context`` and ``predict`` methods. The ``IrisClassifier`` implementation of those methods will be discussed in the next section. 
 
@@ -190,18 +192,18 @@ To load and run the stored model, create a new Python file named ``infer.py``. A
     import argparse
 
     def load_and_use(run_id : str) -> None:
-        # MLflow Tracking URI *must* be http or https for log_model
+        # MLflow Tracking URI *must* be http or https for load_model
         assert (mlflow.get_tracking_uri().startswith("http"))
 
         logged_model = f'runs:/{run_id}/artifacts'
         loaded_model = mlflow.pyfunc.load_model(logged_model)
 
         # Predict on a Pandas DataFrame.
-        query_df = pd.DataFrame({'sepal length (cm)': [5.1, 5.9, 6.9],
+        model_input = pd.DataFrame({'sepal length (cm)': [5.1, 5.9, 6.9],
                                 'sepal width (cm)': [3.3, 3.0, 3.1],
                                 'petal length (cm)': [1.7, 4.2, 5.4],
                                 'petal width (cm)': [0.5, 1.5, 2.1]})
-        preds = loaded_model.predict(query_df)
+        preds = loaded_model.predict(model_input)
         print(f"Iris classifications: {preds}")
 
     if __name__ == "__main__":
@@ -244,7 +246,7 @@ The other method necessary in a customized ``PythonModel`` is ``predict()``. Thi
 In this case, the ``model_input`` is not validated or transformed, but is immediately passed to the ``predict`` method of the ``IrisClassifier`` model assigned to ``self.classifier`` in the ``load_context`` method. The results are then returned.
 
 .. note:: 
-    Notice that while the custom model's ``predict`` method takes both a ``context`` and a ``model_input`` argument, the code in **infer.py** only passes the ``model_input`` argument. The ``context`` argument is passed automatically by the base ``PythonModel`` implementation. 
+    Notice that while the custom model's ``predict`` method takes both a ``context`` and a ``model_input`` parameter, the call to ``predict`` in **infer.py** only passes the ``model_input`` argument. The ``context`` parameter is set automatically by the base ``PythonModel`` implementation. 
 
 Querying the customized model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -277,28 +279,34 @@ So far, we haven't used custom code beyond the **train.py** file. Generally, you
 
 Create a new file, **custom_code.py**, with the following contents:
 
-.. code-block: python
+.. code-block:: python
+
     from typing import Iterable
 
 
     flower_classes = ["setosa", "versicolor", "virginica"]
 
 
-    def iris_classes(preds : Iterable[int]) -> Iterable[str]:
+    def iris_classes(preds : Iterable[int]) -> list[str]:
         return [flower_classes[pred] for pred in preds]
 
 Obviously, this is a trivial external dependency, but it illustrates the point. The ``iris_classes`` function takes a single argument, ``preds``, which is an array of predictions. It returns the strings corresponding to the predictions.
 
 Modify the **train.py** file to import the ``iris_classes`` function and use it in the ``log_model`` call. At the top of the file, add the following line:
 
-.. code-block: python
+.. code-block:: python
+
     from custom_code import iris_classes
 
-In ``IrisClassifier``, modify the ``predict`` method, replace the line ``return preds`` with ``return iris_classes(preds)``.
+In ``IrisClassifier``, modify the ``predict`` method. Replace the line ``return preds`` with:
+
+.. code-block:: python
+
+    return iris_classes(preds)
 
 Finally, modify the ``log_model`` call to include the ``code_path`` parameter:
 
-.. code-block: python
+.. code-block:: python
 
     model_info = mlflow.pyfunc.log_model(
         python_model=IrisClassifier(),
@@ -310,7 +318,9 @@ Finally, modify the ``log_model`` call to include the ``code_path`` parameter:
 
 The ``code_path`` parameter takes a list of files or directories. In this case, we only have a single file, but you can include as many as necessary. 
 
-Run the training script again. Now, instead of the output being integers, it will be the strings corresponding to the flower classes. Make note of the run id and open it in the MLflow UI. You'll see that the **artifacts** contains a subdirectory called **code** that contains the **custom_code.py** file. Any files or directories specified in the ``code_path`` parameter can be loaded at runtime by your custom model without additional work.
+Run the training script again. Now, instead of the output being integers, it will be the strings corresponding to the flower classes (``['setosa', 'versicolor', 'virginica']``). 
+
+Make note of the run id and open it in the MLflow UI. You'll see that the **artifacts** directory contains a subdirectory called **code** that holds the **custom_code.py** file. Any files or directories specified in the ``code_path`` parameter can be loaded at runtime by your custom model without additional work.
 
 Optional: Deploy the model using Docker
 --------------------------------------- 
@@ -331,7 +341,7 @@ Most of the time, you will want to build the image. If you have Docker installed
 
     mlflow models build-docker -m runs:/<RUNID>/artifacts --env-manager conda --name iris
 
-This command builds the Docker image and tags it with the name ``iris``. This command will typically take several minutes to run. Once it is complete, you can run the image with:
+This command builds the Docker image and gives it with the name ``iris``. This command will typically take several minutes to run. Once it is complete, you can run the image with:
 
 .. code-block:: bash
 
