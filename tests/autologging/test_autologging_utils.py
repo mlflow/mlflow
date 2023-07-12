@@ -170,7 +170,7 @@ def test_wrap_patch_with_module():
     assert sample_function_to_patch(10, 5) == 5
 
 
-@pytest.fixture()
+@pytest.fixture
 def logger():
     return Mock()
 

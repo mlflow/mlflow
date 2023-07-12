@@ -157,12 +157,12 @@ def transformers_custom_env(tmp_path):
     return conda_env
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_pyfunc_wrapper():
     return mlflow.transformers._TransformersWrapper("mock")
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_seq2seq_pipeline():
     # The return type of this model's language head is a List[Dict[str, Any]]
@@ -172,7 +172,7 @@ def small_seq2seq_pipeline():
     return transformers.pipeline(task="text-classification", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_qa_pipeline():
     # The return type of this model's language head is a Dict[str, Any]
@@ -184,7 +184,7 @@ def small_qa_pipeline():
     return transformers.pipeline(task="question-answering", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_vision_model():
     architecture = "google/mobilenet_v2_1.0_224"
@@ -199,14 +199,14 @@ def small_vision_model():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_multi_modal_pipeline():
     architecture = "dandelin/vilt-b32-finetuned-vqa"
     return transformers.pipeline(model=architecture)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def component_multi_modal():
     architecture = "dandelin/vilt-b32-finetuned-vqa"
@@ -226,7 +226,7 @@ def component_multi_modal():
     return transformers_model
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_conversational_model():
     tokenizer = transformers.AutoTokenizer.from_pretrained(
@@ -238,7 +238,7 @@ def small_conversational_model():
     return transformers.pipeline(task="conversational", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def fill_mask_pipeline():
     architecture = "distilroberta-base"
@@ -247,7 +247,7 @@ def fill_mask_pipeline():
     return transformers.pipeline(task="fill-mask", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def text2text_generation_pipeline():
     task = "text2text-generation"
@@ -262,7 +262,7 @@ def text2text_generation_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def text_generation_pipeline():
     task = "text-generation"
@@ -277,7 +277,7 @@ def text_generation_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def translation_pipeline():
     return transformers.pipeline(
@@ -287,7 +287,7 @@ def translation_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def summarizer_pipeline():
     task = "summarization"
@@ -301,7 +301,7 @@ def summarizer_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def text_classification_pipeline():
     task = "text-classification"
@@ -315,7 +315,7 @@ def text_classification_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def zero_shot_pipeline():
     task = "zero-shot-classification"
@@ -329,7 +329,7 @@ def zero_shot_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def table_question_answering_pipeline():
     return transformers.pipeline(
@@ -337,7 +337,7 @@ def table_question_answering_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def ner_pipeline():
     return transformers.pipeline(
@@ -345,7 +345,7 @@ def ner_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def ner_pipeline_aggregation():
     # Modification to the default aggregation_strategy of `None` changes the output keys in each
@@ -358,34 +358,34 @@ def ner_pipeline_aggregation():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def conversational_pipeline():
     return transformers.pipeline(model="microsoft/DialoGPT-medium")
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def image_for_test():
     dataset = load_dataset("huggingface/cats-image")
     return dataset["test"]["image"][0]
 
 
-@pytest.fixture()
+@pytest.fixture
 def sound_file_for_test():
     datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets")
     audio, _ = librosa.load(datasets_path.joinpath("apollo11_launch.wav"), sr=16000)
     return audio
 
 
-@pytest.fixture()
+@pytest.fixture
 def raw_audio_file():
     datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets")
 
     return datasets_path.joinpath("apollo11_launch.wav").read_bytes()
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def whisper_pipeline():
     task = "automatic-speech-recognition"
@@ -400,13 +400,13 @@ def whisper_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def audio_classification_pipeline():
     return transformers.pipeline("audio-classification", model="superb/wav2vec2-base-superb-ks")
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def feature_extraction_pipeline():
     st_arch = "sentence-transformers/all-MiniLM-L6-v2"

@@ -165,7 +165,7 @@ def test_create_registered_model(mock_http, store):
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def local_model_dir(tmp_path):
     fake_signature = ModelSignature(inputs=Schema([]), outputs=Schema([]))
     fake_mlmodel_contents = {
@@ -218,7 +218,7 @@ def test_create_model_version_missing_python_deps(store, local_model_dir):
         store.create_model_version(name=model_name, source=str(local_model_dir))
 
 
-@pytest.fixture()
+@pytest.fixture
 def feature_store_local_model_dir(tmp_path):
     fake_signature = ModelSignature(inputs=Schema([]), outputs=Schema([]))
     fake_mlmodel_contents = {

@@ -78,7 +78,7 @@ def mlflow_client(request, tmp_path):
         yield MlflowClient(url)
 
 
-@pytest.fixture()
+@pytest.fixture
 def cli_env(mlflow_client):
     """Provides an environment for the MLflow CLI pointed at the local tracking server."""
     return {

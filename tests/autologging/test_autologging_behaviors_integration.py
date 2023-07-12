@@ -53,7 +53,7 @@ def disable_autologging_at_test_end():
         integration.autolog(disable=True)
 
 
-@pytest.fixture()
+@pytest.fixture
 def setup_sklearn_model():
     from sklearn.datasets import load_iris
     from sklearn.linear_model import LogisticRegression
