@@ -647,7 +647,7 @@ def parallelized_download_file_using_http_uri(
             _, stderr = download_proc.communicate()
             if download_proc.returncode != 0:
                 if os.path.exists(temp_file):
-                    with open(temp_file, "r") as f:
+                    with open(temp_file) as f:
                         file_contents = f.read()
                         if file_contents:
                             return json.loads(file_contents)

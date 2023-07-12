@@ -17,7 +17,9 @@ class _PatchedKernelExplainer(shap.KernelExplainer):
         else:
             return 0 if i == j else 1
 
-    def save(self, out_file, model_saver=None, masker_saver=None):
+    def save(
+        self, out_file, model_saver=None, masker_saver=None
+    ):  # pylint: disable=unused-argument
         """
         This patched `save` method fix `KernelExplainer.save`.
         Issues in original `KernelExplainer.save`:
@@ -38,7 +40,9 @@ class _PatchedKernelExplainer(shap.KernelExplainer):
             s.save("data", self.data)
 
     @classmethod
-    def load(cls, in_file, model_loader=None, masker_loader=None, instantiate=True):
+    def load(
+        cls, in_file, model_loader=None, masker_loader=None, instantiate=True
+    ):  # pylint: disable=unused-argument
         """
         This patched `load` method fix `KernelExplainer.load`.
         Issues in original KernelExplainer.load:

@@ -69,33 +69,16 @@ from mlflow.store._unity_catalog.registry.utils import (
 )
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.rest_utils import MlflowHostCreds
 from tests.helper_functions import mock_http_200
 
-_REGISTRY_URI = "databricks-uc"
-_TRACKING_URI = "databricks"
-_REGISTRY_HOST_CREDS = MlflowHostCreds("https://hello-registry")
-_TRACKING_HOST_CREDS = MlflowHostCreds("https://hello-tracking")
+from tests.store._unity_catalog.conftest import (
+    _REGISTRY_HOST_CREDS,
+    _TRACKING_HOST_CREDS,
+)
 
 
 @pytest.fixture
-def mock_databricks_host_creds():
-    def mock_host_creds(uri):
-        if uri == _TRACKING_URI:
-            return _TRACKING_HOST_CREDS
-        elif uri == _REGISTRY_URI:
-            return _REGISTRY_HOST_CREDS
-        raise Exception(f"Got unexpected store URI {uri}")
-
-    with mock.patch(
-        "mlflow.store._unity_catalog.registry.rest_store.get_databricks_host_creds",
-        side_effect=mock_host_creds,
-    ):
-        yield
-
-
-@pytest.fixture
-def store(mock_databricks_host_creds):
+def store(mock_databricks_uc_host_creds):
     with mock.patch("databricks_cli.configure.provider.get_config"):
         yield UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks")
 
@@ -185,7 +168,11 @@ def test_create_registered_model(mock_http, store):
 @pytest.fixture()
 def local_model_dir(tmp_path):
     fake_signature = ModelSignature(inputs=Schema([]), outputs=Schema([]))
-    fake_mlmodel_contents = {"signature": fake_signature.to_dict()}
+    fake_mlmodel_contents = {
+        "artifact_path": "some-artifact-path",
+        "run_id": "abc123",
+        "signature": fake_signature.to_dict(),
+    }
     with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)
     yield tmp_path
@@ -231,6 +218,29 @@ def test_create_model_version_missing_python_deps(store, local_model_dir):
         store.create_model_version(name=model_name, source=str(local_model_dir))
 
 
+@pytest.fixture()
+def feature_store_local_model_dir(tmp_path):
+    fake_signature = ModelSignature(inputs=Schema([]), outputs=Schema([]))
+    fake_mlmodel_contents = {
+        "artifact_path": "some-artifact-path",
+        "run_id": "abc123",
+        "signature": fake_signature.to_dict(),
+        "flavors": {"python_function": {"loader_module": "databricks.feature_store.mlflow_model"}},
+    }
+    with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
+        yaml.dump(fake_mlmodel_contents, handle)
+    yield tmp_path
+
+
+def test_create_model_version_fails_fs_packaged_model(store, feature_store_local_model_dir):
+    with pytest.raises(
+        MlflowException,
+        match="This model was packaged by Databricks Feature Store and can only be registered on "
+        "a Databricks cluster.",
+    ):
+        store.create_model_version(name="model_1", source=str(feature_store_local_model_dir))
+
+
 def test_create_model_version_missing_mlmodel(store, tmp_path):
     with pytest.raises(
         MlflowException,
@@ -262,7 +272,7 @@ def test_create_model_version_missing_output_signature(store, tmp_path):
 
 
 @mock_http_200
-def test_update_registered_model_name(mock_http, store):
+def test_update_registered_model_name(mock_http, store):  # pylint: disable=unused-argument
     name = "model_1"
     new_name = "model_2"
     with pytest.raises(
@@ -427,7 +437,7 @@ def test_get_run_and_headers_returns_none_if_request_fails(store, status_code, r
 
 
 def test_get_run_and_headers_returns_none_if_tracking_uri_not_databricks(
-    mock_databricks_host_creds, tmp_path
+    mock_databricks_uc_host_creds, tmp_path
 ):
     with mock.patch("databricks_cli.configure.provider.get_config"):
         store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri=str(tmp_path))
@@ -460,10 +470,10 @@ def get_request_mock(
         host_creds,
         endpoint,
         method,
-        max_retries=None,
-        backoff_factor=None,
-        retry_codes=None,
-        timeout=None,
+        max_retries=None,  # pylint: disable=unused-argument
+        backoff_factor=None,  # pylint: disable=unused-argument
+        retry_codes=None,  # pylint: disable=unused-argument
+        timeout=None,  # pylint: disable=unused-argument
         **kwargs,
     ):
         run_workspace_id = _get_workspace_id_for_run(run_id)
@@ -484,6 +494,7 @@ def get_request_mock(
                         run_id=run_id,
                         run_tracking_server_id=run_workspace_id,
                         tags=uc_tags,
+                        feature_deps="",
                     )
                 ),
             ): CreateModelVersionResponse(
@@ -559,6 +570,7 @@ def _assert_create_model_version_endpoints_called(
                 description=description,
                 run_tracking_server_id=_get_workspace_id_for_run(run_id),
                 tags=uc_tags,
+                feature_deps="",
             ),
         ),
         (
@@ -622,7 +634,9 @@ def test_create_model_version_aws(store, local_model_dir):
     ) as request_mock, mock.patch(
         "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository",
         return_value=mock_artifact_repo,
-    ) as s3_artifact_repo_class_mock:
+    ) as s3_artifact_repo_class_mock, mock.patch.dict(
+        "sys.modules", {"boto3": {}}
+    ):
         store.create_model_version(name=model_name, source=source, tags=tags)
         # Verify that s3 artifact repo mock was called with expected args
         s3_artifact_repo_class_mock.assert_called_once_with(
@@ -632,6 +646,56 @@ def test_create_model_version_aws(store, local_model_dir):
             session_token=session_token,
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
+        _assert_create_model_version_endpoints_called(
+            request_mock=request_mock, name=model_name, source=source, version=version, tags=tags
+        )
+
+
+def test_create_model_version_local_model_path(store, local_model_dir):
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+    )
+    storage_location = "s3://blah"
+    source = "s3://model/version/source"
+    model_name = "model_1"
+    version = "1"
+    tags = [
+        ModelVersionTag(key="key", value="value"),
+        ModelVersionTag(key="anotherKey", value="some other value"),
+    ]
+    mock_artifact_repo = mock.MagicMock(autospec=S3ArtifactRepository)
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
+            name=model_name,
+            version=version,
+            temp_credentials=aws_temp_creds,
+            storage_location=storage_location,
+            source=source,
+            tags=tags,
+        ),
+    ) as request_mock, mock.patch(
+        "mlflow.artifacts.download_artifacts"
+    ) as mock_download_artifacts, mock.patch(
+        "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository",
+        return_value=mock_artifact_repo,
+    ):
+        store.create_model_version(
+            name=model_name, source=source, tags=tags, local_model_path=local_model_dir
+        )
+        # Assert that we don't attempt to download model version files, and that we instead log
+        # artifacts directly to the destination s3 location from the passed-in local_model_path
+        mock_download_artifacts.assert_not_called()
+        mock_artifact_repo.log_artifacts.assert_called_once_with(
+            local_dir=local_model_dir, artifact_path=""
+        )
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, name=model_name, source=source, version=version, tags=tags
         )

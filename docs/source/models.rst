@@ -212,23 +212,14 @@ UI and Model Registry UI to display model inputs and outputs. They are also util
 the model's assigned signature (see the :ref:`Signature enforcement <signature-enforcement>` section
 for more details).
 
-To include a signature with your model, pass a :py:class:`signature object
-<mlflow.models.ModelSignature>` as an argument to the appropriate log_model call, e.g.
-:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`
+To include a signature with your model, pass a :ref:`model input example <input-example>` as an argument to the 
+appropriate log_model or save_model call, e.g. :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`,
+and the model signature will be automatically inferred
 (see the :ref:`How to log models with signatures <how-to-log-models-with-signatures>` section for more details).
 The model signature is stored in JSON format in the :ref:`MLmodel file <pyfunc-model-config>` in your
 model artifacts, together with other model metadata. To set a signature on a logged or
 saved model, use the :py:func:`set_signature() <mlflow.models.set_signature>` API
 (see the :ref:`How to set signatures on models <how-to-set-signatures-on-models>` section for more details).
-
-.. note::
-    :ref:`MLflow model deployment tools <built-in-deployment>` commonly serve the Python
-    Function (pyfunc) flavor of MLflow models. Hence, it is recommended that you assign your model
-    a signature that matches its PyFunc flavor. Usually, generating the model signature involves calling
-    :py:func:`infer_signature() <mlflow.models.infer_signature>` on your raw model's test dataset
-    and predicted output of that dataset. However, in certain cases (such as the :ref:`pmdarima model flavor <pmdarima-flavor>`)
-    the schema of the PyFunc model input may differ from that of the test dataset. In such situations,
-    it is necessary to create a signature that represents the inputs and outputs of the PyFunc flavor.
 
 Model Signature Types
 ~~~~~~~~~~~~~~~~~~~~~
@@ -341,18 +332,25 @@ as possible given the signature provided, and will support ragged input arrays a
 
 How To Log Models With Signatures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-To include a signature with your model, pass :py:class:`signature object
-<mlflow.models.ModelSignature>` as an argument to the appropriate log_model call, e.g.
-:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. The model signature object can be created
-by hand or :py:func:`inferred <mlflow.models.infer_signature>` from datasets with valid model inputs
-(e.g. the training dataset with target column omitted) and valid model outputs (e.g. model
-predictions generated on the training dataset).
+To include a signature with your model, pass a :ref:`model input example <input-example>` to the 
+appropriate log_model or save_model call, e.g. :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`,
+and the model signature will be automatically inferred from from the input example and the model's
+predicted output of the input example.
 
-You may also include a signature with your model by omitting the :py:class:`signature object
-<mlflow.models.ModelSignature>` from the log_model or save_model call and instead passing
-an :ref:`input example <input-example>`. Then, for most MLflow flavors, log_model or save_model
-will automatically infer the signature from the input example and the model's predicted output of
-the input example.
+You may also include a signature object with your model by passing a :py:class:`signature object
+<mlflow.models.ModelSignature>` as an argument to your log_model or save_model call. The model signature
+object can be created by hand or :py:func:`inferred <mlflow.models.infer_signature>` from datasets with
+valid model inputs (e.g. the training dataset with target column omitted) and valid model outputs
+(e.g. model predictions generated on the training dataset).
+
+.. note::
+    Model signatures are utilized in :ref:`MLflow model deployment tools <built-in-deployment>`, which
+    commonly serve the Python Function (PyFunc) flavor of MLflow models. Hence, when passing a signature 
+    object to your log_model or save_model call, it is recommended that the signature represent the
+    inputs and outputs of the model's PyFunc flavor. This is especially important when the model loaded
+    as a PyFunc model has an input schema that is different from the test dataset schema (as is the case with
+    the :ref:`pmdarima model flavor <pmdarima-flavor>`).
+
 
 Column-based Signature Example
 """"""""""""""""""""""""""""""
@@ -365,34 +363,43 @@ on the ``Iris dataset``:
     from sklearn import datasets
     from sklearn.ensemble import RandomForestClassifier
     import mlflow
-    import mlflow.sklearn
     from mlflow.models import infer_signature
 
     iris = datasets.load_iris()
     iris_train = pd.DataFrame(iris.data, columns=iris.feature_names)
     clf = RandomForestClassifier(max_depth=7, random_state=0)
-    clf.fit(iris_train, iris.target)
-    signature = infer_signature(iris_train, clf.predict(iris_train))
-    mlflow.sklearn.log_model(clf, "iris_rf", signature=signature)
 
-The same signature can be created explicitly as follows:
+    with mlflow.start_run():
+        clf.fit(iris_train, iris.target)
+        # Take the first row of the training dataset as the model input example.
+        input_example = iris_train.iloc[[0]]
+        # The signature is automatically inferred from the input example and its predicted output.
+        mlflow.sklearn.log_model(clf, "iris_rf", input_example=input_example)
+
+The same signature can be explicitly created and logged as follows:
 
 .. code-block:: python
 
-    from mlflow.models import ModelSignature
+    from mlflow.models import ModelSignature, infer_signature
     from mlflow.types.schema import Schema, ColSpec
 
+    # Option 1: Manually construct the signature object
     input_schema = Schema(
         [
             ColSpec("double", "sepal length (cm)"),
             ColSpec("double", "sepal width (cm)"),
             ColSpec("double", "petal length (cm)"),
             ColSpec("double", "petal width (cm)"),
-            ColSpec("string", "class", optional=True),
         ]
     )
     output_schema = Schema([ColSpec("long")])
     signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+
+    # Option 2: Infer the signature
+    signature = infer_signature(iris_train, clf.predict(iris_train))
+
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(clf, "iris_rf", signature=signature)
 
 Tensor-based Signature Example
 """"""""""""""""""""""""""""""
@@ -401,64 +408,60 @@ on the ``MNIST dataset``:
 
 .. code-block:: python
 
-    from keras.datasets import mnist
-    from keras.utils import to_categorical
-    from keras.models import Sequential
-    from keras.layers import Conv2D, MaxPooling2D, Dense, Flatten
-    from keras.optimizers import SGD
+    import tensorflow as tf
     import mlflow
-    from mlflow.models import infer_signature
 
-    (train_X, train_Y), (test_X, test_Y) = mnist.load_data()
-    trainX = train_X.reshape((train_X.shape[0], 28, 28, 1))
-    testX = test_X.reshape((test_X.shape[0], 28, 28, 1))
-    trainY = to_categorical(train_Y)
-    testY = to_categorical(test_Y)
+    mnist = tf.keras.datasets.mnist
+    (x_train, y_train), (x_test, y_test) = mnist.load_data()
+    x_train, x_test = x_train / 255.0, x_test / 255.0
 
-    model = Sequential()
-    model.add(
-        Conv2D(
-            32,
-            (3, 3),
-            activation="relu",
-            kernel_initializer="he_uniform",
-            input_shape=(28, 28, 1),
-        )
+    model = tf.keras.models.Sequential(
+        [
+            tf.keras.layers.Flatten(input_shape=(28, 28)),
+            tf.keras.layers.Dense(128, activation="relu"),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Dense(10),
+        ]
     )
-    model.add(MaxPooling2D((2, 2)))
-    model.add(Flatten())
-    model.add(Dense(100, activation="relu", kernel_initializer="he_uniform"))
-    model.add(Dense(10, activation="softmax"))
-    opt = SGD(lr=0.01, momentum=0.9)
-    model.compile(optimizer=opt, loss="categorical_crossentropy", metrics=["accuracy"])
-    model.fit(trainX, trainY, epochs=10, batch_size=32, validation_data=(testX, testY))
+    loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+    model.compile(optimizer="adam", loss=loss_fn, metrics=["accuracy"])
 
-    signature = infer_signature(testX, model.predict(testX))
-    mlflow.tensorflow.log_model(model, "mnist_cnn", signature=signature)
+    with mlflow.start_run():
+        model.fit(x_train, y_train, epochs=5)
+        # Take the first three training examples as the model input example.
+        input_example = x_train[:3, :]
+        mlflow.tensorflow.log_model(model, "mnist_cnn", input_example=input_example)
 
-The same signature can be created explicitly as follows:
+The same signature can be explicitly created and logged as follows:
 
 .. code-block:: python
 
     import numpy as np
-    from mlflow.models import ModelSignature
+    from mlflow.models import ModelSignature, infer_signature
     from mlflow.types.schema import Schema, TensorSpec
 
+    # Option 1: Manually construct the signature object
     input_schema = Schema(
         [
-            TensorSpec(np.dtype(np.uint8), (-1, 28, 28, 1)),
+            TensorSpec(np.dtype(np.float64), (-1, 28, 28, 1)),
         ]
     )
     output_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 10))])
     signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
+    # Option 2: Infer the signature
+    signature = infer_signature(testX, model.predict(testX))
+
+    with mlflow.start_run():
+        mlflow.tensorflow.log_model(model, "mnist_cnn", signature=signature)
+
 .. _how-to-set-signatures-on-models:
 
 How To Set Signatures on Models
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Models can be saved with without model signatures or with incorrect ones. To set a model signature on model artifacts,
-use the :py:func:`mlflow.models.set_signature() <mlflow.models.set_signature>` API. Here are
-some examples.
+Models can be saved with without model signatures or with incorrect ones. To add a signature to an
+existing logged model, use the
+:py:func:`mlflow.models.set_signature() <mlflow.models.set_signature>` API. Here are some examples.
 
 Set Signature on Logged Model
 """""""""""""""""""""""""""""
@@ -1270,6 +1273,11 @@ converts it to ONNX, logs to mlflow and makes a prediction using pyfunc predict(
 
 MXNet Gluon (``gluon``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. warning::
+
+    The ``gluon`` model flavor is deprecated and will be removed in a future release.
+
 The ``gluon`` model flavor enables logging of `Gluon models
 <https://mxnet.incubator.apache.org/api/python/docs/api/gluon/index.html>`_ in MLflow format via
 the :py:func:`mlflow.gluon.save_model()` and :py:func:`mlflow.gluon.log_model()` methods. These
@@ -2312,6 +2320,11 @@ Example: Log a LangChain LLMChain
 Example: Log a LangChain Agent
 
 .. literalinclude:: ../../examples/langchain/simple_agent.py
+    :language: python
+
+Example: Log a LangChain RetrievalQA Chain
+
+.. literalinclude:: ../../examples/langchain/retrieval_qa_chain.py
     :language: python
 
 John Snow Labs (``johnsnowlabs``) (Experimental)
@@ -3740,7 +3753,7 @@ only inferred for built-in flavors.
         )
 
 Next, we add the ``log_model()`` function. This function is little more than a wrapper around the
-:py:func:`mlflow.models.Model.log()` method to enable loggig our custom model as an artifact to the
+:py:func:`mlflow.models.Model.log()` method to enable logging our custom model as an artifact to the
 curren MLflow run. Any flavor-specific parameters (e.g. ``serialization_format``) introduced in the
 ``save_model()`` function also need to be added in the ``log_model()`` function. We also need to
 pass the ``flavor`` module to the :py:func:`mlflow.models.Model.log()` method which internally calls

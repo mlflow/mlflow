@@ -243,7 +243,7 @@ class ImportChecker(BaseChecker):
     def visit_functiondef(self, node: astroid.FunctionDef):
         self.stack.append(node)
 
-    def leave_functiondef(self, node: astroid.FunctionDef):
+    def leave_functiondef(self, node: astroid.FunctionDef):  # pylint: disable=unused-argument
         self.stack.pop()
 
     def visit_importfrom(self, node: astroid.ImportFrom):

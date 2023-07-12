@@ -139,9 +139,7 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmp_path):
             code_path=[__file__],
         )
         pyfunc_model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
-            )
+            f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
         )
 
     model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
@@ -168,9 +166,7 @@ def test_model_log_load_no_active_run(sklearn_knn_model, iris_data, tmp_path):
         code_path=[__file__],
     )
     pyfunc_model_path = _download_artifact_from_uri(
-        "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
-        )
+        f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
     )
 
     model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
