@@ -492,8 +492,10 @@ def dump_input_data(data, inputs_key="inputs", params: Optional[Dict[str, Any]] 
         post_data = {"dataframe_split": data.to_dict(orient="split")}
     elif isinstance(data, dict):
         post_data = {inputs_key: {k: get_jsonable_input(k, v) for k, v in data}}
-    elif isinstance(data, (np.ndarray, list)):
-        post_data = {inputs_key: list(data)}
+    elif isinstance(data, np.ndarray):
+        post_data = {inputs_key: data.tolist()}
+    elif isinstance(data, list):
+        post_data = {inputs_key: data}
     else:
         post_data = data
 
