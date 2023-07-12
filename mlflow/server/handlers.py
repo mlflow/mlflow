@@ -531,7 +531,7 @@ def validate_path_is_safe(path):
         path = local_file_uri_to_path(path)
     if (
         any((s in path) for s in _OS_ALT_SEPS)
-        or ".." in path.split(os.sep)
+        or ".." in path.split("/")
         or pathlib.PureWindowsPath(path).is_absolute()
         or pathlib.PurePosixPath(path).is_absolute()
     ):
