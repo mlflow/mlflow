@@ -513,6 +513,7 @@ transformers:
           "accelerate", # required for large torch models where weights will not fit in RAM
           "librosa", # required for transformers audio pipelines for bitrate conversion
           "ffmpeg", # required for transformers audio pipelines for audio byte to numpy conversion
+          "sentencepiece", # required for T5 text2text generative models
         ]
       # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
