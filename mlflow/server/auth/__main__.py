@@ -1,6 +1,7 @@
 import click
+import sqlalchemy
 
-from . import db
+from .db import utils
 
 
 @click.group()
@@ -12,7 +13,8 @@ def commands():
 @click.option("--url", required=True)
 @click.option("--revision", default="head")
 def migrate(url: str, revision: str) -> None:
-    db.migrate(url, revision)
+    with sqlalchemy.create_engine(url).begin() as engine:
+        utils.migrate(engine, revision)
 
 
 if __name__ == "__main__":
