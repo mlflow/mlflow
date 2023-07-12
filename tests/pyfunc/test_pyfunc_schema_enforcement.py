@@ -29,7 +29,7 @@ class TestModel:
 
 
 @pytest.fixture(scope="module")
-def test_params_basic():
+def sample_params_basic():
     return {
         "str_param": "str_a",
         "int_param": np.int32(1),
@@ -84,7 +84,7 @@ class PythonModelWithBasicParams(mlflow.pyfunc.PythonModel):
 
 
 @pytest.fixture(scope="module")
-def test_params_with_arrays():
+def sample_params_with_arrays():
     return {
         "int_array": np.array([np.int32(1), np.int32(2)]),
         "double_array": np.array([1.0, 2.0]),
@@ -1332,8 +1332,8 @@ def test_param_spec_errors():
         ParamSpec("a", DataType.boolean, {"a": 1}, (-1,))
 
 
-def test_enforce_schema_in_python_model_predict(test_params_basic, param_schema_basic):
-    test_params = test_params_basic
+def test_enforce_schema_in_python_model_predict(sample_params_basic, param_schema_basic):
+    test_params = sample_params_basic
     test_schema = param_schema_basic
     signature = infer_signature(["input1"], params=test_params)
     with mlflow.start_run():
@@ -1403,8 +1403,8 @@ def test_enforce_schema_in_python_model_predict(test_params_basic, param_schema_
     ] == np.datetime64("2023-06-26 00:00:00")
 
 
-def test_enforce_schema_in_python_model_serving(test_params_basic):
-    signature = infer_signature(["input1"], params=test_params_basic)
+def test_enforce_schema_in_python_model_serving(sample_params_basic):
+    signature = infer_signature(["input1"], params=sample_params_basic)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             python_model=PythonModelWithBasicParams(),
@@ -1467,8 +1467,8 @@ def test_enforce_schema_in_python_model_serving(test_params_basic):
         )
 
 
-def test_enforce_schema_with_arrays_in_python_model_predict(test_params_with_arrays):
-    params = test_params_with_arrays
+def test_enforce_schema_with_arrays_in_python_model_predict(sample_params_with_arrays):
+    params = sample_params_with_arrays
     signature = infer_signature(["input1"], params=params)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
@@ -1518,8 +1518,8 @@ def test_enforce_schema_with_arrays_in_python_model_predict(test_params_with_arr
         loaded_model.predict(["a", "b"], params={"double_array": [1.0, "2.0"]})
 
 
-def test_enforce_schema_with_arrays_in_python_model_serving(test_params_with_arrays):
-    params = test_params_with_arrays
+def test_enforce_schema_with_arrays_in_python_model_serving(sample_params_with_arrays):
+    params = sample_params_with_arrays
     signature = infer_signature(["input1"], params=params)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
