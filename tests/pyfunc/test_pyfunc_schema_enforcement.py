@@ -28,6 +28,85 @@ class TestModel:
         return pdf
 
 
+@pytest.fixture(scope="module")
+def test_params_basic():
+    return {
+        "str_param": "str_a",
+        "int_param": np.int32(1),
+        "bool_param": True,
+        "double_param": 1.0,
+        "float_param": np.float32(0.1),
+        "long_param": 100,
+        "datetime_param": np.datetime64("2023-06-26 00:00:00"),
+        "str_list": ["a", "b", "c"],
+        "bool_list": [True, False],
+        "double_array": np.array([1.0, 2.0]),
+    }
+
+
+@pytest.fixture(scope="module")
+def param_schema_basic():
+    return ParamSchema(
+        [
+            ParamSpec("str_param", DataType.string, "str_a", None),
+            ParamSpec("int_param", DataType.integer, np.int32(1), None),
+            ParamSpec("bool_param", DataType.boolean, True, None),
+            ParamSpec("double_param", DataType.double, 1.0, None),
+            ParamSpec("float_param", DataType.float, np.float32(0.1), None),
+            ParamSpec("long_param", DataType.long, 100, None),
+            ParamSpec(
+                "datetime_param", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None
+            ),
+            ParamSpec("str_list", DataType.string, ["a", "b", "c"], (-1,)),
+            ParamSpec("bool_list", DataType.boolean, [True, False], (-1,)),
+            ParamSpec("double_array", DataType.double, [1.0, 2.0], (-1,)),
+        ]
+    )
+
+
+class PythonModelWithBasicParams(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input, params=None):
+        assert isinstance(params, dict)
+        assert DataType.is_string(params["str_param"])
+        assert DataType.is_integer(params["int_param"])
+        assert DataType.is_boolean(params["bool_param"])
+        assert DataType.is_double(params["double_param"])
+        assert DataType.is_float(params["float_param"])
+        assert DataType.is_long(params["long_param"])
+        assert DataType.is_datetime(params["datetime_param"])
+        assert isinstance(params["str_list"], list)
+        assert all(DataType.is_string(x) for x in params["str_list"])
+        assert isinstance(params["bool_list"], list)
+        assert all(DataType.is_boolean(x) for x in params["bool_list"])
+        assert isinstance(params["double_array"], list)
+        assert all(DataType.is_double(x) for x in params["double_array"])
+        return params
+
+
+@pytest.fixture(scope="module")
+def test_params_with_arrays():
+    return {
+        "int_array": np.array([np.int32(1), np.int32(2)]),
+        "double_array": np.array([1.0, 2.0]),
+        "float_array": np.array([np.float32(1.0), np.float32(2.0)]),
+        "long_array": np.array([1, 2]),
+        "datetime_array": np.array(
+            [np.datetime64("2023-06-26 00:00:00"), np.datetime64("2023-06-26 00:00:00")]
+        ),
+    }
+
+
+class PythonModelWithArrayParams(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input, params=None):
+        assert isinstance(params, dict)
+        assert all(DataType.is_integer(x) for x in params["int_array"])
+        assert all(DataType.is_double(x) for x in params["double_array"])
+        assert all(DataType.is_float(x) for x in params["float_array"])
+        assert all(DataType.is_long(x) for x in params["long_array"])
+        assert all(DataType.is_datetime(x) for x in params["datetime_array"])
+        return params
+
+
 def test_schema_enforcement_single_column_2d_array():
     X = np.array([[1], [2], [3]])
     y = np.array([1, 2, 3])
@@ -1253,63 +1332,17 @@ def test_param_spec_errors():
         ParamSpec("a", DataType.boolean, {"a": 1}, (-1,))
 
 
-def test_enforce_schema_in_python_model_predict():
-    test_params = {
-        "str_param": "str_a",
-        "int_param": np.int32(1),
-        "bool_param": True,
-        "double_param": 1.0,
-        "float_param": np.float32(0.1),
-        "long_param": 100,
-        "datetime_param": np.datetime64("2023-06-26 00:00:00"),
-        "str_list": ["a", "b", "c"],
-        "bool_list": [True, False],
-        "double_array": np.array([1.0, 2.0]),
-    }
-    test_schema = ParamSchema(
-        [
-            ParamSpec("str_param", DataType.string, "str_a", None),
-            ParamSpec("int_param", DataType.integer, np.int32(1), None),
-            ParamSpec("bool_param", DataType.boolean, True, None),
-            ParamSpec("double_param", DataType.double, 1.0, None),
-            ParamSpec("float_param", DataType.float, np.float32(0.1), None),
-            ParamSpec("long_param", DataType.long, 100, None),
-            ParamSpec(
-                "datetime_param", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None
-            ),
-            ParamSpec("str_list", DataType.string, ["a", "b", "c"], (-1,)),
-            ParamSpec("bool_list", DataType.boolean, [True, False], (-1,)),
-            ParamSpec("double_array", DataType.double, [1.0, 2.0], (-1,)),
-        ]
-    )
-
-    class TestPythonModel(mlflow.pyfunc.PythonModel):
-        def predict(self, context, model_input, params=None):
-            assert isinstance(params, dict)
-            assert DataType.is_string(params["str_param"])
-            assert DataType.is_integer(params["int_param"])
-            assert DataType.is_boolean(params["bool_param"])
-            assert DataType.is_double(params["double_param"])
-            assert DataType.is_float(params["float_param"])
-            assert DataType.is_long(params["long_param"])
-            assert DataType.is_datetime(params["datetime_param"])
-            assert isinstance(params["str_list"], list)
-            assert all(DataType.is_string(x) for x in params["str_list"])
-            assert isinstance(params["bool_list"], list)
-            assert all(DataType.is_boolean(x) for x in params["bool_list"])
-            assert isinstance(params["double_array"], list)
-            assert all(DataType.is_double(x) for x in params["double_array"])
-            return params
-
+def test_enforce_schema_in_python_model_predict(test_params_basic, param_schema_basic):
+    test_params = test_params_basic
+    test_schema = param_schema_basic
     signature = infer_signature(["input1"], params=test_params)
-    assert signature.params == test_schema
-
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            python_model=TestPythonModel(),
+            python_model=PythonModelWithBasicParams(),
             artifact_path="test_model",
             signature=signature,
         )
+    assert signature.params == test_schema
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     loaded_predict = loaded_model.predict(["a", "b"], params=test_params)
@@ -1369,7 +1402,16 @@ def test_enforce_schema_in_python_model_predict():
         "datetime_param"
     ] == np.datetime64("2023-06-26 00:00:00")
 
-    # Test model serving
+
+def test_enforce_schema_in_python_model_serving(test_params_basic):
+    signature = infer_signature(["input1"], params=test_params_basic)
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=PythonModelWithBasicParams(),
+            artifact_path="test_model",
+            signature=signature,
+        )
+
     # params in payload should be json serializable
     test_params = {
         "str_param": "str_a",
@@ -1425,31 +1467,12 @@ def test_enforce_schema_in_python_model_predict():
         )
 
 
-def test_enforce_schema_with_arrays_in_python_model_predict():
-    params = {
-        "int_array": np.array([np.int32(1), np.int32(2)]),
-        "double_array": np.array([1.0, 2.0]),
-        "float_array": np.array([np.float32(1.0), np.float32(2.0)]),
-        "long_array": np.array([1, 2]),
-        "datetime_array": np.array(
-            [np.datetime64("2023-06-26 00:00:00"), np.datetime64("2023-06-26 00:00:00")]
-        ),
-    }
-
-    class TestPythonModelSimple(mlflow.pyfunc.PythonModel):
-        def predict(self, context, model_input, params=None):
-            assert isinstance(params, dict)
-            assert all(DataType.is_integer(x) for x in params["int_array"])
-            assert all(DataType.is_double(x) for x in params["double_array"])
-            assert all(DataType.is_float(x) for x in params["float_array"])
-            assert all(DataType.is_long(x) for x in params["long_array"])
-            assert all(DataType.is_datetime(x) for x in params["datetime_array"])
-            return params
-
+def test_enforce_schema_with_arrays_in_python_model_predict(test_params_with_arrays):
+    params = test_params_with_arrays
     signature = infer_signature(["input1"], params=params)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            python_model=TestPythonModelSimple(),
+            python_model=PythonModelWithArrayParams(),
             artifact_path="test_model",
             signature=signature,
         )
@@ -1494,7 +1517,17 @@ def test_enforce_schema_with_arrays_in_python_model_predict():
     with pytest.raises(MlflowException, match=r"Incompatible types for param 'double_array'"):
         loaded_model.predict(["a", "b"], params={"double_array": [1.0, "2.0"]})
 
-    # Test model serving
+
+def test_enforce_schema_with_arrays_in_python_model_serving(test_params_with_arrays):
+    params = test_params_with_arrays
+    signature = infer_signature(["input1"], params=params)
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=PythonModelWithArrayParams(),
+            artifact_path="test_model",
+            signature=signature,
+        )
+
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=dump_input_data(["a", "b"], params=params),

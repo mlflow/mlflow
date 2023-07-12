@@ -711,7 +711,7 @@ dependencies:
     )
     tmp_path.joinpath("requirements.txt").write_text(
         """
-mlflow==2.4
+mlflow==2.4.0
 cloudpickle==2.2.1
 numpy==1.24.4
 psutil==5.9.5
