@@ -1019,7 +1019,7 @@ def test_spark_udf_array_of_structs(spark):
 def test_spark_udf_return_nullable_array_field(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
-            values = [np.array([1, 2])] * (len(model_input) - 2) + [None, np.nan]
+            values = [np.array([1.0, np.nan])] * (len(model_input) - 2) + [None, np.nan]
             return pd.DataFrame({"a": values})
 
     with mlflow.start_run():
@@ -1030,8 +1030,8 @@ def test_spark_udf_return_nullable_array_field(spark):
         udf = mlflow.pyfunc.spark_udf(
             spark,
             mlflow_info.model_uri,
-            result_type="a array<long>",
+            result_type="a array<double>",
         )
         data1 = spark.range(3).repartition(1)
         result = data1.select(udf("id").alias("res")).select("res.a").toPandas()
-        assert list(result["a"]) == [[1, 2], None, None]
+        assert list(result["a"]) == [[1.0, None], None, None]
