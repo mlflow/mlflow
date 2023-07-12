@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 import posixpath
+
 import psutil
 import re
 from typing import Optional, List
@@ -9,6 +10,7 @@ from urllib.parse import urlparse
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.envs import MLFLOW_GATEWAY_URI  # TODO: change to environment_variables import
+from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
@@ -110,7 +112,23 @@ def assemble_uri_path(paths: List[str]) -> str:
     :return: A string representing the complete assembled URI path.
     """
     stripped_paths = [path.strip("/").lstrip("/") for path in paths if path]
-    return "/" + posixpath.join(*stripped_paths)
+    return "/" + posixpath.join(*stripped_paths) if stripped_paths else "/"
+
+
+def resolve_route_url(base_url: str, route: str) -> str:
+    """
+    Performs a validation on whether the returned value is a fully qualified url (as the case
+    with Databricks) or requires the assembly of a fully qualified url by appending the
+    Route return route_url to the base url of the AI Gateway server.
+
+    :param base_url: The base URL. Should include the scheme and domain, e.g.,
+                     ``http://127.0.0.1:6000``.
+    :param route: The route to be appended to the base URL, e.g., ``/api/2.0/gateway/routes/`` or,
+                  in the case of Databricks, the fully qualified url.
+    :return: The complete URL, either directly returned or formed and returned by joining the
+             base URL and the route path.
+    """
+    return route if _is_valid_uri(route) else append_to_uri_path(base_url, route)
 
 
 class SearchRoutesToken:
@@ -126,16 +144,16 @@ class SearchRoutesToken:
         try:
             decoded_token = base64.b64decode(encoded_token)
             parsed_token = json.loads(decoded_token)
+            index = int(parsed_token.get("index"))
         except Exception as e:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid SearchRoutes token: {encoded_token}"
             ) from e
 
-        index = parsed_token.get("index")
         if index is None or index < 0:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid SearchRoutes token: {encoded_token}"
-            ) from e
+            )
 
         return cls(index=index)
 

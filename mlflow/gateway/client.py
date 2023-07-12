@@ -9,7 +9,7 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
 )
-from mlflow.gateway.utils import get_gateway_uri, assemble_uri_path
+from mlflow.gateway.utils import get_gateway_uri, assemble_uri_path, resolve_route_url
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
@@ -94,6 +94,7 @@ class MlflowGatewayClient:
         """
         route = assemble_uri_path([MLFLOW_GATEWAY_CRUD_ROUTE_BASE, name])
         response = self._call_endpoint("GET", route).json()
+        response["route_url"] = resolve_route_url(self._gateway_uri, response["route_url"])
 
         return Route(**response)
 
@@ -112,6 +113,9 @@ class MlflowGatewayClient:
         response_json = self._call_endpoint(
             "GET", MLFLOW_GATEWAY_CRUD_ROUTE_BASE, json_body=json.dumps(request_parameters)
         ).json()
+        for route in response_json["routes"]:
+            route["route_url"] = resolve_route_url(self._gateway_uri, route["route_url"])
+
         routes = [Route(**resp) for resp in response_json["routes"]]
         next_page_token = response_json.get("next_page_token")
         return PagedList(routes, next_page_token)

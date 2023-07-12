@@ -12,7 +12,7 @@ import yaml
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import ConfigModel, ResponseModel
 from mlflow.gateway.utils import is_valid_endpoint_name, check_configuration_route_name_collisions
-
+from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_BASE, MLFLOW_QUERY_SUFFIX
 
 _logger = logging.getLogger(__name__)
 
@@ -236,6 +236,7 @@ class RouteConfig(ConfigModel):
                 name=self.model.name,
                 provider=self.model.provider,
             ),
+            route_url=f"{MLFLOW_GATEWAY_ROUTE_BASE}{self.name}{MLFLOW_QUERY_SUFFIX}",
         )
 
 
@@ -243,7 +244,7 @@ class Route(ResponseModel):
     name: str
     route_type: RouteType
     model: ModelInfo
-    route_url: Optional[str] = None
+    route_url: str
 
     class Config:
         schema_extra = {
@@ -254,6 +255,7 @@ class Route(ResponseModel):
                     "name": "gpt-3.5-turbo",
                     "provider": "openai",
                 },
+                "route_url": "/gateway/routes/completions/invocations",
             }
         }
 
