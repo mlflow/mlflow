@@ -527,6 +527,9 @@ class _SklearnModelWrapper:
         """
         return self.sklearn_model.predict_proba(data)
 
+    def score(self, *args, **kwargs):
+        return self.sklearn_model.score(*args, **kwargs)
+
 
 class _SklearnCustomModelPicklingError(pickle.PicklingError):
     """
