@@ -208,7 +208,9 @@ This snippet demonstrates a recommended pattern for logging models. First, the m
 
 The call to :py:func:`mlflow.tensorflow.log_model` saves the model in the Tensorflow "flavor" of MLflow. Each ML library that supports MLflow will implement ``log_model`` (and it's complement ``load_model``) differently. 
 
-The most general form of the function is :py:func:`mlflow.pyfunc.log_model`, which makes no assumptions about the model beyond it being callable from a Python function. {>> tk: I need the best pyfunc ref we got here, and then I need to switch it to the to-be-written doc dedicated to pyfunc <<}
+The most general form of the function is :py:func:`mlflow.pyfunc.log_model`, which makes no assumptions about the model beyond it being callable from a Python function. 
+
+.. comment: TODO: Once https://databricks.atlassian.net/browse/DOC-9765 is merged, add sentence above: For more information on logging models, see :ref:`tutorial-pyfunc`.
 
 Parameters, Metrics, and Artifacts
 ----------------------------------
