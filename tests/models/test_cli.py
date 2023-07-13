@@ -335,13 +335,13 @@ def test_predict(iris_data, sk_model):
 def test_predict_check_content_type(iris_data, sk_model, tmp_path):
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
-    model_registry_uri = "models:/{name}/{stage}".format(name="impredicting", stage="None")
+    model_registry_uri = "models:/impredicting/None"
     input_json_path = tmp_path / "input.json"
     input_csv_path = tmp_path / "input.csv"
     output_json_path = tmp_path / "output.json"
 
     x, _ = iris_data
-    with open(input_json_path, "w") as f:
+    with input_json_path.open("w") as f:
         json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
 
     pd.DataFrame(x).to_csv(input_csv_path, index=False)
@@ -375,13 +375,13 @@ def test_predict_check_content_type(iris_data, sk_model, tmp_path):
 def test_predict_check_input_path(iris_data, sk_model, tmp_path):
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
-    model_registry_uri = "models:/{name}/{stage}".format(name="impredicting", stage="None")
+    model_registry_uri = "models:/impredicting/None"
     input_json_path = tmp_path / "input.json"
     input_csv_path = tmp_path / "input.csv"
     output_json_path = tmp_path / "output.json"
 
     x, _ = iris_data
-    with open(input_json_path, "w") as f:
+    with input_json_path.open("w") as f:
         json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
 
     pd.DataFrame(x).to_csv(input_csv_path, index=False)
@@ -405,10 +405,11 @@ def test_predict_check_input_path(iris_data, sk_model, tmp_path):
         stderr=subprocess.PIPE,
         env=env_with_tracking_uri(),
         check=False,
+        text=True,
     )
     assert prc.returncode != 0
-    assert "ThisIsABug!" not in prc.stdout.decode("utf-8")
-    assert "Invalid input path" in prc.stderr.decode("utf-8")
+    assert "ThisIsABug!" not in prc.stdout
+    assert "Invalid input path" in prc.stderr
 
     prc = subprocess.run(
         [
@@ -430,22 +431,23 @@ def test_predict_check_input_path(iris_data, sk_model, tmp_path):
         stderr=subprocess.PIPE,
         env=env_with_tracking_uri(),
         check=False,
+        text=True,
     )
     assert prc.returncode != 0
-    assert "ThisIsABug!" not in prc.stdout.decode("utf-8")
-    assert "Invalid input path" in prc.stderr.decode("utf-8")
+    assert "ThisIsABug!" not in prc.stdout
+    assert "Invalid input path" in prc.stderr
 
 
 def test_predict_check_output_path(iris_data, sk_model, tmp_path):
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
-    model_registry_uri = "models:/{name}/{stage}".format(name="impredicting", stage="None")
+    model_registry_uri = "models:/impredicting/None"
     input_json_path = tmp_path / "input.json"
     input_csv_path = tmp_path / "input.csv"
     output_json_path = tmp_path / "output.json"
 
     x, _ = iris_data
-    with open(input_json_path, "w") as f:
+    with input_json_path.open("w") as f:
         json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
 
     pd.DataFrame(x).to_csv(input_csv_path, index=False)
@@ -469,10 +471,11 @@ def test_predict_check_output_path(iris_data, sk_model, tmp_path):
         stderr=subprocess.PIPE,
         env=env_with_tracking_uri(),
         check=False,
+        text=True,
     )
     assert prc.returncode != 0
-    assert "ThisIsABug!" not in prc.stdout.decode("utf-8")
-    assert "Invalid output path" in prc.stderr.decode("utf-8")
+    assert "ThisIsABug!" not in prc.stdout
+    assert "Invalid output path" in prc.stderr
 
 
 def test_prepare_env_passes(sk_model):
