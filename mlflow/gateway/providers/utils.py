@@ -2,8 +2,6 @@ import aiohttp
 from typing import Dict, Any
 from fastapi import HTTPException
 
-from mlflow import MlflowException
-from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_DISALLOWED_QUERY_PARAMETER_KEYS
 from mlflow.utils.uri import append_to_uri_path
 
 
@@ -44,8 +42,3 @@ def rename_payload_keys(payload: Dict[str, Any], mapping: Dict[str, str]) -> Dic
         if old_key in result:
             result[new_key] = result.pop(old_key)
     return result
-
-
-def validate_payload_disallowed_keys(payload) -> None:
-    if MLFLOW_AI_GATEWAY_DISALLOWED_QUERY_PARAMETER_KEYS in payload:
-        raise MlflowException
