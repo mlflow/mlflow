@@ -262,24 +262,25 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
             "--dev",
         ]
     ) as prc:
-        url = f"http://{host}:{port}"
-        for _ in _wait(url):
-            break
+        try:
+            url = f"http://{host}:{port}"
+            for _ in _wait(url):
+                break
 
-        mlflow.set_tracking_uri(url)
-        client = MlflowClient(url)
-        tmp_file = tmp_path / "test.txt"
-        tmp_file.touch()
-        username1, password1 = create_user(url)
-        with User(username1, password1, monkeypatch):
-            exp_id = client.create_experiment("exp")
-            run = client.create_run(exp_id)
-            client.log_artifact(run.info.run_id, tmp_file)
-
-        username2, password2 = create_user(url)
-        with User(username2, password2, monkeypatch):
-            client.list_artifacts(run.info.run_id)
-            with pytest.raises(requests.HTTPError, match="Permission denied"):
+            mlflow.set_tracking_uri(url)
+            client = MlflowClient(url)
+            tmp_file = tmp_path / "test.txt"
+            tmp_file.touch()
+            username1, password1 = create_user(url)
+            with User(username1, password1, monkeypatch):
+                exp_id = client.create_experiment("exp")
+                run = client.create_run(exp_id)
                 client.log_artifact(run.info.run_id, tmp_file)
 
-        _kill_all(prc.pid)
+            username2, password2 = create_user(url)
+            with User(username2, password2, monkeypatch):
+                client.list_artifacts(run.info.run_id)
+                with pytest.raises(requests.HTTPError, match="Permission denied"):
+                    client.log_artifact(run.info.run_id, tmp_file)
+        finally:
+            _kill_all(prc.pid)
