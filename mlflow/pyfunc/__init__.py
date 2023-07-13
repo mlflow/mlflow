@@ -980,7 +980,7 @@ def _check_udf_return_type(data_type):
     return False
 
 
-def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LOCAL):
+def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
 
