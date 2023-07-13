@@ -50,7 +50,6 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
    :maxdepth: 1
    :caption: Reference
 
-   gateway/index
    plugins
    auth/index
    cli
