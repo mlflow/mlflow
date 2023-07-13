@@ -18,7 +18,7 @@ This tutorial assumes that you have installed and used the MLflow library for tr
 
 The final section of this tutorial will show how to deploy a model in a Docker container. To run the Docker commands, you will need to have Docker installed. If you do not have Docker installed, you can skip the final section of this tutorial.
 
-- If you are not already running an MLflow Tracking Server, start one by running ``mlflow server`` in a terminal. This will start an MLflow Tracking Server on port 5000. (For customization, see :ref:`tutorial_tracking`.)
+- If you are not already running an MLflow Tracking Server, start one by running ``mlflow server`` in a terminal. This will start an MLflow Tracking Server on port 5000. (For customization, see :ref:`tutorial-tracking`.)
 
 - Set the ``MLFLOW_TRACKING_URI`` environment variable to the URI of the server. 
 
@@ -34,6 +34,7 @@ Create a file called **train.py** and add the following code:
 
 .. code-block:: python
 
+    from mlflow.models import ModelSignature
     from sklearn.datasets import load_iris
     from sklearn.linear_model import LogisticRegression
     from sklearn.metrics import accuracy_score
@@ -44,6 +45,8 @@ Create a file called **train.py** and add the following code:
 
     import mlflow
 
+    from custom_code import iris_classes
+
 
     def build_and_train_model(X : pd.DataFrame, y : pd.Series) -> LogisticRegression:
         classifier = LogisticRegression(C=1.0, random_state=42).fit(X, y)
@@ -53,21 +56,22 @@ Create a file called **train.py** and add the following code:
     def predict_and_track(classifier : LogisticRegression, X : pd.DataFrame, y : pd.Series) -> float:
         predictions = classifier.predict(X)
         score = accuracy_score(y, predictions)
-        mlflow.log_metric("accuracy", score)
         return score
 
 
-    def initialize_and_train() -> tk:
+    def initialize_and_train() -> (LogisticRegression, ModelSignature):
         X, y = load_iris(return_X_y=True, as_frame=True)
         classifier = build_and_train_model(X, y)
         score = predict_and_track(classifier, X, y)
+        mlflow.log_metric("accuracy", score)
         signature = mlflow.models.infer_signature(X, y)
         return classifier, signature
 
-    # Entry point
-    if __name__ == "__main__":
-        with mlflow.start_run() as run:
-            classifier, signature = initialize_and_train()
+
+        # Entry point
+        if __name__ == "__main__":
+            with mlflow.start_run() as run:
+                classifier, signature = initialize_and_train()
 
 Once you've created the file, run it with:
 
@@ -84,7 +88,7 @@ The code:
 3. Within ``initialize_and_train()``: loads the iris dataset 
 4. Specifies and fits a ``LogisticRegression`` model (``build_and_train_model``)
 5. Calculates the accuracy of the model and logs it to MLflow (``predict_and_track``)
-6. Infers the signature of the model using the ``infer_signature`` function and the input data and labels
+6. Infers the signature of the model using :py:func:`mlflow.models.infer_signature` function and the input data and labels
 7. Returns the model and the signature of the model
 
 What it doesn't do is log the model! Because there is an sklearn flavor for MLflow, we could do so by adding a single line of code to main:
@@ -110,10 +114,10 @@ Add the following code to **train.py**. Note that you must *add* the line ``run_
 
         def predict(self, context : mlflow.pyfunc.PythonModelContext, model_input : pd.DataFrame) -> np.ndarray[int]:
             preds = self.classifier.predict(model_input)
-            return preds
+            return iris_classes(preds)
 
 
-    def store_pyfunc_model(classifier : tk, signature : tk) -> str:
+    def store_pyfunc_model(classifier : LogisticRegression, signature : ModelSignature) -> str:
         # MLflow Tracking URI *must* be http or https for log_model
         assert(mlflow.get_tracking_uri().startswith("http"))
 
@@ -123,18 +127,16 @@ Add the following code to **train.py**. Note that you must *add* the line ``run_
             "classifier": classifier_filename
         }
 
-        my_model = IrisClassifier()
-
         model_info = mlflow.pyfunc.log_model(
-            python_model=my_model,
+            python_model=IrisClassifier(),
             artifacts=artifacts,
             artifact_path="artifacts",
-            signature=signature
+            signature=signature,
+            code_path= ["custom_code.py"]
         )
         print(f"Stored in mlruns/{model_info.run_id}")
         return model_info.run_id
 
-    # Replace previous entry point with this
     if __name__ == "__main__":
         with mlflow.start_run() as run:
             classifier, signature = initialize_and_train()
@@ -172,13 +174,6 @@ Open a Web browser and go to the address at which you are running the MLflow Tra
 
 Here, you can see the Run ID (1), the accuracy of the trained model (2), and the artifacts resulting from your call to ``log_model``. In addition to the **iris_classifier.joblib** you specified, there are all the files necessary to recreate the runtime environment (**conda.yaml**, **requirements.txt**, etc.) and the infrastructure for loading your custom model (**MLmodel** and **python_model.pkl**).
 
-{>> Do I need this? Maybe just use the run id? 
-Select the **Register Model** button (3) and register your model with the name **IrisClassifier**. In the resulting Model Registry page, click the one (and only) version of your model to bring up the version's detail page. Select the **Stage** dropdown and transition the model to **Staging**:
-
-.. image:: _static/images/tutorial-pyfunc/registry-transition.png
-    :alt: Screenshot of the Model Registry page details of the version, showing the transition to Staging
-
-<<}
 
 Load and run a stored model
 ------------------------------------------
@@ -272,6 +267,16 @@ To query the model from the CLI, run the following command:
 
 The ``curl`` command POSTs a JSON payload to the model serving endpoint ``invocations/``. The payload contains a dictionary with a single key, ``"dataframe_split"``, which has a value of another dictionary. The inner dictionary contains two keys, ``"columns"`` and ``"data"``. Note that each inner array in ``data`` contains four values, corresponding to the four columns in ``columns``. This is a little different than the dictionary used in **infer.py**, where a dictionary used the four column names for the keys and each value was an array of length three.
 
+Endpoints provided by the MLflow REST API
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In addition to the ``/invocations`` endpoint, the MLflow REST API provides a number of other endpoints:
+
+- ``/ping`` used for health check
+- ``/health`` (same as /ping)
+- ``/version`` used for getting the mlflow version
+
+
 Using other code-files during inferencing
 -----------------------------------------
 
@@ -290,7 +295,7 @@ Create a new file, **custom_code.py**, with the following contents:
     def iris_classes(preds : Iterable[int]) -> list[str]:
         return [flower_classes[pred] for pred in preds]
 
-Obviously, this is a trivial external dependency, but it illustrates the point. The ``iris_classes`` function takes a single argument, ``preds``, which is an array of predictions. It returns the strings corresponding to the predictions.
+Obviously, this is a trivial dependency, but it illustrates the point. The ``iris_classes`` function takes a single argument, ``preds``, which is an array of predictions. It returns the strings corresponding to the predictions.
 
 Modify the **train.py** file to import the ``iris_classes`` function and use it in the ``log_model`` call. At the top of the file, add the following line:
 
