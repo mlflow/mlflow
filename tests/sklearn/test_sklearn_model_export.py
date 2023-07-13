@@ -724,7 +724,6 @@ scikit-learn=={sklearn.__version__}
 scipy
 """
     )
-    # with open(os.path.join(model_path, "model.pkl"), "wb") as out:
     with open(tmp_path / "model.pkl", "wb") as out:
         pickle.dump(model, out, protocol=pickle.DEFAULT_PROTOCOL)
 
