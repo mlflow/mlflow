@@ -1318,6 +1318,7 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
     assert all(isinstance(element, str) for element in inference)
 
 
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.parametrize(
     "data, result",
     [
@@ -1388,6 +1389,65 @@ def test_text2text_generation_pipeline_with_inference_configs(
     assert dict_inference == inference
 
 
+def test_text_generation_pipeline_with_inference_configs(text_generation_pipeline, tmp_path):
+    data = ["test1", "test2"]
+    signature = infer_signature(
+        data, mlflow.transformers.generate_signature_output(text_generation_pipeline, data)
+    )
+
+    inference_config = {
+        "top_k": 2,
+        "num_beams": 5,
+        "max_length": 30,
+        "temperature": 0.62,
+        "top_p": 0.85,
+        "repetition_penalty": 1.15,
+    }
+    model_path1 = tmp_path.joinpath("model1")
+    mlflow.transformers.save_model(
+        text_generation_pipeline,
+        path=model_path1,
+        inference_config=inference_config,
+        signature=signature,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path1)
+
+    inference = pyfunc_loaded.predict(data)
+
+    assert isinstance(inference, list)
+    assert all(isinstance(x, str) for x in inference)
+
+    if isinstance(data, str):
+        pd_input = pd.DataFrame([data])
+    else:
+        pd_input = pd.DataFrame(data)
+    pd_inference = pyfunc_loaded.predict(pd_input)
+
+    assert isinstance(pd_inference, list)
+    assert all(isinstance(x, str) for x in pd_inference)
+
+    model_path2 = tmp_path.joinpath("model2")
+    signature_with_params = infer_signature(
+        data,
+        mlflow.transformers.generate_signature_output(text_generation_pipeline, data),
+        inference_config,
+    )
+    mlflow.transformers.save_model(
+        text_generation_pipeline,
+        path=model_path2,
+        signature=signature_with_params,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path2)
+
+    dict_inference = pyfunc_loaded.predict(
+        data,
+        params=inference_config,
+    )
+
+    assert dict_inference == inference
+
+
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 def test_text2text_generation_pipeline_with_params(text2text_generation_pipeline, tmp_path):
     data = "muppet keyboard type"
     parameters = {"top_k": 2, "num_beams": 5}
@@ -1446,6 +1506,73 @@ def test_text2text_generation_pipeline_with_params(text2text_generation_pipeline
         MlflowException,
         match=r"The params provided to the `predict` method are not "
         r"valid for pipeline Text2TextGenerationPipeline.",
+    ):
+        loaded_pyfunc.predict(data, {"invalid_param": "random_value"})
+
+
+def test_text_generation_pipeline_with_params(text_generation_pipeline, tmp_path):
+    data = "muppet keyboard type"
+    parameters = {
+        "top_k": 2,
+        "num_beams": 5,
+        "max_length": 30,
+        "temperature": 0.62,
+        "top_p": 0.85,
+        "repetition_penalty": 1.15,
+    }
+    generated_output = mlflow.transformers.generate_signature_output(text_generation_pipeline, data)
+    signature = infer_signature(
+        data,
+        generated_output,
+        parameters,
+    )
+
+    model_path = tmp_path / "model1"
+    mlflow.transformers.save_model(
+        text_generation_pipeline,
+        path=model_path,
+        signature=signature,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    pyfunc_loaded.predict(data, parameters)
+
+    parameters.update({"invalid_param": "invalid_param"})
+    model_path = tmp_path / "model2"
+    mlflow.transformers.save_model(
+        text_generation_pipeline,
+        path=model_path,
+        signature=infer_signature(
+            data,
+            generated_output,
+            parameters,
+        ),
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    with pytest.raises(
+        MlflowException,
+        match=r"The params provided to the `predict` method are "
+        r"not valid for pipeline TextGenerationPipeline.",
+    ):
+        pyfunc_loaded.predict(data, parameters)
+
+    with pytest.raises(MlflowException, match=r"Invalid parameters found"):
+        pyfunc_loaded.predict(data, {"top_k": "2"})
+
+    model_path = tmp_path / "model3"
+    mlflow.transformers.save_model(
+        text_generation_pipeline,
+        model_path,
+        signature=infer_signature(
+            data,
+            generated_output,
+            params={"invalid_param": "value"},
+        ),
+    )
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+    with pytest.raises(
+        MlflowException,
+        match=r"The params provided to the `predict` method are not "
+        r"valid for pipeline TextGenerationPipeline.",
     ):
         loaded_pyfunc.predict(data, {"invalid_param": "random_value"})
 
@@ -2690,6 +2817,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 "inputs": '[{"type": "string", "name": "question"}, {"type": "string", '
                 '"name": "context"}]',
                 "outputs": '[{"type": "string"}]',
+                "params": None,
             },
         ),
         (
@@ -2705,6 +2833,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 '"hypothesis_template"}]',
                 "outputs": '[{"type": "string", "name": "sequence"}, {"type": "string", '
                 '"name": "labels"}, {"type": "double", "name": "scores"}]',
+                "params": None,
             },
         ),
         (
@@ -2714,6 +2843,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 "inputs": '[{"type": "string"}]',
                 "outputs": '[{"type": "string", "name": "label"}, {"type": "double", "name": '
                 '"score"}]',
+                "params": None,
             },
         ),
         (
@@ -2726,42 +2856,71 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 "inputs": '[{"type": "string", "name": "query"}, {"type": "string", "name": '
                 '"table"}]',
                 "outputs": '[{"type": "string"}]',
+                "params": None,
             },
         ),
         (
             "summarizer_pipeline",
             "If you write enough tests, you can be sure that your code isn't broken.",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
         (
             "translation_pipeline",
             "No, I am your father.",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
         (
             "text_generation_pipeline",
             ["models are", "apples are"],
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
         (
             "text2text_generation_pipeline",
             ["man apple pie", "dog pizza eat"],
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
         (
             "fill_mask_pipeline",
             "Juggling <mask> is remarkably dangerous",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
         (
             "conversational_pipeline",
             "What's shaking, my robot homie?",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
         (
             "ner_pipeline",
             "Blue apples are not a thing",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
     ],
 )
