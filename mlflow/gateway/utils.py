@@ -147,13 +147,13 @@ class SearchRoutesToken:
             index = int(parsed_token.get("index"))
         except Exception as e:
             raise MlflowException.invalid_parameter_value(
-                f"Invalid SearchRoutes token: {encoded_token}. The token cannot be cast to "
-                "integer type."
+                f"Invalid SearchRoutes token: {encoded_token}. The index is not defined as a "
+                "value that can be represented as a positive integer."
             ) from e
 
         if index < 0:
             raise MlflowException.invalid_parameter_value(
-                f"Invalid SearchRoutes token: {encoded_token}. The token cannot be negative."
+                f"Invalid SearchRoutes token: {encoded_token}. The index cannot be negative."
             )
 
         return cls(index=index)
