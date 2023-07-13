@@ -332,147 +332,147 @@ def test_predict(iris_data, sk_model):
         assert all(expected == actual)
 
 
-def test_predict_check_content_type(iris_data, sk_model):
-    with TempDir(chdr=True) as tmp:
-        with mlflow.start_run():
-            mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
-        model_registry_uri = "models:/{name}/{stage}".format(name="impredicting", stage="None")
-        input_json_path = tmp.path("input.json")
-        input_csv_path = tmp.path("input.csv")
-        output_json_path = tmp.path("output.json")
-        x, _ = iris_data
-        with open(input_json_path, "w") as f:
-            json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
+def test_predict_check_content_type(iris_data, sk_model, tmp_path):
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+    model_registry_uri = "models:/{name}/{stage}".format(name="impredicting", stage="None")
+    input_json_path = tmp_path / "input.json"
+    input_csv_path = tmp_path / "input.csv"
+    output_json_path = tmp_path / "output.json"
 
-        pd.DataFrame(x).to_csv(input_csv_path, index=False)
+    x, _ = iris_data
+    with open(input_json_path, "w") as f:
+        json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
 
-        # Throw errors for invalid content_type
-        prc = subprocess.run(
-            [
-                "mlflow",
-                "models",
-                "predict",
-                "-m",
-                model_registry_uri,
-                "-i",
-                input_json_path,
-                "-o",
-                output_json_path,
-                "-t",
-                "invalid",
-                "--env-manager",
-                "local",
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=env_with_tracking_uri(),
-            check=False,
-        )
-        assert prc.returncode != 0
-        assert "Invalid content type" in prc.stderr.decode("utf-8")
+    pd.DataFrame(x).to_csv(input_csv_path, index=False)
 
-
-def test_predict_check_input_path(iris_data, sk_model):
-    with TempDir(chdr=True) as tmp:
-        with mlflow.start_run():
-            mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
-        model_registry_uri = "models:/{name}/{stage}".format(name="impredicting", stage="None")
-        input_json_path = tmp.path("input.json")
-        input_csv_path = tmp.path("input.csv")
-        output_json_path = tmp.path("output.json")
-        x, _ = iris_data
-        with open(input_json_path, "w") as f:
-            json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
-
-        pd.DataFrame(x).to_csv(input_csv_path, index=False)
-
-        # Throw errors for invalid input_path
-        prc = subprocess.run(
-            [
-                "mlflow",
-                "models",
-                "predict",
-                "-m",
-                model_registry_uri,
-                "-i",
-                f'{input_json_path}"; echo ThisIsABug! "',
-                "-o",
-                output_json_path,
-                "--env-manager",
-                "local",
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=env_with_tracking_uri(),
-            check=False,
-        )
-        assert prc.returncode != 0
-        assert "ThisIsABug!" not in prc.stdout.decode("utf-8")
-        assert "Invalid input path" in prc.stderr.decode("utf-8")
-
-        prc = subprocess.run(
-            [
-                "mlflow",
-                "models",
-                "predict",
-                "-m",
-                model_registry_uri,
-                "-i",
-                f'{input_csv_path}"; echo ThisIsABug! "',
-                "-o",
-                output_json_path,
-                "-t",
-                "csv",
-                "--env-manager",
-                "local",
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=env_with_tracking_uri(),
-            check=False,
-        )
-        assert prc.returncode != 0
-        assert "ThisIsABug!" not in prc.stdout.decode("utf-8")
-        assert "Invalid input path" in prc.stderr.decode("utf-8")
+    # Throw errors for invalid content_type
+    prc = subprocess.run(
+        [
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            model_registry_uri,
+            "-i",
+            input_json_path,
+            "-o",
+            output_json_path,
+            "-t",
+            "invalid",
+            "--env-manager",
+            "local",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env_with_tracking_uri(),
+        check=False,
+    )
+    assert prc.returncode != 0
+    assert "Invalid content type" in prc.stderr.decode("utf-8")
 
 
-def test_predict_check_output_path(iris_data, sk_model):
-    with TempDir(chdr=True) as tmp:
-        with mlflow.start_run():
-            mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
-        model_registry_uri = "models:/{name}/{stage}".format(name="impredicting", stage="None")
-        input_json_path = tmp.path("input.json")
-        input_csv_path = tmp.path("input.csv")
-        output_json_path = tmp.path("output.json")
-        x, _ = iris_data
-        with open(input_json_path, "w") as f:
-            json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
+def test_predict_check_input_path(iris_data, sk_model, tmp_path):
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+    model_registry_uri = "models:/{name}/{stage}".format(name="impredicting", stage="None")
+    input_json_path = tmp_path / "input.json"
+    input_csv_path = tmp_path / "input.csv"
+    output_json_path = tmp_path / "output.json"
 
-        pd.DataFrame(x).to_csv(input_csv_path, index=False)
+    x, _ = iris_data
+    with open(input_json_path, "w") as f:
+        json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
 
-        # Throw errors for invalid output_path
-        prc = subprocess.run(
-            [
-                "mlflow",
-                "models",
-                "predict",
-                "-m",
-                model_registry_uri,
-                "-i",
-                input_json_path,
-                "-o",
-                f'{output_json_path}"; echo ThisIsABug! "',
-                "--env-manager",
-                "local",
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=env_with_tracking_uri(),
-            check=False,
-        )
-        assert prc.returncode != 0
-        assert "ThisIsABug!" not in prc.stdout.decode("utf-8")
-        assert "Invalid output path" in prc.stderr.decode("utf-8")
+    pd.DataFrame(x).to_csv(input_csv_path, index=False)
+
+    # Throw errors for invalid input_path
+    prc = subprocess.run(
+        [
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            model_registry_uri,
+            "-i",
+            f'{input_json_path}"; echo ThisIsABug! "',
+            "-o",
+            output_json_path,
+            "--env-manager",
+            "local",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env_with_tracking_uri(),
+        check=False,
+    )
+    assert prc.returncode != 0
+    assert "ThisIsABug!" not in prc.stdout.decode("utf-8")
+    assert "Invalid input path" in prc.stderr.decode("utf-8")
+
+    prc = subprocess.run(
+        [
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            model_registry_uri,
+            "-i",
+            f'{input_csv_path}"; echo ThisIsABug! "',
+            "-o",
+            output_json_path,
+            "-t",
+            "csv",
+            "--env-manager",
+            "local",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env_with_tracking_uri(),
+        check=False,
+    )
+    assert prc.returncode != 0
+    assert "ThisIsABug!" not in prc.stdout.decode("utf-8")
+    assert "Invalid input path" in prc.stderr.decode("utf-8")
+
+
+def test_predict_check_output_path(iris_data, sk_model, tmp_path):
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+    model_registry_uri = "models:/{name}/{stage}".format(name="impredicting", stage="None")
+    input_json_path = tmp_path / "input.json"
+    input_csv_path = tmp_path / "input.csv"
+    output_json_path = tmp_path / "output.json"
+
+    x, _ = iris_data
+    with open(input_json_path, "w") as f:
+        json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
+
+    pd.DataFrame(x).to_csv(input_csv_path, index=False)
+
+    # Throw errors for invalid output_path
+    prc = subprocess.run(
+        [
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            model_registry_uri,
+            "-i",
+            input_json_path,
+            "-o",
+            f'{output_json_path}"; echo ThisIsABug! "',
+            "--env-manager",
+            "local",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env_with_tracking_uri(),
+        check=False,
+    )
+    assert prc.returncode != 0
+    assert "ThisIsABug!" not in prc.stdout.decode("utf-8")
+    assert "Invalid output path" in prc.stderr.decode("utf-8")
 
 
 def test_prepare_env_passes(sk_model):
