@@ -106,5 +106,5 @@ This example uses the ``MlflowClient`` class, which performs REST calls to the M
 Next step: Deployment
 ----------------------------------
 
-Moving a model version to the ``Production`` state does not actually _do_ the deployment of the model. For that, see the "Deploy Models" section of the tk need a good reference here tk
+Moving a model version to the ``Production`` state does not actually _perform_ the deployment of the model. For that, see :ref:`built-in-deployment`.
 
