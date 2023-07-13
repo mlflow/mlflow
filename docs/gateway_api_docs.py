@@ -15,7 +15,7 @@ API_HTML = """
     <link
       type="text/css"
       rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@4/swagger-ui.css"
+      href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css"
     />
     <link
       rel="shortcut icon"
@@ -25,7 +25,7 @@ API_HTML = """
   </head>
   <body>
     <div id="swagger-ui"></div>
-    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@4/swagger-ui-bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
     <!-- `SwaggerUIBundle` is now available on the page -->
     <script>
       const ui = SwaggerUIBundle({
