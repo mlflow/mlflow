@@ -1,5 +1,4 @@
 import os
-from typing import Any, Dict, Optional
 
 from sklearn.datasets import load_iris
 from sklearn.linear_model import LogisticRegression
@@ -15,9 +14,7 @@ class CustomPredict(mlflow.pyfunc.PythonModel):
     def load_context(self, context):
         self.model = mlflow.sklearn.load_model(context.artifacts["custom_model"])
 
-    def predict(
-        self, context, model_input, params: Optional[Dict[str, Any]] = None
-    ):  # pylint: disable=unused-argument
+    def predict(self, context, model_input):
         prediction = self.model.predict(model_input)
         return iris_classes(prediction)
 

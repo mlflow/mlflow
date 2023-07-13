@@ -393,7 +393,7 @@ def test_mlflow_gc_experiments(get_store_details, request):
 )
 def test_mlflow_models_serve(enable_mlserver):
     class MyModel(pyfunc.PythonModel):
-        def predict(self, context, model_input, params=None):
+        def predict(self, context, model_input):
             return np.array([1, 2, 3])
 
     model = MyModel()

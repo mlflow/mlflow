@@ -195,6 +195,8 @@ body:
           required: false
         - label: "`area/examples`: Example code"
           required: false
+        - label: "`area/gateway`: AI Gateway service, Gateway client APIs, third-party Gateway integrations"
+          required: false
         - label: "`area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry"
           required: false
         - label: "`area/models`: MLmodel format, model serialization/deserialization, flavors"
