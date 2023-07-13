@@ -270,6 +270,78 @@ def log_model(
     :param kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
+
+    .. code-block:: python
+        :caption: Example
+
+        import json
+        import pandas as pd
+        import numpy as np
+        import mlflow
+        from mlflow.models import infer_signature
+        import pmdarima
+        from pmdarima.metrics import smape
+
+        SOURCE_DATA = "https://raw.githubusercontent.com/facebook/prophet/master/examples/example_retail_sales.csv"
+        ARTIFACT_PATH = "model"
+        np.random.seed(12345)
+
+        def extract_params(model):
+            return {'order': model.order, 'seasonal_order': model.seasonal_order}
+
+        sales_data = pd.read_csv(SOURCE_DATA)
+
+        # Renaming columns to y and ds for Prophet compatibility
+        sales_data.rename(columns={'y': 'sales', 'ds': 'date'}, inplace=True)
+
+        # Splitting data into train and test sets
+        train_size = int(0.8 * len(sales_data))
+        train, test = sales_data[:train_size], sales_data[train_size:]
+
+        with mlflow.start_run():
+            model = pmdarima.auto_arima(train['sales'], seasonal=True, m=12)
+
+            params = extract_params(model)
+
+            # Calculating metrics
+            prediction = model.predict(n_periods=len(test))
+            metrics = {'smape': smape(test['sales'], prediction)}
+
+            print(f"Logged Metrics: \n{json.dumps(metrics, indent=2)}")
+            print(f"Logged Params: \n{json.dumps(params, indent=2)}")
+
+            # Logging model, params and metrics to MLflow
+            mlflow.log_params(params)
+            mlflow.log_metrics(metrics)
+            mlflow.pmdarima.log_model(model, ARTIFACT_PATH)
+
+            model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
+            print(f"Model artifact logged to: {model_uri}")
+
+        # Loading the model
+        loaded_model = mlflow.pmdarima.load_model(model_uri)
+
+        # Forecasting for the next 60 days
+        forecast = loaded_model.predict(n_periods=60)
+
+        print(f"forecast:\n{forecast}")
+
+
+    .. code-block:: text
+        :caption: Output
+
+        Logged Metrics: {"smape": 4.800690033498949}
+        Logged Params: {
+            "order": [2,0,1],
+            "seasonal_order": [0,1,1,12]
+        }
+
+        Model artifact logged to: dbfs:/databricks/mlflow-tracking/969987237801842/263d863c92fd479080d5093b12dfde3e/artifacts/model
+        forecast:
+        234    382452.397246
+        235    380639.458720
+        236    359805.611219
+        ...
     """
 
     return Model.log(
