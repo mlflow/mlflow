@@ -11,7 +11,6 @@ from mlflow.gateway.utils import (
     get_gateway_uri,
     SearchRoutesToken,
 )
-import mlflow.gateway.envs
 
 
 @pytest.mark.parametrize(
@@ -94,7 +93,7 @@ def test_set_gateway_uri(monkeypatch):
 
     valid_uri = "http://localhost"
     set_gateway_uri(valid_uri)
-    assert mlflow.gateway.utils._gateway_uri == valid_uri
+    assert get_gateway_uri() == valid_uri
 
     invalid_uri = "localhost"
     with pytest.raises(MlflowException, match="The gateway uri provided is missing required"):
