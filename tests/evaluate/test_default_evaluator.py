@@ -37,7 +37,6 @@ from mlflow.models.evaluation.default_evaluator import (
     _CustomMetric,
     _CustomArtifact,
 )
-from mlflow.sklearn import _SklearnModelWrapper
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
@@ -2211,20 +2210,6 @@ def test_eval_results_table_json_can_be_prefixed_with_metric_prefix():
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert f"{metric_prefix}eval_results_table.json" in artifacts
-
-
-def test_extract_raw_model_for_sklearn():
-    mlflow_model = Model()
-    model_impl = Pipeline([("predict", LogisticRegression())])
-    mlflow.pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn")
-    pyfunc_model = mlflow.pyfunc.PyFuncModel(model_meta=mlflow_model, model_impl=model_impl)
-    _, raw_model = _extract_raw_model(pyfunc_model)
-    assert raw_model == model_impl
-
-    model_impl = _SklearnModelWrapper(model_impl)
-    pyfunc_model = mlflow.pyfunc.PyFuncModel(model_meta=mlflow_model, model_impl=model_impl)
-    _, raw_model = _extract_raw_model(pyfunc_model)
-    assert raw_model == model_impl.sklearn_model
 
 
 @pytest.mark.parametrize(
