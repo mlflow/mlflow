@@ -9,7 +9,7 @@ As an MLOps professional, you are responsible for the complex transaction of mov
 
     This document assumes that:
     
-    - You've installed MLflow in a Python environment and activated that environment. See :ref:`installation` for more information.
+    - You've installed MLflow in a Python environment and activated that environment. See :ref:`quickstart_installation` for more information.
     - You have an MLflow Tracking Server running and have logged at least one model on that server. The fastest way to do so is to complete the :ref:`quickstart`.
 
 Register a model with the Model Registry
