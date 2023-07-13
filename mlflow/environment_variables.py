@@ -352,4 +352,5 @@ _MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TE
 
 #: (Experimental, may be changed or removed)
 #: Specifies the uri of a Mlflow Gateway Server instance to be used with the Gateway Client APIs
+#: (default: ``None``)
 MLFLOW_GATEWAY_URI = _EnvironmentVariable("MLFLOW_GATEWAY_URI", str, None)
