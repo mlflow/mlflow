@@ -9,7 +9,6 @@ import ctypes
 import signal
 from pathlib import Path
 
-from mlflow.exceptions import MlflowException
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import (
     _build_image,
@@ -25,6 +24,7 @@ from mlflow.pyfunc import ENV, scoring_server, mlserver, _extract_conda_env
 from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import env_manager as _EnvManager
+from mlflow.utils import _mlflow_pyfunc_backend_predict
 from mlflow.utils.file_utils import (
     path_to_local_file_uri,
     get_or_create_tmp_dir,
@@ -36,7 +36,7 @@ from mlflow.utils.virtualenv import (
     _get_pip_install_mlflow,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
-from mlflow.utils.process import cache_return_value_per_process
+from mlflow.utils.process import ShellCommandException, cache_return_value_per_process
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -143,47 +143,59 @@ class PyFuncBackend(FlavorBackend):
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
 
-        # Validate parameters prior running the command to avoid potential exploitation
-        if content_type not in ["json", "csv"]:
-            raise MlflowException.invalid_parameter_value(f"Invalid content type '{content_type}'")
-
-        if input_path is not None:
-            if content_type == "json":
-                if not os.path.isfile(input_path):
-                    raise MlflowException.invalid_parameter_value(
-                        f"Invalid input path '{input_path}'"
-                    )
-            elif content_type == "csv":
-                import pandas as pd
-
-                try:
-                    pd.read_csv(input_path)
-                except Exception as e:
-                    raise MlflowException.invalid_parameter_value(
-                        f"Invalid input path '{input_path}'"
-                    ) from e
-
-        if output_path is not None:
-            if '"' in output_path:
-                raise MlflowException.invalid_parameter_value(
-                    f"Invalid output path '{output_path}': \" is not allowed"
-                )
-
         if self._env_manager != _EnvManager.LOCAL:
-            command = (
-                'python -c "from mlflow.pyfunc.scoring_server import _predict; _predict('
-                "model_uri={model_uri}, "
-                "input_path={input_path}, "
-                "output_path={output_path}, "
-                "content_type={content_type})"
-                '"'
-            ).format(
-                model_uri=repr(local_uri),
-                input_path=repr(input_path),
-                output_path=repr(output_path),
-                content_type=repr(content_type),
+            environment = self.prepare_env(local_path)
+            command_env = os.environ.copy()
+
+            if _IS_UNIX:
+                separator = " && "
+            else:
+                separator = " & "
+            command = separator.join(map(str, environment.get_activate_command()))
+
+            if _IS_UNIX:
+                command = ["bash", "-c", command]
+            else:
+                command = ["cmd", "/c", command]
+
+            predict_cmd = command + [
+                sys.executable,
+                _mlflow_pyfunc_backend_predict.__file__,
+                "--model-uri",
+                str(local_uri),
+                "--input-path",
+                str(input_path),
+                "--output-path",
+                str(output_path),
+                "--content-type",
+                str(content_type),
+            ]
+
+            _logger.info("=== Running command '%s'", predict_cmd)
+
+            process = subprocess.Popen(
+                predict_cmd,
+                env=command_env,
+                text=True,
+                preexec_fn=None,
+                close_fds=True,
+                stdout=None,
+                stderr=None,
+                stdin=None,
             )
-            return self.prepare_env(local_path).execute(command)
+
+            stdout, stderr = process.communicate()
+            returncode = process.poll()
+            comp_process = subprocess.CompletedProcess(
+                process.args,
+                returncode=returncode,
+                stdout=stdout,
+                stderr=stderr,
+            )
+
+            if returncode != 0:
+                raise ShellCommandException.from_completed_process(comp_process)
+            return comp_process
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type)
 

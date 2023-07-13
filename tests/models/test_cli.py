@@ -369,7 +369,7 @@ def test_predict_check_content_type(iris_data, sk_model, tmp_path):
         check=False,
     )
     assert prc.returncode != 0
-    assert "Invalid content type" in prc.stderr.decode("utf-8")
+    assert "Unknown content type" in prc.stderr.decode("utf-8")
 
 
 def test_predict_check_input_path(iris_data, sk_model, tmp_path):
@@ -409,7 +409,7 @@ def test_predict_check_input_path(iris_data, sk_model, tmp_path):
     )
     assert prc.returncode != 0
     assert "ThisIsABug!" not in prc.stdout
-    assert "Invalid input path" in prc.stderr
+    assert "FileNotFoundError" in prc.stderr
 
     prc = subprocess.run(
         [
@@ -435,7 +435,7 @@ def test_predict_check_input_path(iris_data, sk_model, tmp_path):
     )
     assert prc.returncode != 0
     assert "ThisIsABug!" not in prc.stdout
-    assert "Invalid input path" in prc.stderr
+    assert "FileNotFoundError" in prc.stderr
 
 
 def test_predict_check_output_path(iris_data, sk_model, tmp_path):
@@ -452,7 +452,6 @@ def test_predict_check_output_path(iris_data, sk_model, tmp_path):
 
     pd.DataFrame(x).to_csv(input_csv_path, index=False)
 
-    # Throw errors for invalid output_path
     prc = subprocess.run(
         [
             "mlflow",
@@ -473,9 +472,8 @@ def test_predict_check_output_path(iris_data, sk_model, tmp_path):
         check=False,
         text=True,
     )
-    assert prc.returncode != 0
+    assert prc.returncode == 0
     assert "ThisIsABug!" not in prc.stdout
-    assert "Invalid output path" in prc.stderr
 
 
 def test_prepare_env_passes(sk_model):
