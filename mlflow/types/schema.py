@@ -1,12 +1,9 @@
-import builtins
-from datetime import date
-from enum import Enum
-import importlib.util
 import json
+from enum import Enum
 
 import numpy as np
 import string
-from typing import Dict, Any, List, Union, Optional, Tuple, TypedDict
+from typing import Dict, Any, List, Union, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
@@ -17,40 +14,33 @@ class DataType(Enum):
     MLflow data types.
     """
 
-    def __new__(cls, value, numpy_type, spark_type, pandas_type=None, python_type=None):
+    def __new__(cls, value, numpy_type, spark_type, pandas_type=None):
         res = object.__new__(cls)
         res._value_ = value
         res._numpy_type = numpy_type
         res._spark_type = spark_type
         res._pandas_type = pandas_type if pandas_type is not None else numpy_type
-        res._python_type = python_type if python_type is not None else numpy_type
         return res
 
     # NB: We only use pandas extension type for strings. There are also pandas extension types for
     # integers and boolean values. We do not use them here for now as most downstream tools are
     # most likely to use / expect native numpy types and would not be compatible with the extension
     # types.
-    boolean = (1, np.dtype("bool"), "BooleanType", np.dtype("bool"), bool)
+    boolean = (1, np.dtype("bool"), "BooleanType")
     """Logical data (True, False) ."""
-    integer = (2, np.dtype("int32"), "IntegerType", np.dtype("int32"), int)
+    integer = (2, np.dtype("int32"), "IntegerType")
     """32b signed integer numbers."""
-    long = (3, np.dtype("int64"), "LongType", np.dtype("int64"), int)
+    long = (3, np.dtype("int64"), "LongType")
     """64b signed integer numbers. """
-    float = (4, np.dtype("float32"), "FloatType", np.dtype("float32"), builtins.float)
+    float = (4, np.dtype("float32"), "FloatType")
     """32b floating point numbers. """
-    double = (5, np.dtype("float64"), "DoubleType", np.dtype("float64"), builtins.float)
+    double = (5, np.dtype("float64"), "DoubleType")
     """64b floating point numbers. """
-    string = (6, np.dtype("str"), "StringType", object, str)
+    string = (6, np.dtype("str"), "StringType", object)
     """Text data."""
-    binary = (7, np.dtype("bytes"), "BinaryType", object, bytes)
+    binary = (7, np.dtype("bytes"), "BinaryType", object)
     """Sequence of raw bytes."""
-    datetime = (
-        8,
-        np.dtype("datetime64[ns]"),
-        "TimestampType",
-        np.dtype("datetime64[ns]"),
-        date,
-    )
+    datetime = (8, np.dtype("datetime64[ns]"), "TimestampType")
     """64b datetime data."""
 
     def __repr__(self):
@@ -68,48 +58,6 @@ class DataType(Enum):
         import pyspark.sql.types
 
         return getattr(pyspark.sql.types, self._spark_type)()
-
-    def to_python(self):
-        """Get equivalent python data type."""
-        return self._python_type
-
-    @classmethod
-    def is_boolean(cls, value):
-        return type(value) in DataType.boolean.get_all_types()
-
-    @classmethod
-    def is_integer(cls, value):
-        return type(value) in DataType.integer.get_all_types()
-
-    @classmethod
-    def is_long(cls, value):
-        return type(value) in DataType.long.get_all_types()
-
-    @classmethod
-    def is_float(cls, value):
-        return type(value) in DataType.float.get_all_types()
-
-    @classmethod
-    def is_double(cls, value):
-        return type(value) in DataType.double.get_all_types()
-
-    @classmethod
-    def is_string(cls, value):
-        return type(value) in DataType.string.get_all_types()
-
-    @classmethod
-    def is_binary(cls, value):
-        return type(value) in DataType.binary.get_all_types()
-
-    @classmethod
-    def is_datetime(cls, value):
-        return type(value) in DataType.datetime.get_all_types() or isinstance(value, np.datetime64)
-
-    def get_all_types(self):
-        types = [self.to_numpy(), self.to_pandas(), self.to_python()]
-        if importlib.util.find_spec("pyspark") is not None:
-            types.append(self.to_spark())
-        return types
 
     @classmethod
     def get_spark_types(cls):
@@ -466,286 +414,3 @@ class Schema:
 
     def __repr__(self) -> str:
         return repr(self.inputs)
-
-
-@experimental
-class ParamSpec:
-    """
-    Specification used to represent parameters for the model.
-    """
-
-    def __init__(
-        self,
-        name: str,
-        dtype: Union[DataType, str],
-        default: Union[DataType, List[DataType], None],
-        shape: Optional[Tuple[int, ...]] = None,
-    ):
-        self._name = str(name)
-        self._shape = tuple(shape) if shape is not None else None
-
-        try:
-            self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
-        except KeyError:
-            supported_types = [t.name for t in DataType if t.name != "binary"]
-            raise MlflowException.invalid_parameter_value(
-                f"Unsupported type '{dtype}', expected instance of DataType or "
-                f"one of {supported_types}",
-            )
-        if not isinstance(self.dtype, DataType):
-            raise TypeError(
-                "Expected mlflow.models.signature.Datatype or str for the 'dtype' "
-                f"argument, but got {self.dtype.__class__}"
-            )
-        if self.dtype == DataType.binary:
-            raise MlflowException.invalid_parameter_value(
-                f"Binary type is not supported for parameters, ParamSpec '{self.name}'"
-                "has dtype 'binary'",
-            )
-
-        # This line makes sure repr(self) works fine
-        self._default = default
-        self._default = self.validate_type_and_shape(repr(self), default, self.dtype, self.shape)
-
-    @classmethod
-    def validate_param_spec(
-        cls, value: Union[DataType, List[DataType], None], param_spec: "ParamSpec"
-    ):
-        return cls.validate_type_and_shape(
-            repr(param_spec), value, param_spec.dtype, param_spec.shape
-        )
-
-    @classmethod
-    def enforce_param_datatype(cls, name, value, dtype: DataType):
-        """
-        Enforce the value matches the data type.
-
-        The following type conversions are allowed:
-
-        1. int -> long, float, double
-        2. long -> float, double
-        3. float -> double
-        4. any -> datetime (try conversion)
-
-        Any other type mismatch will raise error.
-
-        :param name: parameter name
-        :param value: parameter value
-        :param t: expected data type
-        """
-        if value is None:
-            return
-
-        if dtype == DataType.datetime:
-            try:
-                return np.datetime64(value).item()
-            except ValueError as e:
-                raise MlflowException.invalid_parameter_value(
-                    f"Failed to convert value {value} from type {type(value).__name__} "
-                    f"to {dtype} for param {name}"
-                ) from e
-
-        # Note that np.isscalar(datetime.date(...)) is False
-        if not np.isscalar(value):
-            raise MlflowException.invalid_parameter_value(
-                f"Value should be a scalar for param {name}, got {value}"
-            )
-
-        # Always convert to python native type for params
-        if getattr(DataType, f"is_{dtype.name}")(value):
-            return DataType[dtype.name].to_python()(value)
-
-        if (
-            (
-                DataType.is_integer(value)
-                and dtype in (DataType.long, DataType.float, DataType.double)
-            )
-            or (DataType.is_long(value) and dtype in (DataType.float, DataType.double))
-            or (DataType.is_float(value) and dtype == DataType.double)
-        ):
-            try:
-                return DataType[dtype.name].to_python()(value)
-            except ValueError as e:
-                raise MlflowException.invalid_parameter_value(
-                    f"Failed to convert value {value} from type {type(value).__name__} "
-                    f"to {dtype} for param {name}"
-                ) from e
-
-        raise MlflowException.invalid_parameter_value(
-            f"Incompatible types for param {name}. Can not safely convert {type(value).__name__} "
-            f"to {dtype}.",
-        )
-
-    @classmethod
-    def validate_type_and_shape(
-        cls,
-        spec: str,
-        value: Union[DataType, List[DataType], None],
-        value_type: DataType,
-        shape: Optional[Tuple[int, ...]],
-    ):
-        """
-        Validate that the value has the expected type and shape.
-        """
-
-        def _is_1d_array(value):
-            return isinstance(value, (list, np.ndarray)) and np.array(value).ndim == 1
-
-        if shape is None:
-            return cls.enforce_param_datatype(f"{spec} with shape None", value, value_type)
-        elif shape == (-1,):
-            if not _is_1d_array(value):
-                raise MlflowException.invalid_parameter_value(
-                    f"Value must be a 1D array with shape (-1,) for param {spec}, "
-                    f"received {type(value).__name__} with ndim {np.array(value).ndim}",
-                )
-            return [
-                cls.enforce_param_datatype(f"{spec} internal values", v, value_type) for v in value
-            ]
-        else:
-            raise MlflowException.invalid_parameter_value(
-                "Shape must be None for scalar value or (-1,) for 1D array value "
-                f"for ParamSpec {spec}), received {shape}",
-            )
-
-    @property
-    def name(self) -> str:
-        """The name of the parameter."""
-        return self._name
-
-    @property
-    def dtype(self) -> DataType:
-        """The parameter data type."""
-        return self._dtype
-
-    @property
-    def default(self) -> Union[DataType, List[DataType], None]:
-        """Default value of the parameter."""
-        return self._default
-
-    @property
-    def shape(self) -> Optional[tuple]:
-        """
-        The parameter shape.
-        If shape is None, the parameter is a scalar.
-        """
-        return self._shape
-
-    class ParamSpecTypedDict(TypedDict):
-        name: str
-        dtype: str
-        default: Union[DataType, List[DataType], None]
-        shape: Optional[Tuple[int, ...]]
-
-    def to_dict(self) -> ParamSpecTypedDict:
-        if self.shape is None:
-            default_value = (
-                self.default.isoformat() if self.dtype.name == "datetime" else self.default
-            )
-        elif self.shape == (-1,):
-            default_value = (
-                [v.isoformat() for v in self.default]
-                if self.dtype.name == "datetime"
-                else self.default
-            )
-        return {
-            "name": self.name,
-            "dtype": self.dtype.name,
-            "default": default_value,
-            "shape": self.shape,
-        }
-
-    def __eq__(self, other) -> bool:
-        if isinstance(other, ParamSpec):
-            return (
-                self.name == other.name
-                and self.dtype == other.dtype
-                and self.default == other.default
-                and self.shape == other.shape
-            )
-        return False
-
-    def __repr__(self) -> str:
-        shape = f" (shape: {self.shape})" if self.shape is not None else ""
-        return f"{self.name!r}: {self.dtype!r} (default: {self.default}){shape}"
-
-    @classmethod
-    def from_json_dict(cls, **kwargs):
-        """
-        Deserialize from a json loaded dictionary.
-        The dictionary is expected to contain `name`, `dtype` and `default` keys.
-        """
-        if not {"name", "dtype", "default"} <= set(kwargs.keys()):
-            raise MlflowException.invalid_parameter_value(
-                "Missing keys in ParamSpec JSON. Expected to find "
-                "keys `name`, `dtype` and `default`",
-            )
-        return cls(
-            name=str(kwargs["name"]),
-            dtype=DataType[kwargs["dtype"]],
-            default=kwargs["default"],
-            shape=kwargs.get("shape"),
-        )
-
-
-@experimental
-class ParamSchema:
-    """
-    Specification of parameters applicable to the model.
-    ParamSchema is represented as a list of :py:class:`ParamSpec`.
-    """
-
-    def __init__(self, params: List[ParamSpec]):
-        if not all(isinstance(x, ParamSpec) for x in params):
-            raise MlflowException.invalid_parameter_value(
-                f"ParamSchema inputs only accept {ParamSchema.__class__}"
-            )
-        if duplicates := self._find_duplicates(params):
-            raise MlflowException.invalid_parameter_value(
-                f"Duplicated parameters found in schema: {duplicates}"
-            )
-        self._params = params
-
-    @staticmethod
-    def _find_duplicates(params: List[ParamSpec]) -> List[str]:
-        param_names = [param_spec.name for param_spec in params]
-        uniq_param = set()
-        duplicates = []
-        for name in param_names:
-            if name in uniq_param:
-                duplicates.append(name)
-            else:
-                uniq_param.add(name)
-        return duplicates
-
-    def __len__(self):
-        return len(self._params)
-
-    def __iter__(self):
-        return iter(self._params)
-
-    @property
-    def params(self) -> List[ParamSpec]:
-        """Representation of ParamSchema as a list of ParamSpec."""
-        return self._params
-
-    def to_json(self) -> str:
-        """Serialize into json string."""
-        return json.dumps(self.to_dict())
-
-    @classmethod
-    def from_json(cls, json_str: str):
-        """Deserialize from a json string."""
-        return cls([ParamSpec.from_json_dict(**x) for x in json.loads(json_str)])
-
-    def to_dict(self) -> List[Dict[str, Any]]:
-        """Serialize into a jsonable dictionary."""
-        return [x.to_dict() for x in self.params]
-
-    def __eq__(self, other) -> bool:
-        if isinstance(other, ParamSchema):
-            return self.params == other.params
-        return False
-
-    def __repr__(self) -> str:
-        return repr(self.params)
