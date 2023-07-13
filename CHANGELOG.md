@@ -1,5 +1,41 @@
 # CHANGELOG
 
+## 2.5.0 (2023-07-13)
+
+MLflow 2.5.0 includes several major features and improvements
+
+Features:
+
+- [] MLflow Gateway (#8694, @harupy)
+- [Docs / Examples / Models] Support chains with unserializable components (#8736, @liangz1)
+- [Models] [Support inference params-3]Add inference params for all flavors (#8974, @serena-ruan)
+- [Scoring] Infer spark udf return type from model output schema (#8934, @WeichenXu123)
+- [Models] [Support inference params-2]Add `params` for PyFunc predict (#8973, @serena-ruan)
+- [Models] [Support inference params-1]Add ParamSchema and ParamSpec in model signature (#8972, @serena-ruan)
+- [] Add deprecation warning in gluon doc (#8971, @harupy)
+- [Models] Coerce input examples into PyFunc compatible format to use for signature inference (#8860, @jerrylian-db)
+- [Models] Implement automatic signature inference for other flavors (#8782, @jerrylian-db)
+- [Models] Improve transformers signature inference implementation (#8795, @jerrylian-db)
+- [Models] Infer signature from input example when logging or saving models (#8725, @jerrylian-db)
+
+Bug fixes:
+
+- [Scoring] Support nullable array type values as spark_udf return values (#9014, @WeichenXu123)
+- [] Remove modifications to sys.modules (#8722, @trungn1)
+- [Models] add micro version to mlflow version pinning (#8687, @C-K-Loan)
+- [Artifacts] gc delete invalid artifact url (#8498, @PenHsuanWang)
+
+Documentation updates:
+
+- [Docs] Update .push_model_to_sagemaker docs (#8851, @pdifranc)
+- [Docs] Fix link to Azure ML documentation 📗 (#8800, @dunnkers)
+- [Docs] Add documentations for MLflow authentication (#8626, @gabrielfu)
+- [Artifacts / Docs / Models / Projects] Adds information on the OCI MLflow plugins for seamless integration with Oralce Cloud Infrastructure services. (#8707, @mrDzurb)
+
+Small bug fixes and documentation updates:
+
+#9048, #9043, #9035, #9034, #9037, #9038, #8993, #8966, #8985, @BenWilson2; #9039, #9036, #8902, #8924, #8866, #8861, #8810, #8761, #8544, @jerrylian-db; #8903, @smurching; #9032, #9031, #9027, #9023, #9022, #9020, #9005, #8994, #8979, #8983, #8984, #8982, #8970, #8962, #8969, #8968, #8959, #8960, #8958, #8956, #8955, #8954, #8949, #8950, #8952, #8948, #8946, #8947, #8943, #8944, #8916, #8917, #8933, #8929, #8932, #8927, #8930, #8925, #8921, #8873, #8915, #8909, #8908, #8911, #8910, #8907, #8906, #8898, #8893, #8889, #8892, #8891, #8887, #8875, #8876, #8882, #8874, #8868, #8872, #8869, #8828, #8852, #8857, #8853, #8854, #8848, #8850, #8840, #8835, #8832, #8831, #8830, #8829, #8839, #8833, #8838, #8819, #8814, #8825, #8818, #8787, #8775, #8749, #8766, #8756, #8753, #8751, #8748, #8744, #8731, #8717, #8730, #8691, #8720, #8723, #8719, #8688, #8721, #8715, #8716, #8718, #8696, #8698, #8692, #8693, #8690, @harupy; #9030, @AlimurtuzaCodes; #9029, #9025, #9021, #9013, @viktoriussuwandi; #9010, @Bncer; #9011, @Pecunia201; #9007, #9003, @EdAbati; #9002, @prithvikannan; #8991, #8867, @AveshCSingh; #8951, #8896, #8888, #8841, #8849, #8837, @gabrielfu; #8913, #8885, #8871, #8870, #8788, #8772, #8771, @serena-ruan; #8879, @maciejskorski; #7752, @arunkumarkota; #8765, #8742, #8685, #8682, #8683, @dbczumar; #8791, @mhattingpete; #8739, @yunpark93
+
 ## 2.4.2 (2023-07-10)
 
 MLflow 2.4.2 is a patch release containing the following bug fixes and changes:
