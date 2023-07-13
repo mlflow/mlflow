@@ -22,6 +22,7 @@ class AnthropicProvider(BaseProvider):
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
         if "top_p" in payload:
             raise HTTPException(
                 status_code=422,

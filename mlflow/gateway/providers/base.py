@@ -1,4 +1,5 @@
 from abc import ABC
+from fastapi import HTTPException
 from typing import Tuple
 
 from ..schemas import chat, completions, embeddings
@@ -24,3 +25,12 @@ class BaseProvider(ABC):
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         raise NotImplementedError
+
+    @staticmethod
+    def check_for_model_field(payload):
+        if "model" in payload:
+            raise HTTPException(
+                status_code=422,
+                detail="The parameter 'model' is not permitted to be passed. The route being "
+                "queried already defines a model instance.",
+            )
