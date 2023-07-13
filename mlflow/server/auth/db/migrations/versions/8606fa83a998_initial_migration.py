@@ -19,16 +19,15 @@ depends_on = None
 def upgrade() -> None:
     op.create_table(
         "users",
-        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("id", sa.Integer(), nullable=False, primary_key=True),
         sa.Column("username", sa.String(length=255), nullable=True),
         sa.Column("password_hash", sa.String(length=255), nullable=True),
         sa.Column("is_admin", sa.Boolean(), nullable=True),
-        sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("username"),
     )
     op.create_table(
         "experiment_permissions",
-        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("id", sa.Integer(), nullable=False, primary_key=True),
         sa.Column("experiment_id", sa.String(length=255), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("permission", sa.String(length=255), nullable=True),
@@ -36,12 +35,11 @@ def upgrade() -> None:
             ["user_id"],
             ["users.id"],
         ),
-        sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("experiment_id", "user_id", name="unique_experiment_user"),
     )
     op.create_table(
         "registered_model_permissions",
-        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("id", sa.Integer(), nullable=False, primary_key=True),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("permission", sa.String(length=255), nullable=True),
@@ -49,7 +47,6 @@ def upgrade() -> None:
             ["user_id"],
             ["users.id"],
         ),
-        sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("name", "user_id", name="unique_name_user"),
     )
 
