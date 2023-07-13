@@ -117,23 +117,25 @@ def test_get_gateway_uri(monkeypatch):
     assert get_gateway_uri() == valid_uri
 
 
+def test_search_routes_token_decodes_correctly():
+    token = SearchRoutesToken(12345)
+    encoded_token = token.encode()
+    decoded_token = SearchRoutesToken.decode(encoded_token)
+    assert decoded_token.index == token.index
+
+
 @pytest.mark.parametrize(
-    "index, should_raise",
+    "index",
     [
-        (123, False),
-        ("not an integer", True),
-        (-1, True),
-        (None, True),
-        ([1, 2, 3], True),
-        ({"key": "value"}, True),
+        "not an integer",
+        -1,
+        None,
+        [1, 2, 3],
+        {"key": "value"},
     ],
 )
-def test_search_routes_token(index, should_raise):
+def test_search_routes_token_with_invalid_token_values(index):
     token = SearchRoutesToken(index)
     encoded_token = token.encode()
-    if should_raise:
-        with pytest.raises(MlflowException, match="Invalid SearchRoutes token"):
-            SearchRoutesToken.decode(encoded_token)
-    else:
-        decoded_token = SearchRoutesToken.decode(encoded_token)
-        assert decoded_token.index == token.index
+    with pytest.raises(MlflowException, match="Invalid SearchRoutes token"):
+        SearchRoutesToken.decode(encoded_token)
