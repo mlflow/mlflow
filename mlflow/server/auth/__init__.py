@@ -112,7 +112,7 @@ UNPROTECTED_ROUTES = [CREATE_USER, SIGNUP]
 
 
 def is_unprotected_route(path: str) -> bool:
-    if path.startswith(("/static", "/favicon.ico")):
+    if path.startswith(("/static", "/favicon.ico", "/health")):
         return True
     return path in UNPROTECTED_ROUTES
 

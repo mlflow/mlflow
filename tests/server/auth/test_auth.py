@@ -224,10 +224,11 @@ def _wait(url: str):
     t = time.time()
     while time.time() - t < 5:
         try:
-            if requests.get(url, auth=("admin", "password")).ok:
+            if requests.get(f"{url}/health").ok:
                 yield
         except requests.exceptions.ConnectionError:
-            time.sleep(1)
+            pass
+        time.sleep(1)
 
     pytest.fail("Server did not start")
 
