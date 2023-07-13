@@ -7,7 +7,7 @@ MLflow 2.5.0 includes several major features and improvements
 Features:
 
 - [] MLflow Gateway (#8694, @harupy)
-- [Docs / Examples / Models] Support chains with unserializable components (#8736, @liangz1)
+- [Models] Add Support to the LangChain flavor for chains that contain unserializable components (#8736, @liangz1)
 - [Scoring] Infer spark udf return type from model output schema (#8934, @WeichenXu123)
 - [] Add deprecation warning in gluon doc (#8971, @harupy)
 - [Models] Coerce input examples into PyFunc compatible format to use for signature inference (#8860, @jerrylian-db)
