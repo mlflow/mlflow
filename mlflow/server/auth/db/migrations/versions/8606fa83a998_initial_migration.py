@@ -31,10 +31,7 @@ def upgrade() -> None:
         sa.Column("experiment_id", sa.String(length=255), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("permission", sa.String(length=255), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["user_id"],
-            ["users.id"],
-        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], name="fk_user_id"),
         sa.UniqueConstraint("experiment_id", "user_id", name="unique_experiment_user"),
     )
     op.create_table(
@@ -43,10 +40,7 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("permission", sa.String(length=255), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["user_id"],
-            ["users.id"],
-        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], name="fk_user_id"),
         sa.UniqueConstraint("name", "user_id", name="unique_name_user"),
     )
 
