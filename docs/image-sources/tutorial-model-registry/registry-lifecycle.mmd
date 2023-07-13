@@ -1,0 +1,14 @@
+---
+title: Lifecycle within Model Registry
+---
+stateDiagram-v2
+    direction LR
+    [*] --> None
+    None --> Staging
+
+    Staging --> Production
+
+    Production --> Archived
+    Staging --> Archived
+    None --> Archived
+    Archived --> [*]
