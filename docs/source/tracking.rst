@@ -78,6 +78,19 @@ There are different kinds of remote tracking URIs:
   `[Azure] <http://docs.microsoft.com/azure/databricks/applications/mlflow/access-hosted-tracking-server>`_, or :ref:`the quickstart <quickstart_tracking_server>` to
   easily get started with hosted MLflow on Databricks Community Edition.
 
+  For instance, to log runs to a Databricks workspace, you would set the following environment variables:
+
+  .. code-block:: bash
+    
+    # Configure MLflow to communicate with a Databricks-hosted tracking server
+    export MLFLOW_TRACKING_URI=databricks
+    # Specify the workspace hostname and token
+    export DATABRICKS_HOST="..."
+    export DATABRICKS_TOKEN="..."
+    # Or specify your Databricks username & password
+    export DATABRICKS_USERNAME="..."
+    export DATABRICKS_PASSWORD="..."
+
 How runs and artifacts are recorded
 ===================================
 As mentioned above, MLflow runs can be recorded to local files, to a SQLAlchemy-compatible database, or remotely to a tracking server. MLflow artifacts can be persisted to local files
