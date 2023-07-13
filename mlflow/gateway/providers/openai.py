@@ -79,6 +79,7 @@ class OpenAIProvider(BaseProvider):
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
         if "n" in payload:
             raise HTTPException(
                 status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
@@ -147,6 +148,7 @@ class OpenAIProvider(BaseProvider):
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
         if "n" in payload:
             raise HTTPException(
                 status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
@@ -210,6 +212,7 @@ class OpenAIProvider(BaseProvider):
             jsonable_encoder(payload, exclude_none=True),
             {"text": "input"},
         )
+        self.check_for_model_field(payload)
         resp = await send_request(
             headers=self._request_headers,
             base_url=self._request_base_url,

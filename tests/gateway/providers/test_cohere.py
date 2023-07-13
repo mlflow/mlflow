@@ -1,5 +1,6 @@
 from unittest import mock
 
+from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 import pytest
 
@@ -154,3 +155,18 @@ async def test_embeddings():
             },
         }
         mock_post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_param_model_is_not_permitted():
+    config = embeddings_config()
+    provider = CohereProvider(RouteConfig(**config))
+    payload = {
+        "prompt": "This should fail",
+        "max_tokens": 5000,
+        "model": "something-else",
+    }
+    with pytest.raises(HTTPException, match=r".*") as e:
+        await provider.completions(completions.RequestPayload(**payload))
+    assert "The parameter 'model' is not permitted" in e.value.detail
+    assert e.value.status_code == 422

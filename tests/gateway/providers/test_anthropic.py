@@ -195,3 +195,18 @@ async def test_embeddings_are_not_supported_for_anthropic():
         await provider.embeddings(embeddings.RequestPayload(**payload))
     assert "The embeddings route is not available for Anthropic models" in e.value.detail
     assert e.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_param_model_is_not_permitted():
+    config = completions_config()
+    provider = AnthropicProvider(RouteConfig(**config))
+    payload = {
+        "prompt": "This should fail",
+        "max_tokens": 5000,
+        "model": "something-else",
+    }
+    with pytest.raises(HTTPException, match=r".*") as e:
+        await provider.completions(completions.RequestPayload(**payload))
+    assert "The parameter 'model' is not permitted" in e.value.detail
+    assert e.value.status_code == 422
