@@ -50,16 +50,7 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
    :maxdepth: 1
    :caption: Reference
 
-   what-is-mlflow
-   quickstart
-   tutorials-and-examples/index
-   concepts
-   tracking
-   llm-tracking
-   projects
-   models
-   model-registry
-   recipes
+   gateway/index
    plugins
    auth/index
    cli
