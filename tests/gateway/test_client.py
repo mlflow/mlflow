@@ -3,7 +3,7 @@ from requests.exceptions import HTTPError
 from unittest import mock
 
 from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
-from mlflow.gateway.envs import MLFLOW_GATEWAY_URI  # TODO: change to environment_variables import
+from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException, InvalidUrlException
 import mlflow.gateway.utils
 from mlflow.gateway.utils import resolve_route_url
