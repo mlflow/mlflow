@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from typing import Optional, Dict, Any
 
 from mlflow import MlflowException
@@ -8,6 +9,8 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
+    MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
+    MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
 )
 from mlflow.gateway.utils import get_gateway_uri, assemble_uri_path, resolve_route_url
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
@@ -75,7 +78,12 @@ class MlflowGatewayClient:
             call_kwargs["json"] = json_body
 
         response = http_request(
-            host_creds=self._host_creds, endpoint=route, method=method, **call_kwargs
+            host_creds=self._host_creds,
+            endpoint=route,
+            method=method,
+            timeout=MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
+            retry_codes=MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
+            **call_kwargs,
         )
         augmented_raise_for_status(response)
         return response
@@ -286,4 +294,18 @@ class MlflowGatewayClient:
 
         query_route = assemble_uri_path([MLFLOW_GATEWAY_ROUTE_BASE, route, MLFLOW_QUERY_SUFFIX])
 
-        return self._call_endpoint("POST", query_route, data).json()
+        try:
+            return self._call_endpoint("POST", query_route, data).json()
+        except MlflowException as e:
+            if re.search(r"timeout", str(e), re.IGNORECASE):
+                timeout_message = (
+                    "The provider has timed out while generating a response to your "
+                    "query. Please evaluate the available parameters for the query "
+                    "that you are submitting. Some parameter values and inputs can "
+                    "increase the computation time beyond the allowable route "
+                    f"timeout of {MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS} "
+                    "seconds."
+                )
+                raise MlflowException(message=timeout_message, error_code=BAD_REQUEST)
+            else:
+                raise e
