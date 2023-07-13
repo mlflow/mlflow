@@ -56,7 +56,8 @@ class RetrieverWrapper(Chain):
         """
         question = inputs[self.input_key]
         docs = self._get_docs(question)
-        return {self.output_key: docs}
+        list_of_str_page_context = [doc.page_content for doc in docs]
+        return {self.output_key: json.dumps(list_of_str_page_context)}
 
     async def _aget_docs(self, question: str) -> List[Document]:
         """Get documents from the retriever."""
@@ -77,7 +78,8 @@ class RetrieverWrapper(Chain):
         """
         question = inputs[self.input_key]
         docs = await self._aget_docs(question)
-        return {self.output_key: docs}
+        list_of_str_page_context = [doc.page_content for doc in docs]
+        return {self.output_key: json.dumps(list_of_str_page_context)}
 
     @property
     def _chain_type(self) -> str:

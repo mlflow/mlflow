@@ -402,7 +402,7 @@ def test_log_and_load_retriever_wrapper(tmp_path):
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
     documents = loader.load()
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    text_splitter = CharacterTextSplitter(chunk_size=10, chunk_overlap=0)
     docs = text_splitter.split_documents(documents)
     embeddings = DeterministicDummyEmbeddings(size=5)
     db = FAISS.from_documents(docs, embeddings)
@@ -461,22 +461,30 @@ def test_log_and_load_retriever_wrapper(tmp_path):
     query = "What did the president say about Ketanji Brown Jackson"
     langchain_input = {"query": query}
     result = loaded_pyfunc_model.predict([langchain_input])
-    expected_result = db.as_retriever().get_relevant_documents(query)
-    assert result == [expected_result]
+    expected_result = json.dumps(
+        [doc.page_content for doc in db.as_retriever().get_relevant_documents(query)]
+    )
+    assert type(result) == list
+    assert len(result) == 1
+    assert result[0] == expected_result
 
-    # RetrieverWrapper is not servable since it returns Document objects
+    # Serve the chain
     inference_payload = json.dumps({"inputs": langchain_input})
+    langchain_output_serving = {"predictions": [expected_result]}
     response = pyfunc_serve_and_score_model(
         logged_model.model_uri,
         data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    with pytest.raises(
-        MlflowException,
-        match="Predictions response contents are not valid JSON",
-    ):
-        PredictionsResponse.from_json(response.content.decode("utf-8"))
+    pred = PredictionsResponse.from_json(response.content.decode("utf-8"))["predictions"]
+    assert type(pred) == list
+    assert len(pred) == 1
+    docs_list = json.loads(pred[0])
+    assert type(docs_list) == list
+    assert len(docs_list) == 4
+    # The returned docs are non-deterministic when used with dummy embeddings
+    assert pred != langchain_output_serving
 
 
 def load_requests_wrapper(_):
