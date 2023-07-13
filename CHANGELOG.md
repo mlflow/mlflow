@@ -8,10 +8,7 @@ Features:
 
 - [] MLflow Gateway (#8694, @harupy)
 - [Docs / Examples / Models] Support chains with unserializable components (#8736, @liangz1)
-- [Models] [Support inference params-3]Add inference params for all flavors (#8974, @serena-ruan)
 - [Scoring] Infer spark udf return type from model output schema (#8934, @WeichenXu123)
-- [Models] [Support inference params-2]Add `params` for PyFunc predict (#8973, @serena-ruan)
-- [Models] [Support inference params-1]Add ParamSchema and ParamSpec in model signature (#8972, @serena-ruan)
 - [] Add deprecation warning in gluon doc (#8971, @harupy)
 - [Models] Coerce input examples into PyFunc compatible format to use for signature inference (#8860, @jerrylian-db)
 - [Models] Implement automatic signature inference for other flavors (#8782, @jerrylian-db)
@@ -28,7 +25,7 @@ Bug fixes:
 Documentation updates:
 
 - [Docs] Update .push_model_to_sagemaker docs (#8851, @pdifranc)
-- [Docs] Fix link to Azure ML documentation 📗 (#8800, @dunnkers)
+- [Docs] Fix invalid link for Azure ML documentation (#8800, @dunnkers)
 - [Docs] Add documentations for MLflow authentication (#8626, @gabrielfu)
 - [Artifacts / Docs / Models / Projects] Adds information on the OCI MLflow plugins for seamless integration with Oralce Cloud Infrastructure services. (#8707, @mrDzurb)
 
