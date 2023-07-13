@@ -460,3 +460,14 @@ def test_client_query_anthropic_completions(mixed_gateway):
     with mock.patch.object(gateway_client, "_call_endpoint", return_value=mock_response):
         response = gateway_client.query(route=route.name, data=data)
         assert response == expected_output
+
+
+def test_cllient_query_with_disallowed_param(mixed_gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=mixed_gateway.url)
+
+    route = gateway_client.get_route(name="completions")
+
+    data = {"prompt": "Testing", "temperature": 0.8, "model": "gpt-4"}
+
+    with pytest.raises(HTTPError, match=".*The parameter 'model' is not permitted.*"):
+        gateway_client.query(route=route.name, data=data)

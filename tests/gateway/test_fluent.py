@@ -238,3 +238,13 @@ def test_fluent_delete_route_raises(gateway):
     # This API is only available in Databricks
     with pytest.raises(MlflowException, match="The delete_route API is only available when"):
         delete_route("some-route")
+
+
+def test_fluent_query_with_disallowed_param(gateway):
+    set_gateway_uri(gateway_uri=gateway.url)
+    route = get_route("completions")
+
+    data = {"prompt": "Test", "temperature": 0.4, "model": "gpt-4"}
+
+    with pytest.raises(HTTPError, match=".*The parameter 'model' is not permitted.*"):
+        query(route=route.name, data=data)

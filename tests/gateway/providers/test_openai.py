@@ -513,3 +513,18 @@ def test_invalid_openai_configs_throw_on_construction(
             openai_api_version=api_version,
             openai_organization=organization,
         )
+
+
+@pytest.mark.asyncio
+async def test_param_model_is_not_permitted():
+    config = azure_config("azuread")
+    provider = OpenAIProvider(RouteConfig(**config))
+    payload = {
+        "prompt": "This should fail",
+        "max_tokens": 5000,
+        "model": "something-else",
+    }
+    with pytest.raises(HTTPException, match=r".*") as e:
+        await provider.completions(completions.RequestPayload(**payload))
+    assert "The parameter 'model' is not permitted" in e.value.detail
+    assert e.value.status_code == 422
