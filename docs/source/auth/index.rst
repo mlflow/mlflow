@@ -394,7 +394,7 @@ Permissions Database
 --------------------
 
 All users and permissions are stored in a database in ``basic_auth.db``, relative to the directory where MLflow server is launched.
-The location can be change in the :ref:`configuration <configuration>` file. To run migrations, use the following command:
+The location can be changed in the :ref:`configuration <configuration>` file. To run migrations, use the following command:
 
 .. code-block::
 
