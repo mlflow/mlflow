@@ -331,7 +331,7 @@ def get_cmd(
     timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
 
     if isinstance(host, str) and " " in host:
-        raise MlflowException.invalid_parameter_value(f"Invalid value for `host` {host}")
+        raise MlflowException.invalid_parameter_value(f"Invalid value for `host`: {host}")
 
     # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
     # platform compatibility.
