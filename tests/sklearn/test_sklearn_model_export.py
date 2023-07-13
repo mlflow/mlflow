@@ -1,6 +1,4 @@
-from packaging.version import Version
 from pathlib import Path
-import pickle
 from unittest import mock
 import os
 import pytest
@@ -668,53 +666,6 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
         data=json.loads(resp.content.decode("utf-8"))["predictions"]
     ).values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
-
-
-def test_sklearn_compatible_with_mlflow_2_4_0(sklearn_knn_model, tmp_path):
-    model, inference_dataframe = sklearn_knn_model
-    model_predict = model.predict(inference_dataframe)
-
-    # save test model
-    tmp_path.joinpath("MLmodel").write_text(
-        """
-artifact_path: test_model
-flavors:
-  python_function:
-    env:
-      conda: conda.yaml
-      virtualenv: python_env.yaml
-    loader_module: mlflow.sklearn
-    model_path: model.pkl
-    predict_fn: predict
-    python_version: 3.8.16
-  sklearn:
-    code: null
-    pickled_model: model.pkl
-    serialization_format: cloudpickle
-    sklearn_version: 1.2.2
-mlflow_version: 2.4.0
-model_uuid: c9833d74b1ff4013a1c9eff05d39eeef
-run_id: 8146a2ae86104f5b853351e600fc9d7b
-utc_time_created: '2023-07-04 07:19:43.561797'
-"""
-    )
-    with open(tmp_path / "model.pkl", "wb") as out:
-        pickle.dump(model, out, protocol=pickle.DEFAULT_PROTOCOL)
-
-    assert Version(mlflow.__version__) > Version("2.4.0")
-    pyfunc_loaded = mlflow.pyfunc.load_model(str(tmp_path))
-
-    # predict is compatible
-    local_predict = pyfunc_loaded.predict(inference_dataframe)
-    np.testing.assert_array_almost_equal(local_predict, model_predict)
-
-    # Raise error if trying to pass params to model logged with mlflow < 2.5.0
-    with pytest.raises(
-        MlflowException,
-        match=r"`params` can only be specified at inference "
-        r"time if the model signature defines a params schema.",
-    ):
-        pyfunc_loaded.predict(inference_dataframe, params={"top_k": 2})
 
 
 def test_log_model_with_code_paths(sklearn_knn_model):

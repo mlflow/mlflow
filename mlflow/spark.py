@@ -25,7 +25,6 @@ import re
 import shutil
 import yaml
 from packaging.version import Version
-from typing import Any, Dict, Optional
 import pandas as pd
 
 import mlflow
@@ -892,18 +891,11 @@ class _PyFuncModelWrapper:
         self.spark = spark
         self.spark_model = spark_model
 
-    def predict(
-        self, pandas_df, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
-    ):
+    def predict(self, pandas_df):
         """
         Generate predictions given input data in a pandas DataFrame.
 
         :param pandas_df: pandas DataFrame containing input data.
-        :param params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
         :return: List with model predictions.
         """
         from pyspark.ml import PipelineModel

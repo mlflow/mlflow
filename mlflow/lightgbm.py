@@ -25,7 +25,6 @@ import logging
 import functools
 from copy import deepcopy
 from packaging.version import Version
-from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow import pyfunc
@@ -465,18 +464,7 @@ class _LGBModelWrapper:
     def __init__(self, lgb_model):
         self.lgb_model = lgb_model
 
-    def predict(
-        self, dataframe, params: Optional[Dict[str, Any]] = None
-    ):  # pylint: disable=unused-argument
-        """
-        :param dataframe: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
-        :return: Model predictions.
-        """
+    def predict(self, dataframe):
         return self.lgb_model.predict(dataframe)
 
 
