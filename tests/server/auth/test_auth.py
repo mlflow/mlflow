@@ -2,8 +2,14 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures authentication is working.
 """
+import sys
 import pytest
+import subprocess
+import time
+import requests
+import psutil
 
+import mlflow
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -14,6 +20,7 @@ from mlflow.utils.os import is_windows
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
 from tests.server.auth.auth_test_utils import create_user, User
 from tests.tracking.integration_test_utils import (
+    get_safe_port,
     _init_server,
     _send_rest_tracking_post_request,
 )
@@ -211,3 +218,68 @@ def test_search_registered_models(client, monkeypatch):
 
         names = sorted([rm.name for rm in registered_models])
         assert names == [f"rm{i}" for i in readable]
+
+
+def _wait(url: str):
+    t = time.time()
+    while time.time() - t < 5:
+        try:
+            if requests.get(url, auth=("admin", "password")).ok:
+                yield
+        except requests.exceptions.ConnectionError:
+            time.sleep(1)
+
+    pytest.fail("Server did not start")
+
+
+def _kill_all(pid: str):
+    parent = psutil.Process(pid)
+    for child in parent.children(recursive=True):
+        child.kill()
+    parent.kill()
+
+
+def test_proxy_log_artifacts(monkeypatch, tmp_path):
+    backend_uri = f"sqlite:///{tmp_path / 'sqlalchemy.db'}"
+    port = get_safe_port()
+    host = "localhost"
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "server",
+            "--app-name",
+            "basic-auth",
+            "--backend-store-uri",
+            backend_uri,
+            "--host",
+            host,
+            "--port",
+            str(port),
+            "--workers",
+            "1",
+            "--dev",
+        ]
+    ) as prc:
+        url = f"http://{host}:{port}"
+        for _ in _wait(url):
+            break
+
+        mlflow.set_tracking_uri(url)
+        client = MlflowClient(url)
+        tmp_file = tmp_path / "test.txt"
+        tmp_file.touch()
+        username1, password1 = create_user(url)
+        with User(username1, password1, monkeypatch):
+            exp_id = client.create_experiment("exp")
+            run = client.create_run(exp_id)
+            client.log_artifact(run.info.run_id, tmp_file)
+
+        username2, password2 = create_user(url)
+        with User(username2, password2, monkeypatch):
+            client.list_artifacts(run.info.run_id)
+            with pytest.raises(requests.HTTPError, match="Permission denied"):
+                client.log_artifact(run.info.run_id, tmp_file)
+
+        _kill_all(prc.pid)

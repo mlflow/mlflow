@@ -10,7 +10,7 @@ Usage
 import logging
 import uuid
 import re
-from typing import Callable
+from typing import Callable, Dict, Optional, Any
 
 from flask import Flask, request, make_response, Response, flash, render_template_string
 
@@ -98,14 +98,9 @@ from mlflow.protos.model_registry_pb2 import (
     CreateRegisteredModel,
     SearchRegisteredModels,
 )
-from mlflow.protos.mlflow_artifacts_pb2 import (
-    DownloadArtifact,
-    UploadArtifact,
-    ListArtifacts as MlflowArtifactsListArtifacts,
-    DeleteArtifact,
-)
 from mlflow.utils.proto_json_utils import parse_dict, message_to_json
 from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 
 _logger = logging.getLogger(__name__)
 
@@ -185,7 +180,7 @@ def _get_permission_from_experiment_id() -> Permission:
     )
 
 
-_EXPERIMENT_ID_PATTERN = re.compile(r"^/experiments/(\d+)/")
+_EXPERIMENT_ID_PATTERN = re.compile(r"^(\d+)/")
 
 
 def _get_experiment_id_from_view_args():
@@ -351,11 +346,6 @@ BEFORE_REQUEST_HANDLERS = {
     LogParam: validate_can_update_run,
     GetMetricHistory: validate_can_read_run,
     ListArtifacts: validate_can_read_run,
-    # Routes for artifact proxy
-    DownloadArtifact: validate_can_read_experiment_artifact_proxy,
-    UploadArtifact: validate_can_update_experiment_artifact_proxy,
-    MlflowArtifactsListArtifacts: validate_can_read_experiment_artifact_proxy,
-    DeleteArtifact: validate_can_update_experiment_artifact_proxy,
     # Routes for model registry
     GetRegisteredModel: validate_can_read_registered_model,
     DeleteRegisteredModel: validate_can_delete_registered_model,
@@ -406,6 +396,23 @@ BEFORE_REQUEST_VALIDATORS.update(
 )
 
 
+def _is_proxy_artifact_path(path: str) -> bool:
+    return path.startswith(f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/")
+
+
+def _get_proxy_artifact_validator(
+    method: str, view_args: Optional[Dict[str, Any]]
+) -> Optional[Callable[[], bool]]:
+    if view_args is None:
+        return validate_can_read_experiment_artifact_proxy
+
+    return {
+        "GET": validate_can_read_experiment_artifact_proxy,  # Download
+        "PUT": validate_can_update_experiment_artifact_proxy,  # Upload
+        "DELETE": validate_can_update_experiment_artifact_proxy,  # Delete
+    }.get(method)
+
+
 @catch_mlflow_exception
 def _before_request():
     if is_unprotected_route(request.path):
@@ -433,6 +440,10 @@ def _before_request():
         _logger.debug(f"Calling validator: {validator.__name__}")
         if not validator():
             return make_forbidden_response()
+    elif _is_proxy_artifact_path(request.path):
+        if validator := _get_proxy_artifact_validator(request.method, request.view_args):
+            if not validator():
+                return make_forbidden_response()
     else:
         _logger.debug(f"No validator found for {(request.path, request.method)}")
 
