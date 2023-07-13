@@ -404,7 +404,7 @@ def _get_proxy_artifact_validator(
     method: str, view_args: Optional[Dict[str, Any]]
 ) -> Optional[Callable[[], bool]]:
     if view_args is None:
-        return validate_can_read_experiment_artifact_proxy
+        return validate_can_read_experiment_artifact_proxy  # List
 
     return {
         "GET": validate_can_read_experiment_artifact_proxy,  # Download
