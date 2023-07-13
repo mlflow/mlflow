@@ -5,6 +5,7 @@ import pytest
 import yaml
 import json
 from collections import namedtuple
+import tempfile
 
 import numpy as np
 import pandas as pd
@@ -18,18 +19,25 @@ import mlflow.sklearn
 import mlflow.utils
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
+from mlflow.entities.model_registry.model_version import ModelVersion, ModelVersionStatus
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _read_example
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.models import Model, ModelSignature
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec
+
+# pylint: disable=unused-import
+from tests.store._unity_catalog.conftest import (
+    mock_databricks_uc_host_creds,
+    configure_client_for_uc,
+)
 
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
@@ -38,6 +46,7 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _compare_logged_code_paths,
     _mlflow_major_version_string,
+    assert_register_model_called_with_local_model_path,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
@@ -216,7 +225,7 @@ def test_model_log(sklearn_logreg_model, model_path):
 
 def test_log_model_calls_register_model(sklearn_logreg_model):
     artifact_path = "linear"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
@@ -227,14 +236,44 @@ def test_log_model_calls_register_model(sklearn_logreg_model):
             registered_model_name="AdsModel1",
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        mlflow.register_model.assert_called_once_with(
-            model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        assert_register_model_called_with_local_model_path(
+            register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
+            model_uri=model_uri,
+            registered_model_name="AdsModel1",
         )
+
+
+def test_log_model_call_register_model_to_uc(configure_client_for_uc, sklearn_logreg_model):
+    artifact_path = "linear"
+    mock_model_version = ModelVersion(
+        name="AdsModel1",
+        version=1,
+        creation_timestamp=123,
+        status=ModelVersionStatus.to_string(ModelVersionStatus.READY),
+    )
+    with mock.patch.object(UcModelRegistryStore, "create_registered_model"), mock.patch.object(
+        UcModelRegistryStore, "create_model_version", return_value=mock_model_version, autospec=True
+    ) as mock_create_mv, TempDir(chdr=True, remove_on_exit=True) as tmp:
+        with mlflow.start_run():
+            conda_env = os.path.join(tmp.path(), "conda_env.yaml")
+            _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
+            mlflow.sklearn.log_model(
+                sk_model=sklearn_logreg_model.model,
+                artifact_path=artifact_path,
+                conda_env=conda_env,
+                registered_model_name="AdsModel1",
+            )
+            active_run = mlflow.active_run()
+            run_id = active_run.info.run_id
+            [(args, kwargs)] = mock_create_mv.call_args_list
+            expected_source = os.path.join(active_run.info.artifact_uri, artifact_path)
+            assert args[1:] == ("AdsModel1", expected_source, run_id, [], None, None)
+            assert kwargs["local_model_path"].startswith(tempfile.gettempdir())
 
 
 def test_log_model_no_registered_model_name(sklearn_logreg_model):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
@@ -243,7 +282,7 @@ def test_log_model_no_registered_model_name(sklearn_logreg_model):
             artifact_path=artifact_path,
             conda_env=conda_env,
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
 def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(

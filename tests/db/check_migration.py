@@ -51,7 +51,7 @@ SNAPSHOTS_DIR = Path(__file__).parent / "snapshots"
 
 
 class Model(mlflow.pyfunc.PythonModel):
-    def predict(self, context, model_input, params=None):
+    def predict(self, context, model_input):
         return [0]
 
 

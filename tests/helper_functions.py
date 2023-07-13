@@ -8,6 +8,7 @@ from contextlib import ExitStack, contextmanager
 import logging
 import requests
 import time
+import tempfile
 import signal
 import socket
 import subprocess
@@ -21,6 +22,7 @@ import pytest
 
 import mlflow
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.file_utils import read_yaml, write_yaml
 from mlflow.utils.environment import (
     _get_pip_deps,
@@ -425,6 +427,18 @@ def _get_deps_from_requirement_file(model_uri):
     local_path = _download_artifact_from_uri(model_uri)
     pip_packages = _read_lines(os.path.join(local_path, _REQUIREMENTS_FILE_NAME))
     return [req.split("==")[0] if "==" in req else req for req in pip_packages]
+
+
+def assert_register_model_called_with_local_model_path(
+    register_model_mock, model_uri, registered_model_name
+):
+    register_model_call_args = register_model_mock.call_args
+    assert register_model_call_args.args == (model_uri, registered_model_name)
+    assert (
+        register_model_call_args.kwargs["await_registration_for"] == DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+    )
+    local_model_path = register_model_call_args.kwargs["local_model_path"]
+    assert local_model_path.startswith(tempfile.gettempdir())
 
 
 def _assert_pip_requirements(model_uri, requirements, constraints=None, strict=False):
