@@ -276,6 +276,7 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
                 exp_id = client.create_experiment("exp")
                 run = client.create_run(exp_id)
                 client.log_artifact(run.info.run_id, tmp_file)
+                client.list_artifacts(run.info.run_id)
 
             username2, password2 = create_user(url)
             with User(username2, password2, monkeypatch):
