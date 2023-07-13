@@ -294,7 +294,6 @@ def test_default_signature_assignment():
     expected_signature = {
         "inputs": '[{"type": "string"}]',
         "outputs": '[{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": ' "[-1]}}]",
-        "params": None,
     }
 
     default_signature = mlflow.sentence_transformers._get_default_signature()
@@ -325,19 +324,14 @@ def test_model_pyfunc_save_load(basic_model, model_path):
 
 
 def test_spark_udf(basic_model, spark):
-    params = {"batch_size": 16}
     with mlflow.start_run():
-        signature = infer_signature(SENTENCES, basic_model.encode(SENTENCES), params)
-        model_info = mlflow.sentence_transformers.log_model(
-            basic_model, "my_model", signature=signature
-        )
+        model_info = mlflow.sentence_transformers.log_model(basic_model, "my_model")
 
     result_type = ArrayType(DoubleType())
     loaded_model = mlflow.pyfunc.spark_udf(
         spark,
         model_info.model_uri,
         result_type=result_type,
-        params=params,
     )
 
     df = spark.createDataFrame([("hello MLflow",), ("bye world",)], ["text"])

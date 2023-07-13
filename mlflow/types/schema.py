@@ -1,5 +1,5 @@
 import builtins
-import datetime as dt
+from datetime import date
 from enum import Enum
 import importlib.util
 import json
@@ -49,7 +49,7 @@ class DataType(Enum):
         np.dtype("datetime64[ns]"),
         "TimestampType",
         np.dtype("datetime64[ns]"),
-        dt.date,
+        date,
     )
     """64b datetime data."""
 
@@ -103,14 +103,12 @@ class DataType(Enum):
 
     @classmethod
     def is_datetime(cls, value):
-        return type(value) in DataType.datetime.get_all_types()
+        return type(value) in DataType.datetime.get_all_types() or isinstance(value, np.datetime64)
 
     def get_all_types(self):
         types = [self.to_numpy(), self.to_pandas(), self.to_python()]
         if importlib.util.find_spec("pyspark") is not None:
             types.append(self.to_spark())
-        if self.name == "datetime":
-            types.extend([np.datetime64, dt.datetime])
         return types
 
     @classmethod
