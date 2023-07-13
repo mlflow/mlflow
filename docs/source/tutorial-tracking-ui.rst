@@ -19,7 +19,7 @@ You can also run the Tracking UI from the command-line with the ``mlflow ui`` co
 If you do not have an instance of the MLflow Tracking Server already running:
 
 1. Navigate to the directory containing the ``mlruns/`` subdirectory you want to visualize. For instance, the Quickstarts and :ref:`tutorial-tracking` expect you to be in the **examples/hyperparam** subdirectory of the cloned MLflow repository.
-2. Run ``mlflow ui``. Use the ``--port`` argument to change from listening on the default port of 5000. Use the same ``--backend-store-uri`` and ``--artifacts-destination`` {>> tk check <<} arguments you used when performing your experiments and using the Tracking API.
+2. Run ``mlflow ui``. Use the ``--port`` argument to change from listening on the default port of 5000. Use the same ``--backend-store-uri`` and ``--artifacts-destination`` arguments you used when performing your experiments and using the Tracking API.
 3. Open a browser and navigate to the URL on which you ran the Tracking UI server. For instance, if you used the default port, you would navigate to ``http://localhost:5000``.
 
 The Tracking UI Main page
@@ -32,7 +32,7 @@ When you navigate to the Tracking UI, you will see a page similar to this:
 
 Down the left-hand side of the browser, the UI lists the **Experiments** that are being tracked (1). Individual **Runs** are shown in the main body of the page (2). If you ran either the Quickstarts or the :ref:`tutorial-tracking`, you will see both the parent run, which was the full hyperparameter search, and the child runs, each with unigue parameters.
 
-You can use the **Columns** dropdown (tk) to customize the columns displayed in the main results table. The search box (tk) allows you to rapidly filter the displayed runs. You can switch between a **Table view** and a **Chart view** summary of runs (tk). The **Models** tab (tk) displays the registered models that are tracked.
+You can use the **Columns** dropdown (3) to customize the columns displayed in the main results table. You can switch between a **Table view** and a **Chart view** summary of runs (4). The search box (5) allows you to rapidly filter the displayed runs. The **Models** tab (6) displays the registered models that are tracked.
 
 Customize the displayed columns
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -114,7 +114,11 @@ Deleting runs
 
 You will have some runs that do not generate worthwhile results. Sometimes these will stem from code errors or other problems, but there are any number of reasons you may not want to keep a run.
 
-To delete a run, select it in the list of runs and select "Delete." You will be prompted to confirm the deletion. {>> This action cannot be undone. tk Confused by this. The "State" dropdown has a "Deleted" option. <<}
+To delete a run, select it in the list of runs and select "Delete." You will be prompted to confirm the deletion. This puts the run in the ``Deleted`` state but *does not* remove the contents from the machine. The run is hidden by default, but can be searched for, viewed, and restored. To permanently remove the run and its associated data and artifacts, open a terminal and run:
+
+.. code-block:: bash
+
+  mlflow gc
 
 You may also delete a run using the CLI command ``mlflow run delete --run-id <run_id>`` or the Python API ``mlflow.delete_run(run_id : str)->None``.
 
