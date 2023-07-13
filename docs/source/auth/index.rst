@@ -398,7 +398,7 @@ The location can be changed in the :ref:`configuration <configuration>` file. To
 
 .. code-block::
 
-    python -m mlflow.server.auth migrate --url <database_url>
+    python -m mlflow.server.auth db upgrade --url <database_url>
 
 Admin Users
 -----------
