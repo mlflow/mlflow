@@ -18,7 +18,6 @@ import warnings
 import pandas as pd
 import yaml
 from packaging.version import Version
-from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow import pyfunc
@@ -343,18 +342,7 @@ class _PmdarimaModelWrapper:
         self.pmdarima_model = pmdarima_model
         self._pmdarima_version = pmdarima.__version__
 
-    def predict(
-        self, dataframe, params: Optional[Dict[str, Any]] = None
-    ) -> pd.DataFrame:  # pylint: disable=unused-argument
-        """
-        :param dataframe: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
-        :return: Model predictions.
-        """
+    def predict(self, dataframe) -> pd.DataFrame:
         df_schema = dataframe.columns.values.tolist()
 
         if len(dataframe) > 1:

@@ -4,7 +4,6 @@ import os
 import numpy as np
 import pandas as pd
 import yaml
-from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow import pyfunc
@@ -103,18 +102,11 @@ class _GluonModelWrapper:
     def __init__(self, gluon_model):
         self.gluon_model = gluon_model
 
-    def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
-    ):
+    def predict(self, data):
         """
         :param data: Either a pandas DataFrame or a numpy array containing input array values.
                      If the input is a DataFrame, it will be converted to an array first by a
                      `ndarray = df.values`.
-        :param params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
         :return: Model predictions. If the input is a pandas.DataFrame, the predictions are returned
                  in a pandas.DataFrame. If the input is a numpy array, the predictions are returned
                  as either a numpy.ndarray or a plain list for hybrid models.

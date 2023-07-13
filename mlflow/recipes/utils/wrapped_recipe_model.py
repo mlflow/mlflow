@@ -2,7 +2,6 @@ import mlflow
 from mlflow.pyfunc import PythonModel
 import pandas as pd
 import numpy as np
-from typing import Any, Dict, Optional
 
 
 class WrappedRecipeModel(PythonModel):
@@ -17,23 +16,7 @@ class WrappedRecipeModel(PythonModel):
     def load_context(self, context):
         self._classifier = mlflow.sklearn.load_model(context.artifacts["model_path"])
 
-    def predict(
-        self,
-        context,
-        model_input,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
-    ):
-        """
-        :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
-                        can use to perform inference.
-        :param model_input: A pyfunc-compatible input for the model to evaluate.
-        :param params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
-        :return: Model predictions.
-        """
+    def predict(self, context, model_input):
         predicted_label = self._classifier.predict(model_input)
         # Only classification recipe would be have multiple classes in the target column
         # So if it doesn't have multiple classes, return back the predicted_label
