@@ -445,7 +445,7 @@ class PyFuncModel:
             # function definition, nor do they support `**kwargs`. Accordingly, we only pass
             # `params` to the `predict()` method if it defines the `params` argument
             if inspect.signature(self._predict_fn).parameters.get("params"):
-                return self._predict_fn(data, params)
+                return self._predict_fn(data, params=params)
             _log_warning_if_params_not_in_predict_signature(_logger, params)
             return self._predict_fn(data)
 
@@ -650,7 +650,7 @@ class _ServedPyFuncModel(PyFuncModel):
         :return: Model predictions.
         """
         if inspect.signature(self._client.invoke).parameters.get("params"):
-            result = self._client.invoke(data, params).get_predictions()
+            result = self._client.invoke(data, params=params).get_predictions()
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
             result = self._client.invoke(data).get_predictions()

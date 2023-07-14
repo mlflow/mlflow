@@ -313,13 +313,10 @@ def invocations(data, content_type, model, input_schema):
 
     # Do the prediction
     try:
-        if params:
-            if inspect.signature(model.predict).parameters.get("params"):
-                raw_predictions = model.predict(data, params)
-            else:
-                _log_warning_if_params_not_in_predict_signature(_logger, params)
-                raw_predictions = model.predict(data)
+        if inspect.signature(model.predict).parameters.get("params"):
+            raw_predictions = model.predict(data, params=params)
         else:
+            _log_warning_if_params_not_in_predict_signature(_logger, params)
             raw_predictions = model.predict(data)
     except MlflowException as e:
         raise e
@@ -406,13 +403,10 @@ def _predict(model_uri, input_path, output_path, content_type):
     else:
         raise Exception(f"Unknown content type '{content_type}'")
 
-    if params:
-        if inspect.signature(pyfunc_model.predict).parameters.get("params"):
-            raw_predictions = pyfunc_model.predict(df, params)
-        else:
-            _log_warning_if_params_not_in_predict_signature(_logger, params)
-            raw_predictions = pyfunc_model.predict(df)
+    if inspect.signature(pyfunc_model.predict).parameters.get("params"):
+        raw_predictions = pyfunc_model.predict(df, params=params)
     else:
+        _log_warning_if_params_not_in_predict_signature(_logger, params)
         raw_predictions = pyfunc_model.predict(df)
 
     if output_path is None:

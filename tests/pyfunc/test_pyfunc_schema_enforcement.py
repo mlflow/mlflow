@@ -1556,6 +1556,104 @@ cloudpickle==2.2.1
     assert prediction == [{"0": "a"}, {"0": "b"}]
 
 
+def test_function_python_model_serving_compatible(tmp_path):
+    """
+    # Code for logging the model in mlflow 2.4.0
+    import mlflow
+    from mlflow.models import infer_signature
+
+    def my_model(model_input):
+        return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+                    python_model = my_model,
+                    artifact_path = "test_model",
+                    signature = infer_signature(["input"]),
+                    registered_model_name="model",
+                    input_example=["input"])
+    """
+    tmp_path.joinpath("MLmodel").write_text(
+        """
+artifact_path: test_model
+flavors:
+  python_function:
+    cloudpickle_version: 2.2.1
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.pyfunc.model
+    python_model: python_model.pkl
+    python_version: 3.8.16
+mlflow_version: 2.4.0
+model_uuid: f19b9a51a34a453282e53ca41d384964
+run_id: 9fd7b6e125a547fdbb4505f15e8259ed
+saved_input_example_info:
+  artifact_path: input_example.json
+  pandas_orient: split
+  type: dataframe
+signature:
+  inputs: '[{"type": "string"}]'
+  outputs: null
+utc_time_created: '2023-07-14 10:18:44.353510'
+        """
+    )
+    tmp_path.joinpath("python_env.yaml").write_text(
+        """
+python: 3.8.16
+build_dependencies:
+    - pip==23.1.2
+    - setuptools==56.0.0
+    - wheel==0.40.0
+dependencies:
+    - -r requirements.txt
+        """
+    )
+    tmp_path.joinpath("requirements.txt").write_text(
+        """
+mlflow==2.4.0
+cloudpickle==2.2.1
+pandas==2.0.3
+        """
+    )
+    tmp_path.joinpath("input_example.json").write_text(
+        """
+{"data": [["input"]]}
+        """
+    )
+
+    def my_model(model_input):
+        return model_input
+
+    from mlflow.pyfunc.model import _FunctionPythonModel
+
+    python_model = _FunctionPythonModel(my_model, signature=infer_signature(["input"]))
+
+    with open(tmp_path / "python_model.pkl", "wb") as out:
+        cloudpickle.dump(python_model, out)
+
+    assert Version(mlflow.__version__) > Version("2.4.0")
+    model_uri = str(tmp_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_uri)
+
+    assert pyfunc_loaded.metadata.signature == ModelSignature(Schema([ColSpec("string")]))
+
+    # predict is compatible
+    local_predict = pyfunc_loaded.predict(["input"])
+    assert local_predict.values[0].tolist() == ["input"]
+
+    # model serving is compatible
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=dump_input_data(["a", "b"]),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 200
+    prediction = json.loads(response.content.decode("utf-8"))["predictions"]
+    assert prediction == [{"0": "a"}, {"0": "b"}]
+
+
 def test_enforce_schema_with_arrays_in_python_model_predict(sample_params_with_arrays):
     params = sample_params_with_arrays
     signature = infer_signature(["input1"], params=params)
