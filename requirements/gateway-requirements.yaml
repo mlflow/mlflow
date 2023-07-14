@@ -11,7 +11,9 @@ fastapi:
   max_major_version: 0
 
 uvicorn:
-  pip_release: uvicorn[standard]
+  pip_release: uvicorn
+  extras:
+    - standard
   max_major_version: 0
 
 watchfiles:
