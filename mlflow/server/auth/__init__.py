@@ -562,8 +562,8 @@ def create_admin_user(username, password):
             )
         except sqlalchemy.exc.IntegrityError:
             # When multiple workers are starting up at the same time, it's possible
-            # that multiple workers try to create the admin user at the same time and
-            # one of them will fail with an IntegrityError. We can safely ignore this
+            # that they try to create the admin user at the same time and one of them
+            # will succeed while the others will fail with an IntegrityError.
             pass
 
 
