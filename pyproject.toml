@@ -82,6 +82,7 @@ exclude = [
 ]
 [tool.ruff.per-file-ignores]
 "dev/*" = ["T201"]
+
 [tool.ruff.flake8-pytest-style]
 mark-parentheses = false
 fixture-parentheses = false
