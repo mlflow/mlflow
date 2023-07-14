@@ -20,7 +20,7 @@ Bug fixes:
 - [Scoring] Support nullable array type values as spark_udf return values (#9014, @WeichenXu123)
 - [Models] Revert cache deletion of system modules when adding custom model code to the system path (#8722, @trungn1)
 - [Models] add micro version to mlflow version pinning (#8687, @C-K-Loan)
-- [Artifacts] gc delete invalid artifact url (#8498, @PenHsuanWang)
+- [Artifacts] Prevent manually deleted artifacts from causing artifact garbage collection to fail (#8498, @PenHsuanWang)
 
 Documentation updates:
 
