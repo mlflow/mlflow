@@ -15,6 +15,8 @@ Features:
 
 Bug fixes:
 
+- [Security] Fix critical LFI attack on Windows by enhancing `path` validation (#8999, @serena-ruan)
+  - If you  are using ``mlflow server`` or ``mlflow ui`` on Windows, we recommend upgrading to MLflow 2.5.0 as soon as possible.
 - [Scoring] Support nullable array type values as spark_udf return values (#9014, @WeichenXu123)
 - [Models] Revert cache deletion of system modules when adding custom model code to the system path (#8722, @trungn1)
 - [Models] add micro version to mlflow version pinning (#8687, @C-K-Loan)
