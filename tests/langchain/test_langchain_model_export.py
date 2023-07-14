@@ -464,9 +464,7 @@ def test_log_and_load_retriever_wrapper(tmp_path):
     expected_result = json.dumps(
         [doc.page_content for doc in db.as_retriever().get_relevant_documents(query)]
     )
-    assert type(result) == list
-    assert len(result) == 1
-    assert result[0] == expected_result
+    assert result == [expected_result]
 
     # Serve the chain
     inference_payload = json.dumps({"inputs": langchain_input})

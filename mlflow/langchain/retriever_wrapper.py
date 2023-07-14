@@ -117,10 +117,10 @@ class RetrieverWrapper(Chain):
         if config_type != "retriever_wrapper":
             raise ValueError(f"Loading {config_type} chain not supported")
 
-        if "retriever" in kwargs:
-            retriever = kwargs.pop("retriever")
-        else:
+        retriever = kwargs.pop("retriever", None)
+        if retriever is None:
             raise ValueError("`retriever` must be present.")
+
         return cls(
             retriever=retriever,
             **config,

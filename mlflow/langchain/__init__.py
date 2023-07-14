@@ -84,7 +84,7 @@ _UNSUPPORTED_MODEL_WARNING_MESSAGE = (
     "MLflow does not guarantee support for Chains outside of the subclasses of LLMChain, found %s"
 )
 _UNSUPPORTED_LANGCHAIN_VERSION_ERROR_MESSAGE = (
-    "Saving {instnace_type} models is only supported in langchain 0.0.194 and above."
+    "Saving {instance_type} models is only supported in langchain 0.0.194 and above."
 )
 
 
@@ -442,13 +442,13 @@ def log_model(
         ) < version.parse("0.0.194"):
             raise mlflow.MlflowException.invalid_parameter_value(
                 _UNSUPPORTED_LANGCHAIN_VERSION_ERROR_MESSAGE.format(
-                    instnace_type=type(lc_model).__name__
+                    instance_type=type(lc_model).__name__
                 )
             )
         if loader_fn is None:
             raise mlflow.MlflowException.invalid_parameter_value(
-                "For {instnace_type} models, a `loader_fn` must be provided.".format(
-                    instnace_type=type(lc_model).__name__
+                "For {instance_type} models, a `loader_fn` must be provided.".format(
+                    instance_type=type(lc_model).__name__
                 )
             )
         if not isinstance(loader_fn, types.FunctionType):
