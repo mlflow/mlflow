@@ -420,7 +420,6 @@ def _before_request():
         return
 
     _user = request.authorization.username if request.authorization else None
-    _logger.debug(f"before_request: {request.method} {request.path} (user: {_user})")
 
     if request.authorization is None:
         return make_basic_auth_response()
@@ -433,20 +432,16 @@ def _before_request():
 
     # admins don't need to be authorized
     if sender_is_admin():
-        _logger.debug(f"Admin (username={username}) authorization not required")
         return
 
     # authorization
     if validator := BEFORE_REQUEST_VALIDATORS.get((request.path, request.method)):
-        _logger.debug(f"Calling validator: {validator.__name__}")
         if not validator():
             return make_forbidden_response()
     elif _is_proxy_artifact_path(request.path):
         if validator := _get_proxy_artifact_validator(request.method, request.view_args):
             if not validator():
                 return make_forbidden_response()
-    else:
-        _logger.debug(f"No validator found for {(request.path, request.method)}")
 
 
 def set_can_manage_experiment_permission(resp: Response):
@@ -591,12 +586,10 @@ AFTER_REQUEST_HANDLERS = {
 
 @catch_mlflow_exception
 def _after_request(resp: Response):
-    _logger.debug(f"after_request: {request.method} {request.path}")
     if 400 <= resp.status_code < 600:
         return resp
 
     if handler := AFTER_REQUEST_HANDLERS.get((request.path, request.method)):
-        _logger.debug(f"Calling after request handler: {handler.__name__}")
         handler(resp)
     return resp
 
@@ -846,7 +839,6 @@ def create_app(app: Flask = app):
     if not app.secret_key:
         app.secret_key = str(uuid.uuid4())
 
-    _logger.debug("Database URI: %s", auth_config.database_uri)
     store.init_db(auth_config.database_uri)
     create_admin_user(auth_config.admin_username, auth_config.admin_password)
 
