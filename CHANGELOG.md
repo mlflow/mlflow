@@ -4,8 +4,8 @@
 
 MLflow 2.5.0 includes several major features and improvements:
 
-- [MLflow AI Gateway] We are excited to announce the release of MLflow AI Gateway, a powerful tool designed to streamline the usage and management of various large language model (LLM) providers, such as OpenAI and Anthropic, within an organization. It offers a high-level interface that simplifies the interaction with these services by providing a unified endpoint to handle specific LLM related requests.. To get started with MLflow AI Gateway, check out the docs at https://mlflow.org/docs/latest/gateway/index.html. (#8694, @harupy, @BenWilson2, @dbczumar)
-- [MLflow Authentication]: We are excited to announce the release of MLflow Authentication, <FILL_THIS_IN>. To get started with MLflow Authentication, check out the docs at https://mlflow.org/docs/latest/auth/index.html. (#9000, #8975, #8626, #8837, #8841, @gabrielfu, @harupy)
+- [MLflow AI Gateway] We are excited to announce the release of MLflow AI Gateway, a powerful tool designed to streamline the usage and management of various large language model (LLM) providers, such as OpenAI and Anthropic, within an organization. It offers a standardized interface that simplifies the interaction with these services and delivers centralized, secure management of credentials. To get started with MLflow AI Gateway, check out the docs at https://mlflow.org/docs/latest/gateway/index.html. (#8694, @harupy, @BenWilson2, @dbczumar)
+- [Auth]: We are excited to announce the release of authentication and authorization support for MLflow Tracking and the MLflow Model Registry, <FILL_THIS_IN>. To get started, check out the docs at https://mlflow.org/docs/latest/auth/index.html. (#9000, #8975, #8626, #8837, #8841, @gabrielfu, @harupy)
 
 Features:
 
@@ -15,7 +15,7 @@ Features:
 
 Bug fixes:
 
-- [Security] Fix critical LFI attack on Windows by enhancing `path` validation (#8999, @serena-ruan)
+- [Security] Improve robustness to LFI attacks on Windows by enhancing path validation (#8999, @serena-ruan)
   - If you are using `mlflow server` or `mlflow ui` on Windows, we recommend upgrading to MLflow 2.5.0 as soon as possible.
 - [Scoring] Support nullable array type values as spark_udf return values (#9014, @WeichenXu123)
 - [Models] Revert cache deletion of system modules when adding custom model code to the system path (#8722, @trungn1)
