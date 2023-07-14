@@ -12,11 +12,11 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.server.auth.entities import User, ExperimentPermission, RegisteredModelPermission
 from mlflow.server.auth.permissions import _validate_permission
 from mlflow.server.auth.db.models import (
-    Base,
     SqlUser,
     SqlExperimentPermission,
     SqlRegisteredModelPermission,
 )
+from mlflow.server.auth.db import utils as dbutils
 from mlflow.store.db.utils import create_sqlalchemy_engine_with_retry, _get_managed_session_maker
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import _validate_username
@@ -27,7 +27,7 @@ class SqlAlchemyStore:
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.engine = create_sqlalchemy_engine_with_retry(db_uri)
-        Base.metadata.create_all(bind=self.engine)
+        dbutils.migrate_if_needed(self.engine, "head")
         SessionMaker = sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = _get_managed_session_maker(SessionMaker, self.db_type)
 
