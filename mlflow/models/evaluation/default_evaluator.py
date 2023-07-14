@@ -1169,6 +1169,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
         else:
             data = self.dataset.features_data.assign(outputs=self.y_pred)
+        data = data.assign(**self.metrics_dict)
         mlflow.log_table(data, artifact_file=f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}")
 
     def _calculate_perplexity(self, predictions):
@@ -1176,14 +1177,15 @@ class DefaultEvaluator(ModelEvaluator):
             import evaluate
 
             perplexity = evaluate.load("perplexity", module_type="metric")
+            results = perplexity.compute(predictions=predictions, model_id='gpt2')
         except Exception as e:
             _logger.warning(
-                f"Failed to load 'perplexity' metric (error: {e!r}), skipping metric logging."
+                f"Failed to calculate 'perplexity' metric (error: {e!r}), skipping metric logging."
             )
             return
                 
-        results = perplexity.compute(predictions=predictions, model_id='gpt2')
         self.metrics.update({'mean_perplexity': results['mean_perplexity']})
+        self.metrics_dict.update({'perplexity': results['perplexities']})
 
     def _calculate_toxicity(self, predictions):
         try:
@@ -1194,15 +1196,16 @@ class DefaultEvaluator(ModelEvaluator):
             model = AutoModelForSequenceClassification.from_pretrained(model_path)
 
             pipeline =  TextClassificationPipeline(model=model, tokenizer=tokenizer)
+            results = pipeline(list(predictions))
         except Exception as e:
             _logger.warning(
-                f"Failed to load 'toxicity' metric (error: {e!r}), skipping metric logging."
+                f"Failed to calculate 'toxicity' metric (error: {e!r}), skipping metric logging."
             )
             return
-        
-        results = pipeline(list(predictions))
+
         percent_toxic = {'percent_toxic': sum([1 if result['label'] == 'toxic' else 0 for result in results])/len(results)}
         self.metrics.update(percent_toxic)
+        self.metrics_dict.update({'toxicity': results})
 
     def _calculate_reading_level(self, predictions):
         try:
@@ -1214,35 +1217,32 @@ class DefaultEvaluator(ModelEvaluator):
             _logger.warning(
                 f"Failed to load reading level metrics (error: {e!r}), skipping metric logging."
             )
-            return
         
         def _calculate_flesch_kincaid(prediction):
             return Readability(prediction).flesch_kincaid()
 
         try:     
             metrics = [_calculate_flesch_kincaid(prediction) for prediction in predictions]
+            average_grade_level = {'flesch_kincaid_mean_grade_level': sum(int(metric.grade_level) for metric in metrics)/len(metrics)}
+            self.metrics.update(average_grade_level)
+            self.metrics_dict.update({'flesch_kincaid': metrics})
         except Exception as e:
             _logger.warning(
-                f"Failed to load 'flesch_kincaid' metric (error: {e!r}), skipping metric logging."
+                f"Failed to calculate 'flesch_kincaid' metric (error: {e!r}), skipping metric logging."
             )
-            return
-        
-        average_grade_level = {'flesch_kincaid_mean_grade_level': sum(int(metric.grade_level) for metric in metrics)/len(metrics)}
-        self.metrics.update(average_grade_level)
 
         def _calculate_ari(prediction):
             return Readability(prediction).ari()
         
         try:     
             metrics = [_calculate_ari(prediction) for prediction in predictions]
+            average_grade_level = {'ari_mean_grade_level': sum(int(metric.grade_level) for metric in metrics)/len(metrics)}
+            self.metrics.update(average_grade_level)
+            self.metrics_dict.update({'ari': metrics})
         except Exception as e:
             _logger.warning(
-                f"Failed to load 'ari' metric (error: {e!r}), skipping metric logging."
+                f"Failed to calculate 'ari' metric (error: {e!r}), skipping metric logging."
             )
-            return
-        
-        average_grade_level = {'ari_mean_grade_level': sum(int(metric.grade_level) for metric in metrics)/len(metrics)}
-        self.metrics.update(average_grade_level)
 
     def _calculate_general_text_metrics(self):
         predictions = (
@@ -1253,54 +1253,53 @@ class DefaultEvaluator(ModelEvaluator):
                 _logger.warning(
                     f"Cannot calculate perplexity, toxicity, and reading level metrics for non string inputs, skipping metric logging."
                 )
-                return
+                
         self._calculate_toxicity(predictions)
         self._calculate_reading_level(predictions)
         self._calculate_perplexity(predictions)
 
     def _evaluate_question_answering(self):
-        self._log_eval_table()
-        name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
-        self.artifacts[name] = JsonEvaluationArtifact(
-            uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
-        )
-
         if self.dataset.has_targets:
             acc = accuracy_score(y_true=self.y, y_pred=self.y_pred)
             self.metrics.update({"exact_match": acc})
         self._calculate_general_text_metrics()
 
-    def _evaluate_text_summarization(self):
         self._log_eval_table()
         name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
             uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
         )
+
+    def _evaluate_text_summarization(self):
         if self.dataset.has_targets:
             try:
                 import evaluate
 
                 rouge = evaluate.load("rouge")
+                predictions = (
+                    self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
+                )
+                metrics = rouge.compute(predictions=predictions, references=self.y)
+                self.metrics.update(metrics)
             except Exception as e:
                 _logger.warning(
                     f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
                 )
-                return
-
-            predictions = (
-                self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
-            )
-            metrics = rouge.compute(predictions=predictions, references=self.y)
-            self.metrics.update(metrics)
         self._calculate_general_text_metrics()
 
-    def _evaluate_text(self):
         self._log_eval_table()
         name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
             uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
         )
+
+    def _evaluate_text(self):
         self._calculate_general_text_metrics()
+        self._log_eval_table()
+        name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
+        self.artifacts[name] = JsonEvaluationArtifact(
+            uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
+        )
 
     def _evaluate(
         self,
@@ -1320,6 +1319,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.predict_fn, self.predict_proba_fn = _extract_predict_fn(model, self.raw_model)
 
             self.metrics = {}
+            self.metrics_dict = {}
             self.artifacts = {}
 
             if self.model_type not in _ModelType.values():
