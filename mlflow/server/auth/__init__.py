@@ -12,6 +12,7 @@ import uuid
 from typing import Callable
 
 from flask import Flask, request, make_response, Response, flash, render_template_string
+import sqlalchemy
 
 from mlflow import MlflowException
 from mlflow.entities import Experiment
@@ -552,12 +553,18 @@ def _after_request(resp: Response):
 
 def create_admin_user(username, password):
     if not store.has_user(username):
-        store.create_user(username, password, is_admin=True)
-        _logger.info(
-            f"Created admin user '{username}'. "
-            "It is recommended that you set a new password as soon as possible "
-            f"on {UPDATE_USER_PASSWORD}."
-        )
+        try:
+            store.create_user(username, password, is_admin=True)
+            _logger.info(
+                f"Created admin user '{username}'. "
+                "It is recommended that you set a new password as soon as possible "
+                f"on {UPDATE_USER_PASSWORD}."
+            )
+        except sqlalchemy.exc.IntegrityError:
+            # When multiple workers are starting up at the same time, it's possible
+            # that multiple workers try to create the admin user at the same time and
+            # one of them will fail with an IntegrityError. We can safely ignore this
+            pass
 
 
 def alert(href: str):
