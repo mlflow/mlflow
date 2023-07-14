@@ -284,5 +284,13 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
                 client.list_artifacts(run.info.run_id)
                 with pytest.raises(requests.HTTPError, match="Permission denied"):
                     client.log_artifact(run.info.run_id, tmp_file)
+
+                # Ensure that the regular expression captures an experiment ID correctly
+                tmp_file_with_numbers = tmp_path / "123456.txt"
+                tmp_file_with_numbers.touch()
+                with pytest.raises(requests.HTTPError, match="Permission denied"):
+                    client.log_artifact(run.info.run_id, tmp_file)
         finally:
+            # Kill the server process to prevent `prc.wait()` (called when exiting the context
+            # manager) from waiting forever.
             _kill_all(prc.pid)
