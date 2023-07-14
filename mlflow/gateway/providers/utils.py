@@ -17,9 +17,9 @@ async def send_request(headers: Dict[str, str], base_url: str, path: str, payloa
     :return: The server's response as a JSON object.
     :raise: HTTPException if the HTTP request fails.
     """
-    timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
     async with aiohttp.ClientSession(headers=headers) as session:
         url = append_to_uri_path(base_url, path)
+        timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
         async with session.post(url, json=payload, timeout=timeout) as response:
             js = await response.json()
             try:

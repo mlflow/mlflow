@@ -1,7 +1,8 @@
 import json
 import logging
-import re
 from typing import Optional, Dict, Any
+
+import requests.exceptions
 
 from mlflow import MlflowException
 from mlflow.gateway.config import Route
@@ -297,7 +298,7 @@ class MlflowGatewayClient:
         try:
             return self._call_endpoint("POST", query_route, data).json()
         except MlflowException as e:
-            if re.search(r"timeout", str(e), re.IGNORECASE):
+            if isinstance(e.__cause__, requests.exceptions.Timeout):
                 timeout_message = (
                     "The provider has timed out while generating a response to your "
                     "query. Please evaluate the available parameters for the query "
