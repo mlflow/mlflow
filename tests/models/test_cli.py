@@ -37,6 +37,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils import PYTHON_VERSION
+from mlflow.utils.process import ShellCommandException
 from tests.helper_functions import (
     pyfunc_build_image,
     pyfunc_serve_from_docker_image,
@@ -743,13 +744,20 @@ def test_env_manager_unsupported_value():
 
 
 def test_host_invalid_value():
-    with mock.patch(
-        "mlflow.models.cli.get_flavor_backend", return_value=PyFuncBackend({})
-    ), mock.patch("mlflow.pyfunc.backend._download_artifact_from_uri", return_value=""):
-        with pytest.raises(MlflowException, match=r"Invalid value for `host`"):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, ctx, model_input):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(), artifact_path="test_model", registered_model_name="model"
+        )
+
+    with mock.patch("mlflow.models.cli.get_flavor_backend", return_value=PyFuncBackend({})):
+        with pytest.raises(ShellCommandException, match=r"Non-zero exit code: 1"):
             CliRunner().invoke(
                 models_cli.serve,
-                ["--model-uri", "runs:/run_id/model", "--host", "localhost & echo BUG"],
+                ["--model-uri", model_info.model_uri, "--host", "localhost & echo BUG"],
                 catch_exceptions=False,
             )
 

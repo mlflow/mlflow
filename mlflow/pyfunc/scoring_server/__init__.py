@@ -17,6 +17,7 @@ import flask
 import json
 import logging
 import os
+import shlex
 import sys
 import traceback
 
@@ -331,17 +332,15 @@ def get_cmd(
     local_uri = path_to_local_file_uri(model_uri)
     timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
 
-    if isinstance(host, str) and " " in host:
-        raise MlflowException.invalid_parameter_value(f"Invalid value for `host`: {host}")
-
     # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
     # platform compatibility.
     if not is_windows():
         args = [f"--timeout={timeout}"]
         if port and host:
-            args.append(f"-b {host}:{port}")
+            address = shlex.quote(f"{host}:{port}")
+            args.append(f"-b {address}")
         elif host:
-            args.append(f"-b {host}")
+            args.append(f"-b {shlex.quote(host)}")
 
         if nworkers:
             args.append(f"-w {nworkers}")
@@ -353,7 +352,7 @@ def get_cmd(
     else:
         args = []
         if host:
-            args.append(f"--host={host}")
+            args.append(f"--host={shlex.quote(host)}")
 
         if port:
             args.append(f"--port={port}")
