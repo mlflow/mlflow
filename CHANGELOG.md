@@ -5,7 +5,7 @@
 MLflow 2.5.0 includes several major features and improvements:
 
 - [MLflow AI Gateway] We are excited to announce the release of MLflow AI Gateway, a powerful tool designed to streamline the usage and management of various large language model (LLM) providers, such as OpenAI and Anthropic, within an organization. It offers a standardized interface that simplifies the interaction with these services and delivers centralized, secure management of credentials. To get started with MLflow AI Gateway, check out the docs at https://mlflow.org/docs/latest/gateway/index.html. (#8694, @harupy, @BenWilson2, @dbczumar)
-- [Auth]: We are excited to announce the release of authentication and authorization support for MLflow Tracking and the MLflow Model Registry, <FILL_THIS_IN>. To get started, check out the docs at https://mlflow.org/docs/latest/auth/index.html. (#9000, #8975, #8626, #8837, #8841, @gabrielfu, @harupy)
+- [Auth]: We are excited to announce the release of authentication and authorization support for MLflow Tracking and the MLflow Model Registry, providing integrated access control capabilities to both services. To get started, check out the docs at https://mlflow.org/docs/latest/auth/index.html. (#9000, #8975, #8626, #8837, #8841, @gabrielfu, @harupy)
 
 Features:
 
