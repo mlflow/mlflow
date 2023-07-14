@@ -594,6 +594,7 @@ class Environment:
         stderr=None,
         stdin=None,
         synchronous=True,
+        input_str=None,
     ):
         if command_env is None:
             command_env = os.environ.copy()
@@ -622,4 +623,5 @@ class Environment:
             stdout=stdout,
             stderr=stderr,
             stdin=stdin,
+            input_str=input_str,
         )

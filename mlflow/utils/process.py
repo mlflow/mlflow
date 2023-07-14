@@ -92,6 +92,7 @@ def _exec_cmd(
             # https://docs.python.org/3/library/subprocess.html#subprocess.run
             kwargs["stderr"] = subprocess.STDOUT
 
+    input_str = kwargs.pop("input_str", None)
     process = subprocess.Popen(
         cmd,
         env=env,
@@ -105,8 +106,10 @@ def _exec_cmd(
         for output_char in iter(lambda: process.stdout.read(1), ""):
             sys.stdout.write(output_char)
 
-    stdout, stderr = process.communicate()
+    stdout, stderr = process.communicate(input=input_str)
     returncode = process.poll()
+    if input_str and stdout and process.stdout:
+        sys.stdout.write(stdout)
     comp_process = subprocess.CompletedProcess(
         process.args,
         returncode=returncode,

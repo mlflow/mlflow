@@ -175,7 +175,7 @@ def test_predict(iris_data, sk_model):
         with mlflow.start_run() as active_run:
             mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
             model_uri = f"runs:/{active_run.info.run_id}/model"
-        model_registry_uri = "models:/{name}/{stage}".format(name="impredicting", stage="None")
+        model_registry_uri = "models:/impredicting/None"
         input_json_path = tmp.path("input.json")
         input_csv_path = tmp.path("input.csv")
         output_json_path = tmp.path("output.json")
@@ -376,7 +376,7 @@ def test_predict_check_input_path(iris_data, sk_model, tmp_path):
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
     model_registry_uri = "models:/impredicting/None"
-    input_json_path = tmp_path / "input.json"
+    input_json_path = tmp_path / "input with space.json"
     input_csv_path = tmp_path / "input.csv"
     output_json_path = tmp_path / "output.json"
 
@@ -385,6 +385,29 @@ def test_predict_check_input_path(iris_data, sk_model, tmp_path):
         json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
 
     pd.DataFrame(x).to_csv(input_csv_path, index=False)
+
+    # Valid input path with space
+    prc = subprocess.run(
+        [
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            model_registry_uri,
+            "-i",
+            f"{input_json_path}",
+            "-o",
+            output_json_path,
+            "--env-manager",
+            "local",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env_with_tracking_uri(),
+        check=False,
+        text=True,
+    )
+    assert prc.returncode == 0
 
     # Throw errors for invalid input_path
     prc = subprocess.run(

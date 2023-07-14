@@ -24,7 +24,7 @@ from mlflow.pyfunc import ENV, scoring_server, mlserver, _extract_conda_env
 from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import env_manager as _EnvManager
-from mlflow.utils import _mlflow_pyfunc_backend_predict
+from mlflow.pyfunc import _mlflow_pyfunc_backend_predict
 from mlflow.utils.file_utils import (
     path_to_local_file_uri,
     get_or_create_tmp_dir,
@@ -36,7 +36,7 @@ from mlflow.utils.virtualenv import (
     _get_pip_install_mlflow,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
-from mlflow.utils.process import ShellCommandException, cache_return_value_per_process
+from mlflow.utils.process import cache_return_value_per_process
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -144,58 +144,29 @@ class PyFuncBackend(FlavorBackend):
         local_uri = path_to_local_file_uri(local_path)
 
         if self._env_manager != _EnvManager.LOCAL:
-            environment = self.prepare_env(local_path)
-            command_env = os.environ.copy()
-
-            if _IS_UNIX:
-                separator = " && "
-            else:
-                separator = " & "
-            command = separator.join(map(str, environment.get_activate_command()))
-
-            if _IS_UNIX:
-                command = ["bash", "-c", command]
-            else:
-                command = ["cmd", "/c", command]
-
-            predict_cmd = command + [
+            predict_cmd = [
                 sys.executable,
                 _mlflow_pyfunc_backend_predict.__file__,
                 "--model-uri",
                 str(local_uri),
-                "--input-path",
-                str(input_path),
-                "--output-path",
-                str(output_path),
                 "--content-type",
                 str(content_type),
             ]
+            if input_path:
+                if " " in input_path:
+                    input_path = f'"{input_path}"'
+                predict_cmd += ["--input-path", str(input_path)]
+            if output_path:
+                predict_cmd += ["--output-path", str(output_path)]
 
-            _logger.info("=== Running command '%s'", predict_cmd)
+            input_str = sys.stdin.read() if input_path is None else None
 
-            process = subprocess.Popen(
-                predict_cmd,
-                env=command_env,
-                text=True,
-                preexec_fn=None,
-                close_fds=True,
-                stdout=None,
-                stderr=None,
-                stdin=None,
+            return self.prepare_env(local_path).execute(
+                " ".join(predict_cmd),
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                input_str=input_str,
             )
-
-            stdout, stderr = process.communicate()
-            returncode = process.poll()
-            comp_process = subprocess.CompletedProcess(
-                process.args,
-                returncode=returncode,
-                stdout=stdout,
-                stderr=stderr,
-            )
-
-            if returncode != 0:
-                raise ShellCommandException.from_completed_process(comp_process)
-            return comp_process
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type)
 
