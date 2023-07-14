@@ -84,7 +84,7 @@ def generate_requirements_txt_content(requirements_yaml):
         pip_release = package_entry["pip_release"]
         version_specs = []
 
-        extras = f"[{','.join(package_entry['extras'])}]" if package_entry.get("extras") else ""
+        extras = f"[{','.join(extras)}]" if (extras := package_entry.get("extras")) else ""
 
         max_major_version = package_entry["max_major_version"]
         version_specs += [f"<{max_major_version + 1}"]
