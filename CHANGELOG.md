@@ -9,7 +9,7 @@ Features:
 - [] MLflow Gateway (#8694, @harupy)
 - [Models] Add Support to the LangChain flavor for chains that contain unserializable components (#8736, @liangz1)
 - [Scoring] Infer spark udf return type from model output schema (#8934, @WeichenXu123)
-- [] Add deprecation warning in gluon doc (#8971, @harupy)
+- [Models] Deprecate the `gluon` model flavor (#8968, @harupy)
 - [Models] Coerce input examples into PyFunc compatible format to use for signature inference (#8860, @jerrylian-db)
 - [Models] Implement automatic signature inference for other flavors (#8782, @jerrylian-db)
 - [Models] Improve transformers signature inference implementation (#8795, @jerrylian-db)
