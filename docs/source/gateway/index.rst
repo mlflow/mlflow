@@ -140,7 +140,7 @@ Here's an example of how to send a chat request using the :ref:`gateway_fluent_a
 
     response = query(
         "chat",
-        {"messages": [{"role": "user", "content": "What is the best day of the week?"}]}
+        {"messages": [{"role": "user", "content": "What is the best day of the week?"}]},
     )
 
     print(response)
@@ -158,7 +158,7 @@ The returned response will be in this data structure (the actual content and tok
                     "role": "assistant",
                     "content": "\n\nIt's hard to say what the best day of the week is.",
                 },
-                "metadata": {"finish_reason": "stop"}
+                "metadata": {"finish_reason": "stop"},
             }
         ],
         "metadata": {
@@ -166,7 +166,7 @@ The returned response will be in this data structure (the actual content and tok
             "output_tokens": 15,
             "total_tokens": 28,
             "model": "gpt-3.5-turbo-0301",
-            "route_type": "llm/v1/chat"
+            "route_type": "llm/v1/chat",
         },
     }
 
@@ -661,7 +661,7 @@ Below is an example of submitting a query request to an MLflow AI Gateway route 
         "max_tokens": 1000,
         "candidate_count": 1,
         "frequency_penalty": 0.2,
-        "presence_penalty": 0.2
+        "presence_penalty": 0.2,
     }
 
     query(route="completions-gpt4", data=data)
@@ -821,14 +821,14 @@ The example below demonstrates how to use an AI Gateway server from within a cus
             registered_model_name="anthropic_completions",
             artifact_path="anthropic_completions",
             input_example=input_example,
-            signature=signature
+            signature=signature,
         )
 
     df = pd.DataFrame.from_dict(
         {
             "prompt": ["Tell me about Jupiter", "Tell me about Saturn"],
             "temperature": 0.6,
-            "max_records": 500
+            "max_records": 500,
         }
     )
 
