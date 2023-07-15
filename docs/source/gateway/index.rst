@@ -704,7 +704,7 @@ As a convenience, accessing the root URL (e.g., ``http://my.gateway:9000``) redi
 
 Examples of Post Requests
 -------------------------
-You can an HTTP POST request to send a query to a specific route.
+You can use an HTTP POST request to send a query to a specific route.
 To send a query to a specific route, append the route name to the routes endpoint, and include the
 data to be sent in the body of the request. The structure of this data will depend on the specific model the route is configured for.
 
