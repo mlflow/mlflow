@@ -259,6 +259,7 @@ from :ref:`compatible_signature_mpt7b`:
             "max_tokens": 200
         }
     )
+    print(response)
 
 The structure of the ``response`` will be as follows
 (the actual content and token values will likely be different):
@@ -278,7 +279,7 @@ The structure of the ``response`` will be as follows
         }
     }
 
-Step 8: Use the AI Gateway Route for model development 
+Step 8: Use the AI Gateway Route for model development
 ------------------------------------------------------
 
 Now that you have created an AI Gateway route with MPT-7B-Instruct, you can create

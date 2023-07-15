@@ -293,7 +293,7 @@ fetch('https://pypi.org/pypi/mlflow/json')
     });
 
     var versionTag = document.querySelector('span.version');
-    versionTag.parentNode.replaceChild(dropDown, versionTag);
+    // versionTag.parentNode.replaceChild(dropDown, versionTag);
   })
   .catch((error) => {
     console.error('Failed to fetch package metadata from PyPI:', error);
