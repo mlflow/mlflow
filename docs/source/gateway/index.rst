@@ -628,13 +628,13 @@ Each of these query parameters are optional elements that can be included along 
 The AI Gateway will perform validation of these commonly modified parameters to ensure that provider-specific restrictions and scaling factors are unified with a consistent range of allowable values.
 If a given provider does not provide support for a parameter, a clear message will be returned when queried that explains the restrictions for the given provider and route type.
 
-- **temperature** (Supported by OpenAI, Anthropic, Cohere): This parameter controls the randomness of predictions by scaling the logits before applying softmax. A value closer to 0.0 makes the output more deterministic, while a value closer to 1.0 makes it more diverse. Default is 0.0.
+- ``temperature``: This parameter controls the randomness of predictions by scaling the logits before applying softmax. A value closer to 0.0 makes the output more deterministic, while a value closer to 1.0 makes it more diverse. Default is 0.0.
 
-- **max_tokens** (Supported by OpenAI, Anthropic, Cohere): This parameter limits the length of the generated output by specifying a maximum token count. The range is from 1 to infinity, and by default, there is no limit (infinity). Some providers have a maximum value associated with this parameter that the AI Gateway will enforce to prevent a provider-generated exception.
+- ``max_tokens``: This parameter limits the length of the generated output by specifying a maximum token count. The range is from 1 to infinity, and by default, there is no limit (infinity). Some providers have a maximum value associated with this parameter that the AI Gateway will enforce to prevent a provider-generated exception.
 
-- **stop** (Supported by OpenAI, Anthropic, Cohere): This parameter specifies an array of strings, where each string is a token that indicates the end of a text generation. By default, this is empty.
+- ``stop``: This parameter specifies an array of strings, where each string is a token that indicates the end of a text generation. By default, this is empty.
 
-- **candidate_count** (Supported by OpenAI, Cohere): This parameter determines the number of alternative responses to generate. The range is from 1 to 5, and by default, it is set to 1.
+- ``candidate_count``: This parameter determines the number of alternative responses to generate. The range is from 1 to 5, and by default, it is set to 1.
 
 Additional Query Parameters
 ---------------------------
