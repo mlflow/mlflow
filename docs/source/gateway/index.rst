@@ -684,7 +684,7 @@ The standard parameters for completions routes with type ``llm/v1/completions`` 
 | **prompt**                    | string         | Yes      | N/A           | The prompt for which to generate completions.         |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 | **candidate_count**           | integer        | No       | 1             | The number of completions to generate for the         |
-|                               |                |          |               | specified prompt.                                     |
+|                               |                |          |               | specified prompt, between 1 and 5.                    |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 | **temperature**               | float          | No       | 0.0           | The sampling temperature to use, between 0 and 1.     |
 |                               |                |          |               | Higher values will make the output more random, and   |
@@ -711,7 +711,7 @@ The standard parameters for completions routes with type ``llm/v1/chat`` are:
 |                               |                |          |               | :ref:`chat_message_structure`.                        |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 | **candidate_count**           | integer        | No       | 1             | The number of chat completions to generate for the    |
-|                               |                |          |               | specified prompt.                                     |
+|                               |                |          |               | specified prompt, between 1 and 5.                    |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 | **temperature**               | float          | No       | 0.0           | The sampling temperature to use, between 0 and 1.     |
 |                               |                |          |               | Higher values will make the output more random, and   |
