@@ -775,9 +775,9 @@ To use the ``MlflowGatewayClient`` API, see the below examples for the available
 
     gateway_client = MlflowGatewayClient("http://my.gateway:8888")
 
-2. List all routes on the Gateway:
+2. List all routes:
 
-The :meth:`search_routes() <mlflow.gateway.client.MlflowGatewayClient.search_routes>` method returns a list of all configured and initialized ``Route`` data for the MLflow AI Gateway server.
+The :meth:`search_routes() <mlflow.gateway.client.MlflowGatewayClient.search_routes>` method returns a list of all routes.
 
 .. code-block:: python
 
@@ -869,7 +869,7 @@ The REST API allows you to send HTTP requests directly to the MLflow AI Gateway 
 
 Here are some examples for how you might use curl to interact with the Gateway:
 
-1. Get information about a particular route: /routes/{name}
+1. Get information about a particular route: ``/api/2.0/gateway/routes/{name}``
 This endpoint returns a serialized representation of the Route data structure.
 This provides information about the name and type, as well as the model details for the requested route endpoint.
 
@@ -879,9 +879,9 @@ Sensitive configuration data from the server configuration file is not returned.
 
     curl -X GET http://my.gateway:8888/api/2.0/gateway/routes/embeddings
 
-2. List all routes: /routes
+2. List all routes: ``/api/2.0/gateway/routes``
 
-This endpoint returns a list of all configured and initialized Route data for the MLflow AI Gateway server.
+This endpoint returns a list of all routes.
 
 .. code-block:: bash
 
@@ -889,7 +889,7 @@ This endpoint returns a list of all configured and initialized Route data for th
 
 Sensitive configuration data from the server configuration file is not returned.
 
-3. Query a route: /gateway/{route}/invocations
+3. Query a route: ``/gateway/{route}/invocations``
 This endpoint allows you to submit a query to a configured provider route. The data structure you send in the query depends on the route. Here are examples for the "completions", "chat", and "embeddings" routes:
 
 * ``Completions``
