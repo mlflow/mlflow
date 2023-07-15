@@ -647,7 +647,7 @@ In addition to the :ref:`standard_query_parameters`, you can pass any additional
 
 The following parameters are not allowed:
 
-- **stream** is not supported. Setting this parameter on any provider will not work currently.
+- ``stream`` is not supported. Setting this parameter on any provider will not work currently.
 
 Below is an example of submitting a query request to an MLflow AI Gateway route using additional parameters:
 
