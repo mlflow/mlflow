@@ -748,7 +748,7 @@ directly, achieving the same session-level persistence for all ``fluent`` API us
 
 2. Query a route:
 
-The :func:`query() <mlflow.gateway.query>` function interfaces with a configured route name and returns the response from the provider
+The :func:`query() <mlflow.gateway.query>` function queries the specified route and returns the response from the provider
 in a standardized format. The data structure you send in the query depends on the route.
 
 .. code-block:: python
@@ -775,7 +775,7 @@ To use the ``MlflowGatewayClient`` API, see the below examples for the available
 
     gateway_client = MlflowGatewayClient("http://my.gateway:8888")
 
-2. List all configured routes on the Gateway:
+2. List all routes on the Gateway:
 
 The :meth:`search_routes() <mlflow.gateway.client.MlflowGatewayClient.search_routes>` method returns a list of all configured and initialized ``Route`` data for the MLflow AI Gateway server.
 
@@ -869,7 +869,7 @@ The REST API allows you to send HTTP requests directly to the MLflow AI Gateway 
 
 Here are some examples for how you might use curl to interact with the Gateway:
 
-1. Getting information about a particular route: /routes/{name}
+1. Get information about a particular route: /routes/{name}
 This endpoint returns a serialized representation of the Route data structure.
 This provides information about the name and type, as well as the model details for the requested route endpoint.
 
@@ -879,7 +879,7 @@ Sensitive configuration data from the server configuration file is not returned.
 
     curl -X GET http://my.gateway:8888/api/2.0/gateway/routes/embeddings
 
-2. Listing all configured routes on the Gateway: /routes
+2. List all routes: /routes
 
 This endpoint returns a list of all configured and initialized Route data for the MLflow AI Gateway server.
 
@@ -889,7 +889,7 @@ This endpoint returns a list of all configured and initialized Route data for th
 
 Sensitive configuration data from the server configuration file is not returned.
 
-3. Querying a particular route: /gateway/{route}/invocations
+3. Query a route: /gateway/{route}/invocations
 This endpoint allows you to submit a query to a configured provider route. The data structure you send in the query depends on the route. Here are examples for the "completions", "chat", and "embeddings" routes:
 
 * ``Completions``
