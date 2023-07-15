@@ -466,7 +466,7 @@ As of now, the MLflow AI Gateway supports the following providers:
 * **openai**: This is used for models offered by `OpenAI <https://platform.openai.com/>`_ and the `Azure <https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/>`_ integrations for Azure OpenAI and Azure OpenAI with AAD.
 * **anthropic**: This is used for models offered by `Anthropic <https://docs.anthropic.com/claude/docs>`_.
 * **cohere**: This is used for models offered by `Cohere <https://docs.cohere.com/docs>`_.
-* **databricks_model_serving**: This is used for Databricks Model Serving endpoints with compatible schemas. See :ref:`config_databricks_model_serving`.
+* **databricks-model-serving**: This is used for Databricks Model Serving endpoints with compatible schemas. See :ref:`config_databricks_model_serving`.
 
 More providers are being added continually. Check the latest version of the MLflow AI Gateway Docs for the
 most up-to-date list of supported providers.
@@ -607,32 +607,52 @@ To match your user's interaction and security access requirements, adjust the ``
 | **openai_organization**    | No       |         | This is an optional field to specify the organization in OpenAI.                              |
 +----------------------------+----------+---------+-----------------------------------------------------------------------------------------------+
 
-An example configuration for Azure OpenAI is:
+The following example demonstrates how to create a route with Azure OpenAI:
 
-.. code-block:: yaml
+.. code-block:: python
 
-    routes:
-      - name: completions
-        route_type: llm/v1/completions
-        model:
-          provider: openai
-          name: gpt-35-turbo
-          config:
-            openai_api_type: "azuread"
-            openai_api_key: $AZURE_AAD_TOKEN
-            openai_deployment_name: "{your_deployment_name}"
-            openai_api_base: "https://{your_resource_name}-azureopenai.openai.azure.com/"
-            openai_api_version: "2023-05-15"
-
+    create_route(
+        name="completions",
+        route_type="llm/v1/completions",
+        model={
+            "name": "gpt-35-turbo",
+            "provider": "openai",
+            "config": {
+                "openai_api_type": "azuread"
+                "openai_api_key": "<YOUR_AZURE_OPENAI_API_KEY>"
+                "openai_deployment_name": "{your_azure_openai_deployment_name}"
+                "openai_api_base": "https://{your_azure_openai_resource_name}-azureopenai.openai.azure.com/"
+                "openai_api_version": "2023-05-15"
+            }
+        }
+    )
 
 .. note::
 
     Azure OpenAI has distinct features as compared with the direct OpenAI service. For an overview, please see `the comparison documentation <https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/how-to/switching-endpoints>`_.
 
+
+Databricks Model Serving
+++++++++++++++++++++++++
+
++-------------------------------+----------+--------------------------+-------------------------------------------------------+
+| Parameter                     | Required | Default                  | Description                                           |
++===============================+==========+==========================+=======================================================+
+|                               |          |                          | A Databricks access token corresponding to a user or  |
+| **databricks_api_token**      | Yes      | N/A                      | service principal that has access to the Databricks   |
+|                               |          |                          | Model Serving endpoint associated with the route.     |
++-------------------------------+----------+--------------------------+-------------------------------------------------------+
+| **databricks_workspace_url**  | Yes      | N/A                      | The URL of the workspace containing the Model Serving |
+|                               |          |                          | endpoint associated with the route.                   |
++-------------------------------+----------+--------------------------+-------------------------------------------------------+
+
+For more information about creating routes with Databricks Model Serving endpoints, see :ref:`config_databricks_model_serving`.
+
 .. _config_databricks_model_serving:
 
-Configuring Routes with Databricks Model Serving Endpoints
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Creating Routes with Databricks Model Serving Endpoints
+=======================================================
+Foo
 
 
 .. _gateway_query:
@@ -722,7 +742,7 @@ MLflow Python Client APIs
 :class:`MlflowGatewayClient <mlflow.gateway.client.MlflowGatewayClient>` is the user-facing client API that is used to interact with the MLflow AI Gateway.
 It abstracts the HTTP requests to the Gateway via a simple, easy-to-use Python API.
 
-The fluent API is a higher-level interface that supports setting the Gateway URI once and using simple functions to interact with the AI Gateway Server.
+The fluent API is a higher-level interface that supports setting the Gateway URI once and using simple functions to interact with the AI Gateway.
 
 .. _gateway_fluent_api:
 
