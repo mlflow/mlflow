@@ -643,32 +643,38 @@ Querying the AI Gateway
 
 Once the MLflow AI Gateway server has been configured and started, it is ready to receive traffic from users.
 
-Query Parameters
-----------------
+.. _standard_query_parameters:
+
+Standard Query Parameters
+-------------------------
 
 The query parameters that are supported by various providers for different route types are also available to be used with the MLflow AI Gateway.
 Each of these query parameters are optional elements that can be included along with using the ``query`` APIs as key value pairs within the ``data`` argument.
 The AI Gateway will perform validation of these commonly modified parameters to ensure that provider-specific restrictions and scaling factors are unified with a consistent range of allowable values.
 If a given provider does not provide support for a parameter, a clear message will be returned when queried that explains the restrictions for the given provider and route type.
 
-- **temperature** (Supported by OpenAI, Anthropic, Cohere): This parameter controls the randomness of predictions by scaling the logits before applying softmax. A value closer to 0.0 makes the output more deterministic, while a value closer to 1.0 makes it more diverse. Default is 0.0.
+- ``temperature``: This parameter controls the randomness of predictions by scaling the logits before applying softmax. A value closer to 0.0 makes the output more deterministic, while a value closer to 1.0 makes it more diverse. Default is 0.0.
 
-- **max_tokens** (Supported by OpenAI, Anthropic, Cohere): This parameter limits the length of the generated output by specifying a maximum token count. The range is from 1 to infinity, and by default, there is no limit (infinity). Some providers have a maximum value associated with this parameter that the AI Gateway will enforce to prevent a provider-generated exception.
+- ``max_tokens``: This parameter limits the length of the generated output by specifying a maximum token count. The range is from 1 to infinity, and by default, there is no limit (infinity). Some providers have a maximum value associated with this parameter that the AI Gateway will enforce to prevent a provider-generated exception.
 
-- **stop** (Supported by OpenAI, Anthropic, Cohere): This parameter specifies an array of strings, where each string is a token that indicates the end of a text generation. By default, this is empty.
+- ``stop``: This parameter specifies an array of strings, where each string is a token that indicates the end of a text generation. By default, this is empty.
 
-- **candidate_count** (Supported by OpenAI, Cohere): This parameter determines the number of alternative responses to generate. The range is from 1 to 5, and by default, it is set to 1.
+- ``candidate_count``: This parameter determines the number of alternative responses to generate. The range is from 1 to 5, and by default, it is set to 1.
 
-Alternate Query Parameters
---------------------------
+Additional Query Parameters
+---------------------------
+In addition to the :ref:`standard_query_parameters`, you can pass any additional parameters supported by the route's provider as part of your query. For example:
 
-There are additional provider-specific parameters that will work (i.e., ``logit_bias`` (OpenAI, Cohere), ``frequency_penalty`` (OpenAI, Cohere), ``presence_penalty`` (OpenAI, Cohere), and ``top_k`` (Anthropic, Cohere)) with the exception of the following:
+- ``logit_bias`` (supported by OpenAI, Cohere)
+- ``top_k`` (supported by Anthropic, Cohere)
+- ``frequency_penalty`` (supported by OpenAI, Cohere)
+- ``presence_penalty`` (supported by OpenAI, Cohere)
 
-- **stream** is not supported. Setting this parameter on any provider will not work currently.
+The following parameters are not allowed:
 
-- **top_k** is not supported if ``temperature`` is set. Use one or the other.
+- ``stream`` is not supported. Setting this parameter on any provider will not work currently.
 
-Below is an example of submitting a query request to an MLflow AI Gateway route using these parameters:
+Below is an example of submitting a query request to an MLflow AI Gateway route using additional parameters:
 
 .. code-block:: python
 
@@ -712,9 +718,9 @@ The results of the query are:
          }
        }
 
-Examples of Post Requests
--------------------------
-You can use the POST request to send a query to a specific route.
+Examples of HTTP POST Requests
+------------------------------
+You can use an HTTP POST request to send a query to a specific route.
 To send a query to a specific route, append the route name to the routes endpoint, and include the
 data to be sent in the body of the request. The structure of this data will depend on the specific model the route is configured for.
 
@@ -777,9 +783,9 @@ For example:
 Finally, you can also set the gateway URI using the ``MLFLOW_GATEWAY_URI`` environment variable, as an alternative
 to calling :func:`set_gateway_uri() <mlflow.gateway.set_gateway_uri>`.
 
-2. Issue a query to a given route:
+2. Query a route:
 
-The :func:`query() <mlflow.gateway.query>` function interfaces with a configured route name and returns the response from the provider
+The :func:`query() <mlflow.gateway.query>` function queries the specified route and returns the response from the provider
 in a standardized format. The data structure you send in the query depends on the route.
 
 .. code-block:: python
@@ -798,7 +804,7 @@ Client API
 
 To use the ``MlflowGatewayClient`` API, see the below examples for the available API methods:
 
-1. Initialization
+1. Create an ``MlflowGatewayClient``
 
 If you are using the AI Gateway in a Databricks Notebook or Databricks Job, you can initialize
 the ``MlflowGatewayClient`` as follows:
@@ -825,7 +831,7 @@ For example:
 
     gateway_client = MlflowGatewayClient("databricks")
 
-2. Listing all configured routes on the Gateway:
+2. List all routes:
 
 The :meth:`search_routes() <mlflow.gateway.client.MlflowGatewayClient.search_routes>` method returns a list of all configured and initialized ``Route`` data for the MLflow AI Gateway server.
 
@@ -837,7 +843,7 @@ The :meth:`search_routes() <mlflow.gateway.client.MlflowGatewayClient.search_rou
 
 Sensitive configuration data from the route configuration is not returned.
 
-3. Querying a particular route:
+3. Query a route:
 
 The :meth:`query() <mlflow.gateway.client.MlflowGatewayClient.query>` method submits a query to a configured provider route.
 The data structure you send in the query depends on the route.
@@ -914,7 +920,8 @@ The REST API allows you to send HTTP requests directly to the MLflow AI Gateway 
 
 Here are some examples for how you might use curl to interact with the Gateway:
 
-1. Getting information about a particular route: /routes/{name}
+1. Getting information about a particular route: ``/routes/{name}``
+
 This endpoint returns a serialized representation of the Route data structure.
 This provides information about the name and type, as well as the model details for the requested route endpoint.
 
@@ -930,9 +937,9 @@ Sensitive data from the route configuration is not returned.
 **Note:** Remember to replace ``<your_databricks_access_token>`` with your Databricks access token, ``http://your.workspace.databricks.com/``
 with your Databricks workspace URL, and ``<your_route_name>`` with your route name.
 
-2. Listing all configured routes on the Gateway: /routes
+2. List all routes: ``/routes``
 
-This endpoint returns a list of all configured and initialized Route data for the MLflow AI Gateway server.
+This endpoint returns a list of all routes.
 
 .. code-block:: bash
 
@@ -943,8 +950,9 @@ This endpoint returns a list of all configured and initialized Route data for th
 
 Sensitive data from the route configuration is not returned.
 
-3. Querying a particular route: /gateway/{route}/invocations
-This endpoint allows you to submit a query to a configured provider route. The data structure you send in the query depends on the route. Here are examples for the "completions", "chat", and "embeddings" routes:
+3. Querying a particular route: ``/gateway/{route}/invocations``
+
+This endpoint allows you to submit a query to a specified route. The data structure you send in the query depends on the route. Here are examples for the "completions", "chat", and "embeddings" routes:
 
 * ``Completions``
 
