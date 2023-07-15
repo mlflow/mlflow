@@ -48,9 +48,10 @@ Quickstart
 The following guide will assist you in getting up and running, using a 3-route configuration to
 OpenAI services for chat, completions, and embeddings.
 
-Step 1: Install the MLflow AI Gateway
+Step 1: Install the MLflow AI Gateway client
 ---------------------------------------------
-First, you need to install the MLflow AI Gateway. You can do this using ``%pip`` in your Databricks notebook as follows:
+First, you need to install the MLflow AI Gateway Python client. You can do this using ``%pip`` in
+your Databricks notebook as follows:
 
 Installing from PyPI
 ~~~~~~~~~~~~~~~~~~~~
@@ -348,6 +349,14 @@ Finally, if you no longer need a route, you can delete it using the
 :py:func:`mlflow.gateway.delete_route` API. For more information, see the
 :ref:`gateway_fluent_api` and :ref:`gateway_client_api` sections.
 
+Step 8: Use AI Gateway routes for model development 
+---------------------------------------------------
+
+Now that you have created some AI Gateway routes, you can create MLflow Models that query this
+route to build application-specific logic using techniques like prompt engineering. For more
+information, see :ref:`AI Gateway and MLflow Models <gateway_mlflow_models>`.
+
+
 .. _gateway-concepts:
 
 Concepts
@@ -631,30 +640,40 @@ The following example demonstrates how to create a route with Azure OpenAI:
 
     Azure OpenAI has distinct features as compared with the direct OpenAI service. For an overview, please see `the comparison documentation <https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/how-to/switching-endpoints>`_.
 
+.. _databricks_serving_provider_fields:
 
-Databricks Model Serving
-++++++++++++++++++++++++
+Databricks Model Serving (open source models)
++++++++++++++++++++++++++++++++++++++++++++++
 
 +-------------------------------+----------+--------------------------+-------------------------------------------------------+
 | Configuration Parameter       | Required | Default                  | Description                                           |
 +===============================+==========+==========================+=======================================================+
 |                               |          |                          | A Databricks access token corresponding to a user or  |
-| **databricks_api_token**      | Yes      | N/A                      | service principal that has access to the Databricks   |
+| **databricks_api_token**      | Yes      | N/A                      | service principal that has **Can Query** access to the|
 |                               |          |                          | Model Serving endpoint associated with the route.     |
 +-------------------------------+----------+--------------------------+-------------------------------------------------------+
 | **databricks_workspace_url**  | Yes      | N/A                      | The URL of the workspace containing the Model Serving |
 |                               |          |                          | endpoint associated with the route.                   |
 +-------------------------------+----------+--------------------------+-------------------------------------------------------+
 
+The following example demonstrates how to create a route with a Databricks Model Serving endpoint:
+
+.. code-block:: python
+
+    create_route(
+        name="databricks-completions",
+        route_type="llm/v1/completions",
+        model={
+            "name": "mpt-7b-instruct",
+            "provider": "databricks-model-serving",
+            "config": {
+                "databricks_api_token": "<YOUR_DATABRICKS_ACCESS_TOKEN>"
+                "databricks_workspace_url": "<URL_OF_DATABRICKS_WORKSPACE_CONTAINING_ENDPOINT>"
+            }
+        }
+    )
+
 For more information about creating routes with Databricks Model Serving endpoints, see :ref:`config_databricks_model_serving`.
-
-.. _config_databricks_model_serving:
-
-Creating Routes with Databricks Model Serving Endpoints
-=======================================================
-The MLflow AI Gateway supports Databricks Model Serving endpoints as providers for the ``llm/v1/completions`` and
-``llm/v1/embeddings`` route types. These endpoints must accept
-
 
 .. _gateway_query:
 
@@ -672,6 +691,13 @@ The MLflow AI Gateway defines standard parameters for chat, completions, and emb
 used when querying any route regardless of its provider. Each parameter has a standard range and
 default value. When querying a route with a particular provider, the MLflow AI Gateway automatically
 scales parameter values according to the provider's value ranges for that parameter.
+
+.. important::
+
+  When querying an AI Gateway Route with the ``databricks-model-serving`` provider, some of the
+  the standard query parameters may be ignored depending on whether or not the Databricks Model
+  Serving endpoint supports them. All of the parameters marked **required** are guaranteed to
+  be supported. For more information, see :ref:`config_databricks_model_serving`.
 
 Completions
 ~~~~~~~~~~~
@@ -927,6 +953,8 @@ To use the ``MlflowGatewayClient`` API, see the below examples for the available
 
 Further route types will be added in the future.
 
+.. _gateway_mlflow_models:
+
 MLflow Models
 ~~~~~~~~~~~~~
 You can also build and deploy MLflow Models that call the MLflow AI Gateway.
@@ -1051,6 +1079,30 @@ Here are some examples for how you might use curl to interact with the Gateway:
            -H "Authorization: Bearer <your_databricks_access_token>" \
            -d '{"text": ["I'd like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}' \
            http://your.workspace.databricks.com/gateway/<your_embeddings_route>/invocations
+
+.. _config_databricks_model_serving:
+
+Using open source models with the AI Gateway (Databricks Model Serving Endpoints)
+=================================================================================
+The MLflow AI Gateway supports `Databricks Model Serving endpoints <https://docs.databricks.com/machine-learning/model-serving/create-manage-serving-endpoints.html>`_
+as providers for the ``llm/v1/completions`` route type. These endpoints must accept the
+:ref:`standard_query_parameters` that are marked **required**, and they must produce responses
+in the following format:
+
+.. code-block:: json
+
+       {
+         "candidates": [
+            "Completion 1 text",
+            "Completion 2 text",
+            "..."
+         ]
+       }
+
+For a detailed example of creating a Databricks Model Serving endpoint with a compatible
+:ref:`MLflow Model Signature <model-signature>` and querying it through the AI Gateway,
+see :ref:`gateway_databricks_model_serving_completions_example`.
+
 
 MLflow AI Gateway API Documentation
 ===================================
