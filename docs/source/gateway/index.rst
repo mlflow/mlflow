@@ -753,49 +753,49 @@ Fluent API
 ~~~~~~~~~~
 For the ``fluent`` API, here are some examples:
 
-1. Set the Gateway uri:
+1. Set the Gateway URI:
 
-Before using the Fluent API, the gateway URI must be set via :func:`set_gateway_uri() <mlflow.gateway.set_gateway_uri>`.
+   Before using the Fluent API, the gateway URI must be set via :func:`set_gateway_uri() <mlflow.gateway.set_gateway_uri>`.
 
-If you are using the AI Gateway in a Databricks Notebook or Databricks Job, you can set the gateway URI as follows:
+   If you are using the AI Gateway in a Databricks Notebook or Databricks Job, you can set the gateway URI as follows:
 
-.. code-block:: python
+   .. code-block:: python
 
-    from mlflow.gateway import set_gateway_uri
+       from mlflow.gateway import set_gateway_uri
 
-    set_gateway_uri(gateway_uri="databricks")
+       set_gateway_uri(gateway_uri="databricks")
 
-If you are using the AI Gateway outside of a Databricks Notebook or Databricks Job, you will need to configure
-your Databricks host name and Databricks access token in your current environment before making requests to
-the Gateway. You can do this using the ``DATABRICKS_HOST`` and ``DATABRICKS_TOKEN`` environment variables.
-For example:
+   If you are using the AI Gateway outside of a Databricks Notebook or Databricks Job, you will need to configure 
+   your Databricks host name and Databricks access token in your current environment before making requests to
+   the Gateway. You can do this using the ``DATABRICKS_HOST`` and ``DATABRICKS_TOKEN`` environment variables.
+   For example:
 
-.. code-block:: python
+   .. code-block:: python
 
-    import os
-    from mlflow.gateway import set_gateway_uri
+       import os
+       from mlflow.gateway import set_gateway_uri
 
-    os.environ["DATABRICKS_HOST"] = "http://your.workspace.databricks.com"
-    os.environ["DATABRICKS_TOKEN"] = "<your_databricks_access_token>"
+       os.environ["DATABRICKS_HOST"] = "http://your.workspace.databricks.com"
+       os.environ["DATABRICKS_TOKEN"] = "<your_databricks_access_token>"
 
-    set_gateway_uri(gateway_uri="databricks")
+       set_gateway_uri(gateway_uri="databricks")
 
-Finally, you can also set the gateway URI using the ``MLFLOW_GATEWAY_URI`` environment variable, as an alternative
-to calling :func:`set_gateway_uri() <mlflow.gateway.set_gateway_uri>`.
+   Finally, you can also set the gateway URI using the ``MLFLOW_GATEWAY_URI`` environment variable, as an alternative
+   to calling :func:`set_gateway_uri() <mlflow.gateway.set_gateway_uri>`.
 
 2. Query a route:
 
-The :func:`query() <mlflow.gateway.query>` function queries the specified route and returns the response from the provider
-in a standardized format. The data structure you send in the query depends on the route.
+   The :func:`query() <mlflow.gateway.query>` function queries the specified route and returns the response from the provider
+   in a standardized format. The data structure you send in the query depends on the route.
 
-.. code-block:: python
+   .. code-block:: python
 
-    from mlflow.gateway import query
+       from mlflow.gateway import query
 
-    response = query(
-        "embeddings", {"text": ["It was the best of times", "It was the worst of times"]}
-    )
-    print(response)
+       response = query(
+           "embeddings", {"text": ["It was the best of times", "It was the worst of times"]}
+       )
+       print(response)
 
 .. _gateway_client_api:
 
@@ -806,54 +806,54 @@ To use the ``MlflowGatewayClient`` API, see the below examples for the available
 
 1. Create an ``MlflowGatewayClient``
 
-If you are using the AI Gateway in a Databricks Notebook or Databricks Job, you can initialize
-the ``MlflowGatewayClient`` as follows:
+   If you are using the AI Gateway in a Databricks Notebook or Databricks Job, you can initialize
+   the ``MlflowGatewayClient`` as follows:
 
-.. code-block:: python
+   .. code-block:: python
 
-    from mlflow.gateway import MlflowGatewayClient
+       from mlflow.gateway import MlflowGatewayClient
 
-    gateway_client = MlflowGatewayClient("databricks")
+       gateway_client = MlflowGatewayClient("databricks")
 
-If you are using the AI Gateway outside of a Databricks Notebook or Databricks Job, you will need to configure
-your Databricks host name and Databricks access token in your current environment before making requests to
-the Gateway. You can do this using the ``DATABRICKS_HOST`` and ``DATABRICKS_TOKEN`` environment variables.
-For example:
+   If you are using the AI Gateway outside of a Databricks Notebook or Databricks Job, you will need to configure
+   your Databricks host name and Databricks access token in your current environment before making requests to
+   the Gateway. You can do this using the ``DATABRICKS_HOST`` and ``DATABRICKS_TOKEN`` environment variables.
+   For example:
 
-.. code-block:: python
+   .. code-block:: python
 
-    import os
-    from mlflow.gateway import MlflowGatewayClient
+       import os
+       from mlflow.gateway import MlflowGatewayClient
 
 
-    os.environ["DATABRICKS_HOST"] = "http://your.workspace.databricks.com"
-    os.environ["DATABRICKS_TOKEN"] = "<your_databricks_access_token>"
+       os.environ["DATABRICKS_HOST"] = "http://your.workspace.databricks.com"
+       os.environ["DATABRICKS_TOKEN"] = "<your_databricks_access_token>"
 
-    gateway_client = MlflowGatewayClient("databricks")
+       gateway_client = MlflowGatewayClient("databricks")
 
 2. List all routes:
 
-The :meth:`search_routes() <mlflow.gateway.client.MlflowGatewayClient.search_routes>` method returns a list of all routes.
+   The :meth:`search_routes() <mlflow.gateway.client.MlflowGatewayClient.search_routes>` method returns a list of all routes.
 
-.. code-block:: python
+   .. code-block:: python
 
-    routes = gateway_client.search_routes()
-    for route in routes:
-        print(route)
+       routes = gateway_client.search_routes()
+       for route in routes:
+           print(route)
 
-Sensitive configuration data from the route configuration is not returned.
+   Sensitive configuration data from the route configuration is not returned.
 
 3. Query a route:
 
-The :meth:`query() <mlflow.gateway.client.MlflowGatewayClient.query>` method submits a query to a configured provider route.
-The data structure you send in the query depends on the route.
+   The :meth:`query() <mlflow.gateway.client.MlflowGatewayClient.query>` method submits a query to a configured provider route.
+   The data structure you send in the query depends on the route.
 
-.. code-block:: python
+   .. code-block:: python
 
-    response = gateway_client.query(
-        "chat", {"messages": [{"role": "user", "content": "Tell me a joke about rabbits"}]}
-    )
-    print(response)
+       response = gateway_client.query(
+           "chat", {"messages": [{"role": "user", "content": "Tell me a joke about rabbits"}]}
+       )
+       print(response)
 
 
 Further route types will be added in the future.
@@ -922,70 +922,71 @@ Here are some examples for how you might use curl to interact with the Gateway:
 
 1. Getting information about a particular route: ``GET /api/2.0/gateway/routes/{name}``
 
-This endpoint returns a serialized representation of the Route data structure.
-This provides information about the name and type, as well as the model details for the requested route endpoint.
+   This endpoint returns a serialized representation of the Route data structure.
+   This provides information about the name and type, as well as the model details for the requested route endpoint.
 
-Sensitive data from the route configuration is not returned.
+   Sensitive data from the route configuration is not returned.
 
-.. code-block:: bash
+   .. code-block:: bash
 
-    curl \
-      -X GET \
-      -H "Authorization: Bearer <your_databricks_access_token>" \
-      http://your.workspace.databricks.com/api/2.0/gateway/routes/<your_route_name>
+       curl \
+         -X GET \
+         -H "Authorization: Bearer <your_databricks_access_token>" \
+         http://your.workspace.databricks.com/api/2.0/gateway/routes/<your_route_name>
 
-**Note:** Remember to replace ``<your_databricks_access_token>`` with your Databricks access token, ``http://your.workspace.databricks.com/``
-with your Databricks workspace URL, and ``<your_route_name>`` with your route name.
+   **Note:** Remember to replace ``<your_databricks_access_token>`` with your Databricks access token, ``http://your.workspace.databricks.com/``
+   with your Databricks workspace URL, and ``<your_route_name>`` with your route name.
 
 2. List all routes: ``GET /api/2.0/gateway/routes``
 
-This endpoint returns a list of all routes.
+   This endpoint returns a list of all routes.
 
-.. code-block:: bash
+   .. code-block:: bash
 
-    curl \
-      -X GET \
-      -H "Authorization: Bearer <your_databricks_access_token>" \
-      http://your.workspace.databricks.com/api/2.0/gateway/routes
+       curl \
+         -X GET \
+         -H "Authorization: Bearer <your_databricks_access_token>" \
+         http://your.workspace.databricks.com/api/2.0/gateway/routes
 
-Sensitive data from the route configuration is not returned.
+   Sensitive data from the route configuration is not returned.
+
 
 3. Querying a particular route: ``POST /gateway/{route}/invocations``
 
-This endpoint allows you to submit a query to a specified route. The data structure you send in the query depends on the route. Here are examples for the "completions", "chat", and "embeddings" routes:
+   This endpoint allows you to submit a query to a specified route. The data structure you send in the query depends on the route. Here are examples for the "completions", "chat", and "embeddings" routes:
 
-* ``Completions``
+   * ``Completions``
 
-.. code-block:: bash
+   .. code-block:: bash
 
-    curl \
-      -X POST \
-      -H "Content-Type: application/json" \
-      -H "Authorization: Bearer <your_databricks_access_token>" \
-      -d '{"prompt": "Describe the probability distribution of the decay chain of U-235"}' \
-      http://your.workspace.databricks.com/gateway/<your_completions_route>/invocations
+       curl \
+         -X POST \
+         -H "Content-Type: application/json" \
+         -H "Authorization: Bearer <your_databricks_access_token>" \
+         -d '{"prompt": "Describe the probability distribution of the decay chain of U-235"}' \
+         http://your.workspace.databricks.com/gateway/<your_completions_route>/invocations
 
-* ``Chat``
+   * ``Chat``
 
-.. code-block:: bash
+   .. code-block:: bash
 
-    curl \
-      -X POST \
-      -H "Content-Type: application/json" \
-      -H "Authorization: Bearer <your_databricks_access_token>" \
-      -d '{"messages": [{"role": "user", "content": "Can you write a limerick about orange flavored popsicles?"}]}' \
-      http://your.workspace.databricks.com/gateway/<your_chat_route>/invocations
+       curl \
+        -X POST \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer <your_databricks_access_token>" \
+        -d '{"messages": [{"role": "user", "content": "Can you write a limerick about orange flavored popsicles?"}]}' \
+        http://your.workspace.databricks.com/gateway/<your_chat_route>/invocations
 
-* ``Embeddings``
+   * ``Embeddings``
 
-.. code-block:: bash
+   .. code-block:: bash
 
-    curl \
-      -X POST \
-      -H "Content-Type: application/json" \
-      -H "Authorization: Bearer <your_databricks_access_token>" \
-      -d '{"text": ["I'd like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}' \
-      http://your.workspace.databricks.com/gateway/<your_embeddings_route>/invocations
+       curl \
+         -X POST \
+         -H "Content-Type: application/json" \
+         -H "Authorization: Bearer <your_databricks_access_token>" \
+         -d '{"text": ["I'd like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}' \
+         http://your.workspace.databricks.com/gateway/<your_embeddings_route>/invocations
 
 These examples cover the primary ways you might interact with the MLflow AI Gateway via its REST API.
 
