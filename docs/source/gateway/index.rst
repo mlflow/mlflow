@@ -703,7 +703,7 @@ This interactive interface is very handy for exploring and testing the available
 As a convenience, accessing the root URL (e.g., ``http://my.gateway:9000``) redirects to this "/docs" endpoint.
 
 Examples of HTTP POST Requests
--------------------------
+------------------------------
 You can use an HTTP POST request to send a query to a specific route.
 To send a query to a specific route, append the route name to the routes endpoint, and include the
 data to be sent in the body of the request. The structure of this data will depend on the specific model the route is configured for.
