@@ -841,8 +841,6 @@ To use the ``MlflowGatewayClient`` API, see the below examples for the available
        for route in routes:
            print(route)
 
-   Sensitive configuration data from the route configuration is not returned.
-
 3. Query a route:
 
    The :meth:`query() <mlflow.gateway.client.MlflowGatewayClient.query>` method submits a query to a configured provider route.
@@ -925,8 +923,6 @@ Here are some examples for how you might use curl to interact with the Gateway:
    This endpoint returns a serialized representation of the Route data structure.
    This provides information about the name and type, as well as the model details for the requested route endpoint.
 
-   Sensitive data from the route configuration is not returned.
-
    .. code-block:: bash
 
        curl \
@@ -948,45 +944,42 @@ Here are some examples for how you might use curl to interact with the Gateway:
          -H "Authorization: Bearer <your_databricks_access_token>" \
          http://your.workspace.databricks.com/api/2.0/gateway/routes
 
-   Sensitive data from the route configuration is not returned.
-
-
 3. Querying a particular route: ``POST /gateway/{route}/invocations``
 
    This endpoint allows you to submit a query to a specified route. The data structure you send in the query depends on the route. Here are examples for the "completions", "chat", and "embeddings" routes:
 
    * ``Completions``
 
-   .. code-block:: bash
+     .. code-block:: bash
 
-       curl \
-         -X POST \
-         -H "Content-Type: application/json" \
-         -H "Authorization: Bearer <your_databricks_access_token>" \
-         -d '{"prompt": "Describe the probability distribution of the decay chain of U-235"}' \
-         http://your.workspace.databricks.com/gateway/<your_completions_route>/invocations
+         curl \
+           -X POST \
+           -H "Content-Type: application/json" \
+           -H "Authorization: Bearer <your_databricks_access_token>" \
+           -d '{"prompt": "Describe the probability distribution of the decay chain of U-235"}' \
+           http://your.workspace.databricks.com/gateway/<your_completions_route>/invocations
 
    * ``Chat``
 
-   .. code-block:: bash
+     .. code-block:: bash
 
-       curl \
-        -X POST \
-        -H "Content-Type: application/json" \
-        -H "Authorization: Bearer <your_databricks_access_token>" \
-        -d '{"messages": [{"role": "user", "content": "Can you write a limerick about orange flavored popsicles?"}]}' \
-        http://your.workspace.databricks.com/gateway/<your_chat_route>/invocations
+         curl \
+           -X POST \
+           -H "Content-Type: application/json" \
+           -H "Authorization: Bearer <your_databricks_access_token>" \
+           -d '{"messages": [{"role": "user", "content": "Can you write a limerick about orange flavored popsicles?"}]}' \
+           http://your.workspace.databricks.com/gateway/<your_chat_route>/invocations
 
    * ``Embeddings``
 
-   .. code-block:: bash
+     .. code-block:: bash
 
-       curl \
-         -X POST \
-         -H "Content-Type: application/json" \
-         -H "Authorization: Bearer <your_databricks_access_token>" \
-         -d '{"text": ["I'd like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}' \
-         http://your.workspace.databricks.com/gateway/<your_embeddings_route>/invocations
+         curl \
+           -X POST \
+           -H "Content-Type: application/json" \
+           -H "Authorization: Bearer <your_databricks_access_token>" \
+           -d '{"text": ["I'd like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}' \
+           http://your.workspace.databricks.com/gateway/<your_embeddings_route>/invocations
 
 MLflow AI Gateway API Documentation
 ===================================
