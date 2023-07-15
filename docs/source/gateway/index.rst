@@ -642,7 +642,7 @@ In addition to the :ref:`standard_query_parameters`, you can pass any additional
 
 - ``logit_bias`` (supported by OpenAI, Cohere)
 - ``top_k`` (supported by Anthropic, Cohere)
-- ``frequency_penalty`` (suppoorted by OpenAI, Cohere)
+- ``frequency_penalty`` (supported by OpenAI, Cohere)
 - ``presence_penalty`` (supported by OpenAI, Cohere)
 
 The following parameters are not allowed:
