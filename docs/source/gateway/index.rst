@@ -1,12 +1,24 @@
 .. _gateway:
 
-================================
-MLflow AI Gateway (Experimental)
-================================
+===========================================
+Databricks MLflow AI Gateway (Experimental)
+===========================================
 
 .. warning::
 
-    The MLflow AI Gateway is a new, **experimental feature**. It is subject to modification, feature improvements, or feature removal without advance notice.
+    - **Support for using the Databricks MLflow AI Gateway is in private preview.**
+    - Operability and support channels might be insufficient for production use. Support is best
+      effort and informal—please reach out to your account or external Slack channel for best
+      effort support.
+    - This private preview will be free of charge at this time. We may charge for it in the future.
+    - You will still incur charges for DBUs.
+    - This product may change or may never be released.
+    - We may terminate the preview or your access to it with 2 weeks of notice.
+    - There may be API changes before Public Preview or General Availability. We will give you at
+      least 2 weeks notice before any significant changes so that you have time to update your
+      projects.
+    - Non-public information about the preview (including the fact that there is a preview for the
+      feature/product itself) is confidential.
 
 The MLflow AI Gateway service is a powerful tool designed to streamline the usage and management of
 various large language model (LLM) providers, such as OpenAI and Anthropic, within an organization.
@@ -56,7 +68,7 @@ For this example, we're only connecting with OpenAI. If there are additional pro
 configuration, these keys will need to be set as well.
 
 Once you have the key, we recommend storing it using
-[Databricks Secrets](https://docs.databricks.com/security/secrets/index.html). In this quickstart,
+`Databricks Secrets <https://docs.databricks.com/security/secrets/index.html>`_. In this quickstart,
 we assume that the OpenAI key is available in secret scope ``example`` with key ``openai-api-key``.
 
 Step 3: Create Gateway Routes
@@ -94,7 +106,10 @@ Now that you have set the Gateway URI in your Python environment, you can create
 
     from mlflow.gateway import create_route
 
-    openai_api_key = dbutils.secrets.get(scope="example", key="openai-api-key")
+    openai_api_key = dbutils.secrets.get(
+        scope="example",
+        key="openai-api-key"
+    )
 
     # Create a Route for completions with OpenAI GPT-4
     create_route(
@@ -104,9 +119,9 @@ Now that you have set the Gateway URI in your Python environment, you can create
             "name": "gpt-4",
             "provider": "openai",
             "config": {
-                "openai_api_key": openai_api_key,
-            },
-        },
+                "openai_api_key": openai_api_key
+            }
+        }
     )
 
     # Create a Route for chat with OpenAI GPT-4
@@ -117,9 +132,9 @@ Now that you have set the Gateway URI in your Python environment, you can create
             "name": "gpt-4",
             "provider": "openai",
             "config": {
-                "openai_api_key": openai_api_key,
-            },
-        },
+                "openai_api_key": openai_api_key
+            }
+        }
     )
 
     # Create a Route for embeddings with OpenAI text-embedding-ada-002
@@ -130,9 +145,9 @@ Now that you have set the Gateway URI in your Python environment, you can create
             "name": "text-embedding-ada-002",
             "provider": "openai",
             "config": {
-                "openai_api_key": openai_api_key,
-            },
-        },
+                "openai_api_key": openai_api_key
+            }
+        }
     )
 
 
@@ -177,7 +192,7 @@ The returned response will have the following structure (the actual content and 
             "output_tokens": 15,
             "total_tokens": 28,
             "model": "gpt-4",
-            "route_type": "llm/v1/completions",
+            "route_type": "llm/v1/completions"
         }
     }
 
@@ -210,7 +225,7 @@ The returned response will have the following structure (the actual content and 
                     "role": "assistant",
                     "content": "\n\nIt's hard to say what the best day of the week is.",
                 },
-                "metadata": {"finish_reason": "stop"},
+                "metadata": {"finish_reason": "stop"}
             }
         ],
         "metadata": {
@@ -218,7 +233,7 @@ The returned response will have the following structure (the actual content and 
             "output_tokens": 15,
             "total_tokens": 28,
             "model": "gpt-4",
-            "route_type": "llm/v1/completions",
+            "route_type": "llm/v1/completions"
         }
     }
 
@@ -259,7 +274,7 @@ The returned response will have the following structure (the actual content and 
             "input_tokens": 6,
             "total_tokens": 6,
             "model": "text-embedding-ada-002",
-            "route_type": "llm/v1/embeddings",
+            "route_type": "llm/v1/embeddings"
         }
     }
 
@@ -269,14 +284,13 @@ See the :ref:`gateway_client_api` section for further information.
 
 Step 6: Send Requests to Routes via REST API
 --------------------------------------------
-You can now send requests to the exposed routes.
-See the :ref:`REST examples <gateway_rest_api>` for guidance on request formatting.
+See the :ref:`REST examples <gateway_rest_api>` section for further information.
 
 Step 7: Compare Provider Models
 -------------------------------
 Here's an example of adding and querying a new model from a different provider - in this case
 Anthropic - to determine which model is better for a given use case. We assume that the
-Anthropic API key is stored in [Databricks Secrets](https://docs.databricks.com/security/secrets/index.html)
+Anthropic API key is stored in `Databricks Secrets <https://docs.databricks.com/security/secrets/index.html>`_
 with scope ``example`` and key ``anthropic-api-key``.
 
 .. code-block:: python
@@ -285,7 +299,10 @@ with scope ``example`` and key ``anthropic-api-key``.
 
     set_gateway_uri("databricks")
 
-    anthropic_api_key = dbutils.secrets.get(scope="example", key="anthropic-api-key")
+    anthropic_api_key = dbutils.secrets.get(
+        scope="example",
+        key="anthropic-api-key"
+    )
 
     # Create a Route for completions with OpenAI GPT-4
     create_route(
@@ -295,9 +312,9 @@ with scope ``example`` and key ``anthropic-api-key``.
             "name": "claude-v1.3",
             "provider": "anthropic",
             "config": {
-                "anthropic_api_key": anthropic_api_key,
-            },
-        },
+                "anthropic_api_key": anthropic_api_key
+            }
+        }
     )
 
     completions_response = query(
@@ -316,7 +333,7 @@ The returned response will have the following structure (the actual content and 
                     "role": "assistant",
                     "content": "The best day of the week is Wednesday.",
                 },
-                "metadata": {"finish_reason": "stop"},
+                "metadata": {"finish_reason": "stop"}
             }
         ],
         "metadata": {
@@ -324,7 +341,7 @@ The returned response will have the following structure (the actual content and 
             "output_tokens": 14,
             "total_tokens": 26,
             "model": "claude-v1.3",
-            "route_type": "llm/v1/completions",
+            "route_type": "llm/v1/completions"
         }
     }
 
@@ -379,7 +396,7 @@ below can be used as a helpful guide when configuring a given route for any newl
      - Yes
    * - llm/v1/completions
      - Databricks Model Serving
-     - Endpoints with compatible schemas 
+     - Endpoints with compatible schemas
      - Yes
    * - llm/v1/chat
      - OpenAI
@@ -398,7 +415,7 @@ below can be used as a helpful guide when configuring a given route for any newl
      - gpt-35-turbo, gpt-4
      - Yes
    * - llm/v1/chat
-     - Databricks Model Serving 
+     - Databricks Model Serving
      -
      - No
    * - llm/v1/embeddings
@@ -419,7 +436,7 @@ below can be used as a helpful guide when configuring a given route for any newl
      - Yes
    * - llm/v1/embeddings
      - Databricks Model Serving
-     - Endpoints with compatible schemas 
+     - Endpoints with compatible schemas
      - Yes
 
 When creating a route, the provider field is used to specify the name
@@ -429,7 +446,7 @@ the MLflow AI Gateway supports.
 Here's an example demonstrating how a provider is specified when creating a route with the
 :py:func:`mlflow.gateway.create_route` API:
 
-.. code-block:: yaml
+.. code-block:: python
 
     create_route(
         name="chat",
@@ -438,7 +455,7 @@ Here's an example demonstrating how a provider is specified when creating a rout
             "name": "gpt-4",
             "provider": "openai",
             "config": {
-                "openai_api_key": $OPENAI_API_KEY
+                "openai_api_key": "<YOUR_OPENAI_API_KEY>"
             }
         }
     )
@@ -469,21 +486,21 @@ A route in the MLflow AI Gateway consists of the following fields:
 * **name**: This is the unique identifier for the route. This will be part of the URL when making API calls via the MLflow AI Gateway.
 
 * **route_type**: The type of the route corresponds to the type of language model interaction you desire. For instance, ``llm/v1/completions`` for text completion operations, ``llm/v1/embeddings`` for text embeddings, and ``llm/v1/chat`` for chat operations.
-  
+
   - "llm/v1/completions"
   - "llm/v1/chat"
   - "llm/v1/embeddings"
 
 * **model**: Defines the model to which this route will forward requests. The model contains the following details:
 
-    * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for `OpenAI`'s ``GPT-3`` models.
+    * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for OpenAI's ``GPT-3`` models.
 
       - "openai"
       - "anthropic"
       - "cohere"
       - "azure" / "azuread"
 
-    * **name**: The name of the model to use. For example, ``gpt-3.5-turbo`` for `OpenAI`'s ``GPT-3.5-Turbo`` model.
+    * **name**: The name of the model to use. For example, ``gpt-3.5-turbo`` for OpenAI's ``GPT-3.5-Turbo`` model.
     * **config**: Contains any additional configuration details required for the model. This includes specifying the API base URL and the API key. See :ref:`configure_route_provider`.
 
   .. important::
@@ -493,11 +510,6 @@ A route in the MLflow AI Gateway consists of the following fields:
       may not. If the model is not supported by the provider, the MLflow AI Gateway will return an HTTP 4xx error
       when trying to route requests to that model.
 
-.. important::
-
-    Always check the latest documentation of the specified provider to ensure that the model you want
-    to use is supported for the type of endpoint you're configuring.
-
 Remember, the model you choose directly affects the results of the responses you'll get from the
 API calls. Therefore, choose a model that fits your use-case requirements. For instance,
 for generating conversational responses, you would typically choose a chat model.
@@ -505,7 +517,7 @@ Conversely, for generating embeddings of text, you would choose an embedding mod
 
 Here's an example of route creation with the :py:func:`mlflow.gateway.create_route` API:
 
-.. code-block:: yaml
+.. code-block:: python
 
     create_route(
         name="embeddings",
@@ -514,7 +526,7 @@ Here's an example of route creation with the :py:func:`mlflow.gateway.create_rou
             "name": "text-embedding-ada-002",
             "provider": "open",
             "config": {
-                "openai_api_key": $OPENAI_API_KEY
+                "openai_api_key": "<YOUR_OPENAI_API_KEY>"
             }
         }
     )
@@ -649,6 +661,7 @@ If a given provider does not provide support for a parameter, a clear message wi
 
 Alternate Query Parameters
 --------------------------
+
 There are additional provider-specific parameters that will work (i.e., ``logit_bias`` (OpenAI, Cohere), ``frequency_penalty`` (OpenAI, Cohere), ``presence_penalty`` (OpenAI, Cohere), and ``top_k`` (Anthropic, Cohere)) with the exception of the following:
 
 - **stream** is not supported. Setting this parameter on any provider will not work currently.
