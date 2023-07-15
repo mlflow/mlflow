@@ -909,7 +909,7 @@ This endpoint allows you to submit a query to a configured provider route. The d
 
     curl -X POST http://my.gateway:8888/gateway/embeddings/invocations \
       -H "Content-Type: application/json" \
-      -d '{"text": ["I'd like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
+      -d '{"text": ["I would like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
 
 These examples cover the primary ways you might interact with the MLflow AI Gateway via its REST API.
 
