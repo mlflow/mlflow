@@ -785,8 +785,6 @@ To use the ``MlflowGatewayClient`` API, see the below examples for the available
        for route in routes:
            print(route)
 
-Sensitive configuration data from the server configuration file is not returned.
-
 3. Query a route:
 
    The :meth:`query() <mlflow.gateway.client.MlflowGatewayClient.query>` method submits a query to a configured provider route.
@@ -870,8 +868,6 @@ Here are some examples for how you might use curl to interact with the Gateway:
    This endpoint returns a serialized representation of the Route data structure.
    This provides information about the name and type, as well as the model details for the requested route endpoint.
 
-   Sensitive configuration data from the server configuration file is not returned.
-
    .. code-block:: bash
 
        curl -X GET http://my.gateway:8888/api/2.0/gateway/routes/embeddings
@@ -883,8 +879,6 @@ Here are some examples for how you might use curl to interact with the Gateway:
    .. code-block:: bash
 
        curl -X GET http://my.gateway:8888/api/2.0/gateway/routes
-
-Sensitive configuration data from the server configuration file is not returned.
 
 3. Query a route: ``POST /gateway/{route}/invocations``
 
