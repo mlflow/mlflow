@@ -140,7 +140,7 @@ Here's an example of how to send a chat request using the :ref:`gateway_fluent_a
 
     response = query(
         "chat",
-        {"messages": [{"role": "user", "content": "What is the best day of the week?"}]},
+        {"messages": [{"role": "user", "content": "What is the best day of the week?"}]}
     )
 
     print(response)
@@ -158,7 +158,7 @@ The returned response will be in this data structure (the actual content and tok
                     "role": "assistant",
                     "content": "\n\nIt's hard to say what the best day of the week is.",
                 },
-                "metadata": {"finish_reason": "stop"},
+                "metadata": {"finish_reason": "stop"}
             }
         ],
         "metadata": {
@@ -166,7 +166,7 @@ The returned response will be in this data structure (the actual content and tok
             "output_tokens": 15,
             "total_tokens": 28,
             "model": "gpt-3.5-turbo-0301",
-            "route_type": "llm/v1/chat",
+            "route_type": "llm/v1/chat"
         },
     }
 
@@ -338,8 +338,8 @@ A route in the MLflow AI Gateway consists of the following fields:
 
 * **model**: Defines the model to which this route will forward requests. The model contains the following details:
 
-    * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for `OpenAI`'s ``GPT-3`` models.
-    * **name**: The name of the model to use. For example, ``gpt-3.5-turbo`` for `OpenAI`'s ``GPT-3.5-Turbo`` model.
+    * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for OpenAI's ``GPT-3`` models.
+    * **name**: The name of the model to use. For example, ``gpt-3.5-turbo`` for OpenAI's ``GPT-3.5-Turbo`` model.
     * **config**: Contains any additional configuration details required for the model. This includes specifying the API base URL and the API key.
 
 Here's an example of a route configuration:
@@ -618,8 +618,10 @@ Querying the AI Gateway
 
 Once the MLflow AI Gateway server has been configured and started, it is ready to receive traffic from users.
 
-Query Parameters
-----------------
+.. _standard_query_parameters:
+
+Standard Query Parameters
+-------------------------
 
 The query parameters that are supported by various providers for different route types are also available to be used with the MLflow AI Gateway.
 Each of these query parameters are optional elements that can be included along with using the ``query`` APIs as key value pairs within the ``data`` argument.
@@ -634,15 +636,20 @@ If a given provider does not provide support for a parameter, a clear message wi
 
 - **candidate_count** (Supported by OpenAI, Cohere): This parameter determines the number of alternative responses to generate. The range is from 1 to 5, and by default, it is set to 1.
 
-Alternate Query Parameters
---------------------------
-There are additional provider-specific parameters that will work (i.e., ``logit_bias`` (OpenAI, Cohere), ``frequency_penalty`` (OpenAI, Cohere), ``presence_penalty`` (OpenAI, Cohere), and ``top_k`` (Anthropic, Cohere)) with the exception of the following:
+Additional Query Parameters
+---------------------------
+In addition to the :ref:`standard_query_parameters`, you can pass any additional parameters supported by the route's provider as part of your query. For example:
+
+- ``logit_bias`` (supported by OpenAI, Cohere)
+- ``top_k`` (supported by Anthropic, Cohere)
+- ``frequency_penalty`` (suppoorted by OpenAI, Cohere)
+- ``presence_penalty`` (supported by OpenAI, Cohere)
+
+The following parameters are not allowed:
 
 - **stream** is not supported. Setting this parameter on any provider will not work currently.
 
-- **top_k** is not supported if ``temperature`` is set. Use one or the other.
-
-Below is an example of submitting a query request to an MLflow AI Gateway route using these parameters:
+Below is an example of submitting a query request to an MLflow AI Gateway route using additional parameters:
 
 .. code-block:: python
 
@@ -654,7 +661,7 @@ Below is an example of submitting a query request to an MLflow AI Gateway route 
         "max_tokens": 1000,
         "candidate_count": 1,
         "frequency_penalty": 0.2,
-        "presence_penalty": 0.2,
+        "presence_penalty": 0.2
     }
 
     query(route="completions-gpt4", data=data)
@@ -685,8 +692,6 @@ The results of the query are:
            "route_type": "llm/v1/completions"
          }
        }
-
-
 
 FastAPI Documentation ("/docs")
 -------------------------------
@@ -839,14 +844,14 @@ The example below demonstrates how to use an AI Gateway server from within a cus
             registered_model_name="anthropic_completions",
             artifact_path="anthropic_completions",
             input_example=input_example,
-            signature=signature,
+            signature=signature
         )
 
     df = pd.DataFrame.from_dict(
         {
             "prompt": ["Tell me about Jupiter", "Tell me about Saturn"],
             "temperature": 0.6,
-            "max_records": 500,
+            "max_records": 500
         }
     )
 
