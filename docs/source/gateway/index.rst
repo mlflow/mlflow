@@ -702,24 +702,6 @@ This interactive interface is very handy for exploring and testing the available
 
 As a convenience, accessing the root URL (e.g., ``http://my.gateway:9000``) redirects to this "/docs" endpoint.
 
-Examples of HTTP POST Requests
-------------------------------
-You can use an HTTP POST request to send a query to a specific route.
-To send a query to a specific route, append the route name to the routes endpoint, and include the
-data to be sent in the body of the request. The structure of this data will depend on the specific model the route is configured for.
-
-For instance, to send a query to the completions route, you might use the following command:
-
-.. code-block:: bash
-
-    curl -X POST -H "Content-Type: application/json" \
-      -d '{"prompt": "It is a truth universally acknowledged"}' \
-      http://my.gateway:9000/gateway/completions/invocations
-
-This will return a JSON object with the response from the completions model, which is usually the continuation of the text provided as a prompt.
-
-**Note:** Please remember to replace ``http://my.gateway:9000`` with the URL of your actual Gateway Server.
-
 MLflow Python Client APIs
 -------------------------
 :class:`MlflowGatewayClient <mlflow.gateway.client.MlflowGatewayClient>` is the user-facing client API that is used to interact with the MLflow AI Gateway.
