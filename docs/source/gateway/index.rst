@@ -733,9 +733,9 @@ Fluent API
 ~~~~~~~~~~
 For the ``fluent`` API, here are some examples:
 
-1. Set the Gateway uri:
+1. Set the Gateway URI:
 
-Before using the Fluent API, the gateway uri must be set via :func:`set_gateway_uri() <mlflow.gateway.set_gateway_uri>`.
+Before using the Fluent API, the gateway URI must be set via :func:`set_gateway_uri() <mlflow.gateway.set_gateway_uri>`.
 
 Alternatively to directly calling the ``set_gateway_uri`` function, the environment variable ``MLFLOW_GATEWAY_URI`` can be set
 directly, achieving the same session-level persistence for all ``fluent`` API usages.
@@ -765,9 +765,9 @@ in a standardized format. The data structure you send in the query depends on th
 Client API
 ~~~~~~~~~~
 
-To use the ``MLflowGatewayClient`` API, see the below examples for the available API methods:
+To use the ``MlflowGatewayClient`` API, see the below examples for the available API methods:
 
-1. Initialization
+1. Create an ``MlflowGatewayClient``
 
 .. code-block:: python
 
@@ -775,7 +775,7 @@ To use the ``MLflowGatewayClient`` API, see the below examples for the available
 
     gateway_client = MlflowGatewayClient("http://my.gateway:8888")
 
-2. Listing all configured routes on the Gateway:
+2. List all configured routes on the Gateway:
 
 The :meth:`search_routes() <mlflow.gateway.client.MlflowGatewayClient.search_routes>` method returns a list of all configured and initialized ``Route`` data for the MLflow AI Gateway server.
 
@@ -787,7 +787,7 @@ The :meth:`search_routes() <mlflow.gateway.client.MlflowGatewayClient.search_rou
 
 Sensitive configuration data from the server configuration file is not returned.
 
-3. Querying a particular route:
+3. Query a route:
 
 The :meth:`query() <mlflow.gateway.client.MlflowGatewayClient.query>` method submits a query to a configured provider route.
 The data structure you send in the query depends on the route.
