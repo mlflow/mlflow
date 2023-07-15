@@ -872,7 +872,7 @@ Sensitive configuration data from the server configuration file is not returned.
 
 .. code-block:: bash
 
-    curl -X GET http://my.gateway:8888/routes/embeddings
+    curl -X GET http://my.gateway:8888/api/2.0/gateway/routes/embeddings
 
 2. Listing all configured routes on the Gateway: /routes
 
@@ -880,7 +880,7 @@ This endpoint returns a list of all configured and initialized Route data for th
 
 .. code-block:: bash
 
-    curl -X GET http://my.gateway:8888/routes
+    curl -X GET http://my.gateway:8888/api/2.0/gateway/routes
 
 Sensitive configuration data from the server configuration file is not returned.
 
@@ -891,19 +891,25 @@ This endpoint allows you to submit a query to a configured provider route. The d
 
 .. code-block:: bash
 
-    curl -X POST http://my.gateway:8888/gateway/completions/invocations -H "Content-Type: application/json" -d '{"prompt": "Describe the probability distribution of the decay chain of U-235"}'
+    curl -X POST http://my.gateway:8888/gateway/completions/invocations \
+      -H "Content-Type: application/json" \
+      -d '{"prompt": "Describe the probability distribution of the decay chain of U-235"}'
 
 * ``Chat``
 
 .. code-block:: bash
 
-    curl -X POST http://my.gateway:8888/gateway/chat/invocations -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "Can you write a limerick about orange flavored popsicles?"}]}'
+    curl -X POST http://my.gateway:8888/gateway/chat/invocations \
+      -H "Content-Type: application/json" \
+      -d '{"messages": [{"role": "user", "content": "Can you write a limerick about orange flavored popsicles?"}]}'
 
 * ``Embeddings``
 
 .. code-block:: bash
 
-    curl -X POST http://my.gateway:8888/gateway/embeddings/invocations -H "Content-Type: application/json" -d '{"texts": ["I'd like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
+    curl -X POST http://my.gateway:8888/gateway/embeddings/invocations \
+      -H "Content-Type: application/json" \
+      -d '{"texts": ["I'd like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
 
 These examples cover the primary ways you might interact with the MLflow AI Gateway via its REST API.
 
