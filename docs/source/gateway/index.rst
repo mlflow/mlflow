@@ -717,28 +717,6 @@ The results of the query are:
          }
        }
 
-Examples of HTTP POST Requests
-------------------------------
-You can use an HTTP POST request to send a query to a specific route.
-To send a query to a specific route, append the route name to the routes endpoint, and include the
-data to be sent in the body of the request. The structure of this data will depend on the specific model the route is configured for.
-
-For instance, to send a query to the completions route, you might use the following command:
-
-.. code-block:: bash
-
-    curl \
-      -X POST \
-      -H "Content-Type: application/json" \
-      -H "Authorization: Bearer <your_databricks_access_token>" \
-      -d '{"prompt": "It is a truth universally acknowledged"}' \
-      http://your.workspace.databricks.com/gateway/completions/invocations
-
-This will return a JSON object with the response from the completions model, which is usually the continuation of the text provided as a prompt.
-
-**Note:** Remember to replace ``<your_databricks_access_token>`` with your Databricks access token and ``http://your.workspace.databricks.com/``
-with your Databricks workspace URL.
-
 MLflow Python Client APIs
 -------------------------
 :class:`MlflowGatewayClient <mlflow.gateway.client.MlflowGatewayClient>` is the user-facing client API that is used to interact with the MLflow AI Gateway.
