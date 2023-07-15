@@ -735,30 +735,30 @@ For the ``fluent`` API, here are some examples:
 
 1. Set the Gateway URI:
 
-Before using the Fluent API, the gateway URI must be set via :func:`set_gateway_uri() <mlflow.gateway.set_gateway_uri>`.
+   Before using the Fluent API, the gateway URI must be set via :func:`set_gateway_uri() <mlflow.gateway.set_gateway_uri>`.
 
-Alternatively to directly calling the ``set_gateway_uri`` function, the environment variable ``MLFLOW_GATEWAY_URI`` can be set
-directly, achieving the same session-level persistence for all ``fluent`` API usages.
+   Alternatively to directly calling the ``set_gateway_uri`` function, the environment variable ``MLFLOW_GATEWAY_URI`` can be set
+   directly, achieving the same session-level persistence for all ``fluent`` API usages.
 
-.. code-block:: python
+   .. code-block:: python
 
-    from mlflow.gateway import set_gateway_uri
+       from mlflow.gateway import set_gateway_uri
 
-    set_gateway_uri(gateway_uri="http://my.gateway:7000")
+       set_gateway_uri(gateway_uri="http://my.gateway:7000")
 
 2. Query a route:
 
-The :func:`query() <mlflow.gateway.query>` function queries the specified route and returns the response from the provider
-in a standardized format. The data structure you send in the query depends on the route.
+   The :func:`query() <mlflow.gateway.query>` function queries the specified route and returns the response from the provider
+   in a standardized format. The data structure you send in the query depends on the route.
 
-.. code-block:: python
+   .. code-block:: python
 
-    from mlflow.gateway import query
+       from mlflow.gateway import query
 
-    response = query(
-        "embeddings", {"text": ["It was the best of times", "It was the worst of times"]}
-    )
-    print(response)
+       response = query(
+           "embeddings", {"text": ["It was the best of times", "It was the worst of times"]}
+       )
+       print(response)
 
 .. _gateway_client_api:
 
@@ -769,38 +769,35 @@ To use the ``MlflowGatewayClient`` API, see the below examples for the available
 
 1. Create an ``MlflowGatewayClient``
 
-.. code-block:: python
+   .. code-block:: python
 
-    from mlflow.gateway import MlflowGatewayClient
+       from mlflow.gateway import MlflowGatewayClient
 
-    gateway_client = MlflowGatewayClient("http://my.gateway:8888")
+       gateway_client = MlflowGatewayClient("http://my.gateway:8888")
 
 2. List all routes:
 
-The :meth:`search_routes() <mlflow.gateway.client.MlflowGatewayClient.search_routes>` method returns a list of all routes.
+   The :meth:`search_routes() <mlflow.gateway.client.MlflowGatewayClient.search_routes>` method returns a list of all routes.
 
-.. code-block:: python
+   .. code-block:: python
 
-    routes = gateway_client.search_routes()
-    for route in routes:
-        print(route)
+       routes = gateway_client.search_routes()
+       for route in routes:
+           print(route)
 
 Sensitive configuration data from the server configuration file is not returned.
 
 3. Query a route:
 
-The :meth:`query() <mlflow.gateway.client.MlflowGatewayClient.query>` method submits a query to a configured provider route.
-The data structure you send in the query depends on the route.
+   The :meth:`query() <mlflow.gateway.client.MlflowGatewayClient.query>` method submits a query to a configured provider route.
+   The data structure you send in the query depends on the route.
 
-.. code-block:: python
+   .. code-block:: python
 
-    response = gateway_client.query(
-        "chat", {"messages": [{"role": "user", "content": "Tell me a joke about rabbits"}]}
-    )
-    print(response)
-
-
-Further route types will be added in the future.
+       response = gateway_client.query(
+           "chat", {"messages": [{"role": "user", "content": "Tell me a joke about rabbits"}]}
+       )
+       print(response)
 
 MLflow Models
 ~~~~~~~~~~~~~
@@ -869,56 +866,57 @@ The REST API allows you to send HTTP requests directly to the MLflow AI Gateway 
 
 Here are some examples for how you might use curl to interact with the Gateway:
 
-1. Get information about a particular route: ``/api/2.0/gateway/routes/{name}``
-This endpoint returns a serialized representation of the Route data structure.
-This provides information about the name and type, as well as the model details for the requested route endpoint.
+1. Get information about a particular route: ``GET /api/2.0/gateway/routes/{name}``
+   This endpoint returns a serialized representation of the Route data structure.
+   This provides information about the name and type, as well as the model details for the requested route endpoint.
+
+   Sensitive configuration data from the server configuration file is not returned.
+
+   .. code-block:: bash
+
+       curl -X GET http://my.gateway:8888/api/2.0/gateway/routes/embeddings
+
+2. List all routes: ``GET /api/2.0/gateway/routes``
+
+   This endpoint returns a list of all routes.
+
+   .. code-block:: bash
+
+       curl -X GET http://my.gateway:8888/api/2.0/gateway/routes
 
 Sensitive configuration data from the server configuration file is not returned.
 
-.. code-block:: bash
+3. Query a route: ``POST /gateway/{route}/invocations``
 
-    curl -X GET http://my.gateway:8888/api/2.0/gateway/routes/embeddings
+   This endpoint allows you to submit a query to a configured provider route. The data structure you send in the query depends on the route. Here are examples for the "completions", "chat", and "embeddings" routes:
 
-2. List all routes: ``/api/2.0/gateway/routes``
 
-This endpoint returns a list of all routes.
+   * ``Completions``
 
-.. code-block:: bash
+     .. code-block:: bash
 
-    curl -X GET http://my.gateway:8888/api/2.0/gateway/routes
+         curl -X POST http://my.gateway:8888/gateway/completions/invocations \
+           -H "Content-Type: application/json" \
+           -d '{"prompt": "Describe the probability distribution of the decay chain of U-235"}'
 
-Sensitive configuration data from the server configuration file is not returned.
 
-3. Query a route: ``/gateway/{route}/invocations``
-This endpoint allows you to submit a query to a configured provider route. The data structure you send in the query depends on the route. Here are examples for the "completions", "chat", and "embeddings" routes:
+   * ``Chat``
 
-* ``Completions``
+     .. code-block:: bash
 
-.. code-block:: bash
+         curl -X POST http://my.gateway:8888/gateway/chat/invocations \
+           -H "Content-Type: application/json" \
+           -d '{"messages": [{"role": "user", "content": "Can you write a limerick about orange flavored popsicles?"}]}'
 
-    curl -X POST http://my.gateway:8888/gateway/completions/invocations \
-      -H "Content-Type: application/json" \
-      -d '{"prompt": "Describe the probability distribution of the decay chain of U-235"}'
+   * ``Embeddings``
 
-* ``Chat``
+     .. code-block:: bash
 
-.. code-block:: bash
+         curl -X POST http://my.gateway:8888/gateway/embeddings/invocations \
+         -H "Content-Type: application/json" \
+         -d '{"text": ["I would like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
 
-    curl -X POST http://my.gateway:8888/gateway/chat/invocations \
-      -H "Content-Type: application/json" \
-      -d '{"messages": [{"role": "user", "content": "Can you write a limerick about orange flavored popsicles?"}]}'
-
-* ``Embeddings``
-
-.. code-block:: bash
-
-    curl -X POST http://my.gateway:8888/gateway/embeddings/invocations \
-      -H "Content-Type: application/json" \
-      -d '{"text": ["I would like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
-
-These examples cover the primary ways you might interact with the MLflow AI Gateway via its REST API.
-
-**Note:** Please remember to replace ``http://my.gateway:8888`` with the URL of your actual MLflow AI Gateway Server.
+**Note:** Remember to replace ``http://my.gateway:8888`` with the URL of your actual MLflow AI Gateway Server.
 
 MLflow AI Gateway API Documentation
 ===================================
