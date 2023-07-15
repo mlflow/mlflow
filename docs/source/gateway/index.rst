@@ -988,8 +988,6 @@ Here are some examples for how you might use curl to interact with the Gateway:
          -d '{"text": ["I'd like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}' \
          http://your.workspace.databricks.com/gateway/<your_embeddings_route>/invocations
 
-These examples cover the primary ways you might interact with the MLflow AI Gateway via its REST API.
-
 MLflow AI Gateway API Documentation
 ===================================
 
