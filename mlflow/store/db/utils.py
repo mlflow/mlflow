@@ -31,6 +31,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTag,
     SqlExperimentTag,
     SqlLatestMetric,
+    SqlDataset,
+    SqlInput,
+    SqlInputTag,
 )
 from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModel,
@@ -79,6 +82,9 @@ def _all_tables_exist(engine):
         SqlRegisteredModelTag.__tablename__,
         SqlModelVersionTag.__tablename__,
         SqlRegisteredModelAlias.__tablename__,
+        SqlDataset.__tablename__,
+        SqlInput.__tablename__,
+        SqlInputTag.__tablename__,
     }
 
 
