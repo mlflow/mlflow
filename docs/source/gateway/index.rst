@@ -492,7 +492,7 @@ A route in the MLflow AI Gateway consists of the following fields:
 
 * **model**: Defines the model to which this route will forward requests. The model contains the following details:
 
-    * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for OpenAI's ``GPT-3`` models.
+    * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for OpenAI's ``GPT-3.5`` models.
 
       - "openai"
       - "anthropic"
