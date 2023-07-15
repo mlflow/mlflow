@@ -833,7 +833,7 @@ For example:
 
 2. List all routes:
 
-The :meth:`search_routes() <mlflow.gateway.client.MlflowGatewayClient.search_routes>` method returns a list of all configured and initialized ``Route`` data for the MLflow AI Gateway server.
+The :meth:`search_routes() <mlflow.gateway.client.MlflowGatewayClient.search_routes>` method returns a list of all routes.
 
 .. code-block:: python
 
@@ -920,7 +920,7 @@ The REST API allows you to send HTTP requests directly to the MLflow AI Gateway 
 
 Here are some examples for how you might use curl to interact with the Gateway:
 
-1. Getting information about a particular route: ``/routes/{name}``
+1. Getting information about a particular route: ``GET /api/2.0/gateway/routes/{name}``
 
 This endpoint returns a serialized representation of the Route data structure.
 This provides information about the name and type, as well as the model details for the requested route endpoint.
@@ -937,7 +937,7 @@ Sensitive data from the route configuration is not returned.
 **Note:** Remember to replace ``<your_databricks_access_token>`` with your Databricks access token, ``http://your.workspace.databricks.com/``
 with your Databricks workspace URL, and ``<your_route_name>`` with your route name.
 
-2. List all routes: ``/routes``
+2. List all routes: ``GET /api/2.0/gateway/routes``
 
 This endpoint returns a list of all routes.
 
@@ -950,7 +950,7 @@ This endpoint returns a list of all routes.
 
 Sensitive data from the route configuration is not returned.
 
-3. Querying a particular route: ``/gateway/{route}/invocations``
+3. Querying a particular route: ``POST /gateway/{route}/invocations``
 
 This endpoint allows you to submit a query to a specified route. The data structure you send in the query depends on the route. Here are examples for the "completions", "chat", and "embeddings" routes:
 
