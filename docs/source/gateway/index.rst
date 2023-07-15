@@ -746,7 +746,7 @@ directly, achieving the same session-level persistence for all ``fluent`` API us
 
     set_gateway_uri(gateway_uri="http://my.gateway:7000")
 
-2. Issue a query to a given route:
+2. Query a route:
 
 The :func:`query() <mlflow.gateway.query>` function interfaces with a configured route name and returns the response from the provider
 in a standardized format. The data structure you send in the query depends on the route.
