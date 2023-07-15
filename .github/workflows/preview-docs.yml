@@ -1,11 +1,12 @@
 name: Preview docs
 
 on:
-  pull_request_target:
+  pull_request:
+    branches:
+      - master
 
 jobs:
   main:
-    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
