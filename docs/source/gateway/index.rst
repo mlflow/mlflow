@@ -1,8 +1,8 @@
 .. _gateway:
 
-===========================================
-Databricks MLflow AI Gateway (Experimental)
-===========================================
+============================
+Databricks MLflow AI Gateway
+============================
 
 .. warning::
 
@@ -329,17 +329,16 @@ The returned response will have the following structure (the actual content and 
     {
         "candidates": [
             {
-                "message": {
-                    "role": "assistant",
-                    "content": "The best day of the week is Wednesday.",
-                },
-                "metadata": {"finish_reason": "stop"}
+                "text": "MLflow is an open source platform for machine learning...",
+                "metadata": {
+                    "finish_reason": "stop"
+                }
             }
         ],
         "metadata": {
-            "input_tokens": 12,
-            "output_tokens": 14,
-            "total_tokens": 26,
+            "input_tokens": 8,
+            "output_tokens": 15,
+            "total_tokens": 23,
             "model": "claude-v1.3",
             "route_type": "llm/v1/completions"
         }
