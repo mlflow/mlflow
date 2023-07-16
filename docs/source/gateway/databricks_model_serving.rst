@@ -158,7 +158,6 @@ step is to register these assets with the MLflow Model Registry by running the f
             "model",
             python_model=MPT(),
             artifacts={"repository": snapshot_location},
-            # metadata={"model_type": "mpt-naive"},
             pip_requirements=["torch", "transformers", "accelerate", "einops", "sentencepiece"],
             input_example=input_example,
             signature=signature,
