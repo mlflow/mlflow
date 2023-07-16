@@ -215,6 +215,13 @@ At this point, you may use the :ref:`gateway_fluent_api` to query both routes wi
 
 If you no longer need a route, you can delete it from the configuration YAML and save your changes. The AI Gateway will automatically remove the route.
 
+Step 10: Use AI Gateway routes for model development
+----------------------------------------------------
+
+Now that you have created several AI Gateway routes, you can create MLflow Models that query these
+routes to build application-specific logic using techniques like prompt engineering. For more
+information, see :ref:`AI Gateway and MLflow Models <gateway_mlflow_models>`.
+
 .. _gateway-concepts:
 
 Concepts
@@ -851,6 +858,8 @@ To use the ``MlflowGatewayClient`` API, see the below examples for the available
            "chat", {"messages": [{"role": "user", "content": "Tell me a joke about rabbits"}]}
        )
        print(response)
+
+.. _gateway_mlflow_models:
 
 MLflow Models
 ~~~~~~~~~~~~~
