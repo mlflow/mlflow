@@ -349,11 +349,11 @@ Finally, if you no longer need a route, you can delete it using the
 :py:func:`mlflow.gateway.delete_route` API. For more information, see the
 :ref:`gateway_fluent_api` and :ref:`gateway_client_api` sections.
 
-Step 8: Use AI Gateway routes for model development 
+Step 8: Use AI Gateway routes for model development
 ---------------------------------------------------
 
-Now that you have created some AI Gateway routes, you can create MLflow Models that query this
-route to build application-specific logic using techniques like prompt engineering. For more
+Now that you have created several AI Gateway routes, you can create MLflow Models that query these
+routes to build application-specific logic using techniques like prompt engineering. For more
 information, see :ref:`AI Gateway and MLflow Models <gateway_mlflow_models>`.
 
 
