@@ -199,7 +199,7 @@ to create a Databricks Model Serving endpoint using the
    in Databricks Model Serving.
 
 
-Step 6: Create an AI Gateway completions route 
+Step 6: Create an AI Gateway completions route
 ----------------------------------------------
 Now that a Databricks Model Serving endpoint has been created, the next step is to create a
 completions route in the AI Gateway that forwards requests to the endpoint by running the
