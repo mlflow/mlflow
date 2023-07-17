@@ -308,14 +308,14 @@ Here's an example of a provider configuration within a route:
 .. code-block:: yaml
 
     routes:
-        - name: chat
-          type: llm/v1/chat
-          model:
-            provider: openai
-            name: gpt-4
-            config:
-              openai_api_base: https://api.openai.com/v1
-              openai_api_key: $OPENAI_API_KEY
+      - name: chat
+        type: llm/v1/chat
+        model:
+          provider: openai
+          name: gpt-4
+          config:
+            openai_api_base: https://api.openai.com/v1
+            openai_api_key: $OPENAI_API_KEY
 
 In the above configuration, ``openai`` is the `provider` for the model.
 
