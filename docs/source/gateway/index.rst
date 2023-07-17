@@ -354,14 +354,14 @@ Here's an example of a route configuration:
 .. code-block:: yaml
 
     routes:
-        - name: completions
-          type: chat/completions
-          model:
-            provider: openai
-            name: gpt-3.5-turbo
-            config:
-              openai_api_base: https://api.openai.com/v1
-              openai_api_key: $OPENAI_API_KEY
+      - name: completions
+        type: chat/completions
+        model:
+          provider: openai
+          name: gpt-3.5-turbo
+          config:
+            openai_api_base: https://api.openai.com/v1
+            openai_api_key: $OPENAI_API_KEY
 
 In the example above, a request sent to the completions route would be forwarded to the
 ``gpt-3.5-turbo`` model provided by ``openai``.
