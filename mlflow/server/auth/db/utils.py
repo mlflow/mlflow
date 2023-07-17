@@ -32,5 +32,6 @@ def migrate_if_needed(engine: Engine, revision: str) -> None:
     script_dir = ScriptDirectory.from_config(alembic_cfg)
     with engine.begin() as conn:
         context = MigrationContext.configure(conn)
+        print(context.get_current_revision(), script_dir.get_current_head())
         if context.get_current_revision() != script_dir.get_current_head():
             upgrade(alembic_cfg, revision)
