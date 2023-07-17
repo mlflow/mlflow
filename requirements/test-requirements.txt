@@ -35,3 +35,5 @@ evaluate
 nltk
 rouge_score
 textstat
+transformers
+torch

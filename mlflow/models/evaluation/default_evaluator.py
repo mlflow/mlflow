@@ -1183,19 +1183,23 @@ class DefaultEvaluator(ModelEvaluator):
             )
             return
 
-        results = perplexity.compute(predictions=predictions, model_id='gpt2')
-        self.metrics.update({'mean_perplexity': results['mean_perplexity']})
-        self.metrics_dict.update({'perplexity': results['perplexities']})
+        results = perplexity.compute(predictions=predictions, model_id="gpt2")
+        self.metrics.update({"mean_perplexity": results["mean_perplexity"]})
+        self.metrics_dict.update({"perplexity": results["perplexities"]})
 
     def _calculate_toxicity(self, predictions):
         try:
-            from transformers import AutoModelForSequenceClassification, AutoTokenizer, TextClassificationPipeline
+            from transformers import (
+                AutoModelForSequenceClassification,
+                AutoTokenizer,
+                TextClassificationPipeline,
+            )
 
             model_path = "martin-ha/toxic-comment-model"
             tokenizer = AutoTokenizer.from_pretrained(model_path)
             model = AutoModelForSequenceClassification.from_pretrained(model_path)
 
-            pipeline =  TextClassificationPipeline(model=model, tokenizer=tokenizer)
+            pipeline = TextClassificationPipeline(model=model, tokenizer=tokenizer)
         except Exception as e:
             _logger.warning(
                 f"Failed to load 'toxicity' metric (error: {e!r}), skipping metric logging."
@@ -1203,9 +1207,12 @@ class DefaultEvaluator(ModelEvaluator):
             return
 
         results = pipeline(list(predictions))
-        percent_toxic = {'percent_toxic': sum([1 if result['label'] == 'toxic' else 0 for result in results])/len(results)}
+        percent_toxic = {
+            "percent_toxic": sum([1 if result["label"] == "toxic" else 0 for result in results])
+            / len(results)
+        }
         self.metrics.update(percent_toxic)
-        self.metrics_dict.update({'toxicity': results})
+        self.metrics_dict.update({"toxicity": results})
 
     def _calculate_reading_level(self, predictions):
         try:
@@ -1217,13 +1224,17 @@ class DefaultEvaluator(ModelEvaluator):
             return
 
         metrics = [textstat.flesch_kincaid_grade(prediction) for prediction in predictions]
-        self.metrics_dict.update({'flesch_kincaid': metrics})
-        average_grade_level = {'flesch_kincaid_mean_grade_level': sum(metric for metric in metrics)/len(metrics)}
+        self.metrics_dict.update({"flesch_kincaid": metrics})
+        average_grade_level = {
+            "flesch_kincaid_mean_grade_level": sum(metric for metric in metrics) / len(metrics)
+        }
         self.metrics.update(average_grade_level)
-        
+
         metrics = [textstat.automated_readability_index(prediction) for prediction in predictions]
-        self.metrics_dict.update({'automated_readability_index': metrics})
-        average_grade_level = {'ari_mean_grade_level': sum(metric for metric in metrics)/len(metrics)}
+        self.metrics_dict.update({"automated_readability_index": metrics})
+        average_grade_level = {
+            "ari_mean_grade_level": sum(metric for metric in metrics) / len(metrics)
+        }
         self.metrics.update(average_grade_level)
 
     def _calculate_general_text_metrics(self):
@@ -1233,10 +1244,11 @@ class DefaultEvaluator(ModelEvaluator):
         for prediction in predictions:
             if not isinstance(prediction, str):
                 _logger.warning(
-                    f"Cannot calculate perplexity, toxicity, and reading level metrics for non string inputs, skipping metric logging."
+                    """Cannot calculate perplexity, toxicity, and reading level metrics 
+                    for non string inputs, skipping metric logging."""
                 )
                 return
-                
+
         self._calculate_toxicity(predictions)
         self._calculate_reading_level(predictions)
         self._calculate_perplexity(predictions)
@@ -1269,7 +1281,9 @@ class DefaultEvaluator(ModelEvaluator):
         )
         metrics = rouge.compute(predictions=predictions, references=self.y, use_aggregator=False)
         self.metrics_dict.update(metrics)
-        aggregate_metrics = rouge.compute(predictions=predictions, references=self.y, use_aggregator=True)
+        aggregate_metrics = rouge.compute(
+            predictions=predictions, references=self.y, use_aggregator=True
+        )
         self.metrics.update(aggregate_metrics)
 
     def _evaluate_text_summarization(self):
