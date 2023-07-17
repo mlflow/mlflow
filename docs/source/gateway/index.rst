@@ -244,61 +244,18 @@ The table below presents a non-exhaustive list of models and a corresponding rou
 With the rapid development of LLMs, there is no guarantee that this list will be up to date at all times. However, the associations listed
 below can be used as a helpful guide when configuring a given route for any newly released model types as they become available with a given provider.
 
-.. list-table::
-   :header-rows: 1
-
-   * - Route Type
-     - Provider
-     - Model Examples
-     - Supported
-   * - llm/v1/completions
-     - OpenAI
-     - gpt-3.5-turbo, gpt-4
-     - Yes
-   * - llm/v1/completions
-     - Anthropic
-     - claude-1, claude-1.3-100k
-     - Yes
-   * - llm/v1/completions
-     - Cohere
-     - command, command-light-nightly
-     - Yes
-   * - llm/v1/completions
-     - Azure OpenAI
-     - text-davinci-003, gpt-35-turbo
-     - Yes
-   * - llm/v1/chat
-     - OpenAI
-     - gpt-3.5-turbo, gpt-4
-     - Yes
-   * - llm/v1/chat
-     - Anthropic
-     -
-     - No
-   * - llm/v1/chat
-     - Cohere
-     -
-     - No
-   * - llm/v1/chat
-     - Azure OpenAI
-     - gpt-35-turbo, gpt-4
-     - Yes
-   * - llm/v1/embeddings
-     - OpenAI
-     - text-embedding-ada-002
-     - Yes
-   * - llm/v1/embeddings
-     - Anthropic
-     -
-     - No
-   * - llm/v1/embeddings
-     - Cohere
-     - embed-english-v2.0, embed-multilingual-v2.0
-     - Yes
-   * - llm/v1/embeddings
-     - Azure OpenAI
-     - text-embedding-ada-002
-     - Yes
++-------------------+--------------------------+------------------+-----------------------------+--------------------------+
+| Route Type        | OpenAI                   | Anthropic        | Cohere                      | Azure OpenAI             |
++===================+==========================+==================+=============================+==========================+
+| llm/v1/completions| - gpt-3.5-turbo          | - claude-1       | - command                   | - text-davinci-003       |
+|                   | - gpt-4                  | - claude-1.3-100k| - command-light-nightly     | - gpt-35-turbo           |
++-------------------+--------------------------+------------------+-----------------------------+--------------------------+
+| llm/v1/chat       | - gpt-3.5-turbo          | N/A              | N/A                         | - gpt-35-turbo           |
+|                   | - gpt-4                  |                  |                             | - gpt-4                  |
++-------------------+--------------------------+------------------+-----------------------------+--------------------------+
+| llm/v1/embeddings | - text-embedding-ada-002 | N/A              | - embed-english-v2.0        | - text-embedding-ada-002 |
+|                   |                          |                  | - embed-multilingual-v2.0   |                          |
++-------------------+--------------------------+------------------+-----------------------------+--------------------------+
 
 Within each model block in the configuration file, the provider field is used to specify the name
 of the provider for that model. This is a string value that needs to correspond to a provider the MLflow AI Gateway supports.
