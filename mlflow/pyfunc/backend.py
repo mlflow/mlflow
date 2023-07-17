@@ -3,6 +3,7 @@ import os
 import pathlib
 import subprocess
 import posixpath
+import shlex
 import sys
 import warnings
 import ctypes
@@ -150,14 +151,12 @@ class PyFuncBackend(FlavorBackend):
                 "--model-uri",
                 str(local_uri),
                 "--content-type",
-                str(content_type),
+                shlex.quote(str(content_type)),
             ]
             if input_path:
-                if " " in input_path:
-                    input_path = f'"{input_path}"'
-                predict_cmd += ["--input-path", str(input_path)]
+                predict_cmd += ["--input-path", shlex.quote(str(input_path))]
             if output_path:
-                predict_cmd += ["--output-path", str(output_path)]
+                predict_cmd += ["--output-path", shlex.quote(str(output_path))]
             return self.prepare_env(local_path).execute(" ".join(predict_cmd))
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type)
