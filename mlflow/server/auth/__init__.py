@@ -420,7 +420,6 @@ def _before_request():
         return
 
 
-
     if request.authorization is None:
         return make_basic_auth_response()
 
