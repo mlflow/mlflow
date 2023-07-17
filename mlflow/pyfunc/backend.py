@@ -145,7 +145,7 @@ class PyFuncBackend(FlavorBackend):
 
         if self._env_manager != _EnvManager.LOCAL:
             predict_cmd = [
-                sys.executable,
+                "python",
                 _mlflow_pyfunc_backend_predict.__file__,
                 "--model-uri",
                 str(local_uri),
