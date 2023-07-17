@@ -215,6 +215,13 @@ At this point, you may use the :ref:`gateway_fluent_api` to query both routes wi
 
 If you no longer need a route, you can delete it from the configuration YAML and save your changes. The AI Gateway will automatically remove the route.
 
+Step 10: Use AI Gateway routes for model development
+----------------------------------------------------
+
+Now that you have created several AI Gateway routes, you can create MLflow Models that query these
+routes to build application-specific logic using techniques like prompt engineering. For more
+information, see :ref:`AI Gateway and MLflow Models <gateway_mlflow_models>`.
+
 .. _gateway-concepts:
 
 Concepts
@@ -301,14 +308,14 @@ Here's an example of a provider configuration within a route:
 .. code-block:: yaml
 
     routes:
-        - name: chat
-          type: llm/v1/chat
-          model:
-            provider: openai
-            name: gpt-4
-            config:
-              openai_api_base: https://api.openai.com/v1
-              openai_api_key: $OPENAI_API_KEY
+      - name: chat
+        type: llm/v1/chat
+        model:
+          provider: openai
+          name: gpt-4
+          config:
+            openai_api_base: https://api.openai.com/v1
+            openai_api_key: $OPENAI_API_KEY
 
 In the above configuration, ``openai`` is the `provider` for the model.
 
@@ -518,7 +525,7 @@ OpenAI
 ++++++
 
 +-------------------------+----------+-------------------------------+-------------------------------------------------------------+
-| Parameter               | Required | Default                       | Description                                                 |
+| Configuration Parameter | Required | Default                       | Description                                                 |
 +=========================+==========+===============================+=============================================================+
 | **openai_api_key**      | Yes      |                               | This is the API key for the OpenAI service.                 |
 +-------------------------+----------+-------------------------------+-------------------------------------------------------------+
@@ -538,21 +545,21 @@ OpenAI
 Cohere
 ++++++
 
-+---------------------+----------+--------------------------+-------------------------------------------------------+
-| Parameter           | Required | Default                  | Description                                           |
-+=====================+==========+==========================+=======================================================+
-| **cohere_api_key**  | Yes      | N/A                      | This is the API key for the Cohere service.           |
-+---------------------+----------+--------------------------+-------------------------------------------------------+
++--------------------------+----------+--------------------------+-------------------------------------------------------+
+| Configuration Parameter  | Required | Default                  | Description                                           |
++==========================+==========+==========================+=======================================================+
+| **cohere_api_key**       | Yes      | N/A                      | This is the API key for the Cohere service.           |
++--------------------------+----------+--------------------------+-------------------------------------------------------+
 
 
 Anthropic
 +++++++++
 
-+------------------------+----------+--------------------------+-------------------------------------------------------+
-| Parameter              | Required | Default                  | Description                                           |
-+========================+==========+==========================+=======================================================+
-| **anthropic_api_key**  | Yes      | N/A                      | This is the API key for the Anthropic service.        |
-+------------------------+----------+--------------------------+-------------------------------------------------------+
++-------------------------+----------+--------------------------+-------------------------------------------------------+
+| Configuration Parameter | Required | Default                  | Description                                           |
++=========================+==========+==========================+=======================================================+
+| **anthropic_api_key**   | Yes      | N/A                      | This is the API key for the Anthropic service.        |
++-------------------------+----------+--------------------------+-------------------------------------------------------+
 
 Azure OpenAI
 ++++++++++++
@@ -562,7 +569,7 @@ Azure provides two different mechanisms for integrating with OpenAI, each corres
 To match your user's interaction and security access requirements, adjust the ``openai_api_type`` parameter to represent the preferred security validation model. This will ensure seamless interaction and reliable security for your Azure-OpenAI integration.
 
 +----------------------------+----------+---------+-----------------------------------------------------------------------------------------------+
-| Parameter                  | Required | Default | Description                                                                                   |
+| Configuration Parameter    | Required | Default | Description                                                                                   |
 +============================+==========+=========+===============================================================================================+
 | **openai_api_key**         | Yes      |         | This is the API key for the Azure OpenAI service.                                             |
 +----------------------------+----------+---------+-----------------------------------------------------------------------------------------------+
@@ -623,18 +630,91 @@ Once the MLflow AI Gateway server has been configured and started, it is ready t
 Standard Query Parameters
 -------------------------
 
-The query parameters that are supported by various providers for different route types are also available to be used with the MLflow AI Gateway.
-Each of these query parameters are optional elements that can be included along with using the ``query`` APIs as key value pairs within the ``data`` argument.
-The AI Gateway will perform validation of these commonly modified parameters to ensure that provider-specific restrictions and scaling factors are unified with a consistent range of allowable values.
-If a given provider does not provide support for a parameter, a clear message will be returned when queried that explains the restrictions for the given provider and route type.
+The MLflow AI Gateway defines standard parameters for chat, completions, and embeddings that can be
+used when querying any route regardless of its provider. Each parameter has a standard range and
+default value. When querying a route with a particular provider, the MLflow AI Gateway automatically
+scales parameter values according to the provider's value ranges for that parameter.
 
-- ``temperature``: This parameter controls the randomness of predictions by scaling the logits before applying softmax. A value closer to 0.0 makes the output more deterministic, while a value closer to 1.0 makes it more diverse. Default is 0.0.
+Completions
+~~~~~~~~~~~
 
-- ``max_tokens``: This parameter limits the length of the generated output by specifying a maximum token count. The range is from 1 to infinity, and by default, there is no limit (infinity). Some providers have a maximum value associated with this parameter that the AI Gateway will enforce to prevent a provider-generated exception.
+The standard parameters for completions routes with type ``llm/v1/completions`` are:
 
-- ``stop``: This parameter specifies an array of strings, where each string is a token that indicates the end of a text generation. By default, this is empty.
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| Query Parameter               | Type           | Required | Default       | Description                                           |
++===============================+================+==========+===============+=======================================================+
+| **prompt**                    | string         | Yes      | N/A           | The prompt for which to generate completions.         |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **candidate_count**           | integer        | No       | 1             | The number of completions to generate for the         |
+|                               |                |          |               | specified prompt, between 1 and 5.                    |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **temperature**               | float          | No       | 0.0           | The sampling temperature to use, between 0 and 1.     |
+|                               |                |          |               | Higher values will make the output more random, and   |
+|                               |                |          |               | lower values will make the output more deterministic. |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **max_tokens**                | integer        | No       | None          | The maximum completion length, between 1 and infinity |
+|                               |                |          |               | (unlimited).                                          |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **stop**                      | array[string]  | No       | None          | Sequences where the model should stop generating      |
+|                               |                |          |               | tokens and return the completion.                     |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 
-- ``candidate_count``: This parameter determines the number of alternative responses to generate. The range is from 1 to 5, and by default, it is set to 1.
+Chat
+~~~~
+
+The standard parameters for chat routes with type ``llm/v1/chat`` are:
+
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| Query Parameter               | Type           | Required | Default       | Description                                           |
++===============================+================+==========+===============+=======================================================+
+| **messages**                  | array[message] | Yes      | N/A           | A list of messages in a conversation from which to    |
+|                               |                |          |               | a new message (chat completion). For information      |
+|                               |                |          |               | about the message structure, see                      |
+|                               |                |          |               | :ref:`chat_message_structure`.                        |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **candidate_count**           | integer        | No       | 1             | The number of chat completions to generate for the    |
+|                               |                |          |               | specified prompt, between 1 and 5.                    |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **temperature**               | float          | No       | 0.0           | The sampling temperature to use, between 0 and 1.     |
+|                               |                |          |               | Higher values will make the output more random, and   |
+|                               |                |          |               | lower values will make the output more deterministic. |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **max_tokens**                | integer        | No       | None          | The maximum completion length, between 1 and infinity |
+|                               |                |          |               | (unlimited).                                          |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **stop**                      | array[string]  | No       | None          | Sequences where the model should stop generating      |
+|                               |                |          |               | tokens and return the chat completion.                |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+
+.. _chat_message_structure:
+
+Messages
+^^^^^^^^
+
+Each chat message is a string dictionary containing the following fields:
+
++-------------------------------+----------+--------------------------+-------------------------------------------------------+
+| Field Name                    | Required | Default                  | Description                                           |
++===============================+==========+==========================+=======================================================+
+| **role**                      | Yes      | N/A                      | The role of the conversation participant who sent the |
+|                               |          |                          | message. Must be one of: ``"system"``, ``"user"``, or |
+|                               |          |                          | ``"assistant"``.                                      |
++-------------------------------+----------+--------------------------+-------------------------------------------------------+
+| **content**                   | Yes      | N/A                      | The message content.                                  |
++-------------------------------+----------+--------------------------+-------------------------------------------------------+
+
+Embeddings
+~~~~~~~~~~
+
+The standard parameters for completions routes with type ``llm/v1/embeddings`` are:
+
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| Query Parameter               | Type           | Required | Default       | Description                                           |
++===============================+================+==========+===============+=======================================================+
+| **text**                      | string         | Yes      | N/A           | A string or list of strings for which to generate     |
+|                               | or             |          |               | embeddings.                                           |
+|                               | array[string]  |          |               |                                                       |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 
 Additional Query Parameters
 ---------------------------
@@ -654,9 +734,11 @@ Below is an example of submitting a query request to an MLflow AI Gateway route 
 .. code-block:: python
 
     data = {
-        "prompt": "What would happen if an asteroid the size of "
-        "a basketball encountered the Earth traveling at 0.5c? "
-        "Please provide your answer in .rst format for the purposes of documentation.",
+        "prompt": (
+            "What would happen if an asteroid the size of "
+            "a basketball encountered the Earth traveling at 0.5c? "
+            "Please provide your answer in .rst format for the purposes of documentation."
+        ),
         "temperature": 0.5,
         "max_tokens": 1000,
         "candidate_count": 1,
@@ -779,6 +861,8 @@ To use the ``MlflowGatewayClient`` API, see the below examples for the available
        )
        print(response)
 
+.. _gateway_mlflow_models:
+
 MLflow Models
 ~~~~~~~~~~~~~
 You can also build and deploy MLflow Models that call the MLflow AI Gateway.
@@ -889,8 +973,8 @@ Here are some examples for how you might use curl to interact with the Gateway:
      .. code-block:: bash
 
          curl -X POST http://my.gateway:8888/gateway/embeddings/invocations \
-         -H "Content-Type: application/json" \
-         -d '{"text": ["I would like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
+           -H "Content-Type: application/json" \
+           -d '{"text": ["I would like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
 
 **Note:** Remember to replace ``http://my.gateway:8888`` with the URL of your actual MLflow AI Gateway Server.
 
