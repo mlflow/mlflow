@@ -8,11 +8,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.22.1",
-            "maximum": "1.2.2"
+            "maximum": "1.3.0"
         },
         "autologging": {
             "minimum": "0.22.1",
-            "maximum": "1.2.2"
+            "maximum": "1.3.0"
         }
     },
     "pytorch": {
@@ -34,7 +34,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.0.5",
-            "maximum": "2.0.2"
+            "maximum": "2.0.5"
         }
     },
     "tensorflow": {
@@ -43,11 +43,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.3.0",
-            "maximum": "2.12.0"
+            "maximum": "2.13.0"
         },
         "autologging": {
             "minimum": "2.3.0",
-            "maximum": "2.12.0"
+            "maximum": "2.13.0"
         }
     },
     "xgboost": {
@@ -56,11 +56,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.1.1",
-            "maximum": "1.7.5"
+            "maximum": "1.7.6"
         },
         "autologging": {
             "minimum": "1.1.1",
-            "maximum": "1.7.5"
+            "maximum": "1.7.6"
         }
     },
     "lightgbm": {
@@ -69,11 +69,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.3.1",
-            "maximum": "3.3.5"
+            "maximum": "4.0.0"
         },
         "autologging": {
             "minimum": "2.3.1",
-            "maximum": "3.3.5"
+            "maximum": "4.0.0"
         }
     },
     "catboost": {
@@ -126,7 +126,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.2.4",
-            "maximum": "3.5.3"
+            "maximum": "3.6.0"
         }
     },
     "statsmodels": {
@@ -148,11 +148,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.0.0",
-            "maximum": "3.4.0"
+            "maximum": "3.4.1"
         },
         "autologging": {
             "minimum": "3.0.0",
-            "maximum": "3.4.0"
+            "maximum": "3.4.1"
         }
     },
     "mleap": {
@@ -161,7 +161,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.18.0",
-            "maximum": "0.22.0"
+            "maximum": "0.23.0"
         }
     },
     "prophet": {
@@ -197,7 +197,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.40.0.1",
-            "maximum": "3.40.0.4"
+            "maximum": "3.42.0.1"
         }
     },
     "shap": {
@@ -206,7 +206,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.41.0",
-            "maximum": "0.41.0"
+            "maximum": "0.42.0"
         }
     },
     "paddle": {
@@ -215,7 +215,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.4.1",
-            "maximum": "2.4.2"
+            "maximum": "2.5.0"
         }
     },
     "transformers": {
@@ -224,11 +224,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.25.1",
-            "maximum": "4.29.2"
+            "maximum": "4.30.2"
         },
         "autologging": {
             "minimum": "4.25.1",
-            "maximum": "4.29.2"
+            "maximum": "4.30.2"
         }
     },
     "openai": {
@@ -237,7 +237,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.27.2",
-            "maximum": "0.27.7"
+            "maximum": "0.27.8"
         }
     },
     "langchain": {
@@ -246,7 +246,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.0.169",
-            "maximum": "0.0.190"
+            "maximum": "0.0.232"
         }
     },
     "sentence_transformers": {
@@ -256,6 +256,15 @@ _ML_PACKAGE_VERSIONS = {
         "models": {
             "minimum": "2.2.2",
             "maximum": "2.2.2"
+        }
+    },
+    "johnsnowlabs": {
+        "package_info": {
+            "pip_release": "johnsnowlabs"
+        },
+        "models": {
+            "minimum": "4.4.6",
+            "maximum": "5.0.0"
         }
     }
 }

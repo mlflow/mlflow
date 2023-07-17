@@ -8,7 +8,7 @@ import pandas as pd
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import DataType
-from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
+from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
 _logger = logging.getLogger(__name__)
 
@@ -474,52 +474,3 @@ def _infer_schema_from_type_hint(type_hint, examples=None):
     else:
         _logger.info("Unsupported type hint: %s, skipping schema inference", type_hint)
         return None
-
-
-def _infer_type_and_shape(value):
-    if isinstance(value, (list, np.ndarray, pd.Series)):
-        ndim = np.array(value).ndim
-        if ndim != 1:
-            raise MlflowException.invalid_parameter_value(
-                f"Expected parameters to be 1D array or scalar, got {ndim}D array",
-            )
-        if all(DataType.is_datetime(v) for v in value):
-            return DataType.datetime, (-1,)
-        value_type = _infer_numpy_dtype(np.array(value).dtype)
-        return value_type, (-1,)
-    elif DataType.is_datetime(value):
-        return DataType.datetime, None
-    elif np.isscalar(value):
-        try:
-            value_type = _infer_numpy_dtype(np.array(value).dtype)
-            return value_type, None
-        except (Exception, MlflowException) as e:
-            raise MlflowException.invalid_parameter_value(
-                f"Failed to infer schema for parameter {value}: {e!r}"
-            )
-    raise MlflowException.invalid_parameter_value(
-        f"Expected parameters to be 1D array or scalar, got {type(value).__name__}",
-    )
-
-
-def _infer_param_schema(parameters: Dict[str, Any]):
-    if not isinstance(parameters, dict):
-        raise MlflowException.invalid_parameter_value(
-            f"Expected parameters to be dict, got {type(parameters).__name__}",
-        )
-
-    param_specs = []
-    invalid_params = []
-    for name, value in parameters.items():
-        try:
-            value_type, shape = _infer_type_and_shape(value)
-            param_specs.append(ParamSpec(name=name, dtype=value_type, default=value, shape=shape))
-        except Exception as e:
-            invalid_params.append((name, value, e))
-
-    if invalid_params:
-        raise MlflowException.invalid_parameter_value(
-            f"Failed to infer schema for parameters: {invalid_params}",
-        )
-
-    return ParamSchema(param_specs)

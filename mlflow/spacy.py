@@ -11,7 +11,6 @@ spaCy (native) format
 """
 import logging
 import os
-from typing import Any, Dict, Optional
 
 import pandas as pd
 import yaml
@@ -283,19 +282,12 @@ class _SpacyModelWrapper:
     def __init__(self, spacy_model):
         self.spacy_model = spacy_model
 
-    def predict(
-        self, dataframe, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
-    ):
+    def predict(self, dataframe):
         """
         Only works for predicting using text categorizer.
         Not suitable for other pipeline components (e.g: parser)
         :param dataframe: pandas dataframe containing texts to be categorized
                           expected shape is (n_rows,1 column)
-        :param params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
         :return: dataframe with predictions
         """
         if len(dataframe.columns) != 1:

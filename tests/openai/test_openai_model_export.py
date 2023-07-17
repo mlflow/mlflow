@@ -346,7 +346,7 @@ def test_spark_udf(tmp_path, spark):
 
 
 class ChatCompletionModel(mlflow.pyfunc.PythonModel):
-    def predict(self, context, model_input, params=None):
+    def predict(self, context, model_input):
         completion = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "What is MLflow?"}],

@@ -4,6 +4,7 @@ import re
 import sys
 import logging
 import warnings
+import contextlib
 
 import click
 import importlib.metadata
@@ -676,6 +677,12 @@ try:
     cli.add_command(mlflow.sagemaker.cli.commands)
 except ImportError:
     pass
+
+
+with contextlib.suppress(ImportError):
+    import mlflow.gateway.cli
+
+    cli.add_command(mlflow.gateway.cli.commands)
 
 
 if __name__ == "__main__":

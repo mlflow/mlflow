@@ -18,7 +18,6 @@ from collections import namedtuple
 import pandas
 from packaging.version import Version
 from threading import RLock
-from typing import Any, Dict, Optional
 import numpy as np
 import importlib
 import yaml
@@ -759,18 +758,7 @@ class _TF2Wrapper:
         self.model = model
         self.infer = infer
 
-    def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
-    ):
-        """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
-        :return: Model predictions.
-        """
+    def predict(self, data):
         import tensorflow
 
         feed_dict = {}
@@ -814,18 +802,7 @@ class _TF2ModuleWrapper:
         self.model = model
         self.signature = signature
 
-    def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
-    ):
-        """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
-        :return: Model predictions.
-        """
+    def predict(self, data):
         import tensorflow
 
         if isinstance(data, (np.ndarray, list)):
@@ -846,18 +823,7 @@ class _KerasModelWrapper:
         self.keras_model = keras_model
         self.signature = signature
 
-    def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
-    ):
-        """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
-        :return: Model predictions.
-        """
+    def predict(self, data):
         if isinstance(data, pandas.DataFrame):
             # This line is for backwards compatibility:
             # If model signature is not None, when calling

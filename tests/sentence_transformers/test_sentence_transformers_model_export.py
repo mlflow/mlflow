@@ -12,7 +12,6 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sentence_transformers
 from mlflow import pyfunc
-from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -295,7 +294,6 @@ def test_default_signature_assignment():
     expected_signature = {
         "inputs": '[{"type": "string"}]',
         "outputs": '[{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": ' "[-1]}}]",
-        "params": None,
     }
 
     default_signature = mlflow.sentence_transformers._get_default_signature()
@@ -325,59 +323,15 @@ def test_model_pyfunc_save_load(basic_model, model_path):
     np.testing.assert_array_equal(emb1, emb3)
 
 
-def test_model_pyfunc_predict_with_params(basic_model, tmp_path):
-    sentence = "hello world and hello mlflow"
-    params = {"batch_size": 16}
-
-    model_path = tmp_path / "model1"
-    signature = infer_signature(sentence, params=params)
-    mlflow.sentence_transformers.save_model(basic_model, model_path, signature=signature)
-    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
-    embedding_dim = basic_model.get_sentence_embedding_dimension()
-
-    emb0 = loaded_pyfunc.predict(sentence, params)
-    assert emb0.shape == (1, embedding_dim)
-
-    with pytest.raises(MlflowException, match=r"Incompatible types for param 'batch_size'"):
-        loaded_pyfunc.predict(sentence, {"batch_size": "16"})
-
-    model_path = tmp_path / "model2"
-    mlflow.sentence_transformers.save_model(
-        basic_model,
-        model_path,
-        signature=infer_signature(sentence, params={"invalid_param": "value"}),
-    )
-    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
-    with pytest.raises(
-        MlflowException, match=r"Received invalid parameter value for `params` argument"
-    ):
-        loaded_pyfunc.predict(sentence, {"invalid_param": "random_value"})
-
-    model_path = tmp_path / "model3"
-    mlflow.sentence_transformers.save_model(basic_model, model_path)
-    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
-    with pytest.raises(
-        MlflowException,
-        match=r"`params` can only be specified at inference time if the model "
-        r"signature defines a params schema. This model does not define a params schema.",
-    ):
-        loaded_pyfunc.predict(sentence, params)
-
-
 def test_spark_udf(basic_model, spark):
-    params = {"batch_size": 16}
     with mlflow.start_run():
-        signature = infer_signature(SENTENCES, basic_model.encode(SENTENCES), params)
-        model_info = mlflow.sentence_transformers.log_model(
-            basic_model, "my_model", signature=signature
-        )
+        model_info = mlflow.sentence_transformers.log_model(basic_model, "my_model")
 
     result_type = ArrayType(DoubleType())
     loaded_model = mlflow.pyfunc.spark_udf(
         spark,
         model_info.model_uri,
         result_type=result_type,
-        params=params,
     )
 
     df = spark.createDataFrame([("hello MLflow",), ("bye world",)], ["text"])
