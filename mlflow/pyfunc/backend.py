@@ -158,15 +158,7 @@ class PyFuncBackend(FlavorBackend):
                 predict_cmd += ["--input-path", str(input_path)]
             if output_path:
                 predict_cmd += ["--output-path", str(output_path)]
-
-            input_str = sys.stdin.read() if input_path is None else None
-
-            return self.prepare_env(local_path).execute(
-                " ".join(predict_cmd),
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                input_str=input_str,
-            )
+            return self.prepare_env(local_path).execute(" ".join(predict_cmd))
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type)
 
