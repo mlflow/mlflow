@@ -1986,12 +1986,29 @@ def language_model(inputs: list[str]) -> list[str]:
     return inputs
 
 
+def validate_question_answering_logged_data(logged_data, with_targets=True):
+    if with_targets:
+        columns = ["question", "answer", "outputs", "toxicity", "flesch_kincaid", "automated_readability_index", "perplexity"]
+    else:
+        columns = ["question", "outputs", "toxicity", "flesch_kincaid", "automated_readability_index", "perplexity"]
+
+    assert logged_data.columns.tolist() == columns
+    
+    assert logged_data["question"].tolist() == ["words random", "This is a sentence."]
+    assert logged_data["outputs"].tolist() == ["words random", "This is a sentence."]
+    assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "non-toxic"]
+    assert logged_data["perplexity"][0] > logged_data["perplexity"][1]
+
+    if with_targets:
+        assert logged_data["answer"].tolist() == ["words random", "This is a sentence."]
+
+
 def test_evaluate_question_answering_with_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
         )
-        data = pd.DataFrame({"question": ["a", "b"], "answer": ["a", "b"]})
+        data = pd.DataFrame({"question": ["words random", "This is a sentence."], "answer": ["words random", "This is a sentence."]})
         results = mlflow.evaluate(
             model_info.model_uri,
             data,
@@ -2003,12 +2020,8 @@ def test_evaluate_question_answering_with_targets():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    assert logged_data.columns.tolist() == ["question", "answer", "outputs", "toxicity", "perplexity"]
-    assert logged_data["question"].tolist() == ["a", "b"]
-    assert logged_data["answer"].tolist() == ["a", "b"]
-    assert logged_data["outputs"].tolist() == ["a", "b"]
-    assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "non-toxic"]
-    assert set(results.metrics.keys()) == set(["exact_match", "mean_perplexity", "percent_toxic"])
+    validate_question_answering_logged_data(logged_data)
+    assert set(results.metrics.keys()) == set(["exact_match", "mean_perplexity", "percent_toxic", "ari_mean_grade_level", "flesch_kincaid_mean_grade_level"])
     assert results.metrics["exact_match"] == 1.0
     assert results.metrics["percent_toxic"] == 0.0
 
@@ -2043,7 +2056,7 @@ def test_evaluate_question_answering_without_targets():
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
         )
-        data = pd.DataFrame({"question": ["a", "b"]})
+        data = pd.DataFrame({"question": ["words random", "This is a sentence."]})
         results = mlflow.evaluate(
             model_info.model_uri,
             data,
@@ -2054,12 +2067,29 @@ def test_evaluate_question_answering_without_targets():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    assert logged_data.columns.tolist() == ["question", "outputs", "toxicity", "perplexity"]
-    assert logged_data["question"].tolist() == ["a", "b"]
+    validate_question_answering_logged_data(logged_data, False)
+    assert set(results.metrics.keys()) == set(["mean_perplexity", "percent_toxic", "ari_mean_grade_level", "flesch_kincaid_mean_grade_level"])
+    assert results.metrics["percent_toxic"] == 0.0
+
+
+def validate_text_summarization_logged_data(logged_data, with_targets=True):
+    if with_targets:
+        columns = ["text", "summary", "outputs", "rouge1", "rouge2", "rougeL", "rougeLsum", "toxicity", "flesch_kincaid", "automated_readability_index", "perplexity"]
+    else:
+        columns = ["text", "outputs", "toxicity", "flesch_kincaid", "automated_readability_index", "perplexity"]
+
+    assert logged_data.columns.tolist() == columns
+    
+    assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["outputs"].tolist() == ["a", "b"]
     assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "non-toxic"]
-    assert set(results.metrics.keys()) == set(["mean_perplexity", "percent_toxic"])
-    assert results.metrics["percent_toxic"] == 0.0
+
+    if with_targets:
+        assert logged_data["summary"].tolist() == ["a", "b"]
+        assert logged_data["rouge1"].tolist() == [1.0, 1.0]
+        assert logged_data["rouge2"].tolist() == [0.0, 0.0]
+        assert logged_data["rougeL"].tolist() == [1.0, 1.0]
+        assert logged_data["rougeLsum"].tolist() == [1.0, 1.0]
 
 
 def test_evaluate_text_summarization_with_targets():
@@ -2079,17 +2109,12 @@ def test_evaluate_text_summarization_with_targets():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    assert logged_data.columns.tolist() == ["text", "summary", "outputs", "toxicity", "perplexity"]
-    assert logged_data["text"].tolist() == ["a", "b"]
-    assert logged_data["summary"].tolist() == ["a", "b"]
-    assert logged_data["outputs"].tolist() == ["a", "b"]
-    assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "non-toxic"]
-    assert set(results.metrics.keys()) == set(["rouge1", "rouge2", "rougeL", "rougeLsum", "mean_perplexity", "percent_toxic"])
-    assert results.metrics["rouge1"] == 1.0
-    assert results.metrics["rouge2"] == 0.0
-    assert results.metrics["rougeL"] == 1.0
-    assert results.metrics["rougeLsum"] == 1.0
-    assert results.metrics["percent_toxic"] == 0.0
+    validate_text_summarization_logged_data(logged_data)
+    
+    metrics = results.metrics
+    assert set(metrics.keys()) == set(["rouge1", "rouge2", "rougeL", "rougeLsum", "mean_perplexity", "percent_toxic", "ari_mean_grade_level", "flesch_kincaid_mean_grade_level"])
+    assert [metrics["rouge1"], metrics["rouge2"], metrics["rougeL"], metrics["rougeLsum"]] == [1.0, 0.0, 1.0, 1.0]
+    assert metrics["percent_toxic"] == 0.0
 
 
 def another_language_model(x):
@@ -2113,17 +2138,12 @@ def test_evaluate_text_summarization_with_targets_no_type_hints():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    assert logged_data.columns.tolist() == ["text", "summary", "outputs", "toxicity", "perplexity"]
-    assert logged_data["text"].tolist() == ["a", "b"]
-    assert logged_data["summary"].tolist() == ["a", "b"]
-    assert logged_data["outputs"].tolist() == ["a", "b"]
-    assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "non-toxic"]
-    assert set(results.metrics.keys()) == set(["rouge1", "rouge2", "rougeL", "rougeLsum", "mean_perplexity", "percent_toxic"])
-    assert results.metrics["rouge1"] == 1.0
-    assert results.metrics["rouge2"] == 0.0
-    assert results.metrics["rougeL"] == 1.0
-    assert results.metrics["rougeLsum"] == 1.0
-    assert results.metrics["percent_toxic"] == 0.0
+    validate_text_summarization_logged_data(logged_data)
+
+    metrics = results.metrics
+    assert set(metrics.keys()) == set(["rouge1", "rouge2", "rougeL", "rougeLsum", "mean_perplexity", "percent_toxic", "ari_mean_grade_level", "flesch_kincaid_mean_grade_level"])
+    assert [metrics["rouge1"], metrics["rouge2"], metrics["rougeL"], metrics["rougeLsum"]] == [1.0, 0.0, 1.0, 1.0]
+    assert metrics["percent_toxic"] == 0.0
 
 
 def test_evaluate_text_summarization_without_targets():
@@ -2142,11 +2162,9 @@ def test_evaluate_text_summarization_without_targets():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    assert logged_data.columns.tolist() == ["text", "outputs", "toxicity", "perplexity"]
-    assert logged_data["text"].tolist() == ["a", "b"]
-    assert logged_data["outputs"].tolist() == ["a", "b"]
-    assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "non-toxic"]
-    assert set(results.metrics.keys()) == set(["mean_perplexity", "percent_toxic"])
+    validate_text_summarization_logged_data(logged_data, with_targets=False)
+
+    assert set(results.metrics.keys()) == set(["mean_perplexity", "percent_toxic", "ari_mean_grade_level", "flesch_kincaid_mean_grade_level"])
     assert results.metrics["percent_toxic"] == 0.0
 
 
@@ -2171,7 +2189,7 @@ def test_evaluate_text_summarization_fails_to_load_metric():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    assert logged_data.columns.tolist() == ["text", "summary", "outputs", "toxicity"]
+    assert logged_data.columns.tolist() == ["text", "summary", "outputs", "toxicity", "flesch_kincaid", "automated_readability_index",]
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["summary"].tolist() == ["a", "b"]
     assert logged_data["outputs"].tolist() == ["a", "b"]
@@ -2183,7 +2201,7 @@ def test_evaluate_text():
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
         )
-        data = pd.DataFrame({"text": ["a", "b"]})
+        data = pd.DataFrame({"text": ["sentence not", "I hate all dogs."]})
         results = mlflow.evaluate(
             model_info.model_uri,
             data,
@@ -2194,11 +2212,13 @@ def test_evaluate_text():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    assert logged_data.columns.tolist() == ["text", "outputs", "toxicity", "perplexity"]
-    assert logged_data["text"].tolist() == ["a", "b"]
-    assert logged_data["outputs"].tolist() == ["a", "b"]
-    assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "non-toxic"]
-    assert set(results.metrics.keys()) == set(["mean_perplexity", "percent_toxic"])
+    assert logged_data.columns.tolist() == ["text", "outputs", "toxicity", "flesch_kincaid", "automated_readability_index", "perplexity"]
+    assert logged_data["text"].tolist() == ["sentence not", "I hate all dogs."]
+    assert logged_data["outputs"].tolist() == ["sentence not", "I hate all dogs."]
+    assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "toxic"]
+    assert logged_data["perplexity"][0] > logged_data["perplexity"][1]
+    assert set(results.metrics.keys()) == set(["mean_perplexity", "percent_toxic", "ari_mean_grade_level", "flesch_kincaid_mean_grade_level"])
+    assert results.metrics["percent_toxic"] == 0.5
 
 
 def accuracy(eval_df, _builtin_metrics):
@@ -2223,12 +2243,12 @@ def test_evaluate_text_custom_metrics():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    assert logged_data.columns.tolist() == ["text", "target", "outputs", "toxicity", "perplexity"]
+    assert logged_data.columns.tolist() == ["text", "target", "outputs", "toxicity", "flesch_kincaid", "automated_readability_index", "perplexity"]
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["target"].tolist() == ["a", "b"]
     assert logged_data["outputs"].tolist() == ["a", "b"]
     assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "non-toxic"]
-    assert set(results.metrics.keys()) == set(["accuracy", "mean_perplexity", "percent_toxic"])
+    assert set(results.metrics.keys()) == set(["accuracy", "mean_perplexity", "percent_toxic", "ari_mean_grade_level", "flesch_kincaid_mean_grade_level"])
     assert results.metrics["accuracy"] == 1.0
     assert results.metrics["percent_toxic"] == 0.0
 

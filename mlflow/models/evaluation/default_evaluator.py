@@ -1177,13 +1177,13 @@ class DefaultEvaluator(ModelEvaluator):
             import evaluate
 
             perplexity = evaluate.load("perplexity", module_type="metric")
-            results = perplexity.compute(predictions=predictions, model_id='gpt2')
         except Exception as e:
             _logger.warning(
-                f"Failed to calculate 'perplexity' metric (error: {e!r}), skipping metric logging."
+                f"Failed to load 'perplexity' metric (error: {e!r}), skipping metric logging."
             )
             return
-                
+
+        results = perplexity.compute(predictions=predictions, model_id='gpt2')
         self.metrics.update({'mean_perplexity': results['mean_perplexity']})
         self.metrics_dict.update({'perplexity': results['perplexities']})
 
@@ -1196,53 +1196,35 @@ class DefaultEvaluator(ModelEvaluator):
             model = AutoModelForSequenceClassification.from_pretrained(model_path)
 
             pipeline =  TextClassificationPipeline(model=model, tokenizer=tokenizer)
-            results = pipeline(list(predictions))
         except Exception as e:
             _logger.warning(
-                f"Failed to calculate 'toxicity' metric (error: {e!r}), skipping metric logging."
+                f"Failed to load 'toxicity' metric (error: {e!r}), skipping metric logging."
             )
             return
 
+        results = pipeline(list(predictions))
         percent_toxic = {'percent_toxic': sum([1 if result['label'] == 'toxic' else 0 for result in results])/len(results)}
         self.metrics.update(percent_toxic)
         self.metrics_dict.update({'toxicity': results})
 
     def _calculate_reading_level(self, predictions):
         try:
-            import nltk
-            from readability import Readability
-
-            nltk.download('punkt')
+            import textstat
         except Exception as e:
             _logger.warning(
                 f"Failed to load reading level metrics (error: {e!r}), skipping metric logging."
             )
-        
-        def _calculate_flesch_kincaid(prediction):
-            return Readability(prediction).flesch_kincaid()
+            return
 
-        try:     
-            metrics = [_calculate_flesch_kincaid(prediction) for prediction in predictions]
-            average_grade_level = {'flesch_kincaid_mean_grade_level': sum(int(metric.grade_level) for metric in metrics)/len(metrics)}
-            self.metrics.update(average_grade_level)
-            self.metrics_dict.update({'flesch_kincaid': metrics})
-        except Exception as e:
-            _logger.warning(
-                f"Failed to calculate 'flesch_kincaid' metric (error: {e!r}), skipping metric logging."
-            )
-
-        def _calculate_ari(prediction):
-            return Readability(prediction).ari()
+        metrics = [textstat.flesch_kincaid_grade(prediction) for prediction in predictions]
+        self.metrics_dict.update({'flesch_kincaid': metrics})
+        average_grade_level = {'flesch_kincaid_mean_grade_level': sum(metric for metric in metrics)/len(metrics)}
+        self.metrics.update(average_grade_level)
         
-        try:     
-            metrics = [_calculate_ari(prediction) for prediction in predictions]
-            average_grade_level = {'ari_mean_grade_level': sum(int(metric.grade_level) for metric in metrics)/len(metrics)}
-            self.metrics.update(average_grade_level)
-            self.metrics_dict.update({'ari': metrics})
-        except Exception as e:
-            _logger.warning(
-                f"Failed to calculate 'ari' metric (error: {e!r}), skipping metric logging."
-            )
+        metrics = [textstat.automated_readability_index(prediction) for prediction in predictions]
+        self.metrics_dict.update({'automated_readability_index': metrics})
+        average_grade_level = {'ari_mean_grade_level': sum(metric for metric in metrics)/len(metrics)}
+        self.metrics.update(average_grade_level)
 
     def _calculate_general_text_metrics(self):
         predictions = (
@@ -1253,6 +1235,7 @@ class DefaultEvaluator(ModelEvaluator):
                 _logger.warning(
                     f"Cannot calculate perplexity, toxicity, and reading level metrics for non string inputs, skipping metric logging."
                 )
+                return
                 
         self._calculate_toxicity(predictions)
         self._calculate_reading_level(predictions)
@@ -1270,21 +1253,28 @@ class DefaultEvaluator(ModelEvaluator):
             uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
         )
 
+    def _calculate_rouge(self):
+        try:
+            import evaluate
+
+            rouge = evaluate.load("rouge")
+        except Exception as e:
+            _logger.warning(
+                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
+            )
+            return
+
+        predictions = (
+            self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
+        )
+        metrics = rouge.compute(predictions=predictions, references=self.y, use_aggregator=False)
+        self.metrics_dict.update(metrics)
+        aggregate_metrics = rouge.compute(predictions=predictions, references=self.y, use_aggregator=True)
+        self.metrics.update(aggregate_metrics)
+
     def _evaluate_text_summarization(self):
         if self.dataset.has_targets:
-            try:
-                import evaluate
-
-                rouge = evaluate.load("rouge")
-                predictions = (
-                    self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
-                )
-                metrics = rouge.compute(predictions=predictions, references=self.y)
-                self.metrics.update(metrics)
-            except Exception as e:
-                _logger.warning(
-                    f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
-                )
+            self._calculate_rouge()
         self._calculate_general_text_metrics()
 
         self._log_eval_table()
