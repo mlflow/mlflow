@@ -973,8 +973,8 @@ Here are some examples for how you might use curl to interact with the Gateway:
      .. code-block:: bash
 
          curl -X POST http://my.gateway:8888/gateway/embeddings/invocations \
-          -H "Content-Type: application/json" \
-          -d '{"text": ["I would like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
+           -H "Content-Type: application/json" \
+           -d '{"text": ["I would like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
 
 **Note:** Remember to replace ``http://my.gateway:8888`` with the URL of your actual MLflow AI Gateway Server.
 
