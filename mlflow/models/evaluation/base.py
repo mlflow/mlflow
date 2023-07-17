@@ -1081,12 +1081,26 @@ def evaluate(
           precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
 
      - For question-answering models, the default evaluator logs:
-        - **metrics**: ``exact_match``.
+        - **metrics**: ``exact_match``, mean_perplexity (requires `evaluate`_),
+          percent_toxic (requires `transformers`_), ari_mean_grade_level (requires `textstat`_),
+          flesch_kincaid_mean_grade_level (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
           argument is supplied) of the model in tabular format.
 
+        .. _evaluate:
+            https://pypi.org/project/evaluate
+
+        .. _transformers:
+            https://pypi.org/project/transformers
+
+        .. _textstat:
+            https://pypi.org/project/textstat
+
      - For text-summarization models, the default evaluator logs:
-        - **metrics**: `ROUGE`_ (requires `evaluate`_, `nltk`_, and `rouge_score` to be installed).
+        - **metrics**: `ROUGE`_ (requires `evaluate`_, `nltk`_, and `rouge_score` to be installed),
+          mean_perplexity (requires `evaluate`_), percent_toxic (requires `transformers`_),
+          ari_mean_grade_level (requires `textstat`_), flesch_kincaid_mean_grade_level
+          (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
           argument is supplied) of the model in the tabular format.
 
@@ -1102,9 +1116,27 @@ def evaluate(
         .. _rouge_score:
             https://pypi.org/project/rouge-score
 
+        .. _transformers:
+            https://pypi.org/project/transformers
+
+        .. _textstat:
+            https://pypi.org/project/textstat
+
      - For text models, the default evaluator logs:
+        - **metrics**: mean_perplexity (requires `evaluate`_), percent_toxic
+          (requires `transformers`_), ari_mean_grade_level (requires `textstat`_),
+          flesch_kincaid_mean_grade_level (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
           argument is supplied) of the model in tabular format.
+
+        .. _evaluate:
+            https://pypi.org/project/evaluate
+
+        .. _transformers:
+            https://pypi.org/project/transformers
+
+        .. _textstat:
+            https://pypi.org/project/textstat
 
      - For sklearn models, the default evaluator additionally logs the model's evaluation criterion
        (e.g. mean accuracy for a classifier) computed by `model.score` method.
