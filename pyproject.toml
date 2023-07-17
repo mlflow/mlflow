@@ -82,7 +82,8 @@ exclude = [
   "tests/protos",
 ]
 [tool.ruff.per-file-ignores]
-"dev/*" = ["T201"]
+"dev/*" = ["T201", "PT018"]
+"mlflow/*" = ["PT018"]
 
 [tool.ruff.flake8-pytest-style]
 mark-parentheses = false
