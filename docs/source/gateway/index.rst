@@ -645,24 +645,24 @@ The standard parameters for completions routes with type ``llm/v1/completions`` 
 +===============================+================+==========+===============+=======================================================+
 | **prompt**                    | string         | Yes      | N/A           | The prompt for which to generate completions.         |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
-| **candidate_count**           | integer        | No       | 1             | The number of completions to generate for the         |
+| **candidate_count**           | integer        | No       | None          | The number of completions to generate for the         |
 |                               |                |          |               | specified prompt, between 1 and 5.                    |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 | **temperature**               | float          | No       | 0.0           | The sampling temperature to use, between 0 and 1.     |
 |                               |                |          |               | Higher values will make the output more random, and   |
 |                               |                |          |               | lower values will make the output more deterministic. |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
-| **max_tokens**                | integer        | No       | infinity      | The maximum completion length, between 1 and infinity |
+| **max_tokens**                | integer        | No       | None          | The maximum completion length, between 1 and infinity |
 |                               |                |          |               | (unlimited).                                          |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
-| **stop**                      | array[string]  | No       | []            | Sequences where the model should stop generating      |
+| **stop**                      | array[string]  | No       | None          | Sequences where the model should stop generating      |
 |                               |                |          |               | tokens and return the completion.                     |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 
 Chat
 ~~~~
 
-The standard parameters for completions routes with type ``llm/v1/chat`` are:
+The standard parameters for chat routes with type ``llm/v1/chat`` are:
 
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 | Query Parameter               | Type           | Required | Default       | Description                                           |
@@ -672,17 +672,17 @@ The standard parameters for completions routes with type ``llm/v1/chat`` are:
 |                               |                |          |               | about the message structure, see                      |
 |                               |                |          |               | :ref:`chat_message_structure`.                        |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
-| **candidate_count**           | integer        | No       | 1             | The number of chat completions to generate for the    |
+| **candidate_count**           | integer        | No       | None          | The number of chat completions to generate for the    |
 |                               |                |          |               | specified prompt, between 1 and 5.                    |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 | **temperature**               | float          | No       | 0.0           | The sampling temperature to use, between 0 and 1.     |
 |                               |                |          |               | Higher values will make the output more random, and   |
 |                               |                |          |               | lower values will make the output more deterministic. |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
-| **max_tokens**                | integer        | No       | infinity      | The maximum completion length, between 1 and infinity |
+| **max_tokens**                | integer        | No       | None          | The maximum completion length, between 1 and infinity |
 |                               |                |          |               | (unlimited).                                          |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
-| **stop**                      | array[string]  | No       | []            | Sequences where the model should stop generating      |
+| **stop**                      | array[string]  | No       | None          | Sequences where the model should stop generating      |
 |                               |                |          |               | tokens and return the chat completion.                |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 
@@ -734,9 +734,11 @@ Below is an example of submitting a query request to an MLflow AI Gateway route 
 .. code-block:: python
 
     data = {
-        "prompt": "What would happen if an asteroid the size of "
-        "a basketball encountered the Earth traveling at 0.5c? "
-        "Please provide your answer in .rst format for the purposes of documentation.",
+        "prompt": (
+            "What would happen if an asteroid the size of "
+            "a basketball encountered the Earth traveling at 0.5c? "
+            "Please provide your answer in .rst format for the purposes of documentation."
+        ),
         "temperature": 0.5,
         "max_tokens": 1000,
         "candidate_count": 1,
