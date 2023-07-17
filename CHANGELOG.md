@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 2.5.0 (2023-07-13)
+## 2.5.0 (2023-07-17)
 
 MLflow 2.5.0 includes several major features and improvements:
 
