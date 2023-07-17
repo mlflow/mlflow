@@ -878,7 +878,7 @@ class _AutologgingMetricsManager:
 _AUTOLOGGING_METRICS_MANAGER = _AutologgingMetricsManager()
 
 
-_metric_api_excluding_list = ["check_scoring", "get_scorer", "make_scorer"]
+_metric_api_excluding_list = ["check_scoring", "get_scorer", "make_scorer", "get_scorer_names"]
 
 
 def _get_metric_name_list():
