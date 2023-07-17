@@ -52,7 +52,7 @@ class SqlAlchemyStore:
                 raise MlflowException(
                     f"User (username={username}) already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
-                )
+                ) from e
 
     @staticmethod
     def _get_user(session, username: str) -> SqlUser:
