@@ -79,7 +79,6 @@ routes that the Gateway service should expose. Let's create a file with three ro
           provider: openai
           name: gpt-3.5-turbo
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
       - name: chat
@@ -88,7 +87,6 @@ routes that the Gateway service should expose. Let's create a file with three ro
           provider: openai
           name: gpt-3.5-turbo
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
       - name: embeddings
@@ -97,7 +95,6 @@ routes that the Gateway service should expose. Let's create a file with three ro
           provider: openai
           name: text-embedding-ada-002
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
 Save this file to a location on the system that is going to be running the MLflow AI Gateway server.
@@ -195,7 +192,6 @@ Firstly, update the :ref:`MLflow AI Gateway config <gateway_configuration>` YAML
           provider: openai
           name: gpt-3.5-turbo
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
       - name: completions-gpt4
         type: llm/v1/completions
@@ -203,7 +199,6 @@ Firstly, update the :ref:`MLflow AI Gateway config <gateway_configuration>` YAML
           provider: openai
           name: gpt-4
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
 This updated configuration adds a new completions route ``completions-gpt4`` while still preserving the original ``completions``
@@ -272,7 +267,6 @@ Here's an example of a provider configuration within a route:
           provider: openai
           name: gpt-4
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
 In the above configuration, ``openai`` is the `provider` for the model.
@@ -318,7 +312,6 @@ Here's an example of a route configuration:
           provider: openai
           name: gpt-3.5-turbo
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
 In the example above, a request sent to the completions route would be forwarded to the
@@ -357,7 +350,6 @@ Here's an example of a model name configuration within a route:
           provider: openai
           name: text-embedding-ada-002
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
 
@@ -407,7 +399,6 @@ Here is an example of a single-route configuration:
           provider: openai
           name: gpt-3.5-turbo
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
 
