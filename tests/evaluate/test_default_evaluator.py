@@ -2041,13 +2041,13 @@ def test_evaluate_question_answering_with_targets():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     validate_question_answering_logged_data(logged_data)
-    assert set(results.metrics.keys()) == set(
+    assert set(results.metrics.keys()) == {
         "exact_match",
         "mean_perplexity",
         "percent_toxic",
         "ari_mean_grade_level",
         "flesch_kincaid_mean_grade_level",
-    )
+    }
     assert results.metrics["exact_match"] == 1.0
     assert results.metrics["percent_toxic"] == 0.0
 
@@ -2094,12 +2094,12 @@ def test_evaluate_question_answering_without_targets():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     validate_question_answering_logged_data(logged_data, False)
-    assert set(results.metrics.keys()) == set(
+    assert set(results.metrics.keys()) == {
         "mean_perplexity",
         "percent_toxic",
         "ari_mean_grade_level",
         "flesch_kincaid_mean_grade_level",
-    )
+    }
     assert results.metrics["percent_toxic"] == 0.0
 
 
@@ -2162,7 +2162,7 @@ def test_evaluate_text_summarization_with_targets():
     validate_text_summarization_logged_data(logged_data)
 
     metrics = results.metrics
-    assert set(metrics.keys()) == set(
+    assert set(metrics.keys()) == {
         "rouge1",
         "rouge2",
         "rougeL",
@@ -2171,7 +2171,7 @@ def test_evaluate_text_summarization_with_targets():
         "percent_toxic",
         "ari_mean_grade_level",
         "flesch_kincaid_mean_grade_level",
-    )
+    }
     assert [metrics["rouge1"], metrics["rouge2"], metrics["rougeL"], metrics["rougeLsum"]] == [
         1.0,
         0.0,
@@ -2205,7 +2205,7 @@ def test_evaluate_text_summarization_with_targets_no_type_hints():
     validate_text_summarization_logged_data(logged_data)
 
     metrics = results.metrics
-    assert set(metrics.keys()) == set(
+    assert set(metrics.keys()) == {
         "rouge1",
         "rouge2",
         "rougeL",
@@ -2214,7 +2214,7 @@ def test_evaluate_text_summarization_with_targets_no_type_hints():
         "percent_toxic",
         "ari_mean_grade_level",
         "flesch_kincaid_mean_grade_level",
-    )
+    }
     assert [metrics["rouge1"], metrics["rouge2"], metrics["rougeL"], metrics["rougeLsum"]] == [
         1.0,
         0.0,
@@ -2242,12 +2242,12 @@ def test_evaluate_text_summarization_without_targets():
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     validate_text_summarization_logged_data(logged_data, with_targets=False)
 
-    assert set(results.metrics.keys()) == set(
+    assert set(results.metrics.keys()) == {
         "mean_perplexity",
         "percent_toxic",
         "ari_mean_grade_level",
         "flesch_kincaid_mean_grade_level",
-    )
+    }
     assert results.metrics["percent_toxic"] == 0.0
 
 
@@ -2314,12 +2314,12 @@ def test_evaluate_text():
     assert logged_data["outputs"].tolist() == ["sentence not", "I hate all dogs."]
     assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "toxic"]
     assert logged_data["perplexity"][0] > logged_data["perplexity"][1]
-    assert set(results.metrics.keys()) == set(
+    assert set(results.metrics.keys()) == {
         "mean_perplexity",
         "percent_toxic",
         "ari_mean_grade_level",
         "flesch_kincaid_mean_grade_level",
-    )
+    }
     assert results.metrics["percent_toxic"] == 0.5
 
 
@@ -2358,13 +2358,13 @@ def test_evaluate_text_custom_metrics():
     assert logged_data["target"].tolist() == ["a", "b"]
     assert logged_data["outputs"].tolist() == ["a", "b"]
     assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "non-toxic"]
-    assert set(results.metrics.keys()) == set(
+    assert set(results.metrics.keys()) == {
         "accuracy",
         "mean_perplexity",
         "percent_toxic",
         "ari_mean_grade_level",
         "flesch_kincaid_mean_grade_level",
-    )
+    }
     assert results.metrics["accuracy"] == 1.0
     assert results.metrics["percent_toxic"] == 0.0
 
