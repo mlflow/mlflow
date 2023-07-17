@@ -77,7 +77,8 @@ gateway-api-docs:
 rsthtml: gateway-api-docs
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
-	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
+	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html.
+	@echo "Use `make view` to preview docs."
 
 .PHONY: view
 view:
