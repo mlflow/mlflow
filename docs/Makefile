@@ -79,6 +79,10 @@ rsthtml: gateway-api-docs
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
+.PHONY: view
+view:
+	python -m http.server --directory build/html
+
 .PHONY: html
 html: rdocs rsthtml javadocs
 
