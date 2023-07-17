@@ -419,7 +419,6 @@ def _before_request():
     if is_unprotected_route(request.path):
         return
 
-
     if request.authorization is None:
         return make_basic_auth_response()
 
