@@ -20,6 +20,7 @@ select = [
   "C4",
   "PT001",
   "PT006",
+  # TODO: Enable commented-out rules.
   # "PT007",
   "PT009",
   # "PT010",
