@@ -603,11 +603,13 @@ def create_admin_user(username, password):
                 "It is recommended that you set a new password as soon as possible "
                 f"on {UPDATE_USER_PASSWORD}."
             )
-        except sqlalchemy.exc.IntegrityError:
-            # When multiple workers are starting up at the same time, it's possible
-            # that they try to create the admin user at the same time and one of them
-            # will succeed while the others will fail with an IntegrityError.
-            pass
+        except MlflowException as e:
+            if isinstance(e.__cause__, sqlalchemy.exc.IntegrityError):
+                # When multiple workers are starting up at the same time, it's possible
+                # that they try to create the admin user at the same time and one of them
+                # will succeed while the others will fail with an IntegrityError.
+                return
+            raise
 
 
 def alert(href: str):
