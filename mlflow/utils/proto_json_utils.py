@@ -1,5 +1,6 @@
 import base64
 import datetime
+from typing import Any, Dict, Optional
 
 import os
 import json
@@ -475,7 +476,15 @@ def get_jsonable_input(name, data):
         raise MlflowException(f"Incompatible input type:{type(data)} for input {name}.")
 
 
-def dump_input_data(data, inputs_key="inputs"):
+def dump_input_data(data, inputs_key="inputs", params: Optional[Dict[str, Any]] = None):
+    """
+    :param data: Input data.
+    :param inputs_key: Key to represent data in the request payload.
+    :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+    """
     import numpy as np
     import pandas as pd
 
@@ -485,8 +494,19 @@ def dump_input_data(data, inputs_key="inputs"):
         post_data = {inputs_key: {k: get_jsonable_input(k, v) for k, v in data}}
     elif isinstance(data, np.ndarray):
         post_data = {inputs_key: data.tolist()}
+    elif isinstance(data, list):
+        post_data = {inputs_key: data}
     else:
         post_data = data
+
+    if params is not None:
+        if not isinstance(params, dict):
+            raise MlflowException(
+                "Params must be a dictionary. Got type '{}'.".format(type(params).__name__)
+            )
+        # if post_data is not dictionary, params should be included in post_data directly
+        if isinstance(post_data, dict):
+            post_data["params"] = params
 
     if not isinstance(post_data, str):
         post_data = json.dumps(post_data, cls=_CustomJsonEncoder)

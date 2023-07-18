@@ -377,7 +377,7 @@ def _validate_params(params, model_metadata):
             raise MlflowException.invalid_parameter_value(
                 "This model was not logged with a params schema and does not support "
                 "providing the params argument."
-                "Please log the model with mlflow > 2.4.1 and specify a params schema.",
+                "Please log the model with mlflow >= 2.6.0 and specify a params schema.",
             )
     return
 
@@ -440,23 +440,26 @@ class PyFuncModel:
 
         params = _validate_params(params, self.metadata)
 
+        def _predict():
+            # Models saved prior to MLflow 2.5.0 do not support `params` in the pyfunc `predict()`
+            # function definition, nor do they support `**kwargs`. Accordingly, we only pass
+            # `params` to the `predict()` method if it defines the `params` argument
+            if inspect.signature(self._predict_fn).parameters.get("params"):
+                return self._predict_fn(data, params=params)
+            _log_warning_if_params_not_in_predict_signature(_logger, params)
+            return self._predict_fn(data)
+
         if "openai" in sys.modules and MLFLOW_OPENAI_RETRIES_ENABLED.get():
             from mlflow.openai.retry import openai_auto_retry_patch
 
             try:
                 with openai_auto_retry_patch():
-                    return self._predict_fn(data)
+                    return _predict()
             except Exception:
                 if _MLFLOW_TESTING.get():
                     raise
 
-        # Models saved prior to MLflow 2.5.0 do not support `params` in the pyfunc `predict()`
-        # function definition, nor do they support `**kwargs`. Accordingly, we only pass `params`
-        # to the `predict()` method if it defines the `params` argument
-        if inspect.signature(self._predict_fn).parameters.get("params"):
-            return self._predict_fn(data, params)
-        _log_warning_if_params_not_in_predict_signature(_logger, params)
-        return self._predict_fn(data)
+        return _predict()
 
     @experimental
     def unwrap_python_model(self):
@@ -647,7 +650,7 @@ class _ServedPyFuncModel(PyFuncModel):
         :return: Model predictions.
         """
         if inspect.signature(self._client.invoke).parameters.get("params"):
-            result = self._client.invoke(data, params).get_predictions()
+            result = self._client.invoke(data, params=params).get_predictions()
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
             result = self._client.invoke(data).get_predictions()

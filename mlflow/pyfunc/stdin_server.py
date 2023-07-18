@@ -1,10 +1,12 @@
 import argparse
 import sys
+import inspect
 import json
 import logging
 
 import mlflow
 from mlflow.pyfunc import scoring_server
+from mlflow.pyfunc.model import _log_warning_if_params_not_in_predict_signature
 
 _logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -25,10 +27,15 @@ for line in sys.stdin:
 
     _logger.info("Parsing input data")
     data = request["data"]
-    data = scoring_server.infer_and_parse_json_input(data, input_schema)
+    data, params = scoring_server._split_data_and_params(data)
+    data = scoring_server.infer_and_parse_data(data, input_schema)
 
     _logger.info("Making predictions")
-    preds = model.predict(data)
+    if inspect.signature(model.predict).parameters.get("params"):
+        preds = model.predict(data, params=params)
+    else:
+        _log_warning_if_params_not_in_predict_signature(_logger, params)
+        preds = model.predict(data)
 
     _logger.info("Writing predictions")
     with open(request["output_file"], "a") as f:

@@ -11,6 +11,7 @@ import tempfile
 
 import numpy as np
 import pandas as pd
+import sklearn
 from sklearn import datasets
 import sklearn.linear_model as glm
 import sklearn.neighbors as knn
@@ -670,14 +671,18 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
 
 
+@pytest.mark.skipif(
+    Version(sklearn.__version__) != Version("1.2.2"),
+    reason="'sklearn.metrics._dist_metrics' doesn't have attribute 'EuclideanDistance'",
+)
 def test_sklearn_compatible_with_mlflow_2_4_0(sklearn_knn_model, tmp_path):
     model, inference_dataframe = sklearn_knn_model
     model_predict = model.predict(inference_dataframe)
 
     # save test model
     tmp_path.joinpath("MLmodel").write_text(
-        """
-artifact_path: test_model
+        f"""
+artifact_path: model
 flavors:
   python_function:
     env:
@@ -691,22 +696,56 @@ flavors:
     code: null
     pickled_model: model.pkl
     serialization_format: cloudpickle
-    sklearn_version: 1.2.2
+    sklearn_version: {sklearn.__version__}
 mlflow_version: 2.4.0
 model_uuid: c9833d74b1ff4013a1c9eff05d39eeef
 run_id: 8146a2ae86104f5b853351e600fc9d7b
 utc_time_created: '2023-07-04 07:19:43.561797'
 """
     )
+    tmp_path.joinpath("python_env.yaml").write_text(
+        """
+python: 3.8.16
+build_dependencies:
+   - pip==23.1.2
+   - setuptools==56.0.0
+   - wheel==0.40.0
+dependencies:
+   - -r requirements.txt    
+"""
+    )
+    tmp_path.joinpath("requirements.txt").write_text(
+        f"""
+mlflow==2.4.0
+cloudpickle
+numpy
+psutil
+scikit-learn=={sklearn.__version__}
+scipy
+"""
+    )
     with open(tmp_path / "model.pkl", "wb") as out:
         pickle.dump(model, out, protocol=pickle.DEFAULT_PROTOCOL)
 
     assert Version(mlflow.__version__) > Version("2.4.0")
-    pyfunc_loaded = mlflow.pyfunc.load_model(str(tmp_path))
+    model_uri = str(tmp_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_uri)
 
     # predict is compatible
     local_predict = pyfunc_loaded.predict(inference_dataframe)
     np.testing.assert_array_almost_equal(local_predict, model_predict)
+
+    # model serving is compatible
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=pd.DataFrame(inference_dataframe),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
+    )
+    scores = pd.DataFrame(
+        data=json.loads(resp.content.decode("utf-8"))["predictions"]
+    ).values.squeeze()
+    np.testing.assert_array_almost_equal(scores, model_predict)
 
     # Raise error if trying to pass params to model logged with mlflow < 2.5.0
     with pytest.raises(
@@ -715,6 +754,22 @@ utc_time_created: '2023-07-04 07:19:43.561797'
         r"time if the model signature defines a params schema.",
     ):
         pyfunc_loaded.predict(inference_dataframe, params={"top_k": 2})
+
+    # Raise error if trying to pass params to model logged with mlflow < 2.5.0 for model serving
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=json.dumps(
+            {"dataframe_split": inference_dataframe.to_dict(orient="split"), "params": {"top_k": 2}}
+        ),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 400
+    assert (
+        "`params` can only be specified at inference time if the model "
+        "signature defines a params schema."
+        in json.loads(response.content.decode("utf-8"))["message"]
+    )
 
 
 def test_log_model_with_code_paths(sklearn_knn_model):

@@ -66,10 +66,11 @@ def get_default_conda_env():
 
 
 def _log_warning_if_params_not_in_predict_signature(logger, params):
-    logger.warning(
-        "The underlying model does not support passing additional parameters to the predict"
-        f" function. `params` {params} will be ignored."
-    )
+    if params:
+        logger.warning(
+            "The underlying model does not support passing additional parameters to the predict"
+            f" function. `params` {params} will be ignored."
+        )
 
 
 class PythonModel:
@@ -148,7 +149,7 @@ class _FunctionPythonModel(PythonModel):
         :return: Model predictions.
         """
         if inspect.signature(self.func).parameters.get("params"):
-            return self.func(model_input, params)
+            return self.func(model_input, params=params)
         _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.func(model_input)
 
@@ -406,10 +407,9 @@ class _PythonModelPyfuncWrapper:
 
         :return: Model predictions.
         """
-        if params:
-            if inspect.signature(self.python_model.predict).parameters.get("params"):
-                return self.python_model.predict(
-                    self.context, self._convert_input(model_input), params
-                )
-            _log_warning_if_params_not_in_predict_signature(_logger, params)
+        if inspect.signature(self.python_model.predict).parameters.get("params"):
+            return self.python_model.predict(
+                self.context, self._convert_input(model_input), params=params
+            )
+        _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.python_model.predict(self.context, self._convert_input(model_input))
