@@ -276,6 +276,7 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install pyspark "numpy<1.24.0"
+          pip install transformers
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |

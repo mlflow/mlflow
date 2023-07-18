@@ -7,7 +7,6 @@ import numpy as np
 import json
 import pandas as pd
 import pytest
-import gc
 from contextlib import nullcontext as does_not_raise
 
 import mlflow
@@ -66,16 +65,6 @@ from tests.evaluate.test_evaluation import (
     pipeline_model_uri,
     get_pipeline_model_dataset,
 )
-
-
-@pytest.fixture(autouse=True)
-def force_gc():
-    # This reduces the memory pressure for the usage of the larger pipeline fixtures ~500MB - 1GB
-    gc.disable()
-    gc.collect()
-    gc.set_threshold(0)
-    gc.collect()
-    gc.enable()
 
 
 def assert_dict_equal(d1, d2, rtol):
