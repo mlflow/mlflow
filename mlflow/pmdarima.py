@@ -8,6 +8,49 @@ Pmdarima format
     Produced for use by generic pyfunc-based deployment tools and for batch auditing
     of historical forecasts.
 
+ .. code-block:: python
+    :caption: Example
+    import pandas as pd
+    import mlflow
+    import mlflow.pyfunc
+    import pmdarima
+    from pmdarima import auto_arima
+
+    # Define a custom model class
+    class PmdarimaWrapper(mlflow.pyfunc.PythonModel):
+        def load_context(self, context):
+            self.model = context.artifacts["model"]
+
+        def predict(self, context, model_input):
+            return self.model.predict(n_periods=model_input.shape[0])
+
+    # Specify locations of source data and the model artifact
+    SOURCE_DATA = "https://raw.githubusercontent.com/facebook/prophet/master/examples/example_retail_sales.csv"
+    ARTIFACT_PATH = "model"
+
+    # Read data and recode columns
+    sales_data = pd.read_csv(SOURCE_DATA)
+    sales_data.rename(columns={'y': 'sales', 'ds': 'date'}, inplace=True)
+
+    # Split the data into train/test
+    train_size = int(0.8 * len(sales_data))
+    train, _ = sales_data[:train_size], sales_data[train_size:]
+
+    # Create the model
+    model = pmdarima.auto_arima(train['sales'], seasonal=True, m=12)
+
+    # Log the model
+    with mlflow.start_run():
+        wrapper = PmdarimaWrapper()
+        mlflow.pyfunc.log_model(
+            artifact_path="model",
+            python_model=wrapper,
+            artifacts={
+                "model": mlflow.pyfunc.model_to_dict(model)
+            }
+        )
+
+
 .. _Pmdarima:
     http://alkaline-ml.com/pmdarima/
 """
@@ -131,6 +174,32 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+                                             import pandas as pd
+    .. code-block:: python
+        :caption: Example
+
+        import pandas as pd
+        import mlflow
+        import pmdarima
+
+        # Specify locations of source data and the model artifact
+        SOURCE_DATA = "https://raw.githubusercontent.com/facebook/prophet/master/examples/example_retail_sales.csv"
+        ARTIFACT_PATH = "model"
+
+        # Read data and recode columns
+        sales_data = pd.read_csv(SOURCE_DATA)
+        sales_data.rename(columns={'y': 'sales', 'ds': 'date'}, inplace=True)
+
+        # Split the data into train/test
+        train_size = int(0.8 * len(sales_data))
+        train, test = sales_data[:train_size], sales_data[train_size:]
+
+        with mlflow.start_run():
+            # Create the model
+            model = pmdarima.auto_arima(train['sales'], seasonal=True, m=12)
+
+            # Save the model to the specified path
+            mlflow.pmdarima.save_model(model, "model")
     """
     import pmdarima
 
@@ -273,75 +342,41 @@ def log_model(
 
     .. code-block:: python
         :caption: Example
-
-        import json
         import pandas as pd
-        import numpy as np
         import mlflow
         from mlflow.models import infer_signature
         import pmdarima
         from pmdarima.metrics import smape
 
+        # Specify locations of source data and the model artifact
         SOURCE_DATA = "https://raw.githubusercontent.com/facebook/prophet/master/examples/example_retail_sales.csv"
         ARTIFACT_PATH = "model"
-        np.random.seed(12345)
 
-        def extract_params(model):
-            return {'order': model.order, 'seasonal_order': model.seasonal_order}
-
+        # Read data and recode columns
         sales_data = pd.read_csv(SOURCE_DATA)
-
-        # Renaming columns to y and ds for Prophet compatibility
         sales_data.rename(columns={'y': 'sales', 'ds': 'date'}, inplace=True)
 
-        # Splitting data into train and test sets
+        # Split the data into train/test
         train_size = int(0.8 * len(sales_data))
         train, test = sales_data[:train_size], sales_data[train_size:]
 
         with mlflow.start_run():
+            # Create the model
             model = pmdarima.auto_arima(train['sales'], seasonal=True, m=12)
 
-            params = extract_params(model)
-
-            # Calculating metrics
+            # Calculate metrics
             prediction = model.predict(n_periods=len(test))
             metrics = {'smape': smape(test['sales'], prediction)}
 
-            print(f"Logged Metrics: \n{json.dumps(metrics, indent=2)}")
-            print(f"Logged Params: \n{json.dumps(params, indent=2)}")
+            # Infer signature
+            input_sample = pd.DataFrame(train['sales'])
+            output_sample = pd.DataFrame(model.predict(n_periods=5))
+            signature = infer_signature(input_sample, output_sample)
 
-            # Logging model, params and metrics to MLflow
-            mlflow.log_params(params)
-            mlflow.log_metrics(metrics)
-            mlflow.pmdarima.log_model(model, ARTIFACT_PATH)
-
-            model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
-            print(f"Model artifact logged to: {model_uri}")
-
-        # Loading the model
-        loaded_model = mlflow.pmdarima.load_model(model_uri)
-
-        # Forecasting for the next 60 days
-        forecast = loaded_model.predict(n_periods=60)
-
-        print(f"forecast:\n{forecast}")
+            # Log model
+            mlflow.pmdarima.log_model(model, ARTIFACT_PATH, signature=signature)
 
 
-    .. code-block:: text
-        :caption: Output
-
-        Logged Metrics: {"smape": 4.800690033498949}
-        Logged Params: {
-            "order": [2,0,1],
-            "seasonal_order": [0,1,1,12]
-        }
-
-        Model artifact logged to: dbfs:/databricks/mlflow-tracking/969987237801842/263d863c92fd479080d5093b12dfde3e/artifacts/model
-        forecast:
-        234    382452.397246
-        235    380639.458720
-        236    359805.611219
-        ...
     """
 
     return Model.log(
@@ -381,6 +416,65 @@ def load_model(model_uri, dst_path=None):
                      path will be created.
 
     :return: A ``pmdarima`` model instance
+
+    .. code-block:: python
+        :caption: Example
+        import pandas as pd
+        import mlflow
+        from mlflow.models import infer_signature
+        import pmdarima
+        from pmdarima.metrics import smape
+
+        # Specify locations of source data and the model artifact
+        SOURCE_DATA = "https://raw.githubusercontent.com/facebook/prophet/master/examples/example_retail_sales.csv"
+        ARTIFACT_PATH = "model"
+
+        # Read data and recode columns
+        sales_data = pd.read_csv(SOURCE_DATA)
+        sales_data.rename(columns={'y': 'sales', 'ds': 'date'}, inplace=True)
+
+        # Split the data into train/test
+        train_size = int(0.8 * len(sales_data))
+        train, test = sales_data[:train_size], sales_data[train_size:]
+
+        with mlflow.start_run():
+            # Create the model
+            model = pmdarima.auto_arima(train['sales'], seasonal=True, m=12)
+
+            # Calculate metrics
+            prediction = model.predict(n_periods=len(test))
+            metrics = {'smape': smape(test['sales'], prediction)}
+
+            # Infer signature
+            input_sample = pd.DataFrame(train['sales'])
+            output_sample = pd.DataFrame(model.predict(n_periods=5))
+            signature = infer_signature(input_sample, output_sample)
+
+            # Log model
+            mlflow.pmdarima.log_model(model, ARTIFACT_PATH, signature=signature)
+
+            # Get the model URI for loading
+            model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
+            print(f"Model artifact logged to: {model_uri}")
+
+        # Load the model
+        loaded_model = mlflow.pmdarima.load_model(model_uri)
+
+        # Forecast for the next 60 days
+        forecast = loaded_model.predict(n_periods=60)
+
+        print(f"forecast:\n{forecast}")
+
+    .. code-block:: text
+        :caption: Output
+
+        Model artifact logged to: dbfs:/databricks/mlflow-tracking/969987237801842/7944093422a641c79b37c88f63adecc2/artifacts/model
+        forecast:
+        234    382452.397246
+        235    380639.458720
+        236    359805.611219
+        ...
+
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
