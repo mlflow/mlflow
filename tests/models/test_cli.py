@@ -28,6 +28,7 @@ import mlflow.models.cli as models_cli
 from mlflow.environment_variables import MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
+from mlflow.pyfunc.backend import PyFuncBackend
 from mlflow.pyfunc.scoring_server import (
     CONTENT_TYPE_JSON,
     CONTENT_TYPE_CSV,
@@ -36,6 +37,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils import PYTHON_VERSION
+from mlflow.utils.process import ShellCommandException
 from tests.helper_functions import (
     pyfunc_build_image,
     pyfunc_serve_from_docker_image,
@@ -174,7 +176,7 @@ def test_predict(iris_data, sk_model):
         with mlflow.start_run() as active_run:
             mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
             model_uri = f"runs:/{active_run.info.run_id}/model"
-        model_registry_uri = "models:/{name}/{stage}".format(name="impredicting", stage="None")
+        model_registry_uri = "models:/impredicting/None"
         input_json_path = tmp.path("input.json")
         input_csv_path = tmp.path("input.csv")
         output_json_path = tmp.path("output.json")
@@ -329,6 +331,173 @@ def test_predict(iris_data, sk_model):
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
         assert all(expected == actual)
+
+
+def test_predict_check_content_type(iris_data, sk_model, tmp_path):
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+    model_registry_uri = "models:/impredicting/None"
+    input_json_path = tmp_path / "input.json"
+    input_csv_path = tmp_path / "input.csv"
+    output_json_path = tmp_path / "output.json"
+
+    x, _ = iris_data
+    with input_json_path.open("w") as f:
+        json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
+
+    pd.DataFrame(x).to_csv(input_csv_path, index=False)
+
+    # Throw errors for invalid content_type
+    prc = subprocess.run(
+        [
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            model_registry_uri,
+            "-i",
+            input_json_path,
+            "-o",
+            output_json_path,
+            "-t",
+            "invalid",
+            "--env-manager",
+            "local",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env_with_tracking_uri(),
+        check=False,
+    )
+    assert prc.returncode != 0
+    assert "Unknown content type" in prc.stderr.decode("utf-8")
+
+
+def test_predict_check_input_path(iris_data, sk_model, tmp_path):
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+    model_registry_uri = "models:/impredicting/None"
+    input_json_path = tmp_path / "input with space.json"
+    input_csv_path = tmp_path / "input.csv"
+    output_json_path = tmp_path / "output.json"
+
+    x, _ = iris_data
+    with input_json_path.open("w") as f:
+        json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
+
+    pd.DataFrame(x).to_csv(input_csv_path, index=False)
+
+    # Valid input path with space
+    prc = subprocess.run(
+        [
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            model_registry_uri,
+            "-i",
+            f"{input_json_path}",
+            "-o",
+            output_json_path,
+            "--env-manager",
+            "local",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env_with_tracking_uri(),
+        check=False,
+        text=True,
+    )
+    assert prc.returncode == 0
+
+    # Throw errors for invalid input_path
+    prc = subprocess.run(
+        [
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            model_registry_uri,
+            "-i",
+            f'{input_json_path}"; echo ThisIsABug! "',
+            "-o",
+            output_json_path,
+            "--env-manager",
+            "local",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env_with_tracking_uri(),
+        check=False,
+        text=True,
+    )
+    assert prc.returncode != 0
+    assert "ThisIsABug!" not in prc.stdout
+    assert "FileNotFoundError" in prc.stderr
+
+    prc = subprocess.run(
+        [
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            model_registry_uri,
+            "-i",
+            f'{input_csv_path}"; echo ThisIsABug! "',
+            "-o",
+            output_json_path,
+            "-t",
+            "csv",
+            "--env-manager",
+            "local",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env_with_tracking_uri(),
+        check=False,
+        text=True,
+    )
+    assert prc.returncode != 0
+    assert "ThisIsABug!" not in prc.stdout
+    assert "FileNotFoundError" in prc.stderr
+
+
+def test_predict_check_output_path(iris_data, sk_model, tmp_path):
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+    model_registry_uri = "models:/impredicting/None"
+    input_json_path = tmp_path / "input.json"
+    input_csv_path = tmp_path / "input.csv"
+    output_json_path = tmp_path / "output.json"
+
+    x, _ = iris_data
+    with input_json_path.open("w") as f:
+        json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
+
+    pd.DataFrame(x).to_csv(input_csv_path, index=False)
+
+    prc = subprocess.run(
+        [
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            model_registry_uri,
+            "-i",
+            input_json_path,
+            "-o",
+            f'{output_json_path}"; echo ThisIsABug! "',
+            "--env-manager",
+            "local",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env_with_tracking_uri(),
+        check=False,
+        text=True,
+    )
+    assert prc.returncode == 0
+    assert "ThisIsABug!" not in prc.stdout
 
 
 def test_prepare_env_passes(sk_model):
@@ -572,6 +741,25 @@ def test_env_manager_unsupported_value():
             ["--model-uri", "model", "--env-manager", "abc"],
             catch_exceptions=False,
         )
+
+
+def test_host_invalid_value():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, ctx, model_input):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(), artifact_path="test_model", registered_model_name="model"
+        )
+
+    with mock.patch("mlflow.models.cli.get_flavor_backend", return_value=PyFuncBackend({})):
+        with pytest.raises(ShellCommandException, match=r"Non-zero exit code: 1"):
+            CliRunner().invoke(
+                models_cli.serve,
+                ["--model-uri", model_info.model_uri, "--host", "localhost & echo BUG"],
+                catch_exceptions=False,
+            )
 
 
 def test_change_conda_env_root_location(tmp_path, sk_model):
