@@ -87,7 +87,7 @@ SCORING_PROTOCOL_CHANGE_INFO = (
 
 # Keep this method to maintain compatibility with MLServer
 # https://github.com/SeldonIO/MLServer/blob/caa173ab099a4ec002a7c252cbcc511646c261a6/runtimes/mlflow/mlserver_mlflow/runtime.py#L13C5-L13C31
-@deprecated("infer_and_parse_data", "2.4.2")
+@deprecated("infer_and_parse_data", "2.6.0")
 def infer_and_parse_json_input(json_input, schema: Schema = None):
     """
     :param json_input: A JSON-formatted string representation of TF serving input or a Pandas
