@@ -3,17 +3,17 @@
 .. _gateway_databricks_model_serving_completions_example:
 
 ======================================================================
-Databricks MLflow AI Gateway: Completions example with MPT-7B-Instruct
+Databricks AI Gateway: Completions example with MPT-7B-Instruct
 ======================================================================
-This example demonstrates how to use the Databricks MLflow AI Gateway
+This example demonstrates how to use the Databricks AI Gateway
 to deploy and query the open source
 `MPT-7B-Instruct </Users/corey.zumar/mlflow/docs/source/gateway/databricks_model_serving.rst>`_ 
 model.
 
-This section assumes that you have installed the MLflow AI Gateway client in your Databricks
+This section assumes that you have installed the AI Gateway client in your Databricks
 notebook. For reference, see :ref:`gateway-quickstart`.
 
-For questions and information about using other open source LLMs with the MLflow AI Gateway,
+For questions and information about using other open source LLMs with the AI Gateway,
 please contact your Databricks representative. In particular, support for
 `MPT-30B <https://huggingface.co/mosaicml/mpt-30b>`_ and
 `Falcon 40B <https://huggingface.co/tiiuae/falcon-40b>`_ is coming soon.
