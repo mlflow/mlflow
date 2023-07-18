@@ -79,7 +79,6 @@ routes that the Gateway service should expose. Let's create a file with three ro
           provider: openai
           name: gpt-3.5-turbo
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
       - name: chat
@@ -88,7 +87,6 @@ routes that the Gateway service should expose. Let's create a file with three ro
           provider: openai
           name: gpt-3.5-turbo
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
       - name: embeddings
@@ -97,7 +95,6 @@ routes that the Gateway service should expose. Let's create a file with three ro
           provider: openai
           name: text-embedding-ada-002
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
 Save this file to a location on the system that is going to be running the MLflow AI Gateway server.
@@ -195,7 +192,6 @@ Firstly, update the :ref:`MLflow AI Gateway config <gateway_configuration>` YAML
           provider: openai
           name: gpt-3.5-turbo
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
       - name: completions-gpt4
         type: llm/v1/completions
@@ -203,7 +199,6 @@ Firstly, update the :ref:`MLflow AI Gateway config <gateway_configuration>` YAML
           provider: openai
           name: gpt-4
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
 This updated configuration adds a new completions route ``completions-gpt4`` while still preserving the original ``completions``
@@ -214,6 +209,13 @@ Once the configuration file is updated, simply save your changes. The Gateway wi
 At this point, you may use the :ref:`gateway_fluent_api` to query both routes with similar prompts to decide which model performs best for your use case.
 
 If you no longer need a route, you can delete it from the configuration YAML and save your changes. The AI Gateway will automatically remove the route.
+
+Step 10: Use AI Gateway routes for model development
+----------------------------------------------------
+
+Now that you have created several AI Gateway routes, you can create MLflow Models that query these
+routes to build application-specific logic using techniques like prompt engineering. For more
+information, see :ref:`AI Gateway and MLflow Models <gateway_mlflow_models>`.
 
 .. _gateway-concepts:
 
@@ -236,62 +238,20 @@ Supported Provider Models
 The table below presents a non-exhaustive list of models and a corresponding route type within the MLflow AI Gateway.
 With the rapid development of LLMs, there is no guarantee that this list will be up to date at all times. However, the associations listed
 below can be used as a helpful guide when configuring a given route for any newly released model types as they become available with a given provider.
+``N/A`` means that the provider currently doesn't support the route type.
 
-.. list-table::
-   :header-rows: 1
-
-   * - Route Type
-     - Provider
-     - Model Examples
-     - Supported
-   * - llm/v1/completions
-     - OpenAI
-     - gpt-3.5-turbo, gpt-4
-     - Yes
-   * - llm/v1/completions
-     - Anthropic
-     - claude-1, claude-1.3-100k
-     - Yes
-   * - llm/v1/completions
-     - Cohere
-     - command, command-light-nightly
-     - Yes
-   * - llm/v1/completions
-     - Azure OpenAI
-     - text-davinci-003, gpt-35-turbo
-     - Yes
-   * - llm/v1/chat
-     - OpenAI
-     - gpt-3.5-turbo, gpt-4
-     - Yes
-   * - llm/v1/chat
-     - Anthropic
-     -
-     - No
-   * - llm/v1/chat
-     - Cohere
-     -
-     - No
-   * - llm/v1/chat
-     - Azure OpenAI
-     - gpt-35-turbo, gpt-4
-     - Yes
-   * - llm/v1/embeddings
-     - OpenAI
-     - text-embedding-ada-002
-     - Yes
-   * - llm/v1/embeddings
-     - Anthropic
-     -
-     - No
-   * - llm/v1/embeddings
-     - Cohere
-     - embed-english-v2.0, embed-multilingual-v2.0
-     - Yes
-   * - llm/v1/embeddings
-     - Azure OpenAI
-     - text-embedding-ada-002
-     - Yes
++--------------------+--------------------------+------------------+-----------------------------+--------------------------+
+| Route Type         | OpenAI                   | Anthropic        | Cohere                      | Azure OpenAI             |
++====================+==========================+==================+=============================+==========================+
+| llm/v1/completions | - gpt-3.5-turbo          | - claude-1       | - command                   | - text-davinci-003       |
+|                    | - gpt-4                  | - claude-1.3-100k| - command-light-nightly     | - gpt-35-turbo           |
++--------------------+--------------------------+------------------+-----------------------------+--------------------------+
+| llm/v1/chat        | - gpt-3.5-turbo          | N/A              | N/A                         | - gpt-35-turbo           |
+|                    | - gpt-4                  |                  |                             | - gpt-4                  |
++--------------------+--------------------------+------------------+-----------------------------+--------------------------+
+| llm/v1/embeddings  | - text-embedding-ada-002 | N/A              | - embed-english-v2.0        | - text-embedding-ada-002 |
+|                    |                          |                  | - embed-multilingual-v2.0   |                          |
++--------------------+--------------------------+------------------+-----------------------------+--------------------------+
 
 Within each model block in the configuration file, the provider field is used to specify the name
 of the provider for that model. This is a string value that needs to correspond to a provider the MLflow AI Gateway supports.
@@ -301,14 +261,13 @@ Here's an example of a provider configuration within a route:
 .. code-block:: yaml
 
     routes:
-        - name: chat
-          type: llm/v1/chat
-          model:
-            provider: openai
-            name: gpt-4
-            config:
-              openai_api_base: https://api.openai.com/v1
-              openai_api_key: $OPENAI_API_KEY
+      - name: chat
+        type: llm/v1/chat
+        model:
+          provider: openai
+          name: gpt-4
+          config:
+            openai_api_key: $OPENAI_API_KEY
 
 In the above configuration, ``openai`` is the `provider` for the model.
 
@@ -338,8 +297,8 @@ A route in the MLflow AI Gateway consists of the following fields:
 
 * **model**: Defines the model to which this route will forward requests. The model contains the following details:
 
-    * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for `OpenAI`'s ``GPT-3`` models.
-    * **name**: The name of the model to use. For example, ``gpt-3.5-turbo`` for `OpenAI`'s ``GPT-3.5-Turbo`` model.
+    * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for OpenAI's ``GPT-3.5`` models.
+    * **name**: The name of the model to use. For example, ``gpt-3.5-turbo`` for OpenAI's ``GPT-3.5-Turbo`` model.
     * **config**: Contains any additional configuration details required for the model. This includes specifying the API base URL and the API key.
 
 Here's an example of a route configuration:
@@ -347,14 +306,13 @@ Here's an example of a route configuration:
 .. code-block:: yaml
 
     routes:
-        - name: completions
-          type: chat/completions
-          model:
-            provider: openai
-            name: gpt-3.5-turbo
-            config:
-              openai_api_base: https://api.openai.com/v1
-              openai_api_key: $OPENAI_API_KEY
+      - name: completions
+        type: chat/completions
+        model:
+          provider: openai
+          name: gpt-3.5-turbo
+          config:
+            openai_api_key: $OPENAI_API_KEY
 
 In the example above, a request sent to the completions route would be forwarded to the
 ``gpt-3.5-turbo`` model provided by ``openai``.
@@ -392,7 +350,6 @@ Here's an example of a model name configuration within a route:
           provider: openai
           name: text-embedding-ada-002
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
 
@@ -442,7 +399,6 @@ Here is an example of a single-route configuration:
           provider: openai
           name: gpt-3.5-turbo
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
 
@@ -518,7 +474,7 @@ OpenAI
 ++++++
 
 +-------------------------+----------+-------------------------------+-------------------------------------------------------------+
-| Parameter               | Required | Default                       | Description                                                 |
+| Configuration Parameter | Required | Default                       | Description                                                 |
 +=========================+==========+===============================+=============================================================+
 | **openai_api_key**      | Yes      |                               | This is the API key for the OpenAI service.                 |
 +-------------------------+----------+-------------------------------+-------------------------------------------------------------+
@@ -538,21 +494,21 @@ OpenAI
 Cohere
 ++++++
 
-+---------------------+----------+--------------------------+-------------------------------------------------------+
-| Parameter           | Required | Default                  | Description                                           |
-+=====================+==========+==========================+=======================================================+
-| **cohere_api_key**  | Yes      | N/A                      | This is the API key for the Cohere service.           |
-+---------------------+----------+--------------------------+-------------------------------------------------------+
++--------------------------+----------+--------------------------+-------------------------------------------------------+
+| Configuration Parameter  | Required | Default                  | Description                                           |
++==========================+==========+==========================+=======================================================+
+| **cohere_api_key**       | Yes      | N/A                      | This is the API key for the Cohere service.           |
++--------------------------+----------+--------------------------+-------------------------------------------------------+
 
 
 Anthropic
 +++++++++
 
-+------------------------+----------+--------------------------+-------------------------------------------------------+
-| Parameter              | Required | Default                  | Description                                           |
-+========================+==========+==========================+=======================================================+
-| **anthropic_api_key**  | Yes      | N/A                      | This is the API key for the Anthropic service.        |
-+------------------------+----------+--------------------------+-------------------------------------------------------+
++-------------------------+----------+--------------------------+-------------------------------------------------------+
+| Configuration Parameter | Required | Default                  | Description                                           |
++=========================+==========+==========================+=======================================================+
+| **anthropic_api_key**   | Yes      | N/A                      | This is the API key for the Anthropic service.        |
++-------------------------+----------+--------------------------+-------------------------------------------------------+
 
 Azure OpenAI
 ++++++++++++
@@ -562,7 +518,7 @@ Azure provides two different mechanisms for integrating with OpenAI, each corres
 To match your user's interaction and security access requirements, adjust the ``openai_api_type`` parameter to represent the preferred security validation model. This will ensure seamless interaction and reliable security for your Azure-OpenAI integration.
 
 +----------------------------+----------+---------+-----------------------------------------------------------------------------------------------+
-| Parameter                  | Required | Default | Description                                                                                   |
+| Configuration Parameter    | Required | Default | Description                                                                                   |
 +============================+==========+=========+===============================================================================================+
 | **openai_api_key**         | Yes      |         | This is the API key for the Azure OpenAI service.                                             |
 +----------------------------+----------+---------+-----------------------------------------------------------------------------------------------+
@@ -618,38 +574,120 @@ Querying the AI Gateway
 
 Once the MLflow AI Gateway server has been configured and started, it is ready to receive traffic from users.
 
-Query Parameters
-----------------
+.. _standard_query_parameters:
 
-The query parameters that are supported by various providers for different route types are also available to be used with the MLflow AI Gateway.
-Each of these query parameters are optional elements that can be included along with using the ``query`` APIs as key value pairs within the ``data`` argument.
-The AI Gateway will perform validation of these commonly modified parameters to ensure that provider-specific restrictions and scaling factors are unified with a consistent range of allowable values.
-If a given provider does not provide support for a parameter, a clear message will be returned when queried that explains the restrictions for the given provider and route type.
+Standard Query Parameters
+-------------------------
 
-- **temperature** (Supported by OpenAI, Anthropic, Cohere): This parameter controls the randomness of predictions by scaling the logits before applying softmax. A value closer to 0.0 makes the output more deterministic, while a value closer to 1.0 makes it more diverse. Default is 0.0.
+The MLflow AI Gateway defines standard parameters for chat, completions, and embeddings that can be
+used when querying any route regardless of its provider. Each parameter has a standard range and
+default value. When querying a route with a particular provider, the MLflow AI Gateway automatically
+scales parameter values according to the provider's value ranges for that parameter.
 
-- **max_tokens** (Supported by OpenAI, Anthropic, Cohere): This parameter limits the length of the generated output by specifying a maximum token count. The range is from 1 to infinity, and by default, there is no limit (infinity). Some providers have a maximum value associated with this parameter that the AI Gateway will enforce to prevent a provider-generated exception.
+Completions
+~~~~~~~~~~~
 
-- **stop** (Supported by OpenAI, Anthropic, Cohere): This parameter specifies an array of strings, where each string is a token that indicates the end of a text generation. By default, this is empty.
+The standard parameters for completions routes with type ``llm/v1/completions`` are:
 
-- **candidate_count** (Supported by OpenAI, Cohere): This parameter determines the number of alternative responses to generate. The range is from 1 to 5, and by default, it is set to 1.
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| Query Parameter               | Type           | Required | Default       | Description                                           |
++===============================+================+==========+===============+=======================================================+
+| **prompt**                    | string         | Yes      | N/A           | The prompt for which to generate completions.         |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **candidate_count**           | integer        | No       | 1             | The number of completions to generate for the         |
+|                               |                |          |               | specified prompt, between 1 and 5.                    |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **temperature**               | float          | No       | 0.0           | The sampling temperature to use, between 0 and 1.     |
+|                               |                |          |               | Higher values will make the output more random, and   |
+|                               |                |          |               | lower values will make the output more deterministic. |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **max_tokens**                | integer        | No       | None          | The maximum completion length, between 1 and infinity |
+|                               |                |          |               | (unlimited).                                          |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **stop**                      | array[string]  | No       | None          | Sequences where the model should stop generating      |
+|                               |                |          |               | tokens and return the completion.                     |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 
-Alternate Query Parameters
---------------------------
-There are additional provider-specific parameters that will work (i.e., ``logit_bias`` (OpenAI, Cohere), ``frequency_penalty`` (OpenAI, Cohere), ``presence_penalty`` (OpenAI, Cohere), and ``top_k`` (Anthropic, Cohere)) with the exception of the following:
+Chat
+~~~~
 
-- **stream** is not supported. Setting this parameter on any provider will not work currently.
+The standard parameters for chat routes with type ``llm/v1/chat`` are:
 
-- **top_k** is not supported if ``temperature`` is set. Use one or the other.
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| Query Parameter               | Type           | Required | Default       | Description                                           |
++===============================+================+==========+===============+=======================================================+
+| **messages**                  | array[message] | Yes      | N/A           | A list of messages in a conversation from which to    |
+|                               |                |          |               | a new message (chat completion). For information      |
+|                               |                |          |               | about the message structure, see                      |
+|                               |                |          |               | :ref:`chat_message_structure`.                        |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **candidate_count**           | integer        | No       | 1             | The number of chat completions to generate for the    |
+|                               |                |          |               | specified prompt, between 1 and 5.                    |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **temperature**               | float          | No       | 0.0           | The sampling temperature to use, between 0 and 1.     |
+|                               |                |          |               | Higher values will make the output more random, and   |
+|                               |                |          |               | lower values will make the output more deterministic. |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **max_tokens**                | integer        | No       | None          | The maximum completion length, between 1 and infinity |
+|                               |                |          |               | (unlimited).                                          |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **stop**                      | array[string]  | No       | None          | Sequences where the model should stop generating      |
+|                               |                |          |               | tokens and return the chat completion.                |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 
-Below is an example of submitting a query request to an MLflow AI Gateway route using these parameters:
+.. _chat_message_structure:
+
+Messages
+^^^^^^^^
+
+Each chat message is a string dictionary containing the following fields:
+
++-------------------------------+----------+--------------------------+-------------------------------------------------------+
+| Field Name                    | Required | Default                  | Description                                           |
++===============================+==========+==========================+=======================================================+
+| **role**                      | Yes      | N/A                      | The role of the conversation participant who sent the |
+|                               |          |                          | message. Must be one of: ``"system"``, ``"user"``, or |
+|                               |          |                          | ``"assistant"``.                                      |
++-------------------------------+----------+--------------------------+-------------------------------------------------------+
+| **content**                   | Yes      | N/A                      | The message content.                                  |
++-------------------------------+----------+--------------------------+-------------------------------------------------------+
+
+Embeddings
+~~~~~~~~~~
+
+The standard parameters for completions routes with type ``llm/v1/embeddings`` are:
+
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| Query Parameter               | Type           | Required | Default       | Description                                           |
++===============================+================+==========+===============+=======================================================+
+| **text**                      | string         | Yes      | N/A           | A string or list of strings for which to generate     |
+|                               | or             |          |               | embeddings.                                           |
+|                               | array[string]  |          |               |                                                       |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+
+Additional Query Parameters
+---------------------------
+In addition to the :ref:`standard_query_parameters`, you can pass any additional parameters supported by the route's provider as part of your query. For example:
+
+- ``logit_bias`` (supported by OpenAI, Cohere)
+- ``top_k`` (supported by Anthropic, Cohere)
+- ``frequency_penalty`` (supported by OpenAI, Cohere)
+- ``presence_penalty`` (supported by OpenAI, Cohere)
+
+The following parameters are not allowed:
+
+- ``stream`` is not supported. Setting this parameter on any provider will not work currently.
+
+Below is an example of submitting a query request to an MLflow AI Gateway route using additional parameters:
 
 .. code-block:: python
 
     data = {
-        "prompt": "What would happen if an asteroid the size of "
-        "a basketball encountered the Earth traveling at 0.5c? "
-        "Please provide your answer in .rst format for the purposes of documentation.",
+        "prompt": (
+            "What would happen if an asteroid the size of "
+            "a basketball encountered the Earth traveling at 0.5c? "
+            "Please provide your answer in .rst format for the purposes of documentation."
+        ),
         "temperature": 0.5,
         "max_tokens": 1000,
         "candidate_count": 1,
@@ -686,8 +724,6 @@ The results of the query are:
          }
        }
 
-
-
 FastAPI Documentation ("/docs")
 -------------------------------
 
@@ -696,24 +732,6 @@ documentation interface, which is accessible at the "/docs" endpoint (e.g., ``ht
 This interactive interface is very handy for exploring and testing the available API endpoints.
 
 As a convenience, accessing the root URL (e.g., ``http://my.gateway:9000``) redirects to this "/docs" endpoint.
-
-Examples of Post Requests
--------------------------
-You can use the POST request to send a query to a specific route.
-To send a query to a specific route, append the route name to the routes endpoint, and include the
-data to be sent in the body of the request. The structure of this data will depend on the specific model the route is configured for.
-
-For instance, to send a query to the completions route, you might use the following command:
-
-.. code-block:: bash
-
-    curl -X POST -H "Content-Type: application/json" \
-      -d '{"prompt": "It is a truth universally acknowledged"}' \
-      http://my.gateway:9000/gateway/completions/invocations
-
-This will return a JSON object with the response from the completions model, which is usually the continuation of the text provided as a prompt.
-
-**Note:** Please remember to replace ``http://my.gateway:9000`` with the URL of your actual Gateway Server.
 
 MLflow Python Client APIs
 -------------------------
@@ -728,74 +746,71 @@ Fluent API
 ~~~~~~~~~~
 For the ``fluent`` API, here are some examples:
 
-1. Set the Gateway uri:
+1. Set the Gateway URI:
 
-Before using the Fluent API, the gateway uri must be set via :func:`set_gateway_uri() <mlflow.gateway.set_gateway_uri>`.
+   Before using the Fluent API, the gateway URI must be set via :func:`set_gateway_uri() <mlflow.gateway.set_gateway_uri>`.
 
-Alternatively to directly calling the ``set_gateway_uri`` function, the environment variable ``MLFLOW_GATEWAY_URI`` can be set
-directly, achieving the same session-level persistence for all ``fluent`` API usages.
+   Alternatively to directly calling the ``set_gateway_uri`` function, the environment variable ``MLFLOW_GATEWAY_URI`` can be set
+   directly, achieving the same session-level persistence for all ``fluent`` API usages.
 
-.. code-block:: python
+   .. code-block:: python
 
-    from mlflow.gateway import set_gateway_uri
+       from mlflow.gateway import set_gateway_uri
 
-    set_gateway_uri(gateway_uri="http://my.gateway:7000")
+       set_gateway_uri(gateway_uri="http://my.gateway:7000")
 
-2. Issue a query to a given route:
+2. Query a route:
 
-The :func:`query() <mlflow.gateway.query>` function interfaces with a configured route name and returns the response from the provider
-in a standardized format. The data structure you send in the query depends on the route.
+   The :func:`query() <mlflow.gateway.query>` function queries the specified route and returns the response from the provider
+   in a standardized format. The data structure you send in the query depends on the route.
 
-.. code-block:: python
+   .. code-block:: python
 
-    from mlflow.gateway import query
+       from mlflow.gateway import query
 
-    response = query(
-        "embeddings", {"texts": ["It was the best of times", "It was the worst of times"]}
-    )
-    print(response)
+       response = query(
+           "embeddings", {"text": ["It was the best of times", "It was the worst of times"]}
+       )
+       print(response)
 
 .. _gateway_client_api:
 
 Client API
 ~~~~~~~~~~
 
-To use the ``MLflowGatewayClient`` API, see the below examples for the available API methods:
+To use the ``MlflowGatewayClient`` API, see the below examples for the available API methods:
 
-1. Initialization
+1. Create an ``MlflowGatewayClient``
 
-.. code-block:: python
+   .. code-block:: python
 
-    from mlflow.gateway import MlflowGatewayClient
+       from mlflow.gateway import MlflowGatewayClient
 
-    gateway_client = MlflowGatewayClient("http://my.gateway:8888")
+       gateway_client = MlflowGatewayClient("http://my.gateway:8888")
 
-2. Listing all configured routes on the Gateway:
+2. List all routes:
 
-The :meth:`search_routes() <mlflow.gateway.client.MlflowGatewayClient.search_routes>` method returns a list of all configured and initialized ``Route`` data for the MLflow AI Gateway server.
+   The :meth:`search_routes() <mlflow.gateway.client.MlflowGatewayClient.search_routes>` method returns a list of all routes.
 
-.. code-block:: python
+   .. code-block:: python
 
-    routes = gateway_client.search_routes()
-    for route in routes:
-        print(route)
+       routes = gateway_client.search_routes()
+       for route in routes:
+           print(route)
 
-Sensitive configuration data from the server configuration file is not returned.
+3. Query a route:
 
-3. Querying a particular route:
+   The :meth:`query() <mlflow.gateway.client.MlflowGatewayClient.query>` method submits a query to a configured provider route.
+   The data structure you send in the query depends on the route.
 
-The :meth:`query() <mlflow.gateway.client.MlflowGatewayClient.query>` method submits a query to a configured provider route.
-The data structure you send in the query depends on the route.
+   .. code-block:: python
 
-.. code-block:: python
+       response = gateway_client.query(
+           "chat", {"messages": [{"role": "user", "content": "Tell me a joke about rabbits"}]}
+       )
+       print(response)
 
-    response = gateway_client.query(
-        "chat", {"messages": [{"role": "user", "content": "Tell me a joke about rabbits"}]}
-    )
-    print(response)
-
-
-Further route types will be added in the future.
+.. _gateway_mlflow_models:
 
 MLflow Models
 ~~~~~~~~~~~~~
@@ -864,50 +879,53 @@ The REST API allows you to send HTTP requests directly to the MLflow AI Gateway 
 
 Here are some examples for how you might use curl to interact with the Gateway:
 
-1. Getting information about a particular route: /routes/{name}
-This endpoint returns a serialized representation of the Route data structure.
-This provides information about the name and type, as well as the model details for the requested route endpoint.
+1. Get information about a particular route: ``GET /api/2.0/gateway/routes/{name}``
+   This endpoint returns a serialized representation of the Route data structure.
+   This provides information about the name and type, as well as the model details for the requested route endpoint.
 
-Sensitive configuration data from the server configuration file is not returned.
+   .. code-block:: bash
 
-.. code-block:: bash
+       curl -X GET http://my.gateway:8888/api/2.0/gateway/routes/embeddings
 
-    curl -X GET http://my.gateway:8888/routes/embeddings
+2. List all routes: ``GET /api/2.0/gateway/routes``
 
-2. Listing all configured routes on the Gateway: /routes
+   This endpoint returns a list of all routes.
 
-This endpoint returns a list of all configured and initialized Route data for the MLflow AI Gateway server.
+   .. code-block:: bash
 
-.. code-block:: bash
+       curl -X GET http://my.gateway:8888/api/2.0/gateway/routes
 
-    curl -X GET http://my.gateway:8888/routes
+3. Query a route: ``POST /gateway/{route}/invocations``
 
-Sensitive configuration data from the server configuration file is not returned.
+   This endpoint allows you to submit a query to a configured provider route. The data structure you send in the query depends on the route. Here are examples for the "completions", "chat", and "embeddings" routes:
 
-3. Querying a particular route: /gateway/{route}/invocations
-This endpoint allows you to submit a query to a configured provider route. The data structure you send in the query depends on the route. Here are examples for the "completions", "chat", and "embeddings" routes:
 
-* ``Completions``
+   * ``Completions``
 
-.. code-block:: bash
+     .. code-block:: bash
 
-    curl -X POST http://my.gateway:8888/gateway/completions/invocations -H "Content-Type: application/json" -d '{"prompt": "Describe the probability distribution of the decay chain of U-235"}'
+         curl -X POST http://my.gateway:8888/gateway/completions/invocations \
+           -H "Content-Type: application/json" \
+           -d '{"prompt": "Describe the probability distribution of the decay chain of U-235"}'
 
-* ``Chat``
 
-.. code-block:: bash
+   * ``Chat``
 
-    curl -X POST http://my.gateway:8888/gateway/chat/invocations -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "Can you write a limerick about orange flavored popsicles?"}]}'
+     .. code-block:: bash
 
-* ``Embeddings``
+         curl -X POST http://my.gateway:8888/gateway/chat/invocations \
+           -H "Content-Type: application/json" \
+           -d '{"messages": [{"role": "user", "content": "Can you write a limerick about orange flavored popsicles?"}]}'
 
-.. code-block:: bash
+   * ``Embeddings``
 
-    curl -X POST http://my.gateway:8888/gateway/embeddings/invocations -H "Content-Type: application/json" -d '{"texts": ["I'd like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
+     .. code-block:: bash
 
-These examples cover the primary ways you might interact with the MLflow AI Gateway via its REST API.
+         curl -X POST http://my.gateway:8888/gateway/embeddings/invocations \
+           -H "Content-Type: application/json" \
+           -d '{"text": ["I would like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
 
-**Note:** Please remember to replace ``http://my.gateway:8888`` with the URL of your actual MLflow AI Gateway Server.
+**Note:** Remember to replace ``http://my.gateway:8888`` with the URL of your actual MLflow AI Gateway Server.
 
 MLflow AI Gateway API Documentation
 ===================================

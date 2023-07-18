@@ -44,6 +44,7 @@ extra_files = [
     "pypi_package_index.json",
     "pyspark/ml/log_model_allowlist.txt",
     "server/auth/basic_auth.ini",
+    "server/auth/db/migrations/alembic.ini",
 ]
 recipes_template_files = package_files("mlflow/recipes/resources")
 recipes_files = package_files("mlflow/recipes/cards/templates")

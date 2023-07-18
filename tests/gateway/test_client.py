@@ -1,5 +1,5 @@
 import pytest
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, Timeout
 from unittest import mock
 
 from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
@@ -471,3 +471,18 @@ def test_cllient_query_with_disallowed_param(mixed_gateway):
 
     with pytest.raises(HTTPError, match=".*The parameter 'model' is not permitted.*"):
         gateway_client.query(route=route.name, data=data)
+
+
+def test_query_timeout_not_retried(mixed_gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=mixed_gateway.url)
+
+    data = {"prompt": "Test", "temperature": 0.4}
+    route = "completions"
+
+    with mock.patch(
+        "mlflow.gateway.constants.MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS", new=1
+    ), mock.patch("requests.Session.request", side_effect=Timeout) as mocked_request:
+        with pytest.raises(MlflowException, match="The provider has timed out while generating"):
+            gateway_client.query(route=route, data=data)
+
+        mocked_request.assert_called_once()
