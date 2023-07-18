@@ -927,6 +927,12 @@ def _parse_spark_datatype(datatype: str):
     return udf(lambda x: x, returnType=return_type).returnType
 
 
+def _is_none_or_nan(value):
+    # The condition `isinstance(value, float)` is needed to avoid error
+    # from `np.isnan(value)` if value is a non-numeric type.
+    return value is None or isinstance(value, float) and np.isnan(value)
+
+
 def _convert_array_values(values, elem_type, array_dim, spark_primitive_type_to_np_type):
     """
     Convert list or numpy array values to spark dataframe column values.
@@ -939,10 +945,12 @@ def _convert_array_values(values, elem_type, array_dim, spark_primitive_type_to_
             error_code=INVALID_PARAMETER_VALUE,
         )
 
+    # For array type result values, if provided value is None or NaN, regard it as a null array.
+    # see https://github.com/mlflow/mlflow/issues/8986
     if array_dim == 1:
-        return [np.array(v, dtype=np_type) for v in values]
+        return [None if _is_none_or_nan(v) else np.array(v, dtype=np_type) for v in values]
     else:
-        return [list(np.array(v, dtype=np_type)) for v in values]
+        return [None if _is_none_or_nan(v) else list(np.array(v, dtype=np_type)) for v in values]
 
 
 def _get_spark_primitive_types():

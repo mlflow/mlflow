@@ -252,8 +252,8 @@ def fill_mask_pipeline():
 def text2text_generation_pipeline():
     task = "text2text-generation"
     architecture = "mrm8488/t5-base-finetuned-common_gen"
-    model = transformers.AutoModelWithLMHead.from_pretrained(architecture)
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+    model = transformers.T5ForConditionalGeneration.from_pretrained(architecture)
+    tokenizer = transformers.T5TokenizerFast.from_pretrained(architecture)
 
     return transformers.pipeline(
         task=task,
@@ -1318,6 +1318,7 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
     assert all(isinstance(element, str) for element in inference)
 
 
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.parametrize(
     "data, result",
     [
@@ -2731,37 +2732,58 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
         (
             "summarizer_pipeline",
             "If you write enough tests, you can be sure that your code isn't broken.",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
         ),
         (
             "translation_pipeline",
             "No, I am your father.",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
         ),
         (
             "text_generation_pipeline",
             ["models are", "apples are"],
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
         ),
         (
             "text2text_generation_pipeline",
             ["man apple pie", "dog pizza eat"],
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
         ),
         (
             "fill_mask_pipeline",
             "Juggling <mask> is remarkably dangerous",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
         ),
         (
             "conversational_pipeline",
             "What's shaking, my robot homie?",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
         ),
         (
             "ner_pipeline",
             "Blue apples are not a thing",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
         ),
     ],
 )

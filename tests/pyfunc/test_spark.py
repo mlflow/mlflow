@@ -107,9 +107,9 @@ def get_spark_session(conf):
     # adding `.config("spark.driver.bindAddress", "127.0.0.1")` to the SparkSession
     # builder configuration will enable a SparkSession to start.
     # For local testing, uncomment the following line:
-    spark_master = os.environ.get("SPARK_MASTER", "local[1]")
+    # spark_master = os.environ.get("SPARK_MASTER", "local[1]")
     # If doing local testing, comment-out the following line.
-    # spark_master = os.environ.get("SPARK_MASTER", "local-cluster[2, 1, 1024]")
+    spark_master = os.environ.get("SPARK_MASTER", "local-cluster[2, 1, 1024]")
     # Don't forget to revert these changes prior to pushing a branch!
     return (
         pyspark.sql.SparkSession.builder.config(conf=conf)
@@ -1232,3 +1232,24 @@ cloudpickle==2.2.1
     )
     res = spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
     assert res["res"][0] == ("string")
+
+
+def test_spark_udf_return_nullable_array_field(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            values = [np.array([1.0, np.nan])] * (len(model_input) - 2) + [None, np.nan]
+            return pd.DataFrame({"a": values})
+
+    with mlflow.start_run():
+        mlflow_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+        )
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            mlflow_info.model_uri,
+            result_type="a array<double>",
+        )
+        data1 = spark.range(3).repartition(1)
+        result = data1.select(udf("id").alias("res")).select("res.a").toPandas()
+        assert list(result["a"]) == [[1.0, None], None, None]
