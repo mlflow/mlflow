@@ -1028,6 +1028,27 @@ def test_spark_udf_array_of_structs(spark):
         assert res["res"][0] == [("str", 0, 1, 0.0, 0.1, True)]
 
 
+def test_spark_udf_return_nullable_array_field(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            values = [np.array([1.0, np.nan])] * (len(model_input) - 2) + [None, np.nan]
+            return pd.DataFrame({"a": values})
+
+    with mlflow.start_run():
+        mlflow_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+        )
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            mlflow_info.model_uri,
+            result_type="a array<double>",
+        )
+        data1 = spark.range(3).repartition(1)
+        result = data1.select(udf("id").alias("res")).select("res.a").toPandas()
+        assert list(result["a"]) == [[1.0, None], None, None]
+
+
 def test_spark_udf_with_params(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input, params=None):
@@ -1234,22 +1255,39 @@ cloudpickle==2.2.1
     assert res["res"][0] == ("string")
 
 
-def test_spark_udf_return_nullable_array_field(spark):
+def test_spark_udf_with_model_serving(spark):
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
-            values = [np.array([1.0, np.nan])] * (len(model_input) - 2) + [None, np.nan]
-            return pd.DataFrame({"a": values})
+        def predict(self, context, model_input, params=None):
+            return ["string"] * len(model_input)
 
-    with mlflow.start_run():
-        mlflow_info = mlflow.pyfunc.log_model(
+    test_params = {
+        "str_param": "str_a",
+    }
+
+    signature = mlflow.models.infer_signature(["input"], params=test_params)
+    spark_df = spark.createDataFrame(
+        [
+            ("input1",),
+            ("input2",),
+            ("input3",),
+        ],
+        ["input_col"],
+    )
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
             "model",
             python_model=TestModel(),
+            signature=signature,
         )
+
+    with mock.patch("mlflow.pyfunc.check_port_connectivity", return_value=False):
         udf = mlflow.pyfunc.spark_udf(
             spark,
-            mlflow_info.model_uri,
-            result_type="a array<double>",
+            f"runs:/{run.info.run_id}/model",
+            result_type=StringType(),
+            params=test_params,
+            env_manager="conda",
         )
-        data1 = spark.range(3).repartition(1)
-        result = data1.select(udf("id").alias("res")).select("res.a").toPandas()
-        assert list(result["a"]) == [[1.0, None], None, None]
+
+        res = spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
+        assert res["res"][0] == ("string")
