@@ -9,7 +9,6 @@ import pandas as pd
 import pytest
 import gc
 from contextlib import nullcontext as does_not_raise
-from huggingface_hub import scan_cache_dir
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -77,28 +76,6 @@ def force_gc():
     gc.set_threshold(0)
     gc.collect()
     gc.enable()
-
-
-@pytest.fixture(autouse=True)
-def clean_cache(request):
-    # This function will clean the cache that HuggingFace uses to limit the number of fetches from
-    # the hub repository when instantiating components (tokenizers, models, etc.). Due to the
-    # runner limitations for CI (As of April 2023, the runner image ubuntu-22.04 has a maximum of
-    # 14GB of storage space on the provided SSDs and 7GB of RAM which are both insufficient to run
-    # all validations of this test suite due to the model sizes.
-    # This fixture will clear the cache iff the cache storage is > 2GB when called.
-    if "skipcacheclean" in request.keywords:
-        return
-    else:
-        full_cache = scan_cache_dir()
-        cache_size_in_gb = full_cache.size_on_disk / 1000**3
-
-        if cache_size_in_gb > 2:
-            commits_to_purge = [
-                rev.commit_hash for repo in full_cache.repos for rev in repo.revisions
-            ]
-            delete_strategy = full_cache.delete_revisions(*commits_to_purge)
-            delete_strategy.execute()
 
 
 def assert_dict_equal(d1, d2, rtol):
