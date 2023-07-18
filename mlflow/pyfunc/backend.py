@@ -3,6 +3,7 @@ import os
 import pathlib
 import subprocess
 import posixpath
+import shlex
 import sys
 import warnings
 import ctypes
@@ -24,6 +25,7 @@ from mlflow.pyfunc import ENV, scoring_server, mlserver, _extract_conda_env
 from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import env_manager as _EnvManager
+from mlflow.pyfunc import _mlflow_pyfunc_backend_predict
 from mlflow.utils.file_utils import (
     path_to_local_file_uri,
     get_or_create_tmp_dir,
@@ -143,20 +145,19 @@ class PyFuncBackend(FlavorBackend):
         local_uri = path_to_local_file_uri(local_path)
 
         if self._env_manager != _EnvManager.LOCAL:
-            command = (
-                'python -c "from mlflow.pyfunc.scoring_server import _predict; _predict('
-                "model_uri={model_uri}, "
-                "input_path={input_path}, "
-                "output_path={output_path}, "
-                "content_type={content_type})"
-                '"'
-            ).format(
-                model_uri=repr(local_uri),
-                input_path=repr(input_path),
-                output_path=repr(output_path),
-                content_type=repr(content_type),
-            )
-            return self.prepare_env(local_path).execute(command)
+            predict_cmd = [
+                "python",
+                _mlflow_pyfunc_backend_predict.__file__,
+                "--model-uri",
+                str(local_uri),
+                "--content-type",
+                shlex.quote(str(content_type)),
+            ]
+            if input_path:
+                predict_cmd += ["--input-path", shlex.quote(str(input_path))]
+            if output_path:
+                predict_cmd += ["--output-path", shlex.quote(str(output_path))]
+            return self.prepare_env(local_path).execute(" ".join(predict_cmd))
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type)
 

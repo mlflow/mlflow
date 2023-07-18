@@ -5,6 +5,7 @@ on:
     paths:
       - requirements/core-requirements.yaml
       - requirements/skinny-requirements.yaml
+      - requirements/gateway-requirements.yaml
   schedule:
     - cron: "0 13 * * *"
 
