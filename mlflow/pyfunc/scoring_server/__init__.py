@@ -316,7 +316,6 @@ def _predict(model_uri, input_path, output_path, content_type):
     if output_path is None:
         predictions_to_json(pyfunc_model.predict(df), sys.stdout)
     else:
-        # Should we check if output_path is valid here? Define `valid`.
         with open(output_path, "w") as fout:
             predictions_to_json(pyfunc_model.predict(df), fout)
 
