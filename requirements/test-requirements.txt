@@ -35,4 +35,3 @@ evaluate
 nltk
 rouge_score
 textstat
-torch
