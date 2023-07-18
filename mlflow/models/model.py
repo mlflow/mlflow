@@ -297,13 +297,6 @@ class Model:
         """
         return self.signature.outputs if self.signature is not None else None
 
-    def get_params_schema(self):
-        """
-        Retrieves the parameters schema of the Model iff the model was saved with a schema
-        definition.
-        """
-        return getattr(self.signature, "params", None)
-
     def load_input_example(self, path: str):
         """
         Load the input example saved along a model. Returns None if there is no example metadata
@@ -569,13 +562,15 @@ class Model:
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, metadata=metadata)
-            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
-            mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
             tracking_uri = _resolve_tracking_uri()
             if (
-                tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks"
-            ) and kwargs.get("signature") is None:
+                (tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks")
+                and kwargs.get("signature") is None
+                and kwargs.get("input_example") is None
+            ):
                 _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
+            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
+            mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model)
             except MlflowException:
@@ -585,10 +580,11 @@ class Model:
                 _logger.debug("", exc_info=True)
             if registered_model_name is not None:
                 run_id = mlflow.tracking.fluent.active_run().info.run_id
-                mlflow.register_model(
+                mlflow.tracking._model_registry.fluent._register_model(
                     f"runs:/{run_id}/{mlflow_model.artifact_path}",
                     registered_model_name,
                     await_registration_for=await_registration_for,
+                    local_model_path=local_path,
                 )
         return mlflow_model.get_model_info()
 

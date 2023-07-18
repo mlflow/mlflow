@@ -427,8 +427,22 @@ class UcModelRegistryStore(BaseRestStore):
             return None
         return run.data.tags.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
 
-    def _validate_model_signature(self, local_model_dir):
-        model = _load_model(local_model_dir)
+    def _validate_model_signature(self, local_model_path):
+        # Import Model here instead of in the top level, to avoid circular import; the
+        # mlflow.models.model module imports from MLflow tracking, which triggers an import of
+        # this file during store registry initialization
+        from mlflow.models.model import Model
+
+        try:
+            model = Model.load(local_model_path)
+        except Exception as e:
+            raise MlflowException(
+                "Unable to load model metadata. Ensure the source path of the model "
+                "being registered points to a valid MLflow model directory "
+                "(see https://mlflow.org/docs/latest/models.html#storage-format) containing a "
+                "model signature (https://mlflow.org/docs/latest/models.html#model-signature) "
+                "specifying both input and output type specifications."
+            ) from e
         signature_required_explanation = (
             "All models in the Unity Catalog must be logged with a "
             "model signature containing both input and output "
@@ -448,7 +462,14 @@ class UcModelRegistryStore(BaseRestStore):
             )
 
     def create_model_version(
-        self, name, source, run_id=None, tags=None, run_link=None, description=None
+        self,
+        name,
+        source,
+        run_id=None,
+        tags=None,
+        run_link=None,
+        description=None,
+        local_model_path=None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -479,19 +500,20 @@ class UcModelRegistryStore(BaseRestStore):
             extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: header_base64}
         full_name = get_full_name_from_sc(name, self.spark)
         with tempfile.TemporaryDirectory() as tmpdir:
-            try:
-                local_model_dir = mlflow.artifacts.download_artifacts(
-                    artifact_uri=source, dst_path=tmpdir, tracking_uri=self.tracking_uri
-                )
-            except Exception as e:
-                raise MlflowException(
-                    f"Unable to download model artifacts from source artifact location "
-                    f"'{source}' in order to upload them to Unity Catalog. Please ensure "
-                    f"the source artifact location exists and that you can download from "
-                    f"it via mlflow.artifacts.download_artifacts()"
-                ) from e
-            self._validate_model_signature(local_model_dir)
-            feature_deps = get_feature_dependencies(local_model_dir)
+            if local_model_path is None:
+                try:
+                    local_model_path = mlflow.artifacts.download_artifacts(
+                        artifact_uri=source, dst_path=tmpdir, tracking_uri=self.tracking_uri
+                    )
+                except Exception as e:
+                    raise MlflowException(
+                        f"Unable to download model artifacts from source artifact location "
+                        f"'{source}' in order to upload them to Unity Catalog. Please ensure "
+                        f"the source artifact location exists and that you can download from "
+                        f"it via mlflow.artifacts.download_artifacts()"
+                    ) from e
+            self._validate_model_signature(local_model_path)
+            feature_deps = get_feature_dependencies(local_model_path)
             req_body = message_to_json(
                 CreateModelVersionRequest(
                     name=full_name,
@@ -513,7 +535,7 @@ class UcModelRegistryStore(BaseRestStore):
             store = get_artifact_repo_from_storage_info(
                 storage_location=model_version.storage_location, scoped_token=scoped_token
             )
-            store.log_artifacts(local_dir=local_model_dir, artifact_path="")
+            store.log_artifacts(local_dir=local_model_path, artifact_path="")
         finalized_mv = self._finalize_model_version(name=full_name, version=version_number)
         return model_version_from_uc_proto(finalized_mv)
 

@@ -7,6 +7,7 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     append_to_uri_path,
+    append_to_uri_query_params,
     extract_and_normalize_path,
     extract_db_type_from_uri,
     get_databricks_profile_uri_from_artifact_uri,
@@ -226,6 +227,66 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
             ("$@''(,", ")]*%", "$@''(,/)]*%"),
         ]
     )
+
+
+@pytest.mark.parametrize(
+    ("uri", "existing_query_params", "query_params", "expected"),
+    [
+        ("https://example.com", "", [("key", "value")], "https://example.com?key=value"),
+        (
+            "https://example.com",
+            "existing_key=existing_value",
+            [("new_key", "new_value")],
+            "https://example.com?existing_key=existing_value&new_key=new_value",
+        ),
+        (
+            "https://example.com",
+            "",
+            [("key1", "value1"), ("key2", "value2"), ("key3", "value3")],
+            "https://example.com?key1=value1&key2=value2&key3=value3",
+        ),
+        (
+            "https://example.com",
+            "",
+            [("key", "value with spaces"), ("key2", "special#characters")],
+            "https://example.com?key=value+with+spaces&key2=special%23characters",
+        ),
+        ("", "", [("key", "value")], "?key=value"),
+        ("https://example.com", "", [], "https://example.com"),
+        (
+            "https://example.com",
+            "",
+            [("key1", 123), ("key2", 456)],
+            "https://example.com?key1=123&key2=456",
+        ),
+        (
+            "https://example.com?existing_key=existing_value",
+            "",
+            [("existing_key", "new_value"), ("existing_key", "new_value_2")],
+            "https://example.com?existing_key=existing_value&existing_key=new_value&existing_key=new_value_2",
+        ),
+        (
+            "s3://bucket/key",
+            "prev1=foo&prev2=bar",
+            [("param1", "value1"), ("param2", "value2")],
+            "s3://bucket/key?prev1=foo&prev2=bar&param1=value1&param2=value2",
+        ),
+        (
+            "s3://bucket/key?existing_param=existing_value",
+            "",
+            [("new_param", "new_value")],
+            "s3://bucket/key?existing_param=existing_value&new_param=new_value",
+        ),
+    ],
+)
+def test_append_to_uri_query_params_appends_as_expected(
+    uri, existing_query_params, query_params, expected
+):
+    if existing_query_params:
+        uri += f"?{existing_query_params}"
+
+    result = append_to_uri_query_params(uri, *query_params)
+    assert result == expected
 
 
 def test_append_to_uri_path_preserves_uri_schemes_hosts_queries_and_fragments():

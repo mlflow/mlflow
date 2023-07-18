@@ -30,7 +30,6 @@ from mlflow.models.utils import _read_example
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.transformers import (
     _build_pipeline_from_model_input,
     get_default_pip_requirements,
@@ -63,6 +62,7 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     pyfunc_serve_and_score_model,
     _get_deps_from_requirement_file,
+    assert_register_model_called_with_local_model_path,
 )
 
 pytestmark = pytest.mark.large
@@ -252,8 +252,8 @@ def fill_mask_pipeline():
 def text2text_generation_pipeline():
     task = "text2text-generation"
     architecture = "mrm8488/t5-base-finetuned-common_gen"
-    model = transformers.AutoModelWithLMHead.from_pretrained(architecture)
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+    model = transformers.T5ForConditionalGeneration.from_pretrained(architecture)
+    tokenizer = transformers.T5TokenizerFast.from_pretrained(architecture)
 
     return transformers.pipeline(
         task=task,
@@ -927,7 +927,7 @@ def test_load_pipeline_from_remote_uri_succeeds(small_seq2seq_pipeline, model_pa
 
 def test_transformers_log_model_calls_register_model(small_qa_pipeline, tmp_path):
     artifact_path = "transformers"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["transformers", "torch", "torchvision"])
@@ -938,10 +938,10 @@ def test_transformers_log_model_calls_register_model(small_qa_pipeline, tmp_path
             registered_model_name="Question-Answering Model 1",
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        mlflow.register_model.assert_called_once_with(
-            model_uri,
-            "Question-Answering Model 1",
-            await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        assert_register_model_called_with_local_model_path(
+            register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
+            model_uri=model_uri,
+            registered_model_name="Question-Answering Model 1",
         )
 
 
@@ -959,7 +959,7 @@ def test_transformers_log_model_with_no_registered_model_name(small_vision_model
             "tokenizer": small_vision_model.tokenizer,
         }
     artifact_path = "transformers"
-    registered_model_patch = mock.patch("mlflow.register_model")
+    registered_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), registered_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["tensorflow", "transformers"])
@@ -968,7 +968,7 @@ def test_transformers_log_model_with_no_registered_model_name(small_vision_model
             artifact_path=artifact_path,
             conda_env=str(conda_env),
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         model_path = pathlib.Path(_download_artifact_from_uri(artifact_uri=model_uri))
         model_config = Model.load(str(model_path.joinpath("MLmodel")))
@@ -1318,6 +1318,7 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
     assert all(isinstance(element, str) for element in inference)
 
 
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.parametrize(
     "data, result",
     [
@@ -1332,7 +1333,6 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
         ),
     ],
 )
-@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 def test_text2text_generation_pipeline_with_inference_configs(
     text2text_generation_pipeline, model_path, data, result
 ):
@@ -2649,37 +2649,58 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
         (
             "summarizer_pipeline",
             "If you write enough tests, you can be sure that your code isn't broken.",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
         ),
         (
             "translation_pipeline",
             "No, I am your father.",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
         ),
         (
             "text_generation_pipeline",
             ["models are", "apples are"],
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
         ),
         (
             "text2text_generation_pipeline",
             ["man apple pie", "dog pizza eat"],
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
         ),
         (
             "fill_mask_pipeline",
             "Juggling <mask> is remarkably dangerous",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
         ),
         (
             "conversational_pipeline",
             "What's shaking, my robot homie?",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
         ),
         (
             "ner_pipeline",
             "Blue apples are not a thing",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
         ),
     ],
 )
@@ -3313,21 +3334,16 @@ def test_uri_directory_renaming_handling_components(model_path, small_seq2seq_pi
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.2"), reason="Feature does not exist"
 )
-def test_whisper_model_supports_timestamps(raw_audio_file):
-    pipe = transformers.pipeline(
-        "automatic-speech-recognition",
-        model="openai/whisper-tiny",
-        chunk_length_s=30,
-    )
-
+def test_whisper_model_supports_timestamps(raw_audio_file, whisper_pipeline):
     inference_config = {
         "return_timestamps": "word",
         "chunk_length_s": 60,
         "batch_size": 16,
     }
+
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
-            transformers_model=pipe,
+            transformers_model=whisper_pipeline,
             artifact_path="model",
             inference_config=inference_config,
         )
