@@ -293,7 +293,7 @@ def test_transformers_trainer_does_not_autolog_sklearn(transformers_trainer):
 
 
 def test_transformers_autolog_adheres_to_global_behavior_using_setfit(setfit_trainer):
-    mlflow.transformers.autolog(disable=False, extra_tags={"test_tag": "transformers_autolog"})
+    mlflow.transformers.autolog(disable=False)
 
     setfit_trainer.train()
     # setfit does not have an MLflow callback. There should be no active run.
@@ -302,16 +302,9 @@ def test_transformers_autolog_adheres_to_global_behavior_using_setfit(setfit_tra
     preds = setfit_trainer.model(["Jim, I'm a doctor, not an archaeologist!"])
     assert len(preds) == 1
 
-    run = mlflow.search_runs(
-        order_by=["start_time desc"],
-        max_results=1,
-        output_format="list",
-    )[0]
-    assert run.data.tags["test_tag"] == "transformers_autolog"
-
 
 def test_transformers_autolog_adheres_to_global_behavior_using_trainer(transformers_trainer):
-    mlflow.transformers.autolog()
+    mlflow.transformers.autolog(extra_tags={"test_tag": "transformers_autolog"})
 
     exp = mlflow.set_experiment(experiment_name="autolog_with_trainer")
 
@@ -320,6 +313,7 @@ def test_transformers_autolog_adheres_to_global_behavior_using_trainer(transform
     last_run = mlflow.last_active_run()
     assert last_run.data.metrics["epoch"] == 1.0
     assert last_run.data.params["model_type"] == "distilbert"
+    assert last_run.data.tags["test_tag"] == "transformers_autolog"
 
     pipe = pipeline(
         task="text-classification",
