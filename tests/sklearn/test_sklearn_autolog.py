@@ -185,6 +185,25 @@ def test_autolog_does_not_terminate_active_run():
     mlflow.end_run()
 
 
+@pytest.mark.parametrize("autolog_variant", ["all", "self"])
+def test_extra_tags_sklearn_autolog(autolog_variant):
+    if autolog_variant == "self":
+        mlflow.sklearn.autolog(extra_tags={"test_tag": "sklearn_autolog"})
+    else:
+        mlflow.autolog(extra_tags={"test_tag": "autolog"})
+    sklearn.cluster.KMeans().fit(*get_iris())
+    assert mlflow.active_run() is None
+    run = mlflow.search_runs(
+        order_by=["start_time desc"],
+        max_results=1,
+        output_format="list",
+    )[0]
+    if autolog_variant == "self":
+        assert run.data.tags["test_tag"] == "sklearn_autolog"
+    else:
+        assert run.data.tags["test_tag"] == "autolog"
+
+
 def test_estimator(fit_func_name):
     mlflow.sklearn.autolog()
 
