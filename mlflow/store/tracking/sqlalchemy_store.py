@@ -1323,9 +1323,7 @@ class SqlAlchemyStore(AbstractStore):
 
         if not isinstance(mlflow_model, Model):
             raise TypeError(
-                "Argument 'mlflow_model' should be mlflow.models.Model, got '{}'".format(
-                    type(mlflow_model)
-                )
+                f"Argument 'mlflow_model' should be mlflow.models.Model, got '{type(mlflow_model)}'"
             )
         model_dict = mlflow_model.to_dict()
         with self.ManagedSessionMaker() as session:
