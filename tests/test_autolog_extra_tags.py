@@ -5,6 +5,14 @@ import sklearn
 import pandas as pd
 import numpy as np
 
+"""
+In this test, we check that the extra_tags parameter is passed to the autologging for 
+mlflow.autolog(), mlflow.sklearn.autolog(), mlflow.fastai.autolog(), and 
+mlflow.pyspark.ml.autolog() correctly.
+
+All the other autologging functions are tested in their corresponding test files.
+"""
+
 mlflow.autolog(silent=True, log_models=False, extra_tags={"test_tag": "autolog"})
 
 
