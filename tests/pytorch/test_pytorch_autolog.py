@@ -90,6 +90,7 @@ def test_pytorch_autolog_logs_default_params(pytorch_model):
 def test_pytorch_autolog_logs_expected_data(pytorch_model):
     _, run = pytorch_model
     data = run.data
+    assert data.tags["test_tag"] == "pytorch_autolog"
 
     # Checking if metrics are logged.
     # When autolog is configured with the default configuration to not log on steps,
@@ -327,7 +328,6 @@ def test_pytorch_test_metrics_logged(pytorch_model_tests):
     assert "test_acc" in data.metrics
     # this is logged through SummaryWriter
     assert "plain_loss" not in data.metrics
-    assert data.tags["test_tag"] == "pytorch_autolog"
 
 
 def test_get_optimizer_name():
