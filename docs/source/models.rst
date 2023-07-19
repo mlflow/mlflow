@@ -208,39 +208,30 @@ Model Inference Params
 ^^^^^^^^^^^^^^^^^^^^^^
 Inference params are parameters that are passed to the model at inference time. These parameters
 do not need to be specified when training the model, but could be useful for inference. With the 
-advances in foundational models, more often “inference configuration” is used to modify the behavior 
+advances in foundational models, more often "inference configuration" is used to modify the behavior 
 of a model. In some cases, especially popular LLMs, the same model may require different parameter 
 configurations for different samples. 
 
 With this newly introduced feature, you can now specify a dictionary of inference params during 
 model inference, and this could be extremely useful for LLMs. By passing different params such
-as ``temperature``, ``max_length``, ``min_length``, ``num_beams``, ``repetition_penalty``, etc. to
-the model at inference time, you can easily control the output of the model.
+as ``temperature``, ``max_length``, etc. to the model at inference time, you can easily control 
+the output of the model.
 
 In order to use params at inference time, a valid :ref:`Model Signature <model-signature>` with 
 ``params`` must be defined. The params are passed to the model at inference time as a dictionary,
 and each param value will be validated against the corresponding param type defined in the model
-signature. Valid param types are ``Union[DataType, List[DataType], None]`` where DataType is
+signature. Valid param types are ``Union[DataType, List[DataType], None]`` where ``DataType`` is
 :py:class:`MLflow data types <mlflow.types.DataType>`. Please note that ``bytes`` are not supported.
 
-A full list of supported param types is listed below in the form of 
-:py:class:`ParamSpec <mlflow.types.ParamSpec>`, default values could be any valid value of the 
-specified type:
+A full list of supported param types is listed below:
 
-* ``ParamSpec("str_param", DataType.string, "DEFAULT_STRING", None)``
-* ``ParamSpec("int_param", DataType.integer, 1, None)``
-* ``ParamSpec("bool_param", DataType.boolean, True, None)``
-* ``ParamSpec("double_param", DataType.double, 1.0, None)``
-* ``ParamSpec("float_param", DataType.float, np.float32(0.1), None)``
-* ``ParamSpec("long_param", DataType.long, 100, None)``
-* ``ParamSpec("datetime_param", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None)``
-* ``ParamSpec("str_array", DataType.string, ["a", "b", "c"], (-1,))``
-* ``ParamSpec("int_array", DataType.integer, [1, 2, 3], (-1,))``
-* ``ParamSpec("bool_array", DataType.boolean, [True, False, True], (-1,))``
-* ``ParamSpec("double_array", DataType.double, [1.0, 2.0, 3.0], (-1,))``
-* ``ParamSpec("float_array", DataType.float, [1.0, 2.0, 3.0], (-1,))``
-* ``ParamSpec("long_array", DataType.long, [1, 2, 3], (-1,))``
-* ``ParamSpec("datetime_array", DataType.datetime, [np.datetime64("2023-06-26 00:00:00")], (-1,))``
+* DataType.string or an array of DataType.string
+* DataType.integer or an array of DataType.integer
+* DataType.boolean or an array of DataType.boolean
+* DataType.double or an array of DataType.double
+* DataType.float or an array of DataType.float
+* DataType.long or an array of DataType.long
+* DataType.datetime or an array of DataType.datetime
 
 .. note::
     When validating param values, the values will be converted to python native types.
@@ -2839,13 +2830,13 @@ Using inference_config and model signature params for `transformers` inference
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 For `transformers` inference, there are two ways to pass in additional arguments to the pipeline.
 
-* Use inference_config when saving/logging the model
-* Specify params at inference time when calling `predict()`
+* Use ``inference_config`` when saving/logging the model
+* Specify params at inference time when calling ``predict()``
 
 .. note::
-    Model signature params passed in to `predict` function will override the values in inference_config.
+    Model signature params passed in to ``predict`` function will override the values in inference_config.
 
-* Using inference_config
+* Using ``inference_config``
 
 .. code-block:: python
 
