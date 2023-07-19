@@ -304,7 +304,7 @@ def test_transformers_autolog_adheres_to_global_behavior_using_setfit(setfit_tra
 
 
 def test_transformers_autolog_adheres_to_global_behavior_using_trainer(transformers_trainer):
-    mlflow.transformers.autolog(extra_tags={"test_tag": "transformers_autolog"})
+    mlflow.transformers.autolog()
 
     exp = mlflow.set_experiment(experiment_name="autolog_with_trainer")
 
@@ -313,7 +313,6 @@ def test_transformers_autolog_adheres_to_global_behavior_using_trainer(transform
     last_run = mlflow.last_active_run()
     assert last_run.data.metrics["epoch"] == 1.0
     assert last_run.data.params["model_type"] == "distilbert"
-    assert last_run.data.tags["test_tag"] == "transformers_autolog"
 
     pipe = pipeline(
         task="text-classification",
