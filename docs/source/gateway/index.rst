@@ -1018,3 +1018,8 @@ For example, here's a simple configuration for Nginx with Basic Authentication:
 In this example, `/etc/nginx/.htpasswd` is a file that contains the username and password for authentication.
 
 These measures, together with a proper network setup, can significantly improve the security of your system and ensure that only authorized users have access to submit requests to your LLM services.
+
+LangChain Integration
+=====================
+
+`LangChain <https://github.com/hwchase17/langchain>`_ supports an integration for MLflow AI Gateway. See https://python.langchain.com/docs/ecosystem/integrations/mlflow_ai_gateway for more information.
