@@ -286,7 +286,7 @@ The output is an unnamed integer specifying the predicted class.
         (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":
         "petal width (cm)", "type": "double"}, {"name": "class", "type": "string", "optional": "true"}]'
       outputs: '[{"type": "integer"}]'
-      params: None
+      params: null
 
 Tensor-based Signature Example
 """"""""""""""""""""""""""""""
@@ -306,7 +306,7 @@ and the output is the batch size and is thus set to -1 to allow for variable bat
   signature:
       inputs: '[{"name": "images", "dtype": "uint8", "shape": [-1, 28, 28, 1]}]'
       outputs: '[{"shape": [-1, 10], "dtype": "float32"}]'
-      params: None
+      params: null
 
 Signature with params Example
 """""""""""""""""""""""""""""
@@ -321,9 +321,9 @@ of the value, it should be ``None`` for scalar values and ``(-1,)`` for a list.
     signature:
         inputs: '[{"name": "text", "type": "string"}]'
         outputs: '[{"name": "output", "type": "string"}]'
-        params: '[{"name": "temperature", "type": "float", "default": 0.5, "shape": None},
-                  {"name": "top_k", "type": "integer", "default": 1, "shape": None},
-                  {"name": "suppress_tokens", "type": "integer", "default": [101, 102], "shape": (-1,)}]'
+        params: '[{"name": "temperature", "type": "float", "default": 0.5, "shape": null},
+                  {"name": "top_k", "type": "integer", "default": 1, "shape": null},
+                  {"name": "suppress_tokens", "type": "integer", "default": [101, 102], "shape": [-1]}]'
 
 .. _signature-enforcement:
 
@@ -543,8 +543,8 @@ for a simple transformers model:
     architecture = "mrm8488/t5-base-finetuned-common_gen"
     model = transformers.pipeline(
         task="text2text-generation",
-        tokenizer=transformers.AutoTokenizer.from_pretrained(architecture),
-        model=transformers.AutoModelWithLMHead.from_pretrained(architecture),
+        tokenizer=transformers.T5TokenizerFast.from_pretrained(architecture),
+        model=transformers.T5ForConditionalGeneration.from_pretrained(architecture),
     )
     data = "pencil draw paper"
 
@@ -555,6 +555,7 @@ for a simple transformers model:
         "temperature": 0.62,
         "top_p": 0.85,
         "repetition_penalty": 1.15,
+        "begin_suppress_tokens": [1, 2, 3],
     }
 
     # infer signature with params
@@ -592,6 +593,7 @@ The same signature can be created explicitly as follows:
             ParamSpec("temperature", "double", 0.62),
             ParamSpec("top_p", "double", 0.85),
             ParamSpec("repetition_penalty", "double", 1.15),
+            ParamSpec("begin_suppress_tokens", "long", [1, 2, 3], (-1,)),
         ]
     )
     signature = ModelSignature(
@@ -837,7 +839,8 @@ automatic dependency management).
 Once loaded, you can score the model by calling the :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>`
 method, which has the following signature::
 
-  predict(data: Union[pandas.(Series | DataFrame), numpy.ndarray, csc_matrix, csr_matrix, List[Any], Dict[str, Any], str], params: Optional[Dict[str, Any]] = None) → Union[pandas.(Series | DataFrame), numpy.ndarray, list, str]
+  predict(data: Union[pandas.(Series | DataFrame), numpy.ndarray, csc_matrix, csr_matrix, List[Any], Dict[str, Any], str],
+          params: Optional[Dict[str, Any]] = None) → Union[pandas.(Series | DataFrame), numpy.ndarray, list, str]
 
 All PyFunc models will support `pandas.DataFrame` as an input. In addition to `pandas.DataFrame`,
 DL PyFunc models will also support tensor inputs in the form of `numpy.ndarrays`. To verify
@@ -2840,8 +2843,18 @@ For `transformers` inference, there are two ways to pass in additional arguments
 
 .. code-block:: python
 
+    import mlflow
     from mlflow.models import infer_signature
     from mlflow.transformers import generate_signature_output
+    import transformers
+
+    architecture = "mrm8488/t5-base-finetuned-common_gen"
+    model = transformers.pipeline(
+        task="text2text-generation",
+        tokenizer=transformers.T5TokenizerFast.from_pretrained(architecture),
+        model=transformers.T5ForConditionalGeneration.from_pretrained(architecture),
+    )
+    data = "pencil draw paper"
 
     # Infer the signature
     signature = infer_signature(
@@ -2860,12 +2873,12 @@ For `transformers` inference, there are two ways to pass in additional arguments
     # Saving inference_config with the model
     mlflow.transformers.save_model(
         model,
-        path=model_path,
+        path="text2text",
         inference_config=inference_config,
         signature=signature,
     )
 
-    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model("text2text")
     # inference_config will be applied
     result = pyfunc_loaded.predict(data)
 
@@ -2874,8 +2887,18 @@ For `transformers` inference, there are two ways to pass in additional arguments
 
 .. code-block:: python
 
+    import mlflow
     from mlflow.models import infer_signature
     from mlflow.transformers import generate_signature_output
+    import transformers
+
+    architecture = "mrm8488/t5-base-finetuned-common_gen"
+    model = transformers.pipeline(
+        task="text2text-generation",
+        tokenizer=transformers.T5TokenizerFast.from_pretrained(architecture),
+        model=transformers.T5ForConditionalGeneration.from_pretrained(architecture),
+    )
+    data = "pencil draw paper"
 
     # Infer the signature including params
     signature_with_params = infer_signature(
@@ -2884,14 +2907,22 @@ For `transformers` inference, there are two ways to pass in additional arguments
         params=inference_config,
     )
 
+    # Define an inference_config
+    inference_config = {
+        "num_beams": 5,
+        "max_length": 30,
+        "do_sample": True,
+        "remove_invalid_values": True,
+    }
+
     # Saving model without inference_config
     mlflow.transformers.save_model(
         model,
-        path=model_path,
+        path="text2text",
         signature=signature_with_params,
     )
 
-    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model("text2text")
     # Passing inferenc_config dictionary as params to predict function directly
     result = pyfunc_loaded.predict(data, params=inference_config)
 
