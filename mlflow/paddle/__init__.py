@@ -483,6 +483,7 @@ def autolog(
     exclusive=False,
     silent=False,
     registered_model_name=None,
+    extra_tags=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from PaddlePaddle to MLflow.
@@ -507,6 +508,7 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
 
     .. code-block:: python
         :caption: Example
@@ -577,4 +579,6 @@ def autolog(
     import paddle
     from mlflow.paddle._paddle_autolog import patched_fit
 
-    safe_patch(FLAVOR_NAME, paddle.Model, "fit", patched_fit, manage_run=True)
+    safe_patch(
+        FLAVOR_NAME, paddle.Model, "fit", patched_fit, manage_run=True, extra_tags=extra_tags
+    )

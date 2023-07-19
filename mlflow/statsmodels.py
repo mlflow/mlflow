@@ -408,6 +408,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
+    extra_tags=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures automatic logging from statsmodels to MLflow.
@@ -439,6 +440,7 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
     import statsmodels
 
@@ -503,7 +505,9 @@ def autolog(
         ]
 
         for clazz, method_name, patch_impl in patches_list:
-            safe_patch(FLAVOR_NAME, clazz, method_name, patch_impl, manage_run=True)
+            safe_patch(
+                FLAVOR_NAME, clazz, method_name, patch_impl, manage_run=True, extra_tags=extra_tags
+            )
 
     def wrapper_fit(original, self, *args, **kwargs):
         should_autolog = False

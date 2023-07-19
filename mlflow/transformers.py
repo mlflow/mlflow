@@ -2487,6 +2487,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    extra_tags=None,
 ):  # pylint: disable=unused-argument
     """
     This autologging integration is solely used for disabling spurious autologging of irrelevant

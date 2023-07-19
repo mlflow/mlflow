@@ -23,7 +23,7 @@ NUM_EPOCHS = 20
 
 @pytest.fixture
 def pytorch_model():
-    mlflow.pytorch.autolog()
+    mlflow.pytorch.autolog(extra_tags={"test_tag": "pytorch_autolog"})
     model = IrisClassification()
     dm = IrisDataModule()
     dm.setup(stage="fit")
@@ -327,6 +327,7 @@ def test_pytorch_test_metrics_logged(pytorch_model_tests):
     assert "test_acc" in data.metrics
     # this is logged through SummaryWriter
     assert "plain_loss" not in data.metrics
+    assert data.tags["test_tag"] == "pytorch_autolog"
 
 
 def test_get_optimizer_name():

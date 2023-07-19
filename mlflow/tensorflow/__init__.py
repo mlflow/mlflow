@@ -969,6 +969,7 @@ def autolog(
     log_model_signatures=True,
     saved_model_kwargs=None,
     keras_model_kwargs=None,
+    extra_tags=None,
 ):  # pylint: disable=unused-argument
     # pylint: disable=no-name-in-module
     """
@@ -1039,6 +1040,7 @@ def autolog(
                                  when a signature is not present, a Pandas DataFrame is returned.
     :param saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
     :param keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
     import tensorflow
 
@@ -1298,7 +1300,7 @@ def autolog(
     ]
 
     for p in managed:
-        safe_patch(FLAVOR_NAME, *p, manage_run=True)
+        safe_patch(FLAVOR_NAME, *p, manage_run=True, extra_tags=extra_tags)
 
 
 def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None, targets=None):

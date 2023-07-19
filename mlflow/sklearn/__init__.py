@@ -902,7 +902,9 @@ def _get_metric_name_list():
     return metric_list
 
 
-def _patch_estimator_method_if_available(flavor_name, class_def, func_name, patched_fn, manage_run):
+def _patch_estimator_method_if_available(
+    flavor_name, class_def, func_name, patched_fn, manage_run, extra_tags=None
+):
     if not hasattr(class_def, func_name):
         return
 
@@ -915,10 +917,24 @@ def _patch_estimator_method_if_available(flavor_name, class_def, func_name, patc
     )
     if raw_original_obj == original and (callable(original) or isinstance(original, property)):
         # normal method or property decorated method
-        safe_patch(flavor_name, class_def, func_name, patched_fn, manage_run=manage_run)
+        safe_patch(
+            flavor_name,
+            class_def,
+            func_name,
+            patched_fn,
+            manage_run=manage_run,
+            extra_tags=extra_tags,
+        )
     elif hasattr(raw_original_obj, "delegate_names") or hasattr(raw_original_obj, "check"):
         # sklearn delegated method
-        safe_patch(flavor_name, raw_original_obj, "fn", patched_fn, manage_run=manage_run)
+        safe_patch(
+            flavor_name,
+            raw_original_obj,
+            "fn",
+            patched_fn,
+            manage_run=manage_run,
+            extra_tags=extra_tags,
+        )
     else:
         # unsupported method type. skip patching
         pass
@@ -939,6 +955,7 @@ def autolog(
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
     registered_model_name=None,
     pos_label=None,
+    extra_tags=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -1206,6 +1223,7 @@ def autolog(
                       only be set for binary classification model. If used for multi-label model,
                       the training metrics calculation will fail and the training metrics won't
                       be logged. If used for regression model, the parameter will be ignored.
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
     _autolog(
         flavor_name=FLAVOR_NAME,
@@ -1221,6 +1239,7 @@ def autolog(
         log_post_training_metrics=log_post_training_metrics,
         serialization_format=serialization_format,
         pos_label=pos_label,
+        extra_tags=extra_tags,
     )
 
 
@@ -1238,6 +1257,7 @@ def _autolog(
     log_post_training_metrics=True,
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
     pos_label=None,
+    extra_tags=None,
 ):  # pylint: disable=unused-argument
     """
     Internal autologging function for scikit-learn models.
@@ -1783,6 +1803,7 @@ def _autolog(
                 func_name,
                 functools.partial(patched_fit, patched_fit_impl, allow_children_patch),
                 manage_run=True,
+                extra_tags=extra_tags,
             )
 
         # Patch inference methods
@@ -1802,6 +1823,7 @@ def _autolog(
             "score",
             patched_model_score,
             manage_run=False,
+            extra_tags=extra_tags,
         )
 
     if log_post_training_metrics:

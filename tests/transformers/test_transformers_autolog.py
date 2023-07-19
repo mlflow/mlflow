@@ -293,7 +293,7 @@ def test_transformers_trainer_does_not_autolog_sklearn(transformers_trainer):
 
 
 def test_transformers_autolog_adheres_to_global_behavior_using_setfit(setfit_trainer):
-    mlflow.transformers.autolog(disable=False)
+    mlflow.transformers.autolog(disable=False, extra_tags={"test_tag": "transformers_autolog"})
 
     setfit_trainer.train()
     # setfit does not have an MLflow callback. There should be no active run.
@@ -301,6 +301,13 @@ def test_transformers_autolog_adheres_to_global_behavior_using_setfit(setfit_tra
         mlflow.last_active_run()
     preds = setfit_trainer.model(["Jim, I'm a doctor, not an archaeologist!"])
     assert len(preds) == 1
+
+    run = mlflow.search_runs(
+        order_by=["start_time desc"],
+        max_results=1,
+        output_format="list",
+    )[0]
+    assert run.data.tags["test_tag"] == "transformers_autolog"
 
 
 def test_transformers_autolog_adheres_to_global_behavior_using_trainer(transformers_trainer):

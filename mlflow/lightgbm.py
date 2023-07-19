@@ -505,6 +505,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
+    extra_tags=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from LightGBM to MLflow. Logs the following:
@@ -552,6 +553,7 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
 
     .. code-block:: python
         :caption: Example
@@ -868,6 +870,7 @@ def autolog(
         "train",
         functools.partial(train, log_models, log_datasets),
         manage_run=True,
+        extra_tags=extra_tags,
     )
     # The `train()` method logs LightGBM models as Booster objects. When using LightGBM
     # scikit-learn models, we want to save / log models as their model classes. So we turn
@@ -881,6 +884,7 @@ def autolog(
         "train",
         functools.partial(train, False, log_datasets),
         manage_run=True,
+        extra_tags=extra_tags,
     )
 
     # enable LightGBM scikit-learn estimators autologging
@@ -898,6 +902,7 @@ def autolog(
         silent=silent,
         max_tuning_runs=None,
         log_post_training_metrics=True,
+        extra_tags=extra_tags,
     )
 
 

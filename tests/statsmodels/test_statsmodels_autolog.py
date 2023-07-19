@@ -30,9 +30,16 @@ def get_latest_run():
 
 
 def test_statsmodels_autolog_ends_auto_created_run():
-    mlflow.statsmodels.autolog()
+    mlflow.statsmodels.autolog(extra_tags={"test_tag": "stats_autolog"})
     arma_model()
     assert mlflow.active_run() is None
+
+    run = mlflow.search_runs(
+        order_by=["start_time desc"],
+        max_results=1,
+        output_format="list",
+    )[0]
+    assert run.data.tags["test_tag"] == "stats_autolog"
 
 
 def test_statsmodels_autolog_persists_manually_created_run():
