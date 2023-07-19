@@ -2147,7 +2147,7 @@ __metadata:
 
 "@databricks/design-system@file:./vendor/design-system::locator=%40mlflow%2Fmlflow%40workspace%3A.":
   version: 1.0.0-3b9776a7
-  resolution: "@databricks/design-system@file:./vendor/design-system#./vendor/design-system::hash=f66ffa&locator=%40mlflow%2Fmlflow%40workspace%3A."
+  resolution: "@databricks/design-system@file:./vendor/design-system#./vendor/design-system::hash=4a3c2f&locator=%40mlflow%2Fmlflow%40workspace%3A."
   dependencies:
     "@ant-design/icons": ^4.7.0
     "@babel/runtime": ^7.22.3
@@ -2174,7 +2174,7 @@ __metadata:
     moment: ^2.25.3
     react: ">=16.14.0"
     react-dom: ">=16.14.0"
-  checksum: f93218df6b10ad5511ad16a0b4b64ee13c88d66bdc291cf218ab3b54d4dc24463996148a7a018a0a20096474761395fbfea0cbf5ce182d269ade814b370794a3
+  checksum: 9e13b10e22955a0c49c8db216d731dd07f8ae3f6699850982fd361cfabc72628cd3935d0b85cdecdb9528f3529aec95803b7e3c516adb4ae579cd005031286fb
   languageName: node
   linkType: hard
 
@@ -31092,9 +31092,9 @@ resolve@^2.0.0-next.3:
   linkType: hard
 
 "word-wrap@npm:^1.2.3":
-  version: 1.2.3
-  resolution: "word-wrap@npm:1.2.3"
-  checksum: 30b48f91fcf12106ed3186ae4fa86a6a1842416df425be7b60485de14bec665a54a68e4b5156647dec3a70f25e84d270ca8bc8cd23182ed095f5c7206a938c1f
+  version: 1.2.4
+  resolution: "word-wrap@npm:1.2.4"
+  checksum: 8f1f2e0a397c0e074ca225ba9f67baa23f99293bc064e31355d426ae91b8b3f6b5f6c1fc9ae5e9141178bb362d563f55e62fd8d5c31f2a77e3ade56cb3e35bd1
   languageName: node
   linkType: hard
 
