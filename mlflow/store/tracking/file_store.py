@@ -1065,9 +1065,7 @@ class FileStore(AbstractStore):
 
         if not isinstance(mlflow_model, Model):
             raise TypeError(
-                "Argument 'mlflow_model' should be mlflow.models.Model, got '{}'".format(
-                    type(mlflow_model)
-                )
+                f"Argument 'mlflow_model' should be mlflow.models.Model, got '{type(mlflow_model)}'"
             )
         _validate_run_id(run_id)
         run_info = self._get_run_info(run_id)
