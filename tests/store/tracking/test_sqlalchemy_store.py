@@ -1852,14 +1852,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             filter_string = f"attr.artifact_uri = '{expected_artifact_uri}'"
         assert self._search([e1, e2], filter_string) == [r1]
 
-        filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(
-            ARTIFACT_URI, e1.upper(), r1.upper()
-        )
+        filter_string = f"attr.artifact_uri = '{ARTIFACT_URI}/{e1.upper()}/{r1.upper()}/artifacts'"
         assert self._search([e1, e2], filter_string) == []
 
-        filter_string = "attr.artifact_uri != '{}/{}/{}/artifacts'".format(
-            ARTIFACT_URI, e1.upper(), r1.upper()
-        )
+        filter_string = f"attr.artifact_uri != '{ARTIFACT_URI}/{e1.upper()}/{r1.upper()}/artifacts'"
         assert sorted(
             [r1, r2],
         ) == sorted(self._search([e1, e2], filter_string))
