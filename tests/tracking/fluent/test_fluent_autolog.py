@@ -307,7 +307,7 @@ def test_autolog_obeys_silent_mode(
 def test_last_active_run_retrieves_autologged_run():
     from sklearn.ensemble import RandomForestRegressor
 
-    mlflow.autolog()
+    mlflow.autolog(extra_tags={"test_tag": "autolog"})
 
     rf = RandomForestRegressor(n_estimators=1, max_depth=1, max_features=1)
     rf.fit([[1, 2]], [[3]])
@@ -316,3 +316,4 @@ def test_last_active_run_retrieves_autologged_run():
     autolog_run = mlflow.last_active_run()
     assert autolog_run is not None
     assert autolog_run.info.run_id is not None
+    assert autolog_run.data.tags["test_tag"] == "autolog"
