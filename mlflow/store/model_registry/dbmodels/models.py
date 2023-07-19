@@ -167,9 +167,7 @@ class SqlModelVersionTag(Base):
     )
 
     def __repr__(self):
-        return "<SqlModelVersionTag ({}, {}, {}, {})>".format(
-            self.name, self.version, self.key, self.value
-        )
+        return f"<SqlModelVersionTag ({self.name}, {self.version}, {self.key}, {self.value})>"
 
     # entity mappers
     def to_mlflow_entity(self):
