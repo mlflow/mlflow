@@ -291,7 +291,7 @@ pycparser==2.21
     # via cffi
 pydantic==1.10.2
     # via rstcheck-core
-pygments==2.13.0
+pygments==2.15.0
     # via
     #   ipython
     #   rich
