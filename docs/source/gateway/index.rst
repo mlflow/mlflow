@@ -818,6 +818,7 @@ LangChain Integration
 This integration enable users to use prompt engineering, retrieval augmented generation, and other techniques with LLMs in the gateway.
 
 .. code-block:: python
+    :caption: Example
 
     import mlflow
     from langchain import LLMChain, PromptTemplate
