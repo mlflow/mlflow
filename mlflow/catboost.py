@@ -264,9 +264,7 @@ def _init_model(model_type):
 
     if model_type not in model_types:
         raise TypeError(
-            "Invalid model type: '{}'. Must be one of {}".format(
-                model_type, list(model_types.keys())
-            )
+            f"Invalid model type: '{model_type}'. Must be one of {list(model_types.keys())}"
         )
 
     return model_types[model_type]()

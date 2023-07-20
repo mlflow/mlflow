@@ -68,6 +68,15 @@ can serve a model with the ``python_function`` or the ``crate`` (R Function) fla
 
     mlflow models serve -m my_model
 
+.. note::
+    If you wish to serve a model from inside a docker container (or to
+    query it from another machine), you need to change the network address to ``0.0.0.0``
+    using the ``-h`` argument.
+
+    .. code-block:: bash
+
+        mlflow models serve -h 0.0.0.0 -m my_model
+
 In addition, the ``mlflow deployments`` command-line tool can package and deploy models to AWS
 SageMaker as long as they support the ``python_function`` flavor:
 
