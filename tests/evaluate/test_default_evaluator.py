@@ -2013,6 +2013,8 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
     assert logged_data["outputs"].tolist() == ["words random", "This is a sentence."]
     assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "non-toxic"]
     assert logged_data["perplexity"][0] > logged_data["perplexity"][1]
+    for grade in logged_data["flesch_kincaid_grade_level"] + logged_data["ari_grade_level"]:
+        assert isinstance(grade, (int, float))
 
     if with_targets:
         assert logged_data["answer"].tolist() == ["words random", "This is a sentence."]
@@ -2134,6 +2136,8 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["outputs"].tolist() == ["a", "b"]
     assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "non-toxic"]
+    for grade in logged_data["flesch_kincaid_grade_level"] + logged_data["ari_grade_level"]:
+        assert isinstance(grade, (int, float))
 
     if with_targets:
         assert logged_data["summary"].tolist() == ["a", "b"]
@@ -2364,6 +2368,8 @@ def test_evaluate_text_custom_metrics():
     assert logged_data["target"].tolist() == ["a", "b"]
     assert logged_data["outputs"].tolist() == ["a", "b"]
     assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "non-toxic"]
+    for grade in logged_data["flesch_kincaid_grade_level"] + logged_data["ari_grade_level"]:
+        assert isinstance(grade, (int, float))
     assert set(results.metrics.keys()) == {
         "accuracy",
         "mean_perplexity",
