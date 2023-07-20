@@ -210,20 +210,17 @@ Inference params are parameters that are passed to the model at inference time. 
 do not need to be specified when training the model, but could be useful for inference. With the 
 advances in foundational models, more often "inference configuration" is used to modify the behavior 
 of a model. In some cases, especially popular LLMs, the same model may require different parameter 
-configurations for different samples. 
+configurations for different samples at inference time. 
 
 With this newly introduced feature, you can now specify a dictionary of inference params during 
-model inference, and this could be extremely useful for LLMs. By passing different params such
-as ``temperature``, ``max_length``, etc. to the model at inference time, you can easily control 
-the output of the model.
+model inference, providing a broader utility and improved control over the generated inference 
+results, particularly for LLM use cases. By passing different params such as ``temperature``, 
+``max_length``, etc. to the model at inference time, you can easily control the output of the model.
 
 In order to use params at inference time, a valid :ref:`Model Signature <model-signature>` with 
-``params`` must be defined. The params are passed to the model at inference time as a dictionary,
+``params`` must be defined. The params are passed to the model at inference time as a dictionary 
 and each param value will be validated against the corresponding param type defined in the model
-signature. Valid param types are ``Union[DataType, List[DataType], None]`` where ``DataType`` is
-:py:class:`MLflow data types <mlflow.types.DataType>`. Please note that ``bytes`` are not supported.
-
-A full list of supported param types is listed below:
+signature. Valid param types are ``DataType`` or ``a list of DataType`` as listed below.
 
 * DataType.string or an array of DataType.string
 * DataType.integer or an array of DataType.integer
@@ -236,6 +233,44 @@ A full list of supported param types is listed below:
 .. note::
     When validating param values, the values will be converted to python native types.
     For example, ``np.float32(0.1)`` will be converted to ``float(0.1)``.
+
+A simple example of using params for model inference:
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.models import infer_signature
+
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, ctx, model_input, params):
+            return list(params.values())
+
+
+    params = {"str_param": "string", "int_array": [1, 2, 3]}
+    # params' default values are saved with ModelSignature
+    signature = infer_signature(["input"], params=params)
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(), artifact_path="my_model", signature=signature
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    # Not passing params -- predict with default values
+    loaded_predict = loaded_model.predict(["input"])
+    assert loaded_predict == ["string", [1, 2, 3]]
+
+    # Passing some params -- add default values
+    loaded_predict = loaded_model.predict(["input"], params={"str_param": "new_string"})
+    assert loaded_predict == ["new_string", [1, 2, 3]]
+
+    # Passing all params -- override
+    loaded_predict = loaded_model.predict(
+        ["input"], params={"str_param": "new_string", "int_array": [4, 5, 6]}
+    )
+    assert loaded_predict == ["new_string", [4, 5, 6]]
 
 .. _model-signature:
 
@@ -2900,13 +2935,6 @@ For `transformers` inference, there are two ways to pass in additional arguments
     )
     data = "pencil draw paper"
 
-    # Infer the signature including params
-    signature_with_params = infer_signature(
-        data,
-        generate_signature_output(model, data),
-        params=inference_config,
-    )
-
     # Define an inference_config
     inference_config = {
         "num_beams": 5,
@@ -2914,6 +2942,13 @@ For `transformers` inference, there are two ways to pass in additional arguments
         "do_sample": True,
         "remove_invalid_values": True,
     }
+
+    # Infer the signature including params
+    signature_with_params = infer_signature(
+        data,
+        generate_signature_output(model, data),
+        params=inference_config,
+    )
 
     # Saving model without inference_config
     mlflow.transformers.save_model(
@@ -2923,8 +2958,23 @@ For `transformers` inference, there are two ways to pass in additional arguments
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model("text2text")
-    # Passing inferenc_config dictionary as params to predict function directly
-    result = pyfunc_loaded.predict(data, params=inference_config)
+
+    # Pass params at inference time
+    params = {
+        "max_length": 20,
+        "do_sample": False,
+    }
+
+    # In this case we only override max_length and do_sample,
+    # other params will use the default one saved in ModelSignature.
+    # The final params used for prediction is as follows:
+    # {
+    #    "num_beams": 5,
+    #    "max_length": 20,
+    #    "do_sample": False,
+    #    "remove_invalid_values": True,
+    # }
+    result = pyfunc_loaded.predict(data, params=params)
 
 
 Example of loading a transformers model as a python function
