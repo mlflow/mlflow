@@ -812,7 +812,7 @@ To use the ``MlflowGatewayClient`` API, see the below examples for the available
 
 
 LangChain Integration
-=====================
+~~~~~~~~~~~~~~~~~~~~~
 
 `LangChain <https://github.com/hwchase17/langchain>`_ supports `an integration for MLflow AI Gateway <https://python.langchain.com/docs/ecosystem/integrations/mlflow_ai_gateway>`_.
 This integration enable users to use prompt engineering, retrieval augmented generation, and other techniques with LLMs in the gateway.
