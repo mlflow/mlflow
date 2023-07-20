@@ -316,7 +316,12 @@ def safe_patch(
     if manage_run:
         tags = {MLFLOW_AUTOLOGGING: autologging_integration}
         if isinstance(extra_tags, dict):
+            if MLFLOW_AUTOLOGGING in extra_tags:
+                extra_tags.pop(MLFLOW_AUTOLOGGING)
+                _logger.warning("Tag %s is being ignored because it conflicts with a built-in tag.", MLFLOW_AUTOLOGGING)
             tags.update(extra_tags)
+        elif extra_tags is not None:
+            _logger.warning("The parameter `extra_tags` is being ignored because it is expected to be a dictionary, but the provided value is %s", type(extra_tags))
         patch_function = with_managed_run(
             autologging_integration,
             patch_function,
