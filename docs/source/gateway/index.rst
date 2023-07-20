@@ -850,8 +850,6 @@ This integration enable users to use prompt engineering, retrieval augmented gen
     print(model.predict([{"adjective": "funny"}]))
 
 
-
-
 .. _gateway_mlflow_models:
 
 MLflow Models
