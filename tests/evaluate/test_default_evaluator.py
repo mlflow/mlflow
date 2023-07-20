@@ -2045,8 +2045,8 @@ def test_evaluate_question_answering_with_targets():
         "exact_match",
         "mean_perplexity",
         "percent_toxic",
-        "ari_mean_grade_level",
-        "flesch_kincaid_mean_grade_level",
+        "mean_ari_grade_level",
+        "mean_flesch_kincaid_grade_level",
     }
     assert results.metrics["exact_match"] == 1.0
     assert results.metrics["percent_toxic"] == 0.0
@@ -2097,8 +2097,8 @@ def test_evaluate_question_answering_without_targets():
     assert set(results.metrics.keys()) == {
         "mean_perplexity",
         "percent_toxic",
-        "ari_mean_grade_level",
-        "flesch_kincaid_mean_grade_level",
+        "mean_ari_grade_level",
+        "mean_flesch_kincaid_grade_level",
     }
     assert results.metrics["percent_toxic"] == 0.0
 
@@ -2169,8 +2169,8 @@ def test_evaluate_text_summarization_with_targets():
         "rougeLsum",
         "mean_perplexity",
         "percent_toxic",
-        "ari_mean_grade_level",
-        "flesch_kincaid_mean_grade_level",
+        "mean_ari_grade_level",
+        "mean_flesch_kincaid_grade_level",
     }
     assert [metrics["rouge1"], metrics["rouge2"], metrics["rougeL"], metrics["rougeLsum"]] == [
         1.0,
@@ -2212,8 +2212,8 @@ def test_evaluate_text_summarization_with_targets_no_type_hints():
         "rougeLsum",
         "mean_perplexity",
         "percent_toxic",
-        "ari_mean_grade_level",
-        "flesch_kincaid_mean_grade_level",
+        "mean_ari_grade_level",
+        "mean_flesch_kincaid_grade_level",
     }
     assert [metrics["rouge1"], metrics["rouge2"], metrics["rougeL"], metrics["rougeLsum"]] == [
         1.0,
@@ -2245,8 +2245,8 @@ def test_evaluate_text_summarization_without_targets():
     assert set(results.metrics.keys()) == {
         "mean_perplexity",
         "percent_toxic",
-        "ari_mean_grade_level",
-        "flesch_kincaid_mean_grade_level",
+        "mean_ari_grade_level",
+        "mean_flesch_kincaid_grade_level",
     }
     assert results.metrics["percent_toxic"] == 0.0
 
@@ -2317,8 +2317,8 @@ def test_evaluate_text():
     assert set(results.metrics.keys()) == {
         "mean_perplexity",
         "percent_toxic",
-        "ari_mean_grade_level",
-        "flesch_kincaid_mean_grade_level",
+        "mean_ari_grade_level",
+        "mean_flesch_kincaid_grade_level",
     }
     assert results.metrics["percent_toxic"] == 0.5
 
@@ -2362,8 +2362,8 @@ def test_evaluate_text_custom_metrics():
         "accuracy",
         "mean_perplexity",
         "percent_toxic",
-        "ari_mean_grade_level",
-        "flesch_kincaid_mean_grade_level",
+        "mean_ari_grade_level",
+        "mean_flesch_kincaid_grade_level",
     }
     assert results.metrics["accuracy"] == 1.0
     assert results.metrics["percent_toxic"] == 0.0

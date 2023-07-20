@@ -1226,14 +1226,14 @@ class DefaultEvaluator(ModelEvaluator):
         metrics = [textstat.flesch_kincaid_grade(prediction) for prediction in predictions]
         self.metrics_dict.update({"flesch_kincaid": metrics})
         average_grade_level = {
-            "flesch_kincaid_mean_grade_level": sum(metric for metric in metrics) / len(metrics)
+            "mean_flesch_kincaid_grade_level": sum(metrics) / len(metrics)
         }
         self.metrics.update(average_grade_level)
 
         metrics = [textstat.automated_readability_index(prediction) for prediction in predictions]
         self.metrics_dict.update({"automated_readability_index": metrics})
         average_grade_level = {
-            "ari_mean_grade_level": sum(metric for metric in metrics) / len(metrics)
+            "mean_ari_grade_level": sum(metrics) / len(metrics)
         }
         self.metrics.update(average_grade_level)
 
@@ -1241,13 +1241,15 @@ class DefaultEvaluator(ModelEvaluator):
         predictions = (
             self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
         )
-        for prediction in predictions:
-            if not isinstance(prediction, str):
-                _logger.warning(
-                    """Cannot calculate perplexity, toxicity, and reading level metrics 
-                    for non string inputs, skipping metric logging."""
-                )
-                return
+        if len(predictions) == 0:
+            return
+        
+        if any(not isinstance(prediction, str) for prediction in predictions):
+            _logger.warning(
+                "Cannot calculate perplexity, toxicity, and reading level metrics "
+                "for non-string inputs, skipping metric logging."
+            )
+            return
 
         self._calculate_toxicity(predictions)
         self._calculate_reading_level(predictions)
