@@ -1156,6 +1156,46 @@ def test_enforce_params_schema_with_success():
     assert _enforce_params_schema(test_parameters, test_schema) == {"1": 1.0}
 
 
+def test__enforce_params_schema_add_default_values():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, ctx, model_input, params):
+            return list(params.values())
+
+    params = {"str_param": "string", "int_array": [1, 2, 3]}
+    signature = infer_signature(["input"], params=params)
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(), artifact_path="my_model", signature=signature
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    # Not passing params -- predict with default values
+    loaded_predict = loaded_model.predict(["input"])
+    assert loaded_predict == ["string", [1, 2, 3]]
+
+    # Passing some params -- add default values
+    loaded_predict = loaded_model.predict(["input"], params={"str_param": "new_string"})
+    assert loaded_predict == ["new_string", [1, 2, 3]]
+
+    # Passing all params -- override
+    loaded_predict = loaded_model.predict(
+        ["input"], params={"str_param": "new_string", "int_array": [4, 5, 6]}
+    )
+    assert loaded_predict == ["new_string", [4, 5, 6]]
+
+    # Raise warning for unrecognized params
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
+        loaded_predict = loaded_model.predict(["input"], params={"new_param": "new_string"})
+    mock_warning.assert_called_once_with(
+        "Unrecognized params ['new_param'] are ignored for inference. "
+        "Supported params are: {'str_param', 'int_array'}. "
+        "To enable them, please add corresponding schema in ModelSignature."
+    )
+    assert loaded_predict == ["string", [1, 2, 3]]
+
+
 def test_enforce_params_schema_errors():
     # Raise error when failing to convert value to DataType.datetime
     test_schema = ParamSchema(
