@@ -1063,8 +1063,8 @@ def test_autolog_does_not_throw_when_infer_signature_fails():
 def test_autolog_does_not_warn_when_model_has_transform_function():
     X, y = get_iris()
 
+    mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
     with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
-        mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
         estimators = [
             ("std_scaler", sklearn.preprocessing.StandardScaler()),
         ]
@@ -1072,11 +1072,11 @@ def test_autolog_does_not_warn_when_model_has_transform_function():
         model.fit(X, y)
 
     # Warning not called
-    with pytest.raises(AssertionError, match=r"expected call not found"):
-        mock_warning.assert_called_with("Failed to infer model signature: Failed")
+    msg = "Failed to infer model signature:"
+    assert all(msg not in c[0] for c in mock_warning.call_args_list)
 
     model_conf = get_model_conf(run.info.artifact_uri)
-    assert "signature" in model_conf.to_dict(), model_conf.to_dict()
+    assert "signature" in model_conf.to_dict()
 
 
 @pytest.mark.parametrize("log_input_examples", [True, False])

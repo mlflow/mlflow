@@ -1445,7 +1445,7 @@ def _autolog(
                 model_output = estimator.transform(deepcopy(input_example))
             else:
                 raise Exception(
-                    "the trained model does not specify a `predict` or `transform` "
+                    "the trained model does not have a `predict` or `transform` "
                     "function, which is required in order to infer the signature"
                 )
 
