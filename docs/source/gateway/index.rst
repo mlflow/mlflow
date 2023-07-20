@@ -810,6 +810,47 @@ To use the ``MlflowGatewayClient`` API, see the below examples for the available
        )
        print(response)
 
+
+LangChain Integration
+=====================
+
+`LangChain <https://github.com/hwchase17/langchain>`_ supports `an integration for MLflow AI Gateway <https://python.langchain.com/docs/ecosystem/integrations/mlflow_ai_gateway>`_.
+This integration enable users to use prompt engineering, retrieval augmented generation, and other techniques with LLMs in the gateway.
+
+.. code-block:: python
+
+    import mlflow
+    from langchain import LLMChain, PromptTemplate
+    from langchain.llms import MlflowAIGateway
+
+    gateway = MlflowAIGateway(
+        gateway_uri="http://127.0.0.1:5000",
+        route="completions",
+        params={
+            "temperature": 0.0,
+            "top_p": 0.1,
+        },
+    )
+
+    llm_chain = LLMChain(
+        llm=gateway,
+        prompt=PromptTemplate(
+            input_variables=["adjective"],
+            template="Tell me a {adjective} joke",
+        ),
+    )
+    result = llm_chain.run(adjective="funny")
+    print(result)
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(chain, "model")
+
+    model = mlflow.pyfunc.load_model(model_info.model_uri)
+    print(model.predict([{"adjective": "funny"}]))
+
+
+
+
 .. _gateway_mlflow_models:
 
 MLflow Models
