@@ -91,6 +91,7 @@ def test_extra_tags_fastai_autolog(iris_data):
 
     run = mlflow.last_active_run()
     assert run.data.tags["test_tag"] == "fastai_autolog"
+    assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "fastai"
 
 
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])

@@ -192,6 +192,7 @@ def test_extra_tags_sklearn_autolog():
 
     run = mlflow.last_active_run()
     assert run.data.tags["test_tag"] == "sklearn_autolog"
+    assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "sklearn"
 
 
 def test_estimator(fit_func_name):

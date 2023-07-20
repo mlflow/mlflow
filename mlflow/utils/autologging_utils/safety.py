@@ -315,20 +315,20 @@ def safe_patch(
 
     if manage_run:
         tags = {MLFLOW_AUTOLOGGING: autologging_integration}
-        if isinstance(extra_tags, dict):
-            if MLFLOW_AUTOLOGGING in extra_tags:
-                extra_tags.pop(MLFLOW_AUTOLOGGING)
-                _logger.warning(
-                    "Tag %s is being ignored because it conflicts with a built-in tag.",
-                    MLFLOW_AUTOLOGGING,
+        if extra_tags:
+            if isinstance(extra_tags, dict):
+                if MLFLOW_AUTOLOGGING in extra_tags:
+                    extra_tags.pop(MLFLOW_AUTOLOGGING)
+                    _logger.warning(
+                        f"Tag `{MLFLOW_AUTOLOGGING}` is ignored as it is a reserved tag by MLflow "
+                        f"autologging."
+                    )
+                tags.update(extra_tags)
+            else:
+                raise mlflow.exceptions.MlflowException.invalid_parameter_value(
+                    f"Invalid `extra_tags` type: expecting dictionary, "
+                    f"received `{type(extra_tags).__name__}`"
                 )
-            tags.update(extra_tags)
-        elif extra_tags is not None:
-            _logger.warning(
-                "The parameter `extra_tags` is being ignored because it is expected to be a"
-                "dictionary, but the provided value is %s",
-                type(extra_tags),
-            )
         patch_function = with_managed_run(
             autologging_integration,
             patch_function,

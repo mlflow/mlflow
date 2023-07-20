@@ -193,6 +193,7 @@ def test_extra_tags_tensorflow_autolog(random_train_data, random_one_hot_labels)
 
     run = mlflow.last_active_run()
     assert run.data.tags["test_tag"] == "tf_autolog"
+    assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "tensorflow"
 
 
 @pytest.mark.parametrize("log_models", [True, False])

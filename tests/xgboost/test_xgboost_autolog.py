@@ -62,6 +62,7 @@ def test_extra_tags_xgboost_autolog(bst_params, dtrain):
     xgb.train(bst_params, dtrain)
     run = mlflow.last_active_run()
     assert run.data.tags["test_tag"] == "xgb_autolog"
+    assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "xgboost"
 
 
 def test_xgb_autolog_persists_manually_created_run(bst_params, dtrain):

@@ -110,3 +110,4 @@ def test_extra_tags_paddle_autolog():
 
     run = mlflow.last_active_run()
     assert run.data.tags["test_tag"] == "paddle_autolog"
+    assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "paddle"
