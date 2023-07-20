@@ -1281,6 +1281,43 @@ def test_enforce_params_schema_errors():
         )
 
 
+def test_enforce_params_schema_errors_with_python_model():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, ctx, model_input, params=None):
+            return list(params.values()) if isinstance(params, dict) else None
+
+    params = {"str_param": "string", "int_array": [1, 2, 3], "123": 123}
+    signature = infer_signature(["input"])
+    signature_with_params = infer_signature(["input"], params=params)
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(), artifact_path="model1", signature=signature
+        )
+        model_info_with_params = mlflow.pyfunc.log_model(
+            python_model=MyModel(), artifact_path="model2", signature=signature_with_params
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    with pytest.raises(
+        MlflowException,
+        match=r"`params` can only be specified at inference time if the model signature",
+    ):
+        loaded_model.predict(["input"], params=params)
+
+    loaded_model_with_params = mlflow.pyfunc.load_model(model_info_with_params.model_uri)
+    with pytest.raises(MlflowException, match=r"Parameters must be a dictionary. Got type 'list'"):
+        loaded_model_with_params.predict(["input"], params=[1, 2, 3])
+
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
+        loaded_model_with_params.predict(["input"], params={123: 456})
+    mock_warning.assert_called_with(
+        "Keys in parameters should be of type `str`, but received non-string keys."
+        "Converting all keys to string..."
+    )
+
+
 def test_param_spec_with_success():
     # Normal cases
     assert ParamSpec("a", DataType.long, 1).default == 1
