@@ -88,7 +88,7 @@ def test_extra_tags_fastai_autolog(iris_data):
     mlflow.fastai.autolog(extra_tags={"test_tag": "fastai_autolog"})
     model = fastai_tabular_model(iris_data)
     model.fit_one_cycle(1)
-    
+
     run = mlflow.last_active_run()
     assert run.data.tags["test_tag"] == "fastai_autolog"
 

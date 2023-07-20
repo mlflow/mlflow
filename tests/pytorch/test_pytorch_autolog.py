@@ -94,6 +94,7 @@ def test_extra_tags_pytorch_autolog():
     dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
     trainer.fit(model, dm)
+
     run = mlflow.last_active_run()
     assert run.data.tags["test_tag"] == "pytorch_autolog"
 

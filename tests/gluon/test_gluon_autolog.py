@@ -185,6 +185,7 @@ def test_extra_tags_gluon_autolog():
     run = mlflow.last_active_run()
     assert run.data.tags["test_tag"] == "gluon_autolog"
 
+
 def test_autolog_persists_manually_created_run():
     mlflow.gluon.autolog()
 

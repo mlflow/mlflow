@@ -244,7 +244,7 @@ def test_extra_tags_spark_autolog(dataset_binomial):
     lr = LinearRegression()
     lr.fit(dataset_binomial)
     assert mlflow.active_run() is None
- 
+
 
 def test_extra_tags_spark_autolog(dataset_binomial):
     mlflow.pyspark.ml.autolog(extra_tags={"test_tag": "spark_autolog"})

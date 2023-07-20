@@ -306,7 +306,7 @@ def test_autolog_obeys_silent_mode(
 @pytest.mark.do_not_disable_new_import_hook_firing_if_module_already_exists
 def test_last_active_run_retrieves_autologged_run():
     from sklearn.ensemble import RandomForestRegressor
-    
+
     mlflow.autolog()
     rf = RandomForestRegressor(n_estimators=1, max_depth=1, max_features=1)
     rf.fit([[1, 2]], [[3]])

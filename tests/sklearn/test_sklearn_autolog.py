@@ -189,6 +189,7 @@ def test_extra_tags_sklearn_autolog():
     mlflow.sklearn.autolog(extra_tags={"test_tag": "sklearn_autolog"})
     sklearn.cluster.KMeans().fit(*get_iris())
     assert mlflow.active_run() is None
+
     run = mlflow.last_active_run()
     assert run.data.tags["test_tag"] == "sklearn_autolog"
 
