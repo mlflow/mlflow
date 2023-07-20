@@ -108,9 +108,5 @@ def test_extra_tags_paddle_autolog():
     mlflow.paddle.autolog(extra_tags={"test_tag": "paddle_autolog"})
     train_model()
 
-    run = mlflow.search_runs(
-        order_by=["start_time desc"],
-        max_results=1,
-        output_format="list",
-    )[0]
+    run = mlflow.last_active_run()
     assert run.data.tags["test_tag"] == "paddle_autolog"

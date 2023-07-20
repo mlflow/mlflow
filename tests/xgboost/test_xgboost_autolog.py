@@ -52,15 +52,15 @@ def dtrain():
 
 
 def test_xgb_autolog_ends_auto_created_run(bst_params, dtrain):
-    mlflow.xgboost.autolog(extra_tags={"test_tag": "xgb_autolog"})
+    mlflow.xgboost.autolog()
     xgb.train(bst_params, dtrain)
     assert mlflow.active_run() is None
 
-    run = mlflow.search_runs(
-        order_by=["start_time desc"],
-        max_results=1,
-        output_format="list",
-    )[0]
+
+def test_extra_tags_xgboost_autolog(bst_params, dtrain):
+    mlflow.xgboost.autolog(extra_tags={"test_tag": "xgb_autolog"})
+    xgb.train(bst_params, dtrain)
+    run = mlflow.last_active_run()
     assert run.data.tags["test_tag"] == "xgb_autolog"
 
 

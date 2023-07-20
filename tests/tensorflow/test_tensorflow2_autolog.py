@@ -171,7 +171,7 @@ def create_tf_keras_model():
 
 
 def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels):
-    mlflow.tensorflow.autolog(extra_tags={"test_tag": "tf_autolog"})
+    mlflow.tensorflow.autolog()
 
     data = random_train_data
     labels = random_one_hot_labels
@@ -181,11 +181,17 @@ def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_ho
 
     assert mlflow.active_run() is None
 
-    run = mlflow.search_runs(
-        order_by=["start_time desc"],
-        max_results=1,
-        output_format="list",
-    )[0]
+
+def test_extra_tags_tensorflow_autolog(random_train_data, random_one_hot_labels):
+    mlflow.tensorflow.autolog(extra_tags={"test_tag": "tf_autolog"})
+
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    model = create_tf_keras_model()
+    model.fit(data, labels, epochs=10)
+
+    run = mlflow.last_active_run()
     assert run.data.tags["test_tag"] == "tf_autolog"
 
 

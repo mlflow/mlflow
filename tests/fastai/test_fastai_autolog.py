@@ -73,7 +73,7 @@ def fastai_tabular_model(data, **kwargs):
 
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 def test_fastai_autolog_ends_auto_created_run(iris_data, fit_variant):
-    mlflow.fastai.autolog(extra_tags={"test_tag": "fastai_autolog"})
+    mlflow.fastai.autolog()
     model = fastai_tabular_model(iris_data)
     if fit_variant == "fit_one_cycle":
         model.fit_one_cycle(1)
@@ -83,11 +83,13 @@ def test_fastai_autolog_ends_auto_created_run(iris_data, fit_variant):
         model.fit(1)
     assert mlflow.active_run() is None
 
-    run = mlflow.search_runs(
-        order_by=["start_time desc"],
-        max_results=1,
-        output_format="list",
-    )[0]
+
+def test_extra_tags_fastai_autolog(iris_data):
+    mlflow.fastai.autolog(extra_tags={"test_tag": "fastai_autolog"})
+    model = fastai_tabular_model(iris_data)
+    model.fit_one_cycle(1)
+    
+    run = mlflow.last_active_run()
     assert run.data.tags["test_tag"] == "fastai_autolog"
 
 

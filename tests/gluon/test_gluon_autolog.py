@@ -142,7 +142,7 @@ def test_gluon_autolog_log_models_configuration(log_models):
 
 
 def test_autolog_ends_auto_created_run():
-    mlflow.gluon.autolog(extra_tags={"test_tag": "gluon_autolog"})
+    mlflow.gluon.autolog()
 
     data = DataLoader(LogsDataset(), batch_size=128, last_batch="discard")
 
@@ -161,13 +161,29 @@ def test_autolog_ends_auto_created_run():
     est.fit(data, epochs=3)
 
     assert mlflow.active_run() is None
-    run = mlflow.search_runs(
-        order_by=["start_time desc"],
-        max_results=1,
-        output_format="list",
-    )[0]
-    assert run.data.tags["test_tag"] == "gluon_autolog"
 
+
+def test_extra_tags_gluon_autolog():
+    mlflow.gluon.autolog(extra_tags={"test_tag": "gluon_autolog"})
+
+    data = DataLoader(LogsDataset(), batch_size=128, last_batch="discard")
+
+    model = HybridSequential()
+    model.add(Dense(64, activation="relu"))
+    model.add(Dense(64, activation="relu"))
+    model.add(Dense(10))
+    model.initialize()
+    model.hybridize()
+
+    trainer = Trainer(
+        model.collect_params(), "adam", optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07}
+    )
+    est = get_estimator(model, trainer)
+
+    est.fit(data, epochs=3)
+
+    run = mlflow.last_active_run()
+    assert run.data.tags["test_tag"] == "gluon_autolog"
 
 def test_autolog_persists_manually_created_run():
     mlflow.gluon.autolog()

@@ -62,15 +62,15 @@ def valid_set():
 
 
 def test_lgb_autolog_ends_auto_created_run(bst_params, train_set):
-    mlflow.lightgbm.autolog(extra_tags={"test_tag": "lgb_autolog"})
+    mlflow.lightgbm.autolog()
     lgb.train(bst_params, train_set, num_boost_round=1)
     assert mlflow.active_run() is None
 
-    run = mlflow.search_runs(
-        order_by=["start_time desc"],
-        max_results=1,
-        output_format="list",
-    )[0]
+
+def test_extra_tags_lightgbm_autolog(bst_params, train_set):
+    mlflow.lightgbm.autolog(extra_tags={"test_tag": "lgb_autolog"})
+    lgb.train(bst_params, train_set, num_boost_round=1)
+    run = mlflow.last_active_run()
     assert run.data.tags["test_tag"] == "lgb_autolog"
 
 

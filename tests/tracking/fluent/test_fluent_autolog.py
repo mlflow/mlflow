@@ -306,9 +306,8 @@ def test_autolog_obeys_silent_mode(
 @pytest.mark.do_not_disable_new_import_hook_firing_if_module_already_exists
 def test_last_active_run_retrieves_autologged_run():
     from sklearn.ensemble import RandomForestRegressor
-
-    mlflow.autolog(extra_tags={"test_tag": "autolog"})
-
+    
+    mlflow.autolog()
     rf = RandomForestRegressor(n_estimators=1, max_depth=1, max_features=1)
     rf.fit([[1, 2]], [[3]])
     rf.predict([[2, 1]])
@@ -316,4 +315,21 @@ def test_last_active_run_retrieves_autologged_run():
     autolog_run = mlflow.last_active_run()
     assert autolog_run is not None
     assert autolog_run.info.run_id is not None
+
+
+@pytest.mark.do_not_disable_new_import_hook_firing_if_module_already_exists
+def test_extra_tags_mlflow_autolog():
+    from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
+    from sklearn.ensemble import RandomForestRegressor
+
+    mlflow.autolog(extra_tags={"test_tag": "autolog", MLFLOW_AUTOLOGGING: "123"})
+    rf = RandomForestRegressor(n_estimators=1, max_depth=1, max_features=1)
+    rf.fit([[1, 2]], [[3]])
+    autolog_run = mlflow.last_active_run()
     assert autolog_run.data.tags["test_tag"] == "autolog"
+    assert autolog_run.data.tags[MLFLOW_AUTOLOGGING] == "sklearn"
+
+    mlflow.autolog(extra_tags="test_tag")
+    rf.fit([[1, 2]], [[3]])
+    autolog_run = mlflow.last_active_run()
+    assert "test_tag" not in autolog_run.data.tags

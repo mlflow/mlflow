@@ -23,7 +23,7 @@ NUM_EPOCHS = 20
 
 @pytest.fixture
 def pytorch_model():
-    mlflow.pytorch.autolog(extra_tags={"test_tag": "pytorch_autolog"})
+    mlflow.pytorch.autolog()
     model = IrisClassification()
     dm = IrisDataModule()
     dm.setup(stage="fit")
@@ -87,10 +87,20 @@ def test_pytorch_autolog_logs_default_params(pytorch_model):
     assert "betas" in data.params
 
 
+def test_extra_tags_pytorch_autolog():
+    mlflow.pytorch.autolog(extra_tags={"test_tag": "pytorch_autolog"})
+    model = IrisClassification()
+    dm = IrisDataModule()
+    dm.setup(stage="fit")
+    trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
+    trainer.fit(model, dm)
+    run = mlflow.last_active_run()
+    assert run.data.tags["test_tag"] == "pytorch_autolog"
+
+
 def test_pytorch_autolog_logs_expected_data(pytorch_model):
     _, run = pytorch_model
     data = run.data
-    assert data.tags["test_tag"] == "pytorch_autolog"
 
     # Checking if metrics are logged.
     # When autolog is configured with the default configuration to not log on steps,
