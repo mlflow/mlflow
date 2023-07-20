@@ -192,26 +192,6 @@ catboost:
     run: |
       pytest tests/catboost/test_catboost_model_export.py
 
-gluon:
-  package_info:
-    pip_release: "mxnet"
-    install_dev: |
-      pip install --pre mxnet -f https://dist.mxnet.io/python/cpu
-
-  models:
-    minimum: "1.5.1"
-    maximum: "1.9.1"
-    requirements:
-      # TODO: Adjust the numpy requirement once https://github.com/apache/mxnet/issues/21165 is fixed,
-      # which is unlikely to happen given the fact it's been open for 4 months.
-      ">= 0.0.0": ["numpy<1.24.0"]
-    unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
-    run: |
-      # Install libopenblas-dev for mxnet 1.8.0.post0
-      sudo apt-get update -y
-      sudo apt-get install libopenblas-dev -y
-      pytest tests/gluon/test_gluon_model_export.py
-
   autologging:
     minimum: "1.5.1"
     maximum: "1.9.1"

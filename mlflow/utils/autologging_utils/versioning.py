@@ -9,7 +9,6 @@ from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 # A map FLAVOR_NAME -> a tuple of (dependent_module_name, key_in_ML_PACKAGE_VERSIONS)
 FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY = {
     "fastai": ("fastai", "fastai"),
-    "gluon": ("mxnet", "gluon"),
     "keras": ("keras", "keras"),
     "lightgbm": ("lightgbm", "lightgbm"),
     "statsmodels": ("statsmodels", "statsmodels"),
