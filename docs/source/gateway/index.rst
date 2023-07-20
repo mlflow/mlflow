@@ -74,7 +74,7 @@ routes that the Gateway service should expose. Let's create a file with three ro
 
     routes:
       - name: completions
-        type: llm/v1/completions
+        route_type: llm/v1/completions
         model:
           provider: openai
           name: gpt-3.5-turbo
@@ -83,7 +83,7 @@ routes that the Gateway service should expose. Let's create a file with three ro
             openai_api_key: $OPENAI_API_KEY
 
       - name: chat
-        type: llm/v1/chat
+        route_type: llm/v1/chat
         model:
           provider: openai
           name: gpt-3.5-turbo
@@ -92,7 +92,7 @@ routes that the Gateway service should expose. Let's create a file with three ro
             openai_api_key: $OPENAI_API_KEY
 
       - name: embeddings
-        type: llm/v1/embeddings
+        route_type: llm/v1/embeddings
         model:
           provider: openai
           name: text-embedding-ada-002
@@ -190,7 +190,7 @@ Firstly, update the :ref:`MLflow AI Gateway config <gateway_configuration>` YAML
 
     routes:
       - name: completions
-        type: llm/v1/completions
+        route_type: llm/v1/completions
         model:
           provider: openai
           name: gpt-3.5-turbo
@@ -198,7 +198,7 @@ Firstly, update the :ref:`MLflow AI Gateway config <gateway_configuration>` YAML
             openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
       - name: completions-gpt4
-        type: llm/v1/completions
+        route_type: llm/v1/completions
         model:
           provider: openai
           name: gpt-4
@@ -309,7 +309,7 @@ Here's an example of a provider configuration within a route:
 
     routes:
       - name: chat
-        type: llm/v1/chat
+        route_type: llm/v1/chat
         model:
           provider: openai
           name: gpt-4
@@ -394,7 +394,7 @@ Here's an example of a model name configuration within a route:
 
     routes:
       - name: embeddings
-        type: llm/v1/embeddings
+        route_type: llm/v1/embeddings
         model:
           provider: openai
           name: text-embedding-ada-002
@@ -444,7 +444,7 @@ Here is an example of a single-route configuration:
 
     routes:
       - name: chat
-        type: llm/v1/chat
+        route_type: llm/v1/chat
         model:
           provider: openai
           name: gpt-3.5-turbo
