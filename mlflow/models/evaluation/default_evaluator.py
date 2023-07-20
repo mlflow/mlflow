@@ -1224,14 +1224,14 @@ class DefaultEvaluator(ModelEvaluator):
             return
 
         metrics = [textstat.flesch_kincaid_grade(prediction) for prediction in predictions]
-        self.metrics_dict.update({"flesch_kincaid": metrics})
+        self.metrics_dict.update({"flesch_kincaid_grade_level": metrics})
         average_grade_level = {
             "mean_flesch_kincaid_grade_level": sum(metrics) / len(metrics)
         }
         self.metrics.update(average_grade_level)
 
         metrics = [textstat.automated_readability_index(prediction) for prediction in predictions]
-        self.metrics_dict.update({"automated_readability_index": metrics})
+        self.metrics_dict.update({"ari_grade_level": metrics})
         average_grade_level = {
             "mean_ari_grade_level": sum(metrics) / len(metrics)
         }

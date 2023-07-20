@@ -1993,8 +1993,8 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
             "answer",
             "outputs",
             "toxicity",
-            "flesch_kincaid",
-            "automated_readability_index",
+            "flesch_kincaid_grade_level",
+            "ari_grade_level",
             "perplexity",
         ]
     else:
@@ -2002,8 +2002,8 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
             "question",
             "outputs",
             "toxicity",
-            "flesch_kincaid",
-            "automated_readability_index",
+            "flesch_kincaid_grade_level",
+            "ari_grade_level",
             "perplexity",
         ]
 
@@ -2114,8 +2114,8 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
             "rougeL",
             "rougeLsum",
             "toxicity",
-            "flesch_kincaid",
-            "automated_readability_index",
+            "flesch_kincaid_grade_level",
+            "ari_grade_level",
             "perplexity",
         ]
     else:
@@ -2123,7 +2123,8 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
             "text",
             "outputs",
             "toxicity",
-            "flesch_kincaid",
+            "flesch_kincaid_grade_level",
+            "ari_grade_level",
             "automated_readability_index",
             "perplexity",
         ]
@@ -2277,8 +2278,8 @@ def test_evaluate_text_summarization_fails_to_load_metric():
         "summary",
         "outputs",
         "toxicity",
-        "flesch_kincaid",
-        "automated_readability_index",
+        "flesch_kincaid_grade_level",
+        "ari_grade_level",
     ]
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["summary"].tolist() == ["a", "b"]
@@ -2286,12 +2287,12 @@ def test_evaluate_text_summarization_fails_to_load_metric():
     assert "percent_toxic" in results.metrics
 
 
-def test_evaluate_text():
+def test_evaluate_text_and_text_metrics():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
         )
-        data = pd.DataFrame({"text": ["sentence not", "I hate all dogs."]})
+        data = pd.DataFrame({"text": ["sentence not", "I hate all people."]})
         results = mlflow.evaluate(
             model_info.model_uri,
             data,
@@ -2306,14 +2307,19 @@ def test_evaluate_text():
         "text",
         "outputs",
         "toxicity",
-        "flesch_kincaid",
-        "automated_readability_index",
+        "flesch_kincaid_grade_level",
+        "ari_grade_level",
         "perplexity",
     ]
-    assert logged_data["text"].tolist() == ["sentence not", "I hate all dogs."]
-    assert logged_data["outputs"].tolist() == ["sentence not", "I hate all dogs."]
+    assert logged_data["text"].tolist() == ["sentence not", "I hate all people."]
+    assert logged_data["outputs"].tolist() == ["sentence not", "I hate all people."]
+    # Hateful sentiments should be marked as toxic
     assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "toxic"]
+    # The perplexity of random words should be higher than a valid sentence.
     assert logged_data["perplexity"][0] > logged_data["perplexity"][1]
+    # Simple sentences should have a low grade level.
+    assert logged_data["flesch_kincaid_grade_level"][1] < 4
+    assert logged_data["ari_grade_level"][1] < 4
     assert set(results.metrics.keys()) == {
         "mean_perplexity",
         "percent_toxic",
@@ -2350,8 +2356,8 @@ def test_evaluate_text_custom_metrics():
         "target",
         "outputs",
         "toxicity",
-        "flesch_kincaid",
-        "automated_readability_index",
+        "flesch_kincaid_grade_level",
+        "ari_grade_level",
         "perplexity",
     ]
     assert logged_data["text"].tolist() == ["a", "b"]
