@@ -34,8 +34,6 @@ library_to_mlflow_module_without_spark_datasource = {
     xgboost: mlflow.xgboost,
     lightgbm: mlflow.lightgbm,
     statsmodels: mlflow.statsmodels,
-    # TODO: Remove this after releasing MLflow 2.5.0
-    # mxnet.gluon: mlflow.gluon,
     pyspark.ml: mlflow.pyspark.ml,
     pytorch_lightning: mlflow.pytorch,
     transformers: mlflow.transformers,
@@ -74,9 +72,6 @@ def reset_global_states():
             del mlflow.utils.import_hooks._post_import_hooks[integration_name.__name__]
         except Exception:
             pass
-
-    # TODO: Remove this after releasing MLflow 2.5.0
-    mlflow.utils.import_hooks._post_import_hooks.pop("mxnet.gluon", None)
 
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}

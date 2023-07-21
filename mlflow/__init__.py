@@ -53,7 +53,6 @@ try:
     # pylint: disable=unused-import
     from mlflow import catboost
     from mlflow import fastai
-    from mlflow import gluon
     from mlflow import h2o
     from mlflow import lightgbm
     from mlflow import mleap
@@ -83,7 +82,6 @@ try:
     _model_flavors_supported = [
         "catboost",
         "fastai",
-        "gluon",
         "h2o",
         "lightgbm",
         "mleap",

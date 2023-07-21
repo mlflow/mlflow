@@ -85,19 +85,6 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "1.2"
         }
     },
-    "gluon": {
-        "package_info": {
-            "pip_release": "mxnet"
-        },
-        "models": {
-            "minimum": "1.5.1",
-            "maximum": "1.9.1"
-        },
-        "autologging": {
-            "minimum": "1.5.1",
-            "maximum": "1.9.1"
-        }
-    },
     "fastai": {
         "package_info": {
             "pip_release": "fastai"
