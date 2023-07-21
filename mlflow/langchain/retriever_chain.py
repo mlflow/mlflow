@@ -13,8 +13,15 @@ from pydantic import Extra, Field
 
 
 class RetrieverChain(Chain):
-    input_key: str = "query"  #: :meta private:
-    output_key: str = "source_documents"  #: :meta private:
+
+    """
+    Chain for wrapping a retriever for logging purpose.
+
+    :param retriever: The retriever to wrap.
+    """
+
+    input_key: str = "query"
+    output_key: str = "source_documents"
     retriever: BaseRetriever = Field(exclude=True)
 
     class Config:
@@ -25,16 +32,12 @@ class RetrieverChain(Chain):
 
     @property
     def input_keys(self) -> List[str]:
-        """Return the input keys.
-        :meta private:
-        """
+        """Return the input keys."""
         return [self.input_key]
 
     @property
     def output_keys(self) -> List[str]:
-        """Return the output keys.
-        :meta private:
-        """
+        """Return the output keys."""
         return [self.output_key]
 
     def _get_docs(self, question: str) -> List[Document]:
@@ -50,7 +53,7 @@ class RetrieverChain(Chain):
         Returns the retrieved documents under the key 'source_documents'.
         Example:
         .. code-block:: python
-        chain = MlflowRetrieverEvaluator(retriever=...)
+        chain = RetrieverChain(retriever=...)
         res = chain({'query': 'This is my query'})
         docs = res['source_documents']
         """
@@ -72,7 +75,7 @@ class RetrieverChain(Chain):
         Returns the retrieved documents under the key 'source_documents'.
         Example:
         .. code-block:: python
-        chain = MlflowRetrieverEvaluator(retriever=...)
+        chain = RetrieverChain(retriever=...)
         res = chain({'query': 'This is my query'})
         docs = res['source_documents']
         """
