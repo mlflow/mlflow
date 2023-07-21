@@ -63,7 +63,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
-          if echo "$changed_files" | grep -q '\.py$\|^pyproject\.toml$\|^pylintrc$'; then
+          if echo "$changed_files" | grep -q '\.py$\|^pyproject\.toml$\|^pylintrc$\|^requirements/lint-requirements\.txt$'; then
             pre-commit run --all-files
           fi
       - name: Update error messages
