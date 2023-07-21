@@ -42,7 +42,7 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
-from mlflow.langchain.retriever_wrapper import RetrieverWrapper
+from mlflow.langchain.retriever_chain import RetrieverChain
 from mlflow.openai.utils import (
     TEST_CONTENT,
     _mock_chat_completion_response,
@@ -398,7 +398,7 @@ class DeterministicDummyEmbeddings(Embeddings, BaseModel):
         return self._get_embedding(text)
 
 
-def test_log_and_load_retriever_wrapper(tmp_path):
+def test_log_and_load_retriever_chain(tmp_path):
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
     documents = loader.load()
@@ -409,10 +409,10 @@ def test_log_and_load_retriever_wrapper(tmp_path):
     persist_dir = str(tmp_path / "faiss_index")
     db.save_local(persist_dir)
 
-    # Create the RetrieverWrapper
-    retriever_wrapper = RetrieverWrapper(retriever=db.as_retriever())
+    # Create the RetrieverChain
+    retriever_chain = RetrieverChain(retriever=db.as_retriever())
 
-    # Log the RetrieverWrapper
+    # Log the RetrieverChain
     def load_retriever(persist_directory):
         # pylint: disable=lazy-builtin-import
         from typing import List
@@ -444,8 +444,8 @@ def test_log_and_load_retriever_wrapper(tmp_path):
 
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(
-            retriever_wrapper,
-            "retrieval_qa_chain",
+            retriever_chain,
+            "retriever_chain",
             loader_fn=load_retriever,
             persist_dir=persist_dir,
         )
@@ -453,9 +453,9 @@ def test_log_and_load_retriever_wrapper(tmp_path):
     # Remove the persist_dir
     shutil.rmtree(persist_dir)
 
-    # Load the RetrieverWrapper
+    # Load the RetrieverChain
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
-    assert loaded_model == retriever_wrapper
+    assert loaded_model == retriever_chain
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     query = "What did the president say about Ketanji Brown Jackson"
@@ -466,9 +466,8 @@ def test_log_and_load_retriever_wrapper(tmp_path):
     )
     assert result == [expected_result]
 
-    # Serve the chain
+    # Serve the retriever chain
     inference_payload = json.dumps({"inputs": langchain_input})
-    langchain_output_serving = {"predictions": [expected_result]}
     response = pyfunc_serve_and_score_model(
         logged_model.model_uri,
         data=inference_payload,
@@ -481,8 +480,8 @@ def test_log_and_load_retriever_wrapper(tmp_path):
     docs_list = json.loads(pred[0])
     assert type(docs_list) == list
     assert len(docs_list) == 4
-    # The returned docs are non-deterministic when used with dummy embeddings
-    assert pred != langchain_output_serving
+    # The returned docs are non-deterministic when used with dummy embeddings,
+    # so we cannot assert pred == {"predictions": [expected_result]}
 
 
 def load_requests_wrapper(_):

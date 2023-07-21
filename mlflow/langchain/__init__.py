@@ -26,7 +26,7 @@ import yaml
 import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import _MLFLOW_TESTING
-from mlflow.langchain.retriever_wrapper import RetrieverWrapper
+from mlflow.langchain.retriever_chain import RetrieverChain
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
@@ -118,7 +118,7 @@ def _get_map_of_special_chain_class_name_to_kwargs_name():
         APIChain.__name__: "requests_wrapper",
         HypotheticalDocumentEmbedder.__name__: "embeddings",
         SQLDatabaseChain.__name__: "database",
-        RetrieverWrapper.__name__: "retriever",
+        RetrieverChain.__name__: "retriever",
     }
 
 
@@ -186,7 +186,7 @@ def save_model(
                       This function takes a string `persist_dir` as an argument and returns the
                       specific object that the model needs. Depending on the model,
                       this could be a retriever, vectorstore, requests_wrapper, embeddings, or
-                      database. For RetrievalQA models, the object is a
+                      database. For RetrievalQA and RetrieverChain models, the object is a
                       (`retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_).
                       For APIChain models, it's a
                       (`requests_wrapper <https://python.langchain.com/docs/modules/agents/tools/integrations/requests>`_).
@@ -366,7 +366,7 @@ def log_model(
                       This function takes a string `persist_dir` as an argument and returns the
                       specific object that the model needs. Depending on the model,
                       this could be a retriever, vectorstore, requests_wrapper, embeddings, or
-                      database. For RetrievalQA models, the object is a
+                      database. For RetrievalQA and RetrieverChain models, the object is a
                       (`retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_).
                       For APIChain models, it's a
                       (`requests_wrapper <https://python.langchain.com/docs/modules/agents/tools/integrations/requests>`_).
@@ -586,8 +586,8 @@ def _load_model(
                 "Missing file for loader_fn which is required to build the model."
             )
         kwargs = {key: _load_from_pickle(loader_fn_path, persist_dir)}
-        if model_type == RetrieverWrapper.__name__:
-            model = RetrieverWrapper.load(path, **kwargs)
+        if model_type == RetrieverChain.__name__:
+            model = RetrieverChain.load(path, **kwargs)
         else:
             model = load_chain(path, **kwargs)
     elif agent_path is None and tools_path is None:
@@ -650,7 +650,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
             (
                 langchain.chains.llm.LLMChain,
                 langchain.chains.RetrievalQA,
-                RetrieverWrapper,
+                RetrieverChain,
             ),
         ):
             mockContent = TEST_CONTENT
