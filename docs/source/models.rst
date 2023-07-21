@@ -2336,6 +2336,11 @@ Example: Log a LangChain RetrievalQA Chain
 .. literalinclude:: ../../examples/langchain/retrieval_qa_chain.py
     :language: python
 
+Example: Log a LangChain RetrieverChain
+
+.. literalinclude:: ../../examples/langchain/retriever_chain.py
+    :language: python
+
 John Snow Labs (``johnsnowlabs``) (Experimental)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
