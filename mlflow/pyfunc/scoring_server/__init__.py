@@ -17,6 +17,7 @@ import flask
 import json
 import logging
 import os
+import shlex
 import sys
 import traceback
 
@@ -31,6 +32,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.types import Schema
 from mlflow.utils import reraise
 from mlflow.utils.file_utils import path_to_local_file_uri
+from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
     dataframe_from_parsed_json,
@@ -328,14 +330,16 @@ def get_cmd(
 ) -> Tuple[str, Dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
     timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
+
     # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
     # platform compatibility.
-    if os.name != "nt":
+    if not is_windows():
         args = [f"--timeout={timeout}"]
         if port and host:
-            args.append(f"-b {host}:{port}")
+            address = shlex.quote(f"{host}:{port}")
+            args.append(f"-b {address}")
         elif host:
-            args.append(f"-b {host}")
+            args.append(f"-b {shlex.quote(host)}")
 
         if nworkers:
             args.append(f"-w {nworkers}")
@@ -347,7 +351,7 @@ def get_cmd(
     else:
         args = []
         if host:
-            args.append(f"--host={host}")
+            args.append(f"--host={shlex.quote(host)}")
 
         if port:
             args.append(f"--port={port}")

@@ -11,9 +11,7 @@ import inspect
 _logger = logging.getLogger(__name__)
 
 
-PYTHON_VERSION = "{major}.{minor}.{micro}".format(
-    major=version_info.major, minor=version_info.minor, micro=version_info.micro
-)
+PYTHON_VERSION = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
 
 
 _logger = logging.getLogger(__name__)

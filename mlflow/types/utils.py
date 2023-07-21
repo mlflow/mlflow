@@ -58,9 +58,7 @@ def clean_tensor_type(dtype: np.dtype):
     """
     if not isinstance(dtype, np.dtype):
         raise TypeError(
-            "Expected `type` to be instance of `{}`, received `{}`".format(
-                np.dtype, dtype.__class__
-            )
+            f"Expected `type` to be instance of `{np.dtype}`, received `{dtype.__class__}`"
         )
 
     # Special casing for np.str_ and np.bytes_
@@ -383,9 +381,7 @@ def _validate_all_values_string(d):
 def _validate_keys_match(d, expected_keys):
     if d.keys() != expected_keys:
         raise MlflowException(
-            "Expected example to be dict with keys {}, got {}".format(
-                list(expected_keys), list(d.keys())
-            ),
+            f"Expected example to be dict with keys {list(expected_keys)}, got {list(d.keys())}",
             INVALID_PARAMETER_VALUE,
         )
 
