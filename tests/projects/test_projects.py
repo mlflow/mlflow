@@ -287,7 +287,7 @@ def test_run_async():
 )
 def test_conda_path(mock_env, expected_conda, expected_activate, monkeypatch):
     """Verify that we correctly determine the path to conda executables"""
-    monkeypatch.delenvs(mock_env.keys())
+    monkeypatch.delenvs(mock_env.keys(), raising=False)
     monkeypatch.setenvs(mock_env)
     assert mlflow.utils.conda.get_conda_bin_executable("conda") == expected_conda
     assert mlflow.utils.conda.get_conda_bin_executable("activate") == expected_activate
