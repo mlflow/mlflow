@@ -14,7 +14,7 @@ from mlflow.tracking._tracking_service.utils import (
     get_tracking_uri,
 )
 from mlflow.utils import rest_utils
-from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.databricks_utils import get_databricks_host_creds, warn_on_deprecated_cross_workspace_registry_uri
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 from mlflow.environment_variables import (
     MLFLOW_TRACKING_AWS_SIGV4,
@@ -156,24 +156,7 @@ def _get_rest_store(store_uri, **_):
 
 
 def _get_databricks_rest_store(store_uri, **_):
-    print(f"@SID getting databricks rest store with URI {store_uri}")
-    from mlflow.utils.databricks_utils import get_workspace_info_from_databricks_secrets
-
-    workspace_host, workspace_id = get_workspace_info_from_databricks_secrets(
-        tracking_uri=store_uri
-    )
-    print(f"@SID got worksapce host {workspace_host} and id {workspace_id}")
-    if workspace_host is not None or workspace_id is not None:
-        _logger.warning(
-            "Accessing remote workspace model registries using registry URIs of the form "
-            "'databricks://scope:prefix', or by loading models via URIs of the form "
-            "'models://scope:prefix@databricks/model-name/stage-or-version', is deprecated. "
-            "Use Models in Unity Catalog instead for easy cross-workspace model access, with "
-            "granular per-user audit logging and no extra setup required. See "
-            "https://docs.databricks.com/machine-learning/manage-model-lifecycle/index.html "
-            "for more details."
-        )
-
+    warn_on_deprecated_cross_workspace_registry_uri(registry_uri=store_uri)
     return DatabricksWorkspaceModelRegistryRestStore(partial(get_databricks_host_creds, store_uri))
 
 

@@ -8,7 +8,7 @@ from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.databricks_utils import get_databricks_host_creds, warn_on_deprecated_cross_workspace_registry_uri
 from mlflow.utils.file_utils import (
     download_file_using_http_uri,
     parallelized_download_file_using_http_uri,
@@ -59,6 +59,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
         self.databricks_profile_uri = (
             get_databricks_profile_uri_from_artifact_uri(artifact_uri) or mlflow.get_registry_uri()
         )
+        warn_on_deprecated_cross_workspace_registry_uri(self.databricks_profile_uri)
         client = MlflowClient(registry_uri=self.databricks_profile_uri)
         self.model_name, self.model_version = get_model_name_and_version(client, artifact_uri)
         # Use an isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
