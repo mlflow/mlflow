@@ -311,7 +311,7 @@ To use Aliyun OSS as an artifact store, an OSS URI of the form ``oss://<bucket>/
 
 
         class Mod(mlflow.pyfunc.PythonModel):
-            def predict(self, ctx, inp):
+            def predict(self, ctx, inp, params=None):
                 return 7
 
 

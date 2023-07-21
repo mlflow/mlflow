@@ -369,16 +369,15 @@ def _load_model_env(path):
 
 
 def _validate_params(params, model_metadata):
+    if hasattr(model_metadata, "get_params_schema"):
+        params_schema = model_metadata.get_params_schema()
+        return _enforce_params_schema(params, params_schema)
     if params:
-        if hasattr(model_metadata, "get_params_schema"):
-            params_schema = model_metadata.get_params_schema()
-            return _enforce_params_schema(params, params_schema)
-        else:
-            raise MlflowException.invalid_parameter_value(
-                "This model was not logged with a params schema and does not support "
-                "providing the params argument."
-                "Please log the model with mlflow >= 2.6.0 and specify a params schema.",
-            )
+        raise MlflowException.invalid_parameter_value(
+            "This model was not logged with a params schema and does not support "
+            "providing the params argument."
+            "Please log the model with mlflow >= 2.6.0 and specify a params schema.",
+        )
     return
 
 
