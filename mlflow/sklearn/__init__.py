@@ -513,19 +513,13 @@ class _SklearnModelWrapper:
         """
         return self.sklearn_model.predict(data)
 
-    def predict_proba(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
-    ):
-        """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+    def predict_proba(self, *args, **kwargs):
+        if hasattr(self.sklearn_model, "predict_proba"):
+            return self.sklearn_model.predict_proba(*args, **kwargs)
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
-        :return: Model predictions.
-        """
-        return self.sklearn_model.predict_proba(data)
+    def score(self, *args, **kwargs):
+        if hasattr(self.sklearn_model, "score"):
+            return self.sklearn_model.score(*args, **kwargs)
 
 
 class _SklearnCustomModelPicklingError(pickle.PicklingError):
