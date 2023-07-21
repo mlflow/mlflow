@@ -156,11 +156,13 @@ def _get_rest_store(store_uri, **_):
 
 
 def _get_databricks_rest_store(store_uri, **_):
+    print(f"@SID getting databricks rest store with URI {store_uri}")
     from mlflow.utils.databricks_utils import get_workspace_info_from_databricks_secrets
 
     workspace_host, workspace_id = get_workspace_info_from_databricks_secrets(
         tracking_uri=store_uri
     )
+    print(f"@SID got worksapce host {workspace_host} and id {workspace_id}")
     if workspace_host is not None or workspace_id is not None:
         _logger.warning(
             "Accessing remote workspace model registries using registry URIs of the form "
