@@ -2011,7 +2011,8 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
 
     assert logged_data["question"].tolist() == ["words random", "This is a sentence."]
     assert logged_data["outputs"].tolist() == ["words random", "This is a sentence."]
-    assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "non-toxic"]
+    assert logged_data["toxicity"][0] < 0.5
+    assert logged_data["toxicity"][1] < 0.5
     assert logged_data["perplexity"][0] > logged_data["perplexity"][1]
     for grade in logged_data["flesch_kincaid_grade_level"] + logged_data["ari_grade_level"]:
         assert isinstance(grade, (int, float))
@@ -2046,12 +2047,12 @@ def test_evaluate_question_answering_with_targets():
     assert set(results.metrics.keys()) == {
         "exact_match",
         "mean_perplexity",
-        "percent_toxic",
+        "toxicity_ratio",
         "mean_ari_grade_level",
         "mean_flesch_kincaid_grade_level",
     }
     assert results.metrics["exact_match"] == 1.0
-    assert results.metrics["percent_toxic"] == 0.0
+    assert results.metrics["toxicity_ratio"] == 0.0
 
 
 def question_classifier(inputs):
@@ -2098,11 +2099,11 @@ def test_evaluate_question_answering_without_targets():
     validate_question_answering_logged_data(logged_data, False)
     assert set(results.metrics.keys()) == {
         "mean_perplexity",
-        "percent_toxic",
+        "toxicity_ratio",
         "mean_ari_grade_level",
         "mean_flesch_kincaid_grade_level",
     }
-    assert results.metrics["percent_toxic"] == 0.0
+    assert results.metrics["toxicity_ratio"] == 0.0
 
 
 def validate_text_summarization_logged_data(logged_data, with_targets=True):
@@ -2135,7 +2136,8 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
 
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["outputs"].tolist() == ["a", "b"]
-    assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "non-toxic"]
+    assert logged_data["toxicity"][0] < 0.5
+    assert logged_data["toxicity"][1] < 0.5
     for grade in logged_data["flesch_kincaid_grade_level"] + logged_data["ari_grade_level"]:
         assert isinstance(grade, (int, float))
 
@@ -2173,17 +2175,15 @@ def test_evaluate_text_summarization_with_targets():
         "rougeL",
         "rougeLsum",
         "mean_perplexity",
-        "percent_toxic",
+        "toxicity_ratio",
         "mean_ari_grade_level",
         "mean_flesch_kincaid_grade_level",
     }
-    assert [metrics["rouge1"], metrics["rouge2"], metrics["rougeL"], metrics["rougeLsum"]] == [
-        1.0,
-        0.0,
-        1.0,
-        1.0,
-    ]
-    assert metrics["percent_toxic"] == 0.0
+    assert metrics["rouge1"] == 1.0
+    assert metrics["rouge2"] == 0.0
+    assert metrics["rougeL"] == 1.0
+    assert metrics["rougeLsum"] == 1.0
+    assert metrics["toxicity_ratio"] == 0.0
 
 
 def another_language_model(x):
@@ -2216,17 +2216,15 @@ def test_evaluate_text_summarization_with_targets_no_type_hints():
         "rougeL",
         "rougeLsum",
         "mean_perplexity",
-        "percent_toxic",
+        "toxicity_ratio",
         "mean_ari_grade_level",
         "mean_flesch_kincaid_grade_level",
     }
-    assert [metrics["rouge1"], metrics["rouge2"], metrics["rougeL"], metrics["rougeLsum"]] == [
-        1.0,
-        0.0,
-        1.0,
-        1.0,
-    ]
-    assert metrics["percent_toxic"] == 0.0
+    assert metrics["rouge1"] == 1.0
+    assert metrics["rouge2"] == 0.0
+    assert metrics["rougeL"] == 1.0
+    assert metrics["rougeLsum"] == 1.0
+    assert metrics["toxicity_ratio"] == 0.0
 
 
 def test_evaluate_text_summarization_without_targets():
@@ -2249,11 +2247,11 @@ def test_evaluate_text_summarization_without_targets():
 
     assert set(results.metrics.keys()) == {
         "mean_perplexity",
-        "percent_toxic",
+        "toxicity_ratio",
         "mean_ari_grade_level",
         "mean_flesch_kincaid_grade_level",
     }
-    assert results.metrics["percent_toxic"] == 0.0
+    assert results.metrics["toxicity_ratio"] == 0.0
 
 
 def test_evaluate_text_summarization_fails_to_load_metric():
@@ -2288,7 +2286,7 @@ def test_evaluate_text_summarization_fails_to_load_metric():
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["summary"].tolist() == ["a", "b"]
     assert logged_data["outputs"].tolist() == ["a", "b"]
-    assert "percent_toxic" in results.metrics
+    assert "toxicity_ratio" in results.metrics
 
 
 def test_evaluate_text_and_text_metrics():
@@ -2318,7 +2316,8 @@ def test_evaluate_text_and_text_metrics():
     assert logged_data["text"].tolist() == ["sentence not", "I hate all people."]
     assert logged_data["outputs"].tolist() == ["sentence not", "I hate all people."]
     # Hateful sentiments should be marked as toxic
-    assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "toxic"]
+    assert logged_data["toxicity"][0] < 0.5
+    assert logged_data["toxicity"][1] > 0.5
     # The perplexity of random words should be higher than a valid sentence.
     assert logged_data["perplexity"][0] > logged_data["perplexity"][1]
     # Simple sentences should have a low grade level.
@@ -2326,11 +2325,11 @@ def test_evaluate_text_and_text_metrics():
     assert logged_data["ari_grade_level"][1] < 4
     assert set(results.metrics.keys()) == {
         "mean_perplexity",
-        "percent_toxic",
+        "toxicity_ratio",
         "mean_ari_grade_level",
         "mean_flesch_kincaid_grade_level",
     }
-    assert results.metrics["percent_toxic"] == 0.5
+    assert results.metrics["toxicity_ratio"] == 0.5
 
 
 def accuracy(eval_df, _builtin_metrics):
@@ -2367,18 +2366,19 @@ def test_evaluate_text_custom_metrics():
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["target"].tolist() == ["a", "b"]
     assert logged_data["outputs"].tolist() == ["a", "b"]
-    assert [toxicity["label"] for toxicity in logged_data["toxicity"]] == ["non-toxic", "non-toxic"]
+    assert logged_data["toxicity"][0] < 0.5
+    assert logged_data["toxicity"][1] < 0.5
     for grade in logged_data["flesch_kincaid_grade_level"] + logged_data["ari_grade_level"]:
         assert isinstance(grade, (int, float))
     assert set(results.metrics.keys()) == {
         "accuracy",
         "mean_perplexity",
-        "percent_toxic",
+        "toxicity_ratio",
         "mean_ari_grade_level",
         "mean_flesch_kincaid_grade_level",
     }
     assert results.metrics["accuracy"] == 1.0
-    assert results.metrics["percent_toxic"] == 0.0
+    assert results.metrics["toxicity_ratio"] == 0.0
 
 
 def test_eval_results_table_json_can_be_prefixed_with_metric_prefix():

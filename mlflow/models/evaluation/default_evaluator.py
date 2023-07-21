@@ -1189,30 +1189,18 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _calculate_toxicity(self, predictions):
         try:
-            from transformers import (
-                AutoModelForSequenceClassification,
-                AutoTokenizer,
-                TextClassificationPipeline,
-            )
+            import evaluate
 
-            model_path = "martin-ha/toxic-comment-model"
-            tokenizer = AutoTokenizer.from_pretrained(model_path)
-            model = AutoModelForSequenceClassification.from_pretrained(model_path)
-
-            pipeline = TextClassificationPipeline(model=model, tokenizer=tokenizer)
+            toxicity = evaluate.load("toxicity", module_type="measurement")
         except Exception as e:
             _logger.warning(
                 f"Failed to load 'toxicity' metric (error: {e!r}), skipping metric logging."
             )
             return
 
-        results = pipeline(list(predictions))
-        percent_toxic = {
-            "percent_toxic": sum([1 if result["label"] == "toxic" else 0 for result in results])
-            / len(results)
-        }
-        self.metrics.update(percent_toxic)
-        self.metrics_dict.update({"toxicity": results})
+        results = toxicity.compute(predictions=predictions, aggregation="ratio")
+        self.metrics.update({"toxicity_ratio": results["toxicity_ratio"]})
+        self.metrics_dict.update({"toxicity": results["toxicity"]})
 
     def _calculate_reading_level(self, predictions):
         try:
@@ -1225,16 +1213,12 @@ class DefaultEvaluator(ModelEvaluator):
 
         metrics = [textstat.flesch_kincaid_grade(prediction) for prediction in predictions]
         self.metrics_dict.update({"flesch_kincaid_grade_level": metrics})
-        average_grade_level = {
-            "mean_flesch_kincaid_grade_level": sum(metrics) / len(metrics)
-        }
+        average_grade_level = {"mean_flesch_kincaid_grade_level": sum(metrics) / len(metrics)}
         self.metrics.update(average_grade_level)
 
         metrics = [textstat.automated_readability_index(prediction) for prediction in predictions]
         self.metrics_dict.update({"ari_grade_level": metrics})
-        average_grade_level = {
-            "mean_ari_grade_level": sum(metrics) / len(metrics)
-        }
+        average_grade_level = {"mean_ari_grade_level": sum(metrics) / len(metrics)}
         self.metrics.update(average_grade_level)
 
     def _calculate_general_text_metrics(self):
@@ -1243,7 +1227,7 @@ class DefaultEvaluator(ModelEvaluator):
         )
         if len(predictions) == 0:
             return
-        
+
         if any(not isinstance(prediction, str) for prediction in predictions):
             _logger.warning(
                 "Cannot calculate perplexity, toxicity, and reading level metrics "

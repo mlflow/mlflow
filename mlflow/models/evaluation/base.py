@@ -1082,7 +1082,7 @@ def evaluate(
 
      - For question-answering models, the default evaluator logs:
         - **metrics**: ``exact_match``, mean_perplexity (requires `evaluate`_),
-          percent_toxic (requires `transformers`_), ari_mean_grade_level (requires `textstat`_),
+          toxicity_ratio (requires `transformers`_), ari_mean_grade_level (requires `textstat`_),
           flesch_kincaid_mean_grade_level (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
           argument is supplied) of the model in tabular format.
@@ -1098,7 +1098,7 @@ def evaluate(
 
      - For text-summarization models, the default evaluator logs:
         - **metrics**: `ROUGE`_ (requires `evaluate`_, `nltk`_, and `rouge_score` to be installed),
-          mean_perplexity (requires `evaluate`_), percent_toxic (requires `transformers`_),
+          mean_perplexity (requires `evaluate`_), toxicity_ratio (requires `transformers`_),
           ari_mean_grade_level (requires `textstat`_), flesch_kincaid_mean_grade_level
           (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
@@ -1123,7 +1123,7 @@ def evaluate(
             https://pypi.org/project/textstat
 
      - For text models, the default evaluator logs:
-        - **metrics**: mean_perplexity (requires `evaluate`_), percent_toxic
+        - **metrics**: mean_perplexity (requires `evaluate`_), toxicity_ratio
           (requires `transformers`_), ari_mean_grade_level (requires `textstat`_),
           flesch_kincaid_mean_grade_level (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
