@@ -1937,7 +1937,6 @@ def autolog(
     """
     from mlflow import (
         tensorflow,
-        gluon,
         xgboost,
         lightgbm,
         pyspark,
@@ -1952,10 +1951,9 @@ def autolog(
     locals_copy = locals().items()
 
     # Mapping of library module name to specific autolog function
-    # eg: mxnet.gluon is the actual library, mlflow.gluon.autolog is our autolog function for it
+    # eg: tensorflow is the actual library, mlflow.tensorflow.autolog is our autolog function for it
     LIBRARY_TO_AUTOLOG_FN = {
         "tensorflow": tensorflow.autolog,
-        "mxnet.gluon": gluon.autolog,
         "xgboost": xgboost.autolog,
         "lightgbm": lightgbm.autolog,
         "statsmodels": statsmodels.autolog,
