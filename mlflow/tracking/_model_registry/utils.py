@@ -1,4 +1,5 @@
 from functools import partial
+import logging
 
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.file_store import FileStore
@@ -153,6 +154,21 @@ def _get_rest_store(store_uri, **_):
 
 
 def _get_databricks_rest_store(store_uri, **_):
+    from mlflow.utils.databricks_utils import get_workspace_info_from_databricks_secrets
+
+    workspace_host, workspace_id = get_workspace_info_from_databricks_secrets(
+        tracking_uri=store_uri
+    )
+    if workspace_host is not None or workspace_id is not None:
+        _logger.warning(
+            "Accessing remote workspace model registries using registry URIs of the form "
+            "'databricks://scope:prefix' is deprecated. Use Models in Unity Catalog instead "
+            "for out-of-the-box cross-workspace model access, with proper auditing and no "
+            "setup required. See "
+            "https://docs.databricks.com/machine-learning/manage-model-lifecycle/index.html "
+            "for more details."
+        )
+
     return DatabricksWorkspaceModelRegistryRestStore(partial(get_databricks_host_creds, store_uri))
 
 
