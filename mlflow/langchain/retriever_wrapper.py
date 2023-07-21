@@ -90,15 +90,12 @@ class RetrieverWrapper(Chain):
     def load(cls, file: Union[str, Path], **kwargs: Any) -> RetrieverWrapper:
         """Load a RetrieverWrapper from a file."""
         # Convert file to Path object.
-        if isinstance(file, str):
-            file_path = Path(file)
-        else:
-            file_path = file
+        file_path = Path(file) if isinstance(file, str) else file
         # Load from either json or yaml.
         if file_path.suffix == ".json":
             with open(file_path) as f:
                 config = json.load(f)
-        elif file_path.suffix == ".yaml":
+        elif file_path.suffix in (".yaml", ".yml"):
             with open(file_path) as f:
                 config = yaml.safe_load(f)
         else:
