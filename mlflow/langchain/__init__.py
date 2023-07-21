@@ -56,6 +56,8 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
+from .retriever_chain import RetrieverChain
+
 logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
@@ -86,6 +88,16 @@ _UNSUPPORTED_MODEL_WARNING_MESSAGE = (
 _UNSUPPORTED_LANGCHAIN_VERSION_ERROR_MESSAGE = (
     "Saving {instance_type} models is only supported in langchain 0.0.194 and above."
 )
+
+__all__ = [
+    "log_model",
+    "save_model",
+    "load_model",
+    "get_default_conda_env",
+    "get_default_pip_requirements",
+    "RetrieverChain",
+    "FLAVOR_NAME",
+]
 
 
 def get_default_pip_requirements():

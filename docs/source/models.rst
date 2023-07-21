@@ -2331,15 +2331,51 @@ Example: Log a LangChain Agent
 .. literalinclude:: ../../examples/langchain/simple_agent.py
     :language: python
 
+
+Logging RetrievalQA Chains
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``langchain`` flavor in MLflow supports the logging of RetrievalQA chains, a feature that is not fully native to LangChain.
+This is achieved by supporting the serialization of the retriever object, a crucial step in creating a RetrievalQA chain.
+
+By default, LangChain serialization of a RetrievalQA chain does not include the retriever object. Instead, it mandates the
+provision of a retriever object during the loading phase. The MLflow langchain flavor, on the other hand, implements the
+serialization of this retriever object, thereby simplifying the process.
+
+To successfully carry out this process, MLflow requires two specific details: the storage location of the retriever object
+within the local filesystem, and the logic for loading this retriever object from the designated storage area. These details
+can be provided through the ``log_model`` function's parameters ``persist_dir`` and ``loader_fn`` respectively.
+
+The ``persist_dir`` parameter must contain the storage location, while the ``loader_fn`` parameter requires a Python function
+taking ``persist_dir`` as an input and returning a retriever object. Once these are defined, MLflow logs the contents of the
+``persist_dir`` as an artifact and serializes the ``loader_fn`` using pickle, also logging it as an artifact.
+
+See the following example for more details.
+
 Example: Log a LangChain RetrievalQA Chain
 
 .. literalinclude:: ../../examples/langchain/retrieval_qa_chain.py
     :language: python
 
+
+Logging a retriever and evaluate it individually
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``langchain`` flavor provides the functionality to log a retriever object and evaluate it individually. This is useful if
+you want to evaluate the quality of the relevant documents returned by a retriever object without directing these documents
+through a language model (LLM) to yield a summarized response.
+
+In order to log the retriever object in the ``langchain`` flavor, the retriever object needs to be wrapped within a
+:py:class:`mlflow.langchain.RetrieverChain`. This also required you to pass in ``persist_dir`` and ``loader_fn`` to the
+``log_model`` function, the same as logging the RetrievalQA chain. See the previous section for details about these parameters.
+
+See the following example for more details.
+
 Example: Log a LangChain RetrieverChain
 
 .. literalinclude:: ../../examples/langchain/retriever_chain.py
     :language: python
+
 
 John Snow Labs (``johnsnowlabs``) (Experimental)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
