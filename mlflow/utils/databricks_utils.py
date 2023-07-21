@@ -386,6 +386,7 @@ def warn_on_deprecated_cross_workspace_registry_uri(registry_uri):
             "for more details."
         )
 
+
 def get_workspace_info_from_databricks_secrets(tracking_uri):
     profile, key_prefix = get_db_info_from_uri(tracking_uri)
     if key_prefix:

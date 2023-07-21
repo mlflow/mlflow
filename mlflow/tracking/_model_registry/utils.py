@@ -14,7 +14,10 @@ from mlflow.tracking._tracking_service.utils import (
     get_tracking_uri,
 )
 from mlflow.utils import rest_utils
-from mlflow.utils.databricks_utils import get_databricks_host_creds, warn_on_deprecated_cross_workspace_registry_uri
+from mlflow.utils.databricks_utils import (
+    get_databricks_host_creds,
+    warn_on_deprecated_cross_workspace_registry_uri,
+)
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 from mlflow.environment_variables import (
     MLFLOW_TRACKING_AWS_SIGV4,
