@@ -1082,7 +1082,7 @@ def evaluate(
 
      - For question-answering models, the default evaluator logs:
         - **metrics**: ``exact_match``, mean_perplexity (requires `evaluate`_),
-          toxicity_ratio (requires `transformers`_), ari_mean_grade_level (requires `textstat`_),
+          toxicity_ratio (requires `evaluate`_), ari_mean_grade_level (requires `textstat`_),
           flesch_kincaid_mean_grade_level (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
           argument is supplied) of the model in tabular format.
@@ -1090,15 +1090,12 @@ def evaluate(
         .. _evaluate:
             https://pypi.org/project/evaluate
 
-        .. _transformers:
-            https://pypi.org/project/transformers
-
         .. _textstat:
             https://pypi.org/project/textstat
 
      - For text-summarization models, the default evaluator logs:
         - **metrics**: `ROUGE`_ (requires `evaluate`_, `nltk`_, and `rouge_score` to be installed),
-          mean_perplexity (requires `evaluate`_), toxicity_ratio (requires `transformers`_),
+          mean_perplexity (requires `evaluate`_), toxicity_ratio (requires `evaluate`_),
           ari_mean_grade_level (requires `textstat`_), flesch_kincaid_mean_grade_level
           (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
@@ -1116,24 +1113,18 @@ def evaluate(
         .. _rouge_score:
             https://pypi.org/project/rouge-score
 
-        .. _transformers:
-            https://pypi.org/project/transformers
-
         .. _textstat:
             https://pypi.org/project/textstat
 
      - For text models, the default evaluator logs:
         - **metrics**: mean_perplexity (requires `evaluate`_), toxicity_ratio
-          (requires `transformers`_), ari_mean_grade_level (requires `textstat`_),
+          (requires `evaluate`_), ari_mean_grade_level (requires `textstat`_),
           flesch_kincaid_mean_grade_level (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
           argument is supplied) of the model in tabular format.
 
         .. _evaluate:
             https://pypi.org/project/evaluate
-
-        .. _transformers:
-            https://pypi.org/project/transformers
 
         .. _textstat:
             https://pypi.org/project/textstat
