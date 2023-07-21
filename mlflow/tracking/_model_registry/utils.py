@@ -164,9 +164,10 @@ def _get_databricks_rest_store(store_uri, **_):
     if workspace_host is not None or workspace_id is not None:
         _logger.warning(
             "Accessing remote workspace model registries using registry URIs of the form "
-            "'databricks://scope:prefix' is deprecated. Use Models in Unity Catalog instead "
-            "for out-of-the-box cross-workspace model access, with proper auditing and no "
-            "setup required. See "
+            "'databricks://scope:prefix', or by loading models via URIs of the form "
+            "'models://scope:prefix@databricks/model-name/stage-or-version', is deprecated. "
+            "Use Models in Unity Catalog instead for easy cross-workspace model access, with "
+            "granular per-user audit logging and no extra setup required. See "
             "https://docs.databricks.com/machine-learning/manage-model-lifecycle/index.html "
             "for more details."
         )
