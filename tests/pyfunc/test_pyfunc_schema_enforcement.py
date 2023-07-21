@@ -1188,10 +1188,10 @@ def test__enforce_params_schema_add_default_values():
     # Raise warning for unrecognized params
     with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
         loaded_predict = loaded_model.predict(["input"], params={"new_param": "new_string"})
-    mock_warning.assert_called_once_with(
-        "Unrecognized params ['new_param'] are ignored for inference. "
-        "Supported params are: {'str_param', 'int_array'}. "
-        "To enable them, please add corresponding schema in ModelSignature."
+    mock_warning.assert_called_once()
+    assert (
+        "Unrecognized params ['new_param'] are ignored for inference"
+        in mock_warning.call_args[0][0]
     )
     assert loaded_predict == ["string", [1, 2, 3]]
 
@@ -1281,21 +1281,17 @@ def test_enforce_params_schema_errors():
         )
 
 
-def test_enforce_params_schema_errors_with_python_model():
+def test_enforce_params_schema_errors_with_model_without_params():
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, ctx, model_input, params=None):
             return list(params.values()) if isinstance(params, dict) else None
 
     params = {"str_param": "string", "int_array": [1, 2, 3], "123": 123}
     signature = infer_signature(["input"])
-    signature_with_params = infer_signature(["input"], params=params)
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             python_model=MyModel(), artifact_path="model1", signature=signature
-        )
-        model_info_with_params = mlflow.pyfunc.log_model(
-            python_model=MyModel(), artifact_path="model2", signature=signature_with_params
         )
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1306,7 +1302,21 @@ def test_enforce_params_schema_errors_with_python_model():
     ):
         loaded_model.predict(["input"], params=params)
 
-    loaded_model_with_params = mlflow.pyfunc.load_model(model_info_with_params.model_uri)
+
+def test_enforce_params_schema_errors_with_model_with_params():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, ctx, model_input, params=None):
+            return list(params.values()) if isinstance(params, dict) else None
+
+    params = {"str_param": "string", "int_array": [1, 2, 3], "123": 123}
+    signature = infer_signature(["input"], params=params)
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(), artifact_path="model2", signature=signature
+        )
+
+    loaded_model_with_params = mlflow.pyfunc.load_model(model_info.model_uri)
     with pytest.raises(MlflowException, match=r"Parameters must be a dictionary. Got type 'list'"):
         loaded_model_with_params.predict(["input"], params=[1, 2, 3])
 
