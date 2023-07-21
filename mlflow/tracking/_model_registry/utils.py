@@ -27,6 +27,8 @@ from mlflow.environment_variables import (
     MLFLOW_REGISTRY_URI,
 )
 
+_logger = logging.getLogger(__name__)
+
 
 # NOTE: in contrast to tracking, we do not support the following ways to specify
 # the model registry URI:
