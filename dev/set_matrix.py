@@ -450,7 +450,7 @@ def main(args):
     matrix = generate_matrix(args)
     is_matrix_empty = len(matrix) == 0
     matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
-    matrix = [x for x in matrix if x.flavor == "gluon"]
+    matrix = [x for x in matrix if x.flavor != "gluon"]
     matrix = {"include": matrix, "job_name": [x.job_name for x in matrix]}
 
     print(divider("Matrix"))

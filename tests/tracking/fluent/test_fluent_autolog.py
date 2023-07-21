@@ -73,6 +73,9 @@ def reset_global_states():
         except Exception:
             pass
 
+    # TODO: Remove this when we remove the `mlflow.gluon` module
+    mlflow.utils.import_hooks._post_import_hooks.pop("mxnet.gluon", None)
+
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
 
