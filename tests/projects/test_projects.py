@@ -317,7 +317,7 @@ def test_find_conda_executables(mock_env, expected_conda_env_create_path, monkey
     create environments (for example, it could be mamba instead of conda)
     """
     monkeypatch.delenvs(mock_env.keys(), raising=False)
-    monkeypatch.setenvs(k, v)
+    monkeypatch.setenvs(mock_env)
     conda_env_create_path = mlflow.utils.conda._get_conda_executable_for_create_env()
     assert conda_env_create_path == expected_conda_env_create_path
 
