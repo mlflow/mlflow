@@ -80,6 +80,8 @@ def _infer_model_type_by_labels(labels):
 def _extract_raw_model(model):
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
     if model_loader_module == "mlflow.sklearn" and not isinstance(model, _ServedPyFuncModel):
+        # If we load a sklearn model with mlflow.pyfunc.load_model, the model will be wrapped
+        # with _SklearnModelWrapper, we need to extract the raw model from it.
         if isinstance(model._model_impl, _SklearnModelWrapper):
             return model_loader_module, model._model_impl.sklearn_model
         return model_loader_module, model._model_impl
