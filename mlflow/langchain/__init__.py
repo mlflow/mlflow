@@ -447,9 +447,7 @@ def log_model(
             )
         if loader_fn is None:
             raise mlflow.MlflowException.invalid_parameter_value(
-                "For {instance_type} models, a `loader_fn` must be provided.".format(
-                    instance_type=type(lc_model).__name__
-                )
+                f"For {type(lc_model).__name__} models, a `loader_fn` must be provided."
             )
         if not isinstance(loader_fn, types.FunctionType):
             raise mlflow.MlflowException.invalid_parameter_value(

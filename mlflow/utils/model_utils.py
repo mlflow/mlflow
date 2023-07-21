@@ -164,9 +164,7 @@ def _validate_onnx_session_options(onnx_session_options):
     if onnx_session_options is not None:
         if not isinstance(onnx_session_options, dict):
             raise TypeError(
-                "Argument onnx_session_options should be a dict, not {}".format(
-                    type(onnx_session_options)
-                )
+                f"Argument onnx_session_options should be a dict, not {type(onnx_session_options)}"
             )
         for key, value in onnx_session_options.items():
             if key != "extra_session_config" and not hasattr(ort.SessionOptions, key):
