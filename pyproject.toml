@@ -18,6 +18,7 @@ select = [
   "E",
   "F",
   "C4",
+  "I001",
   "UP004",
   "UP008",
   "UP011",
@@ -52,3 +53,4 @@ extend-exclude = [
 
 [tool.ruff.per-file-ignores]
 "dev/*" = ["T201"]
+"mlflow/*" = ["I001"]
