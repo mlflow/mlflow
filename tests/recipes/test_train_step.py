@@ -493,7 +493,7 @@ def test_train_step_with_tuning_best_parameters(
 
 
 @pytest.mark.parametrize(
-    "with_hardcoded_params, expected_num_tuned, expected_num_hardcoded, num_sections",
+    ("with_hardcoded_params", "expected_num_tuned", "expected_num_hardcoded", "num_sections"),
     [(True, 3, 1, 3), (False, 3, 0, 2)],
 )
 def test_train_step_with_tuning_output_yaml_correct(
@@ -572,7 +572,7 @@ def test_search_space(tmp_recipe_root_path):
     assert "alpha" in search_space
 
 
-@pytest.mark.parametrize("tuning_param,logged_param", [(1, "1"), (1.0, "1.0"), ("a", " a ")])
+@pytest.mark.parametrize(("tuning_param", "logged_param"), [(1, "1"), (1.0, "1.0"), ("a", " a ")])
 def test_tuning_param_equal(tuning_param, logged_param):
     assert TrainStep.is_tuning_param_equal(tuning_param, logged_param)
 
