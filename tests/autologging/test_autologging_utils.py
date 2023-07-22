@@ -170,7 +170,7 @@ def test_wrap_patch_with_module():
     assert sample_function_to_patch(10, 5) == 5
 
 
-@pytest.fixture()
+@pytest.fixture
 def logger():
     return Mock()
 
@@ -894,7 +894,8 @@ def test_disable_for_unsupported_versions_warning_sklearn_integration():
             log_warn_fn.assert_not_called()
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.sklearn.autolog(disable_for_unsupported_versions=False)
-            assert log_warn_fn.call_count == 1 and is_sklearn_warning_fired(log_warn_fn.call_args)
+            assert log_warn_fn.call_count == 1
+            assert is_sklearn_warning_fired(log_warn_fn.call_args)
 
 
 def test_get_instance_method_first_arg_value():

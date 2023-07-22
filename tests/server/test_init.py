@@ -6,7 +6,7 @@ from mlflow.exceptions import MlflowException
 from mlflow import server
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_exec_cmd():
     with mock.patch("mlflow.server._exec_cmd") as m:
         yield m

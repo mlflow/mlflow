@@ -14,7 +14,7 @@ from mlflow.gateway.utils import (
 
 
 @pytest.mark.parametrize(
-    "base_url, route",
+    ("base_url", "route"),
     [
         ("http://127.0.0.1:6000", "gateway/test/invocations"),
         ("http://127.0.0.1:6000/", "/gateway/test/invocations"),
@@ -40,7 +40,7 @@ def test_resolve_route_url_qualified_url_ignores_base(base_url):
 
 
 @pytest.mark.parametrize(
-    "name, expected",
+    ("name", "expected"),
     [
         ("validName", True),
         ("invalid name", False),
@@ -60,7 +60,7 @@ def test_check_configuration_route_name_collisions():
 
 
 @pytest.mark.parametrize(
-    "uri, expected",
+    ("uri", "expected"),
     [
         ("http://localhost", True),
         ("databricks", True),
@@ -74,7 +74,7 @@ def test__is_valid_uri(uri, expected):
 
 
 @pytest.mark.parametrize(
-    "paths, expected",
+    ("paths", "expected"),
     [
         (["path1", "path2", "path3"], "/path1/path2/path3"),
         (["/path1/", "/path2/", "/path3/"], "/path1/path2/path3"),

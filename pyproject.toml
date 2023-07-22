@@ -18,6 +18,16 @@ select = [
   "E",
   "F",
   "C4",
+  "PT001",
+  "PT006",
+  # TODO: Enable commented-out rules.
+  # "PT007",
+  "PT009",
+  # "PT010",
+  # "PT012",
+  "PT018",
+  "PT023",
+  "PT026",
   "UP004",
   "UP008",
   "UP011",
@@ -51,4 +61,9 @@ extend-exclude = [
 ]
 
 [tool.ruff.per-file-ignores]
-"dev/*" = ["T201"]
+"dev/*" = ["T201", "PT018"]
+"mlflow/*" = ["PT018"]
+
+[tool.ruff.flake8-pytest-style]
+mark-parentheses = false
+fixture-parentheses = false
