@@ -1,5 +1,5 @@
 import mlflow
-from mlflow.pyfunc import PythonModel, log_model, load_model
+from mlflow.pyfunc import PythonModel, load_model, log_model
 
 
 def test_unwrap_python_model_from_pyfunc_class():

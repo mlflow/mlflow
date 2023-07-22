@@ -1,9 +1,10 @@
 import json
 import os
-import pytest
 from unittest import mock
 
+import pytest
 from click.testing import CliRunner
+
 from mlflow.deployments import cli
 from mlflow.exceptions import MlflowException
 

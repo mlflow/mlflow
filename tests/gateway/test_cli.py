@@ -1,4 +1,5 @@
 from click.testing import CliRunner
+
 from mlflow.gateway.cli import start
 
 

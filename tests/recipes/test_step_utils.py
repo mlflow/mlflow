@@ -1,17 +1,18 @@
-import mlflow.recipes.utils.step as step_utils
+from unittest import mock
+
 import numpy as np
 import pytest
+from pandas import DataFrame
 
+import mlflow.recipes.utils.step as step_utils
 from mlflow.exceptions import MlflowException
 from mlflow.recipes.cards import pandas_renderer
 from mlflow.recipes.utils.step import (
     display_html,
     get_merged_eval_metrics,
-    truncate_pandas_data_profile,
     get_pandas_data_profiles,
+    truncate_pandas_data_profile,
 )
-from pandas import DataFrame
-from unittest import mock
 
 
 def test_display_html_raises_without_input():

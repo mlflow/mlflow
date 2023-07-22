@@ -1,9 +1,10 @@
+import collections
 import os
-import tensorflow as tf
+from unittest import mock
+
 import numpy as np
 import pytest
-import collections
-from unittest import mock
+import tensorflow as tf
 
 import mlflow.tensorflow
 from mlflow.models import Model, infer_signature

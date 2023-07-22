@@ -1,23 +1,25 @@
+from unittest import mock
+
+import pytest
+
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import (
-    evaluate,
     EvaluationResult,
-    ModelEvaluator,
     MetricThreshold,
-)
-from mlflow.models.evaluation.validation import (
-    _MetricValidationResult,
-    ModelValidationFailedException,
-    MetricThresholdClassException,
+    ModelEvaluator,
+    evaluate,
 )
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
-from unittest import mock
-import pytest
+from mlflow.models.evaluation.validation import (
+    MetricThresholdClassException,
+    ModelValidationFailedException,
+    _MetricValidationResult,
+)
 
 # pylint: disable=unused-import
 from tests.evaluate.test_evaluation import (
-    multiclass_logistic_regressor_model_uri,
     iris_dataset,
+    multiclass_logistic_regressor_model_uri,
 )
 
 message_separator = "\n"

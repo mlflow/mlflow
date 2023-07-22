@@ -1,7 +1,8 @@
 import os
-import mlflow
 
 from pyspark.sql import SparkSession
+
+import mlflow
 
 
 # Put this test in separate module because it require a spark context

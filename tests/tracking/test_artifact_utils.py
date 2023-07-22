@@ -1,14 +1,13 @@
 import os
-from uuid import UUID
-
 from unittest import mock
 from unittest.mock import ANY
+from uuid import UUID
 
 import mlflow
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
-    _upload_artifacts_to_databricks,
     _upload_artifact_to_uri,
+    _upload_artifacts_to_databricks,
 )
 
 

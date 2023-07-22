@@ -1,6 +1,6 @@
 import astroid
-from pylint.interfaces import IAstroidChecker
 from pylint.checkers import BaseChecker
+from pylint.interfaces import IAstroidChecker
 
 from .errors import USE_F_STRING, to_msgs
 

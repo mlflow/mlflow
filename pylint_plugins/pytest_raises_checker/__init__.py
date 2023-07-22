@@ -1,8 +1,8 @@
 import astroid
-from pylint.interfaces import IAstroidChecker
 from pylint.checkers import BaseChecker
+from pylint.interfaces import IAstroidChecker
 
-from ..errors import PYTEST_RAISES_WITHOUT_MATCH, PYTEST_RAISES_MULTIPLE_STATEMENTS, to_msgs
+from ..errors import PYTEST_RAISES_MULTIPLE_STATEMENTS, PYTEST_RAISES_WITHOUT_MATCH, to_msgs
 
 
 def _is_pytest_raises_call(node: astroid.NodeNG):

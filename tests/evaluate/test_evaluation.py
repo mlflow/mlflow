@@ -1,51 +1,54 @@
 import hashlib
-import os
 import io
 import json
-import uuid
+import os
 import signal
+import uuid
 from collections import namedtuple
 from unittest import mock
-import pytest
 
 import numpy as np
 import pandas as pd
-from PIL import ImageChops, Image
-
+import pytest
 import sklearn
 import sklearn.compose
 import sklearn.datasets
 import sklearn.impute
 import sklearn.linear_model
+import sklearn.pipeline
+import sklearn.preprocessing
+from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
+from PIL import Image, ImageChops
+from pyspark.ml.linalg import Vectors
+from pyspark.ml.regression import LinearRegression as SparkLinearRegression
+from pyspark.sql import SparkSession
 from sklearn.metrics import (
     accuracy_score,
     confusion_matrix,
     mean_absolute_error,
     mean_squared_error,
 )
-import sklearn.pipeline
-import sklearn.preprocessing
-
-from pyspark.sql import SparkSession
-from pyspark.ml.linalg import Vectors
-from pyspark.ml.regression import LinearRegression as SparkLinearRegression
 
 import mlflow
 from mlflow import MlflowClient
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import (
-    evaluate,
+    EvaluationArtifact,
     EvaluationResult,
     ModelEvaluator,
-    EvaluationArtifact,
+    evaluate,
 )
 from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact
 from mlflow.models.evaluation.base import (
-    _logger as _base_logger,
+    EvaluationDataset,
     _gen_md5_for_arraylike_obj,
     _start_run_or_reuse_active_run,
-    EvaluationDataset,
+)
+from mlflow.models.evaluation.base import (
+    _logger as _base_logger,
+)
+from mlflow.models.evaluation.base import (
     _normalize_evaluators_and_evaluator_config_args as _normalize_config,
 )
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
@@ -53,8 +56,6 @@ from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.utils.file_utils import TempDir
-
-from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 
 
 def get_iris():

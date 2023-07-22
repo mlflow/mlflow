@@ -2,15 +2,15 @@ import os
 import sys
 
 import pytest
-from sklearn import datasets
 import sklearn.neighbors as knn
+from sklearn import datasets
 
 import mlflow.sklearn
 import mlflow.utils.model_utils as mlflow_model_utils
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST
 from mlflow.mleap import FLAVOR_NAME as MLEAP_FLAVOR_NAME
+from mlflow.models import Model
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.utils.file_utils import TempDir
 
 

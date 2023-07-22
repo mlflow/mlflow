@@ -1,11 +1,12 @@
 import os
-from unittest import mock
 import posixpath
+from unittest import mock
+
 import pytest
 
-from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.exceptions import MlflowException
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 
 

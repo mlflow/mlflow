@@ -1,11 +1,11 @@
 import json
 import os
-
-import pytest
 from unittest import mock
 
+import pytest
+
+from mlflow.data.dataset_source_registry import get_dataset_source_from_json, resolve_dataset_source
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
-from mlflow.data.dataset_source_registry import resolve_dataset_source, get_dataset_source_from_json
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 
 

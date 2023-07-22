@@ -4,7 +4,7 @@ import shutil
 import git
 import pytest
 
-from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_BRANCH
+from tests.projects.utils import GIT_PROJECT_BRANCH, TEST_PROJECT_DIR
 
 
 @pytest.fixture

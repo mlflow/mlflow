@@ -1,5 +1,6 @@
-import entrypoints
 from unittest import mock
+
+import entrypoints
 
 from mlflow.projects.backend import loader
 

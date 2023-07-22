@@ -1,8 +1,8 @@
-import pytest
 import paddle
+import pytest
+
 import mlflow
 from mlflow import MlflowClient
-
 
 NUM_EPOCHS = 6
 

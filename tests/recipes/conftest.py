@@ -1,4 +1,3 @@
-import mlflow
 import os
 import pathlib
 import shutil
@@ -7,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import mlflow
 from mlflow.recipes.utils.execution import _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR
 from mlflow.utils.file_utils import TempDir
 from tests.recipes.helper_functions import (

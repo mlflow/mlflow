@@ -1,19 +1,18 @@
 import base64
 import decimal
+import re
+
 import numpy as np
 import pandas as pd
 import pytest
-import re
 import sklearn.linear_model
 
 import mlflow
 from mlflow.exceptions import MlflowException
-
-from mlflow.models import infer_signature, Model, ModelSignature
+from mlflow.models import Model, ModelSignature, infer_signature
 from mlflow.models.utils import _enforce_schema
 from mlflow.pyfunc import PyFuncModel
-
-from mlflow.types import Schema, ColSpec, TensorSpec
+from mlflow.types import ColSpec, Schema, TensorSpec
 
 
 class TestModel:

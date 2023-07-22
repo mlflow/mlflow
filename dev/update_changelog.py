@@ -1,10 +1,10 @@
-import re
 import os
+import re
 import subprocess
-from datetime import datetime
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
-from typing import NamedTuple, List, Any
+from typing import Any, List, NamedTuple
 
 import click
 import requests

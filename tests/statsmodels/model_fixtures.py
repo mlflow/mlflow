@@ -1,14 +1,14 @@
+from collections import namedtuple
+
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
-from collections import namedtuple
-from statsmodels.tsa.arima_process import arma_generate_sample
-from statsmodels.tsa.arima.model import ARIMA
 from scipy.linalg import toeplitz
+from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.tsa.arima_process import arma_generate_sample
 
 from mlflow.models import ModelSignature
 from mlflow.types.schema import Schema, TensorSpec
-
 
 ModelWithResults = namedtuple("ModelWithResults", ["model", "alg", "inference_dataframe"])
 

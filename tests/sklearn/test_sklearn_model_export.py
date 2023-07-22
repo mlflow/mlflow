@@ -1,52 +1,51 @@
+import json
+import os
+import tempfile
+from collections import namedtuple
 from pathlib import Path
 from unittest import mock
-import os
-import pytest
-import yaml
-import json
-from collections import namedtuple
-import tempfile
 
 import numpy as np
 import pandas as pd
-from sklearn import datasets
+import pytest
 import sklearn.linear_model as glm
 import sklearn.neighbors as knn
+import yaml
+from sklearn import datasets
 from sklearn.pipeline import Pipeline as SKPipeline
 from sklearn.preprocessing import FunctionTransformer as SKFunctionTransformer
 
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 import mlflow.utils
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.entities.model_registry.model_version import ModelVersion, ModelVersionStatus
 from mlflow.exceptions import MlflowException
-from mlflow.models.utils import _read_example
-from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.models import Model, ModelSignature
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.models.utils import _read_example
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types import DataType
+from mlflow.types.schema import ColSpec, Schema
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.types import DataType
-from mlflow.types.schema import Schema, ColSpec
+from tests.helper_functions import (
+    _assert_pip_requirements,
+    _compare_conda_env_requirements,
+    _compare_logged_code_paths,
+    _is_available_on_pypi,
+    _mlflow_major_version_string,
+    assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
+)
 
 # pylint: disable=unused-import
 from tests.store._unity_catalog.conftest import (
-    mock_databricks_uc_host_creds,
     configure_client_for_uc,
-)
-
-from tests.helper_functions import (
-    pyfunc_serve_and_score_model,
-    _compare_conda_env_requirements,
-    _assert_pip_requirements,
-    _is_available_on_pypi,
-    _compare_logged_code_paths,
-    _mlflow_major_version_string,
-    assert_register_model_called_with_local_model_path,
+    mock_databricks_uc_host_creds,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (

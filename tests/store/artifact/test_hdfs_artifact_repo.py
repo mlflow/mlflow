@@ -3,18 +3,18 @@ import sys
 from io import BufferedReader
 from tempfile import NamedTemporaryFile
 from unittest import mock
+from unittest.mock import ANY, call, mock_open
 
 import pytest
-from unittest.mock import call, mock_open, ANY
 from pyarrow import HadoopFileSystem
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.hdfs_artifact_repo import (
     HdfsArtifactRepository,
-    _resolve_base_path,
-    _relative_path_remote,
-    _parse_extra_conf,
     _download_hdfs_file,
+    _parse_extra_conf,
+    _relative_path_remote,
+    _resolve_base_path,
 )
 from mlflow.utils.file_utils import TempDir
 

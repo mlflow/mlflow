@@ -1,7 +1,8 @@
 from unittest import mock
+
 import pytest
 
-from mlflow import register_model
+from mlflow import MlflowClient, register_model
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -9,7 +10,6 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     RESOURCE_ALREADY_EXISTS,
 )
-from mlflow import MlflowClient
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 

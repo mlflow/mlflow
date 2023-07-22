@@ -2,12 +2,10 @@ import time
 
 import mlflow
 import mlflow.spark
-
 from tests.spark.autologging.utils import (
     _assert_spark_data_logged,
     _assert_spark_data_not_logged,
 )
-
 
 # Note that the following tests run one-after-the-other and operate on the SAME spark_session
 #   (it is not reset between tests)

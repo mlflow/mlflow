@@ -1,15 +1,16 @@
+import re
+
 import pytest
 import yaml
-import re
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
-    _load_route_config,
-    _save_route_config,
-    RouteConfig,
     AnthropicConfig,
     OpenAIConfig,
+    RouteConfig,
+    _load_route_config,
     _resolve_api_key_from_input,
+    _save_route_config,
 )
 from mlflow.gateway.utils import assemble_uri_path
 

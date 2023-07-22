@@ -1,31 +1,32 @@
-import pytest
 import sys
 from collections import namedtuple
 from io import StringIO
 from unittest import mock
 
-import mlflow
-from mlflow.utils.autologging_utils import (
-    get_autologging_config,
-    autologging_is_disabled,
-    AutologgingEventLogger,
-)
-
-import tensorflow
 import fastai
-import sklearn
-import xgboost
 import lightgbm
-import statsmodels
 import pyspark
 import pyspark.ml
+import pytest
 import pytorch_lightning
-import transformers
 import setfit
+import sklearn
+import statsmodels
+import tensorflow
+import transformers
+import xgboost
 
-from tests.autologging.fixtures import test_mode_off, test_mode_on
-from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
-
+import mlflow
+from mlflow.utils.autologging_utils import (
+    AutologgingEventLogger,
+    autologging_is_disabled,
+    get_autologging_config,
+)
+from tests.autologging.fixtures import (
+    reset_stderr,  # pylint: disable=unused-import
+    test_mode_off,
+    test_mode_on,
+)
 
 library_to_mlflow_module_without_spark_datasource = {
     tensorflow: mlflow.tensorflow,

@@ -1,6 +1,7 @@
-import pytest
 import astroid
-from pylint.testutils import MessageTest, CheckerTestCase
+import pytest
+from pylint.testutils import CheckerTestCase, MessageTest
+
 from pylint_plugins import StringChecker, errors
 
 

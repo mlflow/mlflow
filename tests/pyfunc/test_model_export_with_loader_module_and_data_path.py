@@ -1,12 +1,12 @@
 import os
 import pickle
-import yaml
 
 import numpy as np
 import pytest
 import sklearn.datasets
 import sklearn.linear_model
 import sklearn.neighbors
+import yaml
 
 import mlflow
 import mlflow.pyfunc

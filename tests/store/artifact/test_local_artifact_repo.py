@@ -1,6 +1,7 @@
 import os
-import pytest
 import posixpath
+
+import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository

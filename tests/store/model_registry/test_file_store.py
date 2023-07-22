@@ -1,7 +1,7 @@
 import time
 import uuid
+from typing import List, NamedTuple
 from unittest import mock
-from typing import NamedTuple, List
 
 import pytest
 

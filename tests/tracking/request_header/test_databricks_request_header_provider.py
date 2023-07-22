@@ -1,6 +1,7 @@
-import pytest
 import itertools
 from unittest import mock
+
+import pytest
 
 from mlflow.tracking.request_header.databricks_request_header_provider import (
     DatabricksRequestHeaderProvider,

@@ -1,19 +1,17 @@
+import os
 from unittest import mock
 
-import os
 import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import read_yaml, write_yaml
 from mlflow.utils.virtualenv import _create_virtualenv
-
 from tests.projects.utils import (
-    TEST_VIRTUALENV_PROJECT_DIR,
     TEST_VIRTUALENV_CONDA_PROJECT_DIR,
     TEST_VIRTUALENV_NO_PYTHON_ENV,
+    TEST_VIRTUALENV_PROJECT_DIR,
 )
-
 
 spy_on_create_virtualenv = mock.patch(
     "mlflow.projects.backend.local._create_virtualenv", wraps=_create_virtualenv

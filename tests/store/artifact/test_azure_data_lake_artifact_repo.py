@@ -1,21 +1,21 @@
 import os
 import posixpath
-import pytest
 from unittest import mock
 
+import pytest
 from azure.storage.filedatalake import (
-    DataLakeServiceClient,
-    FileSystemClient,
     DataLakeDirectoryClient,
     DataLakeFileClient,
+    DataLakeServiceClient,
+    FileSystemClient,
+    PathProperties,
 )
-from azure.storage.filedatalake import PathProperties
+
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.azure_data_lake_artifact_repo import (
     AzureDataLakeArtifactRepository,
     _parse_abfss_uri,
 )
-
 
 TEST_ROOT_PATH = "some/path"
 TEST_DATA_LAKE_URI_BASE = "abfss://filesystem@account.dfs.core.windows.net"

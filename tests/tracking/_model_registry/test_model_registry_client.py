@@ -3,21 +3,22 @@ Simple unit tests to confirm that ModelRegistryClient properly calls the registr
 and returns values when required.
 """
 
-import pytest
 from unittest import mock
 from unittest.mock import ANY, patch
 
+import pytest
+
 from mlflow.entities.model_registry import (
     ModelVersion,
+    ModelVersionTag,
     RegisteredModel,
     RegisteredModelTag,
-    ModelVersionTag,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
-    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking._model_registry.client import ModelRegistryClient

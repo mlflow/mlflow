@@ -3,7 +3,6 @@ from unittest import mock
 
 import pytest
 
-
 from mlflow.server.prometheus_exporter import activate_prometheus_exporter
 
 

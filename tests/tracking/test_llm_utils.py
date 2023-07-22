@@ -1,7 +1,8 @@
 import csv
-import mlflow
+
 import pytest
 
+import mlflow
 from mlflow.utils.file_utils import local_file_uri_to_path
 
 

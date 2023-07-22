@@ -8,11 +8,12 @@ $ pip install packaging pyyaml
 $ python dev/update_ml_package_versions.py
 """
 import json
-from pathlib import Path
-from packaging.version import Version
 import re
 import urllib.request
+from pathlib import Path
+
 import yaml
+from packaging.version import Version
 
 
 def read_file(path):

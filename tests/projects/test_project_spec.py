@@ -1,7 +1,7 @@
 import os
+import textwrap
 
 import pytest
-import textwrap
 
 from mlflow.exceptions import ExecutionException
 from mlflow.projects import _project_spec

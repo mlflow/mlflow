@@ -1,4 +1,5 @@
 import os
+
 from mlflow.deployments import BaseDeploymentClient, PredictionsResponse
 
 f_deployment_name = "fake_deployment_name"

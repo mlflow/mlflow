@@ -9,7 +9,6 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 
-
 pytestmark = pytest.mark.notrackingurimock
 
 

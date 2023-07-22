@@ -1,14 +1,13 @@
 import os
 import posixpath
-import pytest
 from unittest import mock
 
-from azure.storage.blob import BlobServiceClient, BlobPrefix, BlobProperties
+import pytest
+from azure.storage.blob import BlobPrefix, BlobProperties, BlobServiceClient
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
-
 
 TEST_ROOT_PATH = "some/path"
 TEST_BLOB_CONTAINER_ROOT = "wasbs://container@account.blob.core.windows.net/"

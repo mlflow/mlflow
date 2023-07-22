@@ -2,22 +2,21 @@ import json
 from unittest import mock
 from unittest.mock import ANY
 
-from google.cloud.storage import Client
 import pytest
+from google.cloud.storage import Client
 from requests import Response
 
 from mlflow import MlflowClient
 from mlflow.entities.file_info import FileInfo
 from mlflow.exceptions import MlflowException
-from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
-
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.store._unity_catalog.registry.utils import _ACTIVE_CATALOG_QUERY, _ACTIVE_SCHEMA_QUERY
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
-from mlflow.store._unity_catalog.registry.utils import _ACTIVE_CATALOG_QUERY, _ACTIVE_SCHEMA_QUERY
+from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 
 MODELS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.unity_catalog_models_artifact_repo"
 MODELS_ARTIFACT_REPOSITORY = (

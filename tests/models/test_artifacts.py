@@ -1,22 +1,23 @@
+import json
+import pathlib
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pytest
+
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.artifacts import (
+    CsvEvaluationArtifact,
     ImageEvaluationArtifact,
     JsonEvaluationArtifact,
     NumpyEvaluationArtifact,
-    CsvEvaluationArtifact,
     ParquetEvaluationArtifact,
-    TextEvaluationArtifact,
     PickleEvaluationArtifact,
+    TextEvaluationArtifact,
     _infer_artifact_type_and_ext,
 )
 from mlflow.models.evaluation.default_evaluator import _CustomArtifact
-
-import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
-import json
-import pathlib
-import pytest
 
 
 @pytest.fixture

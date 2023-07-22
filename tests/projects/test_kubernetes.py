@@ -1,13 +1,13 @@
-import yaml
-import pytest
 from unittest import mock
 
 import kubernetes
+import pytest
+import yaml
 from kubernetes.config.config_exception import ConfigException
 
-from mlflow.projects import kubernetes as kb
-from mlflow.exceptions import ExecutionException
 from mlflow.entities import RunStatus
+from mlflow.exceptions import ExecutionException
+from mlflow.projects import kubernetes as kb
 
 
 def test_run_command_creation():  # pylint: disable=unused-argument

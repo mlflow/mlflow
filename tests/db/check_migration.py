@@ -18,20 +18,20 @@ import pandas as pd
 import sqlalchemy as sa
 
 import mlflow
+from mlflow.store.model_registry.dbmodels.models import (
+    SqlModelVersion,
+    SqlModelVersionTag,
+    SqlRegisteredModel,
+    SqlRegisteredModelTag,
+)
 from mlflow.store.tracking.dbmodels.models import (
     SqlExperiment,
-    SqlRun,
-    SqlMetric,
-    SqlParam,
-    SqlTag,
     SqlExperimentTag,
     SqlLatestMetric,
-)
-from mlflow.store.model_registry.dbmodels.models import (
-    SqlRegisteredModel,
-    SqlModelVersion,
-    SqlRegisteredModelTag,
-    SqlModelVersionTag,
+    SqlMetric,
+    SqlParam,
+    SqlRun,
+    SqlTag,
 )
 
 TABLES = [

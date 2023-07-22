@@ -1,9 +1,10 @@
 # pylint: disable=redefined-outer-name
-from unittest.mock import MagicMock
-import pytest
-import posixpath
 import ftplib
+import posixpath
 from ftplib import FTP
+from unittest.mock import MagicMock
+
+import pytest
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.ftp_artifact_repo import FTPArtifactRepository

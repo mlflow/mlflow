@@ -1,11 +1,9 @@
 import pytest
+from click.testing import CliRunner
 
 import mlflow.recipes.cli as recipes_cli
-
-from click.testing import CliRunner
 from mlflow.exceptions import MlflowException
 from mlflow.recipes.utils import _RECIPE_PROFILE_ENV_VAR
-
 
 _STEP_NAMES = ["ingest", "split", "train", "transform", "evaluate", "register"]
 

@@ -1,9 +1,9 @@
 from unittest import mock
 
+import pytest
 from aiohttp import ClientTimeout
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import OpenAIConfig, RouteConfig

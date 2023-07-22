@@ -1,8 +1,8 @@
-from pathlib import Path
 import subprocess
 import sys
 import time
-from typing import Any, Union, Dict
+from pathlib import Path
+from typing import Any, Dict, Union
 from unittest import mock
 
 import requests

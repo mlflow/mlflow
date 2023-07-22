@@ -1,37 +1,35 @@
+import functools
+import json
+import logging
+import numbers
 import os
 import random
-import functools
 import shutil
-from unittest import mock
-from contextlib import ExitStack, contextmanager
-
-import logging
-import requests
-import time
-import tempfile
 import signal
 import socket
 import subprocess
-import uuid
 import sys
-import yaml
-import json
-import numbers
+import tempfile
+import time
+import uuid
+from contextlib import ExitStack, contextmanager
+from unittest import mock
 
 import pytest
+import requests
+import yaml
 
 import mlflow
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.file_utils import read_yaml, write_yaml
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
-    _get_pip_deps,
-    _generate_mlflow_version_pinning,
     _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _generate_mlflow_version_pinning,
+    _get_pip_deps,
 )
-
+from mlflow.utils.file_utils import read_yaml, write_yaml
 
 AWS_METADATA_IP = "169.254.169.254"  # Used to fetch AWS Instance and User metadata.
 LOCALHOST = "127.0.0.1"
@@ -318,6 +316,7 @@ class RestEndpoint:
 
     def invoke(self, data, content_type):
         import pandas as pd
+
         from mlflow.pyfunc import scoring_server as pyfunc_scoring_server
 
         if isinstance(data, pd.DataFrame):
@@ -398,7 +397,7 @@ def _read_lines(path):
 
 def _compare_logged_code_paths(code_path, model_path, flavor_name):
     import mlflow.pyfunc
-    from mlflow.utils.model_utils import _get_flavor_configuration, FLAVOR_CONFIG_CODE
+    from mlflow.utils.model_utils import FLAVOR_CONFIG_CODE, _get_flavor_configuration
 
     pyfunc_conf = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME

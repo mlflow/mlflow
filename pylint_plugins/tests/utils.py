@@ -1,5 +1,5 @@
-import subprocess
 import re
+import subprocess
 
 from pylint.constants import MSG_TYPES
 

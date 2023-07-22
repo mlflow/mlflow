@@ -1,7 +1,7 @@
-import hashlib
 import base64
+import hashlib
 import json
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -9,7 +9,6 @@ import pandas as pd
 from mlflow.data.dataset import Dataset
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
-
 from tests.resources.data.dataset_source import TestDatasetSource
 
 

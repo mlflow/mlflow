@@ -3,12 +3,13 @@
 # pylint: disable=abstract-method
 
 import tempfile
+
 import pytorch_lightning as pl
 import torch
-import torch.utils.tensorboard
-from torch import nn
 import torch.nn.functional as F
+import torch.utils.tensorboard
 from packaging.version import Version
+from torch import nn
 
 tmpdir = tempfile.mkdtemp()
 SUMMARY_WRITER = torch.utils.tensorboard.SummaryWriter(log_dir=tmpdir)
@@ -19,8 +20,8 @@ def create_multiclass_accuracy():
     # (e.g., pytorch_lightning.metrics.Accuracy), while newer versions rely on the `torchmetrics`
     # package (e.g. `torchmetrics.Accuracy)
     try:
-        from torchmetrics import Accuracy
         import torchmetrics
+        from torchmetrics import Accuracy
 
         if Version(torchmetrics.__version__) >= Version("0.11"):
             return Accuracy(task="multiclass", num_classes=3)

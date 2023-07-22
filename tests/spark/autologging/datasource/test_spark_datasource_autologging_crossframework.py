@@ -6,7 +6,6 @@ from sklearn.linear_model import LinearRegression
 
 import mlflow
 import mlflow.spark
-
 from tests.spark.autologging.utils import _assert_spark_data_logged
 
 

@@ -2,10 +2,10 @@
 Unit tests for histogram_generator.py
 """
 import pytest
+from google.protobuf import text_format
 
 from mlflow.protos import facet_feature_statistics_pb2
 from mlflow.recipes.cards import histogram_generator
-from google.protobuf import text_format
 
 
 def assert_histogram(

@@ -1,9 +1,10 @@
+import json
 import os
 import posixpath
-import pytest
 import shutil
-import json
 import subprocess
+
+import pytest
 
 from mlflow.environment_variables import _MLFLOW_TESTING
 

@@ -1,8 +1,8 @@
 import os
+import shutil
 import subprocess
 import sys
 import uuid
-import shutil
 
 import pytest
 

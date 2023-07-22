@@ -1,9 +1,9 @@
+import functools
 import re
-from unittest import mock
 import tempfile
 from contextlib import contextmanager
-import functools
 from pathlib import Path
+from unittest import mock
 
 import pytest
 

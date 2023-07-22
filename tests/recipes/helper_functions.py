@@ -1,18 +1,18 @@
-import mlflow
 import os
 import random
 import shutil
 import string
+from contextlib import contextmanager
+from pathlib import Path
 from typing import Generator
 
-from contextlib import contextmanager
-from mlflow.recipes.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDATION_FILE_NAME
-from mlflow.recipes.step import BaseStep
-from pathlib import Path
 from sklearn.datasets import load_diabetes, load_iris
-from sklearn.dummy import DummyRegressor, DummyClassifier
+from sklearn.dummy import DummyClassifier, DummyRegressor
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
+import mlflow
+from mlflow.recipes.step import BaseStep
+from mlflow.recipes.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDATION_FILE_NAME
 
 RECIPE_EXAMPLE_PATH_ENV_VAR_FOR_TESTS = "_RECIPE_EXAMPLE_PATH"
 RECIPE_EXAMPLE_PATH_FROM_MLFLOW_ROOT = "examples/recipes/regression"
