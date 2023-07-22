@@ -65,6 +65,6 @@ def clear_custom_metrics_module_cache():
 @pytest.fixture
 def registry_uri_path(tmp_path) -> Path:
     path = tmp_path.joinpath("registry.db")
-    db_url = "sqlite:///%s" % path
+    db_url = f"sqlite:///{path}"
     yield db_url
     mlflow.set_registry_uri("")

@@ -1545,7 +1545,7 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
                 entity = SqlDataset
             else:
                 raise MlflowException(
-                    "Invalid search expression type '%s'" % key_type,
+                    f"Invalid search expression type '{key_type}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
@@ -1618,7 +1618,7 @@ def _get_orderby_clauses(order_by_list, session):
                     entity = SqlParam
                 else:
                     raise MlflowException(
-                        "Invalid identifier type '%s'" % key_type,
+                        f"Invalid identifier type '{key_type}'",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
 
@@ -1644,10 +1644,10 @@ def _get_orderby_clauses(order_by_list, session):
                     (subquery.c.is_nan == sqlalchemy.true(), 1),
                     (order_value.is_(None), 2),
                     else_=0,
-                ).label("clause_%s" % clause_id)
+                ).label(f"clause_{clause_id}")
 
             else:  # other entities do not have an 'is_nan' field
-                case = sql.case((order_value.is_(None), 1), else_=0).label("clause_%s" % clause_id)
+                case = sql.case((order_value.is_(None), 1), else_=0).label(f"clause_{clause_id}")
             clauses.append(case.name)
             select_clauses.append(case)
             select_clauses.append(order_value)

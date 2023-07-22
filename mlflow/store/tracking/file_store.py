@@ -190,9 +190,9 @@ class FileStore(AbstractStore):
         Run checks before running directory operations.
         """
         if not exists(self.root_directory):
-            raise Exception("'%s' does not exist." % self.root_directory)
+            raise Exception(f"'{self.root_directory}' does not exist.")
         if not is_directory(self.root_directory):
-            raise Exception("'%s' is not a directory." % self.root_directory)
+            raise Exception(f"'{self.root_directory}' is not a directory.")
 
     def _get_experiment_path(self, experiment_id, view_type=ViewType.ALL, assert_exists=False):
         parents = []
@@ -371,7 +371,7 @@ class FileStore(AbstractStore):
                 )
             else:
                 raise MlflowException(
-                    "Experiment '%s' already exists." % experiment.name,
+                    f"Experiment '{experiment.name}' already exists.",
                     databricks_pb2.RESOURCE_ALREADY_EXISTS,
                 )
 
@@ -391,7 +391,7 @@ class FileStore(AbstractStore):
         experiment_dir = self._get_experiment_path(experiment_id, view_type)
         if experiment_dir is None:
             raise MlflowException(
-                "Could not find experiment with ID %s" % experiment_id,
+                f"Could not find experiment with ID {experiment_id}",
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
         meta = FileStore._read_yaml(experiment_dir, FileStore.META_DATA_FILE_NAME)
@@ -420,7 +420,7 @@ class FileStore(AbstractStore):
         experiment = self._get_experiment(experiment_id)
         if experiment is None:
             raise MlflowException(
-                "Experiment '%s' does not exist." % experiment_id,
+                f"Experiment '{experiment_id}' does not exist.",
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
         return experiment
@@ -435,7 +435,7 @@ class FileStore(AbstractStore):
         experiment_dir = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
         if experiment_dir is None:
             raise MlflowException(
-                "Could not find experiment with ID %s" % experiment_id,
+                f"Could not find experiment with ID {experiment_id}",
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
         experiment = self._get_experiment(experiment_id)
@@ -469,7 +469,7 @@ class FileStore(AbstractStore):
         experiment_dir = self._get_experiment_path(experiment_id, ViewType.DELETED_ONLY)
         if experiment_dir is None:
             raise MlflowException(
-                "Could not find deleted experiment with ID %d" % experiment_id,
+                f"Could not find deleted experiment with ID {experiment_id}",
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
         conflict_experiment = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
@@ -504,7 +504,7 @@ class FileStore(AbstractStore):
         experiment = self._get_experiment(experiment_id)
         if experiment is None:
             raise MlflowException(
-                "Experiment '%s' does not exist." % experiment_id,
+                f"Experiment '{experiment_id}' does not exist.",
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
         self._validate_experiment_does_not_exist(new_name)
@@ -525,7 +525,7 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         if run_info is None:
             raise MlflowException(
-                "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
+                f"Run '{run_id}' metadata is in invalid state.", databricks_pb2.INVALID_STATE
             )
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
         self._overwrite_run_info(new_info, deleted_time=get_current_time_millis())
@@ -563,7 +563,7 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         if run_info is None:
             raise MlflowException(
-                "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
+                f"Run '{run_id}' metadata is in invalid state.", databricks_pb2.INVALID_STATE
             )
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.ACTIVE)
         self._overwrite_run_info(new_info, deleted_time=None)
@@ -612,7 +612,7 @@ class FileStore(AbstractStore):
             )
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
-                "Could not create run under non-active experiment with ID %s." % experiment_id,
+                f"Could not create run under non-active experiment with ID {experiment_id}.",
                 databricks_pb2.INVALID_STATE,
             )
         tags = tags or []
@@ -661,7 +661,7 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         if run_info is None:
             raise MlflowException(
-                "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
+                f"Run '{run_id}' metadata is in invalid state.", databricks_pb2.INVALID_STATE
             )
         return self._get_run_from_info(run_info)
 
@@ -683,12 +683,12 @@ class FileStore(AbstractStore):
         exp_id, run_dir = self._find_run_root(run_uuid)
         if run_dir is None:
             raise MlflowException(
-                "Run '%s' not found" % run_uuid, databricks_pb2.RESOURCE_DOES_NOT_EXIST
+                f"Run '{run_uuid}' not found", databricks_pb2.RESOURCE_DOES_NOT_EXIST
             )
         run_info = self._get_run_info_from_dir(run_dir)
         if run_info.experiment_id != exp_id:
             raise MlflowException(
-                "Run '%s' metadata is in invalid state." % run_uuid, databricks_pb2.INVALID_STATE
+                f"Run '{run_uuid}' metadata is in invalid state.", databricks_pb2.INVALID_STATE
             )
         return run_info
 
@@ -742,7 +742,7 @@ class FileStore(AbstractStore):
             for line in read_file_lines(parent_path, metric_name)
         ]
         if len(metric_objs) == 0:
-            raise ValueError("Metric '%s' is malformed. No data found." % metric_name)
+            raise ValueError(f"Metric '{metric_name}' is malformed. No data found.")
         # Python performs element-wise comparison of equal-length tuples, ordering them
         # based on their first differing element. Therefore, we use max() operator to find the
         # largest value at the largest timestamp. For more information, see
@@ -939,7 +939,7 @@ class FileStore(AbstractStore):
         elif is_string_type(tag_value):
             return tag_value
         else:
-            return "%s" % tag_value
+            return f"{tag_value}"
 
     def log_param(self, run_id, param):
         _validate_run_id(run_id)

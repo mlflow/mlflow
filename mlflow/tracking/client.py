@@ -2560,7 +2560,7 @@ class MlflowClient:
             # NOTE: we can't easily delete the target temp location due to the async nature
             # of the model version creation - printing to let the user know.
             eprint(
-                "=== Source model files were copied to %s" % new_source
+                f"=== Source model files were copied to {new_source}"
                 + " in the model registry workspace. You may want to delete the files once the"
                 + " model version is in 'READY' status. You can also find this location in the"
                 + " `source` field of the created model version. ==="

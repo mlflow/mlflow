@@ -104,9 +104,9 @@ class FileStore(AbstractStore):
         Run checks before running directory operations.
         """
         if not exists(self.root_directory):
-            raise Exception("'%s' does not exist." % self.root_directory)
+            raise Exception(f"'{self.root_directory}' does not exist.")
         if not is_directory(self.root_directory):
-            raise Exception("'%s' is not a directory." % self.root_directory)
+            raise Exception(f"'{self.root_directory}' is not a directory.")
 
     def _validate_registered_model_does_not_exist(self, name):
         model_path = self._get_registered_model_path(name)
@@ -439,7 +439,7 @@ class FileStore(AbstractStore):
         elif is_string_type(tag_value):
             return tag_value
         else:
-            return "%s" % tag_value
+            return f"{tag_value}"
 
     def set_registered_model_tag(self, name, tag):
         """

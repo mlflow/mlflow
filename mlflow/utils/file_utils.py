@@ -71,7 +71,7 @@ def list_all(root, filter_func=lambda x: True, full_path=False):
     :return: list of all files or directories that satisfy the criteria.
     """
     if not is_directory(root):
-        raise Exception("Invalid parent directory '%s'" % root)
+        raise Exception(f"Invalid parent directory '{root}'")
     matches = [x for x in os.listdir(root) if filter_func(os.path.join(root, x))]
     return [os.path.join(root, m) for m in matches] if full_path else matches
 
@@ -155,7 +155,7 @@ def write_yaml(root, file_name, data, overwrite=False, sort_keys=True):
     :param overwrite: If True, will overwrite existing files
     """
     if not exists(root):
-        raise MissingConfigException("Parent directory '%s' does not exist." % root)
+        raise MissingConfigException(f"Parent directory '{root}' does not exist.")
 
     file_path = os.path.join(root, file_name)
     yaml_file_name = file_path if file_path.endswith(".yaml") else file_path + ".yaml"
@@ -224,7 +224,7 @@ def read_yaml(root, file_name):
 
     file_path = os.path.join(root, file_name)
     if not exists(file_path):
-        raise MissingConfigException("Yaml file '%s' does not exist." % file_path)
+        raise MissingConfigException(f"Yaml file '{file_path}' does not exist.")
     try:
         with codecs.open(file_path, mode="r", encoding=ENCODING) as yaml_file:
             return yaml.load(yaml_file, Loader=YamlSafeLoader)
@@ -260,7 +260,7 @@ def render_and_merge_yaml(root, template_name, context_name):
 
     for path in (template_path, context_path):
         if not pathlib.Path(path).is_file():
-            raise MissingConfigException("Yaml file '%s' does not exist." % path)
+            raise MissingConfigException(f"Yaml file '{path}' does not exist.")
 
     j2_env = jinja2.Environment(
         loader=jinja2.FileSystemLoader(root, encoding=ENCODING),

@@ -64,7 +64,7 @@ def random_str(size=10):
 
 
 def random_file(ext):
-    return "temp_test_%d.%s" % (random_int(), ext)
+    return f"temp_test_{random_int()}.{ext}"
 
 
 def expect_status_code(http_response, expected_code):

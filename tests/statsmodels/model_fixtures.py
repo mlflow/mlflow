@@ -178,7 +178,7 @@ def gee_model():
     y += np.sqrt(resid_var) * np.random.normal(size=n)
 
     # Put everything into a dataframe.
-    df = pd.DataFrame(xmat, columns=["x%d" % j for j in range(p)])
+    df = pd.DataFrame(xmat, columns=[f"x{j}" for j in range(p)])
     df["y"] = y + xmat[:, 0] - xmat[:, 3]
     df["groups_ix"] = groups_ix
     df["level1_ix"] = level1_ix

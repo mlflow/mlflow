@@ -574,7 +574,7 @@ def safe_patch(
                     # If an MLflow run was created during the execution of patch code, verify that
                     # it is no longer active and that it contains expected autologging tags
                     assert not mlflow.active_run(), (
-                        "Autologging integration %s leaked an active run" % autologging_integration
+                        f"Autologging integration {autologging_integration} leaked an active run"
                     )
                     if patch_function_run_for_testing:
                         _validate_autologging_run(

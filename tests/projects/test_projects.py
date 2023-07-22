@@ -112,7 +112,7 @@ def test_run_local_git_repo(local_git_repo, local_git_repo_uri, use_start_run, v
     if version is not None:
         uri = local_git_repo_uri + "#" + TEST_PROJECT_NAME
     else:
-        uri = os.path.join("%s/" % local_git_repo, TEST_PROJECT_NAME)
+        uri = os.path.join(f"{local_git_repo}/", TEST_PROJECT_NAME)
     if version == "git-commit":
         version = _get_version_local_git_repo(local_git_repo)
     submitted_run = mlflow.projects.run(
@@ -243,7 +243,7 @@ def test_run_with_artifact_path(tmp_path):
         submitted_run = mlflow.projects.run(
             TEST_PROJECT_DIR,
             entry_point="test_artifact_path",
-            parameters={"model": "runs:/%s/model.pkl" % run.info.run_id},
+            parameters={"model": f"runs:/{run.info.run_id}/model.pkl"},
             env_manager="local",
             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
         )

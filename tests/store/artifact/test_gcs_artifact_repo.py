@@ -181,7 +181,7 @@ def test_log_artifacts(mock_client, tmp_path):
     mock_client.bucket.assert_called_with("test_bucket")
     mock_client.bucket().blob().upload_from_filename.assert_has_calls(
         [
-            mock.call(os.path.normpath("%s/a.txt" % subd), timeout=repo._GCS_DEFAULT_TIMEOUT),
+            mock.call(os.path.normpath(f"{subd}/a.txt"), timeout=repo._GCS_DEFAULT_TIMEOUT),
             mock.call(os.path.normpath("%s/b.txt" % subd), timeout=repo._GCS_DEFAULT_TIMEOUT),
             mock.call(os.path.normpath("%s/c.txt" % subd), timeout=repo._GCS_DEFAULT_TIMEOUT),
         ],

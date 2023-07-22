@@ -86,7 +86,7 @@ def _register_model(
     client = MlflowClient()
     try:
         create_model_response = client.create_registered_model(name)
-        eprint("Successfully registered model '%s'." % create_model_response.name)
+        eprint(f"Successfully registered model '{create_model_response.name}'.")
     except MlflowException as e:
         if e.error_code in (
             ErrorCode.Name(RESOURCE_ALREADY_EXISTS),

@@ -1124,7 +1124,7 @@ def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unu
     deployment_config = _get_deployment_config(flavor_name=flavor)
 
     _logger.info("launching docker image with path %s", model_path)
-    cmd = ["docker", "run", "-v", f"{model_path}:/opt/ml/model/", "-p", "%d:8080" % port]
+    cmd = ["docker", "run", "-v", f"{model_path}:/opt/ml/model/", "-p", f"{port}:8080"]
     for key, value in deployment_config.items():
         cmd += ["-e", f"{key}={value}"]
     cmd += ["--rm", image, "serve"]

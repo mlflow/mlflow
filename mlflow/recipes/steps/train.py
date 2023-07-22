@@ -1023,7 +1023,7 @@ class TrainStep(BaseStep):
         model_url = get_databricks_run_url(
             tracking_uri=mlflow.get_tracking_uri(),
             run_id=run_id,
-            artifact_path=re.sub(r"^.*?%s" % run_id, "", model_uri_path),
+            artifact_path=re.sub(fr"^.*?{run_id}", "", model_uri_path),
         )
 
         if run_url is not None:
