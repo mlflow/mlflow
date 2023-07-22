@@ -65,7 +65,7 @@ jobs:
         run: |
           changed_files="$(gh pr view --repo ${{ github.repository }} ${{ needs.check-comment.outputs.pull_number }} --json files --jq '.files.[].path')"
           protos=$([[ -z $(echo "$changed_files" | grep '^mlflow/protos') ]] && echo "false" || echo "true")
-          python=$([[ -z $(echo "$changed_files" | grep '\.py$') ]] && echo "false" || echo "true")
+          python=$([[ -z $(echo "$changed_files" | grep '\.py$\|^pyproject\.toml$') ]] && echo "false" || echo "true")
           js=$([[ -z $(echo "$changed_files" | grep '^mlflow/server/js') ]] && echo "false" || echo "true")
           r=$([[ -z $(echo "$changed_files" | grep '^mlflow/R/mlflow') ]] && echo "false" || echo "true")
           echo "protos=$protos" >> $GITHUB_OUTPUT
