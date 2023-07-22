@@ -2357,6 +2357,7 @@ Example: Log a LangChain RetrievalQA Chain
 .. literalinclude:: ../../examples/langchain/retrieval_qa_chain.py
     :language: python
 
+.. _log-retriever-chain:
 
 Logging a retriever and evaluate it individually
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2366,8 +2367,8 @@ you want to evaluate the quality of the relevant documents returned by a retriev
 through a language model (LLM) to yield a summarized response.
 
 In order to log the retriever object in the ``langchain`` flavor, the retriever object needs to be wrapped within a
-:py:class:`mlflow.langchain.RetrieverChain`. This also required you to pass in ``persist_dir`` and ``loader_fn`` to the
-``log_model`` function, the same as logging the RetrievalQA chain. See the previous section for details about these parameters.
+:py:class:`mlflow.langchain.RetrieverChain`. When calling the ``log_model`` function, it is also required to specify ``persist_dir``
+and ``loader_fn``, the same as logging the RetrievalQA chain. See the previous section for details about these parameters.
 
 See the following example for more details.
 

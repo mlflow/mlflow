@@ -17,6 +17,16 @@ class RetrieverChain(Chain):
     """
     Chain for wrapping a retriever for logging purpose.
 
+    The MLflow ``langchain`` flavor provides the functionality to log a retriever object and
+    evaluate it individually. This is useful if you want to evaluate the quality of the
+    relevant documents returned by a retriever object without directing these documents
+    through a language model (LLM) to yield a summarized response.
+
+    In order to log the retriever object in the ``langchain`` flavor, the retriever object
+    needs to be wrapped within a ``RetrieverChain``.
+
+    See :ref:`log-retriever-chain` for how to log the ``RetrieverChain``.
+
     :param retriever: The retriever to wrap.
     """
 
