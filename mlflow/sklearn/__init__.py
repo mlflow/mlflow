@@ -878,7 +878,7 @@ class _AutologgingMetricsManager:
 _AUTOLOGGING_METRICS_MANAGER = _AutologgingMetricsManager()
 
 
-_metric_api_excluding_list = ["check_scoring", "get_scorer", "make_scorer"]
+_metric_api_excluding_list = ["check_scoring", "get_scorer", "make_scorer", "get_scorer_names"]
 
 
 def _get_metric_name_list():
@@ -1437,18 +1437,19 @@ def _autolog(
                 return input_example
 
         def infer_model_signature(input_example):
-            if not hasattr(estimator, "predict"):
-                raise Exception(
-                    "the trained model does not specify a `predict` function, "
-                    + "which is required in order to infer the signature"
-                )
-
-            return infer_signature(
-                input_example,
+            if hasattr(estimator, "predict"):
                 # Copy the input example so that it is not mutated by the call to
                 # predict() prior to signature inference
-                estimator.predict(deepcopy(input_example)),
-            )
+                model_output = estimator.predict(deepcopy(input_example))
+            elif hasattr(estimator, "transform"):
+                model_output = estimator.transform(deepcopy(input_example))
+            else:
+                raise Exception(
+                    "the trained model does not have a `predict` or `transform` "
+                    "function, which is required in order to infer the signature"
+                )
+
+            return infer_signature(input_example, model_output)
 
         # log common metrics and artifacts for estimators (classifier, regressor)
         logged_metrics = _log_estimator_content(

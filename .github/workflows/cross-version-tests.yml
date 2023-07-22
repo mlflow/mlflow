@@ -117,7 +117,7 @@ jobs:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/free-disk-space
-        if: matrix.package == 'transformers' || matrix.package == 'sentence-transformers'
+        if: matrix.package == 'transformers' || matrix.package == 'sentence-transformers' || (matrix.package == 'torch' && startsWith(matrix.version, '2.'))
       - name: Get python version
         id: get-python-version
         run: |

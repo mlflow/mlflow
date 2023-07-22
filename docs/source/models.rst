@@ -68,6 +68,15 @@ can serve a model with the ``python_function`` or the ``crate`` (R Function) fla
 
     mlflow models serve -m my_model
 
+.. note::
+    If you wish to serve a model from inside a docker container (or to
+    query it from another machine), you need to change the network address to ``0.0.0.0``
+    using the ``-h`` argument.
+
+    .. code-block:: bash
+
+        mlflow models serve -h 0.0.0.0 -m my_model
+
 In addition, the ``mlflow deployments`` command-line tool can package and deploy models to AWS
 SageMaker as long as they support the ``python_function`` flavor:
 
@@ -3022,6 +3031,25 @@ This input format requires that both the bitrate has been set prior to conversio
     audio transformers pipelines being set as expecting ``binary`` (``bytes``) data. The serving endpoint cannot accept a union of types, so a particular model instance must choose one
     or the other as an allowed input type.
 
+SentenceTransformers (``sentence_transformers``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. attention::
+    The ``sentence_transformers`` flavor is in active development and is marked as Experimental. Public APIs may change and new
+    features are subject to be added as additional functionality is brought to the flavor.
+
+The ``sentence_transformers`` model flavor enables logging of
+`sentence-transformers models <https://www.sbert.net/docs/pretrained_models.html>`_ in MLflow format via
+the :py:func:`mlflow.sentence_transformers.save_model()` and :py:func:`mlflow.sentence_transformers.log_model()` functions.
+Use of these functions also adds the ``python_function`` flavor to the MLflow Models that they produce, allowing the model to be
+interpreted as a generic Python function for inference via :py:func:`mlflow.pyfunc.load_model()`.
+You can also use the :py:func:`mlflow.sentence_transformers.load_model()` function to load a saved or logged MLflow
+Model with the ``sentence_transformers`` flavor as a native ``sentence-transformers`` model.
+
+Example:
+
+.. literalinclude:: ../../examples/sentence_transformers/simple.py
+    :language: python
 
 .. _model-evaluation:
 

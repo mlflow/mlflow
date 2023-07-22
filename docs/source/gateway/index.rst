@@ -74,30 +74,27 @@ routes that the Gateway service should expose. Let's create a file with three ro
 
     routes:
       - name: completions
-        type: llm/v1/completions
+        route_type: llm/v1/completions
         model:
           provider: openai
           name: gpt-3.5-turbo
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
       - name: chat
-        type: llm/v1/chat
+        route_type: llm/v1/chat
         model:
           provider: openai
           name: gpt-3.5-turbo
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
       - name: embeddings
-        type: llm/v1/embeddings
+        route_type: llm/v1/embeddings
         model:
           provider: openai
           name: text-embedding-ada-002
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
 Save this file to a location on the system that is going to be running the MLflow AI Gateway server.
@@ -190,20 +187,18 @@ Firstly, update the :ref:`MLflow AI Gateway config <gateway_configuration>` YAML
 
     routes:
       - name: completions
-        type: llm/v1/completions
+        route_type: llm/v1/completions
         model:
           provider: openai
           name: gpt-3.5-turbo
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
       - name: completions-gpt4
-        type: llm/v1/completions
+        route_type: llm/v1/completions
         model:
           provider: openai
           name: gpt-4
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
 This updated configuration adds a new completions route ``completions-gpt4`` while still preserving the original ``completions``
@@ -243,62 +238,20 @@ Supported Provider Models
 The table below presents a non-exhaustive list of models and a corresponding route type within the MLflow AI Gateway.
 With the rapid development of LLMs, there is no guarantee that this list will be up to date at all times. However, the associations listed
 below can be used as a helpful guide when configuring a given route for any newly released model types as they become available with a given provider.
+``N/A`` means that the provider currently doesn't support the route type.
 
-.. list-table::
-   :header-rows: 1
-
-   * - Route Type
-     - Provider
-     - Model Examples
-     - Supported
-   * - llm/v1/completions
-     - OpenAI
-     - gpt-3.5-turbo, gpt-4
-     - Yes
-   * - llm/v1/completions
-     - Anthropic
-     - claude-1, claude-1.3-100k
-     - Yes
-   * - llm/v1/completions
-     - Cohere
-     - command, command-light-nightly
-     - Yes
-   * - llm/v1/completions
-     - Azure OpenAI
-     - text-davinci-003, gpt-35-turbo
-     - Yes
-   * - llm/v1/chat
-     - OpenAI
-     - gpt-3.5-turbo, gpt-4
-     - Yes
-   * - llm/v1/chat
-     - Anthropic
-     -
-     - No
-   * - llm/v1/chat
-     - Cohere
-     -
-     - No
-   * - llm/v1/chat
-     - Azure OpenAI
-     - gpt-35-turbo, gpt-4
-     - Yes
-   * - llm/v1/embeddings
-     - OpenAI
-     - text-embedding-ada-002
-     - Yes
-   * - llm/v1/embeddings
-     - Anthropic
-     -
-     - No
-   * - llm/v1/embeddings
-     - Cohere
-     - embed-english-v2.0, embed-multilingual-v2.0
-     - Yes
-   * - llm/v1/embeddings
-     - Azure OpenAI
-     - text-embedding-ada-002
-     - Yes
++--------------------+--------------------------+------------------+-----------------------------+--------------------------+
+| Route Type         | OpenAI                   | Anthropic        | Cohere                      | Azure OpenAI             |
++====================+==========================+==================+=============================+==========================+
+| llm/v1/completions | - gpt-3.5-turbo          | - claude-1       | - command                   | - text-davinci-003       |
+|                    | - gpt-4                  | - claude-1.3-100k| - command-light-nightly     | - gpt-35-turbo           |
++--------------------+--------------------------+------------------+-----------------------------+--------------------------+
+| llm/v1/chat        | - gpt-3.5-turbo          | N/A              | N/A                         | - gpt-35-turbo           |
+|                    | - gpt-4                  |                  |                             | - gpt-4                  |
++--------------------+--------------------------+------------------+-----------------------------+--------------------------+
+| llm/v1/embeddings  | - text-embedding-ada-002 | N/A              | - embed-english-v2.0        | - text-embedding-ada-002 |
+|                    |                          |                  | - embed-multilingual-v2.0   |                          |
++--------------------+--------------------------+------------------+-----------------------------+--------------------------+
 
 Within each model block in the configuration file, the provider field is used to specify the name
 of the provider for that model. This is a string value that needs to correspond to a provider the MLflow AI Gateway supports.
@@ -309,12 +262,11 @@ Here's an example of a provider configuration within a route:
 
     routes:
       - name: chat
-        type: llm/v1/chat
+        route_type: llm/v1/chat
         model:
           provider: openai
           name: gpt-4
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
 In the above configuration, ``openai`` is the `provider` for the model.
@@ -354,14 +306,13 @@ Here's an example of a route configuration:
 .. code-block:: yaml
 
     routes:
-        - name: completions
-          type: chat/completions
-          model:
-            provider: openai
-            name: gpt-3.5-turbo
-            config:
-              openai_api_base: https://api.openai.com/v1
-              openai_api_key: $OPENAI_API_KEY
+      - name: completions
+        type: chat/completions
+        model:
+          provider: openai
+          name: gpt-3.5-turbo
+          config:
+            openai_api_key: $OPENAI_API_KEY
 
 In the example above, a request sent to the completions route would be forwarded to the
 ``gpt-3.5-turbo`` model provided by ``openai``.
@@ -394,12 +345,11 @@ Here's an example of a model name configuration within a route:
 
     routes:
       - name: embeddings
-        type: llm/v1/embeddings
+        route_type: llm/v1/embeddings
         model:
           provider: openai
           name: text-embedding-ada-002
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
 
@@ -444,12 +394,11 @@ Here is an example of a single-route configuration:
 
     routes:
       - name: chat
-        type: llm/v1/chat
+        route_type: llm/v1/chat
         model:
           provider: openai
           name: gpt-3.5-turbo
           config:
-            openai_api_base: https://api.openai.com/v1
             openai_api_key: $OPENAI_API_KEY
 
 
@@ -861,6 +810,46 @@ To use the ``MlflowGatewayClient`` API, see the below examples for the available
        )
        print(response)
 
+
+LangChain Integration
+~~~~~~~~~~~~~~~~~~~~~
+
+`LangChain <https://github.com/hwchase17/langchain>`_ supports `an integration for MLflow AI Gateway <https://python.langchain.com/docs/ecosystem/integrations/mlflow_ai_gateway>`_.
+This integration enable users to use prompt engineering, retrieval augmented generation, and other techniques with LLMs in the gateway.
+
+.. code-block:: python
+    :caption: Example
+
+    import mlflow
+    from langchain import LLMChain, PromptTemplate
+    from langchain.llms import MlflowAIGateway
+
+    gateway = MlflowAIGateway(
+        gateway_uri="http://127.0.0.1:5000",
+        route="completions",
+        params={
+            "temperature": 0.0,
+            "top_p": 0.1,
+        },
+    )
+
+    llm_chain = LLMChain(
+        llm=gateway,
+        prompt=PromptTemplate(
+            input_variables=["adjective"],
+            template="Tell me a {adjective} joke",
+        ),
+    )
+    result = llm_chain.run(adjective="funny")
+    print(result)
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(chain, "model")
+
+    model = mlflow.pyfunc.load_model(model_info.model_uri)
+    print(model.predict([{"adjective": "funny"}]))
+
+
 .. _gateway_mlflow_models:
 
 MLflow Models
@@ -1018,3 +1007,8 @@ For example, here's a simple configuration for Nginx with Basic Authentication:
 In this example, `/etc/nginx/.htpasswd` is a file that contains the username and password for authentication.
 
 These measures, together with a proper network setup, can significantly improve the security of your system and ensure that only authorized users have access to submit requests to your LLM services.
+
+LangChain Integration
+=====================
+
+`LangChain <https://github.com/hwchase17/langchain>`_ supports an integration for MLflow AI Gateway. See https://python.langchain.com/docs/ecosystem/integrations/mlflow_ai_gateway for more information.
