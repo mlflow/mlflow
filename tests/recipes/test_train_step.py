@@ -116,7 +116,7 @@ def setup_train_step_with_tuning(
     estimator_fn = "estimator_fn" if recipe == "regression" else "classifier_estimator_fn"
     if use_tuning:
         recipe_yaml.write_text(
-            """
+            f"""
             recipe: "{recipe}/v1"
             target_col: "y"
             profile: "test_profile"
@@ -124,11 +124,11 @@ def setup_train_step_with_tuning(
                 step: "train"
             experiment:
                 name: "demo"
-                tracking_uri: {tracking_uri}
+                tracking_uri: {mlflow.get_tracking_uri()}
             steps:
                 train:
                     using: custom
-                    estimator_method: {fn}
+                    estimator_method: {estimator_fn}
                     {estimator_params}
                     tuning:
                         enabled: true
@@ -146,16 +146,11 @@ def setup_train_step_with_tuning(
                                 distribution: "normal"
                                 mu: 0.01
                                 sigma: 0.0001
-            """.format(
-                tracking_uri=mlflow.get_tracking_uri(),
-                estimator_params=estimator_params,
-                recipe=recipe,
-                fn=estimator_fn,
-            )
+            """
         )
     else:
         recipe_yaml.write_text(
-            """
+            f"""
             recipe: "{recipe}/v1"
             target_col: "y"
             profile: "test_profile"
@@ -163,16 +158,14 @@ def setup_train_step_with_tuning(
                 step: "train"
             experiment:
                 name: "demo"
-                tracking_uri: {tracking_uri}
+                tracking_uri: {mlflow.get_tracking_uri()}
             steps:
                 train:
                     using: custom
-                    estimator_method: {fn}
+                    estimator_method: {estimator_fn}
                     tuning:
                         enabled: false
-            """.format(
-                tracking_uri=mlflow.get_tracking_uri(), recipe=recipe, fn=estimator_fn
-            )
+            """
         )
     recipe_config = read_yaml(recipe_root, _RECIPE_CONFIG_FILE_NAME)
     train_step = TrainStep.from_recipe_config(recipe_config, str(recipe_root))
@@ -185,7 +178,7 @@ def test_train_step(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
     recipe_steps_dir.mkdir(parents=True)
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
         recipe: "regression/v1"
         target_col: "y"
         profile: "test_profile"
@@ -193,16 +186,14 @@ def test_train_step(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
             step: "train"
         experiment:
             name: "demo"
-            tracking_uri: {tracking_uri}
+            tracking_uri: {mlflow.get_tracking_uri()}
         steps:
             train:
                 using: custom
                 estimator_method: estimator_fn
                 tuning:
                     enabled: false
-        """.format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+        """
     )
     m_train = Mock()
     m_train.estimator_fn = estimator_fn
@@ -227,7 +218,7 @@ def test_train_step_imbalanced_data(tmp_recipe_root_path: Path, tmp_recipe_exec_
     recipe_steps_dir.mkdir(parents=True)
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
         recipe: "classification/v1"
         target_col: "y"
         primary_metric: "f1_score"
@@ -237,16 +228,14 @@ def test_train_step_imbalanced_data(tmp_recipe_root_path: Path, tmp_recipe_exec_
             step: "train"
         experiment:
             name: "demo"
-            tracking_uri: {tracking_uri}
+            tracking_uri: {mlflow.get_tracking_uri()}
         steps:
             train:
                 using: custom
                 estimator_method: estimator_fn
                 tuning:
                     enabled: false
-        """.format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+        """
     )
     m_train = Mock()
     m_train.estimator_fn = classifier_estimator_fn
@@ -693,7 +682,7 @@ def test_train_step_with_predict_probability(
     recipe_steps_dir.mkdir(parents=True)
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
         recipe: "classification/v1"
         target_col: "y"
         primary_metric: "f1_score"
@@ -703,16 +692,14 @@ def test_train_step_with_predict_probability(
             step: "train"
         experiment:
             name: "demo"
-            tracking_uri: {tracking_uri}
+            tracking_uri: {mlflow.get_tracking_uri()}
         steps:
             train:
                 using: custom
                 estimator_method: estimator_fn
                 tuning:
                     enabled: false
-        """.format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+        """
     )
     with mock.patch("steps.train.estimator_fn", return_value=sklearn_logistic_regression()):
         recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
@@ -764,7 +751,7 @@ def test_train_step_with_predict_probability_with_custom_prefix(
     recipe_steps_dir.mkdir(parents=True)
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
         recipe: "classification/v1"
         target_col: "y"
         primary_metric: "f1_score"
@@ -774,7 +761,7 @@ def test_train_step_with_predict_probability_with_custom_prefix(
             step: "train"
         experiment:
             name: "demo"
-            tracking_uri: {tracking_uri}
+            tracking_uri: {mlflow.get_tracking_uri()}
         steps:
             train:
                 using: custom
@@ -782,9 +769,7 @@ def test_train_step_with_predict_probability_with_custom_prefix(
                 predict_prefix: "custom_prefix_"
                 tuning:
                     enabled: false
-        """.format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+        """
     )
     with mock.patch("steps.train.estimator_fn", return_value=sklearn_logistic_regression()):
         recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
@@ -821,7 +806,7 @@ def test_train_step_with_label_encoding(tmp_recipe_root_path: Path, tmp_recipe_e
     recipe_steps_dir.mkdir(parents=True)
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
         recipe: "classification/v1"
         target_col: "y"
         profile: "test_profile"
@@ -829,16 +814,14 @@ def test_train_step_with_label_encoding(tmp_recipe_root_path: Path, tmp_recipe_e
             step: "train"
         experiment:
             name: "demo"
-            tracking_uri: {tracking_uri}
+            tracking_uri: {mlflow.get_tracking_uri()}
         steps:
             train:
                 using: custom
                 estimator_method: estimator_fn
                 tuning:
                     enabled: false
-        """.format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+        """
     )
     with mock.patch("steps.train.estimator_fn", return_value=xgb_classifier()):
         recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
@@ -875,7 +858,7 @@ def test_train_step_with_probability_calibration(
     recipe_steps_dir.mkdir(parents=True)
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
         recipe: "classification/v1"
         target_col: "y"
         primary_metric: "f1_score"
@@ -885,7 +868,7 @@ def test_train_step_with_probability_calibration(
             step: "train"
         experiment:
             name: "demo"
-            tracking_uri: {tracking_uri}
+            tracking_uri: {mlflow.get_tracking_uri()}
         steps:
             train:
                 using: custom
@@ -893,9 +876,7 @@ def test_train_step_with_probability_calibration(
                 calibrate_proba: isotonic
                 tuning:
                     enabled: false
-        """.format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+        """
     )
     with mock.patch("steps.train.estimator_fn", return_value=sklearn_logistic_regression()):
         recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)

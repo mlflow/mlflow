@@ -69,14 +69,12 @@ def predict_step_output_dir(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Pa
     predict_step_output_dir.mkdir(parents=True)
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
 recipe: "regression/v1"
 experiment:
   name: "test"
-  tracking_uri: {tracking_uri}
-""".format(
-            tracking_uri=mlflow.get_tracking_uri(),
-        )
+  tracking_uri: {mlflow.get_tracking_uri()}
+"""
     )
     return predict_step_output_dir
 

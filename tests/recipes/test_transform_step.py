@@ -40,21 +40,17 @@ def set_up_transform_step(recipe_root: Path, transform_user_module):
     MlflowClient().create_experiment(experiment_name)
 
     recipe_yaml.write_text(
-        """
+        f"""
         recipe: "regression/v1"
         target_col: "y"
         experiment:
           name: {experiment_name}
-          tracking_uri: {tracking_uri}
+          tracking_uri: {mlflow.get_tracking_uri()}
         steps:
           transform:
             using: custom
             transformer_method: {transform_user_module}
-        """.format(
-            tracking_uri=mlflow.get_tracking_uri(),
-            experiment_name=experiment_name,
-            transform_user_module=transform_user_module,
-        )
+        """
     )
     recipe_config = read_yaml(recipe_root, _RECIPE_CONFIG_FILE_NAME)
     transform_step = TransformStep.from_recipe_config(recipe_config, str(recipe_root))
