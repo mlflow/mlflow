@@ -257,9 +257,9 @@ def test_classifier_binary():
     if _is_plotting_supported():
         plot_names.extend(
             [
-                "{}.png".format("training_confusion_matrix"),
-                "{}.png".format("training_roc_curve"),
-                "{}.png".format("training_precision_recall_curve"),
+                "training_confusion_matrix.png",
+                "training_roc_curve.png",
+                "training_precision_recall_curve.png",
             ]
         )
 
@@ -318,7 +318,7 @@ def test_classifier_multi_class():
 
     plot_names = []
     if _is_plotting_supported():
-        plot_names = ["{}.png".format("training_confusion_matrix")]
+        plot_names = ["training_confusion_matrix.png"]
 
     assert all(x in artifacts for x in plot_names)
 
@@ -996,7 +996,7 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
 
     # ensure throwing_X throws when sliced
     with pytest.raises(IndexError, match="DO NOT SLICE ME"):
-        _ = throwing_X[:5]
+        throwing_X[:5]
 
     mlflow.sklearn.autolog()
     model = sklearn.linear_model.LinearRegression()
@@ -1058,6 +1058,25 @@ def test_autolog_does_not_throw_when_infer_signature_fails():
     mock_warning.assert_called_once_with("Failed to infer model signature: Failed")
     model_conf = get_model_conf(run.info.artifact_uri)
     assert "signature" not in model_conf.to_dict()
+
+
+def test_autolog_does_not_warn_when_model_has_transform_function():
+    X, y = get_iris()
+
+    mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
+    with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+        estimators = [
+            ("std_scaler", sklearn.preprocessing.StandardScaler()),
+        ]
+        model = sklearn.pipeline.Pipeline(estimators)
+        model.fit(X, y)
+
+    # Warning not called
+    msg = "Failed to infer model signature:"
+    assert all(msg not in c[0] for c in mock_warning.call_args_list)
+
+    model_conf = get_model_conf(run.info.artifact_uri)
+    assert "signature" in model_conf.to_dict()
 
 
 @pytest.mark.parametrize("log_input_examples", [True, False])
@@ -1125,7 +1144,7 @@ def test_sklearn_autolog_log_datasets_with_predict():
         mlflow.sklearn.autolog(log_datasets=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
-        y_pred = model.predict(X)  # pylint: disable=unused-variable
+        model.predict(X)
 
     run_id = run.info.run_id
     client = MlflowClient()
@@ -1160,7 +1179,7 @@ def test_sklearn_autolog_log_datasets_without_explicit_run():
     mlflow.sklearn.autolog(log_datasets=True)
     model = sklearn.linear_model.LinearRegression()
     model.fit(X, y)
-    y_pred = model.predict(X)  # pylint: disable=unused-variable
+    model.predict(X)
 
     run_id = getattr(model, "_mlflow_run_id")
     client = MlflowClient()
@@ -1305,7 +1324,10 @@ def test_autolog_disabled_on_sklearn_cross_val_api(cross_val_func_name):
 
     def assert_autolog_disabled_during_exec_cross_val_fun(run_):
         params, metrics, tags, artifacts = get_run_data(run_.info.run_id)
-        assert params == {} and metrics == {} and tags == {} and artifacts == []
+        assert params == {}
+        assert metrics == {}
+        assert tags == {}
+        assert artifacts == []
 
     diabetes = sklearn.datasets.load_diabetes()
     X = diabetes.data[:150]

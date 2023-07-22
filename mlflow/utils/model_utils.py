@@ -99,7 +99,7 @@ def _get_flavor_configuration_from_ml_model_file(ml_model_file, flavor_name):
 def _validate_code_paths(code_paths):
     if code_paths is not None:
         if not isinstance(code_paths, list):
-            raise TypeError("Argument code_paths should be a list, not {}".format(type(code_paths)))
+            raise TypeError(f"Argument code_paths should be a list, not {type(code_paths)}")
 
 
 def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
@@ -164,9 +164,7 @@ def _validate_onnx_session_options(onnx_session_options):
     if onnx_session_options is not None:
         if not isinstance(onnx_session_options, dict):
             raise TypeError(
-                "Argument onnx_session_options should be a dict, not {}".format(
-                    type(onnx_session_options)
-                )
+                f"Argument onnx_session_options should be a dict, not {type(onnx_session_options)}"
             )
         for key, value in onnx_session_options.items():
             if key != "extra_session_config" and not hasattr(ort.SessionOptions, key):

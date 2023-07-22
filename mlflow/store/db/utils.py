@@ -31,6 +31,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTag,
     SqlExperimentTag,
     SqlLatestMetric,
+    SqlDataset,
+    SqlInput,
+    SqlInputTag,
 )
 from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModel,
@@ -61,12 +64,12 @@ def _get_package_dir():
 
 
 def _all_tables_exist(engine):
-    return set(
+    return {
         t
         for t in sqlalchemy.inspect(engine).get_table_names()
         # Filter out alembic tables
         if not t.startswith("alembic_")
-    ) == {
+    } == {
         SqlExperiment.__tablename__,
         SqlRun.__tablename__,
         SqlMetric.__tablename__,
@@ -79,6 +82,9 @@ def _all_tables_exist(engine):
         SqlRegisteredModelTag.__tablename__,
         SqlModelVersionTag.__tablename__,
         SqlRegisteredModelAlias.__tablename__,
+        SqlDataset.__tablename__,
+        SqlInput.__tablename__,
+        SqlInputTag.__tablename__,
     }
 
 
@@ -96,8 +102,8 @@ def _get_latest_schema_revision():
     heads = script.get_heads()
     if len(heads) != 1:
         raise MlflowException(
-            "Migration script directory was in unexpected state. Got %s head "
-            "database versions but expected only 1. Found versions: %s" % (len(heads), heads)
+            f"Migration script directory was in unexpected state. Got {len(heads)} head "
+            f"database versions but expected only 1. Found versions: {heads}"
         )
     return heads[0]
 
@@ -107,11 +113,12 @@ def _verify_schema(engine):
     current_rev = _get_schema_version(engine)
     if current_rev != head_revision:
         raise MlflowException(
-            "Detected out-of-date database schema (found version %s, but expected %s). "
-            "Take a backup of your database, then run 'mlflow db upgrade <database_uri>' "
+            f"Detected out-of-date database schema (found version {current_rev}, "
+            f"but expected {head_revision}). Take a backup of your database, then run "
+            "'mlflow db upgrade <database_uri>' "
             "to migrate your database to the latest schema. NOTE: schema migration may "
             "result in database downtime - please consult your database's documentation for "
-            "more detail." % (current_rev, head_revision)
+            "more detail."
         )
 
 

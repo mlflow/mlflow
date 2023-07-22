@@ -68,12 +68,21 @@ rdocs:
 test-examples:
 	@pytest --no-cov .examples
 
+.PHONY: gateway-api-docs
+gateway-api-docs:
+	@python gateway_api_docs.py
+
 # Builds only the RST-based documentation (i.e., everything but Java & R docs)
 .PHONY: rsthtml
-rsthtml:
+rsthtml: gateway-api-docs
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
+	@echo "Use 'make view' to preview docs."
+
+.PHONY: view
+view:
+	python -m http.server --directory build/html
 
 .PHONY: html
 html: rdocs rsthtml javadocs

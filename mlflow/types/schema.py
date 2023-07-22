@@ -63,6 +63,14 @@ class DataType(Enum):
     def get_spark_types(cls):
         return [dt.to_spark() for dt in cls._member_map_.values()]
 
+    @classmethod
+    def from_numpy_type(cls, np_type):
+        for dt in cls._member_map_.values():
+            if np_type == dt.to_numpy():
+                return dt
+
+        return None
+
 
 class ColSpec:
     """
@@ -87,7 +95,7 @@ class ColSpec:
         if not isinstance(self.type, DataType):
             raise TypeError(
                 "Expected mlflow.models.signature.Datatype or str for the 'type' "
-                "argument, but got {}".format(self.type.__class__)
+                f"argument, but got {self.type.__class__}"
             )
 
     @property
@@ -139,9 +147,7 @@ class TensorInfo:
     def __init__(self, dtype: np.dtype, shape: Union[tuple, list]):
         if not isinstance(dtype, np.dtype):
             raise TypeError(
-                "Expected `type` to be instance of `{}`, received `{}`".format(
-                    np.dtype, type.__class__
-                )
+                f"Expected `type` to be instance of `{np.dtype}`, received `{ type.__class__}`"
             )
         # Throw if size information exists flexible numpy data types
         if dtype.char in ["U", "S"] and not dtype.name.isalpha():
@@ -190,7 +196,7 @@ class TensorInfo:
         return cls(tensor_type, tensor_shape)
 
     def __repr__(self) -> str:
-        return "Tensor({type}, {shape})".format(type=repr(self.dtype.name), shape=repr(self.shape))
+        return f"Tensor({self.dtype.name!r}, {self.shape!r})"
 
 
 class TensorSpec:
@@ -264,7 +270,7 @@ class TensorSpec:
         if self.name is None:
             return repr(self._tensorInfo)
         else:
-            return "{name}: {info}".format(name=repr(self.name), info=repr(self._tensorInfo))
+            return f"{self.name!r}: {self._tensorInfo!r}"
 
 
 class Schema:

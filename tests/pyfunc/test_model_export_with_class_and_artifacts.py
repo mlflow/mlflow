@@ -35,7 +35,6 @@ from mlflow.tracking.artifact_utils import (
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 import tests
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -43,6 +42,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _mlflow_major_version_string,
+    assert_register_model_called_with_local_model_path,
 )
 
 
@@ -125,8 +125,8 @@ def _conda_env():
     # NB: We need mlflow as a dependency in the environment.
     return _mlflow_conda_env(
         additional_pip_deps=[
-            "cloudpickle=={}".format(cloudpickle.__version__),
-            "scikit-learn=={}".format(sklearn.__version__),
+            f"cloudpickle=={cloudpickle.__version__}",
+            f"scikit-learn=={sklearn.__version__}",
         ],
     )
 
@@ -158,9 +158,7 @@ def test_pyfunc_model_log_load_no_active_run(sklearn_knn_model, main_scoped_mode
     sklearn_artifact_path = "sk_model_no_run"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
-        sklearn_model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=sklearn_artifact_path
-        )
+        sklearn_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{sklearn_artifact_path}"
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
@@ -172,9 +170,7 @@ def test_pyfunc_model_log_load_no_active_run(sklearn_knn_model, main_scoped_mode
         artifacts={"sk_model": sklearn_model_uri},
         python_model=main_scoped_model_class(test_predict),
     )
-    pyfunc_model_uri = "runs:/{run_id}/{artifact_path}".format(
-        run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
-    )
+    pyfunc_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
     loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_uri)
     np.testing.assert_array_equal(
         loaded_pyfunc_model.predict(iris_data[0]),
@@ -187,9 +183,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
-        sklearn_model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=sklearn_artifact_path
-        )
+        sklearn_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{sklearn_artifact_path}"
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
@@ -201,14 +195,10 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
             artifacts={"sk_model": sklearn_model_uri},
             python_model=main_scoped_model_class(test_predict),
         )
-        pyfunc_model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
-        )
+        pyfunc_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
         assert model_info.model_uri == pyfunc_model_uri
         pyfunc_model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
-            )
+            f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
         )
         model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
 
@@ -250,16 +240,14 @@ def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model
 
 
 def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_class):
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with register_model_patch:
         sklearn_artifact_path = "sk_model_no_run"
         with mlflow.start_run():
             mlflow.sklearn.log_model(
                 sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path
             )
-            sklearn_model_uri = "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=sklearn_artifact_path
-            )
+            sklearn_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{sklearn_artifact_path}"
 
         def test_predict(sk_model, model_input):
             return sk_model.predict(model_input) * 2
@@ -272,26 +260,22 @@ def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_cla
             python_model=main_scoped_model_class(test_predict),
             registered_model_name="AdsModel1",
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
-        )
-        mlflow.register_model.assert_called_once_with(
-            model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
+        assert_register_model_called_with_local_model_path(
+            mlflow.tracking._model_registry.fluent._register_model, model_uri, "AdsModel1"
         )
         mlflow.end_run()
 
 
 def test_log_model_no_registered_model_name(sklearn_knn_model, main_scoped_model_class):
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with register_model_patch:
         sklearn_artifact_path = "sk_model_no_run"
         with mlflow.start_run():
             mlflow.sklearn.log_model(
                 sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path
             )
-            sklearn_model_uri = "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=sklearn_artifact_path
-            )
+            sklearn_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{sklearn_artifact_path}"
 
         def test_predict(sk_model, model_input):
             return sk_model.predict(model_input) * 2
@@ -303,7 +287,7 @@ def test_log_model_no_registered_model_name(sklearn_knn_model, main_scoped_model
             artifacts={"sk_model": sklearn_model_uri},
             python_model=main_scoped_model_class(test_predict),
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
         mlflow.end_run()
 
 
@@ -716,9 +700,7 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
             conda_env=pyfunc_custom_env,
         )
         pyfunc_model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
-            )
+            f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
         )
 
     pyfunc_conf = _get_flavor_configuration(
@@ -756,9 +738,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
             conda_env=pyfunc_custom_env,
         )
         pyfunc_model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
-            )
+            f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
         )
 
     saved_pip_req_path = os.path.join(pyfunc_model_path, "requirements.txt")
@@ -1100,9 +1080,7 @@ def test_model_log_with_metadata():
             python_model=mlflow.pyfunc.model.PythonModel(),
             metadata={"metadata_key": "metadata_value"},
         )
-        pyfunc_model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
-        )
+        pyfunc_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"

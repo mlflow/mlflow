@@ -414,7 +414,7 @@ class Model:
         return ModelInfo(
             artifact_path=self.artifact_path,
             flavors=self.flavors,
-            model_uri="runs:/{}/{}".format(self.run_id, self.artifact_path),
+            model_uri=f"runs:/{self.run_id}/{self.artifact_path}",
             model_uuid=self.model_uuid,
             run_id=self.run_id,
             saved_input_example_info=self.saved_input_example_info,
@@ -562,13 +562,15 @@ class Model:
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, metadata=metadata)
-            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
-            mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
             tracking_uri = _resolve_tracking_uri()
             if (
-                tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks"
-            ) and kwargs.get("signature") is None:
+                (tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks")
+                and kwargs.get("signature") is None
+                and kwargs.get("input_example") is None
+            ):
                 _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
+            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
+            mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model)
             except MlflowException:
@@ -578,10 +580,11 @@ class Model:
                 _logger.debug("", exc_info=True)
             if registered_model_name is not None:
                 run_id = mlflow.tracking.fluent.active_run().info.run_id
-                mlflow.register_model(
-                    "runs:/{}/{}".format(run_id, mlflow_model.artifact_path),
+                mlflow.tracking._model_registry.fluent._register_model(
+                    f"runs:/{run_id}/{mlflow_model.artifact_path}",
                     registered_model_name,
                     await_registration_for=await_registration_for,
+                    local_model_path=local_path,
                 )
         return mlflow_model.get_model_info()
 

@@ -30,12 +30,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RECIPE_STEP_NAME,
 )
 
-# pylint: disable=unused-import
-from tests.recipes.helper_functions import tmp_recipe_root_path, tmp_recipe_exec_path
-
-
-# pylint: enable=unused-import
-
 
 # Sets up the train step output dir
 def setup_train_dataset(recipe_root: Path, recipe: str = "regression"):
@@ -225,7 +219,7 @@ def test_train_step(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
 
 
 @mock.patch("mlflow.recipes.steps.train._REBALANCING_CUTOFF", 50)
-def test_train_step_imbalanced_data(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, capsys):
+def test_train_step_imbalanced_data(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
     train_step_output_dir = setup_train_dataset(
         tmp_recipe_exec_path, recipe="classification/multiclass"
     )
@@ -365,13 +359,13 @@ def classifier_estimator_fn(estimator_params=None):
     return SGDClassifier(random_state=42, **(estimator_params or {}))
 
 
-def classifier_with_predict_proba_estimator_fn(estimator_params=None):
+def sklearn_logistic_regression():
     from sklearn.linear_model import LogisticRegression
 
     return LogisticRegression()
 
 
-def classifier_with_xgboost_model(estimator_params=None):
+def xgb_classifier():
     import xgboost as xgb
 
     return xgb.XGBClassifier()
@@ -510,7 +504,7 @@ def test_train_step_with_tuning_best_parameters(
 
 
 @pytest.mark.parametrize(
-    "with_hardcoded_params, expected_num_tuned, expected_num_hardcoded, num_sections",
+    ("with_hardcoded_params", "expected_num_tuned", "expected_num_hardcoded", "num_sections"),
     [(True, 3, 1, 3), (False, 3, 0, 2)],
 )
 def test_train_step_with_tuning_output_yaml_correct(
@@ -589,7 +583,7 @@ def test_search_space(tmp_recipe_root_path):
     assert "alpha" in search_space
 
 
-@pytest.mark.parametrize("tuning_param,logged_param", [(1, "1"), (1.0, "1.0"), ("a", " a ")])
+@pytest.mark.parametrize(("tuning_param", "logged_param"), [(1, "1"), (1.0, "1.0"), ("a", " a ")])
 def test_tuning_param_equal(tuning_param, logged_param):
     assert TrainStep.is_tuning_param_equal(tuning_param, logged_param)
 
@@ -720,10 +714,7 @@ def test_train_step_with_predict_probability(
             tracking_uri=mlflow.get_tracking_uri()
         )
     )
-    with mock.patch(
-        "steps.train.estimator_fn",
-        classifier_with_predict_proba_estimator_fn,
-    ):
+    with mock.patch("steps.train.estimator_fn", return_value=sklearn_logistic_regression()):
         recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
         train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
         train_step.run(str(train_step_output_dir))
@@ -743,7 +734,7 @@ def test_train_step_with_predict_probability(
     transform_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "transform", "outputs")
 
     validation_dataset = pd.read_parquet(
-        (str(transform_step_output_dir / "transformed_validation_data.parquet"))
+        str(transform_step_output_dir / "transformed_validation_data.parquet")
     )
 
     output = model.predict(validation_dataset.drop("y", axis=1))
@@ -795,10 +786,7 @@ def test_train_step_with_predict_probability_with_custom_prefix(
             tracking_uri=mlflow.get_tracking_uri()
         )
     )
-    with mock.patch(
-        "steps.train.estimator_fn",
-        classifier_with_predict_proba_estimator_fn,
-    ):
+    with mock.patch("steps.train.estimator_fn", return_value=sklearn_logistic_regression()):
         recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
         train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
         train_step.run(str(train_step_output_dir))
@@ -812,7 +800,7 @@ def test_train_step_with_predict_probability_with_custom_prefix(
     transform_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "transform", "outputs")
 
     validation_dataset = pd.read_parquet(
-        (str(transform_step_output_dir / "transformed_validation_data.parquet"))
+        str(transform_step_output_dir / "transformed_validation_data.parquet")
     )
 
     output = model.predict(validation_dataset.drop("y", axis=1))
@@ -852,10 +840,7 @@ def test_train_step_with_label_encoding(tmp_recipe_root_path: Path, tmp_recipe_e
             tracking_uri=mlflow.get_tracking_uri()
         )
     )
-    with mock.patch(
-        "steps.train.estimator_fn",
-        classifier_with_xgboost_model,
-    ):
+    with mock.patch("steps.train.estimator_fn", return_value=xgb_classifier()):
         recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
         train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
         train_step.run(str(train_step_output_dir))
@@ -869,7 +854,7 @@ def test_train_step_with_label_encoding(tmp_recipe_root_path: Path, tmp_recipe_e
     transform_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "transform", "outputs")
 
     validation_dataset = pd.read_parquet(
-        (str(transform_step_output_dir / "transformed_validation_data.parquet"))
+        str(transform_step_output_dir / "transformed_validation_data.parquet")
     )
 
     predicted_output = model.predict(validation_dataset.drop("y", axis=1))
@@ -912,10 +897,7 @@ def test_train_step_with_probability_calibration(
             tracking_uri=mlflow.get_tracking_uri()
         )
     )
-    with mock.patch(
-        "steps.train.estimator_fn",
-        classifier_with_predict_proba_estimator_fn,
-    ):
+    with mock.patch("steps.train.estimator_fn", return_value=sklearn_logistic_regression()):
         recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
         train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
         train_step.run(str(train_step_output_dir))

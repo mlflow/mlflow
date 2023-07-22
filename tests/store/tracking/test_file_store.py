@@ -713,7 +713,8 @@ def test_delete_restore_run(store):
     store.delete_run(run_id)
     assert store.get_run(run_id).info.lifecycle_stage == "deleted"
     meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
-    assert "deleted_time" in meta and meta["deleted_time"] is not None
+    assert "deleted_time" in meta
+    assert meta["deleted_time"] is not None
     # Verify that run restoration is idempotent by restoring twice
     store.restore_run(run_id)
     store.restore_run(run_id)
@@ -1391,91 +1392,91 @@ def test_search_runs_datasets(store):
         filter_string="dataset.name = 'name1'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id2, run_id1}
+    assert {r.info.run_id for r in result} == {run_id2, run_id1}
 
     result = store.search_runs(
         [exp_id],
         filter_string="dataset.digest = 'digest2'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id3, run_id1}
+    assert {r.info.run_id for r in result} == {run_id3, run_id1}
 
     result = store.search_runs(
         [exp_id],
         filter_string="dataset.name = 'name4'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == set()
+    assert {r.info.run_id for r in result} == set()
 
     result = store.search_runs(
         [exp_id],
         filter_string="dataset.context = 'train'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id2, run_id1}
+    assert {r.info.run_id for r in result} == {run_id2, run_id1}
 
     result = store.search_runs(
         [exp_id],
         filter_string="dataset.context = 'test'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id3}
+    assert {r.info.run_id for r in result} == {run_id3}
 
     result = store.search_runs(
         [exp_id],
         filter_string="dataset.context = 'test' and dataset.name = 'name2'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id3}
+    assert {r.info.run_id for r in result} == {run_id3}
 
     result = store.search_runs(
         [exp_id],
         filter_string="dataset.name = 'name2' and dataset.context = 'test'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id3}
+    assert {r.info.run_id for r in result} == {run_id3}
 
     result = store.search_runs(
         [exp_id],
         filter_string="datasets.name IN ('name1', 'name2')",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+    assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
 
     result = store.search_runs(
         [exp_id],
         filter_string="datasets.digest IN ('digest1', 'digest2')",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+    assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
 
     result = store.search_runs(
         [exp_id],
         filter_string="datasets.name LIKE 'Name%'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == set()
+    assert {r.info.run_id for r in result} == set()
 
     result = store.search_runs(
         [exp_id],
         filter_string="datasets.name ILIKE 'Name%'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+    assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
 
     result = store.search_runs(
         [exp_id],
         filter_string="datasets.context ILIKE 'test%'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id3}
+    assert {r.info.run_id for r in result} == {run_id3}
 
     result = store.search_runs(
         [exp_id],
         filter_string="datasets.context IN ('test', 'train')",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+    assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
 
 
 def test_weird_param_names(store):

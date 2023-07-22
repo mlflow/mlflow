@@ -16,10 +16,10 @@ import mlflow
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.utils.environment import _PYTHON_ENV_FILE_NAME, _REQUIREMENTS_FILE_NAME
 from mlflow.utils.virtualenv import (
-    _MLFLOW_ENV_ROOT_ENV_VAR,
     _is_pyenv_available,
     _is_virtualenv_available,
 )
+from mlflow.environment_variables import MLFLOW_ENV_ROOT
 from tests.helper_functions import pyfunc_serve_and_score_model
 
 pytestmark = pytest.mark.skipif(
@@ -54,7 +54,7 @@ def serve_and_score(model_uri, data, extra_args=None):
 def temp_mlflow_env_root(tmp_path, monkeypatch):
     env_root = tmp_path / "envs"
     env_root.mkdir(exist_ok=True)
-    monkeypatch.setenv(_MLFLOW_ENV_ROOT_ENV_VAR, str(env_root))
+    monkeypatch.setenv(MLFLOW_ENV_ROOT.name, str(env_root))
     return env_root
 
 

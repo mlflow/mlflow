@@ -151,8 +151,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             if not result.name.startswith(artifact_path):
                 raise MlflowException(
                     "The name of the listed Azure blob does not begin with the specified"
-                    " artifact path. Artifact path: {artifact_path}. Blob name:"
-                    " {blob_name}".format(artifact_path=artifact_path, blob_name=result.name)
+                    f" artifact path. Artifact path: {artifact_path}. Blob name: {result.name}"
                 )
 
             if is_dir(result):

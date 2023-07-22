@@ -33,7 +33,7 @@ from tests.integration.utils import invoke_cli_runner
 from tests.projects.utils import validate_exit_status, TEST_PROJECT_DIR
 
 
-@pytest.fixture()
+@pytest.fixture
 def runs_cancel_mock():
     """Mocks the Jobs Runs Cancel API request"""
     with mock.patch(
@@ -43,7 +43,7 @@ def runs_cancel_mock():
         yield runs_cancel_mock
 
 
-@pytest.fixture()
+@pytest.fixture
 def runs_submit_mock():
     """Mocks the Jobs Runs Submit API request"""
     with mock.patch(
@@ -53,7 +53,7 @@ def runs_submit_mock():
         yield runs_submit_mock
 
 
-@pytest.fixture()
+@pytest.fixture
 def runs_get_mock():
     """Mocks the Jobs Runs Get API request"""
     with mock.patch(
@@ -62,7 +62,7 @@ def runs_get_mock():
         yield runs_get_mock
 
 
-@pytest.fixture()
+@pytest.fixture
 def databricks_cluster_mlflow_run_cmd_mock():
     """Mocks the Jobs Runs Get API request"""
     with mock.patch(
@@ -71,19 +71,19 @@ def databricks_cluster_mlflow_run_cmd_mock():
         yield mlflow_run_cmd_mock
 
 
-@pytest.fixture()
+@pytest.fixture
 def cluster_spec_mock(tmp_path):
     cluster_spec_handle = tmp_path.joinpath("cluster_spec.json")
     cluster_spec_handle.write_text("{}")
     yield str(cluster_spec_handle)
 
 
-@pytest.fixture()
+@pytest.fixture
 def dbfs_root_mock(tmp_path):
     yield str(tmp_path.joinpath("dbfs-root"))
 
 
-@pytest.fixture()
+@pytest.fixture
 def upload_to_dbfs_mock(dbfs_root_mock):
     def upload_mock_fn(_, src_path, dbfs_uri):
         mock_dbfs_dst = os.path.join(dbfs_root_mock, dbfs_uri.split("/dbfs/")[1])
@@ -96,7 +96,7 @@ def upload_to_dbfs_mock(dbfs_root_mock):
         yield upload_mock
 
 
-@pytest.fixture()
+@pytest.fixture
 def dbfs_path_exists_mock(dbfs_root_mock):  # pylint: disable=unused-argument
     with mock.patch(
         "mlflow.projects.databricks.DatabricksJobRunner._dbfs_path_exists"
@@ -104,18 +104,18 @@ def dbfs_path_exists_mock(dbfs_root_mock):  # pylint: disable=unused-argument
         yield path_exists_mock
 
 
-@pytest.fixture()
+@pytest.fixture
 def dbfs_mocks(dbfs_path_exists_mock, upload_to_dbfs_mock):  # pylint: disable=unused-argument
     yield
 
 
-@pytest.fixture()
+@pytest.fixture
 def before_run_validations_mock():
     with mock.patch("mlflow.projects.databricks.before_run_validations"):
         yield
 
 
-@pytest.fixture()
+@pytest.fixture
 def set_tag_mock():
     with mock.patch("mlflow.projects.databricks.tracking.MlflowClient") as m:
         mlflow_service_mock = mock.Mock(wraps=MlflowClient())
@@ -271,27 +271,29 @@ def test_run_databricks(
     cluster_spec_mock,
     set_tag_mock,
     databricks_cluster_mlflow_run_cmd_mock,
+    monkeypatch,
 ):
     """Test running on Databricks with mocks."""
-    with mock.patch.dict(os.environ, {"DATABRICKS_HOST": "test-host", "DATABRICKS_TOKEN": "foo"}):
-        # Test that MLflow gets the correct run status when performing a Databricks run
-        for run_succeeded, expect_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
-            runs_get_mock.return_value = mock_runs_get_result(succeeded=run_succeeded)
-            submitted_run = run_databricks_project(cluster_spec_mock, synchronous=False)
-            assert submitted_run.wait() == run_succeeded
-            assert submitted_run.run_id is not None
-            assert runs_submit_mock.call_count == 1
-            assert databricks_cluster_mlflow_run_cmd_mock.call_count == 1
-            tags = {}
-            for call_args, _ in set_tag_mock.call_args_list:
-                tags[call_args[1]] = call_args[2]
-            assert tags[MLFLOW_DATABRICKS_RUN_URL] == "test_url"
-            assert tags[MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID] == "-1"
-            assert tags[MLFLOW_DATABRICKS_WEBAPP_URL] == "test-host"
-            set_tag_mock.reset_mock()
-            runs_submit_mock.reset_mock()
-            databricks_cluster_mlflow_run_cmd_mock.reset_mock()
-            validate_exit_status(submitted_run.get_status(), expect_status)
+    monkeypatch.setenv("DATABRICKS_HOST", "test-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "foo")
+    # Test that MLflow gets the correct run status when performing a Databricks run
+    for run_succeeded, expect_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
+        runs_get_mock.return_value = mock_runs_get_result(succeeded=run_succeeded)
+        submitted_run = run_databricks_project(cluster_spec_mock, synchronous=False)
+        assert submitted_run.wait() == run_succeeded
+        assert submitted_run.run_id is not None
+        assert runs_submit_mock.call_count == 1
+        assert databricks_cluster_mlflow_run_cmd_mock.call_count == 1
+        tags = {}
+        for call_args, _ in set_tag_mock.call_args_list:
+            tags[call_args[1]] = call_args[2]
+        assert tags[MLFLOW_DATABRICKS_RUN_URL] == "test_url"
+        assert tags[MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID] == "-1"
+        assert tags[MLFLOW_DATABRICKS_WEBAPP_URL] == "test-host"
+        set_tag_mock.reset_mock()
+        runs_submit_mock.reset_mock()
+        databricks_cluster_mlflow_run_cmd_mock.reset_mock()
+        validate_exit_status(submitted_run.get_status(), expect_status)
 
 
 @pytest.mark.usefixtures(
@@ -301,20 +303,21 @@ def test_run_databricks(
     "cluster_spec_mock",
     "set_tag_mock",
 )
-def test_run_databricks_cluster_spec_json(runs_submit_mock, runs_get_mock):
-    with mock.patch.dict(os.environ, {"DATABRICKS_HOST": "test-host", "DATABRICKS_TOKEN": "foo"}):
-        runs_get_mock.return_value = mock_runs_get_result(succeeded=True)
-        cluster_spec = {
-            "spark_version": "5.0.x-scala2.11",
-            "num_workers": 2,
-            "node_type_id": "i3.xlarge",
-        }
-        # Run project synchronously, verify that it succeeds (doesn't throw)
-        run_databricks_project(cluster_spec=cluster_spec, synchronous=True)
-        assert runs_submit_mock.call_count == 1
-        runs_submit_args, _ = runs_submit_mock.call_args_list[0]
-        req_body = runs_submit_args[0]
-        assert req_body["new_cluster"] == cluster_spec
+def test_run_databricks_cluster_spec_json(runs_submit_mock, runs_get_mock, monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "test-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "foo")
+    runs_get_mock.return_value = mock_runs_get_result(succeeded=True)
+    cluster_spec = {
+        "spark_version": "5.0.x-scala2.11",
+        "num_workers": 2,
+        "node_type_id": "i3.xlarge",
+    }
+    # Run project synchronously, verify that it succeeds (doesn't throw)
+    run_databricks_project(cluster_spec=cluster_spec, synchronous=True)
+    assert runs_submit_mock.call_count == 1
+    runs_submit_args, _ = runs_submit_mock.call_args_list[0]
+    req_body = runs_submit_args[0]
+    assert req_body["new_cluster"] == cluster_spec
 
 
 @pytest.mark.usefixtures(
@@ -324,26 +327,27 @@ def test_run_databricks_cluster_spec_json(runs_submit_mock, runs_get_mock):
     "cluster_spec_mock",
     "set_tag_mock",
 )
-def test_run_databricks_extended_cluster_spec_json(runs_submit_mock, runs_get_mock):
-    with mock.patch.dict(os.environ, {"DATABRICKS_HOST": "test-host", "DATABRICKS_TOKEN": "foo"}):
-        runs_get_mock.return_value = mock_runs_get_result(succeeded=True)
-        new_cluster_spec = {
-            "spark_version": "6.5.x-scala2.11",
-            "num_workers": 2,
-            "node_type_id": "i3.xlarge",
-        }
-        extra_library = {"pypi": {"package": "tensorflow"}}
+def test_run_databricks_extended_cluster_spec_json(runs_submit_mock, runs_get_mock, monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "test-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "foo")
+    runs_get_mock.return_value = mock_runs_get_result(succeeded=True)
+    new_cluster_spec = {
+        "spark_version": "6.5.x-scala2.11",
+        "num_workers": 2,
+        "node_type_id": "i3.xlarge",
+    }
+    extra_library = {"pypi": {"package": "tensorflow"}}
 
-        cluster_spec = {"new_cluster": new_cluster_spec, "libraries": [extra_library]}
+    cluster_spec = {"new_cluster": new_cluster_spec, "libraries": [extra_library]}
 
-        # Run project synchronously, verify that it succeeds (doesn't throw)
-        run_databricks_project(cluster_spec=cluster_spec, synchronous=True)
-        assert runs_submit_mock.call_count == 1
-        runs_submit_args, _ = runs_submit_mock.call_args_list[0]
-        req_body = runs_submit_args[0]
-        assert req_body["new_cluster"] == new_cluster_spec
-        # This does test deep object equivalence
-        assert extra_library in req_body["libraries"]
+    # Run project synchronously, verify that it succeeds (doesn't throw)
+    run_databricks_project(cluster_spec=cluster_spec, synchronous=True)
+    assert runs_submit_mock.call_count == 1
+    runs_submit_args, _ = runs_submit_mock.call_args_list[0]
+    req_body = runs_submit_args[0]
+    assert req_body["new_cluster"] == new_cluster_spec
+    # This does test deep object equivalence
+    assert extra_library in req_body["libraries"]
 
 
 @pytest.mark.usefixtures(
@@ -354,38 +358,40 @@ def test_run_databricks_extended_cluster_spec_json(runs_submit_mock, runs_get_mo
     "set_tag_mock",
 )
 def test_run_databricks_extended_cluster_spec_json_without_libraries(
-    runs_submit_mock, runs_get_mock
+    runs_submit_mock, runs_get_mock, monkeypatch
 ):
-    with mock.patch.dict(os.environ, {"DATABRICKS_HOST": "test-host", "DATABRICKS_TOKEN": "foo"}):
-        runs_get_mock.return_value = mock_runs_get_result(succeeded=True)
-        new_cluster_spec = {
-            "spark_version": "6.5.x-scala2.11",
-            "num_workers": 2,
-            "node_type_id": "i3.xlarge",
-        }
+    monkeypatch.setenv("DATABRICKS_HOST", "test-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "foo")
+    runs_get_mock.return_value = mock_runs_get_result(succeeded=True)
+    new_cluster_spec = {
+        "spark_version": "6.5.x-scala2.11",
+        "num_workers": 2,
+        "node_type_id": "i3.xlarge",
+    }
 
-        cluster_spec = {
-            "new_cluster": new_cluster_spec,
-        }
+    cluster_spec = {
+        "new_cluster": new_cluster_spec,
+    }
 
-        # Run project synchronously, verify that it succeeds (doesn't throw)
-        run_databricks_project(cluster_spec=cluster_spec, synchronous=True)
-        assert runs_submit_mock.call_count == 1
-        runs_submit_args, _ = runs_submit_mock.call_args_list[0]
-        req_body = runs_submit_args[0]
-        assert req_body["new_cluster"] == new_cluster_spec
+    # Run project synchronously, verify that it succeeds (doesn't throw)
+    run_databricks_project(cluster_spec=cluster_spec, synchronous=True)
+    assert runs_submit_mock.call_count == 1
+    runs_submit_args, _ = runs_submit_mock.call_args_list[0]
+    req_body = runs_submit_args[0]
+    assert req_body["new_cluster"] == new_cluster_spec
 
 
-def test_run_databricks_throws_exception_when_spec_uses_existing_cluster():
-    with mock.patch.dict(os.environ, {"DATABRICKS_HOST": "test-host", "DATABRICKS_TOKEN": "foo"}):
-        existing_cluster_spec = {
-            "existing_cluster_id": "1000-123456-clust1",
-        }
-        with pytest.raises(
-            MlflowException, match="execution against existing clusters is not currently supported"
-        ) as exc:
-            run_databricks_project(cluster_spec=existing_cluster_spec)
-        assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+def test_run_databricks_throws_exception_when_spec_uses_existing_cluster(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "test-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "foo")
+    existing_cluster_spec = {
+        "existing_cluster_id": "1000-123456-clust1",
+    }
+    with pytest.raises(
+        MlflowException, match="execution against existing clusters is not currently supported"
+    ) as exc:
+        run_databricks_project(cluster_spec=existing_cluster_spec)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 def test_run_databricks_cancel(
@@ -396,31 +402,33 @@ def test_run_databricks_cancel(
     runs_cancel_mock,
     runs_get_mock,
     cluster_spec_mock,
+    monkeypatch,
 ):
     # pylint: disable=unused-argument
     # Test that MLflow properly handles Databricks run cancellation. We mock the result of
     # the runs-get API to indicate run failure so that cancel() exits instead of blocking while
     # waiting for run status.
-    with mock.patch.dict(os.environ, {"DATABRICKS_HOST": "test-host", "DATABRICKS_TOKEN": "foo"}):
-        runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
-        submitted_run = run_databricks_project(cluster_spec_mock, synchronous=False)
-        submitted_run.cancel()
-        validate_exit_status(submitted_run.get_status(), RunStatus.FAILED)
-        assert runs_cancel_mock.call_count == 1
-        # Test that we raise an exception when a blocking Databricks run fails
-        runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
-        with pytest.raises(mlflow.projects.ExecutionException, match=r"Run \(ID '.+'\) failed"):
-            run_databricks_project(cluster_spec_mock, synchronous=True)
+    monkeypatch.setenv("DATABRICKS_HOST", "test-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "foo")
+    runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
+    submitted_run = run_databricks_project(cluster_spec_mock, synchronous=False)
+    submitted_run.cancel()
+    validate_exit_status(submitted_run.get_status(), RunStatus.FAILED)
+    assert runs_cancel_mock.call_count == 1
+    # Test that we raise an exception when a blocking Databricks run fails
+    runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
+    with pytest.raises(mlflow.projects.ExecutionException, match=r"Run \(ID '.+'\) failed"):
+        run_databricks_project(cluster_spec_mock, synchronous=True)
 
 
-def test_get_tracking_uri_for_run():
+def test_get_tracking_uri_for_run(monkeypatch):
     mlflow.set_tracking_uri("http://some-uri")
     assert databricks._get_tracking_uri_for_run() == "http://some-uri"
     mlflow.set_tracking_uri("databricks://profile")
     assert databricks._get_tracking_uri_for_run() == "databricks"
     mlflow.set_tracking_uri(None)
-    with mock.patch.dict(os.environ, {MLFLOW_TRACKING_URI.name: "http://some-uri"}):
-        assert mlflow.tracking._tracking_service.utils.get_tracking_uri() == "http://some-uri"
+    monkeypatch.setenv(MLFLOW_TRACKING_URI.name, "http://some-uri")
+    assert mlflow.tracking._tracking_service.utils.get_tracking_uri() == "http://some-uri"
 
 
 class MockProfileConfigProvider:

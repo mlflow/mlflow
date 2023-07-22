@@ -1,14 +1,6 @@
 from typing import List
-from sqlalchemy import (
-    Column,
-    String,
-    ForeignKey,
-    Integer,
-    Boolean,
-    UniqueConstraint,
-)
 from sqlalchemy.exc import IntegrityError, NoResultFound, MultipleResultsFound
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+from sqlalchemy.orm import sessionmaker
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from mlflow.exceptions import MlflowException
@@ -19,65 +11,15 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.server.auth.entities import User, ExperimentPermission, RegisteredModelPermission
 from mlflow.server.auth.permissions import _validate_permission
+from mlflow.server.auth.db.models import (
+    SqlUser,
+    SqlExperimentPermission,
+    SqlRegisteredModelPermission,
+)
+from mlflow.server.auth.db import utils as dbutils
 from mlflow.store.db.utils import create_sqlalchemy_engine_with_retry, _get_managed_session_maker
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import _validate_username
-
-Base = declarative_base()
-
-
-class SqlUser(Base):
-    __tablename__ = "users"
-    id = Column(Integer(), primary_key=True)
-    username = Column(String(255), unique=True)
-    password_hash = Column(String(255))
-    is_admin = Column(Boolean, default=False)
-    experiment_permissions = relationship("SqlExperimentPermission", backref="users")
-    registered_model_permissions = relationship("SqlRegisteredModelPermission", backref="users")
-
-    def to_mlflow_entity(self):
-        return User(
-            id_=self.id,
-            username=self.username,
-            password_hash=self.password_hash,
-            is_admin=self.is_admin,
-            experiment_permissions=[p.to_mlflow_entity() for p in self.experiment_permissions],
-            registered_model_permissions=[
-                p.to_mlflow_entity() for p in self.registered_model_permissions
-            ],
-        )
-
-
-class SqlExperimentPermission(Base):
-    __tablename__ = "experiment_permissions"
-    id = Column(Integer(), primary_key=True)
-    experiment_id = Column(String(255), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    permission = Column(String(255))
-    __table_args__ = (UniqueConstraint("experiment_id", "user_id", name="unique_experiment_user"),)
-
-    def to_mlflow_entity(self):
-        return ExperimentPermission(
-            experiment_id=self.experiment_id,
-            user_id=self.user_id,
-            permission=self.permission,
-        )
-
-
-class SqlRegisteredModelPermission(Base):
-    __tablename__ = "registered_model_permissions"
-    id = Column(Integer(), primary_key=True)
-    name = Column(String(255), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    permission = Column(String(255))
-    __table_args__ = (UniqueConstraint("name", "user_id", name="unique_name_user"),)
-
-    def to_mlflow_entity(self):
-        return RegisteredModelPermission(
-            name=self.name,
-            user_id=self.user_id,
-            permission=self.permission,
-        )
 
 
 class SqlAlchemyStore:
@@ -85,7 +27,7 @@ class SqlAlchemyStore:
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.engine = create_sqlalchemy_engine_with_retry(db_uri)
-        Base.metadata.create_all(bind=self.engine)
+        dbutils.migrate_if_needed(self.engine, "head")
         SessionMaker = sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = _get_managed_session_maker(SessionMaker, self.db_type)
 
@@ -110,7 +52,7 @@ class SqlAlchemyStore:
                 raise MlflowException(
                     f"User (username={username}) already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
-                )
+                ) from e
 
     @staticmethod
     def _get_user(session, username: str) -> SqlUser:

@@ -103,7 +103,6 @@ def test_mlflow_run_example(directory, params, tmp_path):
     ("directory", "command"),
     [
         ("docker", ["docker", "build", "-t", "mlflow-docker-example", "-f", "Dockerfile", "."]),
-        ("gluon", ["python", "train.py"]),
         ("keras", ["python", "train.py"]),
         (
             "lightgbm/lightgbm_native",
@@ -167,6 +166,7 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("transformers", ["python", "simple.py"]),
         ("transformers", ["python", "sentence_transformer.py"]),
         ("transformers", ["python", "whisper.py"]),
+        ("sentence_transformers", ["python", "simple.py"]),
     ],
 )
 def test_command_example(directory, command):

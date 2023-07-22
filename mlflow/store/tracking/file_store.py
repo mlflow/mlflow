@@ -766,8 +766,8 @@ class FileStore(AbstractStore):
         metric_parts = metric_line.strip().split(" ")
         if len(metric_parts) != 2 and len(metric_parts) != 3:
             raise MlflowException(
-                "Metric '%s' is malformed; persisted metric data contained %s "
-                "fields. Expected 2 or 3 fields." % (metric_name, len(metric_parts)),
+                f"Metric '{metric_name}' is malformed; persisted metric data contained "
+                f"{len(metric_parts)} fields. Expected 2 or 3 fields.",
                 databricks_pb2.INTERNAL_ERROR,
             )
         ts = int(metric_parts[0])
@@ -931,7 +931,7 @@ class FileStore(AbstractStore):
     def _log_run_metric(self, run_info, metric):
         metric_path = self._get_metric_path(run_info.experiment_id, run_info.run_id, metric.key)
         make_containing_dirs(metric_path)
-        append_to(metric_path, "{} {} {}\n".format(metric.timestamp, metric.value, metric.step))
+        append_to(metric_path, f"{metric.timestamp} {metric.value} {metric.step}\n")
 
     def _writeable_value(self, tag_value):
         if tag_value is None:
@@ -990,8 +990,8 @@ class FileStore(AbstractStore):
         experiment = self.get_experiment(experiment_id)
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
-                "The experiment {} must be in the 'active' "
-                "lifecycle_stage to set tags".format(experiment.experiment_id),
+                f"The experiment {experiment.experiment_id} must be in the 'active' "
+                "lifecycle_stage to set tags",
                 error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
             )
         tag_path = self._get_experiment_tag_path(experiment_id, tag.key)
@@ -1065,9 +1065,7 @@ class FileStore(AbstractStore):
 
         if not isinstance(mlflow_model, Model):
             raise TypeError(
-                "Argument 'mlflow_model' should be mlflow.models.Model, got '{}'".format(
-                    type(mlflow_model)
-                )
+                f"Argument 'mlflow_model' should be mlflow.models.Model, got '{type(mlflow_model)}'"
             )
         _validate_run_id(run_id)
         run_info = self._get_run_info(run_id)

@@ -36,8 +36,9 @@ class SqlRegisteredModel(Base):
     __table_args__ = (PrimaryKeyConstraint("name", name="registered_model_pk"),)
 
     def __repr__(self):
-        return "<SqlRegisteredModel ({}, {}, {}, {})>".format(
-            self.name, self.description, self.creation_time, self.last_updated_time
+        return (
+            f"<SqlRegisteredModel ({self.name}, {self.description}, "
+            f"{self.creation_time}, {self.last_updated_time})>"
         )
 
     def to_mlflow_entity(self):
@@ -131,7 +132,7 @@ class SqlRegisteredModelTag(Base):
     __table_args__ = (PrimaryKeyConstraint("key", "name", name="registered_model_tag_pk"),)
 
     def __repr__(self):
-        return "<SqlRegisteredModelTag ({}, {}, {})>".format(self.name, self.key, self.value)
+        return f"<SqlRegisteredModelTag ({self.name}, {self.key}, {self.value})>"
 
     # entity mappers
     def to_mlflow_entity(self):
@@ -166,9 +167,7 @@ class SqlModelVersionTag(Base):
     )
 
     def __repr__(self):
-        return "<SqlModelVersionTag ({}, {}, {}, {})>".format(
-            self.name, self.version, self.key, self.value
-        )
+        return f"<SqlModelVersionTag ({self.name}, {self.version}, {self.key}, {self.value})>"
 
     # entity mappers
     def to_mlflow_entity(self):
@@ -197,7 +196,7 @@ class SqlRegisteredModelAlias(Base):
     __table_args__ = (PrimaryKeyConstraint("name", "alias", name="registered_model_alias_pk"),)
 
     def __repr__(self):
-        return "<SqlRegisteredModelAlias ({}, {}, {})>".format(self.name, self.alias, self.version)
+        return f"<SqlRegisteredModelAlias ({self.name}, {self.alias}, {self.version})>"
 
     # entity mappers
     def to_mlflow_entity(self):

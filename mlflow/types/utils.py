@@ -34,7 +34,7 @@ def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple:
     from scipy.sparse import csr_matrix, csc_matrix
 
     if not isinstance(data, (np.ndarray, csr_matrix, csc_matrix)):
-        raise TypeError("Expected numpy.ndarray or csc/csr matrix, got '{}'.".format(type(data)))
+        raise TypeError(f"Expected numpy.ndarray or csc/csr matrix, got '{type(data)}'.")
     variable_input_data_shape = data.shape
     if variable_dimension is not None:
         try:
@@ -42,10 +42,8 @@ def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple:
             variable_input_data_shape[variable_dimension] = -1
         except IndexError:
             raise MlflowException(
-                "The specified variable_dimension {} is out of bounds with "
-                "respect to the number of dimensions {} in the input dataset".format(
-                    variable_dimension, data.ndim
-                )
+                f"The specified variable_dimension {variable_dimension} is out of bounds with "
+                f"respect to the number of dimensions {data.ndim} in the input dataset"
             )
     return tuple(variable_input_data_shape)
 
@@ -60,9 +58,7 @@ def clean_tensor_type(dtype: np.dtype):
     """
     if not isinstance(dtype, np.dtype):
         raise TypeError(
-            "Expected `type` to be instance of `{}`, received `{}`".format(
-                np.dtype, dtype.__class__
-            )
+            f"Expected `type` to be instance of `{np.dtype}`, received `{dtype.__class__}`"
         )
 
     # Special casing for np.str_ and np.bytes_
@@ -217,9 +213,7 @@ def _infer_numpy_dtype(dtype) -> DataType:
         # This version of pandas does not support extension types
         pass
     if not isinstance(dtype, supported_types):
-        raise TypeError(
-            "Expected numpy.dtype or pandas.ExtensionDtype, got '{}'.".format(type(dtype))
-        )
+        raise TypeError(f"Expected numpy.dtype or pandas.ExtensionDtype, got '{type(dtype)}'.")
 
     if dtype.kind == "b":
         return DataType.boolean
@@ -244,14 +238,14 @@ def _infer_numpy_dtype(dtype) -> DataType:
         )
     elif dtype.kind == "M":
         return DataType.datetime
-    raise MlflowException("Unsupported numpy data type '{}', kind '{}'".format(dtype, dtype.kind))
+    raise MlflowException(f"Unsupported numpy data type '{dtype}', kind '{dtype.kind}'")
 
 
 def _infer_pandas_column(col: pd.Series) -> DataType:
     if not isinstance(col, pd.Series):
-        raise TypeError("Expected pandas.Series, got '{}'.".format(type(col)))
+        raise TypeError(f"Expected pandas.Series, got '{type(col)}'.")
     if len(col.values.shape) > 1:
-        raise MlflowException("Expected 1d array, got array with shape {}".format(col.shape))
+        raise MlflowException(f"Expected 1d array, got array with shape {col.shape}")
 
     class IsInstanceOrNone:
         def __init__(self, *args):
@@ -387,9 +381,7 @@ def _validate_all_values_string(d):
 def _validate_keys_match(d, expected_keys):
     if d.keys() != expected_keys:
         raise MlflowException(
-            "Expected example to be dict with keys {}, got {}".format(
-                list(expected_keys), list(d.keys())
-            ),
+            f"Expected example to be dict with keys {list(expected_keys)}, got {list(d.keys())}",
             INVALID_PARAMETER_VALUE,
         )
 

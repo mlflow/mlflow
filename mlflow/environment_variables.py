@@ -2,6 +2,7 @@
 This module defines environment variables used in MLflow.
 """
 import os
+from pathlib import Path
 
 
 class _EnvironmentVariable:
@@ -326,3 +327,30 @@ MLFLOW_TRACKING_DIR = _EnvironmentVariable("MLFLOW_TRACKING_DIR", str, None)
 #: Specifies the default root directory for registry `FileStore`.
 #: (default: ``None``)
 MLFLOW_REGISTRY_DIR = _EnvironmentVariable("MLFLOW_REGISTRY_DIR", str, None)
+
+#: Specifies the default experiment ID to create run to.
+#: (default: ``None``)
+MLFLOW_EXPERIMENT_ID = _EnvironmentVariable("MLFLOW_EXPERIMENT_ID", str, None)
+
+#: Specifies the default experiment name to create run to.
+#: (default: ``None``)
+MLFLOW_EXPERIMENT_NAME = _EnvironmentVariable("MLFLOW_EXPERIMENT_NAME", str, None)
+
+#: Specified the path to the configuration file for MLflow Authentication.
+#: (default: ``None``)
+MLFLOW_AUTH_CONFIG_PATH = _EnvironmentVariable("MLFLOW_AUTH_CONFIG_PATH", str, None)
+
+#: Specifies the root directory to create Python virtual environments in.
+#: (default: ``~/.mlflow/envs``)
+MLFLOW_ENV_ROOT = _EnvironmentVariable(
+    "MLFLOW_ENV_ROOT", str, str(Path.home().joinpath(".mlflow", "envs"))
+)
+
+#: Private environment variable that should be set to ``True`` when running autologging tests.
+#: (default: ``False``)
+_MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TESTING", False)
+
+#: (Experimental, may be changed or removed)
+#: Specifies the uri of a Mlflow Gateway Server instance to be used with the Gateway Client APIs
+#: (default: ``None``)
+MLFLOW_GATEWAY_URI = _EnvironmentVariable("MLFLOW_GATEWAY_URI", str, None)

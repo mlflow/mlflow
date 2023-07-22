@@ -36,7 +36,7 @@ jobs:
   examples:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/mlflow') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     steps:
       - uses: actions/checkout@v3
         with:
@@ -86,7 +86,7 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/mlflow') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     steps:
       - uses: actions/checkout@v3
         with:

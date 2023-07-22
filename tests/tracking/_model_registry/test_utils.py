@@ -20,7 +20,7 @@ from mlflow.environment_variables import MLFLOW_TRACKING_URI
 pytestmark = pytest.mark.notrackingurimock
 
 
-@pytest.fixture()
+@pytest.fixture
 def reset_registry_uri():
     yield
     set_registry_uri(None)
@@ -125,7 +125,7 @@ def test_get_store_caches_on_store_uri(tmp_path):
 
 
 @pytest.mark.parametrize("store_uri", ["databricks-uc", "databricks-uc://profile"])
-def test_get_store_uc_registry_uri(store_uri, reset_registry_uri):
+def test_get_store_uc_registry_uri(store_uri):
     assert isinstance(_get_store(store_uri), UcModelRegistryStore)
 
 

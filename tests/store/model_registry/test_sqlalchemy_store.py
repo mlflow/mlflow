@@ -1062,7 +1062,7 @@ def test_search_registered_models(store):
     assert rms == names
 
     # equality search using name should return exactly the 1 name
-    rms, _ = _search_registered_models(store, "name='{}'".format(names[0]))
+    rms, _ = _search_registered_models(store, f"name='{names[0]}'")
     assert rms == [names[0]]
 
     # equality search using name that is not valid should return nothing
@@ -1133,7 +1133,7 @@ def test_search_registered_models(store):
     with pytest.raises(
         MlflowException, match=r"Invalid attribute key 'run_id' specified."
     ) as exception_context:
-        _search_registered_models(store, "run_id='%s'" % "somerunID")
+        _search_registered_models(store, "run_id='somerunID'")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     # cannot search by source_path
@@ -1155,7 +1155,7 @@ def test_search_registered_models(store):
     assert _search_registered_models(store, None, max_results=1000) == (names[:-1], None)
 
     # equality search using name should return no names
-    assert _search_registered_models(store, "name='{}'".format(names[-1])) == ([], None)
+    assert _search_registered_models(store, f"name='{names[-1]}'") == ([], None)
 
     # case-sensitive prefix search using LIKE should return all the RMs
     assert _search_registered_models(store, f"name LIKE '{prefix}%'") == (

@@ -526,11 +526,18 @@ def validate_path_is_safe(path):
     """
     Validates that the specified path is safe to join with a trusted prefix. This is a security
     measure to prevent path traversal attacks.
+    A valid path should:
+        not contain separators other than '/'
+        not contain .. to navigate to parent dir in path
+        not be an absolute path
     """
+    if is_file_uri(path):
+        path = local_file_uri_to_path(path)
     if (
         any((s in path) for s in _OS_ALT_SEPS)
-        or ".." in path.split(posixpath.sep)
-        or posixpath.isabs(path)
+        or ".." in path.split("/")
+        or pathlib.PureWindowsPath(path).is_absolute()
+        or pathlib.PurePosixPath(path).is_absolute()
     ):
         raise MlflowException(f"Invalid path: {path}", error_code=INVALID_PARAMETER_VALUE)
 
@@ -1194,9 +1201,7 @@ def _log_model():
         model = json.loads(request_message.model_json)
     except Exception:
         raise MlflowException(
-            "Malformed model info. \n {} \n is not a valid JSON.".format(
-                request_message.model_json
-            ),
+            f"Malformed model info. \n {request_message.model_json} \n is not a valid JSON.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

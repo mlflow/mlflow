@@ -541,7 +541,7 @@ def _warn_dependency_requirement_mismatches(model_path):
 
     except Exception as e:
         _logger.warning(
-            f"Encountered an unexpected error ({repr(e)}) while detecting model dependency "
+            f"Encountered an unexpected error ({e!r}) while detecting model dependency "
             "mismatches. Set logging level to DEBUG to see the full traceback."
         )
         _logger.debug("", exc_info=True)
@@ -828,7 +828,159 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
-def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LOCAL):
+def _cast_output_spec_to_spark_type(spec):
+    from mlflow.types.schema import ColSpec, TensorSpec, DataType
+    from pyspark.sql.types import ArrayType
+
+    # TODO: handle optional output columns.
+    if isinstance(spec, ColSpec):
+        return spec.type.to_spark()
+    elif isinstance(spec, TensorSpec):
+        data_type = DataType.from_numpy_type(spec.type)
+        if data_type is None:
+            raise MlflowException(
+                f"Model output tensor spec type {spec.type} is not supported in spark_udf.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if len(spec.shape) == 1:
+            return ArrayType(data_type.to_spark())
+        elif len(spec.shape) == 2:
+            return ArrayType(ArrayType(data_type.to_spark()))
+        else:
+            raise MlflowException(
+                "Only 1D or 2D tensors are supported as spark_udf "
+                f"return value, but model output '{spec.name}' has shape {spec.shape}.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    else:
+        raise MlflowException(
+            f"Unknown schema output spec {spec}.", error_code=INVALID_PARAMETER_VALUE
+        )
+
+
+def _infer_spark_udf_return_type(model_output_schema):
+    from pyspark.sql.types import StructType, StructField
+
+    if len(model_output_schema.inputs) == 1:
+        return _cast_output_spec_to_spark_type(model_output_schema.inputs[0])
+
+    return StructType(
+        [
+            StructField(name=spec.name or str(i), dataType=_cast_output_spec_to_spark_type(spec))
+            for i, spec in enumerate(model_output_schema.inputs)
+        ]
+    )
+
+
+def _parse_spark_datatype(datatype: str):
+    from pyspark.sql.functions import udf
+
+    return_type = "boolean" if datatype == "bool" else datatype
+    return udf(lambda x: x, returnType=return_type).returnType
+
+
+def _is_none_or_nan(value):
+    # The condition `isinstance(value, float)` is needed to avoid error
+    # from `np.isnan(value)` if value is a non-numeric type.
+    return value is None or isinstance(value, float) and np.isnan(value)
+
+
+def _convert_array_values(values, elem_type, array_dim, spark_primitive_type_to_np_type):
+    """
+    Convert list or numpy array values to spark dataframe column values.
+    """
+    np_type = spark_primitive_type_to_np_type.get(type(elem_type))
+    if np_type is None:
+        raise MlflowException(
+            "Unsupported array type field with element type "
+            f"{elem_type.simpleString()} in struct type.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # For array type result values, if provided value is None or NaN, regard it as a null array.
+    # see https://github.com/mlflow/mlflow/issues/8986
+    if array_dim == 1:
+        return [None if _is_none_or_nan(v) else np.array(v, dtype=np_type) for v in values]
+    else:
+        return [None if _is_none_or_nan(v) else list(np.array(v, dtype=np_type)) for v in values]
+
+
+def _get_spark_primitive_types():
+    from pyspark.sql import types
+
+    return (
+        types.IntegerType,
+        types.LongType,
+        types.FloatType,
+        types.DoubleType,
+        types.StringType,
+        types.BooleanType,
+    )
+
+
+def _check_udf_return_struct_type(struct_type):
+    from pyspark.sql.types import ArrayType
+
+    primitive_types = _get_spark_primitive_types()
+
+    for field in struct_type.fields:
+        field_type = field.dataType
+        if isinstance(field_type, primitive_types):
+            continue
+
+        if isinstance(field_type, ArrayType) and _check_udf_return_array_type(
+            field_type, allow_struct=False
+        ):
+            continue
+
+        return False
+
+    return True
+
+
+def _check_udf_return_array_type(array_type, allow_struct):
+    from pyspark.sql.types import ArrayType, StructType
+
+    elem_type = array_type.elementType
+    primitive_types = _get_spark_primitive_types()
+
+    if (
+        # 1D array of primitives
+        isinstance(elem_type, primitive_types)
+        or
+        # 2D array of primitives
+        (isinstance(elem_type, ArrayType) and isinstance(elem_type.elementType, primitive_types))
+    ):
+        return True
+
+    if isinstance(elem_type, StructType):
+        if allow_struct:
+            # Array of struct values.
+            return _check_udf_return_struct_type(elem_type)
+
+        return False
+
+    return False
+
+
+def _check_udf_return_type(data_type):
+    from pyspark.sql.types import ArrayType, StructType
+
+    primitive_types = _get_spark_primitive_types()
+    if isinstance(data_type, primitive_types):
+        return True
+
+    if isinstance(data_type, ArrayType):
+        return _check_udf_return_array_type(data_type, allow_struct=True)
+
+    if isinstance(data_type, StructType):
+        return _check_udf_return_struct_type(data_type)
+
+    return False
+
+
+def spark_udf(spark, model_uri, result_type=None, env_manager=_EnvManager.LOCAL):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
 
@@ -884,6 +1036,10 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
         ``pyspark.sql.types.DataType`` object or a DDL-formatted type string. Only a primitive
         type, an array ``pyspark.sql.types.ArrayType`` of primitive type, or a struct type
         containing fields of above 2 kinds of types are allowed.
+        If unspecified, it tries to infer result type from model signature
+        output schema, if model output schema is not available, it fallbacks to use ``double``
+        type.
+
         The following classes of result type are supported:
 
         - "int" or ``pyspark.sql.types.IntegerType``: The leftmost integer that can fit in an
@@ -937,12 +1093,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from mlflow.utils._spark_utils import _SparkDirectoryDistributor
     from pyspark.sql.functions import pandas_udf
-    from pyspark.sql.types import _parse_datatype_string
-    from pyspark.sql.types import (
-        ArrayType,
-        DataType as SparkDataType,
-        StructType as SparkStructType,
-    )
+    from pyspark.sql.types import ArrayType, StructType as SparkStructType
     from pyspark.sql.types import (
         DoubleType,
         IntegerType,
@@ -966,32 +1117,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
     should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
-
-    result_type = "boolean" if result_type == "bool" else result_type
-
-    if not isinstance(result_type, SparkDataType):
-        result_type = _parse_datatype_string(result_type)
-
-    elem_type = result_type
-    if isinstance(elem_type, ArrayType):
-        elem_type = elem_type.elementType
-
-    supported_types = [
-        IntegerType,
-        LongType,
-        FloatType,
-        DoubleType,
-        StringType,
-        BooleanType,
-        SparkStructType,
-    ]
-
-    if not any(isinstance(elem_type, x) for x in supported_types):
-        raise MlflowException(
-            message="Invalid result_type '{}'. Result type can only be one of or an array of one "
-            "of the following types: {}".format(str(elem_type), str(supported_types)),
-            error_code=INVALID_PARAMETER_VALUE,
-        )
 
     local_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri,
@@ -1049,6 +1174,39 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
 
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
+    if result_type is None:
+        if model_output_schema := model_metadata.get_output_schema():
+            result_type = _infer_spark_udf_return_type(model_output_schema)
+        else:
+            _logger.warning(
+                "No 'result_type' provided for spark_udf and the model does not "
+                "have an output schema. 'result_type' is set to 'double' type."
+            )
+            result_type = DoubleType()
+    else:
+        if isinstance(result_type, str):
+            result_type = _parse_spark_datatype(result_type)
+
+    if not _check_udf_return_type(result_type):
+        raise MlflowException.invalid_parameter_value(
+            f"""Invalid 'spark_udf' result type: {result_type}.
+It must be one of the following types:
+Primitive types:
+ - int
+ - long
+ - float
+ - double
+ - string
+ - boolean
+Compound types:
+ - array<primitive>: An array of primitives, e.g., array<int>.
+ - array<array<primitive>>: A 2D array of primitives, e.g., array<array<int>>.
+ - struct<field: primitive | array<primitive> | array<array<primitive>>, ...>:
+   A struct with primitive, array<primitive>, or array<array<primitive>>,
+   e.g., struct<a:int, b:array<int>>.
+"""
+        )
+
     def _predict_row_batch(predict_fn, args):
         input_schema = model_metadata.get_input_schema()
         pdf = None
@@ -1058,7 +1216,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 if len(args) != 1:
                     raise Exception(
                         "If passing a StructType column, there should be only one "
-                        "input column, but got %d" % len(args)
+                        f"input column, but got {len(args)}."
                     )
                 pdf = x
         if pdf is None:
@@ -1084,9 +1242,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
         if isinstance(result, dict):
             result = {k: list(v) for k, v in result.items()}
 
-        if not isinstance(result, pandas.DataFrame):
-            result = pandas.DataFrame(data=result)
-
         spark_primitive_type_to_np_type = {
             IntegerType: np.int32,
             LongType: np.int64,
@@ -1095,6 +1250,15 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
             BooleanType: np.bool_,
             StringType: np.str_,
         }
+
+        if isinstance(result_type, ArrayType) and isinstance(result_type.elementType, ArrayType):
+            result_values = _convert_array_values(
+                result, result_type.elementType.elementType, 2, spark_primitive_type_to_np_type
+            )
+            return pandas.Series(result_values)
+
+        if not isinstance(result, pandas.DataFrame):
+            result = pandas.DataFrame(data=result)
 
         if isinstance(result_type, SparkStructType):
             result_dict = {}
@@ -1106,26 +1270,22 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                     np_type = spark_primitive_type_to_np_type[type(field_type)]
                     field_values = field_values.astype(np_type)
 
-                elif type(field_type) == ArrayType:
-                    elem_type = field_type.elementType
-                    if type(elem_type) not in spark_primitive_type_to_np_type:
-                        raise MlflowException(
-                            "Unsupported array type field with element type "
-                            f"{elem_type.simpleString()} in struct type.",
-                            error_code=INVALID_PARAMETER_VALUE,
-                        )
-                    np_type = spark_primitive_type_to_np_type[type(elem_type)]
+                elif isinstance(field_type, ArrayType):
+                    if isinstance(field_type.elementType, ArrayType):
+                        array_dim = 2
+                        elem_type = field_type.elementType.elementType
+                    else:
+                        array_dim = 1
+                        elem_type = field_type.elementType
 
-                    field_values = [
-                        np.array(v, dtype=np.dtype(type(elem_type))) for v in field_values
-                    ]
-
+                    field_values = _convert_array_values(
+                        field_values, elem_type, array_dim, spark_primitive_type_to_np_type
+                    )
                 else:
                     raise MlflowException(
                         f"Unsupported field type {field_type.simpleString()} in struct type.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-
                 result_dict[field_name] = field_values
 
             return pandas.DataFrame(result_dict)
@@ -1522,7 +1682,7 @@ def save_model(
         raise TypeError(f"save_model() got unexpected keyword arguments: {kwargs}")
     if code_path is not None:
         if not isinstance(code_path, list):
-            raise TypeError("Argument code_path should be a list, not {}".format(type(code_path)))
+            raise TypeError(f"Argument code_path should be a list, not {type(code_path)}")
 
     first_argument_set = {
         "loader_module": loader_module,
@@ -1867,15 +2027,3 @@ def _save_model_with_loader_module_and_data_path(
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
     return mlflow_model
-
-
-loader_template = """
-
-import importlib
-import os
-import sys
-
-def load_pyfunc():
-    {update_path}return importlib.import_module('{main}')._load_pyfunc('{data_path}')
-
-"""

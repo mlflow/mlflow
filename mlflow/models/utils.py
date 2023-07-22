@@ -119,7 +119,7 @@ class _Example:
         def _handle_dataframe_nans(df: pd.DataFrame):
             return df.where(df.notnull(), None)
 
-        def _handle_dataframe_input(input_ex):
+        def _coerce_to_pandas_df(input_ex):
             if isinstance(input_ex, dict):
                 if all(_is_scalar(x) for x in input_ex.values()):
                     input_ex = pd.DataFrame([input_ex])
@@ -137,9 +137,7 @@ class _Example:
             elif isinstance(input_ex, list):
                 for i, x in enumerate(input_ex):
                     if isinstance(x, np.ndarray) and len(x.shape) > 1:
-                        raise TensorsNotSupportedException(
-                            "Row '{}' has shape {}".format(i, x.shape)
-                        )
+                        raise TensorsNotSupportedException(f"Row '{i}' has shape {x.shape}")
                 if all(_is_scalar(x) for x in input_ex):
                     input_ex = pd.DataFrame([input_ex], columns=range(len(input_ex)))
                 else:
@@ -158,6 +156,41 @@ class _Example:
                         )
                 except ImportError:
                     pass
+                input_ex = None
+            return input_ex
+
+        def _handle_dataframe_input(df):
+            result = _handle_dataframe_nans(df).to_dict(orient="split")
+            # Do not include row index
+            del result["index"]
+            if all(df.columns == range(len(df.columns))):
+                # No need to write default column index out
+                del result["columns"]
+            return result
+
+        example_filename = "input_example.json"
+        if _is_ndarray(input_example):
+            self._inference_data = input_example
+            self.data = _handle_ndarray_input(input_example)
+            self.info = {
+                "artifact_path": example_filename,
+                "type": "ndarray",
+                "format": "tf-serving",
+            }
+        elif _is_sparse_matrix(input_example):
+            self._inference_data = input_example
+            self.data = _handle_sparse_matrix(input_example)
+            if isinstance(input_example, csc_matrix):
+                example_type = "sparse_matrix_csc"
+            else:
+                example_type = "sparse_matrix_csr"
+            self.info = {
+                "artifact_path": example_filename,
+                "type": example_type,
+            }
+        else:
+            self._inference_data = _coerce_to_pandas_df(input_example)
+            if self._inference_data is None:
                 raise TypeError(
                     "Expected one of the following types:\n"
                     "- pandas.DataFrame\n"
@@ -171,34 +204,7 @@ class _Example:
                     "- bytes\n"
                     "but got '{}'".format(type(input_example)),
                 )
-            result = _handle_dataframe_nans(input_ex).to_dict(orient="split")
-            # Do not include row index
-            del result["index"]
-            if all(input_ex.columns == range(len(input_ex.columns))):
-                # No need to write default column index out
-                del result["columns"]
-            return result
-
-        example_filename = "input_example.json"
-        if _is_ndarray(input_example):
-            self.data = _handle_ndarray_input(input_example)
-            self.info = {
-                "artifact_path": example_filename,
-                "type": "ndarray",
-                "format": "tf-serving",
-            }
-        elif _is_sparse_matrix(input_example):
-            self.data = _handle_sparse_matrix(input_example)
-            if isinstance(input_example, csc_matrix):
-                example_type = "sparse_matrix_csc"
-            else:
-                example_type = "sparse_matrix_csr"
-            self.info = {
-                "artifact_path": example_filename,
-                "type": example_type,
-            }
-        else:
-            self.data = _handle_dataframe_input(input_example)
+            self.data = _handle_dataframe_input(self._inference_data)
             self.info = {
                 "artifact_path": example_filename,
                 "type": "dataframe",
@@ -209,6 +215,13 @@ class _Example:
         """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`."""
         with open(os.path.join(parent_dir_path, self.info["artifact_path"]), "w") as f:
             json.dump(self.data, f, cls=NumpyEncoder)
+
+    @property
+    def inference_data(self):
+        """
+        Returns the input example in a form that PyFunc wrapped models can score.
+        """
+        return self._inference_data
 
 
 def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: str):
@@ -397,7 +410,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
             return values.astype(np.dtype("datetime64[ns]"), errors="raise")
         except ValueError as e:
             raise MlflowException(
-                "Failed to convert column {} from type {} to {}.".format(name, values.dtype, t)
+                "Failed to convert column {name} from type {values.dtype} to {t}."
             ) from e
     if t == DataType.double and values.dtype == decimal.Decimal:
         # NB: Pyspark Decimal column get converted to decimal.Decimal when converted to pandas
@@ -407,7 +420,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
             return pd.to_numeric(values, errors="raise")
         except ValueError:
             raise MlflowException(
-                "Failed to convert column {} from type {} to {}.".format(name, values.dtype, t)
+                f"Failed to convert column {name} from type {values.dtype} to {t}."
             )
 
     numpy_type = t.to_numpy()
@@ -650,9 +663,9 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     if isinstance(pf_input, pd.Series):
         pf_input = pd.DataFrame(pf_input)
     if not input_schema.is_tensor_spec():
-        if isinstance(pf_input, (list, np.ndarray, dict, pd.Series, str)):
+        if isinstance(pf_input, (list, np.ndarray, dict, pd.Series, str, bytes)):
             try:
-                if isinstance(pf_input, str):
+                if isinstance(pf_input, (str, bytes)):
                     pf_input = pd.DataFrame([pf_input])
                 elif isinstance(pf_input, dict) and all(
                     _is_scalar(value) for value in pf_input.values()

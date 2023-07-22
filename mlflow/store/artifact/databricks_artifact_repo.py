@@ -58,6 +58,7 @@ from mlflow.utils.uri import (
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
 )
+from mlflow.environment_variables import MLFLOW_ENABLE_MULTIPART_DOWNLOAD
 
 _logger = logging.getLogger(__name__)
 _DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
@@ -723,10 +724,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             raise MlflowException(
                 message=(
                     "The following failures occurred while uploading one or more artifacts"
-                    " to {artifact_root}: {failures}".format(
-                        artifact_root=self.artifact_uri,
-                        failures=failed_uploads,
-                    )
+                    f" to {self.artifact_uri}: {failed_uploads}"
                 )
             )
 
@@ -783,7 +781,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
         file_infos = self.list_artifacts(parent_dir)
         file_info = [info for info in file_infos if info.path == remote_file_path]
         file_size = file_info[0].file_size if len(file_info) == 1 else None
-        if not file_size or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE:
+        if (
+            not file_size
+            or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE
+            or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
+        ):
             self._download_from_cloud(
                 cloud_credential_info=read_credentials[0], dst_local_file_path=local_path
             )

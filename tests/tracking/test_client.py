@@ -36,8 +36,12 @@ def mock_store():
 
 @pytest.fixture
 def mock_registry_store():
-    with mock.patch("mlflow.tracking._model_registry.utils._get_store") as mock_get_store:
-        yield mock_get_store.return_value
+    mock_store = mock.MagicMock()
+    mock_store.create_model_version = mock.create_autospec(
+        SqlAlchemyModelRegistryStore.create_model_version
+    )
+    with mock.patch("mlflow.tracking._model_registry.utils._get_store", return_value=mock_store):
+        yield mock_store
 
 
 @pytest.fixture
@@ -290,6 +294,7 @@ def test_create_model_version(mock_registry_store):
         [ModelVersionTag(key="key", value="value")],
         None,
         "desc",
+        local_model_path=None,
     )
 
 
@@ -374,7 +379,7 @@ def test_create_model_version_nondatabricks_source_no_runlink(mock_registry_stor
     assert model_version.run_id == "runid"
     # verify that the store was not provided a run link
     mock_registry_store.create_model_version.assert_called_once_with(
-        "name", "source", "runid", [], None, None
+        "name", "source", "runid", [], None, None, local_model_path=None
     )
 
 
@@ -389,7 +394,7 @@ def test_create_model_version_nondatabricks_source_no_run_id(mock_registry_store
     assert model_version.run_id is None
     # verify that the store was not provided a run id
     mock_registry_store.create_model_version.assert_called_once_with(
-        "name", "source", None, [], None, None
+        "name", "source", None, [], None, None, local_model_path=None
     )
 
 
@@ -421,7 +426,7 @@ def test_create_model_version_explicitly_set_run_link(
         assert model_version.run_link == run_link
         # verify that the store was provided with the explicitly passed in run link
         mock_registry_store.create_model_version.assert_called_once_with(
-            "name", "source", "runid", [], run_link, None
+            "name", "source", "runid", [], run_link, None, local_model_path=None
         )
 
 
@@ -457,7 +462,7 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(
         assert model_version.run_link == workspace_url
         # verify that the client generated the right URL
         mock_registry_store.create_model_version.assert_called_once_with(
-            "name", "source", "runid", [], workspace_url, None
+            "name", "source", "runid", [], workspace_url, None, local_model_path=None
         )
 
 
@@ -474,7 +479,7 @@ def test_creation_default_values_in_unity_catalog(mock_registry_store):
     client.create_model_version("name", "source", "runid")
     # verify that registry store was called with tags=[] and run_link=None
     mock_registry_store.create_model_version.assert_called_once_with(
-        "name", "source", "runid", [], None, None
+        "name", "source", "runid", [], None, None, local_model_path=None
     )
     client.create_registered_model(name="name", description="description")
     # verify that registry store was called with tags=[]
@@ -529,7 +534,7 @@ def test_create_model_version_run_link_with_configured_profile(
         assert model_version.run_link == workspace_url
         # verify that the client generated the right URL
         mock_registry_store.create_model_version.assert_called_once_with(
-            "name", "source", "runid", [], workspace_url, None
+            "name", "source", "runid", [], workspace_url, None, local_model_path=None
         )
 
 
@@ -683,7 +688,7 @@ def test_set_model_version_tag(mock_registry_store_with_get_latest_version):
         "model_name", 1, ModelVersionTag(key="tag1", value="foobar")
     )
 
-    mock_registry_store_with_get_latest_version.reset_mock()
+    mock_registry_store_with_get_latest_version.set_model_version_tag.reset_mock()
 
     # set_model_version_tag using stage
     MlflowClient().set_model_version_tag("model_name", key="tag1", value="foobar", stage="Staging")
@@ -707,7 +712,7 @@ def test_delete_model_version_tag(mock_registry_store_with_get_latest_version):
         "model_name", 1, "tag1"
     )
 
-    mock_registry_store_with_get_latest_version.reset_mock()
+    mock_registry_store_with_get_latest_version.delete_model_version_tag.reset_mock()
 
     # delete_model_version_tag using stage
     MlflowClient().delete_model_version_tag("model_name", key="tag1", stage="Staging")

@@ -311,10 +311,6 @@ def get_job_type_info():
         return None
 
 
-def get_experiment_name_from_job_id(job_id):
-    return "jobs:/" + job_id
-
-
 @_use_repl_context_if_available("commandRunId")
 def get_command_run_id():
     try:
@@ -644,7 +640,7 @@ def check_databricks_secret_scope_access(scope_name):
                 "Please verify that the current Databricks user has 'READ' permission for "
                 "this scope. For more information, see "
                 "https://mlflow.org/docs/latest/python_api/openai/index.html#credential-management-for-openai-on-databricks. "  # pylint: disable=line-too-long
-                f"Error: {str(e)}"
+                f"Error: {e}"
             )
 
 

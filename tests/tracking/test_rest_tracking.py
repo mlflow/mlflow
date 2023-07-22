@@ -78,7 +78,7 @@ def mlflow_client(request, tmp_path):
         yield MlflowClient(url)
 
 
-@pytest.fixture()
+@pytest.fixture
 def cli_env(mlflow_client):
     """Provides an environment for the MLflow CLI pointed at the local tracking server."""
     return {
@@ -528,6 +528,22 @@ def test_validate_path_is_safe_good(path):
     validate_path_is_safe(path)
 
 
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
+@pytest.mark.parametrize(
+    "path",
+    [
+        # relative path from current directory of C: drive
+        "C:path",
+        "C:path/",
+        "C:path/to/file",
+        ".../...//",
+    ],
+)
+def test_validate_path_is_safe_windows_good(path):
+    validate_path_is_safe(path)
+
+
+@pytest.mark.skipif(is_windows(), reason="This test does not pass on Windows")
 @pytest.mark.parametrize(
     "path",
     [
@@ -537,9 +553,108 @@ def test_validate_path_is_safe_good(path):
         "./../path",
         "path/../to/file",
         "path/../../to/file",
+        "/etc/passwd",
+        "/etc/passwd%00.jpg",
+        "/etc/passwd%00.html",
+        "/etc/passwd%00.txt",
+        "/etc/passwd%00.php",
+        "/etc/passwd%00.asp",
+        "/file://etc/passwd",
     ],
 )
 def test_validate_path_is_safe_bad(path):
+    with pytest.raises(MlflowException, match="Invalid path"):
+        validate_path_is_safe(path)
+
+
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
+@pytest.mark.parametrize(
+    "path",
+    [
+        r"../path",
+        r"../../path",
+        r"./../path",
+        r"path/../to/file",
+        r"path/../../to/file",
+        r"..\path",
+        r"..\..\path",
+        r".\..\path",
+        r"path\..\to\file",
+        r"path\..\..\to\file",
+        # Drive-relative absolute paths
+        r"C:\path",
+        r"C:/path",
+        r"C:\path\to\file",
+        r"C:\path/to/file",
+        r"C:\path\..\to\file",
+        r"C:/path/../to/file",
+        # UNC(Universal Naming Convention) paths
+        r"\\path\to\file",
+        r"\\path/to/file",
+        r"\\.\\C:\path\to\file",
+        r"\\?\C:\path\to\file",
+        r"\\?\UNC/path/to/file",
+        # Other potential attackable paths
+        r"/etc/password",
+        r"/path",
+        r"/etc/passwd%00.jpg",
+        r"/etc/passwd%00.html",
+        r"/etc/passwd%00.txt",
+        r"/etc/passwd%00.php",
+        r"/etc/passwd%00.asp",
+        r"/Windows/no/such/path",
+        r"/file://etc/passwd",
+        r"/file:c:/passwd",
+        r"/file://d:/windows/win.ini",
+        r"/file://./windows/win.ini",
+        r"file://c:/boot.ini",
+        r"file://C:path",
+        r"file://C:path/",
+        r"file://C:path/to/file",
+        r"file:///C:/Windows/System32/",
+        r"file:///etc/passwd",
+        r"file:///d:/windows/repair/sam",
+        r"file:///proc/version",
+        r"file:///inetpub/wwwroot/global.asa",
+        r"/file://../windows/win.ini",
+        r"../etc/passwd",
+        r"..\Windows\System32\\",
+        r"C:\Windows\System32\\",
+        r"/etc/passwd",
+        r"::Windows\System32",
+        r"..\..\..\..\Windows\System32\\",
+        r"../Windows/System32",
+        r"....\\",
+        r"\\?\C:\Windows\System32\\",
+        r"\\.\C:\Windows\System32\\",
+        r"\\UNC\Server\Share\\",
+        r"\\Server\Share\folder\\",
+        r"\\127.0.0.1\c$\Windows\\",
+        r"\\localhost\c$\Windows\\",
+        r"\\smbserver\share\path\\",
+        r"..\\?\C:\Windows\System32\\",
+        r"C:/Windows/../Windows/System32/",
+        r"C:\Windows\..\Windows\System32\\",
+        r"../../../../../../../../../../../../Windows/System32",
+        r"../../../../../../../../../../../../etc/passwd",
+        r"../../../../../../../../../../../../var/www/html/index.html",
+        r"../../../../../../../../../../../../usr/local/etc/openvpn/server.conf",
+        r"../../../../../../../../../../../../Program Files (x86)",
+        r"/../../../../../../../../../../../../Windows/System32",
+        r"/Windows\../etc/passwd",
+        r"/Windows\..\Windows\System32\\",
+        r"/Windows\..\Windows\System32\cmd.exe",
+        r"/Windows\..\Windows\System32\msconfig.exe",
+        r"/Windows\..\Windows\System32\regedit.exe",
+        r"/Windows\..\Windows\System32\taskmgr.exe",
+        r"/Windows\..\Windows\System32\control.exe",
+        r"/Windows\..\Windows\System32\services.msc",
+        r"/Windows\..\Windows\System32\diskmgmt.msc",
+        r"/Windows\..\Windows\System32\eventvwr.msc",
+        r"/Windows/System32/drivers/etc/hosts",
+    ],
+)
+def test_validate_path_is_safe_windows_bad(path):
     with pytest.raises(MlflowException, match="Invalid path"):
         validate_path_is_safe(path)
 
@@ -580,11 +695,13 @@ def test_set_experiment_tag(mlflow_client):
     experiment_id = mlflow_client.create_experiment("SetExperimentTagTest")
     mlflow_client.set_experiment_tag(experiment_id, "dataset", "imagenet1K")
     experiment = mlflow_client.get_experiment(experiment_id)
-    assert "dataset" in experiment.tags and experiment.tags["dataset"] == "imagenet1K"
+    assert "dataset" in experiment.tags
+    assert experiment.tags["dataset"] == "imagenet1K"
     # test that updating a tag works
     mlflow_client.set_experiment_tag(experiment_id, "dataset", "birdbike")
     experiment = mlflow_client.get_experiment(experiment_id)
-    assert "dataset" in experiment.tags and experiment.tags["dataset"] == "birdbike"
+    assert "dataset" in experiment.tags
+    assert experiment.tags["dataset"] == "birdbike"
     # test that setting a tag on 1 experiment does not impact another experiment.
     experiment_id_2 = mlflow_client.create_experiment("SetExperimentTagTest2")
     experiment2 = mlflow_client.get_experiment(experiment_id_2)
@@ -593,15 +710,15 @@ def test_set_experiment_tag(mlflow_client):
     mlflow_client.set_experiment_tag(experiment_id_2, "dataset", "birds200")
     experiment = mlflow_client.get_experiment(experiment_id)
     experiment2 = mlflow_client.get_experiment(experiment_id_2)
-    assert "dataset" in experiment.tags and experiment.tags["dataset"] == "birdbike"
-    assert "dataset" in experiment2.tags and experiment2.tags["dataset"] == "birds200"
+    assert "dataset" in experiment.tags
+    assert experiment.tags["dataset"] == "birdbike"
+    assert "dataset" in experiment2.tags
+    assert experiment2.tags["dataset"] == "birds200"
     # test can set multi-line tags
     mlflow_client.set_experiment_tag(experiment_id, "multiline tag", "value2\nvalue2\nvalue2")
     experiment = mlflow_client.get_experiment(experiment_id)
-    assert (
-        "multiline tag" in experiment.tags
-        and experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
-    )
+    assert "multiline tag" in experiment.tags
+    assert experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
 
 
 def test_set_experiment_tag_with_empty_string_as_value(mlflow_client):
@@ -621,7 +738,8 @@ def test_delete_tag(mlflow_client):
     mlflow_client.log_param(run_id, "param", "value")
     mlflow_client.set_tag(run_id, "taggity", "do-dah")
     run = mlflow_client.get_run(run_id)
-    assert "taggity" in run.data.tags and run.data.tags["taggity"] == "do-dah"
+    assert "taggity" in run.data.tags
+    assert run.data.tags["taggity"] == "do-dah"
     mlflow_client.delete_tag(run_id, "taggity")
     run = mlflow_client.get_run(run_id)
     assert "taggity" not in run.data.tags
@@ -1028,7 +1146,7 @@ def test_get_metric_history_bulk_respects_max_results(mlflow_client):
     ]
 
 
-def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch, tmp_path):
+def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
     from mlflow.server.handlers import get_metric_history_bulk_handler
 
     path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
@@ -1041,7 +1159,10 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch,
         def __init__(self, args_dict):
             self.args_dict = args_dict
 
-        def to_dict(self, flat):
+        def to_dict(
+            self,
+            flat,  # pylint: disable=unused-argument
+        ):
             return self.args_dict
 
         def get(self, key, default=None):
@@ -1175,7 +1296,7 @@ def test_create_model_version_with_path_source(mlflow_client):
     assert "To use a local path as a model version" in response.json()["message"]
 
 
-def test_create_model_version_with_non_local_source(mlflow_client, monkeypatch):
+def test_create_model_version_with_non_local_source(mlflow_client):
     name = "model"
     mlflow_client.create_registered_model(name)
     exp_id = mlflow_client.create_experiment("test")

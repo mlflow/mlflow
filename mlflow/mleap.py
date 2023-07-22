@@ -248,9 +248,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
         raise Exception("A sample input must be specified in order to add the MLeap flavor.")
     if not isinstance(sample_input, DataFrame):
         raise Exception(
-            "The sample input must be a PySpark dataframe of type `{df_type}`".format(
-                df_type=DataFrame.__module__
-            )
+            f"The sample input must be a PySpark dataframe of type `{DataFrame.__module__}`"
         )
 
     # MLeap's model serialization routine requires an absolute output path

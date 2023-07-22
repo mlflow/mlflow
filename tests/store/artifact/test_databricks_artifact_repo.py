@@ -47,7 +47,7 @@ MOCK_SUBDIR = "subdir/path"
 MOCK_SUBDIR_ROOT_URI = posixpath.join(MOCK_RUN_ROOT_URI, MOCK_SUBDIR)
 
 
-@pytest.fixture()
+@pytest.fixture
 def databricks_artifact_repo():
     with mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_run_artifact_root", return_value=MOCK_RUN_ROOT_URI
@@ -57,7 +57,7 @@ def databricks_artifact_repo():
         )
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_file(tmp_path):
     test_file_content = "Hello 🍆🍔".encode()
     p = tmp_path.joinpath("test.txt")
@@ -65,7 +65,7 @@ def test_file(tmp_path):
     return str(p)
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_dir(tmp_path):
     test_file_content = "World 🍆🍔🍆".encode()
     p = tmp_path.joinpath("subdir").joinpath("test.txt")
@@ -1131,7 +1131,7 @@ def test_artifact_logging_chunks_upload_list(databricks_artifact_repo, tmp_path)
         databricks_artifact_repo.log_artifacts(src_dir, "dir_artifact")
 
         assert mock_get_write_creds.call_count == 5
-        assert all((len(call[1]["paths"]) == 2 for call in mock_get_write_creds.call_args_list))
+        assert all(len(call[1]["paths"]) == 2 for call in mock_get_write_creds.call_args_list)
 
 
 def test_download_artifacts_provides_failure_info(databricks_artifact_repo):
@@ -1235,7 +1235,7 @@ def extract_part_number(url):
     return int(re.search(r"partNumber=(\d+)", url).group(1))
 
 
-def mock_request(method, url, *args, **kwargs):
+def mock_request(method, url, *_args, **_kwargs):
     resp = Response()
     resp.status_code = 200
     resp.close = lambda: None
@@ -1309,7 +1309,7 @@ def test_multipart_upload(databricks_artifact_repo, large_file, mock_chunk_size)
 STATUS_CODE_GENERATOR = (s for s in (403, 200))
 
 
-def mock_request_retry(method, url, *args, **kwargs):
+def mock_request_retry(method, url, *_args, **_kwargs):
     resp = Response()
     resp.status_code = 200
     resp.close = lambda: None

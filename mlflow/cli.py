@@ -4,6 +4,7 @@ import re
 import sys
 import logging
 import warnings
+import contextlib
 
 import click
 import importlib.metadata
@@ -15,11 +16,11 @@ from mlflow.entities import ViewType
 import mlflow.experiments
 import mlflow.deployments.cli
 from mlflow import projects
+from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_EXPERIMENT_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 import mlflow.runs
 import mlflow.store.artifact.cli
 from mlflow import version
-from mlflow import tracking
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_ARTIFACTS_URI
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking import _get_store
@@ -88,13 +89,13 @@ def cli():
 )
 @click.option(
     "--experiment-name",
-    envvar=tracking._EXPERIMENT_NAME_ENV_VAR,
+    envvar=MLFLOW_EXPERIMENT_NAME.name,
     help="Name of the experiment under which to launch the run. If not "
     "specified, 'experiment-id' option will be used to launch run.",
 )
 @click.option(
     "--experiment-id",
-    envvar=tracking._EXPERIMENT_ID_ENV_VAR,
+    envvar=MLFLOW_EXPERIMENT_ID.name,
     type=click.STRING,
     help="ID of the experiment under which to launch the run.",
 )
@@ -194,7 +195,7 @@ def run(
         try:
             backend_config = json.loads(backend_config)
         except ValueError as e:
-            eprint("Invalid backend config JSON. Parse error: %s" % e)
+            eprint(f"Invalid backend config JSON. Parse error: {e}")
             raise
     if backend == "kubernetes":
         if backend_config is None:
@@ -236,12 +237,12 @@ def _user_args_to_dict(arguments, argument_type="P"):
             value = split[1]
         else:
             eprint(
-                "Invalid format for -%s parameter: '%s'. "
-                "Use -%s name=value." % (argument_type, arg, argument_type)
+                f"Invalid format for -{argument_type} parameter: '{arg}'. "
+                f"Use -{argument_type} name=value."
             )
             sys.exit(1)
         if name in user_dict:
-            eprint("Repeated parameter: '%s'" % name)
+            eprint(f"Repeated parameter: '{name}'")
             sys.exit(1)
         user_dict[name] = value
     return user_dict
@@ -612,7 +613,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
         except InvalidUrlException as iue:
             click.echo(
                 click.style(
-                    f"An exception {repr(iue)} was raised during the deletion of a model artifact",
+                    f"An exception {iue!r} was raised during the deletion of a model artifact",
                     fg="yellow",
                 )
             )
@@ -660,22 +661,28 @@ try:
     import mlflow.models.cli  # pylint: disable=unused-import
 
     cli.add_command(mlflow.models.cli.commands)
-except ImportError as e:
+except ImportError:
     pass
 
 try:
     import mlflow.recipes.cli  # pylint: disable=unused-import
 
     cli.add_command(mlflow.recipes.cli.commands)
-except ImportError as e:
+except ImportError:
     pass
 
 try:
     import mlflow.sagemaker.cli  # pylint: disable=unused-import
 
     cli.add_command(mlflow.sagemaker.cli.commands)
-except ImportError as e:
+except ImportError:
     pass
+
+
+with contextlib.suppress(ImportError):
+    import mlflow.gateway.cli
+
+    cli.add_command(mlflow.gateway.cli.commands)
 
 
 if __name__ == "__main__":

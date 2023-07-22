@@ -8,12 +8,9 @@ import mlflow
 import mlflow.spark
 
 from tests.spark.autologging.utils import _assert_spark_data_logged
-from tests.spark.autologging.utils import spark_session  # pylint: disable=unused-import
-from tests.spark.autologging.utils import format_to_file_path  # pylint: disable=unused-import
-from tests.spark.autologging.utils import file_path, data_format  # pylint: disable=unused-import
 
 
-@pytest.fixture()
+@pytest.fixture
 def http_tracking_uri_mock():
     mlflow.set_tracking_uri("http://some-cool-uri")
     yield

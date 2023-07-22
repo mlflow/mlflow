@@ -111,11 +111,9 @@ def commands():
     "-f",
     default=None,
     help=(
-        "The name of the flavor to use for deployment. Must be one of the following:"
-        " {supported_flavors}. If unspecified, a flavor will be automatically selected"
-        " from the model's available flavors.".format(
-            supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS
-        )
+        "The name of the flavor to use for deployment. Must be one of the following: "
+        f"{mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS}. If unspecified, a flavor will be "
+        "automatically selected from the model's available flavors."
     ),
 )
 @click.option(

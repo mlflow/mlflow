@@ -2,6 +2,7 @@ import pathlib
 import posixpath
 import urllib.parse
 import uuid
+from typing import Tuple, Any
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -256,6 +257,22 @@ def append_to_uri_path(uri, *paths):
     return prefix + urllib.parse.urlunparse(new_parsed_uri)
 
 
+def append_to_uri_query_params(uri, *query_params: Tuple[str, Any]) -> str:
+    """
+    Appends the specified query parameters to an existing URI.
+
+    :param uri: The URI to which to append query parameters.
+    :param query_params: Query parameters to append. Each parameter should
+                         be a 2-element tuple. For example, ``("key", "value")``.
+    """
+    parsed_uri = urllib.parse.urlparse(uri)
+    parsed_query = urllib.parse.parse_qsl(parsed_uri.query)
+    new_parsed_query = parsed_query + list(query_params)
+    new_query = urllib.parse.urlencode(new_parsed_query)
+    new_parsed_uri = parsed_uri._replace(query=new_query)
+    return urllib.parse.urlunparse(new_parsed_uri)
+
+
 def _join_posixpaths_and_append_absolute_suffixes(prefix_path, suffix_path):
     """
     Joins the POSIX path `prefix_path` with the POSIX path `suffix_path`. Unlike posixpath.join(),
@@ -316,8 +333,8 @@ def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
         dbfs_uri = "dbfs:" + dbfs_uri
     if not dbfs_uri.startswith(_DBFS_HDFS_URI_PREFIX):
         raise MlflowException(
-            "Path '%s' did not start with expected DBFS URI prefix '%s'"
-            % (dbfs_uri, _DBFS_HDFS_URI_PREFIX),
+            f"Path '{dbfs_uri}' did not start with expected DBFS URI "
+            f"prefix '{_DBFS_HDFS_URI_PREFIX}'",
         )
 
     return _DBFS_FUSE_PREFIX + dbfs_uri[len(_DBFS_HDFS_URI_PREFIX) :]

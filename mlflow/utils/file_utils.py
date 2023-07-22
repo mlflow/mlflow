@@ -647,7 +647,7 @@ def parallelized_download_file_using_http_uri(
             _, stderr = download_proc.communicate()
             if download_proc.returncode != 0:
                 if os.path.exists(temp_file):
-                    with open(temp_file, "r") as f:
+                    with open(temp_file) as f:
                         file_contents = f.read()
                         if file_contents:
                             return json.loads(file_contents)
@@ -872,3 +872,18 @@ def remove_on_error(path: os.PathLike, onerror=None):
             elif os.path.isdir(path):
                 shutil.rmtree(path)
         raise
+
+
+@contextmanager
+def chdir(path: str) -> None:
+    """
+    Temporarily change the current working directory to the specified path.
+
+    :param path: The path to use as the temporary working directory.
+    """
+    cwd = os.getcwd()
+    try:
+        os.chdir(path)
+        yield
+    finally:
+        os.chdir(cwd)

@@ -504,7 +504,7 @@ class _SklearnCustomModelPicklingError(pickle.PicklingError):
         """
         super().__init__(
             f"Pickling custom sklearn model {sk_model.__class__.__name__} failed "
-            f"when saving model: {str(original_exception)}"
+            f"when saving model: {original_exception}"
         )
         self.original_exception = original_exception
 
@@ -878,7 +878,7 @@ class _AutologgingMetricsManager:
 _AUTOLOGGING_METRICS_MANAGER = _AutologgingMetricsManager()
 
 
-_metric_api_excluding_list = ["check_scoring", "get_scorer", "make_scorer"]
+_metric_api_excluding_list = ["check_scoring", "get_scorer", "make_scorer", "get_scorer_names"]
 
 
 def _get_metric_name_list():
@@ -1437,18 +1437,19 @@ def _autolog(
                 return input_example
 
         def infer_model_signature(input_example):
-            if not hasattr(estimator, "predict"):
-                raise Exception(
-                    "the trained model does not specify a `predict` function, "
-                    + "which is required in order to infer the signature"
-                )
-
-            return infer_signature(
-                input_example,
+            if hasattr(estimator, "predict"):
                 # Copy the input example so that it is not mutated by the call to
                 # predict() prior to signature inference
-                estimator.predict(deepcopy(input_example)),
-            )
+                model_output = estimator.predict(deepcopy(input_example))
+            elif hasattr(estimator, "transform"):
+                model_output = estimator.transform(deepcopy(input_example))
+            else:
+                raise Exception(
+                    "the trained model does not have a `predict` or `transform` "
+                    "function, which is required in order to infer the signature"
+                )
+
+            return infer_signature(input_example, model_output)
 
         # log common metrics and artifacts for estimators (classifier, regressor)
         logged_metrics = _log_estimator_content(
@@ -1710,6 +1711,9 @@ def _autolog(
         if Version(sklearn.__version__) <= Version("0.24.2"):
             import sklearn.utils.metaestimators
 
+            if not hasattr(sklearn.utils.metaestimators, "_IffHasAttrDescriptor"):
+                return
+
             # pylint: disable=redefined-builtin,unused-argument
             def patched_IffHasAttrDescriptor__get__(self, obj, type=None):
                 """
@@ -1807,7 +1811,8 @@ def _autolog(
                 flavor_name, sklearn.metrics, metric_name, patched_metric_api, manage_run=False
             )
 
-        if Version(sklearn.__version__) > Version("1.2.2"):
+        # `sklearn.metrics.SCORERS` was removed in scikit-learn 1.3
+        if hasattr(sklearn.metrics, "get_scorer_names"):
             for scoring in sklearn.metrics.get_scorer_names():
                 scorer = sklearn.metrics.get_scorer(scoring)
                 safe_patch(flavor_name, scorer, "_score_func", patched_metric_api, manage_run=False)

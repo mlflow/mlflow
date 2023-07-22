@@ -103,7 +103,8 @@ def test_list_registered_model(store, registered_model_names, rm_data):
         assert name == rm_data[name]["name"]
 
 
-def test_rename_registered_model(store, registered_model_names, rm_data):
+@pytest.mark.usefixtures(rm_data.__name__)
+def test_rename_registered_model(store, registered_model_names):
     # Error cases
     model_name = registered_model_names[0]
     with pytest.raises(MlflowException, match=r"Registered model name cannot be empty\."):
@@ -125,7 +126,8 @@ def _extract_names(registered_models):
     return [rm.name for rm in registered_models]
 
 
-def test_delete_registered_model(store, registered_model_names, rm_data):
+@pytest.mark.usefixtures(rm_data.__name__)
+def test_delete_registered_model(store, registered_model_names):
     model_name = registered_model_names[random_int(0, len(registered_model_names) - 1)]
 
     # Error cases
@@ -1507,4 +1509,5 @@ def test_pyfunc_model_registry_with_file_store(store):
         assert len(mv1) == 2
         assert mv1[0].name == "model1"
         mv2 = store.search_model_versions("name = 'model2'", max_results=10)
-        assert len(mv2) == 1 and mv2[0].name == "model2"
+        assert len(mv2) == 1
+        assert mv2[0].name == "model2"

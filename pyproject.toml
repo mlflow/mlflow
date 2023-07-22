@@ -9,3 +9,61 @@ force-exclude = '''
   | examples/recipes/
 )
 '''
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+select = [
+  "E",
+  "F",
+  "C4",
+  "PT001",
+  "PT006",
+  # TODO: Enable commented-out rules.
+  # "PT007",
+  "PT009",
+  # "PT010",
+  # "PT012",
+  "PT018",
+  "PT023",
+  "PT026",
+  "UP004",
+  "UP008",
+  "UP011",
+  "UP012",
+  "UP015",
+  "UP031",
+  "UP032",
+  "UP034",
+  "T20",
+]
+force-exclude = true
+ignore = [
+  "E402",  # module-import-not-at-top-of-file
+  "E501",  # line-too-long
+  "E741",  # ambiguous-variable-name
+  "F401",  # unused-import
+  "F402",  # import-shadowed-by-loop-var
+  "F403",  # undefined-local-with-import-star
+  "F811",  # redefined-while-unused
+]
+extend-exclude = [
+  "setup.py",
+  "docs",
+  "examples",
+  "mlflow/protos",
+  "mlflow/ml_package_versions.py",
+  "mlflow/server/js",
+  "mlflow/store/db_migrations",
+  "mlflow/temporary_db_migrations_for_pre_1_users",
+  "tests/protos",
+]
+
+[tool.ruff.per-file-ignores]
+"dev/*" = ["T201", "PT018"]
+"mlflow/*" = ["PT018"]
+
+[tool.ruff.flake8-pytest-style]
+mark-parentheses = false
+fixture-parentheses = false

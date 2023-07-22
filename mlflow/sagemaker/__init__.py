@@ -456,7 +456,7 @@ def _deploy(
         else:
             raise MlflowException(
                 "The deployment operation failed with the following error message:"
-                ' "{error_message}"'.format(error_message=operation_status.message)
+                f' "{operation_status.message}"'
             )
         if not archive:
             deployment_operation.clean_up()
@@ -558,7 +558,7 @@ def _delete(
         else:
             raise MlflowException(
                 "The deletion operation failed with the following error message:"
-                ' "{error_message}"'.format(error_message=operation_status.message)
+                f' "{operation_status.message}"'
             )
         if not archive:
             delete_operation.clean_up()
@@ -1324,15 +1324,15 @@ def _get_deployment_config(flavor_name, env_override=None):
 
 
 def _get_sagemaker_model_name(endpoint_name):
-    return "{en}-model-{uid}".format(en=endpoint_name, uid=get_unique_resource_id())
+    return f"{endpoint_name}-model-{get_unique_resource_id()}"
 
 
 def _get_sagemaker_transform_model_name(job_name):
-    return "{bn}-model-{uid}".format(bn=job_name, uid=get_unique_resource_id())
+    return f"{job_name}-model-{get_unique_resource_id()}"
 
 
 def _get_sagemaker_config_name(endpoint_name):
-    return "{en}-config-{uid}".format(en=endpoint_name, uid=get_unique_resource_id())
+    return f"{endpoint_name}-config-{get_unique_resource_id()}"
 
 
 def _create_sagemaker_transform_job(

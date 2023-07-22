@@ -93,7 +93,7 @@ class SqlExperiment(Base):
     )
 
     def __repr__(self):
-        return "<SqlExperiment ({}, {})>".format(self.experiment_id, self.name)
+        return f"<SqlExperiment ({self.experiment_id}, {self.name})>"
 
     def to_mlflow_entity(self):
         """
@@ -266,7 +266,7 @@ class SqlExperimentTag(Base):
     __table_args__ = (PrimaryKeyConstraint("key", "experiment_id", name="experiment_tag_pk"),)
 
     def __repr__(self):
-        return "<SqlExperimentTag({}, {})>".format(self.key, self.value)
+        return f"<SqlExperimentTag({self.key}, {self.value})>"
 
     def to_mlflow_entity(self):
         """
@@ -306,7 +306,7 @@ class SqlTag(Base):
     """
 
     def __repr__(self):
-        return "<SqlRunTag({}, {})>".format(self.key, self.value)
+        return f"<SqlRunTag({self.key}, {self.value})>"
 
     def to_mlflow_entity(self):
         """
@@ -358,7 +358,7 @@ class SqlMetric(Base):
     """
 
     def __repr__(self):
-        return "<SqlMetric({}, {}, {}, {})>".format(self.key, self.value, self.timestamp, self.step)
+        return f"<SqlMetric({self.key}, {self.value}, {self.timestamp}, {self.step})>"
 
     def to_mlflow_entity(self):
         """
@@ -413,9 +413,7 @@ class SqlLatestMetric(Base):
     """
 
     def __repr__(self):
-        return "<SqlLatestMetric({}, {}, {}, {})>".format(
-            self.key, self.value, self.timestamp, self.step
-        )
+        return f"<SqlLatestMetric({self.key}, {self.value}, {self.timestamp}, {self.step})>"
 
     def to_mlflow_entity(self):
         """
@@ -457,7 +455,7 @@ class SqlParam(Base):
     """
 
     def __repr__(self):
-        return "<SqlParam({}, {})>".format(self.key, self.value)
+        return f"<SqlParam({self.key}, {self.value})>"
 
     def to_mlflow_entity(self):
         """
@@ -615,7 +613,7 @@ class SqlInputTag(Base):
     """
 
     def __repr__(self):
-        return "<SqlInputTag ({}, {}, {})>".format(self.input_uuid, self.name, self.value)
+        return f"<SqlInputTag ({self.input_uuid}, {self.name}, {self.value})>"
 
     def to_mlflow_entity(self):
         """

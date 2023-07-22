@@ -14,13 +14,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.db.utils import _get_alembic_config, _verify_schema
 from mlflow.store.db.base_sql_model import Base
 
-# pylint: disable=unused-import
-from mlflow.store.model_registry.dbmodels.models import (
-    SqlRegisteredModel,
-    SqlModelVersion,
-    SqlRegisteredModelTag,
-    SqlModelVersionTag,
-)
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from tests.store.dump_schema import dump_db_schema
@@ -55,7 +48,7 @@ def _assert_schema_files_equal(generated_schema_file, expected_schema_file):
         )
 
 
-@pytest.fixture()
+@pytest.fixture
 def expected_schema_file():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     yield os.path.normpath(
@@ -63,7 +56,7 @@ def expected_schema_file():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def db_url(tmp_path):
     db_file = tmp_path.joinpath("db_file")
     return f"sqlite:///{db_file}"

@@ -58,9 +58,7 @@ def _init(cmd, env_manager):
     elif cmd == "train":
         _train()
     else:
-        raise Exception(
-            "Unrecognized command {cmd}, full args = {args}".format(cmd=cmd, args=str(sys.argv))
-        )
+        raise Exception(f"Unrecognized command {cmd}, full args = {sys.argv}")
 
 
 def _serve(env_manager):
