@@ -157,12 +157,12 @@ def transformers_custom_env(tmp_path):
     return conda_env
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_pyfunc_wrapper():
     return mlflow.transformers._TransformersWrapper("mock")
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_seq2seq_pipeline():
     # The return type of this model's language head is a List[Dict[str, Any]]
@@ -172,7 +172,7 @@ def small_seq2seq_pipeline():
     return transformers.pipeline(task="text-classification", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_qa_pipeline():
     # The return type of this model's language head is a Dict[str, Any]
@@ -184,7 +184,7 @@ def small_qa_pipeline():
     return transformers.pipeline(task="question-answering", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_vision_model():
     architecture = "google/mobilenet_v2_1.0_224"
@@ -199,14 +199,14 @@ def small_vision_model():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_multi_modal_pipeline():
     architecture = "dandelin/vilt-b32-finetuned-vqa"
     return transformers.pipeline(model=architecture)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def component_multi_modal():
     architecture = "dandelin/vilt-b32-finetuned-vqa"
@@ -226,7 +226,7 @@ def component_multi_modal():
     return transformers_model
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_conversational_model():
     tokenizer = transformers.AutoTokenizer.from_pretrained(
@@ -238,7 +238,7 @@ def small_conversational_model():
     return transformers.pipeline(task="conversational", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def fill_mask_pipeline():
     architecture = "distilroberta-base"
@@ -247,7 +247,7 @@ def fill_mask_pipeline():
     return transformers.pipeline(task="fill-mask", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def text2text_generation_pipeline():
     task = "text2text-generation"
@@ -262,7 +262,7 @@ def text2text_generation_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def text_generation_pipeline():
     task = "text-generation"
@@ -277,7 +277,7 @@ def text_generation_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def translation_pipeline():
     return transformers.pipeline(
@@ -287,7 +287,7 @@ def translation_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def summarizer_pipeline():
     task = "summarization"
@@ -301,7 +301,7 @@ def summarizer_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def text_classification_pipeline():
     task = "text-classification"
@@ -315,7 +315,7 @@ def text_classification_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def zero_shot_pipeline():
     task = "zero-shot-classification"
@@ -329,7 +329,7 @@ def zero_shot_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def table_question_answering_pipeline():
     return transformers.pipeline(
@@ -337,7 +337,7 @@ def table_question_answering_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def ner_pipeline():
     return transformers.pipeline(
@@ -345,7 +345,7 @@ def ner_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def ner_pipeline_aggregation():
     # Modification to the default aggregation_strategy of `None` changes the output keys in each
@@ -358,34 +358,34 @@ def ner_pipeline_aggregation():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def conversational_pipeline():
     return transformers.pipeline(model="microsoft/DialoGPT-medium")
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def image_for_test():
     dataset = load_dataset("huggingface/cats-image")
     return dataset["test"]["image"][0]
 
 
-@pytest.fixture()
+@pytest.fixture
 def sound_file_for_test():
     datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets")
     audio, _ = librosa.load(datasets_path.joinpath("apollo11_launch.wav"), sr=16000)
     return audio
 
 
-@pytest.fixture()
+@pytest.fixture
 def raw_audio_file():
     datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets")
 
     return datasets_path.joinpath("apollo11_launch.wav").read_bytes()
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def whisper_pipeline():
     task = "automatic-speech-recognition"
@@ -400,13 +400,13 @@ def whisper_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def audio_classification_pipeline():
     return transformers.pipeline("audio-classification", model="superb/wav2vec2-base-superb-ks")
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def feature_extraction_pipeline():
     st_arch = "sentence-transformers/all-MiniLM-L6-v2"
@@ -472,7 +472,7 @@ def test_instance_extraction(small_qa_pipeline):
 
 
 @pytest.mark.parametrize(
-    ["model", "result"],
+    ("model", "result"),
     [
         ("small_qa_pipeline", True),
         ("small_seq2seq_pipeline", True),
@@ -1320,7 +1320,7 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.parametrize(
-    "data, result",
+    ("data", "result"),
     [
         ("muppet keyboard type", ["A muppet is typing on a keyboard."]),
         (
@@ -1473,7 +1473,7 @@ def test_invalid_input_to_text_generation_pipeline(text_generation_pipeline, inv
 
 
 @pytest.mark.parametrize(
-    "inference_payload, result",
+    ("inference_payload", "result"),
     [
         ("Riding a <mask> on the beach is fun!", ["bike"]),
         (["If I had <mask>, I would fly to the top of a mountain"], ["wings"]),
@@ -1559,7 +1559,7 @@ def test_zero_shot_classification_pipeline(zero_shot_pipeline, model_path, data)
 
 
 @pytest.mark.parametrize(
-    "query, result",
+    ("query", "result"),
     [
         ({"query": "What should we order more of?"}, ["apples"]),
         (
@@ -1605,7 +1605,7 @@ def test_table_question_answering_pipeline(
 
 
 @pytest.mark.parametrize(
-    "data, result",
+    ("data", "result"),
     [
         ("I've got a lovely bunch of coconuts!", ["Ich habe eine schöne Haufe von Kokos!"]),
         (
@@ -1724,7 +1724,7 @@ def test_classifier_pipeline(text_classification_pipeline, model_path, data):
 
 
 @pytest.mark.parametrize(
-    "data, result",
+    ("data", "result"),
     [
         (
             "I have a dog and his name is Willy!",
@@ -1794,7 +1794,7 @@ def test_conversational_pipeline(conversational_pipeline, model_path):
 
 
 @pytest.mark.parametrize(
-    "pipeline_name, example, in_signature, out_signature",
+    ("pipeline_name", "example", "in_signature", "out_signature"),
     [
         (
             "fill_mask_pipeline",
@@ -2361,8 +2361,14 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
 
 
 @pytest.mark.parametrize(
-    "pipeline_input, pipeline_output, expected_output, flavor_config, include_prompt, "
-    "collapse_whitespace",
+    (
+        "pipeline_input",
+        "pipeline_output",
+        "expected_output",
+        "flavor_config",
+        "include_prompt",
+        "collapse_whitespace",
+    ),
     [
         (
             "What answers?",
@@ -2599,7 +2605,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
 
 
 @pytest.mark.parametrize(
-    ["pipeline_name", "data", "result"],
+    ("pipeline_name", "data", "result"),
     [
         (
             "small_qa_pipeline",

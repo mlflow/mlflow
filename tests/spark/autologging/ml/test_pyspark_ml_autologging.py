@@ -616,20 +616,16 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
 def test_get_params_to_log(spark_session):  # pylint: disable=unused-argument
     lor = LogisticRegression(maxIter=3, standardization=False)
     lor_params = get_params_to_log(lor)
-    assert (
-        lor_params["maxIter"] == 3
-        and not lor_params["standardization"]
-        and lor_params["family"] == lor.getOrDefault(lor.family)
-    )
+    assert lor_params["maxIter"] == 3
+    assert not lor_params["standardization"]
+    assert lor_params["family"] == lor.getOrDefault(lor.family)
 
     ova = OneVsRest(classifier=lor, labelCol="abcd")
     ova_params = get_params_to_log(ova)
-    assert (
-        ova_params["classifier"] == "LogisticRegression"
-        and ova_params["labelCol"] == "abcd"
-        and ova_params["LogisticRegression.maxIter"] == 3
-        and ova_params["LogisticRegression.family"] == lor.getOrDefault(lor.family)
-    )
+    assert ova_params["classifier"] == "LogisticRegression"
+    assert ova_params["labelCol"] == "abcd"
+    assert ova_params["LogisticRegression.maxIter"] == 3
+    assert ova_params["LogisticRegression.family"] == lor.getOrDefault(lor.family)
 
     tokenizer = Tokenizer(inputCol="text", outputCol="words")
     hashing_tf = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
@@ -646,10 +642,8 @@ def test_get_params_to_log(spark_session):  # pylint: disable=unused-argument
     assert nested_pipeline_params["OneVsRest.classifier"] == "LogisticRegression"
 
     for params_to_test in [pipeline_params, nested_pipeline_params]:
-        assert (
-            params_to_test["Tokenizer.inputCol"] == "text"
-            and params_to_test["Tokenizer.outputCol"] == "words"
-        )
+        assert params_to_test["Tokenizer.inputCol"] == "text"
+        assert params_to_test["Tokenizer.outputCol"] == "words"
         assert params_to_test["HashingTF.outputCol"] == "features"
         assert params_to_test["OneVsRest.classifier"] == "LogisticRegression"
         assert params_to_test["LogisticRegression.maxIter"] == 3

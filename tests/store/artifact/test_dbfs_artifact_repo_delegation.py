@@ -10,7 +10,7 @@ from mlflow.store.artifact.dbfs_artifact_repo import DatabricksArtifactRepositor
 from mlflow.utils.rest_utils import MlflowHostCreds
 
 
-@pytest.fixture()
+@pytest.fixture
 def host_creds_mock():
     with mock.patch(
         "mlflow.store.artifact.dbfs_artifact_repo._get_host_creds_from_default_store",
