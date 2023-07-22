@@ -350,6 +350,13 @@ nitpick_ignore = [
     ("py:class", "scipy.sparse._csc.csc_matrix"),
     ("py:class", "pathlib.Path"),
     ("py:class", "pydantic.main.BaseModel"),
+    ("py:class", "langchain.callbacks.base.BaseCallbackHandler"),
+    ("py:class", "langchain.callbacks.base.BaseCallbackManager"),
+    ("py:class", "langchain.chains.base.Chain"),
+    ("py:class", "langchain.schema.memory.BaseMemory"),
+    ("py:class", "langchain.schema.retriever.BaseRetriever"),
+    ("py:class", "BaseRetriever"),
+    ("py:class", "mlflow.langchain.retriever_chain.RetrieverChain"),
 ]
 
 
