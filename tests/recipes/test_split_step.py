@@ -270,7 +270,7 @@ def test_custom_split_method(tmp_recipe_root_path: Path, tmp_recipe_exec_path: P
 
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
         recipe: "regression/v1"
         target_col: "y"
         primary_metric: "f1_score"
@@ -279,14 +279,12 @@ def test_custom_split_method(tmp_recipe_root_path: Path, tmp_recipe_exec_path: P
             step: "split"
         experiment:
             name: "demo"
-            tracking_uri: {tracking_uri}
+            tracking_uri: {mlflow.get_tracking_uri()}
         steps:
             split:
                 using: custom
                 split_method: split_method
-        """.format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+        """
     )
 
     m_split = Mock()
@@ -334,7 +332,7 @@ def test_custom_error_split_method(tmp_recipe_root_path: Path, tmp_recipe_exec_p
 
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
         recipe: "regression/v1"
         target_col: "y"
         primary_metric: "f1_score"
@@ -343,14 +341,12 @@ def test_custom_error_split_method(tmp_recipe_root_path: Path, tmp_recipe_exec_p
             step: "split"
         experiment:
             name: "demo"
-            tracking_uri: {tracking_uri}
+            tracking_uri: {mlflow.get_tracking_uri()}
         steps:
             split:
                 using: custom
                 split_method: split_method
-        """.format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+        """
     )
 
     m_split = Mock()
