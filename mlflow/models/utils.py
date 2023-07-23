@@ -704,7 +704,7 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                 )
         if not isinstance(pf_input, pd.DataFrame):
             raise MlflowException(
-                "Expected input to be DataFrame or list. Found: %s" % type(pf_input).__name__
+                f"Expected input to be DataFrame or list. Found: {type(pf_input).__name__}"
             )
 
     if input_schema.has_input_names():
