@@ -25,7 +25,7 @@ def _parse_abfss_uri(uri):
     """
     parsed = urllib.parse.urlparse(uri)
     if parsed.scheme != "abfss":
-        raise MlflowException("Not an ABFSS URI: %s" % uri)
+        raise MlflowException(f"Not an ABFSS URI: {uri}")
 
     match = re.match(r"([^@]+)@([^.]+)\.dfs\.core\.windows\.net", parsed.netloc)
 

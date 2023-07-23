@@ -190,9 +190,9 @@ class FileStore(AbstractStore):
         Run checks before running directory operations.
         """
         if not exists(self.root_directory):
-            raise Exception("'%s' does not exist." % self.root_directory)
+            raise Exception(f"'{self.root_directory}' does not exist.")
         if not is_directory(self.root_directory):
-            raise Exception("'%s' is not a directory." % self.root_directory)
+            raise Exception(f"'{self.root_directory}' is not a directory.")
 
     def _get_experiment_path(self, experiment_id, view_type=ViewType.ALL, assert_exists=False):
         parents = []
