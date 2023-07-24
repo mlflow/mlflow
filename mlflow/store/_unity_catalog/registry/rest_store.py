@@ -512,9 +512,7 @@ class UcModelRegistryStore(BaseRestStore):
                 notebook_entity = Notebook(id=str(notebook_id))
                 entity_list.append(Entity(notebook=notebook_entity))
             if job_id is not None:
-                job_entity = Job(id=str(job_id), job_run_id=str(job_run_id))
-                if job_run_id is None:
-                    job_entity = Job(id=str(job_id))
+                job_entity = Job(id=job_id, job_run_id=job_run_id)
                 entity_list.append(Entity(job=job_entity))
             lineage_header_info = LineageHeaderInfo(entities=entity_list)
             # Base64-encode the header value to ensure it's valid ASCII,
