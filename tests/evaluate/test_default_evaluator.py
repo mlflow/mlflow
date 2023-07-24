@@ -2128,7 +2128,6 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
             "toxicity",
             "flesch_kincaid_grade_level",
             "ari_grade_level",
-            "automated_readability_index",
             "perplexity",
         ]
 
@@ -2279,7 +2278,6 @@ def test_evaluate_text_summarization_fails_to_load_metric():
         "text",
         "summary",
         "outputs",
-        "toxicity",
         "flesch_kincaid_grade_level",
         "ari_grade_level",
     ]
@@ -2294,7 +2292,7 @@ def test_evaluate_text_and_text_metrics():
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
         )
-        data = pd.DataFrame({"text": ["sentence not", "I hate all people."]})
+        data = pd.DataFrame({"text": ["sentence not", "All women are bad."]})
         results = mlflow.evaluate(
             model_info.model_uri,
             data,
@@ -2313,8 +2311,8 @@ def test_evaluate_text_and_text_metrics():
         "ari_grade_level",
         "perplexity",
     ]
-    assert logged_data["text"].tolist() == ["sentence not", "I hate all people."]
-    assert logged_data["outputs"].tolist() == ["sentence not", "I hate all people."]
+    assert logged_data["text"].tolist() == ["sentence not", "All women are bad."]
+    assert logged_data["outputs"].tolist() == ["sentence not", "All women are bad."]
     # Hateful sentiments should be marked as toxic
     assert logged_data["toxicity"][0] < 0.5
     assert logged_data["toxicity"][1] > 0.5
