@@ -1205,9 +1205,9 @@ class DefaultEvaluator(ModelEvaluator):
     def _calculate_reading_level(self, predictions):
         try:
             import textstat
-        except Exception as e:
+        except ImportError:
             _logger.warning(
-                f"Failed to load reading level metrics (error: {e!r}), skipping metric logging."
+                f"Failed to import textstat for reading grade level metrics, skipping metric logging."
             )
             return
 
