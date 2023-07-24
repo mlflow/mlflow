@@ -2253,7 +2253,7 @@ def test_evaluate_text_summarization_without_targets():
     assert results.metrics["toxicity_ratio"] == 0.0
 
 
-def test_evaluate_text_summarization_fails_to_load_metric():
+def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
@@ -2269,6 +2269,7 @@ def test_evaluate_text_summarization_fails_to_load_metric():
             )
             mock_load.assert_any_call("rouge")
             mock_load.assert_any_call("perplexity", module_type="metric")
+            mock_load.assert_any_call("toxicity", module_type="measurement")
 
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
@@ -2284,7 +2285,6 @@ def test_evaluate_text_summarization_fails_to_load_metric():
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["summary"].tolist() == ["a", "b"]
     assert logged_data["outputs"].tolist() == ["a", "b"]
-    assert "toxicity_ratio" in results.metrics
 
 
 def test_evaluate_text_and_text_metrics():
