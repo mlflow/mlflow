@@ -298,6 +298,7 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install tensorflow pyspark
+          ./dev/install-pyspark-3.5.sh
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
