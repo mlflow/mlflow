@@ -1198,16 +1198,17 @@ class DefaultEvaluator(ModelEvaluator):
             )
             return
 
+        results = toxicity.compute(predictions=predictions)
+        self.metrics_dict.update({"toxicity": results["toxicity"]})
         results = toxicity.compute(predictions=predictions, aggregation="ratio")
         self.metrics.update({"toxicity_ratio": results["toxicity_ratio"]})
-        self.metrics_dict.update({"toxicity": results["toxicity"]})
 
     def _calculate_reading_level(self, predictions):
         try:
             import textstat
         except ImportError:
             _logger.warning(
-                f"Failed to import textstat for reading grade level metrics, skipping metric logging."
+                "Failed to import textstat (reading grade level metrics), skipping metric logging."
             )
             return
 
