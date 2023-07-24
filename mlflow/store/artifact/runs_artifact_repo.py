@@ -45,14 +45,14 @@ class RunsArtifactRepository(ArtifactRepository):
         parsed = urllib.parse.urlparse(run_uri)
         if parsed.scheme != "runs":
             raise MlflowException(
-                "Not a proper runs:/ URI: %s. " % run_uri
+                f"Not a proper runs:/ URI: {run_uri}. "
                 + "Runs URIs must be of the form 'runs:/<run_id>/run-relative/path/to/artifact'"
             )
 
         path = parsed.path
         if not path.startswith("/") or len(path) <= 1:
             raise MlflowException(
-                "Not a proper runs:/ URI: %s. " % run_uri
+                f"Not a proper runs:/ URI: {run_uri}. "
                 + "Runs URIs must be of the form 'runs:/<run_id>/run-relative/path/to/artifact'"
             )
         path = path[1:]
@@ -61,7 +61,7 @@ class RunsArtifactRepository(ArtifactRepository):
         run_id = path_parts[0]
         if run_id == "":
             raise MlflowException(
-                "Not a proper runs:/ URI: %s. " % run_uri
+                f"Not a proper runs:/ URI: {run_uri}. "
                 + "Runs URIs must be of the form 'runs:/<run_id>/run-relative/path/to/artifact'"
             )
 
