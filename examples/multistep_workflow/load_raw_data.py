@@ -33,7 +33,7 @@ def load_raw_data(url):
 
         ratings_file = os.path.join(extracted_dir, "ratings.csv")
 
-        print("Uploading ratings: %s" % ratings_file)
+        print(f"Uploading ratings: {ratings_file}")
         mlflow.log_artifact(ratings_file, "ratings-csv-dir")
 
 

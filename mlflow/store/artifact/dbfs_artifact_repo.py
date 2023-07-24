@@ -91,7 +91,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         try:
             return json_response["is_dir"]
         except KeyError:
-            raise MlflowException("DBFS path %s does not exist" % dbfs_path)
+            raise MlflowException(f"DBFS path {dbfs_path} does not exist")
 
     def _get_dbfs_path(self, artifact_path):
         return "/{}/{}".format(
@@ -100,7 +100,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         )
 
     def _get_dbfs_endpoint(self, artifact_path):
-        return "/dbfs%s" % self._get_dbfs_path(artifact_path)
+        return f"/dbfs{self._get_dbfs_path(artifact_path)}"
 
     def log_artifact(self, local_file, artifact_path=None):
         basename = os.path.basename(local_file)

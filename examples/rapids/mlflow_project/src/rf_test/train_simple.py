@@ -95,4 +95,4 @@ if __name__ == "__main__":
         )
         artifact_uri = mlflow.get_artifact_uri(artifact_path=artifact_path)
 
-    print("Model uri: %s" % artifact_uri)
+    print(f"Model uri: {artifact_uri}")

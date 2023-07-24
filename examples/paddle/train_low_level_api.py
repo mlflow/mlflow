@@ -74,7 +74,7 @@ if __name__ == "__main__":
     with mlflow.start_run() as run:
         mlflow.log_param("learning_rate", 0.01)
         mlflow.paddle.log_model(model, "model")
-        print("Model saved in run %s" % mlflow.active_run().info.run_uuid)
+        print(f"Model saved in run {mlflow.active_run().info.run_uuid}")
 
         # load model
         model_path = mlflow.get_artifact_uri("model")

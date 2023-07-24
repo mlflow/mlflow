@@ -74,7 +74,7 @@ routes that the Gateway service should expose. Let's create a file with three ro
 
     routes:
       - name: completions
-        type: llm/v1/completions
+        route_type: llm/v1/completions
         model:
           provider: openai
           name: gpt-3.5-turbo
@@ -82,7 +82,7 @@ routes that the Gateway service should expose. Let's create a file with three ro
             openai_api_key: $OPENAI_API_KEY
 
       - name: chat
-        type: llm/v1/chat
+        route_type: llm/v1/chat
         model:
           provider: openai
           name: gpt-3.5-turbo
@@ -90,7 +90,7 @@ routes that the Gateway service should expose. Let's create a file with three ro
             openai_api_key: $OPENAI_API_KEY
 
       - name: embeddings
-        type: llm/v1/embeddings
+        route_type: llm/v1/embeddings
         model:
           provider: openai
           name: text-embedding-ada-002
@@ -187,14 +187,14 @@ Firstly, update the :ref:`MLflow AI Gateway config <gateway_configuration>` YAML
 
     routes:
       - name: completions
-        type: llm/v1/completions
+        route_type: llm/v1/completions
         model:
           provider: openai
           name: gpt-3.5-turbo
           config:
             openai_api_key: $OPENAI_API_KEY
       - name: completions-gpt4
-        type: llm/v1/completions
+        route_type: llm/v1/completions
         model:
           provider: openai
           name: gpt-4
@@ -262,7 +262,7 @@ Here's an example of a provider configuration within a route:
 
     routes:
       - name: chat
-        type: llm/v1/chat
+        route_type: llm/v1/chat
         model:
           provider: openai
           name: gpt-4
@@ -345,7 +345,7 @@ Here's an example of a model name configuration within a route:
 
     routes:
       - name: embeddings
-        type: llm/v1/embeddings
+        route_type: llm/v1/embeddings
         model:
           provider: openai
           name: text-embedding-ada-002
@@ -394,7 +394,7 @@ Here is an example of a single-route configuration:
 
     routes:
       - name: chat
-        type: llm/v1/chat
+        route_type: llm/v1/chat
         model:
           provider: openai
           name: gpt-3.5-turbo
@@ -810,6 +810,46 @@ To use the ``MlflowGatewayClient`` API, see the below examples for the available
        )
        print(response)
 
+
+LangChain Integration
+~~~~~~~~~~~~~~~~~~~~~
+
+`LangChain <https://github.com/hwchase17/langchain>`_ supports `an integration for MLflow AI Gateway <https://python.langchain.com/docs/ecosystem/integrations/mlflow_ai_gateway>`_.
+This integration enable users to use prompt engineering, retrieval augmented generation, and other techniques with LLMs in the gateway.
+
+.. code-block:: python
+    :caption: Example
+
+    import mlflow
+    from langchain import LLMChain, PromptTemplate
+    from langchain.llms import MlflowAIGateway
+
+    gateway = MlflowAIGateway(
+        gateway_uri="http://127.0.0.1:5000",
+        route="completions",
+        params={
+            "temperature": 0.0,
+            "top_p": 0.1,
+        },
+    )
+
+    llm_chain = LLMChain(
+        llm=gateway,
+        prompt=PromptTemplate(
+            input_variables=["adjective"],
+            template="Tell me a {adjective} joke",
+        ),
+    )
+    result = llm_chain.run(adjective="funny")
+    print(result)
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(chain, "model")
+
+    model = mlflow.pyfunc.load_model(model_info.model_uri)
+    print(model.predict([{"adjective": "funny"}]))
+
+
 .. _gateway_mlflow_models:
 
 MLflow Models
@@ -967,3 +1007,8 @@ For example, here's a simple configuration for Nginx with Basic Authentication:
 In this example, `/etc/nginx/.htpasswd` is a file that contains the username and password for authentication.
 
 These measures, together with a proper network setup, can significantly improve the security of your system and ensure that only authorized users have access to submit requests to your LLM services.
+
+LangChain Integration
+=====================
+
+`LangChain <https://github.com/hwchase17/langchain>`_ supports an integration for MLflow AI Gateway. See https://python.langchain.com/docs/ecosystem/integrations/mlflow_ai_gateway for more information.

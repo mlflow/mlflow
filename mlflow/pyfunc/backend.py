@@ -380,14 +380,10 @@ class PyFuncBackend(FlavorBackend):
                     env_manager=self._env_manager,
                 )
             else:
-                return """
-                    ENV {disable_env}="true"
-                    ENV {ENABLE_MLSERVER}={enable_mlserver}
-                    """.format(
-                    disable_env=DISABLE_ENV_CREATION,
-                    ENABLE_MLSERVER=ENABLE_MLSERVER,
-                    enable_mlserver=repr(enable_mlserver),
-                )
+                return f"""
+                    ENV {DISABLE_ENV_CREATION}="true"
+                    ENV {ENABLE_MLSERVER}={repr(enable_mlserver)}
+                    """
 
         return copy_model_into_container
 

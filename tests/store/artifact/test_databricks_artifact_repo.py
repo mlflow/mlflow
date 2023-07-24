@@ -47,7 +47,7 @@ MOCK_SUBDIR = "subdir/path"
 MOCK_SUBDIR_ROOT_URI = posixpath.join(MOCK_RUN_ROOT_URI, MOCK_SUBDIR)
 
 
-@pytest.fixture()
+@pytest.fixture
 def databricks_artifact_repo():
     with mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_run_artifact_root", return_value=MOCK_RUN_ROOT_URI
@@ -57,7 +57,7 @@ def databricks_artifact_repo():
         )
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_file(tmp_path):
     test_file_content = "Hello 🍆🍔".encode()
     p = tmp_path.joinpath("test.txt")
@@ -65,7 +65,7 @@ def test_file(tmp_path):
     return str(p)
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_dir(tmp_path):
     test_file_content = "World 🍆🍔🍆".encode()
     p = tmp_path.joinpath("subdir").joinpath("test.txt")

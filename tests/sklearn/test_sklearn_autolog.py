@@ -1060,6 +1060,25 @@ def test_autolog_does_not_throw_when_infer_signature_fails():
     assert "signature" not in model_conf.to_dict()
 
 
+def test_autolog_does_not_warn_when_model_has_transform_function():
+    X, y = get_iris()
+
+    mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
+    with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+        estimators = [
+            ("std_scaler", sklearn.preprocessing.StandardScaler()),
+        ]
+        model = sklearn.pipeline.Pipeline(estimators)
+        model.fit(X, y)
+
+    # Warning not called
+    msg = "Failed to infer model signature:"
+    assert all(msg not in c[0] for c in mock_warning.call_args_list)
+
+    model_conf = get_model_conf(run.info.artifact_uri)
+    assert "signature" in model_conf.to_dict()
+
+
 @pytest.mark.parametrize("log_input_examples", [True, False])
 @pytest.mark.parametrize("log_model_signatures", [True, False])
 def test_autolog_configuration_options(log_input_examples, log_model_signatures):
@@ -1305,7 +1324,10 @@ def test_autolog_disabled_on_sklearn_cross_val_api(cross_val_func_name):
 
     def assert_autolog_disabled_during_exec_cross_val_fun(run_):
         params, metrics, tags, artifacts = get_run_data(run_.info.run_id)
-        assert params == {} and metrics == {} and tags == {} and artifacts == []
+        assert params == {}
+        assert metrics == {}
+        assert tags == {}
+        assert artifacts == []
 
     diabetes = sklearn.datasets.load_diabetes()
     X = diabetes.data[:150]

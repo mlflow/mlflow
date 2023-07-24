@@ -18,6 +18,16 @@ select = [
   "E",
   "F",
   "C4",
+  "PT001",
+  "PT006",
+  # TODO: Enable commented-out rules.
+  "PT007",
+  "PT009",
+  "PT010",
+  # "PT012",
+  "PT018",
+  "PT023",
+  "PT026",
   "UP004",
   "UP008",
   "UP011",
@@ -38,30 +48,7 @@ ignore = [
   "F403",  # undefined-local-with-import-star
   "F811",  # redefined-while-unused
 ]
-exclude = [
-  # Exclude a variety of commonly ignored directories.
-  ".bzr",
-  ".direnv",
-  ".eggs",
-  ".git",
-  ".git-rewrite",
-  ".hg",
-  ".mypy_cache",
-  ".nox",
-  ".pants.d",
-  ".pytype",
-  ".ruff_cache",
-  ".svn",
-  ".tox",
-  ".venv",
-  "__pypackages__",
-  "_build",
-  "buck-out",
-  "build",
-  "dist",
-  "node_modules",
-  "venv",
-  # Files/directories in mlflow repository
+extend-exclude = [
   "setup.py",
   "docs",
   "examples",
@@ -72,5 +59,11 @@ exclude = [
   "mlflow/temporary_db_migrations_for_pre_1_users",
   "tests/protos",
 ]
+
 [tool.ruff.per-file-ignores]
-"dev/*" = ["T201"]
+"dev/*" = ["T201", "PT018"]
+"mlflow/*" = ["PT018"]
+
+[tool.ruff.flake8-pytest-style]
+mark-parentheses = false
+fixture-parentheses = false
