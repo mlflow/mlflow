@@ -375,20 +375,16 @@ def test_create_env_with_mamba(monkeypatch):
 
 def test_conda_environment_cleaned_up_when_pip_fails(tmp_path):
     conda_yaml = tmp_path / "conda.yaml"
-    content = """
-name: {name}
+    content = f"""
+name: {uuid.uuid4().hex}
 channels:
   - conda-forge
 dependencies:
-  - python={python_version}
+  - python={PYTHON_VERSION}
   - pip
   - pip:
       - mlflow==999.999.999
-""".format(
-        # Enforce creating a new environment
-        name=uuid.uuid4().hex,
-        python_version=PYTHON_VERSION,
-    )
+"""
     conda_yaml.write_text(content)
     envs_before = mlflow.utils.conda._list_conda_environments()
 

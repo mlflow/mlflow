@@ -347,7 +347,7 @@ def test_spark_udf(basic_model, spark):
 
 
 @pytest.mark.parametrize(
-    "input1, input2",
+    ("input1", "input2"),
     [
         (["hello world"], ["goodbye world!"]),
         (["hello world", "i am mlflow"], ["goodbye world!", "i am mlflow"]),
@@ -394,7 +394,7 @@ SIGNATURE_FROM_EXAMPLE = infer_signature(
 
 
 @pytest.mark.parametrize(
-    "example, signature, expected_signature",
+    ("example", "signature", "expected_signature"),
     [
         (None, None, mlflow.sentence_transformers._get_default_signature()),
         (SENTENCES, None, SIGNATURE_FROM_EXAMPLE),

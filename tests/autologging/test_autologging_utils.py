@@ -170,7 +170,7 @@ def test_wrap_patch_with_module():
     assert sample_function_to_patch(10, 5) == 5
 
 
-@pytest.fixture()
+@pytest.fixture
 def logger():
     return Mock()
 
@@ -736,11 +736,6 @@ _module_version_info_dict_patch = {
         "package_info": {"pip_release": "lightgbm"},
         "autologging": {"minimum": "2.3.1", "maximum": "3.1.0"},
     },
-    # TODO: Remove this after releasing MLflow 2.5.0
-    # "gluon": {
-    #     "package_info": {"pip_release": "mxnet"},
-    #     "autologging": {"minimum": "1.5.1", "maximum": "1.7.0.post1"},
-    # },
     "fastai": {
         "package_info": {"pip_release": "fastai"},
         "autologging": {"minimum": "2.4.1", "maximum": "2.4.1"},
@@ -766,9 +761,6 @@ _module_version_info_dict_patch = {
         ("fastai", "2.4.1", True),
         ("fastai", "2.3.1", False),
         ("fastai", "1.0.60", False),
-        # TODO: Remove this after releasing MLflow 2.5.0
-        # ("gluon", "1.6.1", True),
-        # ("gluon", "1.5.0", False),
         ("keras", "2.2.4", True),
         ("keras", "2.2.3", False),
         ("lightgbm", "2.3.1", True),
@@ -902,7 +894,8 @@ def test_disable_for_unsupported_versions_warning_sklearn_integration():
             log_warn_fn.assert_not_called()
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.sklearn.autolog(disable_for_unsupported_versions=False)
-            assert log_warn_fn.call_count == 1 and is_sklearn_warning_fired(log_warn_fn.call_args)
+            assert log_warn_fn.call_count == 1
+            assert is_sklearn_warning_fired(log_warn_fn.call_args)
 
 
 def test_get_instance_method_first_arg_value():

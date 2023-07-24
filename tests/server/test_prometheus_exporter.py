@@ -9,7 +9,7 @@ def mock_settings_env_vars(tmp_path, monkeypatch):
     monkeypatch.setenv("PROMETHEUS_MULTIPROC_DIR", str(tmp_path))
 
 
-@pytest.fixture()
+@pytest.fixture
 def app():
     from mlflow.server import app
 
@@ -17,7 +17,7 @@ def app():
         yield app
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_client(app):
     with app.test_client() as c:
         yield c

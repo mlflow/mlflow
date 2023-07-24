@@ -10,7 +10,7 @@ import mlflow.spark
 from tests.spark.autologging.utils import _assert_spark_data_logged
 
 
-@pytest.fixture()
+@pytest.fixture
 def http_tracking_uri_mock():
     mlflow.set_tracking_uri("http://some-cool-uri")
     yield

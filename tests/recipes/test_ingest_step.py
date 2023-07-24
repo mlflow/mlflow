@@ -46,7 +46,7 @@ def spark_session():
             yield session
 
 
-@pytest.fixture()
+@pytest.fixture
 def spark_df(spark_session):
     return spark_session.createDataFrame(
         [

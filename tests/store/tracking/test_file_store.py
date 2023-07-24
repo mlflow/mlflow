@@ -713,7 +713,8 @@ def test_delete_restore_run(store):
     store.delete_run(run_id)
     assert store.get_run(run_id).info.lifecycle_stage == "deleted"
     meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
-    assert "deleted_time" in meta and meta["deleted_time"] is not None
+    assert "deleted_time" in meta
+    assert meta["deleted_time"] is not None
     # Verify that run restoration is idempotent by restoring twice
     store.restore_run(run_id)
     store.restore_run(run_id)

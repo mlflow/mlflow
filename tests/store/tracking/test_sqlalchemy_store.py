@@ -908,7 +908,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.log_metric(run.info.run_id, neg_inf_metric)
 
         run = self.store.get_run(run.info.run_id)
-        assert tkey in run.data.metrics and run.data.metrics[tkey] == tval
+        assert tkey in run.data.metrics
+        assert run.data.metrics[tkey] == tval
 
         # SQL store _get_run method returns full history of recorded metrics.
         # Should return duplicates as well
@@ -1046,7 +1047,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         run = self.store.get_run(run.info.run_id)
         assert len(run.data.params) == 2
-        assert tkey in run.data.params and run.data.params[tkey] == tval
+        assert tkey in run.data.params
+        assert run.data.params[tkey] == tval
 
     def test_log_param_uniqueness(self):
         run = self._run_factory()
@@ -1072,7 +1074,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         run = self.store.get_run(run.info.run_id)
         assert len(run.data.params) == 2
-        assert tkey in run.data.params and run.data.params[tkey] == tval
+        assert tkey in run.data.params
+        assert run.data.params[tkey] == tval
 
     def test_log_null_param(self):
         run = self._run_factory()
@@ -1170,7 +1173,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # test can set tags that are somewhat long
         self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 4999))
         run = self.store.get_run(run.info.run_id)
-        assert tkey in run.data.tags and run.data.tags[tkey] == new_val
+        assert tkey in run.data.tags
+        assert run.data.tags[tkey] == new_val
 
     def test_delete_tag(self):
         run = self._run_factory()
@@ -1184,7 +1188,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.delete_tag(run.info.run_id, k0)
         run = self.store.get_run(run.info.run_id)
         assert k0 not in run.data.tags
-        assert k1 in run.data.tags and run.data.tags[k1] == v1
+        assert k1 in run.data.tags
+        assert run.data.tags[k1] == v1
 
         # test that deleting a tag works correctly with multiple runs having the same tag.
         run2 = self._run_factory(config=self._get_run_configs(run.info.experiment_id))
@@ -2647,7 +2652,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store._log_metrics(run.info.run_id, metrics)
 
         run = self.store.get_run(run.info.run_id)
-        assert tkey in run.data.metrics and run.data.metrics[tkey] == tval
+        assert tkey in run.data.metrics
+        assert run.data.metrics[tkey] == tval
 
         # SQL store _get_run method returns full history of recorded metrics.
         # Should return duplicates as well

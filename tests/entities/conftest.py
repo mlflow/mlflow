@@ -10,7 +10,7 @@ from mlflow.entities import RunInputs, DatasetInput, InputTag, Dataset
 from mlflow.utils.time_utils import get_current_time_millis
 
 
-@pytest.fixture()
+@pytest.fixture
 def run_data():
     metrics = [
         Metric(
@@ -28,7 +28,7 @@ def run_data():
     return rd, metrics, params, tags
 
 
-@pytest.fixture()
+@pytest.fixture
 def run_info():
     run_id = str(uuid.uuid4())
     experiment_id = str(random_int(10, 2000))
@@ -65,7 +65,7 @@ def run_info():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def run_inputs():
     datasets = [
         DatasetInput(
