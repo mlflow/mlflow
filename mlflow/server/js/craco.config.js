@@ -71,7 +71,7 @@ function configureIframeCSSPublicPaths(config, env) {
         .forEach((cssRule) => {
           cssRule.use
             // matches "/mini-css-extract-plugin/"
-            ?.filter((loaderConfig) => loaderConfig?.loader.split(path.sep).slice(1, -1).some(p => p == "mini-css-extract-plugin"))
+            ?.filter((loaderConfig) => loaderConfig?.loader.match(/[\/\\]mini-css-extract-plugin[\/\\]/))
             .forEach((loaderConfig) => {
               loaderConfig.options = { publicPath: '/static-files/' };
               cssRuleFixed = true;
