@@ -1,4 +1,3 @@
-import os
 import pytest
 
 import numpy as np
@@ -165,10 +164,9 @@ def test_from_recipe_config_fails_without_target_col(tmp_path, monkeypatch):
             split_step._validate_and_apply_step_config()
 
 
-def test_from_recipe_config_works_with_target_col(tmp_path):
-    with mock.patch.dict(
-        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
-    ), mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
+def test_from_recipe_config_works_with_target_col(tmp_path, monkeypatch):
+    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_path))
+    with mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
         assert SplitStep.from_recipe_config({"target_col": "fake_col"}, "fake_root") is not None
 
 
