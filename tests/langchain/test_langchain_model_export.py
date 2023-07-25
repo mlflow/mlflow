@@ -414,10 +414,8 @@ def test_log_and_load_retriever_chain(tmp_path):
 
     # Log the RetrieverChain
     def load_retriever(persist_directory):
-        # pylint: disable=lazy-builtin-import
-        from typing import List
+        from typing import List  # pylint: disable=lazy-builtin-import
 
-        # pylint: enable=lazy-builtin-import
         import numpy as np
         from langchain.embeddings.base import Embeddings
         from pydantic import BaseModel

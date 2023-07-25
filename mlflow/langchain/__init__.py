@@ -56,7 +56,6 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
-from .retriever_chain import RetrieverChain
 
 logger = logging.getLogger(mlflow.__name__)
 

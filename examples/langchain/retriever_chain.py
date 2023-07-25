@@ -14,7 +14,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
     persist_dir = os.path.join(temp_dir, "faiss_index")
 
     # Create the vector db, persist the db to a local fs folder
-    loader = TextLoader("/Users/liang.zhang/mlflow/tests/langchain/state_of_the_union.txt")
+    loader = TextLoader("tests/langchain/state_of_the_union.txt")
     documents = loader.load()
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
     docs = text_splitter.split_documents(documents)
@@ -23,7 +23,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
     db.save_local(persist_dir)
 
     # Create the RetrieverChain chain
-    retriever_chain = mlflow.langchain.retriever_chain.RetrieverChain(retriever=db.as_retriever())
+    retriever_chain = mlflow.langchain.RetrieverChain(retriever=db.as_retriever())
 
     # Log the retriever chain
     def load_retriever(persist_directory):
@@ -41,4 +41,4 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
 # Load the retriever chain
 loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-loaded_model.predict([{"query": "What did the president say about Ketanji Brown Jackson"}])
+print(loaded_model.predict([{"query": "What did the president say about Ketanji Brown Jackson"}]))

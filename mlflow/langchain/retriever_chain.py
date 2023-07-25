@@ -12,15 +12,16 @@ from langchain.schema import BaseRetriever, Document
 from pydantic import Extra, Field
 
 
+@experimental
 class RetrieverChain(Chain):
 
     """
-    Chain for wrapping a retriever for logging purpose.
+    Chain that wraps a retriever for use with MLflow.
 
     The MLflow ``langchain`` flavor provides the functionality to log a retriever object and
     evaluate it individually. This is useful if you want to evaluate the quality of the
     relevant documents returned by a retriever object without directing these documents
-    through a language model (LLM) to yield a summarized response.
+    through a large language model (LLM) to yield a summarized response.
 
     In order to log the retriever object in the ``langchain`` flavor, the retriever object
     needs to be wrapped within a ``RetrieverChain``.
@@ -115,10 +116,10 @@ class RetrieverChain(Chain):
             raise ValueError("File type must be json or yaml")
 
         # Override default 'verbose' and 'memory' for the chain
-        if "verbose" in kwargs:
-            config["verbose"] = kwargs.pop("verbose")
-        if "memory" in kwargs:
-            config["memory"] = kwargs.pop("memory")
+        if verbose := kwargs.pop("verbose", None):
+            config["verbose"] = verbose
+        if memory := kwargs.pop("memory", None):
+            config["memory"] = memory
 
         if "_type" not in config:
             raise ValueError("Must specify a chain Type in config")

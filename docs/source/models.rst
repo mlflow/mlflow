@@ -2348,7 +2348,7 @@ can be provided through the ``log_model`` function's parameters ``persist_dir`` 
 
 The ``persist_dir`` parameter must contain the storage location, while the ``loader_fn`` parameter requires a Python function
 taking ``persist_dir`` as an input and returning a retriever object. Once these are defined, MLflow logs the contents of the
-``persist_dir`` as an artifact and serializes the ``loader_fn`` using pickle, also logging it as an artifact.
+``persist_dir`` as an artifact and serializes the ``loader_fn`` using ``cloudpickle``, also logging it as an artifact.
 
 See the following example for more details.
 
@@ -2364,7 +2364,7 @@ Logging a retriever and evaluate it individually
 
 The ``langchain`` flavor provides the functionality to log a retriever object and evaluate it individually. This is useful if
 you want to evaluate the quality of the relevant documents returned by a retriever object without directing these documents
-through a language model (LLM) to yield a summarized response.
+through a large language model (LLM) to yield a summarized response.
 
 In order to log the retriever object in the ``langchain`` flavor, the retriever object needs to be wrapped within a
 :py:class:`mlflow.langchain.RetrieverChain`. When calling the ``log_model`` function, it is also required to specify ``persist_dir``
