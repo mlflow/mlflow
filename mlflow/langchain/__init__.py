@@ -11,7 +11,6 @@ LangChain (native) format
 .. _LangChain:
     https://python.langchain.com/en/latest/index.html
 """
-import json
 import logging
 import os
 import shutil
@@ -19,18 +18,17 @@ import types
 from packaging import version
 from typing import Any, Dict, List, Union
 
-import cloudpickle
 import pandas as pd
+import cloudpickle
+import json
 import yaml
 
 import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import _MLFLOW_TESTING
-from mlflow.langchain.retriever_chain import RetrieverChain
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
-from mlflow.openai.utils import TEST_CONTENT
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
@@ -55,7 +53,6 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-
 
 logger = logging.getLogger(mlflow.__name__)
 
@@ -123,6 +120,7 @@ def _get_map_of_special_chain_class_name_to_kwargs_name():
         RetrievalQA,
         SQLDatabaseChain,
     )
+    from mlflow.langchain import RetrieverChain
 
     return {
         RetrievalQA.__name__: "retriever",
@@ -585,6 +583,7 @@ def _load_model(
     persist_dir=None,
 ):
     from langchain.chains.loading import load_chain
+    from mlflow.langchain import RetrieverChain
 
     special_chains = _get_map_of_special_chain_class_name_to_kwargs_name()
 
@@ -651,7 +650,8 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
 
     def predict(self, data):
         import langchain
-
+        from mlflow.langchain import RetrieverChain
+        from mlflow.openai.utils import TEST_CONTENT
         from tests.langchain.test_langchain_model_export import _mock_async_request
 
         if isinstance(

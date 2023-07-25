@@ -1,16 +1,17 @@
-import importlib
-import json
 import os
 import shutil
-import sqlite3
-from contextlib import contextmanager
-from typing import Any, Dict, List, Mapping, Optional
-
 import langchain
-import numpy as np
-import openai
+import mlflow
 import pytest
 import transformers
+import json
+import importlib
+import sqlite3
+
+import numpy as np
+import openai
+from contextlib import contextmanager
+from packaging import version
 from langchain import SQLDatabase
 from langchain.chains import (
     APIChain,
@@ -34,13 +35,10 @@ from langchain.prompts import PromptTemplate
 from langchain.requests import TextRequestsWrapper
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
-from packaging import version
 from pydantic import BaseModel
 from pyspark.sql import SparkSession
-
-import mlflow
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow.deployments import PredictionsResponse
+from typing import Any, List, Mapping, Optional, Dict
+from tests.helper_functions import pyfunc_serve_and_score_model
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.retriever_chain import RetrieverChain
 from mlflow.openai.utils import (
@@ -49,7 +47,8 @@ from mlflow.openai.utils import (
     _mock_request,
     _MockResponse,
 )
-from tests.helper_functions import pyfunc_serve_and_score_model
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+from mlflow.deployments import PredictionsResponse
 
 
 @contextmanager
