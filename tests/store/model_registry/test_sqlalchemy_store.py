@@ -1,4 +1,5 @@
 from unittest import mock
+import time
 import uuid
 import pytest
 
@@ -883,6 +884,7 @@ def test_search_model_versions_order_by_simple(store):
     for name in set(names):
         _rm_maker(store, name)
     for i in range(6):
+        time.sleep(0.001)  # sleep to ensure each model version has a different creation_time
         _mv_maker(store, name=names[i], source=sources[i], run_id=run_ids[i])
 
     # by default order by last_updated_timestamp DESC
