@@ -95,7 +95,7 @@ jobs:
       - uses: ./.github/actions/untracked
 
   python:
-    # if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
@@ -104,6 +104,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
