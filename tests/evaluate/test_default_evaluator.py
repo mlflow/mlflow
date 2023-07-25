@@ -2006,8 +2006,10 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
     assert logged_data["toxicity"][0] < 0.5
     assert logged_data["toxicity"][1] < 0.5
     assert logged_data["perplexity"][0] > logged_data["perplexity"][1]
-    for grade in logged_data["flesch_kincaid_grade_level"] + logged_data["ari_grade_level"]:
-        assert isinstance(grade, (int, float))
+    for grade in logged_data["flesch_kincaid_grade_level"]:
+        assert isinstance(grade, float)
+    for grade in logged_data["ari_grade_level"]:
+        assert isinstance(grade, float)
 
     if with_targets:
         assert logged_data["answer"].tolist() == ["words random", "This is a sentence."]
