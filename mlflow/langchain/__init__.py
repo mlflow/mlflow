@@ -11,6 +11,7 @@ LangChain (native) format
 .. _LangChain:
     https://python.langchain.com/en/latest/index.html
 """
+import importlib
 import logging
 import os
 import shutil
@@ -84,6 +85,9 @@ _UNSUPPORTED_MODEL_WARNING_MESSAGE = (
 _UNSUPPORTED_LANGCHAIN_VERSION_ERROR_MESSAGE = (
     "Saving {instance_type} models is only supported in langchain 0.0.194 and above."
 )
+
+_retriever_chain = importlib.import_module("mlflow.langchain.retriever_chain")
+RetrieverChain = getattr(_retriever_chain, "RetrieverChain")
 
 __all__ = [
     "log_model",
