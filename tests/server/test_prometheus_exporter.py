@@ -1,6 +1,3 @@
-import os
-from unittest import mock
-
 import pytest
 
 
@@ -8,12 +5,11 @@ from mlflow.server.prometheus_exporter import activate_prometheus_exporter
 
 
 @pytest.fixture(autouse=True)
-def mock_settings_env_vars(tmp_path):
-    with mock.patch.dict(os.environ, {"PROMETHEUS_MULTIPROC_DIR": str(tmp_path)}):
-        yield
+def mock_settings_env_vars(tmp_path, monkeypatch):
+    monkeypatch.setenv("PROMETHEUS_MULTIPROC_DIR", str(tmp_path))
 
 
-@pytest.fixture()
+@pytest.fixture
 def app():
     from mlflow.server import app
 
@@ -21,7 +17,7 @@ def app():
         yield app
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_client(app):
     with app.test_client() as c:
         yield c

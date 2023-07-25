@@ -559,7 +559,7 @@ langchain:
   package_info:
     pip_release: "langchain"
     install_dev: |
-      pip install git+https://github.com/hwchase17/langchain
+      pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
   models:
     minimum: "0.0.169"
     maximum: "0.0.232"

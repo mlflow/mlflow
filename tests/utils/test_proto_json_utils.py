@@ -396,12 +396,14 @@ def test_parse_tf_serving_single_array():
     schema = Schema([TensorSpec(np.dtype("float32"), [-1], "a")])
     instance_result = parse_tf_serving_input(tfserving_instances, schema)
     assert isinstance(instance_result, dict)
-    assert len(instance_result.keys()) == 1 and "a" in instance_result
+    assert len(instance_result.keys()) == 1
+    assert "a" in instance_result
     assert_result(instance_result["a"], np.array(arr, dtype="float32"))
 
     input_result = parse_tf_serving_input(tfserving_inputs, schema)
     assert isinstance(input_result, dict)
-    assert len(input_result.keys()) == 1 and "a" in input_result
+    assert len(input_result.keys()) == 1
+    assert "a" in input_result
     assert_result(input_result["a"], np.array(arr, dtype="float32"))
 
 

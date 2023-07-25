@@ -368,7 +368,7 @@ def _wait_for(submitted_run_obj):
             _maybe_set_run_terminated(active_run, "FINISHED")
         else:
             _maybe_set_run_terminated(active_run, "FAILED")
-            raise ExecutionException("Run (ID '%s') failed" % run_id)
+            raise ExecutionException(f"Run (ID '{run_id}') failed")
     except KeyboardInterrupt:
         _logger.error("=== Run (ID '%s') interrupted, cancelling run ===", run_id)
         submitted_run_obj.cancel()

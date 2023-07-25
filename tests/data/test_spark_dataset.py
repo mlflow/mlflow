@@ -13,7 +13,7 @@ from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
 
-@pytest.fixture()
+@pytest.fixture
 def spark_session(tmp_path):
     from pyspark.sql import SparkSession
 
