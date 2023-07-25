@@ -1989,7 +1989,6 @@ def language_model(inputs: list[str]) -> list[str]:
 def validate_question_answering_logged_data(logged_data, with_targets=True):
     columns = {
         "question",
-        "answer",
         "outputs",
         "toxicity",
         "flesch_kincaid_grade_level",
@@ -1997,7 +1996,7 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
         "perplexity",
     }
     if with_targets:
-        columns.union({"answer"})
+        columns = columns.union({"answer"})
 
     assert set(logged_data.columns.tolist()) == columns
 
@@ -2110,7 +2109,7 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
         "perplexity",
     }
     if with_targets:
-        columns.union({"summary", "rouge1", "rouge2", "rougeL", "rougeLsum"})
+        columns = columns.union({"summary", "rouge1", "rouge2", "rougeL", "rougeLsum"})
 
     assert set(logged_data.columns.tolist()) == columns
 

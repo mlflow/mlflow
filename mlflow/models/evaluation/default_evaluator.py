@@ -1174,6 +1174,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _calculate_perplexity(self, predictions):
         try:
+            _logger.info("Loading perplexity metric:")
             import evaluate
 
             perplexity = evaluate.load("perplexity", module_type="metric")
@@ -1183,12 +1184,14 @@ class DefaultEvaluator(ModelEvaluator):
             )
             return
 
+        _logger.info("Computing perplexity metric:")
         results = perplexity.compute(predictions=predictions, model_id="gpt2")
         self.metrics.update({"mean_perplexity": results["mean_perplexity"]})
         self.metrics_dict.update({"perplexity": results["perplexities"]})
 
     def _calculate_toxicity(self, predictions):
         try:
+            _logger.info("Loading toxicity metric:")
             import evaluate
 
             toxicity = evaluate.load("toxicity", module_type="measurement")
@@ -1198,6 +1201,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
             return
 
+        _logger.info("Computing toxicity metric:")
         results = toxicity.compute(predictions=predictions)
         self.metrics_dict.update({"toxicity": results["toxicity"]})
         results = toxicity.compute(predictions=predictions, aggregation="ratio")
@@ -1212,11 +1216,13 @@ class DefaultEvaluator(ModelEvaluator):
             )
             return
 
+        _logger.info("Computing flesch kincaid metric:")
         metrics = [textstat.flesch_kincaid_grade(prediction) for prediction in predictions]
         self.metrics_dict.update({"flesch_kincaid_grade_level": metrics})
         average_grade_level = {"mean_flesch_kincaid_grade_level": sum(metrics) / len(metrics)}
         self.metrics.update(average_grade_level)
 
+        _logger.info("Computing automated readability index metric:")
         metrics = [textstat.automated_readability_index(prediction) for prediction in predictions]
         self.metrics_dict.update({"ari_grade_level": metrics})
         average_grade_level = {"mean_ari_grade_level": sum(metrics) / len(metrics)}
