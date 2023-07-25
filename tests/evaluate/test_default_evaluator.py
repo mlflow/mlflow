@@ -1987,27 +1987,19 @@ def language_model(inputs: list[str]) -> list[str]:
 
 
 def validate_question_answering_logged_data(logged_data, with_targets=True):
+    columns = {
+        "question",
+        "answer",
+        "outputs",
+        "toxicity",
+        "flesch_kincaid_grade_level",
+        "ari_grade_level",
+        "perplexity",
+    }
     if with_targets:
-        columns = [
-            "question",
-            "answer",
-            "outputs",
-            "toxicity",
-            "flesch_kincaid_grade_level",
-            "ari_grade_level",
-            "perplexity",
-        ]
-    else:
-        columns = [
-            "question",
-            "outputs",
-            "toxicity",
-            "flesch_kincaid_grade_level",
-            "ari_grade_level",
-            "perplexity",
-        ]
+        columns.union({"answer"})
 
-    assert logged_data.columns.tolist() == columns
+    assert set(logged_data.columns.tolist()) == columns
 
     assert logged_data["question"].tolist() == ["words random", "This is a sentence."]
     assert logged_data["outputs"].tolist() == ["words random", "This is a sentence."]
@@ -2107,31 +2099,18 @@ def test_evaluate_question_answering_without_targets():
 
 
 def validate_text_summarization_logged_data(logged_data, with_targets=True):
+    columns = {
+        "text",
+        "outputs",
+        "toxicity",
+        "flesch_kincaid_grade_level",
+        "ari_grade_level",
+        "perplexity",
+    }
     if with_targets:
-        columns = [
-            "text",
-            "summary",
-            "outputs",
-            "rouge1",
-            "rouge2",
-            "rougeL",
-            "rougeLsum",
-            "toxicity",
-            "flesch_kincaid_grade_level",
-            "ari_grade_level",
-            "perplexity",
-        ]
-    else:
-        columns = [
-            "text",
-            "outputs",
-            "toxicity",
-            "flesch_kincaid_grade_level",
-            "ari_grade_level",
-            "perplexity",
-        ]
+        columns.union({"summary", "rouge1", "rouge2", "rougeL", "rougeLsum"})
 
-    assert logged_data.columns.tolist() == columns
+    assert set(logged_data.columns.tolist()) == columns
 
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["outputs"].tolist() == ["a", "b"]
@@ -2366,8 +2345,10 @@ def test_evaluate_text_custom_metrics():
     assert logged_data["outputs"].tolist() == ["a", "b"]
     assert logged_data["toxicity"][0] < 0.5
     assert logged_data["toxicity"][1] < 0.5
-    for grade in logged_data["flesch_kincaid_grade_level"] + logged_data["ari_grade_level"]:
-        assert isinstance(grade, (int, float))
+    for grade in logged_data["flesch_kincaid_grade_level"]:
+        assert isinstance(grade, float)
+    for grade in logged_data["ari_grade_level"]:
+        assert isinstance(grade, float)
     assert set(results.metrics.keys()) == {
         "accuracy",
         "mean_perplexity",
