@@ -16,9 +16,9 @@ from langchain import SQLDatabase
 from langchain.chains import (
     APIChain,
     ConversationChain,
-    HypotheticalDocumentEmbedder,
     LLMChain,
     RetrievalQA,
+    HypotheticalDocumentEmbedder,
     SQLDatabaseChain,
 )
 from langchain.chains.api import open_meteo_docs
@@ -42,10 +42,10 @@ from tests.helper_functions import pyfunc_serve_and_score_model
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.retriever_chain import RetrieverChain
 from mlflow.openai.utils import (
-    TEST_CONTENT,
     _mock_chat_completion_response,
     _mock_request,
     _MockResponse,
+    TEST_CONTENT,
 )
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
@@ -120,7 +120,9 @@ def create_qa_with_sources_chain():
 
 
 def create_openai_llmagent():
-    from langchain.agents import AgentType, initialize_agent, load_tools
+    from langchain.agents import load_tools
+    from langchain.agents import initialize_agent
+    from langchain.agents import AgentType
 
     # First, let's load the language model we're going to use to control the agent.
     llm = OpenAI(temperature=0)
