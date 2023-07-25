@@ -50,6 +50,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     AzureUserDelegationSAS,
     GcpOauthToken,
     Entity,
+    Job,
     Notebook,
     LineageHeaderInfo,
 )
@@ -67,7 +68,11 @@ from mlflow.store._unity_catalog.registry.utils import (
     uc_registered_model_tag_from_mlflow_tags,
     uc_model_version_tag_from_mlflow_tags,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_ID
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATABRICKS_JOB_ID,
+    MLFLOW_DATABRICKS_JOB_RUN_ID,
+    MLFLOW_DATABRICKS_NOTEBOOK_ID,
+)
 from mlflow.utils.proto_json_utils import message_to_json
 from tests.helper_functions import mock_http_200
 
@@ -405,6 +410,46 @@ def test_get_notebook_id_returns_expected_id(store):
     )
     test_run = Run(run_data=test_run_data, run_info=test_run_info)
     assert store._get_notebook_id(test_run) == "123"
+
+
+def test_get_job_id_returns_none_if_empty_run(store):
+    assert store._get_job_id(None) is None
+
+
+def test_get_job_id_returns_expected_id(store):
+    test_tag = RunTag(key=MLFLOW_DATABRICKS_JOB_ID, value="123")
+    test_run_data = RunData(tags=[test_tag])
+    test_run_info = RunInfo(
+        "run_uuid",
+        "experiment_id",
+        "user_id",
+        "status",
+        "start_time",
+        "end_time",
+        "lifecycle_stage",
+    )
+    test_run = Run(run_data=test_run_data, run_info=test_run_info)
+    assert store._get_job_id(test_run) == "123"
+
+
+def test_get_job_run_id_returns_none_if_empty_run(store):
+    assert store._get_job_run_id(None) is None
+
+
+def test_get_job_run_id_returns_expected_id(store):
+    test_tag = RunTag(key=MLFLOW_DATABRICKS_JOB_RUN_ID, value="123")
+    test_run_data = RunData(tags=[test_tag])
+    test_run_info = RunInfo(
+        "run_uuid",
+        "experiment_id",
+        "user_id",
+        "status",
+        "start_time",
+        "end_time",
+        "lifecycle_stage",
+    )
+    test_run = Run(run_data=test_run_data, run_info=test_run_info)
+    assert store._get_job_run_id(test_run) == "123"
 
 
 def test_get_workspace_id_returns_none_if_empty_headers(store):
@@ -778,8 +823,10 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
     )
     get_run_and_headers_retval = None, None
     if "run_id" in create_kwargs:
-        test_tag = RunTag(key=MLFLOW_DATABRICKS_NOTEBOOK_ID, value="321")
-        test_run_data = RunData(tags=[test_tag])
+        test_notebook_tag = RunTag(key=MLFLOW_DATABRICKS_NOTEBOOK_ID, value="321")
+        test_job_tag = RunTag(key=MLFLOW_DATABRICKS_JOB_ID, value="456")
+        test_job_run_tag = RunTag(key=MLFLOW_DATABRICKS_JOB_RUN_ID, value="789")
+        test_run_data = RunData(tags=[test_notebook_tag, test_job_tag, test_job_run_tag])
         test_run_info = RunInfo(
             "run_uuid",
             "experiment_id",
@@ -817,9 +864,13 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         if "run_id" in create_kwargs:
             _, run = store._get_run_and_headers("some_run_id")
             notebook_id = store._get_notebook_id(run)
+            job_id = store._get_job_id(run)
+            job_run_id = store._get_job_run_id(run)
             notebook_entity = Notebook(id=str(notebook_id))
-            entity = Entity(notebook=notebook_entity)
-            lineage_header_info = LineageHeaderInfo(entities=[entity])
+            job_entity = Job(id=str(job_id), job_run_id=str(job_run_id))
+            notebook_entity = Entity(notebook=notebook_entity)
+            job_entity = Entity(job=job_entity)
+            lineage_header_info = LineageHeaderInfo(entities=[notebook_entity, job_entity])
             expected_lineage_json = message_to_json(lineage_header_info)
             expected_lineage_header = base64.b64encode(expected_lineage_json.encode())
             assert expected_lineage_header.isascii()
