@@ -32,7 +32,11 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENV,
 )
 from mlflow.utils.process import ShellCommandException
-from mlflow.utils.conda import get_or_create_conda_env
+from mlflow.utils.conda import (
+    get_or_create_conda_env,
+    MLFLOW_CONDA_HOME,
+    MLFLOW_CONDA_CREATE_ENV_CMD,
+)
 from mlflow.utils import PYTHON_VERSION
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, validate_exit_status
@@ -277,50 +281,61 @@ def test_run_async():
 @pytest.mark.parametrize(
     ("mock_env", "expected_conda", "expected_activate"),
     [
-        ({"CONDA_EXE": "/abc/conda"}, "/abc/conda", "/abc/activate"),
         (
-            {mlflow.utils.conda.MLFLOW_CONDA_HOME: "/some/dir/"},
+            {"CONDA_EXE": "/abc/conda"},
+            "/abc/conda",
+            "/abc/activate",
+        ),
+        (
+            {MLFLOW_CONDA_HOME: "/some/dir/"},
             "/some/dir/bin/conda",
             "/some/dir/bin/activate",
         ),
     ],
 )
-def test_conda_path(mock_env, expected_conda, expected_activate):
+def test_conda_path(mock_env, expected_conda, expected_activate, monkeypatch):
     """Verify that we correctly determine the path to conda executables"""
-    with mock.patch.dict("os.environ", mock_env, clear=True):
-        assert mlflow.utils.conda.get_conda_bin_executable("conda") == expected_conda
-        assert mlflow.utils.conda.get_conda_bin_executable("activate") == expected_activate
+    monkeypatch.delenvs(["CONDA_EXE", MLFLOW_CONDA_HOME], raising=False)
+    monkeypatch.setenvs(mock_env)
+    assert mlflow.utils.conda.get_conda_bin_executable("conda") == expected_conda
+    assert mlflow.utils.conda.get_conda_bin_executable("activate") == expected_activate
 
 
 @pytest.mark.parametrize(
     ("mock_env", "expected_conda_env_create_path"),
     [
-        ({"CONDA_EXE": "/abc/conda"}, "/abc/conda"),
         (
-            {"CONDA_EXE": "/abc/conda", mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD: "mamba"},
+            {"CONDA_EXE": "/abc/conda"},
+            "/abc/conda",
+        ),
+        (
+            {"CONDA_EXE": "/abc/conda", MLFLOW_CONDA_CREATE_ENV_CMD: "mamba"},
             "/abc/mamba",
         ),
-        ({mlflow.utils.conda.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda"),
         (
-            {
-                mlflow.utils.conda.MLFLOW_CONDA_HOME: "/some/dir/",
-                mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD: "mamba",
-            },
+            {MLFLOW_CONDA_HOME: "/some/dir/"},
+            "/some/dir/bin/conda",
+        ),
+        (
+            {MLFLOW_CONDA_HOME: "/some/dir/", MLFLOW_CONDA_CREATE_ENV_CMD: "mamba"},
             "/some/dir/bin/mamba",
         ),
     ],
 )
-def test_find_conda_executables(mock_env, expected_conda_env_create_path):
+def test_find_conda_executables(mock_env, expected_conda_env_create_path, monkeypatch):
     """
     Verify that we correctly determine the path to executables to be used to
     create environments (for example, it could be mamba instead of conda)
     """
-    with mock.patch.dict("os.environ", mock_env, clear=True):
-        conda_env_create_path = mlflow.utils.conda._get_conda_executable_for_create_env()
-        assert conda_env_create_path == expected_conda_env_create_path
+    monkeypatch.delenvs(
+        ["CONDA_EXE", MLFLOW_CONDA_HOME, MLFLOW_CONDA_CREATE_ENV_CMD], raising=False
+    )
+    monkeypatch.setenvs(mock_env)
+    conda_env_create_path = mlflow.utils.conda._get_conda_executable_for_create_env()
+    assert conda_env_create_path == expected_conda_env_create_path
 
 
-def test_create_env_with_mamba():
+def test_create_env_with_mamba(monkeypatch):
     """
     Test that mamba is called when set, and that we fail when mamba is not available or is
     not working. We mock the calls so we do not actually execute mamba (which is not
@@ -344,18 +359,18 @@ def test_create_env_with_mamba():
 
     conda_env_path = os.path.join(TEST_PROJECT_DIR, "conda.yaml")
 
-    with mock.patch.dict("os.environ", {mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD: "mamba"}):
-        # Simulate success
-        with mock.patch("mlflow.utils.process._exec_cmd", side_effect=exec_cmd_mock):
-            mlflow.utils.conda.get_or_create_conda_env(conda_env_path)
+    monkeypatch.setenv(mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD, "mamba")
+    # Simulate success
+    with mock.patch("mlflow.utils.process._exec_cmd", side_effect=exec_cmd_mock):
+        mlflow.utils.conda.get_or_create_conda_env(conda_env_path)
 
-        # Simulate a non-working or non-existent mamba
-        with mock.patch("mlflow.utils.process._exec_cmd", side_effect=exec_cmd_mock_raise):
-            with pytest.raises(
-                ExecutionException,
-                match="You have set the env variable MLFLOW_CONDA_CREATE_ENV_CMD",
-            ):
-                mlflow.utils.conda.get_or_create_conda_env(conda_env_path)
+    # Simulate a non-working or non-existent mamba
+    with mock.patch("mlflow.utils.process._exec_cmd", side_effect=exec_cmd_mock_raise):
+        with pytest.raises(
+            ExecutionException,
+            match="You have set the env variable MLFLOW_CONDA_CREATE_ENV_CMD",
+        ):
+            mlflow.utils.conda.get_or_create_conda_env(conda_env_path)
 
 
 def test_conda_environment_cleaned_up_when_pip_fails(tmp_path):
