@@ -181,13 +181,15 @@ jobs:
           err=0
           trap 'err=1' ERR
 
-          for service in $(./tests/db/compose.sh config --services | grep '^mlflow-')
+          # SQLAlchemy < 2.0 doesn't support psycopg3
+          for service in $(./tests/db/compose.sh config --services | grep '^mlflow-' | grep -v 'psycopg3')
           do
             # Set `--no-TTY` to show container logs on GitHub Actions:
             ./tests/db/compose.sh run --rm --no-TTY $service pytest \
               tests/store/tracking/test_sqlalchemy_store.py \
               tests/store/model_registry/test_sqlalchemy_store.py \
               tests/db
+              ./tests/db/compose.sh down --volumes --remove-orphans
           done
 
           test $err = 0
