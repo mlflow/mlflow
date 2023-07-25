@@ -356,7 +356,7 @@ class SearchUtils:
                         "Found {}".format(key, token.value),
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                return token.value
+                return float(token.value)
             elif token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
