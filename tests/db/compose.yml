@@ -40,6 +40,7 @@ services:
       - postgresql
     extends:
       service: base
+    image: mlflow-psycopg3
     build:
       context: .
       dockerfile: Dockerfile.psycopg3
