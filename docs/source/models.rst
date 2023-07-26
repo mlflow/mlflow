@@ -2346,26 +2346,6 @@ Here are the two things you need to tell MLflow:
 
 After you define these, MLflow takes care of the rest, saving both the content in the ``persist_dir`` and pickling the ``loader_fn`` function.
 
-Here's an overview of how it works:
-
-.. code-block:: python
-    # assume you have a retriever object saved at '/path/to/retriever'
-
-
-    def load_retriever(persist_dir):
-        # Add logic here to load the retriever object from the persist_dir
-        pass
-
-
-    # log your model
-    retrievalQA = RetrievalQA.from_llm(...)
-    mlflow.langchain.log_model(
-        retrievalQA,
-        artifact_path="retrieval_qa",
-        persist_dir="/path/to/retriever",
-        loader_fn=load_retriever,
-    )
-
 Example: Log a LangChain RetrievalQA Chain
 
 .. literalinclude:: ../../examples/langchain/retrieval_qa_chain.py
@@ -2380,13 +2360,12 @@ The ``langchain`` flavor provides the functionality to log a retriever object an
 you want to evaluate the quality of the relevant documents returned by a retriever object without directing these documents
 through a large language model (LLM) to yield a summarized response.
 
-In order to log the retriever object in the ``langchain`` flavor, the retriever object needs to be wrapped within a
-:py:class:`mlflow.langchain.RetrieverChain`. When calling the ``log_model`` function, it is also required to specify ``persist_dir``
+In order to log the retriever object in the ``langchain`` flavor, it is also required to specify ``persist_dir``
 and ``loader_fn``, the same as logging the RetrievalQA chain. See the previous section for details about these parameters.
 
 See the following example for more details.
 
-Example: Log a LangChain RetrieverChain
+Example: Log a LangChain Retriever
 
 .. literalinclude:: ../../examples/langchain/retriever_chain.py
     :language: python
