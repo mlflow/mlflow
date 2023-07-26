@@ -244,6 +244,7 @@ def test_mlflow_artifacts_example(tmp_path):
 err=0
 trap 'err=1' ERR
 ./build.sh
+df -h
 docker-compose run -v ${{PWD}}/example.py:/app/example.py client python example.py
 docker-compose logs
 docker-compose down {rmi_option} --volumes --remove-orphans
