@@ -89,16 +89,6 @@ _UNSUPPORTED_LANGCHAIN_VERSION_ERROR_MESSAGE = (
 _retriever_chain = importlib.import_module("mlflow.langchain.retriever_chain")
 RetrieverChain = getattr(_retriever_chain, "RetrieverChain")
 
-__all__ = [
-    "log_model",
-    "save_model",
-    "load_model",
-    "get_default_conda_env",
-    "get_default_pip_requirements",
-    "RetrieverChain",
-    "FLAVOR_NAME",
-]
-
 
 def get_default_pip_requirements():
     """
