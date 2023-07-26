@@ -22,10 +22,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
     db = FAISS.from_documents(docs, embeddings)
     db.save_local(persist_dir)
 
-    # Create the RetrieverChain chain
-    retriever_chain = mlflow.langchain.RetrieverChain(retriever=db.as_retriever())
-
-    # Log the retriever chain
+    # Log the retriever
     def load_retriever(persist_directory):
         embeddings = OpenAIEmbeddings()
         vectorstore = FAISS.load_local(persist_directory, embeddings)
@@ -33,8 +30,8 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
     with mlflow.start_run() as run:
         logged_model = mlflow.langchain.log_model(
-            retriever_chain,
-            artifact_path="retriever_chain",
+            db.as_retriever(),
+            artifact_path="retriever",
             loader_fn=load_retriever,
             persist_dir=persist_dir,
         )

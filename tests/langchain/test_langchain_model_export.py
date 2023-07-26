@@ -410,10 +410,7 @@ def test_log_and_load_retriever_chain(tmp_path):
     persist_dir = str(tmp_path / "faiss_index")
     db.save_local(persist_dir)
 
-    # Create the RetrieverChain
-    retriever_chain = RetrieverChain(retriever=db.as_retriever())
-
-    # Log the RetrieverChain
+    # Define the loader_fn
     def load_retriever(persist_directory):
         from typing import List  # pylint: disable=lazy-builtin-import
 
@@ -441,10 +438,11 @@ def test_log_and_load_retriever_chain(tmp_path):
         vectorstore = FAISS.load_local(persist_directory, embeddings)
         return vectorstore.as_retriever()
 
+    # Log the retriever
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(
-            retriever_chain,
-            "retriever_chain",
+            db.as_retriever(),
+            "retriever",
             loader_fn=load_retriever,
             persist_dir=persist_dir,
         )
@@ -454,7 +452,7 @@ def test_log_and_load_retriever_chain(tmp_path):
 
     # Load the RetrieverChain
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
-    assert loaded_model == retriever_chain
+    assert loaded_model == RetrieverChain(retriever=db.as_retriever())
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     query = "What did the president say about Ketanji Brown Jackson"
@@ -611,7 +609,7 @@ def test_unsupported_class():
     llm = FakeLLM()
     with pytest.raises(
         MlflowException,
-        match="MLflow langchain flavor only supports logging subclasses of "
+        match="MLflow langchain flavor only supports subclasses of "
         + "langchain.chains.base.Chain",
     ):
         with mlflow.start_run():
