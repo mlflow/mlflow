@@ -1081,9 +1081,9 @@ def evaluate(
           precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
 
      - For question-answering models, the default evaluator logs:
-        - **metrics**: ``exact_match``, `mean_perplexity` (requires `evaluate`_, `pytorch`_,
-          `transformers`_), `toxicity_ratio` (requires `evaluate`_, `pytorch`_, `transformers`_),
-          `mean_ari_grade_level` (requires `textstat`_), `mean_flesch_kincaid_grade_level`
+        - **metrics**: ``exact_match``, `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
+          `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_, `transformers`_),
+          `mean_ari_grade_level`_ (requires `textstat`_), `mean_flesch_kincaid_grade_level`_
           (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in tabular format.
@@ -1113,10 +1113,10 @@ def evaluate(
             https://pypi.org/project/textstat
 
      - For text-summarization models, the default evaluator logs:
-        - **metrics**: `ROUGE`_ (requires `evaluate`_, `nltk`_, and `rouge_score` to be installed),
-          `mean_perplexity` (requires `evaluate`_, `pytorch`_,
-          `transformers`_), `toxicity_ratio` (requires `evaluate`_, `pytorch`_, `transformers`_),
-          `mean_ari_grade_level` (requires `textstat`_), `mean_flesch_kincaid_grade_level`
+        - **metrics**: `ROUGE`_ (requires `evaluate`_, `nltk`_, and `rouge_score`_ to be installed),
+          `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
+          `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_, `transformers`_),
+          `mean_ari_grade_level`_ (requires `textstat`_), `mean_flesch_kincaid_grade_level`_
           (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in the tabular format.
@@ -1155,9 +1155,9 @@ def evaluate(
             https://pypi.org/project/textstat
 
      - For text models, the default evaluator logs:
-        - **metrics**: `mean_perplexity` (requires `evaluate`_, `pytorch`_,
-          `transformers`_), `toxicity_ratio` (requires `evaluate`_, `pytorch`_, `transformers`_),
-          `mean_ari_grade_level` (requires `textstat`_), `mean_flesch_kincaid_grade_level`
+        - **metrics**: `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
+          `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_, `transformers`_),
+          `mean_ari_grade_level`_ (requires `textstat`_), `mean_flesch_kincaid_grade_level`_
           (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in tabular format.
