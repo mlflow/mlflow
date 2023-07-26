@@ -8,23 +8,12 @@ import mlflow
 audio = requests.get("https://www.nasa.gov/62283main_landing.wav").content
 
 task = "automatic-speech-recognition"
-architecture = "openai/whisper-small"
+architecture = "openai/whisper-tiny"
 
 model = transformers.WhisperForConditionalGeneration.from_pretrained(architecture)
 tokenizer = transformers.WhisperTokenizer.from_pretrained(architecture)
 feature_extractor = transformers.WhisperFeatureExtractor.from_pretrained(architecture)
-model.generation_config.alignment_heads = [
-    [5, 3],
-    [5, 9],
-    [8, 0],
-    [8, 4],
-    [8, 7],
-    [8, 8],
-    [9, 0],
-    [9, 7],
-    [9, 9],
-    [10, 5],
-]
+model.generation_config.alignment_heads = [[2, 2], [3, 0], [3, 2], [3, 3], [3, 4], [3, 5]]
 audio_transcription_pipeline = transformers.pipeline(
     task=task, model=model, tokenizer=tokenizer, feature_extractor=feature_extractor
 )
