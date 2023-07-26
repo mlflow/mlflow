@@ -2341,7 +2341,7 @@ Native LangChain requires the user to handle the serialization and deserializati
 
 Here are the two things you need to tell MLflow:
 
-1. Where the retriever object is stored on your computer (``persist_dir``).
+1. Where the retriever object is stored (``persist_dir``).
 2. How to load the retriever object from that location (``loader_fn``).
 
 After you define these, MLflow takes care of the rest, saving both the content in the ``persist_dir`` and pickling the ``loader_fn`` function.
