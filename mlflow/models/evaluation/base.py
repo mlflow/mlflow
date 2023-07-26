@@ -1081,11 +1081,30 @@ def evaluate(
           precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
 
      - For question-answering models, the default evaluator logs:
-        - **metrics**: ``exact_match``, mean_perplexity (requires `evaluate`_),
-          toxicity_ratio (requires `evaluate`_), mean_ari_grade_level (requires `textstat`_),
-          mean_flesch_kincaid_grade_level (requires `textstat`_).
+        - **metrics**: ``exact_match``, `mean_perplexity` (requires `evaluate`_, `pytorch`_,
+          `transformers`_), `toxicity_ratio` (requires `evaluate`_, `pytorch`_, `transformers`_),
+          `mean_ari_grade_level` (requires `textstat`_), `mean_flesch_kincaid_grade_level`
+          (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in tabular format.
+
+        .. _mean_perplexity:
+            https://huggingface.co/spaces/evaluate-metric/perplexity
+
+        .. _toxicity_ratio:
+            https://huggingface.co/spaces/evaluate-measurement/toxicity
+
+        .. _pytorch:
+            https://pytorch.org/get-started/locally/
+
+        .. _transformers:
+            https://huggingface.co/docs/transformers/installation
+
+        .. _mean_ari_grade_level:
+            https://en.wikipedia.org/wiki/Automated_readability_index
+
+        .. _mean_flesch_kincaid_grade_level:
+            https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level
 
         .. _evaluate:
             https://pypi.org/project/evaluate
@@ -1095,14 +1114,33 @@ def evaluate(
 
      - For text-summarization models, the default evaluator logs:
         - **metrics**: `ROUGE`_ (requires `evaluate`_, `nltk`_, and `rouge_score` to be installed),
-          mean_perplexity (requires `evaluate`_), toxicity_ratio (requires `evaluate`_),
-          mean_ari_grade_level (requires `textstat`_), mean_flesch_kincaid_grade_level
+          `mean_perplexity` (requires `evaluate`_, `pytorch`_,
+          `transformers`_), `toxicity_ratio` (requires `evaluate`_, `pytorch`_, `transformers`_),
+          `mean_ari_grade_level` (requires `textstat`_), `mean_flesch_kincaid_grade_level`
           (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in the tabular format.
 
         .. _ROUGE:
             https://huggingface.co/spaces/evaluate-metric/rouge
+
+        .. _mean_perplexity:
+            https://huggingface.co/spaces/evaluate-metric/perplexity
+
+        .. _toxicity_ratio:
+            https://huggingface.co/spaces/evaluate-measurement/toxicity
+
+        .. _pytorch:
+            https://pytorch.org/get-started/locally/
+
+        .. _transformers:
+            https://huggingface.co/docs/transformers/installation
+
+        .. _mean_ari_grade_level:
+            https://en.wikipedia.org/wiki/Automated_readability_index
+
+        .. _mean_flesch_kincaid_grade_level:
+            https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level
 
         .. _evaluate:
             https://pypi.org/project/evaluate
@@ -1117,14 +1155,33 @@ def evaluate(
             https://pypi.org/project/textstat
 
      - For text models, the default evaluator logs:
-        - **metrics**: mean_perplexity (requires `evaluate`_), toxicity_ratio
-          (requires `evaluate`_), mean_ari_grade_level (requires `textstat`_),
-          mean_flesch_kincaid_grade_level (requires `textstat`_).
+        - **metrics**: `mean_perplexity` (requires `evaluate`_, `pytorch`_,
+          `transformers`_), `toxicity_ratio` (requires `evaluate`_, `pytorch`_, `transformers`_),
+          `mean_ari_grade_level` (requires `textstat`_), `mean_flesch_kincaid_grade_level`
+          (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in tabular format.
 
         .. _evaluate:
             https://pypi.org/project/evaluate
+
+        .. _mean_perplexity:
+            https://huggingface.co/spaces/evaluate-metric/perplexity
+
+        .. _toxicity_ratio:
+            https://huggingface.co/spaces/evaluate-measurement/toxicity
+
+        .. _pytorch:
+            https://pytorch.org/get-started/locally/
+
+        .. _transformers:
+            https://huggingface.co/docs/transformers/installation
+
+        .. _mean_ari_grade_level:
+            https://en.wikipedia.org/wiki/Automated_readability_index
+
+        .. _mean_flesch_kincaid_grade_level:
+            https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level
 
         .. _textstat:
             https://pypi.org/project/textstat
