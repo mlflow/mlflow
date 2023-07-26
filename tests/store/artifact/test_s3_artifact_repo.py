@@ -106,20 +106,23 @@ def test_get_s3_client_hits_cache(s3_artifact_root):
 @pytest.mark.parametrize(
     ("ignore_tls_env", "verify"), [("0", None), ("1", False), ("true", False), ("false", None)]
 )
-def test_get_s3_client_verify_param_set_correctly(s3_artifact_root, ignore_tls_env, verify):
-    with mock.patch.dict("os.environ", {"MLFLOW_S3_IGNORE_TLS": ignore_tls_env}, clear=True):
-        with mock.patch("boto3.client") as mock_get_s3_client:
-            repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
-            repo._get_s3_client()
-            mock_get_s3_client.assert_called_with(
-                "s3",
-                config=ANY,
-                endpoint_url=ANY,
-                verify=verify,
-                aws_access_key_id=None,
-                aws_secret_access_key=None,
-                aws_session_token=None,
-            )
+def test_get_s3_client_verify_param_set_correctly(
+    s3_artifact_root, ignore_tls_env, verify, monkeypatch
+):
+    monkeypatch.delenv("MLFLOW_S3_IGNORE_TLS", raising=False)
+    monkeypatch.setenv("MLFLOW_S3_IGNORE_TLS", ignore_tls_env)
+    with mock.patch("boto3.client") as mock_get_s3_client:
+        repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+        repo._get_s3_client()
+        mock_get_s3_client.assert_called_with(
+            "s3",
+            config=ANY,
+            endpoint_url=ANY,
+            verify=verify,
+            aws_access_key_id=None,
+            aws_secret_access_key=None,
+            aws_session_token=None,
+        )
 
 
 def test_s3_creds_passed_to_client(s3_artifact_root):
