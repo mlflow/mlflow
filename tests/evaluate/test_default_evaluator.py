@@ -1996,7 +1996,7 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
         "perplexity",
     }
     if with_targets:
-        columns = columns.union({"answer"})
+        columns.update({"answer"})
 
     assert set(logged_data.columns.tolist()) == columns
 
@@ -2005,10 +2005,8 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
     assert logged_data["toxicity"][0] < 0.5
     assert logged_data["toxicity"][1] < 0.5
     assert logged_data["perplexity"][0] > logged_data["perplexity"][1]
-    for grade in logged_data["flesch_kincaid_grade_level"]:
-        assert isinstance(grade, float)
-    for grade in logged_data["ari_grade_level"]:
-        assert isinstance(grade, float)
+    assert all(isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level"])
+    assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level"])
 
     if with_targets:
         assert logged_data["answer"].tolist() == ["words random", "This is a sentence."]
@@ -2109,7 +2107,7 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
         "perplexity",
     }
     if with_targets:
-        columns = columns.union({"summary", "rouge1", "rouge2", "rougeL", "rougeLsum"})
+        columns.update({"summary", "rouge1", "rouge2", "rougeL", "rougeLsum"})
 
     assert set(logged_data.columns.tolist()) == columns
 
@@ -2117,8 +2115,8 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
     assert logged_data["outputs"].tolist() == ["a", "b"]
     assert logged_data["toxicity"][0] < 0.5
     assert logged_data["toxicity"][1] < 0.5
-    for grade in logged_data["flesch_kincaid_grade_level"] + logged_data["ari_grade_level"]:
-        assert isinstance(grade, (int, float))
+    assert all(isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level"])
+    assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level"])
 
     if with_targets:
         assert logged_data["summary"].tolist() == ["a", "b"]
@@ -2346,10 +2344,8 @@ def test_evaluate_text_custom_metrics():
     assert logged_data["outputs"].tolist() == ["a", "b"]
     assert logged_data["toxicity"][0] < 0.5
     assert logged_data["toxicity"][1] < 0.5
-    for grade in logged_data["flesch_kincaid_grade_level"]:
-        assert isinstance(grade, float)
-    for grade in logged_data["ari_grade_level"]:
-        assert isinstance(grade, float)
+    assert all(isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level"])
+    assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level"])
     assert set(results.metrics.keys()) == {
         "accuracy",
         "mean_perplexity",
