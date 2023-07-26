@@ -259,7 +259,6 @@ def test_docker_user_specified_env_vars(volumes, environment, expected, os_envir
     monkeypatch.setenvs(os_environ)
     if "should_crash" in expected:
         expected.remove("should_crash")
-        monkeypatch.setenvs(os_environ)
         with pytest.raises(MlflowException, match="This project expects"):
             _get_docker_command(image, active_run, None, volumes, environment)
     else:
