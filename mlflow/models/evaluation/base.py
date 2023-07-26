@@ -1082,10 +1082,10 @@ def evaluate(
 
      - For question-answering models, the default evaluator logs:
         - **metrics**: ``exact_match``, mean_perplexity (requires `evaluate`_),
-          toxicity_ratio (requires `evaluate`_), ari_mean_grade_level (requires `textstat`_),
-          flesch_kincaid_mean_grade_level (requires `textstat`_).
-        - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
-          argument is supplied) of the model in tabular format.
+          toxicity_ratio (requires `evaluate`_), mean_ari_grade_level (requires `textstat`_),
+          mean_flesch_kincaid_grade_level (requires `textstat`_).
+        - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
+          argument is supplied), and per-row metrics of the model in tabular format.
 
         .. _evaluate:
             https://pypi.org/project/evaluate
@@ -1096,10 +1096,10 @@ def evaluate(
      - For text-summarization models, the default evaluator logs:
         - **metrics**: `ROUGE`_ (requires `evaluate`_, `nltk`_, and `rouge_score` to be installed),
           mean_perplexity (requires `evaluate`_), toxicity_ratio (requires `evaluate`_),
-          ari_mean_grade_level (requires `textstat`_), flesch_kincaid_mean_grade_level
+          mean_ari_grade_level (requires `textstat`_), mean_flesch_kincaid_grade_level
           (requires `textstat`_).
-        - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
-          argument is supplied) of the model in the tabular format.
+        - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
+          argument is supplied), and per-row metrics of the model in the tabular format.
 
         .. _ROUGE:
             https://huggingface.co/spaces/evaluate-metric/rouge
@@ -1118,10 +1118,10 @@ def evaluate(
 
      - For text models, the default evaluator logs:
         - **metrics**: mean_perplexity (requires `evaluate`_), toxicity_ratio
-          (requires `evaluate`_), ari_mean_grade_level (requires `textstat`_),
-          flesch_kincaid_mean_grade_level (requires `textstat`_).
-        - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
-          argument is supplied) of the model in tabular format.
+          (requires `evaluate`_), mean_ari_grade_level (requires `textstat`_),
+          mean_flesch_kincaid_grade_level (requires `textstat`_).
+        - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
+          argument is supplied), and per-row metrics of the model in tabular format.
 
         .. _evaluate:
             https://pypi.org/project/evaluate
