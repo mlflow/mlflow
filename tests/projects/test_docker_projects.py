@@ -262,7 +262,6 @@ def test_docker_user_specified_env_vars(volumes, environment, expected, os_envir
         with pytest.raises(MlflowException, match="This project expects"):
             _get_docker_command(image, active_run, None, volumes, environment)
     else:
-        monkeypatch.setenvs(os_environ)
         docker_command = _get_docker_command(image, active_run, None, volumes, environment)
         for exp_type, expected in expected:
             assert expected in docker_command
