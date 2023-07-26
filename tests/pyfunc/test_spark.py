@@ -25,6 +25,7 @@ from pyspark.sql.types import (
     StructType,
     StructField,
 )
+import pyspark
 from pyspark.sql.utils import AnalysisException
 from sklearn import datasets
 from sklearn.neighbors import KNeighborsClassifier

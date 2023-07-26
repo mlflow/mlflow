@@ -298,12 +298,15 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install tensorflow pyspark
+          pip install tensorflow pyspark grpcio-status
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
-          pytest --durations=30 tests/pyfunc
+          pytest --durations=30 tests/pyfunc --ignore tests/pyfunc/test_spark_connect.py
+          # Tests in test_spark_connect.py fail if they run with a spark session created by
+          # other tests. To avoid this, run them in a separate session.
+          pytest tests/pyfunc/test_spark_connect.py
       - uses: ./.github/actions/untracked
 
   sagemaker:
