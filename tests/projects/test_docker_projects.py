@@ -256,6 +256,7 @@ def test_docker_user_specified_env_vars(volumes, environment, expected, os_envir
     image = mock.MagicMock()
     image.tags = ["image:tag"]
 
+    monkeypatch.setenvs(os_environ)
     if "should_crash" in expected:
         expected.remove("should_crash")
         monkeypatch.setenvs(os_environ)
