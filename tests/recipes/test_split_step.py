@@ -1,4 +1,3 @@
-import os
 import pytest
 
 import numpy as np
@@ -165,10 +164,9 @@ def test_from_recipe_config_fails_without_target_col(tmp_path, monkeypatch):
             split_step._validate_and_apply_step_config()
 
 
-def test_from_recipe_config_works_with_target_col(tmp_path):
-    with mock.patch.dict(
-        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
-    ), mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
+def test_from_recipe_config_works_with_target_col(tmp_path, monkeypatch):
+    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_path))
+    with mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
         assert SplitStep.from_recipe_config({"target_col": "fake_col"}, "fake_root") is not None
 
 
@@ -270,7 +268,7 @@ def test_custom_split_method(tmp_recipe_root_path: Path, tmp_recipe_exec_path: P
 
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
         recipe: "regression/v1"
         target_col: "y"
         primary_metric: "f1_score"
@@ -279,14 +277,12 @@ def test_custom_split_method(tmp_recipe_root_path: Path, tmp_recipe_exec_path: P
             step: "split"
         experiment:
             name: "demo"
-            tracking_uri: {tracking_uri}
+            tracking_uri: {mlflow.get_tracking_uri()}
         steps:
             split:
                 using: custom
                 split_method: split_method
-        """.format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+        """
     )
 
     m_split = Mock()
@@ -334,7 +330,7 @@ def test_custom_error_split_method(tmp_recipe_root_path: Path, tmp_recipe_exec_p
 
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
         recipe: "regression/v1"
         target_col: "y"
         primary_metric: "f1_score"
@@ -343,14 +339,12 @@ def test_custom_error_split_method(tmp_recipe_root_path: Path, tmp_recipe_exec_p
             step: "split"
         experiment:
             name: "demo"
-            tracking_uri: {tracking_uri}
+            tracking_uri: {mlflow.get_tracking_uri()}
         steps:
             split:
                 using: custom
                 split_method: split_method
-        """.format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+        """
     )
 
     m_split = Mock()

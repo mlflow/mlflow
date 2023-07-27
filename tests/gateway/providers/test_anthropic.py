@@ -58,8 +58,7 @@ def parsed_completions_response():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("candidate_count", [1, None])
-async def test_completions(candidate_count):
+async def test_completions():
     resp = completions_response()
     config = completions_config()
     with mock.patch(
@@ -67,8 +66,6 @@ async def test_completions(candidate_count):
     ) as mock_post:
         provider = AnthropicProvider(RouteConfig(**config))
         payload = {"prompt": "How does a car work?", "max_tokens": 200}
-        if candidate_count is not None:
-            payload["candidate_count"] = candidate_count
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == parsed_completions_response()
         mock_post.assert_called_once()

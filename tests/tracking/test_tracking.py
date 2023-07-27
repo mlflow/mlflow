@@ -646,7 +646,8 @@ def test_with_startrun():
     t1 = get_current_time_millis()
     run_info = mlflow.tracking._get_store().get_run(run_id).info
     assert run_info.status == "FINISHED"
-    assert t0 <= run_info.end_time and run_info.end_time <= t1
+    assert t0 <= run_info.end_time
+    assert run_info.end_time <= t1
     assert mlflow.active_run() is None
 
 

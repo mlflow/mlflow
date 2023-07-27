@@ -627,12 +627,12 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
                 ),
             )
         backend_store._hard_delete_run(run_id)
-        click.echo("Run with ID %s has been permanently deleted." % str(run_id))
+        click.echo(f"Run with ID {str(run_id)} has been permanently deleted.")
 
     if not skip_experiments:
         for experiment_id in experiment_ids:
             backend_store._hard_delete_experiment(experiment_id)
-            click.echo("Experiment with ID %s has been permanently deleted." % str(experiment_id))
+            click.echo(f"Experiment with ID {str(experiment_id)} has been permanently deleted.")
 
 
 @cli.command(short_help="Prints out useful information for debugging issues with MLflow.")

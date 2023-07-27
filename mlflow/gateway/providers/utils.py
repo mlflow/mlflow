@@ -2,6 +2,7 @@ import aiohttp
 from typing import Dict, Any
 from fastapi import HTTPException
 
+from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.utils.uri import append_to_uri_path
 
 
@@ -18,7 +19,8 @@ async def send_request(headers: Dict[str, str], base_url: str, path: str, payloa
     """
     async with aiohttp.ClientSession(headers=headers) as session:
         url = append_to_uri_path(base_url, path)
-        async with session.post(url, json=payload) as response:
+        timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
+        async with session.post(url, json=payload, timeout=timeout) as response:
             js = await response.json()
             try:
                 response.raise_for_status()

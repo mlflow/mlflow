@@ -63,7 +63,7 @@ def mock_file_client(mock_directory_client):
 
 
 @pytest.mark.parametrize(
-    "uri, filesystem, account, path",
+    ("uri", "filesystem", "account", "path"),
     [
         ("abfss://filesystem@acct.dfs.core.windows.net/path", "filesystem", "acct", "path"),
         ("abfss://filesystem@acct.dfs.core.windows.net", "filesystem", "acct", ""),

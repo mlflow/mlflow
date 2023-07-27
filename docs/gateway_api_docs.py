@@ -57,7 +57,6 @@ routes:
       provider: openai
       name: gpt-3.5-turbo
       config:
-        openai_api_base: https://api.openai.com/v1
         openai_api_key: key
 
   - name: completions
@@ -66,7 +65,6 @@ routes:
       provider: openai
       name: gpt-3.5-turbo
       config:
-        openai_api_base: https://api.openai.com/v1
         openai_api_key: key
 
   - name: embeddings
@@ -75,7 +73,6 @@ routes:
       provider: openai
       name: text-embedding-ada-002
       config:
-        openai_api_base: https://api.openai.com/v1
         openai_api_key: key
 """
     with tempfile.TemporaryDirectory() as tmpdir:

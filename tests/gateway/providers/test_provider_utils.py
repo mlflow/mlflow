@@ -12,7 +12,7 @@ def test_rename_payload_keys():
 
 
 @pytest.mark.parametrize(
-    "payload, mapping, expected",
+    ("payload", "mapping", "expected"),
     [
         (
             {"old_key1": "value1", "old_key2": None, "old_key3": "value3"},

@@ -1509,4 +1509,5 @@ def test_pyfunc_model_registry_with_file_store(store):
         assert len(mv1) == 2
         assert mv1[0].name == "model1"
         mv2 = store.search_model_versions("name = 'model2'", max_results=10)
-        assert len(mv2) == 1 and mv2[0].name == "model2"
+        assert len(mv2) == 1
+        assert mv2[0].name == "model2"

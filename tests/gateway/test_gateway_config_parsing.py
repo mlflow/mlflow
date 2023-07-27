@@ -58,7 +58,7 @@ def basic_config_dict():
 
 
 @pytest.mark.parametrize(
-    "paths,expected",
+    ("paths", "expected"),
     [
         (["gateway", "/routes/", "/chat"], "/gateway/routes/chat"),
         (["/gateway/", "/routes", "chat"], "/gateway/routes/chat"),

@@ -1,14 +1,15 @@
 from unittest import mock
 
+from aiohttp import ClientTimeout
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import OpenAIConfig
+from mlflow.gateway.config import OpenAIConfig, RouteConfig
+from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
-from mlflow.gateway.config import RouteConfig
 from tests.gateway.tools import MockAsyncResponse, mock_http_client
 
 
@@ -91,8 +92,10 @@ async def test_chat():
             json={
                 "model": "gpt-3.5-turbo",
                 "temperature": 0,
+                "n": 1,
                 **payload,
             },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
 
 
@@ -170,8 +173,10 @@ async def test_completions():
             json={
                 "model": "gpt-4-32k",
                 "temperature": 0,
+                "n": 1,
                 "messages": [{"role": "user", "content": "This is a test"}],
             },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
 
 
@@ -265,6 +270,7 @@ async def test_embeddings():
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/embeddings",
             json={"model": "text-embedding-ada-002", "input": "This is a test"},
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
 
 
@@ -334,6 +340,7 @@ async def test_embeddings_batch_input():
                 "model": "text-embedding-ada-002",
                 "input": ["1", "2"],
             },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
 
 
@@ -389,8 +396,10 @@ async def test_azure_openai():
             ),
             json={
                 "temperature": 0,
+                "n": 1,
                 "messages": [{"role": "user", "content": "This is a test"}],
             },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
 
 
@@ -428,8 +437,10 @@ async def test_azuread_openai():
             ),
             json={
                 "temperature": 0,
+                "n": 1,
                 "messages": [{"role": "user", "content": "This is a test"}],
             },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
 
 

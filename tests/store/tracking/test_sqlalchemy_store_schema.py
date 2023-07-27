@@ -48,7 +48,7 @@ def _assert_schema_files_equal(generated_schema_file, expected_schema_file):
         )
 
 
-@pytest.fixture()
+@pytest.fixture
 def expected_schema_file():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     yield os.path.normpath(
@@ -56,7 +56,7 @@ def expected_schema_file():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def db_url(tmp_path):
     db_file = tmp_path.joinpath("db_file")
     return f"sqlite:///{db_file}"

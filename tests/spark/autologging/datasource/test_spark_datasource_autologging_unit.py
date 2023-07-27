@@ -14,7 +14,7 @@ def spark_session():
         yield session
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_get_current_listener():
     with mock.patch(
         "mlflow._spark_autologging._get_current_listener", return_value=None

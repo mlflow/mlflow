@@ -246,7 +246,7 @@ def test_docker_databricks_tracking_cmd_and_envs(ProfileConfigProvider):
         ),
     ],
 )
-def test_docker_user_specified_env_vars(volumes, environment, expected, os_environ):
+def test_docker_user_specified_env_vars(volumes, environment, expected, os_environ, monkeypatch):
     active_run = mock.MagicMock()
     run_info = mock.MagicMock()
     run_info.run_id = "fake_run_id"
@@ -256,14 +256,13 @@ def test_docker_user_specified_env_vars(volumes, environment, expected, os_envir
     image = mock.MagicMock()
     image.tags = ["image:tag"]
 
+    monkeypatch.setenvs(os_environ)
     if "should_crash" in expected:
         expected.remove("should_crash")
         with pytest.raises(MlflowException, match="This project expects"):
-            with mock.patch.dict("os.environ", os_environ):
-                _get_docker_command(image, active_run, None, volumes, environment)
+            _get_docker_command(image, active_run, None, volumes, environment)
     else:
-        with mock.patch.dict("os.environ", os_environ):
-            docker_command = _get_docker_command(image, active_run, None, volumes, environment)
+        docker_command = _get_docker_command(image, active_run, None, volumes, environment)
         for exp_type, expected in expected:
             assert expected in docker_command
             assert docker_command[docker_command.index(expected) - 1] == exp_type

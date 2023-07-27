@@ -95,7 +95,7 @@ def delete_experiment(experiment_id):
     """
     store = _get_store()
     store.delete_experiment(experiment_id)
-    click.echo("Experiment with ID %s has been deleted." % str(experiment_id))
+    click.echo(f"Experiment with ID {str(experiment_id)} has been deleted.")
 
 
 @commands.command("restore")
@@ -108,7 +108,7 @@ def restore_experiment(experiment_id):
     """
     store = _get_store()
     store.restore_experiment(experiment_id)
-    click.echo("Experiment with id %s has been restored." % str(experiment_id))
+    click.echo(f"Experiment with id {str(experiment_id)} has been restored.")
 
 
 @commands.command("rename")

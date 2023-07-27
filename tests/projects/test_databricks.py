@@ -33,7 +33,7 @@ from tests.integration.utils import invoke_cli_runner
 from tests.projects.utils import validate_exit_status, TEST_PROJECT_DIR
 
 
-@pytest.fixture()
+@pytest.fixture
 def runs_cancel_mock():
     """Mocks the Jobs Runs Cancel API request"""
     with mock.patch(
@@ -43,7 +43,7 @@ def runs_cancel_mock():
         yield runs_cancel_mock
 
 
-@pytest.fixture()
+@pytest.fixture
 def runs_submit_mock():
     """Mocks the Jobs Runs Submit API request"""
     with mock.patch(
@@ -53,7 +53,7 @@ def runs_submit_mock():
         yield runs_submit_mock
 
 
-@pytest.fixture()
+@pytest.fixture
 def runs_get_mock():
     """Mocks the Jobs Runs Get API request"""
     with mock.patch(
@@ -62,7 +62,7 @@ def runs_get_mock():
         yield runs_get_mock
 
 
-@pytest.fixture()
+@pytest.fixture
 def databricks_cluster_mlflow_run_cmd_mock():
     """Mocks the Jobs Runs Get API request"""
     with mock.patch(
@@ -71,19 +71,19 @@ def databricks_cluster_mlflow_run_cmd_mock():
         yield mlflow_run_cmd_mock
 
 
-@pytest.fixture()
+@pytest.fixture
 def cluster_spec_mock(tmp_path):
     cluster_spec_handle = tmp_path.joinpath("cluster_spec.json")
     cluster_spec_handle.write_text("{}")
     yield str(cluster_spec_handle)
 
 
-@pytest.fixture()
+@pytest.fixture
 def dbfs_root_mock(tmp_path):
     yield str(tmp_path.joinpath("dbfs-root"))
 
 
-@pytest.fixture()
+@pytest.fixture
 def upload_to_dbfs_mock(dbfs_root_mock):
     def upload_mock_fn(_, src_path, dbfs_uri):
         mock_dbfs_dst = os.path.join(dbfs_root_mock, dbfs_uri.split("/dbfs/")[1])
@@ -96,7 +96,7 @@ def upload_to_dbfs_mock(dbfs_root_mock):
         yield upload_mock
 
 
-@pytest.fixture()
+@pytest.fixture
 def dbfs_path_exists_mock(dbfs_root_mock):  # pylint: disable=unused-argument
     with mock.patch(
         "mlflow.projects.databricks.DatabricksJobRunner._dbfs_path_exists"
@@ -104,18 +104,18 @@ def dbfs_path_exists_mock(dbfs_root_mock):  # pylint: disable=unused-argument
         yield path_exists_mock
 
 
-@pytest.fixture()
+@pytest.fixture
 def dbfs_mocks(dbfs_path_exists_mock, upload_to_dbfs_mock):  # pylint: disable=unused-argument
     yield
 
 
-@pytest.fixture()
+@pytest.fixture
 def before_run_validations_mock():
     with mock.patch("mlflow.projects.databricks.before_run_validations"):
         yield
 
 
-@pytest.fixture()
+@pytest.fixture
 def set_tag_mock():
     with mock.patch("mlflow.projects.databricks.tracking.MlflowClient") as m:
         mlflow_service_mock = mock.Mock(wraps=MlflowClient())

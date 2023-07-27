@@ -27,6 +27,7 @@ implement mutual exclusion manually.
 
 For a lower level API, see the :py:mod:`mlflow.client` module.
 """
+import contextlib
 from mlflow.version import VERSION as __version__  # pylint: disable=unused-import
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
@@ -112,7 +113,6 @@ except ImportError:
     # We are conditional loading these commands since the skinny client does
     # not support them due to the pandas and numpy dependencies of MLflow Models
     pass
-
 
 _configure_mlflow_loggers(root_module_name=__name__)
 
@@ -241,3 +241,10 @@ __all__ = [
     "MlflowClient",
     "MlflowException",
 ] + _model_flavors_supported
+
+# `mlflow.gateway` depends on optional dependencies such as pydantic.
+# Importing this module fails if they are not installed.
+with contextlib.suppress(ImportError):
+    from mlflow import gateway  # pylint: disable=unused-import
+
+    __all__.append("gateway")
