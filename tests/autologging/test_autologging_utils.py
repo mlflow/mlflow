@@ -798,16 +798,14 @@ def test_is_autologging_integration_supported(flavor, module_version, expected_r
     ("flavor", "module_version", "expected_result"),
     [
         ("pyspark.ml", "3.10.1.dev0", False),
+        ("pyspark.ml", "3.5.0.dev0", True),
         ("pyspark.ml", "3.3.0.dev0", True),
         ("pyspark.ml", "3.2.1.dev0", True),
         ("pyspark.ml", "3.1.2.dev0", True),
         ("pyspark.ml", "3.0.1.dev0", True),
-        ("pyspark.ml", "3.0.0.dev0", False),
+        ("pyspark.ml", "3.0.0.dev0", True),
+        ("pyspark.ml", "2.4.8.dev0", False),
     ],
-)
-@mock.patch(
-    "mlflow.utils.autologging_utils.versioning._ML_PACKAGE_VERSIONS",
-    _module_version_info_dict_patch,
 )
 def test_dev_version_pyspark_is_supported_in_databricks(flavor, module_version, expected_result):
     module_name, _ = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[flavor]
