@@ -224,6 +224,7 @@ from typing import Dict, Any, Union, Iterator, Tuple
 import numpy as np
 import pandas
 import yaml
+import json
 
 import mlflow
 import mlflow.pyfunc.model
@@ -559,7 +560,7 @@ def load_model(
     model_uri: str,
     suppress_warnings: bool = False,
     dst_path: str = None,
-    inference_config: Dict[str, Any] = None
+    **kwargs
 ) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -603,9 +604,10 @@ def load_model(
 
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
-    model_config = _update_inference_config(conf.get(INFERENCE_CONFIG, None), inference_config)
-    if model_config:
-        model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, model_config)
+    inference_config = _update_inference_config(conf.get(INFERENCE_CONFIG, None), kwargs)
+
+    if inference_config:
+        model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, inference_config)
     else:
         model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     predict_fn = conf.get("predict_fn", "predict")
@@ -634,7 +636,7 @@ def _update_inference_config(pyfunc_config: Dict[str, Any], load_config: Dict[st
 
     if not pyfunc_config:
         mlflow.pyfunc._logger.warning(
-            f"Argument(s) {', '.joining(overrides.keys())} were ignored since they are not"
+            f"Argument(s) {', '.join(overrides.keys())} were ignored since they are not"
             " section of the ``pyfunc`` flavor. Use ``inference_config`` when logging the model"
             " to allow inference configuration"
         )
@@ -644,16 +646,15 @@ def _update_inference_config(pyfunc_config: Dict[str, Any], load_config: Dict[st
     allowed_config = { key: value for key, value in overrides.items() if key in pyfunc_config.keys() }
 
     if len(allowed_config) < len(overrides):
-        ignored_keys = list(overrides.keys() not in allowed_config.keys())
+        ignored_keys = set(overrides.keys()) - set(allowed_config.keys())
         mlflow.pyfunc._logger.warning(
-            f"Argument(s) {', '.joining(ignored_keys.keys())} were ignored since they are not"
+            f"Argument(s) {', '.join(ignored_keys)} were ignored since they are not"
             " section of the ``pyfunc`` flavor. Use ``inference_config`` when logging the model"
             " to allow inference configuration. Allowed configuration includes"
-            f" {', '.joining(pyfunc_config.keys())}"
+            f" {', '.join(pyfunc_config.keys())}"
         )
 
-    return inference_config.update(allowed_config)
-
+    return pyfunc_config.update(allowed_config)
 
 class _ServedPyFuncModel(PyFuncModel):
     def __init__(self, model_meta: Model, client: Any, server_pid: int):
