@@ -219,7 +219,7 @@ import threading
 import inspect
 import functools
 from copy import deepcopy
-from typing import Any, Union, Iterator, Tuple
+from typing import Dict, Any, Union, Iterator, Tuple
 
 import numpy as np
 import pandas
@@ -292,6 +292,7 @@ MAIN = "loader_module"
 CODE = "code"
 DATA = "data"
 ENV = "env"
+INFERENCE_CONFIG = "inference_config"
 
 
 class EnvType:
@@ -309,7 +310,7 @@ _logger = logging.getLogger(__name__)
 
 
 def add_to_model(
-    model, loader_module, data=None, code=None, conda_env=None, python_env=None, **kwargs
+    model, loader_module, data=None, code=None, conda_env=None, python_env=None, inference_config=None, **kwargs
 ):
     """
     Add a ``pyfunc`` spec to the model configuration.
@@ -346,6 +347,8 @@ def add_to_model(
             params[ENV][EnvType.CONDA] = conda_env
         if python_env:
             params[ENV][EnvType.VIRTUALENV] = python_env
+    if inference_config:
+        params[INFERENCE_CONFIG] = inference_config
     return model.add_flavor(FLAVOR_NAME, **params)
 
 
@@ -497,6 +500,11 @@ class PyFuncModel:
             raise MlflowException("Model is missing metadata.")
         return self._model_meta
 
+    @property
+    def inference_config(self):
+        """Model's inference config"""
+        return self._model_meta.flavors[FLAVOR_NAME].get(INFERENCE_CONFIG, {})
+
     def __repr__(self):
         info = {}
         if self._model_meta is not None:
@@ -551,6 +559,7 @@ def load_model(
     model_uri: str,
     suppress_warnings: bool = False,
     dst_path: str = None,
+    inference_config: Dict[str, Any] = None
 ) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -594,9 +603,56 @@ def load_model(
 
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
-    model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
+    model_config = _update_inferece_config(conf.get(INFERENCE_CONFIG, None), inference_config)
+    if inf_config:
+        model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, model_config)
+    else:
+        model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     predict_fn = conf.get("predict_fn", "predict")
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl, predict_fn=predict_fn)
+
+def _update_inference_config(pyfunc_config: Dict[str, Any], load_config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Updates the inference configuration according to the inference configuration of the model. Only
+    arguments already present in the inference configuration can be indicated at loading time. Use 
+    `MLFLOW_PYFUNC_INFERENCE_CONFIG` environment variable to provide default inference configuration.
+    """
+
+    overrides = {}
+    if env_overrides := os.getenv("MLFLOW_PYFUNC_INFERENCE_CONFIG"):
+        mlflow.pyfunc._logger.debug(
+            "Inference configuration is being loaded from ``MLFLOW_PYFUNC_INFERENCE_CONFIG``"
+            " environ."
+        )
+        overrides.update(dict(json.loads(env_overrides)))
+
+    if load_config:
+        overrides.update(load_config)
+
+    if not overrides:
+        return pyfunc_config
+
+    if not pyfunc_config:
+        mlflow.pyfunc._logger.warning(
+            f"Argument(s) {', '.joining(overrides.keys())} were ignored since they are not"
+            " section of the ``pyfunc`` flavor. Use ``inference_config`` when logging the model"
+            " to allow inference configuration"
+        )
+
+        return None
+
+    allowed_config = { key: value for key, value in overrides.items() if key in pyfunc_config.keys() }
+
+    if len(allowed_config) < len(overrides):
+        ignored_keys = list(overrides.keys() not in allowed_config.keys())
+        mlflow.pyfunc._logger.warning(
+            f"Argument(s) {', '.joining(ignored_keys.keys())} were ignored since they are not"
+            " section of the ``pyfunc`` flavor. Use ``inference_config`` when logging the model"
+            " to allow inference configuration. Allowed configuration includes"
+            f" {', '.joining(pyfunc_config.keys())}"
+        )
+
+    return inference_config.update(allowed_config)
 
 
 class _ServedPyFuncModel(PyFuncModel):
@@ -1754,6 +1810,7 @@ def save_model(
             mlflow_model=mlflow_model,
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
+            inference_config=inference_config,
         )
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
@@ -1767,6 +1824,7 @@ def save_model(
             mlflow_model=mlflow_model,
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
+            inference_config=inference_config,
         )
 
 
@@ -1786,6 +1844,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    inference_config=None
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -1925,6 +1984,7 @@ def log_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+    :param inference_config: The inference configuration used to run this model.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
@@ -1944,6 +2004,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        inference_config=inference_config
     )
 
 
@@ -1956,6 +2017,7 @@ def _save_model_with_loader_module_and_data_path(
     mlflow_model=None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    inference_config=None
 ):
     """
     Export model as a generic Python function model.
@@ -1991,6 +2053,7 @@ def _save_model_with_loader_module_and_data_path(
         data=data,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
+        inference_config=inference_config
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
