@@ -1522,16 +1522,16 @@ def _get_inference_config(local_path, pyfunc_config):
         _logger.warning("Inference config stored in file ``inference_config.txt`` is deprecated.")
         return json.loads(config_path.read_text())
     else:
-        return pyfunc_config.get(mlflow.pyfunc.INFERENCE_CONFIG, {})
+        return pyfunc_config or {}
 
 
-def _load_pyfunc(path):
+def _load_pyfunc(path, inference_config: Dict[str, Any]=None):
     """
     Loads the model as pyfunc model
     """
     local_path = pathlib.Path(path)
     flavor_configuration = _get_flavor_configuration(local_path, FLAVOR_NAME)
-    inference_config = _get_inference_config(local_path.joinpath(_COMPONENTS_BINARY_KEY), pyfunc_config)
+    inference_config = _get_inference_config(local_path.joinpath(_COMPONENTS_BINARY_KEY), inference_config)
     return _TransformersWrapper(
         _load_model(str(local_path), flavor_configuration, "pipeline"),
         flavor_configuration,
