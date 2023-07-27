@@ -442,7 +442,7 @@ def save_model(
             component_config=components,
             pipeline=built_pipeline,
             processor=processor,
-            inference_config=inference_config,
+            inference_config=None, # inference_config has been moved to pyfunc general construct
         )
 
     # Get the model card from either the argument or the HuggingFace marketplace
@@ -470,6 +470,7 @@ def save_model(
             conda_env=_CONDA_ENV_FILE_NAME,
             python_env=_PYTHON_ENV_FILE_NAME,
             code=code_dir_subpath,
+            inference_config=inference_config,
             **model_bin_kwargs,
         )
     else:
@@ -1511,14 +1512,17 @@ class _TransformersModel(NamedTuple):
         return _TransformersModel(model, tokenizer, feature_extractor, image_processor, processor)
 
 
-def _get_inference_config(local_path):
+def _get_inference_config(local_path, pyfunc_config):
     """
     Load the inference config if it was provided for use in the `_TransformersWrapper` pyfunc
     Model wrapper.
     """
     config_path = local_path.joinpath("inference_config.txt")
     if config_path.exists():
+        _logger.warning("Inference config stored in file ``inference_config.txt`` is deprecated.")
         return json.loads(config_path.read_text())
+    else:
+        return pyfunc_config.get(mlflow.pyfunc.INFERENCE_CONFIG, {})
 
 
 def _load_pyfunc(path):
@@ -1527,7 +1531,7 @@ def _load_pyfunc(path):
     """
     local_path = pathlib.Path(path)
     flavor_configuration = _get_flavor_configuration(local_path, FLAVOR_NAME)
-    inference_config = _get_inference_config(local_path.joinpath(_COMPONENTS_BINARY_KEY))
+    inference_config = _get_inference_config(local_path.joinpath(_COMPONENTS_BINARY_KEY), pyfunc_config)
     return _TransformersWrapper(
         _load_model(str(local_path), flavor_configuration, "pipeline"),
         flavor_configuration,
