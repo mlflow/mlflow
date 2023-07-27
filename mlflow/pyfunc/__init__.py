@@ -604,7 +604,7 @@ def load_model(
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
     model_config = _update_inference_config(conf.get(INFERENCE_CONFIG, None), inference_config)
-    if inf_config:
+    if model_config:
         model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, model_config)
     else:
         model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
