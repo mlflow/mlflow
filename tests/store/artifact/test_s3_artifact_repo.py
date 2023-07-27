@@ -109,7 +109,6 @@ def test_get_s3_client_hits_cache(s3_artifact_root):
 def test_get_s3_client_verify_param_set_correctly(
     s3_artifact_root, ignore_tls_env, verify, monkeypatch
 ):
-    monkeypatch.delenv("MLFLOW_S3_IGNORE_TLS", raising=False)
     monkeypatch.setenv("MLFLOW_S3_IGNORE_TLS", ignore_tls_env)
     with mock.patch("boto3.client") as mock_get_s3_client:
         repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))

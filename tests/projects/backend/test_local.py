@@ -20,7 +20,15 @@ def test_docker_s3_artifact_cmd_and_envs_from_env(monkeypatch):
 
 def test_docker_s3_artifact_cmd_and_envs_from_home(monkeypatch):
     mock_env = {}
-    monkeypatch.setenvs(mock_env)
+    monkeypatch.delenvs(
+        [
+            "AWS_SECRET_ACCESS_KEY",
+            "AWS_ACCESS_KEY_ID",
+            "MLFLOW_S3_ENDPOINT_URL",
+            "MLFLOW_S3_IGNORE_TLS",
+        ],
+        raising=False,
+    )
     with mock.patch("posixpath.exists", return_value=True), mock.patch(
         "posixpath.expanduser", return_value="mock_volume"
     ):
@@ -47,7 +55,6 @@ def test_docker_gcs_artifact_cmd_and_envs_from_home(monkeypatch):
         "GOOGLE_APPLICATION_CREDENTIALS": "mock_credentials_path",
     }
     gs_uri = "gs://mock_bucket"
-    monkeypatch.delenvs(["GOOGLE_APPLICATION_CREDENTIALS"], raising=False)
     monkeypatch.setenvs(mock_env)
     cmds, envs = _get_docker_artifact_storage_cmd_and_envs(gs_uri)
     assert cmds == ["-v", "mock_credentials_path:/.gcs"]
@@ -61,14 +68,6 @@ def test_docker_hdfs_artifact_cmd_and_envs_from_home(monkeypatch):
         "MLFLOW_PYARROW_EXTRA_CONF": "mock_pyarrow_extra_conf",
     }
     hdfs_uri = "hdfs://host:8020/path"
-    monkeypatch.delenvs(
-        [
-            "MLFLOW_KERBEROS_TICKET_CACHE",
-            "MLFLOW_KERBEROS_USER",
-            "MLFLOW_PYARROW_EXTRA_CONF",
-        ],
-        raising=False,
-    )
     monkeypatch.setenvs(mock_env)
     cmds, envs = _get_docker_artifact_storage_cmd_and_envs(hdfs_uri)
     assert cmds == ["-v", "/mock_ticket_cache:/mock_ticket_cache"]
