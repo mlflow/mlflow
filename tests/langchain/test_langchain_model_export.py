@@ -40,7 +40,6 @@ from pyspark.sql import SparkSession
 from typing import Any, List, Mapping, Optional, Dict
 from tests.helper_functions import pyfunc_serve_and_score_model
 from mlflow.exceptions import MlflowException
-from mlflow.langchain.retriever_chain import RetrieverChain
 from mlflow.openai.utils import (
     _mock_chat_completion_response,
     _mock_request,
@@ -399,6 +398,16 @@ class DeterministicDummyEmbeddings(Embeddings, BaseModel):
         return self._get_embedding(text)
 
 
+def assert_equal_retrievers(retriever, expected_retreiver):
+    assert isinstance(retriever, langchain.schema.retriever.BaseRetriever)
+    assert isinstance(retriever, type(expected_retreiver))
+    assert isinstance(retriever.vectorstore, type(expected_retreiver.vectorstore))
+    assert retriever.tags == expected_retreiver.tags
+    assert retriever.metadata == expected_retreiver.metadata
+    assert retriever.search_type == expected_retreiver.search_type
+    assert retriever.search_kwargs == expected_retreiver.search_kwargs
+
+
 def test_log_and_load_retriever_chain(tmp_path):
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
@@ -450,9 +459,9 @@ def test_log_and_load_retriever_chain(tmp_path):
     # Remove the persist_dir
     shutil.rmtree(persist_dir)
 
-    # Load the RetrieverChain
+    # Load the retriever
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
-    assert loaded_model == RetrieverChain(retriever=db.as_retriever())
+    assert_equal_retrievers(loaded_model, db.as_retriever())
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     query = "What did the president say about Ketanji Brown Jackson"
@@ -463,7 +472,7 @@ def test_log_and_load_retriever_chain(tmp_path):
     )
     assert result == [expected_result]
 
-    # Serve the retriever chain
+    # Serve the retriever
     inference_payload = json.dumps({"inputs": langchain_input})
     response = pyfunc_serve_and_score_model(
         logged_model.model_uri,

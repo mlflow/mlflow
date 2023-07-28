@@ -11,7 +11,6 @@ LangChain (native) format
 .. _LangChain:
     https://python.langchain.com/en/latest/index.html
 """
-import importlib
 import logging
 import os
 import shutil
@@ -86,9 +85,6 @@ _UNSUPPORTED_LANGCHAIN_VERSION_ERROR_MESSAGE = (
     "Saving {instance_type} models is only supported in langchain 0.0.194 and above."
 )
 
-_retriever_chain = importlib.import_module("mlflow.langchain.retriever_chain")
-RetrieverChain = getattr(_retriever_chain, "RetrieverChain")
-
 
 def get_default_pip_requirements():
     """
@@ -114,14 +110,14 @@ def _get_map_of_special_chain_class_name_to_kwargs_name():
         RetrievalQA,
         SQLDatabaseChain,
     )
-    from mlflow.langchain import RetrieverChain
+    from mlflow.langchain.retriever_chain import _RetrieverChain
 
     return {
         RetrievalQA.__name__: "retriever",
         APIChain.__name__: "requests_wrapper",
         HypotheticalDocumentEmbedder.__name__: "embeddings",
         SQLDatabaseChain.__name__: "database",
-        RetrieverChain.__name__: "retriever",
+        _RetrieverChain.__name__: "retriever",
     }
 
 
@@ -354,9 +350,9 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
                 )
             )
 
-    # If lc_model is a retriever, wrap it in a RetrieverChain
+    # If lc_model is a retriever, wrap it in a _RetrieverChain
     if isinstance(lc_model, langchain.schema.BaseRetriever):
-        from mlflow.langchain.retriever_chain import RetrieverChain
+        from mlflow.langchain.retriever_chain import _RetrieverChain
 
         if loader_fn is None:
             raise mlflow.MlflowException.invalid_parameter_value(
@@ -366,7 +362,7 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
             raise mlflow.MlflowException.invalid_parameter_value(
                 "The `loader_fn` must be a function that returns a retriever."
             )
-        lc_model = RetrieverChain(retriever=lc_model)
+        lc_model = _RetrieverChain(retriever=lc_model)
 
     return lc_model
 
@@ -610,7 +606,7 @@ def _load_model(
     persist_dir=None,
 ):
     from langchain.chains.loading import load_chain
-    from mlflow.langchain import RetrieverChain
+    from mlflow.langchain.retriever_chain import _RetrieverChain
 
     special_chains = _get_map_of_special_chain_class_name_to_kwargs_name()
 
@@ -621,8 +617,8 @@ def _load_model(
                 "Missing file for loader_fn which is required to build the model."
             )
         kwargs = {key: _load_from_pickle(loader_fn_path, persist_dir)}
-        if model_type == RetrieverChain.__name__:
-            model = RetrieverChain.load(path, **kwargs)
+        if model_type == _RetrieverChain.__name__:
+            model = _RetrieverChain.load(path, **kwargs).retriever
         else:
             model = load_chain(path, **kwargs)
     elif agent_path is None and tools_path is None:
@@ -677,7 +673,6 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
 
     def predict(self, data):
         import langchain
-        from mlflow.langchain import RetrieverChain
         from mlflow.openai.utils import TEST_CONTENT
         from tests.langchain.test_langchain_model_export import _mock_async_request
 
@@ -686,7 +681,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
             (
                 langchain.chains.llm.LLMChain,
                 langchain.chains.RetrievalQA,
-                RetrieverChain,
+                langchain.schema.retriever.BaseRetriever,
             ),
         ):
             mockContent = TEST_CONTENT
