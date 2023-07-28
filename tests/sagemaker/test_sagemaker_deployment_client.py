@@ -423,7 +423,7 @@ def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exce
 
 
 @mock_sagemaker_aws_services
-def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_tags_from_local(
+def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_tags_from_local(  # update this test
     pretrained_model, sagemaker_client, sagemaker_deployment_client, monkeypatch
 ):
     expected_tags = [{"Key": "key1", "Value": "value1"}, {"Key": "key2", "Value": "value2"}]
@@ -447,10 +447,12 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_tags_
     model_name = endpoint_production_variants[0]["VariantName"]
     description = sagemaker_client.describe_model(ModelName=model_name)
 
-    tags = sagemaker_client.list_tags(ResourceArn=description["ModelArn"])
+    model_tags = sagemaker_client.list_tags(ResourceArn=description["ModelArn"])
+    endpoint_tags = sagemaker_client.list_tags(ResourceArn=endpoint_description["EndpointArn"])
 
     # Extra tags exist besides the ones we set, so avoid strict equality
-    assert all(tag in tags["Tags"] for tag in expected_tags)
+    assert all(tag in model_tags["Tags"] for tag in expected_tags)
+    assert all(tag in endpoint_tags["Tags"] for tag in expected_tags)
 
 
 @pytest.mark.parametrize("proxies_enabled", [True, False])
@@ -612,10 +614,12 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_tags_from_l
     model_name = endpoint_production_variants[0]["VariantName"]
     description = sagemaker_client.describe_model(ModelName=model_name)
 
-    tags = sagemaker_client.list_tags(ResourceArn=description["ModelArn"])
+    model_tags = sagemaker_client.list_tags(ResourceArn=description["ModelArn"])
+    endpoint_tags = sagemaker_client.list_tags(ResourceArn=endpoint_description["EndpointArn"])
 
     # Extra tags exist besides the ones we set, so avoid strict equality
-    assert all(tag in tags["Tags"] for tag in expected_tags)
+    assert all(tag in model_tags["Tags"] for tag in expected_tags)
+    assert all(tag in endpoint_tags["Tags"] for tag in expected_tags)
 
 
 @pytest.mark.parametrize("proxies_enabled", [True, False])

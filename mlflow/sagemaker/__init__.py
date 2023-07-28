@@ -1545,10 +1545,14 @@ def _create_sagemaker_endpoint(
         "InitialVariantWeight": 1,
     }
     config_name = _get_sagemaker_config_name(endpoint_name)
+    config_tags = [{"Key": "app_name", "Value": endpoint_name}]
+    if tags:
+        tags = [{"Key": key, "Value": str(value)} for key, value in tags.items()]
+        config_tags.extend(tags)
     endpoint_config_kwargs = {
         "EndpointConfigName": config_name,
         "ProductionVariants": [production_variant],
-        "Tags": [{"Key": "app_name", "Value": endpoint_name}],
+        "Tags": config_tags,
     }
     if async_inference_config:
         endpoint_config_kwargs["AsyncInferenceConfig"] = async_inference_config
@@ -1562,7 +1566,7 @@ def _create_sagemaker_endpoint(
     endpoint_response = sage_client.create_endpoint(
         EndpointName=endpoint_name,
         EndpointConfigName=config_name,
-        Tags=[],
+        Tags=tags or [],
     )
     _logger.info("Created endpoint with arn: %s", endpoint_response["EndpointArn"])
 
@@ -1641,7 +1645,7 @@ def _update_sagemaker_endpoint(
                                  For more information, see https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
                                  Defaults to ``None``.
     :param env: A dictionary of environment variables to set for the model.
-    :param tags: A dictionary of tags to apply to the endpoint.
+    :param tags: A dictionary of tags to apply to the endpoint configuration.
     """
     if mode not in [DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE]:
         msg = f"Invalid mode `{mode}` for deployment to a pre-existing application"
@@ -1694,11 +1698,14 @@ def _update_sagemaker_endpoint(
     # Create the new endpoint configuration and update the endpoint
     # to adopt the new configuration
     new_config_name = _get_sagemaker_config_name(endpoint_name)
-    # This is the hardcoded config for endpoint
+    config_tags = [{"Key": "app_name", "Value": endpoint_name}]
+    if tags:
+        tags = [{"Key": key, "Value": str(value)} for key, value in tags.items()]
+        config_tags.extend(tags)
     endpoint_config_kwargs = {
         "EndpointConfigName": new_config_name,
         "ProductionVariants": production_variants,
-        "Tags": [{"Key": "app_name", "Value": endpoint_name}],
+        "Tags": config_tags,
     }
     if async_inference_config:
         endpoint_config_kwargs["AsyncInferenceConfig"] = async_inference_config
