@@ -423,7 +423,7 @@ def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exce
 
 
 @mock_sagemaker_aws_services
-def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_tags_from_local(  # update this test
+def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_tags_from_local(
     pretrained_model, sagemaker_client, sagemaker_deployment_client, monkeypatch
 ):
     expected_tags = [{"Key": "key1", "Value": "value1"}, {"Key": "key2", "Value": "value2"}]
