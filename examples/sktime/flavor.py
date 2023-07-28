@@ -88,6 +88,7 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from sktime.utils.multiindex import flatten_multiindex
+from typing import Any, Dict, Optional
 
 FLAVOR_NAME = "sktime"
 
@@ -468,7 +469,9 @@ class _SktimeModelWrapper:
     def __init__(self, sktime_model):
         self.sktime_model = sktime_model
 
-    def predict(self, dataframe) -> pd.DataFrame:
+    def predict(
+        self, dataframe, params: Optional[Dict[str, Any]] = None
+    ) -> pd.DataFrame:  # pylint: disable=unused-argument
         df_schema = dataframe.columns.values.tolist()
 
         if len(dataframe) > 1:

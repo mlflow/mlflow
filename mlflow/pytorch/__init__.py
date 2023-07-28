@@ -13,6 +13,7 @@ import os
 import yaml
 import warnings
 import atexit
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -727,9 +728,19 @@ class _PyTorchWrapper:
     def __init__(self, pytorch_model):
         self.pytorch_model = pytorch_model
 
-    def predict(self, data, device=None):
+    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         import torch
 
+        device = params.get("device", None) if params else None
         # if CUDA is available, we use the default CUDA device.
         # To force inference to the CPU when the GPU is available, please set
         # MLFLOW_DEFAULT_PREDICTION_DEVICE to "cpu"
