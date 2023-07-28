@@ -560,7 +560,7 @@ def load_model(
     model_uri: str,
     suppress_warnings: bool = False,
     dst_path: str = None,
-    **kwargs
+    inference_config: Dict[str, Any]=None
 ) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -604,10 +604,10 @@ def load_model(
 
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
-    inference_config = _update_inference_config(conf.get(INFERENCE_CONFIG, None), kwargs)
+    actual_config = _update_inference_config(conf.get(INFERENCE_CONFIG, None), inference_config)
 
-    if inference_config:
-        model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, inference_config)
+    if actual_config:
+        model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, actual_config)
     else:
         model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     predict_fn = conf.get("predict_fn", "predict")
