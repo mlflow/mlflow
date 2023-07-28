@@ -1,3 +1,4 @@
+import cloudpickle
 import datetime
 import os
 import random
@@ -24,6 +25,7 @@ from pyspark.sql.types import (
     BooleanType,
     StructType,
     StructField,
+    TimestampType,
 )
 from pyspark.sql.utils import AnalysisException
 from sklearn import datasets
@@ -201,7 +203,7 @@ def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_versio
         def __init__(self):
             pass
 
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             import sklearn
 
             return model_input.apply(lambda row: sklearn.__version__, axis=1)
@@ -251,7 +253,7 @@ def test_spark_udf_env_manager_predict_sklearn_model(spark, sklearn_model, model
 
 def test_spark_udf_with_single_arg(spark):
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             return [",".join(map(str, model_input.columns.tolist()))] * len(model_input)
 
     with mlflow.start_run() as run:
@@ -273,7 +275,7 @@ def test_spark_udf_with_single_arg(spark):
 
 def test_spark_udf_with_struct_return_type(spark):
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             input_len = len(model_input)
             return {
                 "r1": [1] * input_len,
@@ -545,7 +547,7 @@ def test_check_spark_udf_return_type(type_str, expected):
 
 def test_spark_udf_autofills_no_arguments(spark):
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             return [model_input.columns] * len(model_input)
 
     signature = ModelSignature(
@@ -648,7 +650,7 @@ def test_spark_udf_autofills_no_arguments(spark):
 
 def test_spark_udf_autofills_column_names_with_schema(spark):
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             return [model_input.columns] * len(model_input)
 
     signature = ModelSignature(
@@ -685,7 +687,7 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
 
 def test_spark_udf_with_datetime_columns(spark):
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             return [model_input.columns] * len(model_input)
 
     signature = ModelSignature(
@@ -711,7 +713,7 @@ def test_spark_udf_with_datetime_columns(spark):
 
 def test_spark_udf_over_empty_partition(spark):
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             if len(model_input) == 0:
                 raise ValueError("Empty input is not allowed.")
             else:
@@ -926,7 +928,7 @@ def test_spark_udf_with_col_spec_type_input(spark):
     )
 
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             assert model_input.to_dict() == input_pdf.to_dict()
             return model_input[["c_int", "c_float"]]
 
@@ -995,7 +997,7 @@ def test_spark_udf_stdin_scoring_server(spark):
 )
 def test_spark_udf_array_of_structs(spark):
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             return [[("str", 0, 1, 0.0, 0.1, True)]] * len(model_input)
 
     signature = ModelSignature(inputs=Schema([ColSpec("long", "a")]))
@@ -1045,3 +1047,247 @@ def test_spark_udf_return_nullable_array_field(spark):
         data1 = spark.range(3).repartition(1)
         result = data1.select(udf("id").alias("res")).select("res.a").toPandas()
         assert list(result["a"]) == [[1.0, None], None, None]
+
+
+def test_spark_udf_with_params(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            return [[tuple(params.values())]] * len(model_input)
+
+    test_params = {
+        "str_param": "str_a",
+        "int_param": np.int32(1),
+        "bool_param": True,
+        "double_param": 1.0,
+        "float_param": np.float32(0.1),
+        "long_param": 100,
+    }
+
+    signature = mlflow.models.infer_signature(["input"], params=test_params)
+    spark_df = spark.createDataFrame(
+        [
+            ("input1",),
+            ("input2",),
+            ("input3",),
+        ],
+        ["input_col"],
+    )
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            signature=signature,
+        )
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            f"runs:/{run.info.run_id}/model",
+            result_type=ArrayType(
+                StructType(
+                    [
+                        StructField("str_param", StringType()),
+                        StructField("int_param", IntegerType()),
+                        StructField("bool_param", BooleanType()),
+                        StructField("double_param", DoubleType()),
+                        StructField("float_param", FloatType()),
+                        StructField("long_param", LongType()),
+                    ]
+                )
+            ),
+            params=test_params,
+        )
+
+        res = spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
+        assert res["res"][0] == [tuple(test_params.values())]
+
+
+def test_spark_udf_with_array_params(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            return pd.DataFrame({k: [v] * len(model_input) for k, v in params.items()})
+
+    test_params = {
+        "str_array": np.array(["str_a", "str_b"]),
+        "int_array": np.array([np.int32(1), np.int32(2)]),
+        "double_array": np.array([1.0, 2.0]),
+        "bool_array": np.array([True, False]),
+        "float_array": np.array([np.float32(1.0), np.float32(2.0)]),
+        "long_array": np.array([1, 2]),
+    }
+
+    signature = mlflow.models.infer_signature(["input"], params=test_params)
+    spark_df = spark.createDataFrame(
+        [
+            ("input1",),
+            ("input2",),
+            ("input3",),
+        ],
+        ["input_col"],
+    )
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            signature=signature,
+        )
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            f"runs:/{run.info.run_id}/model",
+            result_type=StructType(
+                [
+                    StructField("str_array", ArrayType(StringType())),
+                    StructField("int_array", ArrayType(IntegerType())),
+                    StructField("double_array", ArrayType(DoubleType())),
+                    StructField("bool_array", ArrayType(BooleanType())),
+                    StructField("float_array", ArrayType(FloatType())),
+                    StructField("long_array", ArrayType(LongType())),
+                ]
+            ),
+            params=test_params,
+        )
+
+        res = spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
+        assert res["res"].values[0] == tuple(v.tolist() for v in test_params.values())
+
+
+def test_spark_udf_with_params_with_errors(spark):
+    # datetime is not supported
+    class TestModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            return [params.values[0]] * len(model_input)
+
+    test_params = {"datetime_param": np.datetime64("2023-06-26 00:00:00")}
+    signature = mlflow.models.infer_signature(["input"], params=test_params)
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            signature=signature,
+        )
+
+        with pytest.raises(MlflowException, match=r"Invalid 'spark_udf' result type"):
+            mlflow.pyfunc.spark_udf(
+                spark,
+                f"runs:/{run.info.run_id}/model",
+                result_type=TimestampType(),
+                params=test_params,
+            )
+
+
+def test_spark_udf_compatible_with_mlflow_2_4_0(tmp_path, spark):
+    """
+    # Code for logging the model in mlflow 2.4.0
+    import mlflow
+
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return ["string"] * len(model_input)
+
+    signature = mlflow.models.infer_signature(["input"])
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            signature=signature,
+        )
+    """
+    tmp_path.joinpath("MLmodel").write_text(
+        """
+artifact_path: model
+flavors:
+  python_function:
+    cloudpickle_version: 2.2.1
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.pyfunc.model
+    python_model: python_model.pkl
+    python_version: 3.8.16
+mlflow_version: 2.4.0
+model_uuid: 067c27bc09954838ad6d6bfc89c7eeed
+run_id: 054cfd4d129849f88210568366fea24b
+signature:
+  inputs: '[{"type": "string"}]'
+  outputs: null
+utc_time_created: '2023-07-17 10:01:42.071952'
+        """
+    )
+    tmp_path.joinpath("python_env.yaml").write_text(
+        """
+python: 3.8.16
+build_dependencies:
+    - pip==23.1.2
+    - setuptools==56.0.0
+    - wheel==0.40.0
+dependencies:
+    - -r requirements.txt
+        """
+    )
+    tmp_path.joinpath("requirements.txt").write_text(
+        """
+mlflow==2.4.0
+cloudpickle==2.2.1
+        """
+    )
+
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            return ["string"] * len(model_input)
+
+    python_model = TestModel()
+
+    with open(tmp_path / "python_model.pkl", "wb") as out:
+        cloudpickle.dump(python_model, out)
+
+    assert Version(mlflow.__version__) > Version("2.4.0")
+    model_uri = str(tmp_path)
+
+    spark_df = spark.createDataFrame(
+        [("input1",), ("input2",), ("input3",)],
+        ["input_col"],
+    )
+
+    udf = mlflow.pyfunc.spark_udf(
+        spark,
+        model_uri,
+        result_type=StringType(),
+    )
+    res = spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
+    assert res["res"][0] == ("string")
+
+
+def test_spark_udf_with_model_serving(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            return ["string"] * len(model_input)
+
+    test_params = {
+        "str_param": "str_a",
+    }
+
+    signature = mlflow.models.infer_signature(["input"], params=test_params)
+    spark_df = spark.createDataFrame(
+        [
+            ("input1",),
+            ("input2",),
+            ("input3",),
+        ],
+        ["input_col"],
+    )
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            signature=signature,
+        )
+
+    with mock.patch("mlflow.pyfunc.check_port_connectivity", return_value=False):
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            f"runs:/{run.info.run_id}/model",
+            result_type=StringType(),
+            params=test_params,
+            env_manager="conda",
+        )
+
+        res = spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
+        assert res["res"][0] == ("string")
