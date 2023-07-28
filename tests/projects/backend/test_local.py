@@ -19,7 +19,6 @@ def test_docker_s3_artifact_cmd_and_envs_from_env(monkeypatch):
 
 
 def test_docker_s3_artifact_cmd_and_envs_from_home(monkeypatch):
-    mock_env = {}
     monkeypatch.delenvs(
         [
             "AWS_SECRET_ACCESS_KEY",
@@ -34,7 +33,7 @@ def test_docker_s3_artifact_cmd_and_envs_from_home(monkeypatch):
     ):
         cmds, envs = _get_docker_artifact_storage_cmd_and_envs("s3://mock_bucket")
         assert cmds == ["-v", "mock_volume:/.aws"]
-        assert envs == mock_env
+        assert envs == {}
 
 
 def test_docker_wasbs_artifact_cmd_and_envs_from_home(monkeypatch):
