@@ -894,6 +894,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
+    extra_tags=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from `PyTorch Lightning
@@ -944,6 +945,7 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
 
     .. code-block:: python
         :caption: Example
@@ -1057,7 +1059,9 @@ def autolog(
     else:
         from mlflow.pytorch._lightning_autolog import patched_fit
 
-        safe_patch(FLAVOR_NAME, pl.Trainer, "fit", patched_fit, manage_run=True)
+        safe_patch(
+            FLAVOR_NAME, pl.Trainer, "fit", patched_fit, manage_run=True, extra_tags=extra_tags
+        )
 
     try:
         import lightning as L
@@ -1066,7 +1070,9 @@ def autolog(
     else:
         from mlflow.pytorch._lightning_autolog import patched_fit
 
-        safe_patch(FLAVOR_NAME, L.Trainer, "fit", patched_fit, manage_run=True)
+        safe_patch(
+            FLAVOR_NAME, L.Trainer, "fit", patched_fit, manage_run=True, extra_tags=extra_tags
+        )
 
     try:
         import torch.utils.tensorboard.writer
@@ -1086,6 +1092,7 @@ def autolog(
             "add_event",
             partial(patched_add_event, mlflow_log_every_n_step=log_every_n_step),
             manage_run=True,
+            extra_tags=extra_tags,
         )
         safe_patch(
             FLAVOR_NAME,
@@ -1093,6 +1100,7 @@ def autolog(
             "add_summary",
             patched_add_summary,
             manage_run=True,
+            extra_tags=extra_tags,
         )
         safe_patch(
             FLAVOR_NAME,
@@ -1100,6 +1108,7 @@ def autolog(
             "add_hparams",
             patched_add_hparams,
             manage_run=True,
+            extra_tags=extra_tags,
         )
 
         atexit.register(_flush_queue)
