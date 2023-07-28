@@ -502,7 +502,7 @@ def dump_input_data(data, inputs_key="inputs", params: Optional[Dict[str, Any]] 
     if params is not None:
         if not isinstance(params, dict):
             raise MlflowException(
-                "Params must be a dictionary. Got type '{}'.".format(type(params).__name__)
+                f"Params must be a dictionary. Got type '{type(params).__name__}'."
             )
         # if post_data is not dictionary, params should be included in post_data directly
         if isinstance(post_data, dict):

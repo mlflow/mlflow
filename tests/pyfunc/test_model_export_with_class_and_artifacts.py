@@ -226,9 +226,7 @@ def test_python_model_predict_compatible_without_params(sklearn_knn_model, iris_
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
-        sklearn_model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=sklearn_artifact_path
-        )
+        sklearn_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{sklearn_artifact_path}"
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
@@ -240,14 +238,10 @@ def test_python_model_predict_compatible_without_params(sklearn_knn_model, iris_
             artifacts={"sk_model": sklearn_model_uri},
             python_model=CustomSklearnModelWithoutParams(test_predict),
         )
-        pyfunc_model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
-        )
+        pyfunc_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
         assert model_info.model_uri == pyfunc_model_uri
         pyfunc_model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
-            )
+            f"runs:/{mlflow.active_run()}/{pyfunc_artifact_path}"
         )
         model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
 

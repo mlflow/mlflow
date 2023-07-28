@@ -177,7 +177,7 @@ def _decode_json_input(json_input):
 def _split_data_and_params(json_input):
     input_dict = _decode_json_input(json_input)
     data = {k: v for k, v in input_dict.items() if k in SUPPORTED_FORMATS}
-    params = input_dict.get("params")
+    params = input_dict.pop("params", None)
     return data, params
 
 
