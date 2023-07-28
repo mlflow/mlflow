@@ -22,12 +22,12 @@ with tempfile.TemporaryDirectory() as temp_dir:
     db = FAISS.from_documents(docs, embeddings)
     db.save_local(persist_dir)
 
-    # Log the retriever
     def load_retriever(persist_directory):
         embeddings = OpenAIEmbeddings()
         vectorstore = FAISS.load_local(persist_directory, embeddings)
         return vectorstore.as_retriever()
 
+    # Log the retriever
     with mlflow.start_run() as run:
         logged_model = mlflow.langchain.log_model(
             db.as_retriever(),
