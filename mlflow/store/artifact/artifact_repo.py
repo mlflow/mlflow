@@ -4,6 +4,11 @@ import tempfile
 from abc import abstractmethod, ABCMeta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+try:
+    from tqdm.notebook import tqdm
+except ImportError:
+    raise ModuleNotFoundError("module not found: tqdm; install with `pip install tqdm`")
+
 from mlflow.exceptions import MlflowException
 from mlflow.entities.file_info import FileInfo
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
@@ -189,7 +194,7 @@ class ArtifactRepository:
 
         # Wait for downloads to complete and collect failures
         failed_downloads = {}
-        for f in as_completed(futures):
+        for f in tqdm(as_completed(futures), total=len(futures), desc="Downloading artifacts"):
             try:
                 f.result()
             except Exception as e:

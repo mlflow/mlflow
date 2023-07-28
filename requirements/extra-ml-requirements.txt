@@ -64,3 +64,4 @@ tenacity
 langchain
 # Required by mlflow.sentence_transformers
 sentence-transformers
+tqdm

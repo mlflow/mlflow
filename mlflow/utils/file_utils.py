@@ -31,6 +31,11 @@ try:
 except ImportError:
     from yaml import SafeLoader as YamlSafeLoader, SafeDumper as YamlSafeDumper
 
+try:
+    from tqdm.notebook import tqdm
+except ImportError:
+    raise ModuleNotFoundError("module not found: tqdm; install with `pip install tqdm`")
+
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
@@ -689,18 +694,29 @@ def parallelized_download_file_using_http_uri(
         futures[thread_pool_executor.submit(run_download, range_start, range_end)] = i
 
     failed_downloads = {}
-    for future in as_completed(futures):
-        index = futures[future]
-        try:
-            result = future.result()
-            if result is not None:
-                failed_downloads[index] = result
-
-        except Exception as e:
-            failed_downloads[index] = {
-                "error_status_code": 500,
-                "error_text": repr(e),
-            }
+    pbar = tqdm(
+        total=file_size,
+        unit="iB",
+        unit_scale=True,
+        unit_divisor=1024,
+        desc=f"Downloading file {download_path}",
+        leave=False,
+        miniters=1,
+    )
+    with pbar:
+        for future in as_completed(futures):
+            index = futures[future]
+            try:
+                result = future.result()
+                if result is not None:
+                    failed_downloads[index] = result
+                pbar.update(min(file_size - index * chunk_size, chunk_size))
+                pbar.refresh()
+            except Exception as e:
+                failed_downloads[index] = {
+                    "error_status_code": 500,
+                    "error_text": repr(e),
+                }
 
     return failed_downloads
 
