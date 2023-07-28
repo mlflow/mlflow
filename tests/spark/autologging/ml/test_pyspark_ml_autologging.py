@@ -239,6 +239,22 @@ def test_autolog_does_not_terminate_active_run(dataset_binomial):
     mlflow.end_run()
 
 
+def test_extra_tags_spark_autolog(dataset_binomial):
+    mlflow.pyspark.ml.autolog()
+    lr = LinearRegression()
+    lr.fit(dataset_binomial)
+    assert mlflow.active_run() is None
+
+
+def test_extra_tags_spark_autolog(dataset_binomial):
+    mlflow.pyspark.ml.autolog(extra_tags={"test_tag": "spark_autolog"})
+    lr = LinearRegression()
+    lr.fit(dataset_binomial)
+    run = mlflow.last_active_run()
+    assert run.data.tags["test_tag"] == "spark_autolog"
+    assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "pyspark.ml"
+
+
 def test_meta_estimator_fit(dataset_binomial):
     mlflow.pyspark.ml.autolog()
     with mlflow.start_run() as run:

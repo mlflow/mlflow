@@ -439,6 +439,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
+    extra_tags=None,
 ):  # pylint: disable=unused-argument
     """
     Enable automatic logging from Fastai to MLflow.
@@ -468,6 +469,7 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
 
     .. code-block:: python
         :caption: Example
@@ -638,7 +640,7 @@ def autolog(
             self, original, args, kwargs, unlogged_params, is_fine_tune=False
         )
 
-    safe_patch(FLAVOR_NAME, Learner, "fit", fit, manage_run=True)
+    safe_patch(FLAVOR_NAME, Learner, "fit", fit, manage_run=True, extra_tags=extra_tags)
 
     def fine_tune(original, self, *args, **kwargs):
         unlogged_params = ["self", "cbs", "learner", "lr", "lr_max", "wd"]
@@ -646,4 +648,4 @@ def autolog(
             self, original, args, kwargs, unlogged_params, is_fine_tune=True
         )
 
-    safe_patch(FLAVOR_NAME, Learner, "fine_tune", fine_tune, manage_run=True)
+    safe_patch(FLAVOR_NAME, Learner, "fine_tune", fine_tune, manage_run=True, extra_tags=extra_tags)

@@ -35,6 +35,15 @@ def test_statsmodels_autolog_ends_auto_created_run():
     assert mlflow.active_run() is None
 
 
+def test_extra_tags_statsmodels_autolog():
+    mlflow.statsmodels.autolog(extra_tags={"test_tag": "stats_autolog"})
+    arma_model()
+
+    run = mlflow.last_active_run()
+    assert run.data.tags["test_tag"] == "stats_autolog"
+    assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "statsmodels"
+
+
 def test_statsmodels_autolog_persists_manually_created_run():
     mlflow.statsmodels.autolog()
     with mlflow.start_run() as run:
