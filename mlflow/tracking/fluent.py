@@ -1816,6 +1816,7 @@ def autolog(
     exclusive: bool = False,
     disable_for_unsupported_versions: bool = False,
     silent: bool = False,
+    extra_tags: Optional[Dict[str, str]] = None,
     # pylint: disable=unused-argument
 ) -> None:
     """
@@ -1883,6 +1884,7 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during autologging
                    setup and training execution. If ``False``, show all events and warnings during
                    autologging setup and training execution.
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
 
     .. test-code-block:: python
         :caption: Example
