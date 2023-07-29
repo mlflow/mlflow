@@ -1,4 +1,3 @@
-import os
 import pytest
 from unittest import mock
 
@@ -62,13 +61,9 @@ def test_alembic_escape_logic():
 
 
 def test_create_sqlalchemy_engine_with_retry_success():
-    with (
-        mock.patch("sqlalchemy.inspect") as mock_sqlalchemy_inspect,
-        mock.patch(
-            "mlflow.store.db.utils.create_sqlalchemy_engine"
-        ) as mock_create_sqlalchemy_engine,
-        mock.patch("time.sleep") as mock_sleep,
-    ):
+    with mock.patch("sqlalchemy.inspect") as mock_sqlalchemy_inspect, mock.patch(
+        "mlflow.store.db.utils.create_sqlalchemy_engine"
+    ) as mock_create_sqlalchemy_engine, mock.patch("time.sleep") as mock_sleep:
         mock_create_sqlalchemy_engine.return_value = "Engine"
         engine = utils.create_sqlalchemy_engine_with_retry("mydb://host:port/")
         mock_create_sqlalchemy_engine.assert_called_once_with("mydb://host:port/")
@@ -78,13 +73,9 @@ def test_create_sqlalchemy_engine_with_retry_success():
 
 
 def test_create_sqlalchemy_engine_with_retry_success_after_third_call():
-    with (
-        mock.patch("sqlalchemy.inspect") as mock_sqlalchemy_inspect,
-        mock.patch(
-            "mlflow.store.db.utils.create_sqlalchemy_engine"
-        ) as mock_create_sqlalchemy_engine,
-        mock.patch("time.sleep"),
-    ):
+    with mock.patch("sqlalchemy.inspect") as mock_sqlalchemy_inspect, mock.patch(
+        "mlflow.store.db.utils.create_sqlalchemy_engine"
+    ) as mock_create_sqlalchemy_engine, mock.patch("time.sleep"):
         mock_sqlalchemy_inspect.side_effect = [Exception, Exception, "Inspect"]
         mock_create_sqlalchemy_engine.return_value = "Engine"
         engine = utils.create_sqlalchemy_engine_with_retry("mydb://host:port/")
@@ -93,12 +84,12 @@ def test_create_sqlalchemy_engine_with_retry_success_after_third_call():
 
 
 def test_create_sqlalchemy_engine_with_retry_fail():
-    with (
-        mock.patch("sqlalchemy.inspect", side_effect=[Exception("failed")] * utils.MAX_RETRY_COUNT),
-        mock.patch(
-            "mlflow.store.db.utils.create_sqlalchemy_engine", return_value="Engine"
-        ) as mock_create_sqlalchemy_engine,
-        mock.patch("time.sleep"),
+    with mock.patch(
+        "sqlalchemy.inspect", side_effect=[Exception("failed")] * utils.MAX_RETRY_COUNT
+    ), mock.patch(
+        "mlflow.store.db.utils.create_sqlalchemy_engine", return_value="Engine"
+    ) as mock_create_sqlalchemy_engine, mock.patch(
+        "time.sleep"
     ):
         with pytest.raises(Exception, match=r"failed"):
             utils.create_sqlalchemy_engine_with_retry("mydb://host:port/")
