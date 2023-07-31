@@ -216,18 +216,18 @@ downstream tooling:
 Model Inference Params
 ^^^^^^^^^^^^^^^^^^^^^^
 Inference params are parameters that are passed to the model at inference time. These parameters
-do not need to be specified when training the model, but could be useful for inference. With the 
-advances in foundational models, more often "inference configuration" is used to modify the behavior 
-of a model. In some cases, especially popular LLMs, the same model may require different parameter 
-configurations for different samples at inference time. 
+do not need to be specified when training the model, but could be useful for inference. With the
+advances in foundational models, more often "inference configuration" is used to modify the behavior
+of a model. In some cases, especially popular LLMs, the same model may require different parameter
+configurations for different samples at inference time.
 
-With this newly introduced feature, you can now specify a dictionary of inference params during 
-model inference, providing a broader utility and improved control over the generated inference 
-results, particularly for LLM use cases. By passing different params such as ``temperature``, 
+With this newly introduced feature, you can now specify a dictionary of inference params during
+model inference, providing a broader utility and improved control over the generated inference
+results, particularly for LLM use cases. By passing different params such as ``temperature``,
 ``max_length``, etc. to the model at inference time, you can easily control the output of the model.
 
-In order to use params at inference time, a valid :ref:`Model Signature <model-signature>` with 
-``params`` must be defined. The params are passed to the model at inference time as a dictionary 
+In order to use params at inference time, a valid :ref:`Model Signature <model-signature>` with
+``params`` must be defined. The params are passed to the model at inference time as a dictionary
 and each param value will be validated against the corresponding param type defined in the model
 signature. Valid param types are ``DataType`` or ``a list of DataType`` as listed below.
 
@@ -285,14 +285,14 @@ A simple example of using params for model inference:
 
 Model Signature
 ^^^^^^^^^^^^^^^
-Model signatures define input, output and parameters schemas for MLflow models, providing a standard 
+Model signatures define input, output and parameters schemas for MLflow models, providing a standard
 interface to codify and enforce the correct use of your models. Signatures are fetched by the MLflow Tracking
 UI and Model Registry UI to display model inputs, outputs and params. They are also utilized by
 :ref:`MLflow model deployment tools <built-in-deployment>` to validate inference inputs according to
 the model's assigned signature (see the :ref:`Signature enforcement <signature-enforcement>` section
 for more details).
 
-To include a signature with your model, pass a :ref:`model input example <input-example>` as an argument to the 
+To include a signature with your model, pass a :ref:`model input example <input-example>` as an argument to the
 appropriate log_model or save_model call, e.g. :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`,
 and the model signature will be automatically inferred
 (see the :ref:`How to log models with signatures <how-to-log-models-with-signatures>` section for more details).
@@ -303,13 +303,13 @@ saved model, use the :py:func:`set_signature() <mlflow.models.set_signature>` AP
 
 Model Signature Types
 ~~~~~~~~~~~~~~~~~~~~~
-A model signature consists on inputs and outputs schemas, each of which can be either column-based or tensor-based. 
+A model signature consists on inputs and outputs schemas, each of which can be either column-based or tensor-based.
 Column-based schemas are a sequence of (optionally) named columns with type specified as one of the
 :py:class:`MLflow data types <mlflow.types.DataType>`.
 Tensor-based schemas are a sequence of (optionally) named tensors with type specified as one of the
-`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. 
+`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_.
 Params schema is a sequence of ParamSpec, each of which contains ``name``, ``type``, ``default`` and ``shape`` fields.
-``type`` field must be specified as one of the :py:class:`MLflow data types <mlflow.types.DataType>`, and ``shape`` 
+``type`` field must be specified as one of the :py:class:`MLflow data types <mlflow.types.DataType>`, and ``shape``
 field should be ``None`` for scalar parameters, or ``(-1,)`` for list parameters.
 See some examples of constructing them below.
 
@@ -357,7 +357,7 @@ Signature with params Example
 The params field is optional and is used to specify parameters that can be used for model inference.
 Params accept scalar values of type :py:class:`MLflow data types <mlflow.types.DataType>`, or a list
 of such values. The default value of a parameter is specified by setting the ``default`` field, and the value
-should be of the type specified by ``type`` field. The ``shape`` field can be used to specify the shape 
+should be of the type specified by ``type`` field. The ``shape`` field can be used to specify the shape
 of the value, it should be ``None`` for scalar values and ``(-1,)`` for a list.
 
 .. code-block:: yaml
@@ -373,7 +373,7 @@ of the value, it should be ``None`` for scalar values and ``(-1,)`` for a list.
 
 Signature Enforcement
 ~~~~~~~~~~~~~~~~~~~~~
-Schema enforcement checks the provided input and params against the model's signature and 
+Schema enforcement checks the provided input and params against the model's signature and
 raises an exception if the input or params is not compatible. This enforcement is applied in MLflow before
 calling the underlying model implementation, and during model inference process.
 Note that this enforcement only applies when using :ref:`MLflow
@@ -385,9 +385,9 @@ Name Ordering Enforcement
 """""""""""""""""""""""""
 The input names are checked against the model signature. If there are any missing required inputs,
 MLflow will raise an exception. Missing optional inputs will not raise an exception.
-Extra inputs that were not declared in the signature will be ignored. If the input schema in the 
-signature defines input names, input matching is done by name and the inputs are reordered to match the 
-signature. If the input schema does not have input names, matching is done by position 
+Extra inputs that were not declared in the signature will be ignored. If the input schema in the
+signature defines input names, input matching is done by name and the inputs are reordered to match the
+signature. If the input schema does not have input names, matching is done by position
 (i.e. MLflow will only check the number of inputs).
 
 Input Type Enforcement
@@ -406,10 +406,10 @@ Params Type and Shape Enforcement
 """""""""""""""""""""""""""""""""
 The params types and shapes are checked against the signature.
 
-MLflow verifies the compatibility of each parameter provided during inference by comparing its type and shape 
-with those specified in the signature. Scalar values should have a shape of ``None``, while list values should have 
-a shape of ``(-1,)``. If the parameter's type or shape is incompatible, an exception will be raised. 
-Additionally, the value of the parameter is validated against the specified type in the signature. We attempt 
+MLflow verifies the compatibility of each parameter provided during inference by comparing its type and shape
+with those specified in the signature. Scalar values should have a shape of ``None``, while list values should have
+a shape of ``(-1,)``. If the parameter's type or shape is incompatible, an exception will be raised.
+Additionally, the value of the parameter is validated against the specified type in the signature. We attempt
 to convert the value to the specified type, and if this conversion fails, an MlflowException will be raised.
 A valid list of params is documented in :ref:`Model Inference Params <inference-params>` section.
 
@@ -447,7 +447,7 @@ as possible given the signature provided, and will support ragged input arrays a
 
 How To Log Models With Signatures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-To include a signature with your model, pass a :ref:`model input example <input-example>` to the 
+To include a signature with your model, pass a :ref:`model input example <input-example>` to the
 appropriate log_model or save_model call, e.g. :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`,
 and the model signature will be automatically inferred from the input example and the model's
 predicted output of the input example.
@@ -456,13 +456,13 @@ You may also include a signature object with your model by passing a :py:class:`
 <mlflow.models.ModelSignature>` as an argument to your log_model or save_model call. The model signature
 object can be created by hand or :py:func:`inferred <mlflow.models.infer_signature>` from datasets with
 valid model inputs (e.g. the training dataset with target column omitted), valid model outputs
-(e.g. model predictions generated on the training dataset), and valid model parameters (a dictionary of 
-parameters passed to model for inference; e.g. `Generation Configs for transformers 
+(e.g. model predictions generated on the training dataset), and valid model parameters (a dictionary of
+parameters passed to model for inference; e.g. `Generation Configs for transformers
 <https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig>`_).
 
 .. note::
     Model signatures are utilized in :ref:`MLflow model deployment tools <built-in-deployment>`, which
-    commonly serve the Python Function (PyFunc) flavor of MLflow models. Hence, when passing a signature 
+    commonly serve the Python Function (PyFunc) flavor of MLflow models. Hence, when passing a signature
     object to your log_model or save_model call, it is recommended that the signature represent the
     inputs and outputs of the model's PyFunc flavor. This is especially important when the model loaded
     as a PyFunc model has an input schema that is different from the test dataset schema (as is the case with
@@ -705,7 +705,7 @@ Set Signature on Model Version
 
 As MLflow Model Registry artifacts are meant to be read-only, you cannot directly set a signature on
 a model version or model artifacts represented by ``models:/`` URI schemes. Instead, you should first set
-the signature on the source model artifacts and generate a new model version using the updated 
+the signature on the source model artifacts and generate a new model version using the updated
 model artifacts. The following example illustrates how this can be done.
 
 Supposed you have created the following model version without a signature like below:
@@ -752,7 +752,7 @@ with a new model signature.
 
 Model Input Example
 ^^^^^^^^^^^^^^^^^^^
-A model input example provides an instance of a valid model input. Input examples are stored with 
+A model input example provides an instance of a valid model input. Input examples are stored with
 the model as separate artifacts and are referenced in the :ref:`MLmodel file <pyfunc-model-config>`.
 To include an input example with your model, add it to the appropriate log_model call, e.g.
 :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. Input examples are also used to infer
@@ -1313,13 +1313,13 @@ Spark MLlib pyfunc usage
     prediction = lr_model_saved.predict(test)
 
 .. note::
-    Note that when the ``sample_input`` parameter is provided to ``log_model()`` or 
+    Note that when the ``sample_input`` parameter is provided to ``log_model()`` or
     ``save_model()``, the Spark model is automatically saved as an ``mleap`` flavor
     by invoking :py:func:`mlflow.mleap.add_to_model()<mlflow.mleap.add_to_model>`.
-    
+
     For example, the follow code block:
 
-    .. code-block:: py 
+    .. code-block:: py
 
         training_df = spark.createDataFrame([
             (0, "a b c d e spark", 1.0),
@@ -1332,15 +1332,15 @@ Spark MLlib pyfunc usage
         lr = LogisticRegression(maxIter=10, regParam=0.001)
         pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
         model = pipeline.fit(training_df)
-        
+
         mlflow.spark.log_model(model, "spark-model", sample_input=training_df)
 
-    results in the following directory structure logged to the MLflow Experiment: 
+    results in the following directory structure logged to the MLflow Experiment:
 
     ::
 
         # Directory written by with the addition of mlflow.mleap.add_to_model(model, "spark-model", training_df)
-        # Note the addition of the mleap directory 
+        # Note the addition of the mleap directory
         spark-model/
         ├── mleap
         ├── sparkml
@@ -2166,7 +2166,7 @@ on a ``statsmodels`` model.
 
 Statsmodels pyfunc usage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-The following 2 examples illustrate usage of a basic regression model (OLS) and an ARIMA time series model 
+The following 2 examples illustrate usage of a basic regression model (OLS) and an ARIMA time series model
 from the following statsmodels apis : statsmodels.formula.api and statsmodels.tsa.api
 
 For a minimal statsmodels regression model, here is an example of the pyfunc predict() method :
@@ -3586,7 +3586,9 @@ been logged: 'baseline_model' and 'candidate_model' for comparison purposes in t
 
 .. note:: Limitations (when the default evaluator is used):
 
-    - Model validation results are not included in the active MLflow run. See `below <models.html#model-validation-with-trubrics>`_ to see how to log validation results with Trubrics.
+    - Model validation results are not included in the active MLflow run. See below to see how to log validation results with
+      `Giskard <models.html#model-validation-with-giskard-s-plugin>`_ or
+      `Trubrics <models.html#model-validation-with-trubrics-plugin>`_.
     - No metrics are logged nor artifacts produced for the baseline model in the active MLflow run.
 
 Additional information about model evaluation behaviors and outputs is available in the
@@ -3615,18 +3617,39 @@ Additional information about model evaluation behaviors and outputs is available
     For simplicity purposes, both methodologies evaluation metric results (whether for multi-class
     or binary classification) are unified in the single metric: ``precision_recall_auc``.
 
+Model Validation with Giskard's plugin
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+To extend the validation capabilities of MLflow and anticipate issues before they go to production, a plugin has been built by `Giskard <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow.html>`__ allowing users to:
+
+    - scan a model in order to detect hidden vulnerabilities such as
+      `Performance bias <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/performance_bias/index.html>`_,
+      `Unrobustness <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/robustness/index.html>`_,
+      `Overconfidence <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/overconfidence/index.html>`_,
+      `Underconfidence <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/underconfidence/index.html>`_,
+      `Ethical bias <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/ethics/index.html>`_,
+      `Data leakage <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/data_leakage/index.html>`_,
+      `Stochasticity <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/stochasticity/index.html>`_,
+      `Spurious correlation <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/spurious/index.html>`_, and others
+    - explore samples in the data that highlight the vulnerabilities found
+    - log the vulnerabilities as well-defined and quantified metrics
+    - compare the metrics across different models
+
+See the `plugin example notebook <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow.html#Example-notebook>`__ for a demo.
+
+For more information on the plugin, see the `giskard-mlflow docs <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow.html>`__.
+
 Model Validation with Trubrics' plugin
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To extend the validation capabilities of MLflow, a plugin has been built by `Trubrics <https://github.com/trubrics/trubrics-sdk>`_ allowing users:
+To extend the validation capabilities of MLflow, a plugin has been built by `Trubrics <https://github.com/trubrics/trubrics-sdk>`__ allowing users:
 
     - to use a large number of out-of-the-box validations
     - to validate a run with any custom python functions
     - to view all validation results in a .json file, for diagnosis of why an MLflow run could have failed
 
-See the `plugin example notebook <https://github.com/trubrics/trubrics-sdk/blob/main/examples/mlflow/mlflow-trubrics.ipynb>`_ for a demo.
+See the `plugin example notebook <https://github.com/trubrics/trubrics-sdk/blob/main/examples/mlflow/mlflow-trubrics.ipynb>`__ for a demo.
 
-For more information on the plugin, see the `trubrics-mlflow docs <https://trubrics.github.io/trubrics-sdk/mlflow/>`_.
+For more information on the plugin, see the `trubrics-mlflow docs <https://trubrics.github.io/trubrics-sdk/mlflow/>`__.
 
 Model Customization
 -------------------
@@ -4114,7 +4137,7 @@ the ``save_model()`` function from above to persist the model.
         )
 
 To interpret model directories produced by ``save_model()``, the custom flavor must also define a
-``load_model()`` function. The ``load_model()`` function reads the ``MLmodel`` configuration from 
+``load_model()`` function. The ``load_model()`` function reads the ``MLmodel`` configuration from
 the specified model directory and uses the configuration attributes to load and return the
 ``sktime`` model from its serialized representation.
 
@@ -4470,8 +4493,8 @@ the type and encoding of the input data
   will be cast to Numpy arrays.
 
 The json input also has an optional field ``params`` that can be used to pass additional parameters.
-Valid parameters types are ``Union[DataType, List[DataType], None]`` where DataType is 
-:py:class:`MLflow data types <mlflow.types.DataType>`. In order to pass params, a valid 
+Valid parameters types are ``Union[DataType, List[DataType], None]`` where DataType is
+:py:class:`MLflow data types <mlflow.types.DataType>`. In order to pass params, a valid
 :ref:`Model Signature <model-signature>` with ``params`` must be defined.
 
 .. note:: Since JSON loses type information, MLflow will cast the JSON input to the input type specified
