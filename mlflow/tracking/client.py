@@ -1252,6 +1252,8 @@ class MlflowClient:
         :param figure: Figure to log.
         :param artifact_file: The run-relative artifact file path in posixpath format to which
                               the figure is saved (e.g. "dir/file.png").
+        :param kwargs: Additional arguments that are being passed to the
+                       matplotlib/ plotly method when saving the figure.
 
         .. code-block:: python
             :caption: Matplotlib Example
