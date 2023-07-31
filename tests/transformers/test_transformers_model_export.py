@@ -157,12 +157,12 @@ def transformers_custom_env(tmp_path):
     return conda_env
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_pyfunc_wrapper():
     return mlflow.transformers._TransformersWrapper("mock")
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_seq2seq_pipeline():
     # The return type of this model's language head is a List[Dict[str, Any]]
@@ -172,7 +172,7 @@ def small_seq2seq_pipeline():
     return transformers.pipeline(task="text-classification", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_qa_pipeline():
     # The return type of this model's language head is a Dict[str, Any]
@@ -184,7 +184,7 @@ def small_qa_pipeline():
     return transformers.pipeline(task="question-answering", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_vision_model():
     architecture = "google/mobilenet_v2_1.0_224"
@@ -199,14 +199,14 @@ def small_vision_model():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_multi_modal_pipeline():
     architecture = "dandelin/vilt-b32-finetuned-vqa"
     return transformers.pipeline(model=architecture)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def component_multi_modal():
     architecture = "dandelin/vilt-b32-finetuned-vqa"
@@ -226,7 +226,7 @@ def component_multi_modal():
     return transformers_model
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_conversational_model():
     tokenizer = transformers.AutoTokenizer.from_pretrained(
@@ -238,7 +238,7 @@ def small_conversational_model():
     return transformers.pipeline(task="conversational", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def fill_mask_pipeline():
     architecture = "distilroberta-base"
@@ -247,7 +247,7 @@ def fill_mask_pipeline():
     return transformers.pipeline(task="fill-mask", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def text2text_generation_pipeline():
     task = "text2text-generation"
@@ -262,7 +262,7 @@ def text2text_generation_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def text_generation_pipeline():
     task = "text-generation"
@@ -277,7 +277,7 @@ def text_generation_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def translation_pipeline():
     return transformers.pipeline(
@@ -287,7 +287,7 @@ def translation_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def summarizer_pipeline():
     task = "summarization"
@@ -301,7 +301,7 @@ def summarizer_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def text_classification_pipeline():
     task = "text-classification"
@@ -315,7 +315,7 @@ def text_classification_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def zero_shot_pipeline():
     task = "zero-shot-classification"
@@ -329,7 +329,7 @@ def zero_shot_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def table_question_answering_pipeline():
     return transformers.pipeline(
@@ -337,7 +337,7 @@ def table_question_answering_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def ner_pipeline():
     return transformers.pipeline(
@@ -345,7 +345,7 @@ def ner_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def ner_pipeline_aggregation():
     # Modification to the default aggregation_strategy of `None` changes the output keys in each
@@ -358,34 +358,34 @@ def ner_pipeline_aggregation():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def conversational_pipeline():
     return transformers.pipeline(model="microsoft/DialoGPT-medium")
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def image_for_test():
     dataset = load_dataset("huggingface/cats-image")
     return dataset["test"]["image"][0]
 
 
-@pytest.fixture()
+@pytest.fixture
 def sound_file_for_test():
     datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets")
     audio, _ = librosa.load(datasets_path.joinpath("apollo11_launch.wav"), sr=16000)
     return audio
 
 
-@pytest.fixture()
+@pytest.fixture
 def raw_audio_file():
     datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets")
 
     return datasets_path.joinpath("apollo11_launch.wav").read_bytes()
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def whisper_pipeline():
     task = "automatic-speech-recognition"
@@ -400,13 +400,13 @@ def whisper_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def audio_classification_pipeline():
     return transformers.pipeline("audio-classification", model="superb/wav2vec2-base-superb-ks")
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def feature_extraction_pipeline():
     st_arch = "sentence-transformers/all-MiniLM-L6-v2"
@@ -472,7 +472,7 @@ def test_instance_extraction(small_qa_pipeline):
 
 
 @pytest.mark.parametrize(
-    ["model", "result"],
+    ("model", "result"),
     [
         ("small_qa_pipeline", True),
         ("small_seq2seq_pipeline", True),
@@ -1320,7 +1320,7 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.parametrize(
-    "data, result",
+    ("data", "result"),
     [
         ("muppet keyboard type", ["A muppet is typing on a keyboard."]),
         (
@@ -1334,7 +1334,7 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
     ],
 )
 def test_text2text_generation_pipeline_with_inference_configs(
-    text2text_generation_pipeline, model_path, data, result
+    text2text_generation_pipeline, tmp_path, data, result
 ):
     signature = infer_signature(
         data, mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data)
@@ -1348,13 +1348,14 @@ def test_text2text_generation_pipeline_with_inference_configs(
         "top_p": 0.85,
         "repetition_penalty": 1.15,
     }
+    model_path1 = tmp_path.joinpath("model1")
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
-        path=model_path,
+        path=model_path1,
         inference_config=inference_config,
         signature=signature,
     )
-    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path1)
 
     inference = pyfunc_loaded.predict(data)
 
@@ -1366,6 +1367,88 @@ def test_text2text_generation_pipeline_with_inference_configs(
         pd_input = pd.DataFrame(data)
     pd_inference = pyfunc_loaded.predict(pd_input)
     assert pd_inference == result
+
+    model_path2 = tmp_path.joinpath("model2")
+    signature_with_params = infer_signature(
+        data,
+        mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data),
+        inference_config,
+    )
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline,
+        path=model_path2,
+        signature=signature_with_params,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path2)
+
+    dict_inference = pyfunc_loaded.predict(
+        data,
+        params=inference_config,
+    )
+
+    assert dict_inference == inference
+
+
+def test_text2text_generation_pipeline_with_params(text2text_generation_pipeline, tmp_path):
+    data = "muppet keyboard type"
+    parameters = {"top_k": 2, "num_beams": 5}
+    generated_output = mlflow.transformers.generate_signature_output(
+        text2text_generation_pipeline, data
+    )
+    signature = infer_signature(
+        data,
+        generated_output,
+        parameters,
+    )
+
+    model_path = tmp_path / "model1"
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline,
+        path=model_path,
+        signature=signature,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    pyfunc_loaded.predict(data, parameters)
+
+    parameters.update({"invalid_param": "invalid_param"})
+    model_path = tmp_path / "model2"
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline,
+        path=model_path,
+        signature=infer_signature(
+            data,
+            generated_output,
+            parameters,
+        ),
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    with pytest.raises(
+        MlflowException,
+        match=r"The params provided to the `predict` method are "
+        r"not valid for pipeline Text2TextGenerationPipeline.",
+    ):
+        pyfunc_loaded.predict(data, parameters)
+
+    with pytest.raises(MlflowException, match=r"Invalid parameters found"):
+        pyfunc_loaded.predict(data, {"top_k": "2"})
+
+    model_path = tmp_path / "model3"
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline,
+        model_path,
+        signature=infer_signature(
+            data,
+            generated_output,
+            params={"invalid_param": "value"},
+        ),
+    )
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+    with pytest.raises(
+        MlflowException,
+        match=r"The params provided to the `predict` method are not "
+        r"valid for pipeline Text2TextGenerationPipeline.",
+    ):
+        loaded_pyfunc.predict(data, {"invalid_param": "random_value"})
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
@@ -1473,7 +1556,7 @@ def test_invalid_input_to_text_generation_pipeline(text_generation_pipeline, inv
 
 
 @pytest.mark.parametrize(
-    "inference_payload, result",
+    ("inference_payload", "result"),
     [
         ("Riding a <mask> on the beach is fun!", ["bike"]),
         (["If I had <mask>, I would fly to the top of a mountain"], ["wings"]),
@@ -1559,7 +1642,7 @@ def test_zero_shot_classification_pipeline(zero_shot_pipeline, model_path, data)
 
 
 @pytest.mark.parametrize(
-    "query, result",
+    ("query", "result"),
     [
         ({"query": "What should we order more of?"}, ["apples"]),
         (
@@ -1605,7 +1688,7 @@ def test_table_question_answering_pipeline(
 
 
 @pytest.mark.parametrize(
-    "data, result",
+    ("data", "result"),
     [
         ("I've got a lovely bunch of coconuts!", ["Ich habe eine schöne Haufe von Kokos!"]),
         (
@@ -1724,7 +1807,7 @@ def test_classifier_pipeline(text_classification_pipeline, model_path, data):
 
 
 @pytest.mark.parametrize(
-    "data, result",
+    ("data", "result"),
     [
         (
             "I have a dog and his name is Willy!",
@@ -1794,7 +1877,7 @@ def test_conversational_pipeline(conversational_pipeline, model_path):
 
 
 @pytest.mark.parametrize(
-    "pipeline_name, example, in_signature, out_signature",
+    ("pipeline_name", "example", "in_signature", "out_signature"),
     [
         (
             "fill_mask_pipeline",
@@ -2361,8 +2444,14 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
 
 
 @pytest.mark.parametrize(
-    "pipeline_input, pipeline_output, expected_output, flavor_config, include_prompt, "
-    "collapse_whitespace",
+    (
+        "pipeline_input",
+        "pipeline_output",
+        "expected_output",
+        "flavor_config",
+        "include_prompt",
+        "collapse_whitespace",
+    ),
     [
         (
             "What answers?",
@@ -2599,7 +2688,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
 
 
 @pytest.mark.parametrize(
-    ["pipeline_name", "data", "result"],
+    ("pipeline_name", "data", "result"),
     [
         (
             "small_qa_pipeline",
@@ -3272,6 +3361,112 @@ def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
     assert txt == card_data.text
     data = yaml.safe_load(tmp_path.joinpath(_CARD_DATA_FILE_NAME).read_text())
     assert data == card_data.data.to_dict()
+
+
+def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
+    artifact_path = "qa_model"
+    data = {
+        "question": [
+            "What color is it?",
+            "How do the people go?",
+            "What does the 'wolf' howl at?",
+        ],
+        "context": [
+            "Some people said it was green but I know that it's pink.",
+            "The people on the bus go up and down. Up and down.",
+            "The pack of 'wolves' stood on the cliff and a 'lone wolf' howled at "
+            "the moon for hours.",
+        ],
+    }
+    parameters = {
+        "top_k": 2,
+        "max_answer_len": 5,
+    }
+    inference_payload = json.dumps(
+        {
+            "inputs": data,
+            "params": parameters,
+        }
+    )
+    signature_with_params = infer_signature(
+        data,
+        mlflow.transformers.generate_signature_output(small_qa_pipeline, data),
+        parameters,
+    )
+
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=small_qa_pipeline,
+            artifact_path=artifact_path,
+            signature=signature_with_params,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [
+        {0: "pink"},
+        {0: "pink."},
+        {0: "up and down"},
+        {0: "Up and down"},
+        {0: "the moon"},
+        {0: "moon"},
+    ]
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
+)
+@pytest.mark.skipcacheclean
+def test_whisper_model_serve_and_score_with_timestamps_with_kwargs(
+    whisper_pipeline, raw_audio_file
+):
+    artifact_path = "whisper_timestamps"
+    inference_config = {
+        "return_timestamps": "word",
+        "chunk_length_s": 20,
+        "stride_length_s": [5, 3],
+    }
+    signature = infer_signature(
+        raw_audio_file,
+        mlflow.transformers.generate_signature_output(whisper_pipeline, raw_audio_file),
+        params=inference_config,
+    )
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=whisper_pipeline,
+            artifact_path=artifact_path,
+            signature=signature,
+            input_example=raw_audio_file,
+        )
+
+    inference_payload = json.dumps(
+        {
+            "inputs": [base64.b64encode(raw_audio_file).decode("ascii")],
+            "inference_config": inference_config,
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    payload_output = json.loads(values.loc[0, 0])
+
+    assert (
+        payload_output["text"]
+        == mlflow.transformers.load_model(model_info.model_uri)(raw_audio_file, **inference_config)[
+            "text"
+        ]
+    )
 
 
 def test_uri_directory_renaming_handling_pipeline(model_path, small_seq2seq_pipeline):

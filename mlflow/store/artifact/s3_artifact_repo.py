@@ -119,7 +119,7 @@ class S3ArtifactRepository(ArtifactRepository):
         """Parse an S3 URI, returning (bucket, path)"""
         parsed = urllib.parse.urlparse(uri)
         if parsed.scheme != "s3":
-            raise Exception("Not an S3 URI: %s" % uri)
+            raise Exception(f"Not an S3 URI: {uri}")
         path = parsed.path
         if path.startswith("/"):
             path = path[1:]

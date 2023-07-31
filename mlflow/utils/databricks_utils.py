@@ -371,6 +371,22 @@ def get_workspace_url():
         return None
 
 
+def warn_on_deprecated_cross_workspace_registry_uri(registry_uri):
+    workspace_host, workspace_id = get_workspace_info_from_databricks_secrets(
+        tracking_uri=registry_uri
+    )
+    if workspace_host is not None or workspace_id is not None:
+        _logger.warning(
+            "Accessing remote workspace model registries using registry URIs of the form "
+            "'databricks://scope:prefix', or by loading models via URIs of the form "
+            "'models://scope:prefix@databricks/model-name/stage-or-version', is deprecated. "
+            "Use Models in Unity Catalog instead for easy cross-workspace model access, with "
+            "granular per-user audit logging and no extra setup required. See "
+            "https://docs.databricks.com/machine-learning/manage-model-lifecycle/index.html "
+            "for more details."
+        )
+
+
 def get_workspace_info_from_databricks_secrets(tracking_uri):
     profile, key_prefix = get_db_info_from_uri(tracking_uri)
     if key_prefix:

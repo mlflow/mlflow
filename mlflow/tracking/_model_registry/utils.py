@@ -1,4 +1,5 @@
 from functools import partial
+import logging
 
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.file_store import FileStore
@@ -13,7 +14,10 @@ from mlflow.tracking._tracking_service.utils import (
     get_tracking_uri,
 )
 from mlflow.utils import rest_utils
-from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.databricks_utils import (
+    get_databricks_host_creds,
+    warn_on_deprecated_cross_workspace_registry_uri,
+)
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 from mlflow.environment_variables import (
     MLFLOW_TRACKING_AWS_SIGV4,
@@ -25,6 +29,8 @@ from mlflow.environment_variables import (
     MLFLOW_TRACKING_CLIENT_CERT_PATH,
     MLFLOW_REGISTRY_URI,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 # NOTE: in contrast to tracking, we do not support the following ways to specify
@@ -153,6 +159,7 @@ def _get_rest_store(store_uri, **_):
 
 
 def _get_databricks_rest_store(store_uri, **_):
+    warn_on_deprecated_cross_workspace_registry_uri(registry_uri=store_uri)
     return DatabricksWorkspaceModelRegistryRestStore(partial(get_databricks_host_creds, store_uri))
 
 

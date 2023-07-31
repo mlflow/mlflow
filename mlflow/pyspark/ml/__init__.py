@@ -779,6 +779,7 @@ def autolog(
     log_input_examples=False,
     log_model_signatures=True,
     log_model_allowlist=None,
+    extra_tags=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for pyspark ml estimators.
@@ -919,6 +920,8 @@ def autolog(
     **The default log model allowlist in mlflow**
         .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
            :language: text
+
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
     from mlflow.tracking.context import registry as context_registry
     from pyspark.ml.base import Estimator, Model
@@ -1217,6 +1220,7 @@ def autolog(
         "fit",
         patched_fit,
         manage_run=True,
+        extra_tags=extra_tags,
     )
 
     if log_post_training_metrics:

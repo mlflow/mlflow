@@ -1433,9 +1433,7 @@ class MlflowClient:
 
                 if (image.ndim == 3) and (image.shape[2] not in [1, 3, 4]):
                     raise ValueError(
-                        "Invalid channel length: {}. Must be one of [1, 3, 4]".format(
-                            image.shape[2]
-                        )
+                        f"Invalid channel length: {image.shape[2]}. Must be one of [1, 3, 4]"
                     )
 
                 # squeeze a 3D grayscale image since `Image.fromarray` doesn't accept it.

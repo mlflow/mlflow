@@ -77,19 +77,19 @@ from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_get_request_message():
     with mock.patch("mlflow.server.handlers._get_request_message") as m:
         yield m
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_get_request_json():
     with mock.patch("mlflow.server.handlers._get_request_json") as m:
         yield m
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_tracking_store():
     with mock.patch("mlflow.server.handlers._get_tracking_store") as m:
         mock_store = mock.MagicMock()
@@ -97,7 +97,7 @@ def mock_tracking_store():
         yield mock_store
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_model_registry_store():
     with mock.patch("mlflow.server.handlers._get_model_registry_store") as m:
         mock_store = mock.MagicMock()

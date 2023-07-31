@@ -34,8 +34,6 @@ library_to_mlflow_module_without_spark_datasource = {
     xgboost: mlflow.xgboost,
     lightgbm: mlflow.lightgbm,
     statsmodels: mlflow.statsmodels,
-    # TODO: Remove this after releasing MLflow 2.5.0
-    # mxnet.gluon: mlflow.gluon,
     pyspark.ml: mlflow.pyspark.ml,
     pytorch_lightning: mlflow.pytorch,
     transformers: mlflow.transformers,
@@ -75,7 +73,7 @@ def reset_global_states():
         except Exception:
             pass
 
-    # TODO: Remove this after releasing MLflow 2.5.0
+    # TODO: Remove this when we remove the `mlflow.gluon` module
     mlflow.utils.import_hooks._post_import_hooks.pop("mxnet.gluon", None)
 
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
@@ -308,7 +306,6 @@ def test_last_active_run_retrieves_autologged_run():
     from sklearn.ensemble import RandomForestRegressor
 
     mlflow.autolog()
-
     rf = RandomForestRegressor(n_estimators=1, max_depth=1, max_features=1)
     rf.fit([[1, 2]], [[3]])
     rf.predict([[2, 1]])
@@ -316,3 +313,20 @@ def test_last_active_run_retrieves_autologged_run():
     autolog_run = mlflow.last_active_run()
     assert autolog_run is not None
     assert autolog_run.info.run_id is not None
+
+
+@pytest.mark.do_not_disable_new_import_hook_firing_if_module_already_exists
+def test_extra_tags_mlflow_autolog():
+    from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
+    from mlflow.exceptions import MlflowException
+    from sklearn.ensemble import RandomForestRegressor
+
+    mlflow.autolog(extra_tags={"test_tag": "autolog", MLFLOW_AUTOLOGGING: "123"})
+    rf = RandomForestRegressor(n_estimators=1, max_depth=1, max_features=1)
+    rf.fit([[1, 2]], [[3]])
+    autolog_run = mlflow.last_active_run()
+    assert autolog_run.data.tags["test_tag"] == "autolog"
+    assert autolog_run.data.tags[MLFLOW_AUTOLOGGING] == "sklearn"
+
+    with pytest.raises(MlflowException, match="Invalid `extra_tags` type"):
+        mlflow.autolog(extra_tags="test_tag")

@@ -203,7 +203,7 @@ with mlflow.start_run():
     # Create a SummaryWriter to write TensorBoard events locally
     output_dir = dirpath = tempfile.mkdtemp()
     writer = SummaryWriter(output_dir)
-    print("Writing TensorBoard events locally to %s\n" % output_dir)
+    print(f"Writing TensorBoard events locally to {output_dir}\n")
 
     # Perform the training
     for epoch in range(1, args.epochs + 1):

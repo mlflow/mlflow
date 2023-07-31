@@ -11,40 +11,35 @@ TEST_FILE_2_CONTENT = "World 🍆🍔🍆".encode()
 TEST_FILE_3_CONTENT = "¡🍆🍆🍔🍆🍆!".encode()
 
 
-@pytest.fixture()
+@pytest.fixture
 def artifact_dir(tmp_path):
     return os.path.join(tmp_path, "artifacts-to-log")
 
 
-@pytest.fixture()
+@pytest.fixture
 def force_dbfs_fuse_repo(artifact_dir):
     in_databricks_mock_path = "mlflow.utils.databricks_utils.is_dbfs_fuse_available"
     local_artifact_repo_package = "mlflow.store.artifact.local_artifact_repo"
     artifact_dir_mock_path = local_artifact_repo_package + ".LocalArtifactRepository.artifact_dir"
-    with mock.patch(
-        in_databricks_mock_path,
-        return_value=True,
-    ), mock.patch(
-        artifact_dir_mock_path,
-        new_callable=PropertyMock,
-        return_value=artifact_dir,
+    with mock.patch(in_databricks_mock_path, return_value=True), mock.patch(
+        artifact_dir_mock_path, new_callable=PropertyMock, return_value=artifact_dir
     ):
         yield
 
 
-@pytest.fixture()
+@pytest.fixture
 def dbfs_fuse_artifact_repo(force_dbfs_fuse_repo):  # pylint: disable=unused-argument
     return get_artifact_repository("dbfs:/unused/path/replaced/by/mock")
 
 
-@pytest.fixture()
+@pytest.fixture
 def files_dir(tmp_path):
     d = tmp_path.joinpath("files")
     d.mkdir()
     return d
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_file(files_dir):
     p = files_dir.joinpath("test.txt")
     with open(p, "wb") as f:
@@ -52,7 +47,7 @@ def test_file(files_dir):
     return p
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_dir(files_dir):
     subdir = files_dir.joinpath("subdir")
     subdir.mkdir()

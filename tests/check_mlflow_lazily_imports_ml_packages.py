@@ -14,8 +14,6 @@ def main():
     ml_packages = {
         "catboost",
         "fastai",
-        # TODO: Remove this after releasing MLflow 2.5.0
-        # "mxnet",
         "h2o",
         "keras",
         "lightgbm",

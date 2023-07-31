@@ -14,9 +14,9 @@ class RequestMessage(RequestModel):
 
 class BaseRequestPayload(RequestModel):
     temperature: float = Field(0.0, ge=0, le=1)
+    candidate_count: int = Field(1, ge=1, le=5)
     stop: Optional[List[str]] = Field(None, min_items=1)
-    max_tokens: Optional[int] = Field(None, ge=0)
-    candidate_count: Optional[int] = Field(None, ge=1, le=5)
+    max_tokens: Optional[int] = Field(None, ge=1)
 
 
 class RequestPayload(BaseRequestPayload):

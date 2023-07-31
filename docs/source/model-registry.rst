@@ -564,7 +564,7 @@ save, log, register, and load from the Model Registry and score.
             prediction_scores = self._analyser.polarity_scores(txt)
             return prediction_scores
 
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             # Apply the preprocess function from the vader model to score
             model_output = model_input.apply(lambda col: self._score(col))
             return model_output

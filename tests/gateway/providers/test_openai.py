@@ -92,6 +92,7 @@ async def test_chat():
             json={
                 "model": "gpt-3.5-turbo",
                 "temperature": 0,
+                "n": 1,
                 **payload,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
@@ -172,6 +173,7 @@ async def test_completions():
             json={
                 "model": "gpt-4-32k",
                 "temperature": 0,
+                "n": 1,
                 "messages": [{"role": "user", "content": "This is a test"}],
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
@@ -394,6 +396,7 @@ async def test_azure_openai():
             ),
             json={
                 "temperature": 0,
+                "n": 1,
                 "messages": [{"role": "user", "content": "This is a test"}],
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
@@ -434,6 +437,7 @@ async def test_azuread_openai():
             ),
             json={
                 "temperature": 0,
+                "n": 1,
                 "messages": [{"role": "user", "content": "This is a test"}],
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),

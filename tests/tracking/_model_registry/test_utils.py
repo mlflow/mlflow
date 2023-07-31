@@ -20,7 +20,7 @@ from mlflow.environment_variables import MLFLOW_TRACKING_URI
 pytestmark = pytest.mark.notrackingurimock
 
 
-@pytest.fixture()
+@pytest.fixture
 def reset_registry_uri():
     yield
     set_registry_uri(None)
