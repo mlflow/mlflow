@@ -1298,7 +1298,10 @@ class MlflowClient:
             elif "plotly" in sys.modules and _is_plotly_figure(figure):
                 file_extension = os.path.splitext(artifact_file)[1]
                 if file_extension == ".html":
-                    figure.write_html(tmp_path, include_plotlyjs="cdn", auto_open=False, **kwargs)
+                    kwargs.setdefault("include_plotlyjs", "cdn")
+                    kwargs.setdefault("auto_open", False)
+
+                    figure.write_html(tmp_path, **kwargs)
                 elif file_extension in [".png", ".jpeg", ".webp", ".svg", ".pdf"]:
                     figure.write_image(tmp_path, **kwargs)
                 else:
