@@ -115,7 +115,7 @@ def test_create_gateway_client_with_declared_url(gateway):
     assert all(isinstance(route, Route) for route in routes)
 
 
-def test_openai_chat(gateway, monkeypatch):
+def test_openai_chat(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     route = get_route("chat-openai")
     expected_output = {
@@ -147,7 +147,7 @@ def test_openai_chat(gateway, monkeypatch):
     assert response == expected_output
 
 
-def test_openai_completions(gateway, monkeypatch):
+def test_openai_completions(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("completions-openai")
     expected_output = {
@@ -176,7 +176,7 @@ def test_openai_completions(gateway, monkeypatch):
     assert response == expected_output
 
 
-def test_openai_embeddings(gateway, monkeypatch):
+def test_openai_embeddings(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("embeddings-openai")
     expected_output = {
@@ -200,7 +200,7 @@ def test_openai_embeddings(gateway, monkeypatch):
     assert response == expected_output
 
 
-def test_anthropic_completions(gateway, monkeypatch):
+def test_anthropic_completions(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     route = get_route("completions-anthropic")
     expected_output = {
@@ -233,7 +233,7 @@ def test_anthropic_completions(gateway, monkeypatch):
     assert response == expected_output
 
 
-def test_cohere_completions(gateway, monkeypatch):
+def test_cohere_completions(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("completions-cohere")
     expected_output = {
@@ -262,7 +262,7 @@ def test_cohere_completions(gateway, monkeypatch):
     assert response == expected_output
 
 
-def test_cohere_embeddings(gateway, monkeypatch):
+def test_cohere_embeddings(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("embeddings-cohere")
     expected_output = {
@@ -286,7 +286,7 @@ def test_cohere_embeddings(gateway, monkeypatch):
     assert response == expected_output
 
 
-def test_invalid_response_structure_raises(gateway, monkeypatch):
+def test_invalid_response_structure_raises(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     route = get_route("chat-openai")
     expected_output = {
@@ -316,7 +316,7 @@ def test_invalid_response_structure_raises(gateway, monkeypatch):
         query(route=route.name, data=data)
 
 
-def test_invalid_query_request_raises(gateway, monkeypatch):
+def test_invalid_query_request_raises(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     route = get_route("chat-openai")
     expected_output = {
