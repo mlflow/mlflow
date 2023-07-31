@@ -1389,7 +1389,49 @@ def test_text2text_generation_pipeline_with_inference_configs(
     assert dict_inference == inference
 
 
-def test_text2text_generation_pipeline_with_params(text2text_generation_pipeline, tmp_path):
+def test_text2text_generation_pipeline_with_inference_config_and_params(
+    text2text_generation_pipeline, tmp_path
+):
+    data = "muppet keyboard type"
+    inference_config = {
+        "top_k": 2,
+        "num_beams": 5,
+        "top_p": 0.85,
+        "repetition_penalty": 1.15,
+    }
+    parameters = {"top_k": 3, "max_length": 30, "temperature": 0.62}
+    generated_output = mlflow.transformers.generate_signature_output(
+        text2text_generation_pipeline, data
+    )
+    signature = infer_signature(
+        data,
+        generated_output,
+        parameters,
+    )
+
+    model_path = tmp_path / "model"
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline,
+        path=model_path,
+        inference_config=inference_config,
+        signature=signature,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    # inference_config and default params are all applied
+    res = pyfunc_loaded.predict(data)
+    applied_params = inference_config.copy()
+    applied_params.update(parameters)
+    res2 = pyfunc_loaded.predict(data, applied_params)
+    assert res == res2
+
+    assert res != pyfunc_loaded.predict(data, {"max_length": 10})
+
+    # Extra params are ignored
+    assert res == pyfunc_loaded.predict(data, {"extra_param": "extra_value"})
+
+
+def test_text2text_generation_pipeline_with_params_success(text2text_generation_pipeline, tmp_path):
     data = "muppet keyboard type"
     parameters = {"top_k": 2, "num_beams": 5}
     generated_output = mlflow.transformers.generate_signature_output(
@@ -1401,17 +1443,30 @@ def test_text2text_generation_pipeline_with_params(text2text_generation_pipeline
         parameters,
     )
 
-    model_path = tmp_path / "model1"
+    model_path = tmp_path / "model"
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
         path=model_path,
         signature=signature,
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
-    pyfunc_loaded.predict(data, parameters)
 
-    parameters.update({"invalid_param": "invalid_param"})
-    model_path = tmp_path / "model2"
+    # parameteres saved with ModelSignature is applied by default
+    res = pyfunc_loaded.predict(data)
+    res2 = pyfunc_loaded.predict(data, parameters)
+    assert res == res2
+
+
+def test_text2text_generation_pipeline_with_params_with_errors(
+    text2text_generation_pipeline, tmp_path
+):
+    data = "muppet keyboard type"
+    parameters = {"top_k": 2, "num_beams": 5, "invalid_param": "invalid_param"}
+    generated_output = mlflow.transformers.generate_signature_output(
+        text2text_generation_pipeline, data
+    )
+
+    model_path = tmp_path / "model"
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
         path=model_path,
@@ -1429,26 +1484,9 @@ def test_text2text_generation_pipeline_with_params(text2text_generation_pipeline
     ):
         pyfunc_loaded.predict(data, parameters)
 
+    # Type validation of params failure
     with pytest.raises(MlflowException, match=r"Invalid parameters found"):
         pyfunc_loaded.predict(data, {"top_k": "2"})
-
-    model_path = tmp_path / "model3"
-    mlflow.transformers.save_model(
-        text2text_generation_pipeline,
-        model_path,
-        signature=infer_signature(
-            data,
-            generated_output,
-            params={"invalid_param": "value"},
-        ),
-    )
-    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
-    with pytest.raises(
-        MlflowException,
-        match=r"The params provided to the `predict` method are not "
-        r"valid for pipeline Text2TextGenerationPipeline.",
-    ):
-        loaded_pyfunc.predict(data, {"invalid_param": "random_value"})
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
