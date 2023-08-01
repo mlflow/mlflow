@@ -1399,7 +1399,7 @@ def test_text2text_generation_pipeline_with_inference_config_and_params(
         "top_p": 0.85,
         "repetition_penalty": 1.15,
     }
-    parameters = {"top_k": 3, "max_length": 30, "temperature": 0.62}
+    parameters = {"top_k": 3, "max_length": 30}
     generated_output = mlflow.transformers.generate_signature_output(
         text2text_generation_pipeline, data
     )
