@@ -2916,7 +2916,9 @@ For `transformers` inference, there are two ways to pass in additional arguments
 * Specify params at inference time when calling ``predict()``
 
 .. note::
-    Model signature params passed in to ``predict`` function will override the values in inference_config.
+    If both ``inference_config`` and ``ModelSignature`` with schema are saved when logging model, both of them
+    will be used for inference. The default params in ``ModelSignature`` will override the params in ``inference_config``.
+    If extra ``params`` are provided at inference time, they take precedence over all params.
 
 * Using ``inference_config``
 
