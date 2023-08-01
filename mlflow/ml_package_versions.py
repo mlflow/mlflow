@@ -34,7 +34,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.0.5",
-            "maximum": "2.0.5"
+            "maximum": "2.0.6"
         }
     },
     "tensorflow": {
@@ -148,11 +148,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.0.0",
-            "maximum": "3.4.1"
+            "maximum": "3.5.0"
         },
         "autologging": {
             "minimum": "3.0.0",
-            "maximum": "3.4.1"
+            "maximum": "3.5.0"
         }
     },
     "mleap": {
@@ -197,7 +197,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.40.0.1",
-            "maximum": "3.42.0.1"
+            "maximum": "3.42.0.2"
         }
     },
     "shap": {
@@ -206,7 +206,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.41.0",
-            "maximum": "0.42.0"
+            "maximum": "0.42.1"
         }
     },
     "paddle": {
@@ -224,11 +224,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.25.1",
-            "maximum": "4.30.2"
+            "maximum": "4.31.0"
         },
         "autologging": {
             "minimum": "4.25.1",
-            "maximum": "4.30.2"
+            "maximum": "4.31.0"
         }
     },
     "openai": {

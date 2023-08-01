@@ -84,6 +84,16 @@ def test_fastai_autolog_ends_auto_created_run(iris_data, fit_variant):
     assert mlflow.active_run() is None
 
 
+def test_extra_tags_fastai_autolog(iris_data):
+    mlflow.fastai.autolog(extra_tags={"test_tag": "fastai_autolog"})
+    model = fastai_tabular_model(iris_data)
+    model.fit_one_cycle(1)
+
+    run = mlflow.last_active_run()
+    assert run.data.tags["test_tag"] == "fastai_autolog"
+    assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "fastai"
+
+
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 def test_fastai_autolog_persists_manually_created_run(iris_data, fit_variant):
     mlflow.fastai.autolog()

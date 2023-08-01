@@ -18,6 +18,7 @@ from collections import namedtuple
 import pandas
 from packaging.version import Version
 from threading import RLock
+from typing import Any, Dict, Optional
 import numpy as np
 import importlib
 import yaml
@@ -758,7 +759,18 @@ class _TF2Wrapper:
         self.model = model
         self.infer = infer
 
-    def predict(self, data):
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         import tensorflow
 
         feed_dict = {}
@@ -802,7 +814,18 @@ class _TF2ModuleWrapper:
         self.model = model
         self.signature = signature
 
-    def predict(self, data):
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         import tensorflow
 
         if isinstance(data, (np.ndarray, list)):
@@ -823,7 +846,18 @@ class _KerasModelWrapper:
         self.keras_model = keras_model
         self.signature = signature
 
-    def predict(self, data):
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         if isinstance(data, pandas.DataFrame):
             # This line is for backwards compatibility:
             # If model signature is not None, when calling
@@ -969,6 +1003,7 @@ def autolog(
     log_model_signatures=True,
     saved_model_kwargs=None,
     keras_model_kwargs=None,
+    extra_tags=None,
 ):  # pylint: disable=unused-argument
     # pylint: disable=no-name-in-module
     """
@@ -1039,6 +1074,7 @@ def autolog(
                                  when a signature is not present, a Pandas DataFrame is returned.
     :param saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
     :param keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
     import tensorflow
 
@@ -1298,7 +1334,7 @@ def autolog(
     ]
 
     for p in managed:
-        safe_patch(FLAVOR_NAME, *p, manage_run=True)
+        safe_patch(FLAVOR_NAME, *p, manage_run=True, extra_tags=extra_tags)
 
 
 def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None, targets=None):

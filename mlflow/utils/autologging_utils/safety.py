@@ -280,7 +280,12 @@ def is_testing():
 
 
 def safe_patch(
-    autologging_integration, destination, function_name, patch_function, manage_run=False
+    autologging_integration,
+    destination,
+    function_name,
+    patch_function,
+    manage_run=False,
+    extra_tags=None,
 ):
     """
     Patches the specified `function_name` on the specified `destination` class for autologging
@@ -304,14 +309,30 @@ def safe_patch(
                        active run during patch code execution if necessary. If `False`,
                        does not apply the `with_managed_run` wrapper to the specified
                        `patch_function`.
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
     from mlflow.utils.autologging_utils import get_autologging_config, autologging_is_disabled
 
     if manage_run:
+        tags = {MLFLOW_AUTOLOGGING: autologging_integration}
+        if extra_tags:
+            if isinstance(extra_tags, dict):
+                if MLFLOW_AUTOLOGGING in extra_tags:
+                    extra_tags.pop(MLFLOW_AUTOLOGGING)
+                    _logger.warning(
+                        f"Tag `{MLFLOW_AUTOLOGGING}` is ignored as it is a reserved tag by MLflow "
+                        f"autologging."
+                    )
+                tags.update(extra_tags)
+            else:
+                raise mlflow.exceptions.MlflowException.invalid_parameter_value(
+                    f"Invalid `extra_tags` type: expecting dictionary, "
+                    f"received `{type(extra_tags).__name__}`"
+                )
         patch_function = with_managed_run(
             autologging_integration,
             patch_function,
-            tags={MLFLOW_AUTOLOGGING: autologging_integration},
+            tags=tags,
         )
 
     patch_is_class = inspect.isclass(patch_function)

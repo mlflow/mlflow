@@ -102,3 +102,12 @@ def test_autolog_registering_model():
 
         registered_model = MlflowClient().get_registered_model(registered_model_name)
         assert registered_model.name == registered_model_name
+
+
+def test_extra_tags_paddle_autolog():
+    mlflow.paddle.autolog(extra_tags={"test_tag": "paddle_autolog"})
+    train_model()
+
+    run = mlflow.last_active_run()
+    assert run.data.tags["test_tag"] == "paddle_autolog"
+    assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "paddle"

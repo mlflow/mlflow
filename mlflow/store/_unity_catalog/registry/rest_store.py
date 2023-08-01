@@ -15,6 +15,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     CreateModelVersionRequest,
     CreateModelVersionResponse,
     Entity,
+    Job,
     Notebook,
     LineageHeaderInfo,
     FinalizeModelVersionRequest,
@@ -64,7 +65,11 @@ from mlflow.utils.rest_utils import (
     verify_rest_response,
     http_request,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_ID
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATABRICKS_JOB_ID,
+    MLFLOW_DATABRICKS_JOB_RUN_ID,
+    MLFLOW_DATABRICKS_NOTEBOOK_ID,
+)
 from mlflow.store._unity_catalog.registry.utils import get_artifact_repo_from_storage_info
 from mlflow.store.model_registry.rest_store import BaseRestStore
 from mlflow.store._unity_catalog.registry.utils import (
@@ -427,6 +432,16 @@ class UcModelRegistryStore(BaseRestStore):
             return None
         return run.data.tags.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
 
+    def _get_job_id(self, run):
+        if run is None:
+            return None
+        return run.data.tags.get(MLFLOW_DATABRICKS_JOB_ID, None)
+
+    def _get_job_run_id(self, run):
+        if run is None:
+            return None
+        return run.data.tags.get(MLFLOW_DATABRICKS_JOB_RUN_ID, None)
+
     def _validate_model_signature(self, local_model_path):
         # Import Model here instead of in the top level, to avoid circular import; the
         # mlflow.models.model module imports from MLflow tracking, which triggers an import of
@@ -488,11 +503,18 @@ class UcModelRegistryStore(BaseRestStore):
         headers, run = self._get_run_and_headers(run_id)
         source_workspace_id = self._get_workspace_id(headers)
         notebook_id = self._get_notebook_id(run)
+        job_id = self._get_job_id(run)
+        job_run_id = self._get_job_run_id(run)
         extra_headers = None
-        if notebook_id is not None:
-            notebook_entity = Notebook(id=str(notebook_id))
-            entity = Entity(notebook=notebook_entity)
-            lineage_header_info = LineageHeaderInfo(entities=[entity])
+        if notebook_id is not None or job_id is not None:
+            entity_list = []
+            if notebook_id is not None:
+                notebook_entity = Notebook(id=str(notebook_id))
+                entity_list.append(Entity(notebook=notebook_entity))
+            if job_id is not None:
+                job_entity = Job(id=job_id, job_run_id=job_run_id)
+                entity_list.append(Entity(job=job_entity))
+            lineage_header_info = LineageHeaderInfo(entities=entity_list)
             # Base64-encode the header value to ensure it's valid ASCII,
             # similar to JWT (see https://stackoverflow.com/a/40347926)
             header_json = message_to_json(lineage_header_info)
