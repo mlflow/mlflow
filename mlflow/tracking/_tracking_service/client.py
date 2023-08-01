@@ -361,7 +361,7 @@ class TrackingServiceClient:
             run_name=name,
         )
 
-    def log_batch(self, run_id, metrics=(), params=(), tags=()):
+    def log_batch(self, run_id, metrics=(), params=(), tags=(), synchronous = True):
         """
         Log multiple metrics, params, and/or tags.
 
@@ -369,7 +369,9 @@ class TrackingServiceClient:
         :param metrics: If provided, List of Metric(key, value, timestamp) instances.
         :param params: If provided, List of Param(key, value) instances.
         :param tags: If provided, List of RunTag(key, value) instances.
-
+        :param synchronous: If True, then this is a blocking call and offers immediate conssistency upon return.
+                            If False, gurantees that upon return values are accepted by store but will 
+                            be persisted in some time delay fashion.
         Raises an MlflowException if any errors occur.
         :return: None
         """

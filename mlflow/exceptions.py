@@ -139,3 +139,8 @@ class InvalidUrlException(MlflowException):
     """Exception thrown when a http request fails to send due to an invalid URL"""
 
     pass
+
+class AwaitRunDataTimeoutException(MlflowException):
+    """Exception thrown when awaiting run data ingestion times out."""
+
+    pass

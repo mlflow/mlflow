@@ -323,6 +323,15 @@ class RestStore(AbstractStore):
         )
         self._call_endpoint(LogBatch, req_body)
 
+    def log_batch_async(self, run_id, metrics, params, tags):
+        metric_protos = [metric.to_proto() for metric in metrics]
+        param_protos = [param.to_proto() for param in params]
+        tag_protos = [tag.to_proto() for tag in tags]
+        req_body = message_to_json(
+            LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos, run_id=run_id)
+        )
+        self._call_endpoint(LogBatch, req_body)
+
     def record_logged_model(self, run_id, mlflow_model):
         req_body = message_to_json(LogModel(run_id=run_id, model_json=mlflow_model.to_json()))
         self._call_endpoint(LogModel, req_body)

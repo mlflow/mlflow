@@ -390,6 +390,69 @@ service MlflowService {
     };
   }
 
+  // Log a batch of metrics, params, and tags for a run in asynchronous way.
+  // This API does not offer immediate consistency of the data being logged.
+  // In case of error (due to internal server error or an invalid request), partial data may
+  // be written.
+  // When this API returns provider gurantees that data is accepted but not persisted.
+  // Data would get persisted in time delay fashion.
+  //
+  // You can write metrics, params, and tags in interleaving fashion, but within a given entity
+  // type are guaranteed to follow the order specified in the request body. That is, for an API
+  // request like
+  //
+  // .. code-block:: json
+  //
+  //   {
+  //      "run_id": "2a14ed5c6a87499199e0106c3501eab8",
+  //      "metrics": [
+  //        {"key": "mae", "value": 2.5, "timestamp": 1552550804},
+  //        {"key": "rmse", "value": 2.7, "timestamp": 1552550804},
+  //      ],
+  //      "params": [
+  //        {"key": "model_class", "value": "LogisticRegression"},
+  //      ]
+  //   }
+  //
+  // the server is guaranteed to write metric "rmse" after "mae", though it may write param
+  // "model_class" before both metrics, after "mae", or after both metrics.
+  //
+  // The overwrite behavior for metrics, params, and tags is as follows:
+  //
+  // - Metrics: metric values are never overwritten. Logging a metric (key, value, timestamp) appends to the set of values for the metric with the provided key.
+  //
+  // - Tags: tag values can be overwritten by successive writes to the same tag key. That is, if multiple tag values with the same key are provided in the same API request, the last-provided tag value is written. Logging the same tag (key, value) is permitted - that is, logging a tag is idempotent.
+  //
+  // - Params: once written, param values cannot be changed (attempting to overwrite a param value will result in an error). However, logging the same param (key, value) is permitted - that is, logging a param is idempotent.
+  //
+  // Request Limits
+  // --------------
+  // A single JSON-serialized API request may be up to 1 MB in size and contain:
+  //
+  // - No more than 1000 metrics, params, and tags in total
+  // - Up to 1000 metrics
+  // - Up to 100 params
+  // - Up to 100 tags
+  //
+  // For example, a valid request might contain 900 metrics, 50 params, and 50 tags, but logging
+  // 900 metrics, 50 params, and 51 tags is invalid. The following limits also apply
+  // to metric, param, and tag keys and values:
+  //
+  // - Metric, param, and tag keys can be up to 250 characters in length
+  // - Param and tag values can be up to 250 characters in length
+  //
+  rpc logBatchAsync (LogBatchAsync) returns (LogBatchAsync.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/runs/log-batch-async"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Log Batch Async",
+    };
+  }
+
   // .. note::
   //     Experimental: This API may change or be removed in a future release without warning.
   rpc logModel (LogModel) returns (LogModel.Response) {
@@ -1076,6 +1139,23 @@ message GetMetricHistory {
 }
 
 message LogBatch {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  // ID of the run to log under
+  optional string run_id = 1;
+  // Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+  // metrics, params, and tags in total.
+  repeated Metric metrics = 2;
+  // Params to log. A single request can contain up to 100 params, and up to 1000
+  // metrics, params, and tags in total.
+  repeated Param params = 3;
+  // Tags to log. A single request can contain up to 100 tags, and up to 1000
+  // metrics, params, and tags in total.
+  repeated RunTag tags = 4;
+  message Response {
+  }
+}
+
+message LogBatchAsync {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
   // ID of the run to log under
   optional string run_id = 1;

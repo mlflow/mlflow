@@ -4,6 +4,7 @@ from typing import List, Optional
 from mlflow.entities import ViewType, DatasetInput
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.tracking.run_data_ingestion_operation import RunDataIngestionOperation
 from mlflow.utils.annotations import developer_stable, experimental
 
 
@@ -331,6 +332,37 @@ class AbstractStore:
         :return: None.
         """
         pass
+    
+    @abstractmethod
+    def log_batch_async(self, run_id, metrics, params, tags):
+        """
+        Log multiple metrics, params, and tags for the specified run in async fashion.
+        :param run_id: String id for the run
+        :param metrics: List of :py:class:`mlflow.entities.Metric` instances to log
+        :param params: List of :py:class:`mlflow.entities.Param` instances to log
+        :param tags: List of :py:class:`mlflow.entities.RunTag` instances to log
+        :return: None.
+        """
+        pass
+
+    @abstractmethod
+    def await_run_data_ingestion(
+            self,
+            run_id: str, 
+            timeout_sec: int
+        ) -> RunDataIngestionOperation:
+        """
+        Awaits for all run data (metrics, tags, params), logged in async fashion so far,
+        to be persisted and can be read back.      
+        This API will retry awaiting for 3 times, everytime for specified timeout 
+        period,
+        before throwing if it does not finish within that time.        
+        This returns an async operation that can be awaited for completion.
+        That operation either completes or throws 
+        MetricIngestionTimeoutException.
+        """
+        pass
+
 
     @abstractmethod
     def record_logged_model(self, run_id, mlflow_model):

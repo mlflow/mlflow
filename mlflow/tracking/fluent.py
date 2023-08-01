@@ -34,6 +34,7 @@ from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.default_experiment import registry as default_experiment_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.tracking.run_data_ingestion_operation import RunDataIngestionOperation
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
@@ -674,7 +675,7 @@ def delete_tag(key: str) -> None:
     MlflowClient().delete_tag(run_id, key)
 
 
-def log_metric(key: str, value: float, step: Optional[int] = None) -> None:
+def log_metric(key: str, value: float, step: Optional[int] = None, synchronous: Optional[bool] = True) -> None:
     """
     Log a metric under the current run. If no run is active, this method will create
     a new active run.
@@ -689,7 +690,18 @@ def log_metric(key: str, value: float, step: Optional[int] = None) -> None:
                   All backend stores will support values up to length 5000, but some
                   may support larger values.
     :param step: Metric step (int). Defaults to zero if unspecified.
-
+    :param synchronous: Indicates if the metric would be logged in synchronous fashion or not.
+                    When it is true this call would be blocking call and offers immediate
+                        consistency of the metric upon returning.
+                    When this value is set to false, metric would be logged in async fashion. 
+                    So backing provider gurantees that metrics are accepted into system 
+                        but would persist them with some time delay.
+                    This means metric value would not have immediate consistency but 
+                    'near-real'/'eventual' consistency.
+                    Note that this is an experimental flag.
+                    Default implementation of this flag would offer calling the sync API using a 
+                    background thread.
+                    Each provider who may choose implement this flag can override the default behavior.
     .. test-code-block:: python
         :caption: Example
 
@@ -699,10 +711,10 @@ def log_metric(key: str, value: float, step: Optional[int] = None) -> None:
             mlflow.log_metric("mse", 2500.00)
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_metric(run_id, key, value, get_current_time_millis(), step or 0)
+    MlflowClient().log_metric(run_id, key, value, get_current_time_millis(), step or 0, synchronous=synchronous)
 
 
-def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
+def log_metrics(metrics: Dict[str, float], step: Optional[int] = None, synchronous: Optional[bool] = True) -> None:
     """
     Log multiple metrics for the current run. If no run is active, this method will create a new
     active run.
@@ -714,6 +726,18 @@ def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
     :param step: A single integer step at which to log the specified
                  Metrics. If unspecified, each metric is logged at step zero.
 
+    :param synchronous: Indicates if the metric would be logged in synchronous fashion or not.
+                        When it is true this call would be blocking call and offers immediate
+                            consistency of the metric upon returning.
+                        When this value is set to false, metric would be logged in async fashion. 
+                        So backing provider gurantees that metrics are accepted into system 
+                            but would persist them with some time delay.
+                        This means metric value would not have immediate consistency but 
+                        'near-real'/'eventual' consistency.
+                        Note that this is an experimental flag.
+                        Default implementation of this flag would offer calling the sync API using a 
+                        background thread.
+                        Each provider who may choose implement this flag can override the default behavior.                 
     :returns: None
 
     .. test-code-block:: python
@@ -730,7 +754,7 @@ def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
     run_id = _get_or_start_run().info.run_id
     timestamp = get_current_time_millis()
     metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
-    MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
+    MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[], synchronous=synchronous)
 
 
 def log_params(params: Dict[str, Any]) -> None:
@@ -2037,3 +2061,41 @@ def autolog(
     else:
         register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
         register_post_import_hook(setup_autologging, "pyspark.ml", overwrite=True)
+
+def await_run_data_ingestion(self, run_id) -> RunDataIngestionOperation:
+ 
+        """
+        Awaits for all run data - metrics, tags, params, logged in async fashion so far, to be persisted by backing store.
+        API relies on the environment variable “MLFLOW_RUN_DATA_INGESTION_MAX_WAIT_TIME_IN_SECONDS”.
+            “MLFLOW_RUN_DATA_INGESTION_MAX_WAIT_TIME_IN_SECONDS” - would be defaulted to 1 minute. 
+            Each provider can override this value optionally.
+            Users can choose to set this value or simply do not set it and let it default.
+       
+        This API will retry awaiting for 3 times, everytime for specified transient error codes - 
+        mlflow/mlflow/utils/request_utils.py at master · mlflow/mlflow (github.com)
+        _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
+            [
+                408,  # Request Timeout
+                429,  # Too Many Requests
+                500,  # Internal Server Error
+                502,  # Bad Gateway
+                503,  # Service Unavailable
+                504,  # Gateway Timeout
+            ]),
+       before throwing if it does not finish within that time.       
+        If run data ingestion does not finish within specified timeout,
+            then it throws a AwaitRunDataTimeoutException.
+       
+        This returns an async operation that can be awaited for completion.
+          That operation either completes or throws AwaitRunDataTimeoutException.
+        If sync is True, the call is blocked till completion or timeout occurs.
+       
+        Ingestion cannot be stopped/altered by user actions,
+            so this indicates system failure to ingest metrics within a given time.
+        """
+
+
+        # Implementation
+
+
+        MlflowClient().await_run_data_ingestion(run_id)
