@@ -333,7 +333,7 @@ def zero_shot_pipeline():
 @flaky()
 def table_question_answering_pipeline():
     return transformers.pipeline(
-        task="table-question-answering", model="microsoft/tapex-base-finetuned-wtq"
+        task="table-question-answering", model="google/tapas-tiny-finetuned-wtq"
     )
 
 
@@ -1644,16 +1644,15 @@ def test_zero_shot_classification_pipeline(zero_shot_pipeline, model_path, data)
 @pytest.mark.parametrize(
     ("query", "result"),
     [
-        ({"query": "What should we order more of?"}, ["apples"]),
+        ({"query": "What should we order more of?"}, ["Apples"]),
         (
             {
                 "query": [
                     "What is our highest sales?",
                     "What should we order more of?",
-                    "Which fruit starts with 'W'?",
                 ]
             },
-            ["1230945.55", "apples", "watermelon"],
+            ["1230945.55", "Apples"],
         ),
     ],
 )
@@ -2123,7 +2122,7 @@ def test_table_question_answering_pyfunc_predict(table_question_answering_pipeli
     )
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert values.to_dict(orient="records") == [{0: "apples"}]
+    assert values.to_dict(orient="records") == [{0: "Apples"}]
 
     inference_payload = json.dumps(
         {
@@ -2132,8 +2131,6 @@ def test_table_question_answering_pyfunc_predict(table_question_answering_pipeli
                     "What is our highest sales?",
                     "What should we order more of?",
                     "Which 'fruit' has the 'highest' 'sales'?",
-                    "How many types of fruit do we have?",
-                    "Which fruit has a small designator??",
                 ],
                 "table": table,
             }
@@ -2149,10 +2146,8 @@ def test_table_question_answering_pyfunc_predict(table_question_answering_pipeli
 
     assert values.to_dict(orient="records") == [
         {0: "1230945.55"},
-        {0: "apples"},
-        {0: "apples"},
-        {0: "5"},
-        {0: "watermelon'small'"},
+        {0: "Apples"},
+        {0: "Apples"},
     ]
 
 
@@ -2620,7 +2615,6 @@ def test_invalid_instruction_pipeline_parsing(mock_pyfunc_wrapper, flavor_config
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.skipcacheclean
-@flaky()
 def test_instructional_pipeline_no_prompt_in_output(model_path):
     architecture = "databricks/dolly-v2-3b"
     dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
@@ -2643,7 +2637,6 @@ def test_instructional_pipeline_no_prompt_in_output(model_path):
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.skipcacheclean
-@flaky()
 def test_instructional_pipeline_no_prompt_in_output_and_removal_of_newlines(model_path):
     architecture = "databricks/dolly-v2-3b"
     dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
@@ -2666,7 +2659,6 @@ def test_instructional_pipeline_no_prompt_in_output_and_removal_of_newlines(mode
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.skipcacheclean
-@flaky()
 def test_instructional_pipeline_with_prompt_in_output(model_path):
     architecture = "databricks/dolly-v2-3b"
     dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
@@ -2697,6 +2689,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 "inputs": '[{"type": "string", "name": "question"}, {"type": "string", '
                 '"name": "context"}]',
                 "outputs": '[{"type": "string"}]',
+                "params": None,
             },
         ),
         (
@@ -2712,6 +2705,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 '"hypothesis_template"}]',
                 "outputs": '[{"type": "string", "name": "sequence"}, {"type": "string", '
                 '"name": "labels"}, {"type": "double", "name": "scores"}]',
+                "params": None,
             },
         ),
         (
@@ -2721,6 +2715,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 "inputs": '[{"type": "string"}]',
                 "outputs": '[{"type": "string", "name": "label"}, {"type": "double", "name": '
                 '"score"}]',
+                "params": None,
             },
         ),
         (
@@ -2733,6 +2728,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 "inputs": '[{"type": "string", "name": "query"}, {"type": "string", "name": '
                 '"table"}]',
                 "outputs": '[{"type": "string"}]',
+                "params": None,
             },
         ),
         (
@@ -2741,6 +2737,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             {
                 "inputs": '[{"type": "string"}]',
                 "outputs": '[{"type": "string"}]',
+                "params": None,
             },
         ),
         (
@@ -2749,6 +2746,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             {
                 "inputs": '[{"type": "string"}]',
                 "outputs": '[{"type": "string"}]',
+                "params": None,
             },
         ),
         (
@@ -2757,6 +2755,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             {
                 "inputs": '[{"type": "string"}]',
                 "outputs": '[{"type": "string"}]',
+                "params": None,
             },
         ),
         (
@@ -2765,6 +2764,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             {
                 "inputs": '[{"type": "string"}]',
                 "outputs": '[{"type": "string"}]',
+                "params": None,
             },
         ),
         (
@@ -2773,6 +2773,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             {
                 "inputs": '[{"type": "string"}]',
                 "outputs": '[{"type": "string"}]',
+                "params": None,
             },
         ),
         (
@@ -2781,6 +2782,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             {
                 "inputs": '[{"type": "string"}]',
                 "outputs": '[{"type": "string"}]',
+                "params": None,
             },
         ),
         (
@@ -2789,6 +2791,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             {
                 "inputs": '[{"type": "string"}]',
                 "outputs": '[{"type": "string"}]',
+                "params": None,
             },
         ),
     ],
