@@ -15,8 +15,9 @@ import logging
 import os
 import shutil
 import types
+from functools import cache
 from packaging import version
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, NamedTuple
 
 import pandas as pd
 import cloudpickle
@@ -69,6 +70,7 @@ _TOOLS_DATA_KEY = "tools_data"
 _MODEL_TYPE_KEY = "model_type"
 _LOADER_FN_FILE_NAME = "loader_fn.pkl"
 _LOADER_FN_KEY = "loader_fn"
+_LOADER_ARG_KEY = "loader_arg"
 _PERSIST_DIR_NAME = "persist_dir_data"
 _PERSIST_DIR_KEY = "persist_dir"
 _UNSUPPORTED_MODEL_ERROR_MESSAGE = (
@@ -105,12 +107,21 @@ def get_default_conda_env():
 
 
 
-_SpecialChainInfo(NamedTuple):
+class _SpecialChainInfo(NamedTuple):
+    loader_arg: str
 
-def _get_map_of_special_chain_class_to_kwargs_name():
+
+def _get_special_chain_info_or_none(chain):
+    for special_chain_class, loader_arg in _get_map_of_special_chain_class_to_loader_arg().items():
+        if isinstance(chain, special_chain_class):
+            return _SpecialChainInfo(loader_arg = loader_arg)
+
+
+@cache
+def _get_map_of_special_chain_class_to_loader_arg():
     import langchain
 
-    class_name_to_kwargs_name = {
+    class_name_to_loader_arg = {
         "langchain.chains.RetrievalQA": "retriever",
         "langchain.chains.APIChain": "requests_wrapper",
         "langchain.chains.HypotheticalDocumentEmbedder": "embeddings",
@@ -118,20 +129,20 @@ def _get_map_of_special_chain_class_to_kwargs_name():
     }
     # NB: SQLDatabaseChain was migrated to langchain_experimental beginning with version 0.0.247
     if version.parse(langchain.__version__) <= version.parse("0.0.246"):
-        class_name_to_kwargs_name["langchain.chains.SQLDatabaseChain"] = "database"
+        class_name_to_loader_arg["langchain.chains.SQLDatabaseChain"] = "database"
     else:
         try:
             import langchain.experimental
-            class_name_to_kwargs_name["langchain_experimental.sql.SQLDatabaseChain"] = "database"
+            class_name_to_loader_arg["langchain_experimental.sql.SQLDatabaseChain"] = "database"
         except ImportError:
             # Users may not have langchain_experimental installed, which is completely okay
             pass
 
-    class_to_kwargs_name = {}
-    for class_name, kwargs_name in class_name_to_kwargs_name.items():
+    class_to_loader_arg = {}
+    for class_name, loader_arg in class_name_to_loader_arg.items():
         try:
             cls = _get_class_from_string(class_name)
-            class_to_kwargs_name[cls] = kwargs_name
+            class_to_loader_arg[cls] = loader_arg
         except Exception:
             logger.warning(
                 "Unexpected import failure for class '%s'. Please file an issue at"
@@ -141,9 +152,9 @@ def _get_map_of_special_chain_class_to_kwargs_name():
             )
 
     from mlflow.langchain.retriever_chain import _RetrieverChain
-    class_to_kwargs_name[_RetrieverChain] = "retriever"
+    class_to_loader_arg[_RetrieverChain] = "retriever"
 
-    return class_to_kwargs_name
+    return class_to_loader_arg
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -321,7 +332,7 @@ def save_model(
 def _validate_and_wrap_lc_model(lc_model, loader_fn):
     import langchain
 
-    special_chains = _get_map_of_special_chain_class_to_kwargs_name()
+    special_chain_classes_to_loader_args = _get_map_of_special_chain_class_to_loader_arg()
 
     if not isinstance(
         lc_model,
@@ -354,10 +365,7 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
             type(lc_model.agent.llm_chain.llm).__name__,
         )
 
-    for special_chain_cls, kwargs_name in special_chains.items():
-        if not isinstance(lc_model, special_chain_cls):
-            continue
-
+    if special_chain_info := _get_special_chain_info_or_none(lc_model): 
         if isinstance(lc_model, langchain.chains.RetrievalQA) and version.parse(
             langchain.__version__
         ) < version.parse("0.0.194"):
@@ -372,8 +380,8 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
             )
         if not isinstance(loader_fn, types.FunctionType):
             raise mlflow.MlflowException.invalid_parameter_value(
-                "The `loader_fn` must be a function that returns a {kwargs}.".format(
-                    kwargs=kwargs_name
+                "The `loader_fn` must be a function that returns a {loader_arg}.".format(
+                    loader_arg=special_chain_info.loader_arg
                 )
             )
 
@@ -551,8 +559,6 @@ def _save_model(model, path, loader_fn, persist_dir):
     model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
     model_data_kwargs = {_MODEL_DATA_KEY: _MODEL_DATA_FILE_NAME}
 
-    special_chains = _get_map_of_special_chain_class_to_kwargs_name()
-
     if isinstance(model, langchain.chains.llm.LLMChain):
         model.save(model_data_path)
     elif isinstance(model, langchain.agents.agent.AgentExecutor):
@@ -583,12 +589,13 @@ def _save_model(model, path, loader_fn, persist_dir):
 
         model_data_kwargs[_AGENT_PRIMITIVES_DATA_KEY] = _AGENT_PRIMITIVES_FILE_NAME
 
-    elif any(isinstance(model, chain) for chain in special_chains):
+    elif special_chain_info := _get_special_chain_info_or_none(model):
         # Save loader_fn by pickling
         loader_fn_path = os.path.join(path, _LOADER_FN_FILE_NAME)
         with open(loader_fn_path, "wb") as f:
             cloudpickle.dump(loader_fn, f)
         model_data_kwargs[_LOADER_FN_KEY] = _LOADER_FN_FILE_NAME
+        model_data_kwargs[_LOADER_ARG_KEY] = special_chain_info.loader_arg 
 
         if persist_dir is not None:
             if os.path.exists(persist_dir):
@@ -626,6 +633,7 @@ def _load_from_pickle(loader_fn_path, persist_dir):
 def _load_model(
     path,
     model_type,
+    loader_arg=None,
     agent_path=None,
     tools_path=None,
     agent_primitive_path=None,
@@ -635,18 +643,13 @@ def _load_model(
     from langchain.chains.loading import load_chain
     from mlflow.langchain.retriever_chain import _RetrieverChain
 
-    special_chain_names_to_kwargs_name = {
-        cls.__name__: kwargs_name
-        for cls, kwargs_name in _get_map_of_special_chain_class_to_kwargs_name().items()
-    }
-
     model = None
-    if special_chain_kwargs_name := special_chain_names_to_kwargs_name.get(model_type):
+    if loader_arg is not None:
         if loader_fn_path is None:
             raise mlflow.MlflowException.invalid_parameter_value(
                 "Missing file for loader_fn which is required to build the model."
             )
-        kwargs = {special_chain_kwargs_name: _load_from_pickle(loader_fn_path, persist_dir)}
+        kwargs = {loader_arg: _load_from_pickle(loader_fn_path, persist_dir)}
         if model_type == _RetrieverChain.__name__:
             model = _RetrieverChain.load(path, **kwargs).retriever
         else:
@@ -779,10 +782,12 @@ def _load_model_from_local_fs(local_model_path):
         persist_dir = os.path.join(local_model_path, persist_dir_name)
 
     model_type = flavor_conf.get(_MODEL_TYPE_KEY)
+    loader_arg = flavor_conf.get(_LOADER_ARG_KEY)
 
     return _load_model(
         lc_model_path,
         model_type,
+        loader_arg,
         agent_model_path,
         tools_model_path,
         agent_primitive_path,
