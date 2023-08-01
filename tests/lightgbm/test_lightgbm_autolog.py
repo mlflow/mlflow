@@ -67,6 +67,15 @@ def test_lgb_autolog_ends_auto_created_run(bst_params, train_set):
     assert mlflow.active_run() is None
 
 
+def test_extra_tags_lightgbm_autolog(bst_params, train_set):
+    mlflow.lightgbm.autolog(extra_tags={"test_tag": "lgb_autolog"})
+    lgb.train(bst_params, train_set, num_boost_round=1)
+
+    run = mlflow.last_active_run()
+    assert run.data.tags["test_tag"] == "lgb_autolog"
+    assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "lightgbm"
+
+
 def test_lgb_autolog_persists_manually_created_run(bst_params, train_set):
     mlflow.lightgbm.autolog()
     with mlflow.start_run() as run:

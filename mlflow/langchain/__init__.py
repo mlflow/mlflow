@@ -16,7 +16,7 @@ import os
 import shutil
 import types
 from packaging import version
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 import cloudpickle
@@ -53,7 +53,6 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.openai.utils import TEST_CONTENT
 
 logger = logging.getLogger(mlflow.__name__)
 
@@ -72,7 +71,7 @@ _LOADER_FN_KEY = "loader_fn"
 _PERSIST_DIR_NAME = "persist_dir_data"
 _PERSIST_DIR_KEY = "persist_dir"
 _UNSUPPORTED_MODEL_ERROR_MESSAGE = (
-    "MLflow langchain flavor only supports logging subclasses of "
+    "MLflow langchain flavor only supports subclasses of "
     "langchain.chains.base.Chain and langchain.agents.agent.AgentExecutor instances, "
     "found {instance_type}"
 )
@@ -83,7 +82,7 @@ _UNSUPPORTED_MODEL_WARNING_MESSAGE = (
     "MLflow does not guarantee support for Chains outside of the subclasses of LLMChain, found %s"
 )
 _UNSUPPORTED_LANGCHAIN_VERSION_ERROR_MESSAGE = (
-    "Saving {instnace_type} models is only supported in langchain 0.0.194 and above."
+    "Saving {instance_type} models is only supported in langchain 0.0.194 and above."
 )
 
 
@@ -102,6 +101,24 @@ def get_default_conda_env():
              :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
+
+
+def _get_map_of_special_chain_class_name_to_kwargs_name():
+    from langchain.chains import (
+        APIChain,
+        HypotheticalDocumentEmbedder,
+        RetrievalQA,
+        SQLDatabaseChain,
+    )
+    from mlflow.langchain.retriever_chain import _RetrieverChain
+
+    return {
+        RetrievalQA.__name__: "retriever",
+        APIChain.__name__: "requests_wrapper",
+        HypotheticalDocumentEmbedder.__name__: "embeddings",
+        SQLDatabaseChain.__name__: "database",
+        _RetrieverChain.__name__: "retriever",
+    }
 
 
 @experimental
@@ -123,7 +140,10 @@ def save_model(
     """
     Save a LangChain model to a path on the local file system.
 
-    :param lc_model: An LLMChain model.
+    :param lc_model: A LangChain model, which could be a
+                     `Chain <https://python.langchain.com/docs/modules/chains/>`_,
+                     `Agent <https://python.langchain.com/docs/modules/agents/>`_, or
+                     `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_.
     :param path: Local path where the serialized model (as YAML) is to be saved.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
@@ -168,7 +188,7 @@ def save_model(
                       This function takes a string `persist_dir` as an argument and returns the
                       specific object that the model needs. Depending on the model,
                       this could be a retriever, vectorstore, requests_wrapper, embeddings, or
-                      database. For RetrievalQA models, the object is a
+                      database. For RetrievalQA Chain and retriever models, the object is a
                       (`retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_).
                       For APIChain models, it's a
                       (`requests_wrapper <https://python.langchain.com/docs/modules/agents/tools/integrations/requests>`_).
@@ -207,6 +227,8 @@ def save_model(
                         See a complete example in examples/langchain/retrieval_qa_chain.py.
     """
     import langchain
+
+    lc_model = _validate_and_wrap_lc_model(lc_model, loader_fn)
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -272,6 +294,79 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
+def _validate_and_wrap_lc_model(lc_model, loader_fn):
+    import langchain
+
+    special_chains = _get_map_of_special_chain_class_name_to_kwargs_name()
+
+    if not isinstance(
+        lc_model,
+        (
+            langchain.chains.base.Chain,
+            langchain.agents.agent.AgentExecutor,
+            langchain.schema.BaseRetriever,
+        ),
+    ):
+        raise mlflow.MlflowException.invalid_parameter_value(
+            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(lc_model).__name__)
+        )
+
+    _SUPPORTED_LLMS = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
+    if (
+        isinstance(lc_model, langchain.chains.llm.LLMChain)
+        and type(lc_model.llm) not in _SUPPORTED_LLMS
+    ):
+        logger.warning(
+            _UNSUPPORTED_LLM_WARNING_MESSAGE,
+            type(lc_model.llm).__name__,
+        )
+
+    if (
+        isinstance(lc_model, langchain.agents.agent.AgentExecutor)
+        and type(lc_model.agent.llm_chain.llm) not in _SUPPORTED_LLMS
+    ):
+        logger.warning(
+            _UNSUPPORTED_LLM_WARNING_MESSAGE,
+            type(lc_model.agent.llm_chain.llm).__name__,
+        )
+
+    if type(lc_model).__name__ in special_chains:
+        if isinstance(lc_model, langchain.chains.RetrievalQA) and version.parse(
+            langchain.__version__
+        ) < version.parse("0.0.194"):
+            raise mlflow.MlflowException.invalid_parameter_value(
+                _UNSUPPORTED_LANGCHAIN_VERSION_ERROR_MESSAGE.format(
+                    instance_type=type(lc_model).__name__
+                )
+            )
+        if loader_fn is None:
+            raise mlflow.MlflowException.invalid_parameter_value(
+                f"For {type(lc_model).__name__} models, a `loader_fn` must be provided."
+            )
+        if not isinstance(loader_fn, types.FunctionType):
+            raise mlflow.MlflowException.invalid_parameter_value(
+                "The `loader_fn` must be a function that returns a {kwargs}.".format(
+                    kwargs=special_chains[type(lc_model).__name__]
+                )
+            )
+
+    # If lc_model is a retriever, wrap it in a _RetrieverChain
+    if isinstance(lc_model, langchain.schema.BaseRetriever):
+        from mlflow.langchain.retriever_chain import _RetrieverChain
+
+        if loader_fn is None:
+            raise mlflow.MlflowException.invalid_parameter_value(
+                f"For {type(lc_model).__name__} models, a `loader_fn` must be provided."
+            )
+        if not isinstance(loader_fn, types.FunctionType):
+            raise mlflow.MlflowException.invalid_parameter_value(
+                "The `loader_fn` must be a function that returns a retriever."
+            )
+        lc_model = _RetrieverChain(retriever=lc_model)
+
+    return lc_model
+
+
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
@@ -292,7 +387,10 @@ def log_model(
     """
     Log a LangChain model as an MLflow artifact for the current run.
 
-    :param lc_model: LangChain model to be saved.
+    :param lc_model: A LangChain model, which could be a
+                     `Chain <https://python.langchain.com/docs/modules/chains/>`_,
+                     `Agent <https://python.langchain.com/docs/modules/agents/>`_, or
+                     `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
@@ -348,7 +446,7 @@ def log_model(
                       This function takes a string `persist_dir` as an argument and returns the
                       specific object that the model needs. Depending on the model,
                       this could be a retriever, vectorstore, requests_wrapper, embeddings, or
-                      database. For RetrievalQA models, the object is a
+                      database. For RetrievalQA Chain and retriever models, the object is a
                       (`retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_).
                       For APIChain models, it's a
                       (`requests_wrapper <https://python.langchain.com/docs/modules/agents/tools/integrations/requests>`_).
@@ -388,74 +486,7 @@ def log_model(
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
-    import langchain
-    from langchain.chains import (
-        RetrievalQA,
-        APIChain,
-        HypotheticalDocumentEmbedder,
-        SQLDatabaseChain,
-    )
-
-    unserializable_object_name_map = {
-        RetrievalQA.__name__: "retriever",
-        APIChain.__name__: "requests_wrapper",
-        HypotheticalDocumentEmbedder.__name__: "embeddings",
-        SQLDatabaseChain.__name__: "database",
-    }
-
-    if not isinstance(
-        lc_model, (langchain.chains.base.Chain, langchain.agents.agent.AgentExecutor)
-    ):
-        raise mlflow.MlflowException.invalid_parameter_value(
-            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(lc_model).__name__)
-        )
-
-    _SUPPORTED_LLMS = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
-    if (
-        isinstance(lc_model, langchain.chains.llm.LLMChain)
-        and type(lc_model.llm) not in _SUPPORTED_LLMS
-    ):
-        logger.warning(
-            _UNSUPPORTED_LLM_WARNING_MESSAGE,
-            type(lc_model.llm).__name__,
-        )
-
-    if (
-        isinstance(lc_model, langchain.agents.agent.AgentExecutor)
-        and type(lc_model.agent.llm_chain.llm) not in _SUPPORTED_LLMS
-    ):
-        logger.warning(
-            _UNSUPPORTED_LLM_WARNING_MESSAGE,
-            type(lc_model.agent.llm_chain.llm).__name__,
-        )
-
-    if isinstance(
-        lc_model,
-        (
-            RetrievalQA,
-            APIChain,
-            HypotheticalDocumentEmbedder,
-            SQLDatabaseChain,
-        ),
-    ):
-        if isinstance(lc_model, RetrievalQA) and version.parse(
-            langchain.__version__
-        ) < version.parse("0.0.194"):
-            raise mlflow.MlflowException.invalid_parameter_value(
-                _UNSUPPORTED_LANGCHAIN_VERSION_ERROR_MESSAGE.format(
-                    instnace_type=type(lc_model).__name__
-                )
-            )
-        if loader_fn is None:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                f"For {type(lc_model).__name__} models, a `loader_fn` must be provided."
-            )
-        if not isinstance(loader_fn, types.FunctionType):
-            raise mlflow.MlflowException.invalid_parameter_value(
-                "The `loader_fn` must be a function that retruns a {unserializable_object}.".format(
-                    unserializable_object=unserializable_object_name_map[type(lc_model).__name__]
-                )
-            )
+    lc_model = _validate_and_wrap_lc_model(lc_model, loader_fn)
 
     # infer signature if signature is not provided
     if signature is None:
@@ -489,15 +520,11 @@ def log_model(
 
 def _save_model(model, path, loader_fn, persist_dir):
     import langchain
-    from langchain.chains import (
-        RetrievalQA,
-        APIChain,
-        HypotheticalDocumentEmbedder,
-        SQLDatabaseChain,
-    )
 
     model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
     model_data_kwargs = {_MODEL_DATA_KEY: _MODEL_DATA_FILE_NAME}
+
+    special_chains = _get_map_of_special_chain_class_name_to_kwargs_name()
 
     if isinstance(model, langchain.chains.llm.LLMChain):
         model.save(model_data_path)
@@ -529,15 +556,7 @@ def _save_model(model, path, loader_fn, persist_dir):
 
         model_data_kwargs[_AGENT_PRIMITIVES_DATA_KEY] = _AGENT_PRIMITIVES_FILE_NAME
 
-    elif isinstance(
-        model,
-        (
-            RetrievalQA,
-            APIChain,
-            HypotheticalDocumentEmbedder,
-            SQLDatabaseChain,
-        ),
-    ):
+    elif type(model).__name__ in special_chains:
         # Save loader_fn by pickling
         loader_fn_path = os.path.join(path, _LOADER_FN_FILE_NAME)
         with open(loader_fn_path, "wb") as f:
@@ -587,28 +606,21 @@ def _load_model(
     persist_dir=None,
 ):
     from langchain.chains.loading import load_chain
-    from langchain.chains import (
-        RetrievalQA,
-        APIChain,
-        HypotheticalDocumentEmbedder,
-        SQLDatabaseChain,
-    )
+    from mlflow.langchain.retriever_chain import _RetrieverChain
 
-    unserializable_object_name_map = {
-        RetrievalQA.__name__: "retriever",
-        APIChain.__name__: "requests_wrapper",
-        HypotheticalDocumentEmbedder.__name__: "embeddings",
-        SQLDatabaseChain.__name__: "database",
-    }
+    special_chains = _get_map_of_special_chain_class_name_to_kwargs_name()
 
     model = None
-    if key := unserializable_object_name_map.get(model_type):
+    if key := special_chains.get(model_type):
         if loader_fn_path is None:
             raise mlflow.MlflowException.invalid_parameter_value(
                 "Missing file for loader_fn which is required to build the model."
             )
         kwargs = {key: _load_from_pickle(loader_fn_path, persist_dir)}
-        model = load_chain(path, **kwargs)
+        if model_type == _RetrieverChain.__name__:
+            model = _RetrieverChain.load(path, **kwargs).retriever
+        else:
+            model = load_chain(path, **kwargs)
     elif agent_path is None and tools_path is None:
         model = load_chain(path)
     else:
@@ -638,7 +650,20 @@ class _LangChainModelWrapper:
     def __init__(self, lc_model):
         self.lc_model = lc_model
 
-    def predict(self, data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]]) -> List[str]:
+    def predict(  # pylint: disable=unused-argument
+        self,
+        data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]],
+        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+    ) -> List[str]:
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
         if isinstance(data, pd.DataFrame):
@@ -659,11 +684,30 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
     A wrapper class that should be used for testing purposes only.
     """
 
-    def predict(self, data):
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         import langchain
+        from mlflow.openai.utils import TEST_CONTENT
         from tests.langchain.test_langchain_model_export import _mock_async_request
 
-        if isinstance(self.lc_model, (langchain.chains.llm.LLMChain, langchain.chains.RetrievalQA)):
+        if isinstance(
+            self.lc_model,
+            (
+                langchain.chains.llm.LLMChain,
+                langchain.chains.RetrievalQA,
+                langchain.schema.retriever.BaseRetriever,
+            ),
+        ):
             mockContent = TEST_CONTENT
         elif isinstance(self.lc_model, langchain.agents.agent.AgentExecutor):
             mockContent = f"Final Answer: {TEST_CONTENT}"
