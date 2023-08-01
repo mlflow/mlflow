@@ -6,22 +6,34 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 WORKDIR /app
 
-ADD . /app
-
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends build-essential openjdk-11-jre-headless \
+    apt-get install -y --no-install-recommends build-essential openjdk-17-jre-headless \
     # cmake and protobuf-compiler required for onnx install
     cmake protobuf-compiler && \
     # Install miniforge
     wget -q https://github.com/conda-forge/miniforge/releases/latest/download/$MINIFORG_FILENAME && \
     bash $MINIFORG_FILENAME -b -p /opt/conda && \
-    rm $MINIFORG_FILENAME && \
+    rm $MINIFORG_FILENAME
+
+ADD ./requirements /app/requirements
+
+RUN --mount=type=cache,target=/root/.cache \
     # install required python packages
-    pip install --no-cache-dir -r requirements/test-requirements.txt --no-cache-dir -r requirements/lint-requirements.txt && \
+    pip install -r requirements/test-requirements.txt --no-cache-dir -r requirements/lint-requirements.txt
+
+RUN --mount=type=cache,target=/root/.cache pip install "psutil<6"
+
+ADD . /app
+
+RUN --mount=type=cache,target=/root/.cache \
     # install mlflow in editable form
-    pip install --no-cache-dir -e . && \
+    pip install --no-cache-dir -e .
+
+RUN \
     # clean cache
-    apt-get autoremove -yqq --purge && apt-get clean && rm -rf /var/lib/apt/lists/* && \
+    apt-get autoremove -yqq --purge && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN \
     # adding an unprivileged user
     groupadd --gid 10001 mlflow && \
     useradd --uid 10001 --gid mlflow --shell /bin/bash --create-home mlflow

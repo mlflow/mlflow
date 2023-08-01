@@ -6,8 +6,9 @@ import sys
 import pytest
 import subprocess
 import time
-import requests
 import psutil
+import jwt
+import requests
 
 import mlflow
 from mlflow import MlflowClient
@@ -27,13 +28,14 @@ from tests.tracking.integration_test_utils import (
 
 
 @pytest.fixture
-def client(tmp_path):
+def client(request, tmp_path):
     path = tmp_path.joinpath("sqlalchemy.db").as_uri()
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
 
     with _init_server(
         backend_uri=backend_uri,
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
+        extra_env=getattr(request, "param", {}),
         app="mlflow.server.auth:create_app",
     ) as url:
         yield MlflowClient(url)
@@ -52,6 +54,45 @@ def test_authenticate(client, monkeypatch):
     username, password = create_user(client.tracking_uri)
     with User(username, password, monkeypatch):
         client.search_experiments()
+
+
+def _mlflow_search_experiments_rest(base_uri, headers):
+    response = requests.post(
+        f"{base_uri}/api/2.0/mlflow/experiments/search",
+        headers=headers,
+        json={
+            "max_results": 100,
+        },
+    )
+    response.raise_for_status()
+    return response
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/jwt_auth.ini"}],
+    indirect=True,
+)
+def test_authenticate_jwt(client, monkeypatch):
+    # unauthenticated
+    with pytest.raises(requests.HTTPError) as e:
+        _mlflow_search_experiments_rest(client.tracking_uri, {})
+    assert e.value.response.status_code == 401  # Unauthorized
+
+    # authenticated
+    username, password = create_user(client.tracking_uri)
+    headers = {
+        "Authorization": f'Bearer {jwt.encode({"email": username}, "secret", algorithm="HS256")}'
+    }
+    _mlflow_search_experiments_rest(client.tracking_uri, headers)
+
+    # invalid token
+    headers = {
+        "Authorization": f'Bearer {jwt.encode({"email": username}, "invalid", algorithm="HS256")}'
+    }
+    with pytest.raises(requests.HTTPError) as e:
+        _mlflow_search_experiments_rest(client.tracking_uri, headers)
+    assert e.value.response.status_code == 401  # Unauthorized
 
 
 def test_search_experiments(client, monkeypatch):
