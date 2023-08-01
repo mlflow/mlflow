@@ -32,7 +32,6 @@ from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
-from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -67,8 +66,7 @@ _AGENT_DATA_FILE_NAME = "agent.yaml"
 _AGENT_DATA_KEY = "agent_data"
 _TOOLS_DATA_FILE_NAME = "tools.pkl"
 _TOOLS_DATA_KEY = "tools_data"
-_MODEL_TYPE_KEY_DEPRECATED = "model_type"
-_MODEL_CLASS_KEY = "model_class"
+_MODEL_TYPE_KEY = "model_type"
 _LOADER_FN_FILE_NAME = "loader_fn.pkl"
 _LOADER_FN_KEY = "loader_fn"
 _PERSIST_DIR_NAME = "persist_dir_data"
@@ -105,6 +103,9 @@ def get_default_conda_env():
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
+
+
+_SpecialChainInfo(NamedTuple):
 
 def _get_map_of_special_chain_class_to_kwargs_name():
     import langchain
@@ -280,7 +281,7 @@ def save_model(
         **model_data_kwargs,
     )
     flavor_conf = {
-        _MODEL_CLASS_KEY: _get_fully_qualified_class_name(lc_model),
+        _MODEL_TYPE_KEY: lc_model.__class__.__name__,
         **model_data_kwargs,
     }
     mlflow_model.add_flavor(
@@ -353,7 +354,10 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
             type(lc_model.agent.llm_chain.llm).__name__,
         )
 
-    if any(isinstance(lc_model, chain) for chain in special_chains):
+    for special_chain_cls, kwargs_name in special_chains.items():
+        if not isinstance(lc_model, special_chain_cls):
+            continue
+
         if isinstance(lc_model, langchain.chains.RetrievalQA) and version.parse(
             langchain.__version__
         ) < version.parse("0.0.194"):
@@ -369,7 +373,7 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
         if not isinstance(loader_fn, types.FunctionType):
             raise mlflow.MlflowException.invalid_parameter_value(
                 "The `loader_fn` must be a function that returns a {kwargs}.".format(
-                    kwargs=special_chains[type(lc_model).__name__]
+                    kwargs=kwargs_name
                 )
             )
 
@@ -621,8 +625,7 @@ def _load_from_pickle(loader_fn_path, persist_dir):
 
 def _load_model(
     path,
-    model_class=None,
-    model_type_deprecated=None,
+    model_type,
     agent_path=None,
     tools_path=None,
     agent_primitive_path=None,
@@ -632,39 +635,19 @@ def _load_model(
     from langchain.chains.loading import load_chain
     from mlflow.langchain.retriever_chain import _RetrieverChain
 
-    if (model_class, model_type_deprecated).count(None) != 1:
-        raise MlflowException(
-            f"MLModel langchain flavor definition must specify exactly one of:" 
-            f" '{_MODEL_CLASS_KEY}', '{_MODEL_TYPE_KEY_DEPRECATED}'."
-        )
-
-    if model_class is not None:
-        model_class = _get_class_from_string(model_class)
-
-    def get_special_chain_kwargs_or_none():
-        special_chain_classes_to_kwargs_names = _get_map_of_special_chain_class_to_kwargs_name() 
-
-        if model_type_deprecated is not None:
-            special_chain_names_to_kwargs_names = {
-                cls.__name__: kwargs_name
-                for cls, kwargs_name in special_chain_classes_to_kwargs_names.items()
-            }
-            return special_chain_names_to_kwargs_names.get(model_type_deprecated)
-        else:
-            for cls, kwargs_names in special_chain_classes_to_kwargs_names.items():
-                if isinstance(model_class, cls):
-                    return kwargs_names
-            else:
-                return None
+    special_chain_names_to_kwargs_name = {
+        cls.__name__: kwargs_name
+        for cls, kwargs_name in _get_map_of_special_chain_class_to_kwargs_name().items()
+    }
 
     model = None
-    if special_chain_kwargs := get_special_chain_kwargs_or_none():
+    if special_chain_kwargs_name := special_chain_names_to_kwargs_name.get(model_type):
         if loader_fn_path is None:
             raise mlflow.MlflowException.invalid_parameter_value(
                 "Missing file for loader_fn which is required to build the model."
             )
-        kwargs = {key: _load_from_pickle(loader_fn_path, persist_dir)}
-        if model_type_deprecated == _RetrieverChain.__name__:
+        kwargs = {special_chain_kwargs_name: _load_from_pickle(loader_fn_path, persist_dir)}
+        if model_type == _RetrieverChain.__name__:
             model = _RetrieverChain.load(path, **kwargs).retriever
         else:
             model = load_chain(path, **kwargs)
@@ -795,13 +778,11 @@ def _load_model_from_local_fs(local_model_path):
     if persist_dir_name := flavor_conf.get(_PERSIST_DIR_KEY):
         persist_dir = os.path.join(local_model_path, persist_dir_name)
 
-    model_type_deprecated = flavor_conf.get(_MODEL_TYPE_KEY_DEPRECATED)
-    model_class = flavor_conf.get(_MODEL_CLASS_KEY)
+    model_type = flavor_conf.get(_MODEL_TYPE_KEY)
 
     return _load_model(
         lc_model_path,
-        model_class,
-        model_type_deprecated,
+        model_type,
         agent_model_path,
         tools_model_path,
         agent_primitive_path,
