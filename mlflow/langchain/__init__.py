@@ -15,7 +15,7 @@ import logging
 import os
 import shutil
 import types
-from functools import cache
+import functools 
 from packaging import version
 from typing import Any, Dict, List, Optional, Union, NamedTuple
 
@@ -117,7 +117,7 @@ def _get_special_chain_info_or_none(chain):
             return _SpecialChainInfo(loader_arg = loader_arg)
 
 
-@cache
+@functools.lru_cache
 def _get_map_of_special_chain_class_to_loader_arg():
     import langchain
 
