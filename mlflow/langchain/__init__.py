@@ -15,7 +15,7 @@ import logging
 import os
 import shutil
 import types
-import functools 
+import functools
 from packaging import version
 from typing import Any, Dict, List, Optional, Union, NamedTuple
 
@@ -106,7 +106,6 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-
 class _SpecialChainInfo(NamedTuple):
     loader_arg: str
 
@@ -114,7 +113,7 @@ class _SpecialChainInfo(NamedTuple):
 def _get_special_chain_info_or_none(chain):
     for special_chain_class, loader_arg in _get_map_of_special_chain_class_to_loader_arg().items():
         if isinstance(chain, special_chain_class):
-            return _SpecialChainInfo(loader_arg = loader_arg)
+            return _SpecialChainInfo(loader_arg=loader_arg)
 
 
 @functools.lru_cache
@@ -133,6 +132,7 @@ def _get_map_of_special_chain_class_to_loader_arg():
     else:
         try:
             import langchain.experimental
+
             class_name_to_loader_arg["langchain_experimental.sql.SQLDatabaseChain"] = "database"
         except ImportError:
             # Users may not have langchain_experimental installed, which is completely okay
@@ -148,13 +148,15 @@ def _get_map_of_special_chain_class_to_loader_arg():
                 "Unexpected import failure for class '%s'. Please file an issue at"
                 " https://github.com/mlflow/mlflow/issues/.",
                 class_name,
-                exc_info=True
+                exc_info=True,
             )
 
     from mlflow.langchain.retriever_chain import _RetrieverChain
+
     class_to_loader_arg[_RetrieverChain] = "retriever"
 
     return class_to_loader_arg
+
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -347,25 +349,23 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
         )
 
     _SUPPORTED_LLMS = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
-    if (
-        isinstance(lc_model, langchain.chains.llm.LLMChain)
-        and not any(isinstance(lc_model.llm, supported_llm) for supported_llm in _SUPPORTED_LLMS)
+    if isinstance(lc_model, langchain.chains.llm.LLMChain) and not any(
+        isinstance(lc_model.llm, supported_llm) for supported_llm in _SUPPORTED_LLMS
     ):
         logger.warning(
             _UNSUPPORTED_LLM_WARNING_MESSAGE,
             type(lc_model.llm).__name__,
         )
 
-    if (
-        isinstance(lc_model, langchain.agents.agent.AgentExecutor)
-        and not any(isinstance(lc_model.agent.llm_chain.llm, supported_llm) for supported_llm in _SUPPORTED_LLMS)
+    if isinstance(lc_model, langchain.agents.agent.AgentExecutor) and not any(
+        isinstance(lc_model.agent.llm_chain.llm, supported_llm) for supported_llm in _SUPPORTED_LLMS
     ):
         logger.warning(
             _UNSUPPORTED_LLM_WARNING_MESSAGE,
             type(lc_model.agent.llm_chain.llm).__name__,
         )
 
-    if special_chain_info := _get_special_chain_info_or_none(lc_model): 
+    if special_chain_info := _get_special_chain_info_or_none(lc_model):
         if isinstance(lc_model, langchain.chains.RetrievalQA) and version.parse(
             langchain.__version__
         ) < version.parse("0.0.194"):
@@ -595,7 +595,7 @@ def _save_model(model, path, loader_fn, persist_dir):
         with open(loader_fn_path, "wb") as f:
             cloudpickle.dump(loader_fn, f)
         model_data_kwargs[_LOADER_FN_KEY] = _LOADER_FN_FILE_NAME
-        model_data_kwargs[_LOADER_ARG_KEY] = special_chain_info.loader_arg 
+        model_data_kwargs[_LOADER_ARG_KEY] = special_chain_info.loader_arg
 
         if persist_dir is not None:
             if os.path.exists(persist_dir):
