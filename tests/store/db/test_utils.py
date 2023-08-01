@@ -1,4 +1,3 @@
-import os
 import pytest
 from unittest import mock
 
@@ -7,9 +6,8 @@ from sqlalchemy.pool import NullPool
 from sqlalchemy.pool.impl import QueuePool
 
 
-def test_create_sqlalchemy_engine_inject_pool_options():
-    with mock.patch.dict(
-        os.environ,
+def test_create_sqlalchemy_engine_inject_pool_options(monkeypatch):
+    monkeypatch.setenvs(
         {
             "MLFLOW_SQLALCHEMYSTORE_POOL_SIZE": "2",
             "MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE": "3600",
@@ -17,18 +15,18 @@ def test_create_sqlalchemy_engine_inject_pool_options():
             "MLFLOW_SQLALCHEMYSTORE_ECHO": "TRUE",
             "MLFLOW_SQLALCHEMYSTORE_POOLCLASS": "QueuePool",
         },
-    ):
-        with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
-            utils.create_sqlalchemy_engine("mydb://host:port/")
-            mock_create_engine.assert_called_once_with(
-                "mydb://host:port/",
-                pool_pre_ping=True,
-                pool_size=2,
-                max_overflow=4,
-                pool_recycle=3600,
-                echo=True,
-                poolclass=QueuePool,
-            )
+    )
+    with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
+        utils.create_sqlalchemy_engine("mydb://host:port/")
+        mock_create_engine.assert_called_once_with(
+            "mydb://host:port/",
+            pool_pre_ping=True,
+            pool_size=2,
+            max_overflow=4,
+            pool_recycle=3600,
+            echo=True,
+            poolclass=QueuePool,
+        )
 
 
 def test_create_sqlalchemy_engine_null_pool(monkeypatch):
@@ -63,39 +61,31 @@ def test_alembic_escape_logic():
 
 
 def test_create_sqlalchemy_engine_with_retry_success():
-    with mock.patch.dict(os.environ, {}):
-        with mock.patch("sqlalchemy.inspect") as mock_sqlalchemy_inspect:
-            with mock.patch(
-                "mlflow.store.db.utils.create_sqlalchemy_engine"
-            ) as mock_create_sqlalchemy_engine:
-                with mock.patch("time.sleep") as mock_sleep:
-                    mock_create_sqlalchemy_engine.return_value = "Engine"
-                    engine = utils.create_sqlalchemy_engine_with_retry("mydb://host:port/")
-                    mock_create_sqlalchemy_engine.assert_called_once_with("mydb://host:port/")
-                    mock_sqlalchemy_inspect.assert_called_once()
-                    mock_sleep.assert_not_called()
-                    assert engine == "Engine"
+    with mock.patch("sqlalchemy.inspect") as mock_sqlalchemy_inspect, mock.patch(
+        "mlflow.store.db.utils.create_sqlalchemy_engine", return_value="Engine"
+    ) as mock_create_sqlalchemy_engine, mock.patch("time.sleep") as mock_sleep:
+        engine = utils.create_sqlalchemy_engine_with_retry("mydb://host:port/")
+        mock_create_sqlalchemy_engine.assert_called_once_with("mydb://host:port/")
+        mock_sqlalchemy_inspect.assert_called_once()
+        mock_sleep.assert_not_called()
+        assert engine == "Engine"
 
 
 def test_create_sqlalchemy_engine_with_retry_success_after_third_call():
-    with mock.patch.dict(os.environ, {}):
-        with mock.patch("sqlalchemy.inspect") as mock_sqlalchemy_inspect:
-            with mock.patch(
-                "mlflow.store.db.utils.create_sqlalchemy_engine"
-            ) as mock_create_sqlalchemy_engine:
-                with mock.patch("time.sleep"):
-                    mock_sqlalchemy_inspect.side_effect = [Exception, Exception, "Inspect"]
-                    mock_create_sqlalchemy_engine.return_value = "Engine"
-                    engine = utils.create_sqlalchemy_engine_with_retry("mydb://host:port/")
-                    assert (
-                        mock_create_sqlalchemy_engine.mock_calls
-                        == [mock.call("mydb://host:port/")] * 3
-                    )
-                    assert engine == "Engine"
+    with mock.patch(
+        "sqlalchemy.inspect", side_effect=[Exception, Exception, "Inspect"]
+    ), mock.patch(
+        "mlflow.store.db.utils.create_sqlalchemy_engine", return_value="Engine"
+    ) as mock_create_sqlalchemy_engine, mock.patch(
+        "time.sleep"
+    ):
+        engine = utils.create_sqlalchemy_engine_with_retry("mydb://host:port/")
+        assert mock_create_sqlalchemy_engine.mock_calls == [mock.call("mydb://host:port/")] * 3
+        assert engine == "Engine"
 
 
 def test_create_sqlalchemy_engine_with_retry_fail():
-    with mock.patch.dict(os.environ, {}), mock.patch(
+    with mock.patch(
         "sqlalchemy.inspect", side_effect=[Exception("failed")] * utils.MAX_RETRY_COUNT
     ), mock.patch(
         "mlflow.store.db.utils.create_sqlalchemy_engine", return_value="Engine"
