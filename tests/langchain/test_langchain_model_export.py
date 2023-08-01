@@ -19,7 +19,6 @@ from langchain.chains import (
     LLMChain,
     RetrievalQA,
     HypotheticalDocumentEmbedder,
-    SQLDatabaseChain,
 )
 from langchain.chains.api import open_meteo_docs
 from langchain.chains.base import Chain
@@ -35,6 +34,7 @@ from langchain.prompts import PromptTemplate
 from langchain.requests import TextRequestsWrapper
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
+from langchain_experimental.sql import SQLDatabaseChain
 from pydantic import BaseModel
 from pyspark.sql import SparkSession
 from typing import Any, List, Mapping, Optional, Dict
