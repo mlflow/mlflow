@@ -2512,10 +2512,45 @@ Example: Log a LangChain Agent
 .. literalinclude:: ../../examples/langchain/simple_agent.py
     :language: python
 
+
+Logging RetrievalQA Chains
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In MLflow, you can use the ``langchain`` flavor to save a ``RetrievalQA`` chain, including the retriever object.
+
+Native LangChain requires the user to handle the serialization and deserialization of the retriever object, but MLflow's ``langchain`` flavor handles that for you.
+
+Here are the two things you need to tell MLflow:
+
+1. Where the retriever object is stored (``persist_dir``).
+2. How to load the retriever object from that location (``loader_fn``).
+
+After you define these, MLflow takes care of the rest, saving both the content in the ``persist_dir`` and pickling the ``loader_fn`` function.
+
 Example: Log a LangChain RetrievalQA Chain
 
 .. literalinclude:: ../../examples/langchain/retrieval_qa_chain.py
     :language: python
+
+.. _log-retriever-chain:
+
+Logging a retriever and evaluate it individually
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``langchain`` flavor provides the functionality to log a retriever object and evaluate it individually. This is useful if
+you want to evaluate the quality of the relevant documents returned by a retriever object without directing these documents
+through a large language model (LLM) to yield a summarized response.
+
+In order to log the retriever object in the ``langchain`` flavor, it is also required to specify ``persist_dir``
+and ``loader_fn``, the same as logging the RetrievalQA chain. See the previous section for details about these parameters.
+
+See the following example for more details.
+
+Example: Log a LangChain Retriever
+
+.. literalinclude:: ../../examples/langchain/retriever_chain.py
+    :language: python
+
 
 John Snow Labs (``johnsnowlabs``) (Experimental)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
