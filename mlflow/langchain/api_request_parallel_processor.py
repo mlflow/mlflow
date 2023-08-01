@@ -17,6 +17,7 @@ Features:
 from __future__ import annotations
 
 import logging
+import json
 import threading
 import queue
 import time
@@ -77,9 +78,17 @@ class APIRequest:
         """
         Calls the LangChain API and stores results.
         """
+        from langchain.schema import BaseRetriever
+
         _logger.debug(f"Request #{self.index} started")
         try:
-            response = self.lc_model.run(**self.request_json)
+            if isinstance(self.lc_model, BaseRetriever):
+                # Retrievers are invoked differently than Chains
+                docs = self.lc_model.get_relevant_documents(**self.request_json)
+                list_of_str_page_content = [doc.page_content for doc in docs]
+                response = json.dumps(list_of_str_page_content)
+            else:
+                response = self.lc_model.run(**self.request_json)
             _logger.debug(f"Request #{self.index} succeeded")
             status_tracker.complete_task(success=True)
             self.results.append((self.index, response))
