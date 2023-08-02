@@ -1,6 +1,7 @@
 import codecs
 import errno
 import gzip
+import logging
 import json
 import math
 import os
@@ -31,10 +32,17 @@ try:
 except ImportError:
     from yaml import SafeLoader as YamlSafeLoader, SafeDumper as YamlSafeDumper
 
+_logger = logging.getLogger(__name__)
+_TQDM_AVAILABLE = False
 try:
     from tqdm.notebook import tqdm
+
+    _TQDM_AVAILABLE = True
 except ImportError:
-    raise ModuleNotFoundError("module not found: tqdm; install with `pip install tqdm`")
+    _logger.warning(
+        "module not found: tqdm. To show progress bar for artifacts, "
+        "install with `pip install tqdm`"
+    )
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
@@ -694,28 +702,34 @@ def parallelized_download_file_using_http_uri(
         futures[thread_pool_executor.submit(run_download, range_start, range_end)] = i
 
     failed_downloads = {}
-    pbar = tqdm(
-        total=file_size,
-        unit="iB",
-        unit_scale=True,
-        unit_divisor=1024,
-        desc=f"Downloading file {download_path}",
-        miniters=1,
+    pbar = (
+        tqdm(
+            total=file_size,
+            unit="iB",
+            unit_scale=True,
+            unit_divisor=1024,
+            desc=f"Downloading file {download_path}",
+            miniters=1,
+        )
+        if _TQDM_AVAILABLE
+        else None
     )
-    with pbar:
-        for future in as_completed(futures):
-            index = futures[future]
-            try:
-                result = future.result()
-                if result is not None:
-                    failed_downloads[index] = result
+    for future in as_completed(futures):
+        index = futures[future]
+        try:
+            result = future.result()
+            if result is not None:
+                failed_downloads[index] = result
+            if pbar:
                 pbar.update(min(file_size - index * chunk_size, chunk_size))
                 pbar.refresh()
-            except Exception as e:
-                failed_downloads[index] = {
-                    "error_status_code": 500,
-                    "error_text": repr(e),
-                }
+        except Exception as e:
+            failed_downloads[index] = {
+                "error_status_code": 500,
+                "error_text": repr(e),
+            }
+    if pbar:
+        pbar.close()
 
     return failed_downloads
 

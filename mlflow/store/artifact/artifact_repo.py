@@ -1,13 +1,9 @@
+import logging
 import os
 import posixpath
 import tempfile
 from abc import abstractmethod, ABCMeta
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
-try:
-    from tqdm.notebook import tqdm
-except ImportError:
-    raise ModuleNotFoundError("module not found: tqdm; install with `pip install tqdm`")
 
 from mlflow.exceptions import MlflowException
 from mlflow.entities.file_info import FileInfo
@@ -15,6 +11,18 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.validation import path_not_unique, bad_path_message
 
+_logger = logging.getLogger(__name__)
+
+_TQDM_AVAILABLE = False
+try:
+    from tqdm.notebook import tqdm
+
+    _TQDM_AVAILABLE = True
+except ImportError:
+    _logger.warning(
+        "module not found: tqdm. To show progress bar for artifacts, "
+        "install with `pip install tqdm`"
+    )
 
 # Constants used to determine max level of parallelism to use while uploading/downloading artifacts.
 # Max threads to use for parallelism.
@@ -194,12 +202,18 @@ class ArtifactRepository:
 
         # Wait for downloads to complete and collect failures
         failed_downloads = {}
-        for f in tqdm(as_completed(futures), total=len(futures), desc="Downloading artifacts"):
+        pbar = tqdm(total=len(futures), desc="Downloading artifacts") if _TQDM_AVAILABLE else None
+        for f in as_completed(futures):
             try:
                 f.result()
+                if pbar:
+                    pbar.update()
+                    pbar.refresh()
             except Exception as e:
                 path = futures[f]
                 failed_downloads[path] = repr(e)
+        if pbar:
+            pbar.close()
 
         if failed_downloads:
             raise MlflowException(

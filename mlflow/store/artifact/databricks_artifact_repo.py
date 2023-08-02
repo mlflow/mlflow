@@ -8,11 +8,6 @@ import math
 from collections import namedtuple
 from concurrent.futures import as_completed
 
-try:
-    from tqdm.notebook import tqdm
-except ImportError:
-    raise ModuleNotFoundError("module not found: tqdm; install with `pip install tqdm`")
-
 from mlflow.azure.client import (
     put_adls_file_creation,
     patch_adls_file_upload,
@@ -66,6 +61,18 @@ from mlflow.utils.uri import (
 from mlflow.environment_variables import MLFLOW_ENABLE_MULTIPART_DOWNLOAD
 
 _logger = logging.getLogger(__name__)
+
+_TQDM_AVAILABLE = False
+try:
+    from tqdm.notebook import tqdm
+
+    _TQDM_AVAILABLE = True
+except ImportError:
+    _logger.warning(
+        "module not found: tqdm. To show progress bar for artifacts, "
+        "install with `pip install tqdm`"
+    )
+
 _DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
 _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE = 500_000_000  # 500 MB
 _MULTIPART_UPLOAD_CHUNK_SIZE = 10_000_000  # 10 MB
@@ -97,19 +104,24 @@ def _complete_futures(futures_dict, file):
     errors = {}
 
     file_size = os.path.getsize(file)
-    pbar = tqdm(
-        total=file_size,
-        unit="iB",
-        unit_scale=True,
-        unit_divisor=1024,
-        desc=f"Uploading file {file}",
-        miniters=1,
+    pbar = (
+        tqdm(
+            total=file_size,
+            unit="iB",
+            unit_scale=True,
+            unit_divisor=1024,
+            desc=f"Uploading file {file}",
+            miniters=1,
+        )
+        if _TQDM_AVAILABLE
+        else None
     )
-    with pbar:
-        for index, future in enumerate(as_completed(futures_dict)):
-            key = futures_dict[future]
-            try:
-                results[key] = future.result()
+
+    for index, future in enumerate(as_completed(futures_dict)):
+        key = futures_dict[future]
+        try:
+            results[key] = future.result()
+            if pbar:
                 pbar.update(
                     min(
                         file_size - index * _MULTIPART_UPLOAD_CHUNK_SIZE,
@@ -117,8 +129,11 @@ def _complete_futures(futures_dict, file):
                     )
                 )
                 pbar.refresh()
-            except Exception as e:
-                errors[key] = repr(e)
+        except Exception as e:
+            errors[key] = repr(e)
+
+    if pbar:
+        pbar.close()
 
     return results, errors
 
@@ -713,7 +728,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         # Join futures to ensure that all artifacts have been uploaded prior to returning
         failed_uploads = {}
 
-        def get_creds_and_upload(staged_upload_chunk, pbar):
+        def get_creds_and_upload(staged_upload_chunk, pbar=None):
             write_credential_infos = self._get_write_credential_infos(
                 run_id=self.run_id,
                 paths=[
@@ -737,15 +752,19 @@ class DatabricksArtifactRepository(ArtifactRepository):
             for src_file_path, upload_future in inflight_uploads.items():
                 try:
                     upload_future.result()
-                    pbar.update()
-                    pbar.refresh()
+                    if pbar:
+                        pbar.update()
+                        pbar.refresh()
                 except Exception as e:
                     failed_uploads[src_file_path] = repr(e)
 
-        pbar = tqdm(total=len(staged_uploads), desc="Uploading artifacts")
-        with pbar:
-            for chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
-                get_creds_and_upload(chunk, pbar)
+        pbar = (
+            tqdm(total=len(staged_uploads), desc="Uploading artifacts") if _TQDM_AVAILABLE else None
+        )
+        for chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
+            get_creds_and_upload(chunk, pbar)
+        if pbar:
+            pbar.close()
 
         if len(failed_uploads) > 0:
             raise MlflowException(
