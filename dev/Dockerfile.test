@@ -20,7 +20,7 @@ ADD ./requirements /app/requirements
 RUN \
     # install required python packages
     pip install -r requirements/test-requirements.txt --no-cache-dir \
-        -r requirements/lint-requirements.txt
+        -r requirements/lint-requirements.txt psutil
 
 ADD . /app
 

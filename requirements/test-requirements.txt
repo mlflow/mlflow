@@ -35,5 +35,3 @@ evaluate
 nltk
 rouge_score
 textstat
-# Required by auth tests
-psutil
