@@ -3512,7 +3512,7 @@ in your current system environment in order to run the example):
 MLflow also provides an Artifact View UI for comparing inputs and outputs across multiple models
 built with LLMs. For example, after evaluating multiple prompts for question answering
 (see the
-`MLflow OpenAI question answering full example <https://github.com/mlflow/mlflow/tree/master/examples/llms/openai>`_), you can navigate to the Artifact View to view the questions and compare the answers for
+`MLflow OpenAI question answering full example <https://github.com/mlflow/mlflow/tree/master/examples/llms/question_answering/question_answering.py>`_), you can navigate to the Artifact View to view the questions and compare the answers for
 each model:
 
 .. image:: _static/images/artifact-view-ui.png
