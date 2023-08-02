@@ -17,15 +17,15 @@ RUN apt-get update && \
 
 ADD ./requirements /app/requirements
 
-RUN --mount=type=cache,target=/root/.cache \
+RUN \
     # install required python packages
-    pip install -r requirements/test-requirements.txt --no-cache-dir -r requirements/lint-requirements.txt
-
-RUN --mount=type=cache,target=/root/.cache pip install "psutil<6"
+    pip install -r requirements/test-requirements.txt --no-cache-dir \
+        -r requirements/lint-requirements.txt \
+        -r requirements/gateway-requirements.txt
 
 ADD . /app
 
-RUN --mount=type=cache,target=/root/.cache \
+RUN \
     # install mlflow in editable form
     pip install --no-cache-dir -e .
 

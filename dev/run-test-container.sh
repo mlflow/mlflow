@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 ROOT_DIR=$(git rev-parse --show-toplevel)
 ARCH=$(uname -m)
 echo "Running tests in a Docker container on $ARCH"
@@ -20,7 +22,6 @@ docker run \
   -v "${ROOT_DIR}"/pytest.ini:/app/pytest.ini \
   -v "${ROOT_DIR}"/conftest.py:/app/conftest.py \
   --name "mlflow-test" \
-  -p 8000:8000 \
   -it mlflow-test-env
 
 docker container rm mlflow-test

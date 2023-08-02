@@ -87,9 +87,8 @@ def test_authenticate_jwt(client):
     _mlflow_search_experiments_rest(client.tracking_uri, headers)
 
     # invalid token
-    headers = {
-        "Authorization": f'Bearer {jwt.encode({"username": username}, "invalid", algorithm="HS256")}'
-    }
+    bearer_token = jwt.encode({"username": username}, "invalid", algorithm="HS256")
+    headers = {"Authorization": f"Bearer {bearer_token}"}
     with pytest.raises(requests.HTTPError, match=r"401 Client Error: UNAUTHORIZED") as e:
         _mlflow_search_experiments_rest(client.tracking_uri, headers)
     assert e.value.response.status_code == 401  # Unauthorized

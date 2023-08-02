@@ -7,6 +7,7 @@ Usage
     mlflow server --app-name basic-auth
 """
 
+import functools
 import importlib
 import logging
 import uuid
@@ -433,12 +434,19 @@ def authenticate_request_basic_auth() -> Union[Authorization, Response]:
 
 def authenticate_request() -> Union[Authorization, Response]:
     """Use configured authorization function to get request authorization."""
-    mod_name, fn_name = auth_config.authorization_function.split(":")
-    module = importlib.import_module(mod_name)
-    auth_func = None
-    for attr in fn_name.split("."):
-        auth_func = getattr(auth_func or module, attr)
+    auth_func = get_auth_func(auth_config.authorization_function)
     return auth_func()
+
+
+@functools.cache
+def get_auth_func(authorization_function: str) -> Callable[[], Union[Authorization, Response]]:
+    """Import and return the specified authorization function.
+
+    :param authorization_function: A string of the form "module.submodule:auth_func
+    """
+    mod_name, fn_name = authorization_function.split(":")
+    module = importlib.import_module(mod_name)
+    return getattr(module, fn_name)
 
 
 @catch_mlflow_exception
