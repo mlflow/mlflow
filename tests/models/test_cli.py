@@ -300,7 +300,8 @@ def test_predict(iris_data, sk_model):
             text=True,
             check=True,
         )
-        actual = pd.read_json(prc.stdout, orient="records")
+        predictions = re.search(r"{\"predictions\": .*}", prc.stdout).group(0)
+        actual = pd.read_json(predictions, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
         assert all(expected == actual)

@@ -136,7 +136,7 @@ def download_artifacts(run_id, artifact_path, artifact_uri, dst_path):
     downloaded_local_artifact_location = _download_artifacts(
         artifact_uri=artifact_uri, run_id=run_id, artifact_path=artifact_path, dst_path=dst_path
     )
-    click.echo(downloaded_local_artifact_location)
+    click.echo(f"downloaded artifacts local location: {downloaded_local_artifact_location}\n")
 
 
 if __name__ == "__main__":
