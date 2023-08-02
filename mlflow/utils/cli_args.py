@@ -183,7 +183,7 @@ ARTIFACTS_DESTINATION = click.option(
     "--artifacts-destination",
     envvar="MLFLOW_ARTIFACTS_DESTINATION",
     metavar="URI",
-    default="/tmp/mlartifacts",
+    default="./mlartifacts",
     help=(
         "The base artifact location from which to resolve artifact upload/download/list requests "
         "(e.g. 's3://my-bucket'). Defaults to a local './mlartifacts' directory. This option only "

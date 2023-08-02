@@ -211,7 +211,6 @@ _register_tracking_stores()
 
 
 def _get_store(store_uri=None, artifact_uri=None):
-    print(f"_get_store: artifact_uri={artifact_uri}")
     return _tracking_store_registry.get_store(store_uri, artifact_uri)
 
 

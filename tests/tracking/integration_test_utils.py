@@ -40,7 +40,8 @@ def _init_server(backend_uri, root_artifact_uri, extra_env=None, app="mlflow.ser
     """
     mlflow.set_tracking_uri(None)
     server_port = get_safe_port()
-    command = [
+    with Popen(
+        [
             sys.executable,
             "-m",
             "flask",
@@ -51,21 +52,12 @@ def _init_server(backend_uri, root_artifact_uri, extra_env=None, app="mlflow.ser
             LOCALHOST,
             "--port",
             str(server_port),
-        ]
-    env_mlflow = {
+        ],
+        env={
+            **os.environ,
             BACKEND_STORE_URI_ENV_VAR: backend_uri,
             ARTIFACT_ROOT_ENV_VAR: root_artifact_uri,
             **(extra_env or {}),
-        }
-    print("\n")
-    for k, v in env_mlflow.items():
-        print(f"export {k}={v}")
-    print(" ".join(command))
-    with Popen(
-        command,
-        env={
-            **os.environ,
-            **env_mlflow,
         },
     ) as proc:
         _await_server_up_or_die(server_port)

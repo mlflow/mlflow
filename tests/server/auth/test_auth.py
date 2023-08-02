@@ -73,24 +73,24 @@ def _mlflow_search_experiments_rest(base_uri, headers):
     [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/jwt_auth.ini"}],
     indirect=True,
 )
-def test_authenticate_jwt(client, monkeypatch):
+def test_authenticate_jwt(client):
     # unauthenticated
-    with pytest.raises(requests.HTTPError) as e:
+    with pytest.raises(requests.HTTPError, match=r"401 Client Error: UNAUTHORIZED") as e:
         _mlflow_search_experiments_rest(client.tracking_uri, {})
     assert e.value.response.status_code == 401  # Unauthorized
 
     # authenticated
     username, password = create_user(client.tracking_uri)
     headers = {
-        "Authorization": f'Bearer {jwt.encode({"email": username}, "secret", algorithm="HS256")}'
+        "Authorization": f'Bearer {jwt.encode({"username": username}, "secret", algorithm="HS256")}'
     }
     _mlflow_search_experiments_rest(client.tracking_uri, headers)
 
     # invalid token
     headers = {
-        "Authorization": f'Bearer {jwt.encode({"email": username}, "invalid", algorithm="HS256")}'
+        "Authorization": f'Bearer {jwt.encode({"username": username}, "invalid", algorithm="HS256")}'
     }
-    with pytest.raises(requests.HTTPError) as e:
+    with pytest.raises(requests.HTTPError, match=r"401 Client Error: UNAUTHORIZED") as e:
         _mlflow_search_experiments_rest(client.tracking_uri, headers)
     assert e.value.response.status_code == 401  # Unauthorized
 

@@ -6,7 +6,7 @@ import logging
 from typing import Union
 
 import jwt
-from flask import Flask, request, make_response, Response, flash, render_template_string
+from flask import request, make_response, Response
 from werkzeug.datastructures import Authorization
 
 BEARER_PREFIX = "bearer "
@@ -36,8 +36,7 @@ def authenticate_request() -> Union[Authorization, Response]:
                 _logger.warning("No token_info returned")
                 return error_response
 
-            email = token_info["email"]
-            return Authorization(auth_type="jwt", data=dict(username=email, password=""))
+            return Authorization(auth_type="jwt", data=token_info)
         except jwt.exceptions.InvalidTokenError:
             pass
 

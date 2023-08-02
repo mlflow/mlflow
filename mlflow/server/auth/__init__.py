@@ -451,7 +451,8 @@ def _before_request():
         return authorization
     elif not isinstance(authorization, Authorization):
         raise MlflowException(
-            f"Unsupported result type from get_request_authorization: '{type(authorization).__name__}'",
+            f"Unsupported result type from get_request_authorization: "
+            f"'{type(authorization).__name__}'",
             INTERNAL_ERROR,
         )
 
