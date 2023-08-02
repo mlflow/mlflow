@@ -103,7 +103,6 @@ def _complete_futures(futures_dict, file):
         unit_scale=True,
         unit_divisor=1024,
         desc=f"Uploading file {file}",
-        leave=False,
         miniters=1,
     )
     with pbar:

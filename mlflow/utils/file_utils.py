@@ -700,7 +700,6 @@ def parallelized_download_file_using_http_uri(
         unit_scale=True,
         unit_divisor=1024,
         desc=f"Downloading file {download_path}",
-        leave=False,
         miniters=1,
     )
     with pbar:
