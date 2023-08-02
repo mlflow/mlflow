@@ -35,4 +35,6 @@ evaluate
 nltk
 rouge_score
 textstat
+# Required by progress bar tests
+ipywidgets
 tqdm
