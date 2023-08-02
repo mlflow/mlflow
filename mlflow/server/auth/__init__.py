@@ -418,6 +418,23 @@ def _get_proxy_artifact_validator(
     }.get(method)
 
 
+def authenticate_request() -> Union[Authorization, Response]:
+    """Use configured authorization function to get request authorization."""
+    auth_func = get_auth_func(auth_config.authorization_function)
+    return auth_func()
+
+
+@functools.lru_cache(maxsize=None)
+def get_auth_func(authorization_function: str) -> Callable[[], Union[Authorization, Response]]:
+    """Import and return the specified authorization function.
+
+    :param authorization_function: A string of the form "module.submodule:auth_func
+    """
+    mod_name, fn_name = authorization_function.split(":")
+    module = importlib.import_module(mod_name)
+    return getattr(module, fn_name)
+
+
 def authenticate_request_basic_auth() -> Union[Authorization, Response]:
     """Authenticate the request using basic auth."""
     if request.authorization is None:
@@ -432,23 +449,6 @@ def authenticate_request_basic_auth() -> Union[Authorization, Response]:
         return make_basic_auth_response()
 
 
-def authenticate_request() -> Union[Authorization, Response]:
-    """Use configured authorization function to get request authorization."""
-    auth_func = get_auth_func(auth_config.authorization_function)
-    return auth_func()
-
-
-@functools.cache
-def get_auth_func(authorization_function: str) -> Callable[[], Union[Authorization, Response]]:
-    """Import and return the specified authorization function.
-
-    :param authorization_function: A string of the form "module.submodule:auth_func
-    """
-    mod_name, fn_name = authorization_function.split(":")
-    module = importlib.import_module(mod_name)
-    return getattr(module, fn_name)
-
-
 @catch_mlflow_exception
 def _before_request():
     if is_unprotected_route(request.path):
@@ -459,7 +459,7 @@ def _before_request():
         return authorization
     elif not isinstance(authorization, Authorization):
         raise MlflowException(
-            f"Unsupported result type from get_request_authorization: "
+            f"Unsupported result type from {auth_config.authorization_function}: "
             f"'{type(authorization).__name__}'",
             INTERNAL_ERROR,
         )

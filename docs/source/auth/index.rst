@@ -617,7 +617,7 @@ Authentication configuration is located at ``mlflow/server/auth/basic_auth.ini``
 
 The ``authorization_function`` setting supports pluggable authentication methods
 if you want to use another authentication method than HTTP basic auth. The value
-specifies ``module_name:function_name`. The function has the following signature:
+specifies ``module_name:function_name``. The function has the following signature:
 
     def authenticate_request() -> Union[Authorization, Response]:
 
