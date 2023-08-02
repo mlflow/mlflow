@@ -575,6 +575,7 @@ langchain:
           "google-search-results",
           "psutil",
           "faiss-cpu",
+          "langchain-experimental",
         ]
     run: |
       pytest tests/langchain/test_langchain_model_export.py
