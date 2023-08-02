@@ -334,8 +334,6 @@ def save_model(
 def _validate_and_wrap_lc_model(lc_model, loader_fn):
     import langchain
 
-    special_chain_classes_to_loader_args = _get_map_of_special_chain_class_to_loader_arg()
-
     if not isinstance(
         lc_model,
         (
