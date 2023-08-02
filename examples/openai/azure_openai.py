@@ -1,17 +1,12 @@
+import mlflow
+import openai
 import os
-import logging
+import pandas as pd
 
 os.environ["OPENAI_API_KEY"] = "<YOUR AZURE OPENAI KEY>"
 os.environ["OPENAI_API_BASE"] = "<YOUR AZURE OPENAI BASE>"
 os.environ["OPENAI_API_VERSION"] = "2023-05-15"
 os.environ["OPENAI_API_TYPE"] = "azure"
-
-import openai
-import mlflow
-import pandas as pd
-import logging
-
-logging.getLogger("mlflow").setLevel(logging.ERROR)
 
 with mlflow.start_run():
     model_info = mlflow.openai.log_model(
