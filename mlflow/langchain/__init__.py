@@ -119,6 +119,7 @@ def _get_special_chain_info_or_none(chain):
 @functools.lru_cache
 def _get_map_of_special_chain_class_to_loader_arg():
     import langchain
+    from mlflow.langchain.retriever_chain import _RetrieverChain
 
     class_name_to_loader_arg = {
         "langchain.chains.RetrievalQA": "retriever",
@@ -135,10 +136,12 @@ def _get_map_of_special_chain_class_to_loader_arg():
 
             class_name_to_loader_arg["langchain_experimental.sql.SQLDatabaseChain"] = "database"
         except ImportError:
-            # Users may not have langchain_experimental installed, which is completely okay
+            # Users may not have langchain_experimental installed, which is completely normal 
             pass
 
-    class_to_loader_arg = {}
+    class_to_loader_arg = {
+        _RetrieverChain: "retriever",
+    }
     for class_name, loader_arg in class_name_to_loader_arg.items():
         try:
             cls = _get_class_from_string(class_name)
@@ -150,10 +153,6 @@ def _get_map_of_special_chain_class_to_loader_arg():
                 class_name,
                 exc_info=True,
             )
-
-    from mlflow.langchain.retriever_chain import _RetrieverChain
-
-    class_to_loader_arg[_RetrieverChain] = "retriever"
 
     return class_to_loader_arg
 
