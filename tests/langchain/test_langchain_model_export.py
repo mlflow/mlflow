@@ -516,7 +516,9 @@ def test_log_and_load_subclass_of_specialized_chain():
         pass
 
     llm = OpenAI(temperature=0)
-    apichain_subclass = APIChainSubclass.from_llm_and_api_docs(llm, open_meteo_docs.OPEN_METEO_DOCS, verbose=True)
+    apichain_subclass = APIChainSubclass.from_llm_and_api_docs(
+        llm, open_meteo_docs.OPEN_METEO_DOCS, verbose=True
+    )
 
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(
