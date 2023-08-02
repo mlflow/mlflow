@@ -125,7 +125,6 @@ def _get_map_of_special_chain_class_to_loader_arg():
         "langchain.chains.RetrievalQA": "retriever",
         "langchain.chains.APIChain": "requests_wrapper",
         "langchain.chains.HypotheticalDocumentEmbedder": "embeddings",
-        "langchain.chains.SQLDatabaseChain": "database",
     }
     # NB: SQLDatabaseChain was migrated to langchain_experimental beginning with version 0.0.247
     if version.parse(langchain.__version__) <= version.parse("0.0.246"):
