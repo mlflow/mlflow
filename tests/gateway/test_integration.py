@@ -3,12 +3,14 @@ import os
 import requests
 from unittest.mock import patch
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.gateway import MlflowGatewayClient, query, set_gateway_uri, get_route
 from mlflow.gateway.config import Route
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.cohere import CohereProvider
+from mlflow.gateway.providers.mlflow import MLflowProvider
 import mlflow.gateway.utils
 from mlflow.utils.request_utils import _cached_get_request_session
 
@@ -82,6 +84,33 @@ def basic_config_dict():
                     },
                 },
             },
+            {
+                "name": "chat-oss",
+                "route_type": "llm/v1/chat",
+                "model": {
+                    "provider": "mlflow",
+                    "name": "mpt-chatbot",
+                    "config": {"mlflow_api_base": "http://127.0.0.1:5000"},
+                },
+            },
+            {
+                "name": "completions-oss",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "mlflow",
+                    "name": "mpt-completion-model",
+                    "config": {"mlflow_api_base": "http://127.0.0.1:5001"},
+                },
+            },
+            {
+                "name": "embeddings-oss",
+                "route_type": "llm/v1/embeddings",
+                "model": {
+                    "provider": "mlflow",
+                    "name": "sentence-transformers",
+                    "config": {"mlflow_api_base": "http://127.0.0.1:5002"},
+                },
+            },
         ]
     }
 
@@ -111,7 +140,7 @@ def test_create_gateway_client_with_declared_url(gateway):
     assert gateway_client.gateway_uri == gateway.url
     assert isinstance(gateway_client.get_route("chat-openai"), Route)
     routes = gateway_client.search_routes()
-    assert len(routes) == 6
+    assert len(routes) == 9
     assert all(isinstance(route, Route) for route in routes)
 
 
@@ -352,3 +381,91 @@ def test_invalid_query_request_raises(gateway):
         requests.exceptions.HTTPError, match="Unprocessable Entity for"
     ):
         query(route=route.name, data=data)
+
+
+def test_mlflow_chat(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("chat-oss")
+    expected_output = {
+        "candidates": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "test",
+                },
+                "metadata": {"finish_reason": "length"},
+            }
+        ],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "mpt-chatbot",
+            "route_type": "llm/v1/chat",
+        },
+    }
+
+    data = {"messages": [{"role": "user", "content": "test"}]}
+
+    async def mock_chat(self, payload):
+        return expected_output
+
+    with patch.object(MLflowProvider, "chat", mock_chat):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_mlflow_completions(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("completions-oss")
+    expected_output = {
+        "candidates": [
+            {
+                "text": "test",
+                "metadata": {"finish_reason": "length"},
+            }
+        ],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "mpt-completion-model",
+            "route_type": "llm/v1/completions",
+        },
+    }
+
+    data = {"prompt": "this is a test"}
+
+    async def mock_completions(self, payload):
+        return expected_output
+
+    with patch.object(MLflowProvider, "completions", mock_completions):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_mlflow_embeddings(gateway):
+    set_gateway_uri(gateway_uri=gateway.url)
+    route = get_route("embeddings-oss")
+    expected_output = {
+        "embeddings": [
+            [0.001, -0.001],
+            [0.002, -0.002],
+        ],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "sentence-transformers",
+            "route_type": "llm/v1/embeddings",
+        },
+    }
+
+    data = {"text": ["test1", "test2"]}
+
+    async def mock_embeddings(self, payload):
+        return expected_output
+
+    with patch.object(MLflowProvider, "embeddings", mock_embeddings):
+        response = query(route=route.name, data=data)
+    assert response == expected_output
