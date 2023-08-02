@@ -511,6 +511,25 @@ def test_log_and_load_api_chain():
     assert loaded_model == apichain
 
 
+def test_log_and_load_subclass_of_specialized_chain():
+    class APIChainSubclass(APIChain):
+        pass
+
+    llm = OpenAI(temperature=0)
+    apichain_subclass = APIChainSubclass.from_llm_and_api_docs(llm, open_meteo_docs.OPEN_METEO_DOCS, verbose=True)
+
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(
+            apichain_subclass,
+            "apichain_subclass",
+            loader_fn=load_requests_wrapper,
+        )
+
+    # Load the chain
+    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
+    assert loaded_model == apichain_subclass
+
+
 def load_base_embeddings(_):
     return FakeEmbeddings(size=32)
 
