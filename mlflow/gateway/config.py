@@ -23,6 +23,7 @@ class Provider(str, Enum):
     # Note: Databricks Model Serving is only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     COHERE = "cohere"
+    MLFLOW = "mlflow"
 
     @classmethod
     def values(cls):
@@ -116,10 +117,15 @@ class AnthropicConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
+class MLflowConfig(ConfigModel):
+    mlflow_api_base: str
+
+
 config_types = {
     Provider.COHERE: CohereConfig,
     Provider.OPENAI: OpenAIConfig,
     Provider.ANTHROPIC: AnthropicConfig,
+    Provider.MLFLOW: MLflowConfig,
 }
 
 
@@ -173,6 +179,7 @@ class Model(ConfigModel):
             CohereConfig,
             OpenAIConfig,
             AnthropicConfig,
+            MLflowConfig,
         ]
     ] = None
 

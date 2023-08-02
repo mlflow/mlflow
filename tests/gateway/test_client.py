@@ -83,6 +83,52 @@ def mixed_config_dict():
     }
 
 
+@pytest.fixture
+def mlflow_mixed_config_dict():
+    return {
+        "routes": [
+            {
+                "name": "chat-oss",
+                "route_type": "llm/v1/chat",
+                "model": {
+                    "provider": "mlflow",
+                    "name": "mpt-chatbot",
+                    "config": {"mlflow_api_base": "http://127.0.0.1:5000"},
+                },
+            },
+            {
+                "name": "completions-oss",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "mlflow",
+                    "name": "mpt-completion-model",
+                    "config": {"mlflow_api_base": "http://127.0.0.1:5001"},
+                },
+            },
+            {
+                "name": "embeddings-oss",
+                "route_type": "llm/v1/embeddings",
+                "model": {
+                    "provider": "mlflow",
+                    "name": "sentence-transformers",
+                    "config": {"mlflow_api_base": "http://127.0.0.1:5002"},
+                },
+            },
+            {
+                "name": "completions",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "anthropic",
+                    "name": "claude-instant-1",
+                    "config": {
+                        "anthropic_api_key": "key",
+                    },
+                },
+            },
+        ]
+    }
+
+
 @pytest.fixture(autouse=True)
 def clear_uri():
     mlflow.gateway.utils._gateway_uri = None
@@ -100,6 +146,14 @@ def gateway(basic_config_dict, tmp_path):
 def mixed_gateway(mixed_config_dict, tmp_path):
     conf = tmp_path / "config.yaml"
     save_yaml(conf, mixed_config_dict)
+    with Gateway(conf) as g:
+        yield g
+
+
+@pytest.fixture
+def oss_gateway(mlflow_mixed_config_dict, tmp_path):
+    conf = tmp_path / "config.yaml"
+    save_yaml(conf, mlflow_mixed_config_dict)
     with Gateway(conf) as g:
         yield g
 
@@ -462,7 +516,7 @@ def test_client_query_anthropic_completions(mixed_gateway):
         assert response == expected_output
 
 
-def test_cllient_query_with_disallowed_param(mixed_gateway):
+def test_client_query_with_disallowed_param(mixed_gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=mixed_gateway.url)
 
     route = gateway_client.get_route(name="completions")
@@ -486,3 +540,108 @@ def test_query_timeout_not_retried(mixed_gateway):
             gateway_client.query(route=route, data=data)
 
         mocked_request.assert_called_once()
+
+
+def test_client_query_mlflow_chat_route(oss_gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=oss_gateway.url)
+
+    route = gateway_client.get_route(name="chat-oss")
+    assert route.model.provider == "mlflow"
+    assert route.route_url == f"{oss_gateway.url}/gateway/chat-oss/invocations"
+
+    data = {"messages": [{"role": "user", "content": "Is this a test?"}]}
+
+    expected_output = {
+        "candidates": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "It is a test",
+                },
+                "metadata": {"finish_reason": "length"},
+            }
+        ],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "mpt-chatbot",
+            "route_type": "llm/v1/chat",
+        },
+    }
+    mock_response = mock.Mock()
+    mock_response.json.return_value = expected_output
+
+    with mock.patch.object(gateway_client, "_call_endpoint", return_value=mock_response):
+        response = gateway_client.query(route="chat-oss", data=data)
+        assert response == expected_output
+
+
+def test_client_query_mlflow_completions_route(oss_gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=oss_gateway.url)
+
+    route = gateway_client.get_route(name="completions-oss")
+    assert route.model.provider == "mlflow"
+    assert route.route_url == f"{oss_gateway.url}/gateway/completions-oss/invocations"
+
+    data = {"prompt": "Tell me what this is"}
+
+    expected_output = {
+        "candidates": [
+            {
+                "text": "a test",
+                "metadata": {"finish_reason": "length"},
+            }
+        ],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "mpt-completion-model",
+            "route_type": "llm/v1/completions",
+        },
+    }
+    mock_response = mock.Mock()
+    mock_response.json.return_value = expected_output
+
+    with mock.patch.object(gateway_client, "_call_endpoint", return_value=mock_response):
+        response = gateway_client.query(route="completions-oss", data=data)
+        assert response == expected_output
+
+
+def test_client_query_mlflow_embeddings_route(oss_gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=oss_gateway.url)
+
+    route = gateway_client.get_route(name="embeddings-oss")
+    assert route.model.provider == "mlflow"
+    assert route.route_url == f"{oss_gateway.url}/gateway/embeddings-oss/invocations"
+
+    data = {"text": ["test1", "test2"]}
+
+    expected_output = {
+        "embeddings": [
+            [
+                0.1,
+                0.2,
+                0.3,
+            ],
+            [
+                0.4,
+                0.5,
+                0.6,
+            ],
+        ],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "sentence-transformers",
+            "route_type": "llm/v1/embeddings",
+        },
+    }
+    mock_response = mock.Mock()
+    mock_response.json.return_value = expected_output
+
+    with mock.patch.object(gateway_client, "_call_endpoint", return_value=mock_response):
+        response = gateway_client.query(route="embeddings-oss", data=data)
+        assert response == expected_output
