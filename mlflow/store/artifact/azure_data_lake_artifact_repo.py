@@ -12,7 +12,7 @@ from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 
 from mlflow.azure.client import put_adls_file_creation, patch_adls_flush, patch_adls_file_upload
 from mlflow.store.artifact.databricks_artifact_repo import _MULTIPART_UPLOAD_CHUNK_SIZE, _compute_num_chunks, _complete_futures
-from mlflow.protos.mlflow_artifacts_pb2 import Crede
+from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 
 def _parse_abfss_uri(uri):
     """
@@ -191,40 +191,44 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
 
     def _get_multipart_upload_credentials(self, artifact_path):
         """
-        Gets the presigned URLs required to upload a file to a given Azure storage location.
+        Gets the presigned URL required to upload a file to a given Azure storage location.
         """
         try:
-            headers = self._extract_headers_from_credentials(self.credentials.headers)
-            return self._retryable_adls_function(
-                func=get_adls_multipart_credentials,
-                artifact_path=artifact_path,
-                sas_url=self.credentials.signed_uri,
-                headers=headers,
-            )
+            # headers = self._extract_headers_from_credentials(self.credentials.headers)
+
+            headers = self._extract_headers_from_credentials(self.credentials)
+
         except Exception as err:
             raise MlflowException(err)
 
-    def log_artifacts_multipart(self, local_dir=None, artifact_path=None):
-        """
-        Logs the files in the specified local directory as artifacts in this run.
-        """
-        if local_dir is None:
-            local_dir = os.path.abspath(os.path.curdir)
-        if not os.path.exists(local_dir):
-            raise Exception("Local path %s does not exist" % local_dir)
-        if not os.path.isdir(local_dir):
-            raise Exception("Local artifact path %s is not a directory" % local_dir)
-        if artifact_path:
-            artifact_path = posixpath.join(self.base_data_lake_directory, artifact_path)
-        else:
-            artifact_path = self.base_data_lake_directory
-        for (dirpath, _, filenames) in os.walk(local_dir):
-            for filename in filenames:
-                local_file = os.path.join(dirpath, filename)
-                rel_path = os.path.relpath(local_file, local_dir)
-                remote_file_path = posixpath.join(artifact_path, rel_path)
-                self._azure_adls_gen2_upload_file(
-                    credentials=self._get_multipart_upload_credentials(remote_file_path),
-                    local_file=local_file,
-                    artifact_path=remote_file_path,
-                )
+    # def log_artifacts_multipart(self, local_dir=None, artifact_path=None):
+    #     """
+    #     Logs the files in the specified local directory as artifacts in this run.
+    #     """
+    #     if local_dir is None:
+    #         local_dir = os.path.abspath(os.path.curdir)
+    #     if not os.path.exists(local_dir):
+    #         raise Exception("Local path %s does not exist" % local_dir)
+    #     if not os.path.isdir(local_dir):
+    #         raise Exception("Local artifact path %s is not a directory" % local_dir)
+    #     if artifact_path:
+    #         artifact_path = posixpath.join(self.base_data_lake_directory, artifact_path)
+    #     else:
+    #         artifact_path = self.base_data_lake_directory
+    #     for (dirpath, _, filenames) in os.walk(local_dir):
+    #         for filename in filenames:
+    #             local_file = os.path.join(dirpath, filename)
+    #             rel_path = os.path.relpath(local_file, local_dir)
+    #             remote_file_path = posixpath.join(artifact_path, rel_path)
+    #             self._azure_adls_gen2_upload_file(
+    #                 credentials=self._get_multipart_upload_credentials(remote_file_path),
+    #                 local_file=local_file,
+    #                 artifact_path=remote_file_path,
+    #             )
+
+    def _get_write_credential_infos(self, paths) -> list[ArtifactCredentialInfo]:
+        return [ArtifactCredentialInfo(signed_uri=self._get_multipart_upload_credentials(path))
+                for path in paths]
+
+    def _upload_to_cloud(self, local_path, remote_path, credential_info):
+        self._azure_adls_gen2_upload_file(credentials=credential_info, local_file=local_path, artifact_path=remote_path)
