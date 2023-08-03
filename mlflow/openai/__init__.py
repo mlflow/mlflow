@@ -71,6 +71,7 @@ from mlflow.utils.databricks_utils import (
 
 FLAVOR_NAME = "openai"
 MODEL_FILENAME = "model.yaml"
+_PYFUNC_SUPPORTED_TASKS = ("chat.completions", "embeddings")
 
 _logger = logging.getLogger(__name__)
 
@@ -337,7 +338,7 @@ def save_model(
     with open(model_data_path, "w") as f:
         yaml.safe_dump(model_dict, f)
 
-    if task in ("chat.completions", "embeddings"):
+    if task in _PYFUNC_SUPPORTED_TASKS:
         pyfunc.add_to_model(
             mlflow_model,
             loader_module="mlflow.openai",
@@ -519,11 +520,10 @@ def _first_string_column(pdf):
 
 class _OpenAIWrapper:
     def __init__(self, model):
-        supported = ("chat.completions", "embeddings")
         task = model["task"]
-        if task not in supported:
+        if task not in _PYFUNC_SUPPORTED_TASKS:
             raise mlflow.MlflowException.invalid_parameter_value(
-                f"Unsupported task: {task}. Supported tasks: {supported}."
+                f"Unsupported task: {task}. Supported tasks: {_PYFUNC_SUPPORTED_TASKS}."
             )
         self.model = model
         self.task = task
