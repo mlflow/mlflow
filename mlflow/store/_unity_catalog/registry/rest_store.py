@@ -557,7 +557,9 @@ class UcModelRegistryStore(BaseRestStore):
             store = get_artifact_repo_from_storage_info(
                 storage_location=model_version.storage_location, scoped_token=scoped_token
             )
-            store.log_artifacts(local_dir=local_model_path, artifact_path="")
+            # TODO: get presigend URLs from the backend for uploading model version files
+            store.log_artifacts_multipart(local_dir=local_model_path, artifact_path="")
+
         finalized_mv = self._finalize_model_version(name=full_name, version=version_number)
         return model_version_from_uc_proto(finalized_mv)
 
