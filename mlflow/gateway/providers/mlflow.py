@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
+import json
 
 from .base import BaseProvider
 from .utils import send_request
@@ -19,9 +20,6 @@ class MLflowProvider(BaseProvider):
     def process_payload(payload, key):
         payload = jsonable_encoder(payload, exclude_none=True)
 
-        # Remove the route-added regulation value from being passed to MLflow hosted models
-        payload.pop("candidate_count", None)
-
         input_data = payload.pop(key)
         request_payload = {"inputs": input_data if isinstance(input_data, list) else [input_data]}
 
@@ -29,6 +27,10 @@ class MLflowProvider(BaseProvider):
             request_payload["params"] = payload
 
         return request_payload
+
+    @staticmethod
+    def process_response(response_text):
+        return response_text if isinstance(response_text, str) else json.dumps(response_text)
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         # Example request to MLflow REST API server for completions:
@@ -53,7 +55,10 @@ class MLflowProvider(BaseProvider):
         return completions.ResponsePayload(
             **{
                 "candidates": [
-                    {"text": resp["predictions"], "metadata": {"finish_reason": "length"}}
+                    {
+                        "text": self.process_response(resp["predictions"]),
+                        "metadata": {"finish_reason": "length"},
+                    }
                 ],
                 "metadata": {
                     "model": self.config.model.name,
@@ -95,7 +100,10 @@ class MLflowProvider(BaseProvider):
             **{
                 "candidates": [
                     {
-                        "message": {"role": "assistant", "content": resp["predictions"]},
+                        "message": {
+                            "role": "assistant",
+                            "content": self.process_response(resp["predictions"]),
+                        },
                         "metadata": {"finish_reason": "length"},
                     }
                 ],

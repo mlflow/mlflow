@@ -84,6 +84,9 @@ class OpenAIProvider(BaseProvider):
             raise HTTPException(
                 status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
             )
+        # Set default values if not set at call time
+        payload.setdefault("temperature", 0.0)
+        payload.setdefault("candidate_count", 1)
 
         payload = rename_payload_keys(
             payload,
@@ -153,6 +156,11 @@ class OpenAIProvider(BaseProvider):
             raise HTTPException(
                 status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
             )
+
+        # Set default values if not set at call time
+        payload.setdefault("temperature", 0.0)
+        payload.setdefault("candidate_count", 1)
+
         payload = rename_payload_keys(
             payload,
             {"candidate_count": "n"},

@@ -31,6 +31,11 @@ class CohereProvider(BaseProvider):
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
+
+        # Set default values if not set at call time
+        payload.setdefault("temperature", 0.0)
+        payload.setdefault("candidate_count", 1)
+
         key_mapping = {
             "stop": "stop_sequences",
             "candidate_count": "num_generations",

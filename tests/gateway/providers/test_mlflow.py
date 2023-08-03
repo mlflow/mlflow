@@ -37,6 +37,7 @@ async def test_completions():
         provider = MLflowProvider(RouteConfig(**config))
         payload = {
             "prompt": "Is this a test?",
+            "temperature": 0,
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -152,7 +153,7 @@ async def test_chat():
         mock_build_client.assert_called_once()
         mock_client.post.assert_called_once_with(
             "http://127.0.0.1:4000/invocations",
-            json={"inputs": ["Is this a test?"], "params": {"temperature": 0.0}},
+            json={"inputs": ["Is this a test?"]},
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
 
