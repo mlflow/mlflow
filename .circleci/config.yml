@@ -36,9 +36,8 @@ jobs:
       - run:
           name: Install Python dependencies
           command: |
-            pip --version 
-            pip install --progress-bar off -r requirements/doc-requirements.txt pytest pytest-cov plotly .[gateway]
-            pip install tqdm ipywidgets
+            pip --version
+            pip install --progress-bar off -r requirements/doc-requirements.txt pytest pytest-cov plotly .[gateway] tqdm ipywidgets
       - run:
           name: Build documentation
           working_directory: docs
