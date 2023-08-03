@@ -320,7 +320,7 @@ def test_save_model_with_secret_scope(tmp_path, monkeypatch):
         }
 
 
-def test_spark_udf(tmp_path, spark):
+def test_spark_udf_chat(tmp_path, spark):
     mlflow.openai.save_model(
         model="gpt-3.5-turbo",
         task="chat.completions",
@@ -397,3 +397,40 @@ def test_auto_request_retry_is_disabled_when_env_var_is_false(tmp_path, monkeypa
             loaded_model.predict(None)
 
     assert mock_request.call_count == 1
+
+
+def test_embeddings(tmp_path):
+    mlflow.openai.save_model(
+        model="text-embedding-ada-002",
+        task=openai.Embedding,
+        path=tmp_path,
+    )
+
+    model = mlflow.models.Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == [{"type": "string"}]
+    assert model.signature.outputs.to_dict() == [
+        {"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": (-1,)}}
+    ]
+
+    model = mlflow.pyfunc.load_model(tmp_path)
+    data = pd.DataFrame({"text": ["a", "b"]})
+    preds = model.predict(data)
+    assert preds == [[0.0], [0.0]]
+
+
+def test_spark_udf_embeddings(tmp_path, spark):
+    mlflow.openai.save_model(
+        model="text-embedding-ada-002",
+        task=openai.Embedding,
+        path=tmp_path,
+    )
+    udf = mlflow.pyfunc.spark_udf(spark, tmp_path, result_type="array<double>")
+    df = spark.createDataFrame(
+        [
+            ("a",),
+            ("b",),
+        ],
+        ["x"],
+    )
+    df = df.withColumn("z", udf("x")).toPandas()
+    assert df["z"].tolist() == [[0.0], [0.0]]
