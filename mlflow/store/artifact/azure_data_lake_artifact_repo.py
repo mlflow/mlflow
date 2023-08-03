@@ -10,6 +10,9 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 
 from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 
+from mlflow.azure.client import put_adls_file_creation, patch_adls_flush, patch_adls_file_upload
+from mlflow.store.artifact.databricks_artifact_repo import _MULTIPART_UPLOAD_CHUNK_SIZE, _compute_num_chunks, _complete_futures
+from mlflow.protos.mlflow_artifacts_pb2 import Crede
 
 def _parse_abfss_uri(uri):
     """
@@ -131,3 +134,97 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
 
     def delete_artifacts(self, artifact_path=None):
         raise NotImplementedError("This artifact repository does not support deleting artifacts")
+
+    def _azure_adls_gen2_upload_file(self, credentials, local_file, artifact_path):
+        """
+        Uploads a file to a given Azure storage location using the ADLS gen2 API.
+        """
+        try:
+            headers = self._extract_headers_from_credentials(credentials.headers)
+
+            # try to create the file
+            self._retryable_adls_function(
+                func=put_adls_file_creation,
+                artifact_path=artifact_path,
+                sas_url=credentials.signed_uri,
+                headers=headers,
+            )
+
+            # next try to append the file
+            futures = {}
+            file_size = os.path.getsize(local_file)
+            num_chunks = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
+            use_single_part_upload = num_chunks == 1
+            for index in range(num_chunks):
+                start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
+                future = self.chunk_thread_pool.submit(
+                    self._retryable_adls_function,
+                    func=patch_adls_file_upload,
+                    artifact_path=artifact_path,
+                    sas_url=credentials.signed_uri,
+                    local_file=local_file,
+                    start_byte=start_byte,
+                    size=_MULTIPART_UPLOAD_CHUNK_SIZE,
+                    position=start_byte,
+                    headers=headers,
+                    is_single=use_single_part_upload,
+                )
+                futures[future] = index
+
+            _, errors = _complete_futures(futures)
+            if errors:
+                raise MlflowException(
+                    f"Failed to upload at least one part of {artifact_path}. Errors: {errors}"
+                )
+
+            # finally try to flush the file
+            if not use_single_part_upload:
+                self._retryable_adls_function(
+                    func=patch_adls_flush,
+                    artifact_path=artifact_path,
+                    sas_url=credentials.signed_uri,
+                    position=file_size,
+                    headers=headers,
+                )
+        except Exception as err:
+            raise MlflowException(err)
+
+    def _get_multipart_upload_credentials(self, artifact_path):
+        """
+        Gets the presigned URLs required to upload a file to a given Azure storage location.
+        """
+        try:
+            headers = self._extract_headers_from_credentials(self.credentials.headers)
+            return self._retryable_adls_function(
+                func=get_adls_multipart_credentials,
+                artifact_path=artifact_path,
+                sas_url=self.credentials.signed_uri,
+                headers=headers,
+            )
+        except Exception as err:
+            raise MlflowException(err)
+
+    def log_artifacts_multipart(self, local_dir=None, artifact_path=None):
+        """
+        Logs the files in the specified local directory as artifacts in this run.
+        """
+        if local_dir is None:
+            local_dir = os.path.abspath(os.path.curdir)
+        if not os.path.exists(local_dir):
+            raise Exception("Local path %s does not exist" % local_dir)
+        if not os.path.isdir(local_dir):
+            raise Exception("Local artifact path %s is not a directory" % local_dir)
+        if artifact_path:
+            artifact_path = posixpath.join(self.base_data_lake_directory, artifact_path)
+        else:
+            artifact_path = self.base_data_lake_directory
+        for (dirpath, _, filenames) in os.walk(local_dir):
+            for filename in filenames:
+                local_file = os.path.join(dirpath, filename)
+                rel_path = os.path.relpath(local_file, local_dir)
+                remote_file_path = posixpath.join(artifact_path, rel_path)
+                self._azure_adls_gen2_upload_file(
+                    credentials=self._get_multipart_upload_credentials(remote_file_path),
+                    local_file=local_file,
+                    artifact_path=remote_file_path,
+                )

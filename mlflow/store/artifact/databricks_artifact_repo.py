@@ -690,6 +690,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
         # Join futures to ensure that all artifacts have been uploaded prior to returning
         failed_uploads = {}
 
+        # For each batch of files, upload them in parallel
+        # and wait for completion
         def get_creds_and_upload(staged_upload_chunk):
             write_credential_infos = self._get_write_credential_infos(
                 run_id=self.run_id,
@@ -717,6 +719,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 except Exception as e:
                     failed_uploads[src_file_path] = repr(e)
 
+        # Iterate over batches of files to upload and upload them
         for chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
             get_creds_and_upload(chunk)
 

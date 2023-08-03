@@ -10,10 +10,11 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.validation import path_not_unique, bad_path_message
 
+from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 
 # Constants used to determine max level of parallelism to use while uploading/downloading artifacts.
 # Max threads to use for parallelism.
-_NUM_MAX_THREADS = 20
+_NUM_MAX_THREADS = 144
 # Max threads per CPU
 _NUM_MAX_THREADS_PER_CPU = 2
 assert _NUM_MAX_THREADS >= _NUM_MAX_THREADS_PER_CPU
@@ -37,6 +38,106 @@ class ArtifactRepository:
         # constants._NUM_MAX_THREADS threads or 2 * the number of CPU cores available on the
         # system (whichever is smaller)
         self.thread_pool = self._create_thread_pool()
+
+
+    def log_artifacts_parallel(self, local_dir, artifact_path=None):
+        """
+        Parallelized implementation of `download_artifacts` for Databricks.
+        """
+        StagedArtifactUpload = namedtuple(
+            "StagedArtifactUpload",
+            [
+                # Local filesystem path of the source file to upload
+                "src_file_path",
+                # Run-relative artifact path specifying the upload destination
+                "dst_run_relative_artifact_path",
+            ],
+        )
+
+        artifact_path = artifact_path or ""
+
+        staged_uploads = []
+        for dirpath, _, filenames in os.walk(local_dir):
+            artifact_subdir = artifact_path
+            if dirpath != local_dir:
+                rel_path = os.path.relpath(dirpath, local_dir)
+                rel_path = relative_path_to_artifact_path(rel_path)
+                artifact_subdir = posixpath.join(artifact_path, rel_path)
+            for name in filenames:
+                file_path = os.path.join(dirpath, name)
+                dst_run_relative_artifact_path = self._get_run_relative_artifact_path_for_upload(
+                    src_file_path=file_path,
+                    dst_artifact_dir=artifact_subdir,
+                )
+                staged_uploads.append(
+                    StagedArtifactUpload(
+                        src_file_path=file_path,
+                        dst_run_relative_artifact_path=dst_run_relative_artifact_path,
+                    )
+                )
+
+        # Join futures to ensure that all artifacts have been uploaded prior to returning
+        failed_uploads = {}
+
+        # For each batch of files, upload them in parallel
+        # and wait for completion
+        def get_creds_and_upload(staged_upload_chunk):
+            write_credential_infos = self._get_write_credential_infos(
+                paths=[
+                    staged_upload.dst_run_relative_artifact_path
+                    for staged_upload in staged_upload_chunk
+                ],
+            )
+
+            inflight_uploads = {}
+            for staged_upload, write_credential_info in zip(
+                    staged_upload_chunk, write_credential_infos
+            ):
+                upload_future = self.thread_pool.submit(
+                    self._upload_to_cloud,
+                    cloud_credential_info=write_credential_info,
+                    src_file_path=staged_upload.src_file_path,
+                    dst_run_relative_artifact_path=staged_upload.dst_run_relative_artifact_path,
+                )
+                inflight_uploads[staged_upload.src_file_path] = upload_future
+
+            for src_file_path, upload_future in inflight_uploads.items():
+                try:
+                    upload_future.result()
+                except Exception as e:
+                    failed_uploads[src_file_path] = repr(e)
+
+        # Iterate over batches of files to upload and upload them
+        for chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
+            get_creds_and_upload(chunk)
+
+        if len(failed_uploads) > 0:
+            raise MlflowException(
+                message=(
+                    "The following failures occurred while uploading one or more artifacts"
+                    f" to {self.artifact_uri}: {failed_uploads}"
+                )
+            )
+
+    def _get_write_credential_infos(self, paths) -> list[ArtifactCredentialInfo]:
+        """
+        For a batch of local files, get the write credentials for each file, which include
+        a presigned URL per file
+
+        Return a list of CredentialInfo objects, one for each file.
+        """
+        pass
+
+    def _upload_to_cloud(self, cloud_credential_info, src_file_path, dst_run_relative_artifact_path):
+        """
+        Upload a single file to the cloud.
+        :param cloud_credential_info: ArtifactCredentialInfo containing presigned URL for the current file
+                                      Note: in S3 this gets ignored
+        :param src_file_path:
+        :param dst_run_relative_artifact_path:
+        :return:
+        """
+        pass
 
     def _create_thread_pool(self):
         return ThreadPoolExecutor(max_workers=self.max_workers)
