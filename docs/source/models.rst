@@ -3634,7 +3634,9 @@ To extend the validation capabilities of MLflow and anticipate issues before the
     - log the vulnerabilities as well-defined and quantified metrics
     - compare the metrics across different models
 
-See the `plugin example notebook <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow.html#Example-notebook>`__ for a demo.
+See the following plugin example notebooks for a demo:
+    - `Tabular ML models <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow-tabular-example.html>`__
+    - `Text ML models (LLMs) <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow-llm-example.html>`__
 
 For more information on the plugin, see the `giskard-mlflow docs <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow.html>`__.
 
