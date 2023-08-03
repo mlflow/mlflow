@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
@@ -118,8 +120,15 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     String tag = "download artifacts for " + getTargetIdentifier(artifactPath);
     List<String> command = appendRunIdArtifactPath(
       Lists.newArrayList("download"), runId, artifactPath);
-    String localPath = forkMlflowProcess(command, tag).trim();
-    return new File(localPath);
+    String stdOutput = forkMlflowProcess(command, tag);
+    Pattern pattern = Pattern.compile("downloaded artifacts local location: (.*)\n");
+    Matcher matcher = pattern.matcher(stdOutput);
+    if (matcher.find()) {
+      String localPath = matcher.group(1).trim();
+      return new File(localPath);
+    }
+    throw new MlflowClientException("Could not parse downloaded artifacts location from " +
+      "mlflow download artifacts output: " + stdOutput);
   }
 
   @Override

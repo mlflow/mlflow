@@ -453,7 +453,9 @@ mlflow_download_artifacts <- function(path, run_id = NULL, client = NULL) {
 # ' Download Artifacts from URI.
 mlflow_download_artifacts_from_uri <- function(artifact_uri, client = mlflow_client()) {
   result <- mlflow_cli("artifacts", "download", "-u", artifact_uri, echo = FALSE, client = client)
-  trimws(result$stdout)
+  matches <- regexec("downloaded artifacts local location: (.*)\n", result$stdout)
+  location <- regmatches(result$stdout, matches)[[1]][2]
+  trimws(location)
 }
 
 #' Log Artifact
