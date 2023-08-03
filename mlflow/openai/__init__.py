@@ -527,10 +527,10 @@ class _OpenAIWrapper:
             )
         self.model = model
         self.task = task
+
         self.messages = None
         self.variables = None
         self.formattable_messages = None
-
         if self.task == "chat.completions":
             self._setup_chat()
 
