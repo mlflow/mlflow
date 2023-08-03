@@ -22,6 +22,9 @@ assert _NUM_MAX_THREADS_PER_CPU > 0
 # Default number of CPUs to assume on the machine if unavailable to fetch it using os.cpu_count()
 _NUM_DEFAULT_CPUS = _NUM_MAX_THREADS // _NUM_MAX_THREADS_PER_CPU
 
+from mlflow.utils.file_utils import (
+    relative_path_to_artifact_path,
+)
 
 @developer_stable
 class ArtifactRepository:
@@ -138,6 +141,8 @@ class ArtifactRepository:
         :return:
         """
         pass
+
+
 
     def _create_thread_pool(self):
         return ThreadPoolExecutor(max_workers=self.max_workers)
