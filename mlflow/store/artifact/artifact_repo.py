@@ -9,6 +9,7 @@ from mlflow.entities.file_info import FileInfo
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.validation import path_not_unique, bad_path_message
+from mlflow.utils import chunk_list
 
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 
@@ -22,8 +23,17 @@ assert _NUM_MAX_THREADS_PER_CPU > 0
 # Default number of CPUs to assume on the machine if unavailable to fetch it using os.cpu_count()
 _NUM_DEFAULT_CPUS = _NUM_MAX_THREADS // _NUM_MAX_THREADS_PER_CPU
 
+
+_DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
+_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE = 500_000_000  # 500 MB
+_MULTIPART_UPLOAD_CHUNK_SIZE = 10_000_000  # 10 MB
+_MAX_CREDENTIALS_REQUEST_SIZE = 2000  # Max number of artifact paths in a single credentials request
+_ARTIFACT_UPLOAD_BATCH_SIZE = (
+    50  # Max number of artifacts for which to fetch write credentials at once.
+)
+
 from mlflow.utils.file_utils import (
-    relative_path_to_artifact_path,
+    relative_path_to_artifact_path,,
 )
 
 @developer_stable
