@@ -514,7 +514,7 @@ def _first_string_column(pdf):
     if c := next(iter_string_columns, None):
         return c
     raise mlflow.MlflowException.invalid_parameter_value(
-        f"Could not find a string column in the input data: {pdf.dtypes}"
+        f"Could not find a string column in the input data: {pdf.dtypes.to_dict()}"
     )
 
 
