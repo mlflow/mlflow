@@ -71,7 +71,7 @@ def list_all(root, filter_func=lambda x: True, full_path=False):
     :return: list of all files or directories that satisfy the criteria.
     """
     if not is_directory(root):
-        raise Exception("Invalid parent directory '%s'" % root)
+        raise Exception(f"Invalid parent directory '{root}'")
     matches = [x for x in os.listdir(root) if filter_func(os.path.join(root, x))]
     return [os.path.join(root, m) for m in matches] if full_path else matches
 
