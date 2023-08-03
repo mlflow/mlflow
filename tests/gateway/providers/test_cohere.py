@@ -53,9 +53,7 @@ async def test_completions():
             "candidates": [
                 {
                     "text": "This is a test",
-                    "metadata": {
-                        "finish_reason": None,
-                    },
+                    "metadata": {},
                 }
             ],
             "metadata": {

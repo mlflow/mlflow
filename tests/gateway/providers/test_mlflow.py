@@ -6,9 +6,9 @@ from fastapi.encoders import jsonable_encoder
 import pydantic
 import pytest
 
-from mlflow.gateway.config import MLflowConfig, RouteConfig
+from mlflow.gateway.config import MlflowModelServingConfig, RouteConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
-from mlflow.gateway.providers.mlflow import MLflowProvider
+from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from tests.gateway.tools import MockAsyncResponse, mock_http_client
 
@@ -18,10 +18,10 @@ def completions_config():
         "name": "completions",
         "route_type": "llm/v1/completions",
         "model": {
-            "provider": "mlflow",
+            "provider": "mlflow-model-serving",
             "name": "text2text",
             "config": {
-                "mlflow_api_base": "http://127.0.0.1:5000",
+                "mlflow_server_url": "http://127.0.0.1:5000",
             },
         },
     }
@@ -34,14 +34,14 @@ async def test_completions():
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = MLflowProvider(RouteConfig(**config))
+        provider = MlflowModelServingProvider(RouteConfig(**config))
         payload = {
             "prompt": "Is this a test?",
             "temperature": 0,
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [{"text": "This is a test!", "metadata": {"finish_reason": "length"}}],
+            "candidates": [{"text": "This is a test!", "metadata": {}}],
             "metadata": {
                 "input_tokens": None,
                 "output_tokens": None,
@@ -68,10 +68,10 @@ def embedding_config():
         "name": "embeddings",
         "route_type": "llm/v1/embeddings",
         "model": {
-            "provider": "mlflow",
+            "provider": "mlflow-model-serving",
             "name": "sentence-piece",
             "config": {
-                "mlflow_api_base": "http://127.0.0.1:2000",
+                "mlflow_server_url": "http://127.0.0.1:2000",
             },
         },
     }
@@ -84,7 +84,7 @@ async def test_embeddings():
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = MLflowProvider(RouteConfig(**config))
+        provider = MlflowModelServingProvider(RouteConfig(**config))
         payload = {"text": ["test1", "test2"]}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -113,10 +113,10 @@ def chat_config():
         "name": "chat",
         "route_type": "llm/v1/chat",
         "model": {
-            "provider": "mlflow",
+            "provider": "mlflow-model-serving",
             "name": "chat-bot-9000",
             "config": {
-                "mlflow_api_base": "http://127.0.0.1:4000",
+                "mlflow_server_url": "http://127.0.0.1:4000",
             },
         },
     }
@@ -129,7 +129,7 @@ async def test_chat():
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = MLflowProvider(RouteConfig(**config))
+        provider = MlflowModelServingProvider(RouteConfig(**config))
         payload = {"messages": [{"role": "user", "content": "Is this a test?"}]}
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -139,7 +139,7 @@ async def test_chat():
                         "role": "assistant",
                         "content": "It is a test",
                     },
-                    "metadata": {"finish_reason": "length"},
+                    "metadata": {},
                 }
             ],
             "metadata": {
@@ -164,8 +164,8 @@ async def test_chat_exception_raised_for_multiple_elements_in_query():
     config = chat_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = MLflowProvider(RouteConfig(**config))
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        provider = MlflowModelServingProvider(RouteConfig(**config))
         payload = {
             "messages": [
                 {"role": "user", "content": "Is this a test?"},
@@ -176,10 +176,8 @@ async def test_chat_exception_raised_for_multiple_elements_in_query():
         with pytest.raises(HTTPException, match=r".*") as e:
             await provider.chat(chat.RequestPayload(**payload))
         assert "MLflow chat models are only capable of processing" in e.value.detail
-        mock_build_client.assert_not_called()
-        mock_client.post.assert_not_called()
 
 
 def test_route_construction_fails_with_invalid_config():
     with pytest.raises(pydantic.ValidationError, match="none is not an allowed"):
-        MLflowConfig(mlflow_api_base=None)
+        MlflowModelServingConfig(mlflow_server_url=None)

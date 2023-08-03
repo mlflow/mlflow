@@ -10,7 +10,7 @@ from mlflow.gateway.config import Route
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.cohere import CohereProvider
-from mlflow.gateway.providers.mlflow import MLflowProvider
+from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
 import mlflow.gateway.utils
 from mlflow.utils.request_utils import _cached_get_request_session
 
@@ -88,27 +88,27 @@ def basic_config_dict():
                 "name": "chat-oss",
                 "route_type": "llm/v1/chat",
                 "model": {
-                    "provider": "mlflow",
+                    "provider": "mlflow-model-serving",
                     "name": "mpt-chatbot",
-                    "config": {"mlflow_api_base": "http://127.0.0.1:5000"},
+                    "config": {"mlflow_server_url": "http://127.0.0.1:5000"},
                 },
             },
             {
                 "name": "completions-oss",
                 "route_type": "llm/v1/completions",
                 "model": {
-                    "provider": "mlflow",
+                    "provider": "mlflow-model-serving",
                     "name": "mpt-completion-model",
-                    "config": {"mlflow_api_base": "http://127.0.0.1:5001"},
+                    "config": {"mlflow_server_url": "http://127.0.0.1:5001"},
                 },
             },
             {
                 "name": "embeddings-oss",
                 "route_type": "llm/v1/embeddings",
                 "model": {
-                    "provider": "mlflow",
+                    "provider": "mlflow-model-serving",
                     "name": "sentence-transformers",
-                    "config": {"mlflow_api_base": "http://127.0.0.1:5002"},
+                    "config": {"mlflow_server_url": "http://127.0.0.1:5002"},
                 },
             },
         ]
@@ -407,10 +407,7 @@ def test_mlflow_chat(gateway):
 
     data = {"messages": [{"role": "user", "content": "test"}]}
 
-    async def mock_chat(self, payload):
-        return expected_output
-
-    with patch.object(MLflowProvider, "chat", mock_chat):
+    with patch.object(MlflowModelServingProvider, "chat", return_value=expected_output):
         response = client.query(route=route.name, data=data)
     assert response == expected_output
 
@@ -436,10 +433,7 @@ def test_mlflow_completions(gateway):
 
     data = {"prompt": "this is a test"}
 
-    async def mock_completions(self, payload):
-        return expected_output
-
-    with patch.object(MLflowProvider, "completions", mock_completions):
+    with patch.object(MlflowModelServingProvider, "completions", return_value=expected_output):
         response = client.query(route=route.name, data=data)
     assert response == expected_output
 
@@ -463,9 +457,6 @@ def test_mlflow_embeddings(gateway):
 
     data = {"text": ["test1", "test2"]}
 
-    async def mock_embeddings(self, payload):
-        return expected_output
-
-    with patch.object(MLflowProvider, "embeddings", mock_embeddings):
+    with patch.object(MlflowModelServingProvider, "embeddings", return_value=expected_output):
         response = query(route=route.name, data=data)
     assert response == expected_output

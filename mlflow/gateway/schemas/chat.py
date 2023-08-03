@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from pydantic import Field
 
@@ -55,7 +55,7 @@ class CandidateMetadata(ResponseModel):
 
 class Candidate(ResponseModel):
     message: ResponseMessage
-    metadata: CandidateMetadata
+    metadata: Optional[Dict]
 
 
 class Metadata(ResponseModel):

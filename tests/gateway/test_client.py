@@ -91,27 +91,27 @@ def mlflow_mixed_config_dict():
                 "name": "chat-oss",
                 "route_type": "llm/v1/chat",
                 "model": {
-                    "provider": "mlflow",
+                    "provider": "mlflow-model-serving",
                     "name": "mpt-chatbot",
-                    "config": {"mlflow_api_base": "http://127.0.0.1:5000"},
+                    "config": {"mlflow_server_url": "http://127.0.0.1:5000"},
                 },
             },
             {
                 "name": "completions-oss",
                 "route_type": "llm/v1/completions",
                 "model": {
-                    "provider": "mlflow",
+                    "provider": "mlflow-model-serving",
                     "name": "mpt-completion-model",
-                    "config": {"mlflow_api_base": "http://127.0.0.1:5001"},
+                    "config": {"mlflow_server_url": "http://127.0.0.1:5001"},
                 },
             },
             {
                 "name": "embeddings-oss",
                 "route_type": "llm/v1/embeddings",
                 "model": {
-                    "provider": "mlflow",
+                    "provider": "mlflow-model-serving",
                     "name": "sentence-transformers",
-                    "config": {"mlflow_api_base": "http://127.0.0.1:5002"},
+                    "config": {"mlflow_server_url": "http://127.0.0.1:5002"},
                 },
             },
             {
@@ -546,7 +546,7 @@ def test_client_query_mlflow_chat_route(oss_gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=oss_gateway.url)
 
     route = gateway_client.get_route(name="chat-oss")
-    assert route.model.provider == "mlflow"
+    assert route.model.provider == "mlflow-model-serving"
     assert route.route_url == f"{oss_gateway.url}/gateway/chat-oss/invocations"
 
     data = {"messages": [{"role": "user", "content": "Is this a test?"}]}
@@ -581,7 +581,7 @@ def test_client_query_mlflow_completions_route(oss_gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=oss_gateway.url)
 
     route = gateway_client.get_route(name="completions-oss")
-    assert route.model.provider == "mlflow"
+    assert route.model.provider == "mlflow-model-serving"
     assert route.route_url == f"{oss_gateway.url}/gateway/completions-oss/invocations"
 
     data = {"prompt": "Tell me what this is"}
@@ -613,7 +613,7 @@ def test_client_query_mlflow_embeddings_route(oss_gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=oss_gateway.url)
 
     route = gateway_client.get_route(name="embeddings-oss")
-    assert route.model.provider == "mlflow"
+    assert route.model.provider == "mlflow-model-serving"
     assert route.route_url == f"{oss_gateway.url}/gateway/embeddings-oss/invocations"
 
     data = {"text": ["test1", "test2"]}

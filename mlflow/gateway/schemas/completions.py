@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Union
 
 from ..base_models import ResponseModel
 from .chat import BaseRequestPayload, FinishReason
@@ -25,8 +25,8 @@ class CandidateMetadata(ResponseModel):
 
 
 class Candidate(ResponseModel):
-    text: str
-    metadata: CandidateMetadata
+    text: Union[str, List]
+    metadata: Optional[Dict]
 
 
 class Metadata(ResponseModel):
