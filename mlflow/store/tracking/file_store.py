@@ -939,7 +939,7 @@ class FileStore(AbstractStore):
         elif is_string_type(tag_value):
             return tag_value
         else:
-            return f"{tag_value}"
+            return str(tag_value)
 
     def log_param(self, run_id, param):
         _validate_run_id(run_id)
