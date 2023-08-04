@@ -31,28 +31,45 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/cache-pip
+        id: setup-python
       - name: Add problem matchers
         run: |
           echo "::add-matcher::.github/workflows/matchers/pylint.json"
           echo "::add-matcher::.github/workflows/matchers/black.json"
           echo "::add-matcher::.github/workflows/matchers/ruff.json"
+      - name: pre-cache
+        id: pre-cache
+        run: |
+          # Refresh cache daily
+          date=$(date -u "+%Y%m%d")
+          # Refresh cache if the action runner image has changed
+          image="$ImageOS-$ImageVersion"
+          echo "key=$image-$date" >> $GITHUB_OUTPUT
+      - uses: actions/cache@v3
+        with:
+          path: .venv
+          key: ${{ steps.pre-cache.outputs.key }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('requirements/*requirements.txt') }}
       - name: Install dependencies
         run: |
+          python -m venv .venv
+          . .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
           pip install -r requirements/lint-requirements.txt
       - uses: ./.github/actions/pipdeptree
       - name: Test custom pylint-plugins
         run: |
+          . .venv/bin/activate
           pytest pylint_plugins/tests
       - name: Install pre-commit hooks
         run: |
+          . .venv/bin/activate
           pre-commit install -t pre-commit -t prepare-commit-msg
       - name: Run pre-commit (only changed files)
         id: run-pre-commit
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          . .venv/bin/activate
           # pylint is ridiculously slow. It takes ~3 minutes to run on all files.
           # To fail fast for faster iteration, first run pylint only on changed files,
           # then run it on all files in the next step.
@@ -62,6 +79,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          . .venv/bin/activate
           changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
           if echo "$changed_files" | grep -q '\.py$\|^pyproject\.toml$\|^pylintrc$\|^requirements/lint-requirements\.txt$'; then
             pre-commit run --all-files
