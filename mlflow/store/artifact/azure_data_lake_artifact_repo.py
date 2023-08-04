@@ -16,9 +16,12 @@ from mlflow.store.artifact.databricks_artifact_repo import (
     _compute_num_chunks,
     _complete_futures,
     _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE,
-    MLFLOW_ENABLE_MULTIPART_DOWNLOAD
+    MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
+    _DOWNLOAD_CHUNK_SIZE
 )
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
+from mlflow.utils.file_utils import parallelized_download_file_using_http_uri, download_chunk
+
 
 
 def _parse_abfss_uri(uri):
@@ -156,11 +159,11 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
             file_client.download_file().readinto(file)
 
     def _download_file(self, remote_file_path, local_path):
-        run_relative_remote_file_path = posixpath.join(
-            self.run_relative_artifact_repo_root_path, remote_file_path
+        remote_full_path = posixpath.join(
+            self.base_data_lake_directory, remote_file_path
         )
         read_credentials = self._get_read_credential_infos(
-            run_id=self.run_id, paths=[run_relative_remote_file_path]
+            run_id=self.run_id, paths=[remote_full_path]
         )
         # Read credentials for only one file were requested. So we expected only one value in
         # the response.
