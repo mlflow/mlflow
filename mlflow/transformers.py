@@ -115,7 +115,14 @@ def _model_packages(model) -> List[str]:
     """
     engine = _get_engine_type(model)
     if engine == "torch":
-        return ["torch", "torchvision", "accelerate"]
+        packages = ["torch", "torchvision"]
+        try:
+            import accelerate
+
+            packages.append("accelerate")
+        except ImportError:
+            pass
+        return packages
     else:
         return [engine]
 
