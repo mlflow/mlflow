@@ -2,10 +2,7 @@
 
 ## Related Issues/PRs
 
-<!--
-Can this PR close the linked issue? If yes, uncomment "Resolve".
--->
-
+<!-- Can this PR close the linked issue? If yes, uncomment "Resolve". -->
 <!-- Resolve --> #xxx
 
 ## What changes are proposed in this pull request?
