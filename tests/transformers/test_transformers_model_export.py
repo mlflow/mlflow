@@ -1,6 +1,7 @@
 import base64
 from functools import wraps
 import gc
+import importlib.util
 import logging
 import json
 import time
@@ -1125,6 +1126,9 @@ def test_transformers_pt_model_save_without_conda_env_uses_default_env_with_expe
     assert "torch" in pip_requirements
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("accelerate") is not None, reason="uninstall accelerate to test"
+)
 def test_transformers_pt_model_save_dependencies_without_accelerate(
     translation_pipeline, model_path
 ):
