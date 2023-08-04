@@ -6,7 +6,7 @@ from ..config import RouteType
 
 
 class RequestPayload(BaseRequestPayload):
-    prompt: str
+    prompt: Union[str, List[str]]
 
     class Config:
         schema_extra = {
@@ -25,7 +25,7 @@ class CandidateMetadata(ResponseModel):
 
 
 class Candidate(ResponseModel):
-    text: Union[str, List]
+    text: str
     metadata: Optional[Dict]
 
 
@@ -38,7 +38,7 @@ class Metadata(ResponseModel):
 
 
 class ResponsePayload(ResponseModel):
-    candidates: List[Candidate]
+    candidates: Union[List[Candidate], List[str], List[Dict]]
     metadata: Metadata
 
     class Config:

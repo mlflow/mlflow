@@ -58,12 +58,7 @@ class MlflowModelServingProvider(BaseProvider):
 
         return completions.ResponsePayload(
             **{
-                "candidates": [
-                    {
-                        "text": self.process_response(resp["predictions"]),
-                        "metadata": {},
-                    }
-                ],
+                "candidates": self.process_response(resp["predictions"]),
                 "metadata": {
                     "model": self.config.model.name,
                     "route_type": self.config.route_type,

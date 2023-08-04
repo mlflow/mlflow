@@ -29,7 +29,7 @@ def completions_config():
 
 @pytest.mark.asyncio
 async def test_completions():
-    resp = {"predictions": "This is a test!"}
+    resp = {"predictions": ["This is a test!"]}
     config = completions_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
@@ -41,7 +41,7 @@ async def test_completions():
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [{"text": "This is a test!", "metadata": {}}],
+            "candidates": ["This is a test!"],
             "metadata": {
                 "input_tokens": None,
                 "output_tokens": None,

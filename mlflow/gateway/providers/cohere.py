@@ -32,6 +32,11 @@ class CohereProvider(BaseProvider):
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
 
+        if not isinstance(payload["prompt"], str):
+            raise HTTPException(
+                status_code=422, detail=f"The prompt must be a str, not {type(payload['prompt'])}"
+            )
+
         # Set default values if not set at call time
         payload.setdefault("temperature", 0.0)
         payload.setdefault("candidate_count", 1)
