@@ -319,7 +319,7 @@ def save_model(
             inputs=_get_input_schema(messages),
             outputs=Schema([ColSpec(type="string", name=None)]),
         )
-    elif task in "embeddings":
+    elif task == "embeddings":
         mlflow_model.signature = ModelSignature(
             inputs=Schema([ColSpec(type="string", name=None)]),
             outputs=Schema([TensorSpec(type=np.dtype("float64"), shape=(-1,))]),
@@ -548,8 +548,7 @@ class _OpenAIWrapper:
             if variable in data.columns:
                 return data[[variable]].to_dict(orient="records")
             else:
-                iter_string_columns = (c for c, v in data.iloc[0].items() if isinstance(v, str))
-                first_string_column = next(iter_string_columns)
+                first_string_column = _first_string_column(data)
                 return [{variable: s} for s in data[first_string_column]]
         else:
             return data[self.variables].to_dict(orient="records")
@@ -560,8 +559,7 @@ class _OpenAIWrapper:
         if self.variables:
             messages_list = self.format_messages(self.get_params_list(data))
         else:
-            iter_string_columns = (c for c, v in data.iloc[0].items() if isinstance(v, str))
-            first_string_column = next(iter_string_columns)
+            first_string_column = _first_string_column(data)
             messages_list = [
                 [*self.messages, {"role": "user", "content": s}] for s in data[first_string_column]
             ]
@@ -581,17 +579,16 @@ class _OpenAIWrapper:
     def _predict_embeddings(self, data):
         import openai
 
-        params = self.model.copy()
-        params.pop("task", None)
-        iter_string_columns = (c for c, v in data.iloc[0].items() if isinstance(v, str))
-        first_string_column = next(iter_string_columns)
+        kwargs = self.model.copy()
+        kwargs.pop("task", None)
+        first_string_column = _first_string_column(data)
         texts = data[first_string_column].tolist()
         res = []
         batch_size = 20
         for i in range(0, len(texts), batch_size):
             res.extend(
                 d["embedding"]
-                for d in openai.Embedding.create(input=texts[i : i + batch_size], **params)["data"]
+                for d in openai.Embedding.create(input=texts[i : i + batch_size], **kwargs)["data"]
             )
         return res
 
