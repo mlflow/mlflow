@@ -1845,9 +1845,10 @@ def test_summarization_pipeline(summarizer_pipeline, model_path, data):
             "That gym smells like feet, hot garbage, and sadness",
             "I love that we have a moon",
         ],
+        [{"text": "test1", "text_pair": "test2"}],
+        [{"text": "test1", "text_pair": "pair1"}, {"text": "test2", "text_pair": "pair2"}],
     ],
 )
-@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 def test_classifier_pipeline(text_classification_pipeline, model_path, data):
     signature = infer_signature(
         data, mlflow.transformers.generate_signature_output(text_classification_pipeline, data)
@@ -2080,7 +2081,31 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
     assert len(values.to_dict()) == 2
     assert len(values.to_dict()["score"]) == 4
 
-    inference_payload = json.dumps({"inputs": ["I really love MLflow!"]})
+    # Test the alternate TextClassificationPipeline input structure where text_pair is used
+    # and ensure that model serving and direct native inference match
+    inference_data = [
+        {"text": "test1", "text_pair": "pair1"},
+        {"text": "test2", "text_pair": "pair2"},
+    ]
+    inference_payload = json.dumps({"inputs": inference_data})
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    values_dict = values.to_dict()
+    native_predict = text_classification_pipeline(inference_data)
+
+    # validate that the pyfunc served model registers text_pair in the same manner as native
+    for key in ["score", "label"]:
+        for value in [0, 1]:
+            assert values_dict[key][value] == native_predict[value][key]
+
+    # test simple string input
+    inference_payload = json.dumps({"inputs": ["testing"]})
+
     response = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_payload,

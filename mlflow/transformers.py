@@ -1835,7 +1835,6 @@ class _TransformersWrapper:
                     transformers.FillMaskPipeline,
                     transformers.TextGenerationPipeline,
                     transformers.TranslationPipeline,
-                    transformers.TextClassificationPipeline,
                     transformers.SummarizationPipeline,
                     transformers.TokenClassificationPipeline,
                 ),
@@ -1844,8 +1843,62 @@ class _TransformersWrapper:
             and all(isinstance(entry, dict) for entry in data)
         ):
             return [list(entry.values())[0] for entry in data]
+        elif isinstance(self.pipeline, transformers.TextClassificationPipeline):
+            return self._validate_text_classification_input(data)
         else:
             return data
+
+    @staticmethod
+    def _validate_text_classification_input(data):
+        """
+        Perform input type validation for TextClassification pipelines and casting of data
+        that is manipulated internally by the MLflow model server back to a structure that
+        can be used for pipeline inference.
+        """
+
+        def _is_list_of_type(lst, typ):
+            """Check if all items in a list are of a certain type."""
+            return isinstance(lst, list) and all(isinstance(item, typ) for item in lst)
+
+        def _check_keys(payload):
+            """Check if a dictionary contains only allowable keys."""
+            allowable_str_keys = {"text", "text_pair"}
+            if (
+                not all(isinstance(key, int) for key in payload.keys())
+                and set(payload) - allowable_str_keys
+            ):
+                raise MlflowException(
+                    "Text Classification pipelines may only define dictionary inputs with keys "
+                    f"defined as {allowable_str_keys}"
+                )
+
+        if isinstance(data, str):
+            return data
+        elif _is_list_of_type(data, str):
+            return data
+        elif isinstance(data, dict):
+            _check_keys(data)
+
+            return data
+        elif _is_list_of_type(data, dict):
+            for payload in data:
+                _check_keys(payload)
+            payload = [list(item.values())[0] for item in data]
+            try:
+                # NB: This try catch statement is to handle the optional dict input that
+                # TextClassification pipelines support. When running through MLflow server, the
+                # internal logic forces casting of the data structure to a str, removing the
+                # ability to validate the structure. We optimistically attempt to use JSON
+                # decoding to cast back to a dict structure, else, if the original inference data
+                # was passed as a str or a List[str], we just return the structure.
+                return [json.loads(s.replace("'", '"')) for s in payload]
+            except json.JSONDecodeError:
+                return payload
+        else:
+            raise MlflowException(
+                "An unsupported data type has been passed for Text Classification inference. "
+                "Only str, list of str, dict, and list of dict are supported."
+            )
 
     def _parse_conversation_input(self, data):
         import transformers
