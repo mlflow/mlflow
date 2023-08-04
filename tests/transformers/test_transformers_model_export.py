@@ -1109,6 +1109,7 @@ def test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expe
     pip_requirements = _get_deps_from_requirement_file(model_path)
     assert "tensorflow" in pip_requirements
     assert "torch" not in pip_requirements
+    assert "accelerate" not in pip_requirements
 
 
 def test_transformers_pt_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
@@ -1120,6 +1121,20 @@ def test_transformers_pt_model_save_without_conda_env_uses_default_env_with_expe
     )
     pip_requirements = _get_deps_from_requirement_file(model_path)
     assert "tensorflow" not in pip_requirements
+    assert "accelerate" in pip_requirements
+    assert "torch" in pip_requirements
+
+
+def test_transformers_pt_model_save_dependencies_without_accelerate(
+    translation_pipeline, model_path
+):
+    mlflow.transformers.save_model(translation_pipeline, model_path)
+    _assert_pip_requirements(
+        model_path, mlflow.transformers.get_default_pip_requirements(translation_pipeline.model)
+    )
+    pip_requirements = _get_deps_from_requirement_file(model_path)
+    assert "tensorflow" not in pip_requirements
+    assert "accelerate" not in pip_requirements
     assert "torch" in pip_requirements
 
 
