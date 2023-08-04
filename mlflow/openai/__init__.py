@@ -510,12 +510,13 @@ class _FormattableMessage:
 
 
 def _first_string_column(pdf):
-    iter_string_columns = (c for c, v in pdf.iloc[0].items() if isinstance(v, str))
-    if c := next(iter_string_columns, None):
-        return c
-    raise mlflow.MlflowException.invalid_parameter_value(
-        f"Could not find a string column in the input data: {pdf.dtypes.to_dict()}"
-    )
+    iter_str_cols = (c for c, v in pdf.iloc[0].items() if isinstance(v, str))
+    col = next(iter_str_cols, None)
+    if col is None:
+        raise mlflow.MlflowException.invalid_parameter_value(
+            f"Could not find a string column in the input data: {pdf.dtypes.to_dict()}"
+        )
+    return col
 
 
 class _OpenAIWrapper:
