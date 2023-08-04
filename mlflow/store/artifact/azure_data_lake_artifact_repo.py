@@ -80,6 +80,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         self.base_data_lake_directory = path
 
         from azure.storage.blob import BlobServiceClient
+
         (container, account_name, path) = _parse_abfss_uri(self.artifact_uri)
         self.account_name = account_name
         account_url = f"https://{account_name}.{path}"
@@ -90,7 +91,6 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         )
         self.container = container
         self.container_client = azure_blob_storage_client.get_container_client(container)
-
 
     def log_artifact(self, local_file, artifact_path=None):
         raise NotImplementedError(
