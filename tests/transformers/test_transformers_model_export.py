@@ -1127,7 +1127,7 @@ def test_transformers_pt_model_save_without_conda_env_uses_default_env_with_expe
 
 
 @pytest.mark.skipif(
-    importlib.util.find_spec("accelerate") is not None, reason="uninstall accelerate to test"
+    importlib.util.find_spec("accelerate") is not None, reason="fails when accelerate is installed"
 )
 def test_transformers_pt_model_save_dependencies_without_accelerate(
     translation_pipeline, model_path
