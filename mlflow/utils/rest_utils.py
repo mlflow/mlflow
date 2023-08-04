@@ -67,7 +67,7 @@ def http_request(
         basic_auth_str = f"{host_creds.username}:{host_creds.password}".encode()
         auth_str = "Basic " + base64.standard_b64encode(basic_auth_str).decode("utf-8")
     elif host_creds.token:
-        auth_str = "Bearer %s" % host_creds.token
+        auth_str = f"Bearer {host_creds.token}"
 
     from mlflow.tracking.request_header.registry import resolve_request_headers
 

@@ -668,8 +668,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # Therefore, we check for the more generic 'SQLAlchemyError'
         with pytest.raises(MlflowException, match=regex) as exception_context:
             with self.store.ManagedSessionMaker() as session:
-                run = models.SqlRun()
-                session.add(run)
+                session.add(models.SqlRun())
         assert exception_context.value.error_code == ErrorCode.Name(BAD_REQUEST)
 
     def test_run_data_model(self):
