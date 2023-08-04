@@ -2,6 +2,7 @@ import os
 import posixpath
 import tempfile
 from abc import abstractmethod, ABCMeta
+from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from mlflow.exceptions import MlflowException
@@ -129,7 +130,7 @@ class ArtifactRepository:
                 )
             )
 
-    def _get_write_credential_infos(self, paths) -> list[ArtifactCredentialInfo]:
+    def _get_write_credential_infos(self, paths):
         """
         For a batch of local files, get the write credentials for each file, which include
         a presigned URL per file
