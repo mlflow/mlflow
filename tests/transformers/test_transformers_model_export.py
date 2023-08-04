@@ -1100,6 +1100,9 @@ def test_transformers_log_with_duplicate_extra_pip_requirements(small_multi_moda
     )
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("accelerate") is not None, reason="fails when accelerate is installed"
+)
 def test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
     small_seq2seq_pipeline, model_path
 ):
