@@ -51,7 +51,7 @@ class ArtifactRepository:
         # system (whichever is smaller)
         self.thread_pool = self._create_thread_pool()
 
-    def _get_run_relative_artifact_path_for_upload(self, src_file_path, dst_artifact_dir):
+    def _get_repo_relative_artifact_path_for_upload(self, src_file_path, dst_artifact_dir):
         """
         Obtain the run-relative destination artifact path for uploading the file specified by
         `src_file_path` to the artifact directory specified by `dst_artifact_dir` within the
@@ -70,12 +70,12 @@ class ArtifactRepository:
         dst_artifact_dir = dst_artifact_dir or ""
         dst_artifact_dir = posixpath.join(dst_artifact_dir, basename)
         if len(dst_artifact_dir) > 0:
-            run_relative_artifact_path = posixpath.join(
-                self.run_relative_artifact_repo_root_path, dst_artifact_dir
+            repo_relative_artifact_path = posixpath.join(
+                self.artifact_uri, dst_artifact_dir
             )
         else:
-            run_relative_artifact_path = self.run_relative_artifact_repo_root_path
-        return run_relative_artifact_path
+            repo_relative_artifact_path = self.artifact_uri
+        return repo_relative_artifact_path
 
     def log_artifacts_parallel(self, local_dir, artifact_path=None):
         """
@@ -86,8 +86,8 @@ class ArtifactRepository:
             [
                 # Local filesystem path of the source file to upload
                 "src_file_path",
-                # Run-relative artifact path specifying the upload destination
-                "dst_run_relative_artifact_path",
+                # Base artifact URI-relative path specifying the upload destination
+                "artifact_path",
             ],
         )
 
@@ -102,14 +102,14 @@ class ArtifactRepository:
                 artifact_subdir = posixpath.join(artifact_path, rel_path)
             for name in filenames:
                 file_path = os.path.join(dirpath, name)
-                dst_run_relative_artifact_path = self._get_run_relative_artifact_path_for_upload(
+                artifact_path = self._get_repo_relative_artifact_path_for_upload(
                     src_file_path=file_path,
                     dst_artifact_dir=artifact_subdir,
                 )
                 staged_uploads.append(
                     StagedArtifactUpload(
                         src_file_path=file_path,
-                        dst_run_relative_artifact_path=dst_run_relative_artifact_path,
+                        artifact_path=artifact_path,
                     )
                 )
 
@@ -121,7 +121,7 @@ class ArtifactRepository:
         def get_creds_and_upload(staged_upload_chunk):
             write_credential_infos = self._get_write_credential_infos(
                 paths=[
-                    staged_upload.dst_run_relative_artifact_path
+                    staged_upload.artifact_path
                     for staged_upload in staged_upload_chunk
                 ],
             )
@@ -134,7 +134,7 @@ class ArtifactRepository:
                     self._upload_to_cloud,
                     cloud_credential_info=write_credential_info,
                     src_file_path=staged_upload.src_file_path,
-                    dst_run_relative_artifact_path=staged_upload.dst_run_relative_artifact_path,
+                    artifact_path=staged_upload.artifact_path,
                 )
                 inflight_uploads[staged_upload.src_file_path] = upload_future
 
@@ -166,14 +166,14 @@ class ArtifactRepository:
         pass
 
     def _upload_to_cloud(
-        self, cloud_credential_info, src_file_path, dst_run_relative_artifact_path
+        self, cloud_credential_info, src_file_path, artifact_path
     ):
         """
         Upload a single file to the cloud.
         :param cloud_credential_info: ArtifactCredentialInfo containing presigned URL for the current file
                                       Note: in S3 this gets ignored
         :param src_file_path:
-        :param dst_run_relative_artifact_path:
+        :param artifact_path:
         :return:
         """
         pass
