@@ -11,8 +11,13 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 
 from mlflow.azure.client import put_adls_file_creation, patch_adls_flush, patch_adls_file_upload
-from mlflow.store.artifact.databricks_artifact_repo import _MULTIPART_UPLOAD_CHUNK_SIZE, _compute_num_chunks, _complete_futures
+from mlflow.store.artifact.databricks_artifact_repo import (
+    _MULTIPART_UPLOAD_CHUNK_SIZE,
+    _compute_num_chunks,
+    _complete_futures,
+)
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
+
 
 def _parse_abfss_uri(uri):
     """
@@ -76,13 +81,15 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
 
         from azure.storage.blob import BlobServiceClient
         (container, account_name, path) = _parse_abfss_uri(self.artifact_uri)
+        self.account_name = account_name
         account_url = f"https://{account_name}.{path}"
         azure_blob_storage_client = BlobServiceClient(
             account_url=account_url,
             credential=credential,
             # connection_verify=_get_default_host_creds(artifact_uri).verify,
         )
-        self.container_client = azure_blob_Storage_client.client.get_container_client(container)
+        self.container = container
+        self.container_client = azure_blob_storage_client.get_container_client(container)
 
 
     def log_artifact(self, local_file, artifact_path=None):
@@ -206,11 +213,24 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         Gets the presigned URL required to upload a file to a given Azure storage location.
         """
         try:
-            # headers = self._extract_headers_from_credentials(self.credentials.headers)
+            # # headers = self._extract_headers_from_credentials(self.credentials)
+            # from azure.storage.blob import (
+            #     generate_blob_sas,
+            #     BlobSasPermissions
+            # )
+            # from datetime import datetime, timedelta #For setting the token validity duration
+            #
+            #
+            # input_sas_blob = generate_blob_sas(account_name=self.account_name,
+            #                                    container_name=self.container_client,
+            #                                    blob_name=artifact_path,
+            #                                    account_key=self.credential,
+            #                                    permission=BlobSasPermissions(read=True),
+            #                                    expiry=datetime.utcnow() + timedelta(hours=1))
 
-
-            # headers = self._extract_headers_from_credentials(self.credentials)
-
+            sas_token = self.credential.signature
+            presigned_url = f"https://{self.account_name}.blob.core.windows.net/{self.container}/{artifact_path}?{sas_token}"
+            return presigned_url
         except Exception as err:
             raise MlflowException(err)
 
@@ -240,8 +260,12 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
     #             )
 
     def _get_write_credential_infos(self, paths) -> list[ArtifactCredentialInfo]:
-        return [ArtifactCredentialInfo(signed_uri=self._get_multipart_upload_credentials(path))
-                for path in paths]
+        return [
+            ArtifactCredentialInfo(signed_uri=self._get_multipart_upload_credentials(path))
+            for path in paths
+        ]
 
     def _upload_to_cloud(self, local_path, remote_path, credential_info):
-        self._azure_adls_gen2_upload_file(credentials=credential_info, local_file=local_path, artifact_path=remote_path)
+        self._azure_adls_gen2_upload_file(
+            credentials=credential_info, local_file=local_path, artifact_path=remote_path
+        )

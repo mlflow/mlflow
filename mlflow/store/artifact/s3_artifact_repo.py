@@ -1,6 +1,10 @@
+from concurrent.futures import as_completed
 from datetime import datetime
 from functools import lru_cache
+import logging
+import math
 import os
+import requests
 import json
 from mimetypes import guess_type
 
@@ -16,13 +20,37 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils import data_utils
-from mlflow.utils.file_utils import relative_path_to_artifact_path
+from mlflow.utils.file_utils import read_chunk, relative_path_to_artifact_path
+from mlflow.utils.rest_utils import augmented_raise_for_status
+from mlflow.utils.request_utils import cloud_storage_http_request
+
+_logger = logging.getLogger(__name__)
 
 _MAX_CACHE_SECONDS = 300
+_MULTIPART_UPLOAD_CHUNK_SIZE = 10_000_000  # 10 MB
 
 
 def _get_utcnow_timestamp():
     return datetime.utcnow().timestamp()
+
+
+def _complete_futures(futures_dict):
+    """
+    Waits for the completion of all the futures in the given dictionary and returns
+    a tuple of two dictionaries. The first dictionary contains the results of the
+    futures (unordered) and the second contains the errors (unordered) that occurred
+    during the execution of the futures.
+    """
+    results = {}
+    errors = {}
+    for future in as_completed(futures_dict):
+        key = futures_dict[future]
+        try:
+            results[key] = future.result()
+        except Exception as e:
+            errors[key] = repr(e)
+
+    return results, errors
 
 
 @lru_cache(maxsize=64)
@@ -106,6 +134,8 @@ class S3ArtifactRepository(ArtifactRepository):
         self._access_key_id = access_key_id
         self._secret_access_key = secret_access_key
         self._session_token = session_token
+        self.chunk_thread_pool = self._create_thread_pool()
+        self.bucket, self.bucket_path = data_utils.parse_s3_uri(self.artifact_uri)
 
     def _get_s3_client(self):
         return _get_s3_client(
@@ -146,16 +176,19 @@ class S3ArtifactRepository(ArtifactRepository):
         s3_client.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
 
     def log_artifact(self, local_file, artifact_path=None):
-        (bucket, dest_path) = data_utils.parse_s3_uri(self.artifact_uri)
+        dest_path = self.bucket_path
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         self._upload_file(
-            s3_client=self._get_s3_client(), local_file=local_file, bucket=bucket, key=dest_path
+            s3_client=self._get_s3_client(),
+            local_file=local_file,
+            bucket=self.bucket,
+            key=dest_path,
         )
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        (bucket, dest_path) = data_utils.parse_s3_uri(self.artifact_uri)
+        dest_path = self.bucket_path
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         s3_client = self._get_s3_client()
@@ -170,20 +203,20 @@ class S3ArtifactRepository(ArtifactRepository):
                 self._upload_file(
                     s3_client=s3_client,
                     local_file=os.path.join(root, f),
-                    bucket=bucket,
+                    bucket=self.bucket,
                     key=posixpath.join(upload_path, f),
                 )
 
     def list_artifacts(self, path=None):
-        (bucket, artifact_path) = data_utils.parse_s3_uri(self.artifact_uri)
-        dest_path = artifact_path
+        artifact_path = self.bucket_path
+        dest_path = self.bucket_path
         if path:
             dest_path = posixpath.join(dest_path, path)
         infos = []
         prefix = dest_path + "/" if dest_path else ""
         s3_client = self._get_s3_client()
         paginator = s3_client.get_paginator("list_objects_v2")
-        results = paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter="/")
+        results = paginator.paginate(Bucket=self.bucket, Prefix=prefix, Delimiter="/")
         for result in results:
             # Subdirectories will be listed as "common prefixes" due to the way we made the request
             for obj in result.get("CommonPrefixes", []):
@@ -216,21 +249,132 @@ class S3ArtifactRepository(ArtifactRepository):
             )
 
     def _download_file(self, remote_file_path, local_path):
-        (bucket, s3_root_path) = data_utils.parse_s3_uri(self.artifact_uri)
-        s3_full_path = posixpath.join(s3_root_path, remote_file_path)
+        s3_full_path = posixpath.join(self.bucket_path, remote_file_path)
         s3_client = self._get_s3_client()
-        s3_client.download_file(bucket, s3_full_path, local_path)
+        s3_client.download_file(self.bucket, s3_full_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
-        (bucket, dest_path) = data_utils.parse_s3_uri(self.artifact_uri)
+        dest_path = self.bucket_path
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
 
         s3_client = self._get_s3_client()
-        list_objects = s3_client.list_objects(Bucket=bucket, Prefix=dest_path).get("Contents", [])
+        list_objects = s3_client.list_objects(Bucket=self.bucket, Prefix=dest_path).get(
+            "Contents", []
+        )
         for to_delete_obj in list_objects:
             file_path = to_delete_obj.get("Key")
             self._verify_listed_object_contains_artifact_path_prefix(
                 listed_object_path=file_path, artifact_path=dest_path
             )
-            s3_client.delete_object(Bucket=bucket, Key=file_path)
+            s3_client.delete_object(Bucket=self.bucket, Key=file_path)
+
+    # Option 1: s3 upload file (the multiple file parallization already helps a lot)
+    # Option 2: s3 create multipart, upload part, complete mulipart
+    # Option 3: s3 create multipart, we make the HTTP requests, complete multipart <- exitsing solution
+
+    def _get_write_credential_infos(self, paths):
+        """
+        For a batch of local files, get the write credentials for each file, which include
+        a presigned URL per file
+
+        Return a list of CredentialInfo objects, one for each file.
+        """
+        return paths
+
+    def _upload_to_cloud(
+        self, cloud_credential_info, src_file_path, dst_run_relative_artifact_path
+    ):
+        # if os.path.getsize(src_file_path) > 10_000_000: # 10 MB
+        self._multipart_upload(src_file_path, dst_run_relative_artifact_path)
+        # else:
+        # use log_artifact way
+
+    def _multipart_upload(self, local_file, artifact_path):
+        # Create multipart upload
+        dest_path = self.bucket_path
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
+        response = self.s3_client.create_multipart_upload(Bucket=self.bucket, Key=dest_path)
+        upload_id = response["UploadId"]
+
+        # Create presigned URL for each part
+        num_parts = math.ceil(os.path.getsize(local_file) / _MULTIPART_UPLOAD_CHUNK_SIZE)
+
+        def _get_presigned_upload_part_url(part_number):
+            return self.s3_client.generate_presigned_url(
+                "upload_part",
+                Params={
+                    "Bucket": self.bucket,
+                    "Key": dest_path,
+                    "UploadId": upload_id,
+                    "PartNumber": part_number,
+                },
+            )
+
+        presigned_urls = [
+            _get_presigned_upload_part_url(part_number)
+            for part_number in list(range(1, num_parts + 1))
+        ]
+
+        # define helper functions for uploading data
+        def _upload_part(presigned_url, data):
+            with cloud_storage_http_request("put", presigned_url, data=data) as response:
+                augmented_raise_for_status(response)
+                return response.headers["ETag"]
+
+        def _upload_part_retry(presigned_url, part_number, local_file, start_byte, size):
+            data = read_chunk(local_file, size, start_byte)
+            try:
+                etag = _upload_part(presigned_url, data)
+            except requests.HTTPError as e:
+                if e.response.status_code not in (401, 403):
+                    raise e
+                _logger.info(
+                    "Failed to authorize request, possibly due to credential expiration."
+                    " Refreshing credentials and trying again..."
+                )
+                presigned_url = _get_presigned_upload_part_url(part_number)
+                etag = _upload_part(presigned_url, data)
+            return {"PartNumber": part_number, "ETag": etag}
+
+        try:
+            # Upload each part with retries
+            futures = {}
+            for index, presigned_url in enumerate(presigned_urls):
+                part_number = index + 1
+                start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
+                future = self.chunk_thread_pool.submit(
+                    _upload_part_retry,
+                    presigned_url=presigned_url,
+                    part_number=part_number,
+                    local_file=local_file,
+                    start_byte=start_byte,
+                    size=_MULTIPART_UPLOAD_CHUNK_SIZE,
+                )
+                futures[future] = part_number
+
+            parts, errors = _complete_futures(futures)
+            if errors:
+                raise MlflowException(
+                    f"Failed to upload at least one part of {local_file}. Errors: {errors}"
+                )
+
+            # Complete multipart upload
+            self.s3_client.complete_multipart_upload(
+                Bucket=self.bucket,
+                Key=dest_path,
+                UploadId=upload_id,
+                MultipartUpload={"Parts": parts},
+            )
+        except Exception as e:
+            _logger.warning(
+                "Encountered an unexpected error during multipart upload: %s, aborting", e
+            )
+            self.s3_client.abort_multipart_upload(
+                Bucket=self.bucket,
+                Key=dest_path,
+                UploadId=upload_id,
+            )
+            raise e
