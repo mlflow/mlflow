@@ -2,6 +2,7 @@ import os
 import posixpath
 import tempfile
 from abc import abstractmethod, ABCMeta
+from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from mlflow.exceptions import MlflowException
@@ -49,6 +50,32 @@ class ArtifactRepository:
         # constants._NUM_MAX_THREADS threads or 2 * the number of CPU cores available on the
         # system (whichever is smaller)
         self.thread_pool = self._create_thread_pool()
+
+    def _get_run_relative_artifact_path_for_upload(self, src_file_path, dst_artifact_dir):
+        """
+        Obtain the run-relative destination artifact path for uploading the file specified by
+        `src_file_path` to the artifact directory specified by `dst_artifact_dir` within the
+        MLflow Run associated with the artifact repository.
+
+        :param src_file_path: The path to the source file on the local filesystem.
+        :param dst_artifact_dir: The destination artifact directory, specified as a POSIX-style
+                                 path relative to the artifact repository's root URI (note that
+                                 this is not equivalent to the associated MLflow Run's artifact
+                                 root location).
+        :return: A POSIX-style artifact path to be used as the destination for the file upload.
+                 This path is specified relative to the root of the MLflow Run associated with
+                 the artifact repository.
+        """
+        basename = os.path.basename(src_file_path)
+        dst_artifact_dir = dst_artifact_dir or ""
+        dst_artifact_dir = posixpath.join(dst_artifact_dir, basename)
+        if len(dst_artifact_dir) > 0:
+            run_relative_artifact_path = posixpath.join(
+                self.run_relative_artifact_repo_root_path, dst_artifact_dir
+            )
+        else:
+            run_relative_artifact_path = self.run_relative_artifact_repo_root_path
+        return run_relative_artifact_path
 
     def log_artifacts_parallel(self, local_dir, artifact_path=None):
         """
@@ -129,7 +156,7 @@ class ArtifactRepository:
                 )
             )
 
-    def _get_write_credential_infos(self, paths) -> list[ArtifactCredentialInfo]:
+    def _get_write_credential_infos(self, paths):
         """
         For a batch of local files, get the write credentials for each file, which include
         a presigned URL per file
