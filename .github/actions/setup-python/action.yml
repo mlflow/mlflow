@@ -7,7 +7,7 @@ inputs:
 outputs:
   python-version:
     description: "The installed python version"
-    value: ${{ steps.fetch-python-version.outputs.version }}
+    value: ${{ steps.get-python-version.outputs.version }}
 runs:
   using: "composite"
   steps:
