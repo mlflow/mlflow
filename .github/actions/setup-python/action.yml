@@ -5,7 +5,7 @@ inputs:
     description: "The python version to install. If unspecified, install the minimum python version mlflow supports."
     required: false
 outputs:
-  installed-python-version:
+  python-version:
     description: "The installed python version"
     value: ${{ steps.fetch-python-version.outputs.version }}
 runs:
