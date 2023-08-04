@@ -273,6 +273,15 @@ class S3ArtifactRepository(ArtifactRepository):
     # Option 2: s3 create multipart, upload part, complete mulipart
     # Option 3: s3 create multipart, we make the HTTP requests, complete multipart <- exitsing solution
 
+    def _get_write_credential_infos(self, paths):
+        """
+        For a batch of local files, get the write credentials for each file, which include
+        a presigned URL per file
+
+        Return a list of CredentialInfo objects, one for each file.
+        """
+        return paths
+
     def _upload_to_cloud(
         self, cloud_credential_info, src_file_path, dst_run_relative_artifact_path
     ):
