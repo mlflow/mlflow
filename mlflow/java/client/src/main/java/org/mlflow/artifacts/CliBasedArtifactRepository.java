@@ -121,14 +121,8 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     List<String> command = appendRunIdArtifactPath(
       Lists.newArrayList("download"), runId, artifactPath);
     String stdOutput = forkMlflowProcess(command, tag);
-    Pattern pattern = Pattern.compile("downloaded artifacts local location: (.*)\n");
-    Matcher matcher = pattern.matcher(stdOutput);
-    if (matcher.find()) {
-      String localPath = matcher.group(1).trim();
-      return new File(localPath);
-    }
-    throw new MlflowClientException("Could not parse downloaded artifacts location from " +
-      "mlflow download artifacts output: " + stdOutput);
+    String[] splits = stdOutput.split("\n");
+    return new File(splits[splits.length-2].trim());
   }
 
   @Override

@@ -32,19 +32,8 @@ try:
 except ImportError:
     from yaml import SafeLoader as YamlSafeLoader, SafeDumper as YamlSafeDumper
 
-_logger = logging.getLogger(__name__)
-_TQDM_AVAILABLE = False
-try:
-    from tqdm.notebook import tqdm
-
-    _TQDM_AVAILABLE = True
-except ImportError:
-    _logger.warning(
-        "module not found: tqdm. To show progress bar for artifacts, "
-        "install with `pip install tqdm`"
-    )
-
 from mlflow.entities import FileInfo
+from mlflow.environment_variables import MLFLOW_ARTIFACTS_PROGRESS_BAR_ENABLED
 from mlflow.exceptions import MissingConfigException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.utils.rest_utils import augmented_raise_for_status
@@ -56,6 +45,7 @@ from mlflow.utils.os import is_windows
 from mlflow.utils import download_cloud_file_chunk
 from mlflow.utils.request_utils import download_chunk
 
+_logger = logging.getLogger(__name__)
 
 ENCODING = "utf-8"
 MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
@@ -702,18 +692,27 @@ def parallelized_download_file_using_http_uri(
         futures[thread_pool_executor.submit(run_download, range_start, range_end)] = i
 
     failed_downloads = {}
-    pbar = (
-        tqdm(
-            total=file_size,
-            unit="iB",
-            unit_scale=True,
-            unit_divisor=1024,
-            desc=f"Downloading file {download_path}",
-            miniters=1,
-        )
-        if _TQDM_AVAILABLE
-        else None
-    )
+    if MLFLOW_ARTIFACTS_PROGRESS_BAR_ENABLED:
+        try:
+            from tqdm.notebook import tqdm
+
+            pbar = tqdm(
+                total=file_size,
+                unit="iB",
+                unit_scale=True,
+                unit_divisor=1024,
+                desc=f"Downloading file {download_path}",
+                miniters=1,
+            )
+        except ImportError:
+            _logger.warning(
+                "module not found: tqdm. To enable progress bar for artifacts, "
+                "install with `pip install tqdm`"
+            )
+            pbar = None
+    else:
+        pbar = None
+
     for future in as_completed(futures):
         index = futures[future]
         try:

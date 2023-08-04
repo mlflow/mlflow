@@ -1,6 +1,5 @@
 import json
 import pathlib
-import re
 
 import pytest
 from unittest import mock
@@ -92,9 +91,7 @@ def _run_download_artifact_command(args) -> pathlib.Path:
     resp = runner.invoke(download_artifacts, args=args, catch_exceptions=False)
     assert resp.exit_code == 0
     std_output = resp.stdout
-    download_output_path = (
-        re.search(r"downloaded artifacts local location: (.*)\n", std_output).group(1).strip()
-    )
+    download_output_path = std_output.split("\n")[-2].strip()
     return next(pathlib.Path(download_output_path).iterdir())
 
 

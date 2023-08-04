@@ -5,6 +5,7 @@ import tempfile
 from abc import abstractmethod, ABCMeta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from mlflow.environment_variables import MLFLOW_ARTIFACTS_PROGRESS_BAR_ENABLED
 from mlflow.exceptions import MlflowException
 from mlflow.entities.file_info import FileInfo
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
@@ -12,17 +13,6 @@ from mlflow.utils.annotations import developer_stable
 from mlflow.utils.validation import path_not_unique, bad_path_message
 
 _logger = logging.getLogger(__name__)
-
-_TQDM_AVAILABLE = False
-try:
-    from tqdm.notebook import tqdm
-
-    _TQDM_AVAILABLE = True
-except ImportError:
-    _logger.warning(
-        "module not found: tqdm. To show progress bar for artifacts, "
-        "install with `pip install tqdm`"
-    )
 
 # Constants used to determine max level of parallelism to use while uploading/downloading artifacts.
 # Max threads to use for parallelism.
@@ -202,7 +192,19 @@ class ArtifactRepository:
 
         # Wait for downloads to complete and collect failures
         failed_downloads = {}
-        pbar = tqdm(total=len(futures), desc="Downloading artifacts") if _TQDM_AVAILABLE else None
+        if MLFLOW_ARTIFACTS_PROGRESS_BAR_ENABLED:
+            try:
+                from tqdm.notebook import tqdm
+
+                pbar = tqdm(total=len(futures), desc="Downloading artifacts")
+            except ImportError:
+                _logger.warning(
+                    "module not found: tqdm. To enable progress bar for artifacts, "
+                    "install with `pip install tqdm`"
+                )
+                pbar = None
+        else:
+            pbar = None
         for f in as_completed(futures):
             try:
                 f.result()

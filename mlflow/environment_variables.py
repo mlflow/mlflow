@@ -354,3 +354,9 @@ _MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TE
 #: Specifies the uri of a Mlflow Gateway Server instance to be used with the Gateway Client APIs
 #: (default: ``None``)
 MLFLOW_GATEWAY_URI = _EnvironmentVariable("MLFLOW_GATEWAY_URI", str, None)
+
+#: Specifies whether to turn on the progress bar when uploading/downloading artifacts.
+#: (default: ``True``)
+MLFLOW_ARTIFACTS_PROGRESS_BAR_ENABLED = _BooleanEnvironmentVariable(
+    "MLFLOW_ARTIFACTS_PROGRESS_BAR_ENABLED", True
+)

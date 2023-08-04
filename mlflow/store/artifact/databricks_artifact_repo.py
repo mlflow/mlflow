@@ -17,6 +17,7 @@ from mlflow.azure.client import (
 )
 import mlflow.tracking
 from mlflow.entities import FileInfo
+from mlflow.environment_variables import MLFLOW_ARTIFACTS_PROGRESS_BAR_ENABLED
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -62,17 +63,6 @@ from mlflow.environment_variables import MLFLOW_ENABLE_MULTIPART_DOWNLOAD
 
 _logger = logging.getLogger(__name__)
 
-_TQDM_AVAILABLE = False
-try:
-    from tqdm.notebook import tqdm
-
-    _TQDM_AVAILABLE = True
-except ImportError:
-    _logger.warning(
-        "module not found: tqdm. To show progress bar for artifacts, "
-        "install with `pip install tqdm`"
-    )
-
 _DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
 _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE = 500_000_000  # 500 MB
 _MULTIPART_UPLOAD_CHUNK_SIZE = 10_000_000  # 10 MB
@@ -84,6 +74,53 @@ _SERVICE_AND_METHOD_TO_INFO = {
 _ARTIFACT_UPLOAD_BATCH_SIZE = (
     50  # Max number of artifacts for which to fetch write credentials at once.
 )
+
+
+class UploadArtifactProgressBar:
+    def __init__(self, iterable, file) -> None:
+        self.iterable = iterable
+        self.file_size = os.path.getsize(file)
+        self.pbar = None
+
+        if MLFLOW_ARTIFACTS_PROGRESS_BAR_ENABLED:
+            try:
+                from tqdm.notebook import tqdm
+
+                self.pbar = tqdm(
+                    total=self.file_size,
+                    unit="iB",
+                    unit_scale=True,
+                    unit_divisor=1024,
+                    desc=f"Uploading file {file}",
+                    miniters=1,
+                )
+            except ImportError:
+                _logger.warning(
+                    "module not found: tqdm. To enable progress bar for artifacts, "
+                    "install with `pip install tqdm`"
+                )
+
+    def _pbar_iter(self):
+        try:
+            for index, item in enumerate(self.iterable):
+                if self.pbar:
+                    self.pbar.update(
+                        min(
+                            self.file_size - index * _MULTIPART_UPLOAD_CHUNK_SIZE,
+                            _MULTIPART_UPLOAD_CHUNK_SIZE,
+                        )
+                    )
+                    self.pbar.refresh()
+                yield item
+        finally:
+            if self.pbar:
+                self.pbar.close()
+
+    def __iter__(self):
+        if self.pbar is None:
+            yield from self.iterable
+        else:
+            yield from self._pbar_iter()
 
 
 def _compute_num_chunks(local_file: os.PathLike, chunk_size: int) -> int:
@@ -103,37 +140,12 @@ def _complete_futures(futures_dict, file):
     results = {}
     errors = {}
 
-    file_size = os.path.getsize(file)
-    pbar = (
-        tqdm(
-            total=file_size,
-            unit="iB",
-            unit_scale=True,
-            unit_divisor=1024,
-            desc=f"Uploading file {file}",
-            miniters=1,
-        )
-        if _TQDM_AVAILABLE
-        else None
-    )
-
-    for index, future in enumerate(as_completed(futures_dict)):
+    for future in UploadArtifactProgressBar(as_completed(futures_dict), file):
         key = futures_dict[future]
         try:
             results[key] = future.result()
-            if pbar:
-                pbar.update(
-                    min(
-                        file_size - index * _MULTIPART_UPLOAD_CHUNK_SIZE,
-                        _MULTIPART_UPLOAD_CHUNK_SIZE,
-                    )
-                )
-                pbar.refresh()
         except Exception as e:
             errors[key] = repr(e)
-
-    if pbar:
-        pbar.close()
 
     return results, errors
 
@@ -758,9 +770,20 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 except Exception as e:
                     failed_uploads[src_file_path] = repr(e)
 
-        pbar = (
-            tqdm(total=len(staged_uploads), desc="Uploading artifacts") if _TQDM_AVAILABLE else None
-        )
+        if MLFLOW_ARTIFACTS_PROGRESS_BAR_ENABLED:
+            try:
+                from tqdm.notebook import tqdm
+
+                pbar = tqdm(total=len(staged_uploads), desc="Uploading artifacts")
+            except ImportError:
+                _logger.warning(
+                    "module not found: tqdm. To enable progress bar for artifacts, "
+                    "install with `pip install tqdm`"
+                )
+                pbar = None
+        else:
+            pbar = None
+
         for chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
             get_creds_and_upload(chunk, pbar)
         if pbar:
