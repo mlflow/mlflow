@@ -20,11 +20,10 @@ select = [
   "C4",
   "PT001",
   "PT006",
-  # TODO: Enable commented-out rules.
   "PT007",
   "PT009",
   "PT010",
-  # "PT012",
+  "PT012",
   "PT018",
   "PT023",
   "PT026",
@@ -40,13 +39,13 @@ select = [
 ]
 force-exclude = true
 ignore = [
-  "E402",  # module-import-not-at-top-of-file
-  "E501",  # line-too-long
-  "E741",  # ambiguous-variable-name
-  "F401",  # unused-import
-  "F402",  # import-shadowed-by-loop-var
-  "F403",  # undefined-local-with-import-star
-  "F811",  # redefined-while-unused
+  "E402", # module-import-not-at-top-of-file
+  "E501", # line-too-long
+  "E741", # ambiguous-variable-name
+  "F401", # unused-import
+  "F402", # import-shadowed-by-loop-var
+  "F403", # undefined-local-with-import-star
+  "F811", # redefined-while-unused
 ]
 extend-exclude = [
   "setup.py",
