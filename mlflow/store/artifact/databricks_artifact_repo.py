@@ -17,7 +17,7 @@ from mlflow.azure.client import (
 )
 import mlflow.tracking
 from mlflow.entities import FileInfo
-from mlflow.environment_variables import MLFLOW_ARTIFACTS_PROGRESS_BAR_ENABLED
+from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -39,6 +39,7 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils import chunk_list
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import (
+    ArtifactProgressBar,
     download_file_using_http_uri,
     parallelized_download_file_using_http_uri,
     relative_path_to_artifact_path,
@@ -76,53 +77,6 @@ _ARTIFACT_UPLOAD_BATCH_SIZE = (
 )
 
 
-class UploadArtifactProgressBar:
-    def __init__(self, iterable, file) -> None:
-        self.iterable = iterable
-        self.file_size = os.path.getsize(file)
-        self.pbar = None
-
-        if MLFLOW_ARTIFACTS_PROGRESS_BAR_ENABLED:
-            try:
-                from tqdm.notebook import tqdm
-
-                self.pbar = tqdm(
-                    total=self.file_size,
-                    unit="iB",
-                    unit_scale=True,
-                    unit_divisor=1024,
-                    desc=f"Uploading file {file}",
-                    miniters=1,
-                )
-            except ImportError:
-                _logger.warning(
-                    "module not found: tqdm. To enable progress bar for artifacts, "
-                    "install with `pip install tqdm`"
-                )
-
-    def _pbar_iter(self):
-        try:
-            for index, item in enumerate(self.iterable):
-                if self.pbar:
-                    self.pbar.update(
-                        min(
-                            self.file_size - index * _MULTIPART_UPLOAD_CHUNK_SIZE,
-                            _MULTIPART_UPLOAD_CHUNK_SIZE,
-                        )
-                    )
-                    self.pbar.refresh()
-                yield item
-        finally:
-            if self.pbar:
-                self.pbar.close()
-
-    def __iter__(self):
-        if self.pbar is None:
-            yield from self.iterable
-        else:
-            yield from self._pbar_iter()
-
-
 def _compute_num_chunks(local_file: os.PathLike, chunk_size: int) -> int:
     """
     Computes the number of chunks to use for a multipart upload of the specified file.
@@ -140,7 +94,12 @@ def _complete_futures(futures_dict, file):
     results = {}
     errors = {}
 
-    for future in UploadArtifactProgressBar(as_completed(futures_dict), file):
+    for future in ArtifactProgressBar(
+        as_completed(futures_dict),
+        f"Uploading file {file}",
+        os.path.getsize(file),
+        _MULTIPART_UPLOAD_CHUNK_SIZE,
+    ):
         key = futures_dict[future]
         try:
             results[key] = future.result()
@@ -770,7 +729,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 except Exception as e:
                     failed_uploads[src_file_path] = repr(e)
 
-        if MLFLOW_ARTIFACTS_PROGRESS_BAR_ENABLED:
+        if MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR:
             try:
                 from tqdm.notebook import tqdm
 

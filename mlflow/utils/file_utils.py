@@ -33,7 +33,7 @@ except ImportError:
     from yaml import SafeLoader as YamlSafeLoader, SafeDumper as YamlSafeDumper
 
 from mlflow.entities import FileInfo
-from mlflow.environment_variables import MLFLOW_ARTIFACTS_PROGRESS_BAR_ENABLED
+from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
 from mlflow.exceptions import MissingConfigException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.utils.rest_utils import augmented_raise_for_status
@@ -49,6 +49,58 @@ _logger = logging.getLogger(__name__)
 
 ENCODING = "utf-8"
 MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
+
+
+class ArtifactProgressBar:
+    def __init__(self, iterable, description, file_size=None, chunk_size=None) -> None:
+        self.iterable = iterable
+        self.file_size = file_size
+        self.chunk_size = chunk_size
+        self.pbar = None
+
+        if MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR.get():
+            try:
+                from tqdm.notebook import tqdm
+
+                if self.file_size:
+                    self.pbar = tqdm(
+                        total=self.file_size,
+                        unit="iB",
+                        unit_scale=True,
+                        unit_divisor=1024,
+                        desc=description,
+                        miniters=1,
+                    )
+                else:
+                    self.pbar = tqdm(total=len(iterable), desc=description)
+            except ImportError:
+                _logger.warning(
+                    "module not found: tqdm. To enable progress bar for artifacts, "
+                    "install with `pip install tqdm`"
+                )
+
+    def _pbar_iter(self):
+        try:
+            for index, item in enumerate(self.iterable):
+                if self.file_size:
+                    self.pbar.update(
+                        min(
+                            self.file_size - index * self.chunk_size,
+                            self.chunk_size,
+                        )
+                    )
+                else:
+                    self.pbar.update()
+                self.pbar.refresh()
+                yield item
+        finally:
+            self.pbar.close()
+
+    def __iter__(self):
+        if self.pbar is None:
+            yield from self.iterable
+        else:
+            yield from self._pbar_iter()
 
 
 def is_directory(name):
@@ -692,43 +744,20 @@ def parallelized_download_file_using_http_uri(
         futures[thread_pool_executor.submit(run_download, range_start, range_end)] = i
 
     failed_downloads = {}
-    if MLFLOW_ARTIFACTS_PROGRESS_BAR_ENABLED:
-        try:
-            from tqdm.notebook import tqdm
 
-            pbar = tqdm(
-                total=file_size,
-                unit="iB",
-                unit_scale=True,
-                unit_divisor=1024,
-                desc=f"Downloading file {download_path}",
-                miniters=1,
-            )
-        except ImportError:
-            _logger.warning(
-                "module not found: tqdm. To enable progress bar for artifacts, "
-                "install with `pip install tqdm`"
-            )
-            pbar = None
-    else:
-        pbar = None
-
-    for future in as_completed(futures):
+    for future in ArtifactProgressBar(
+        as_completed(futures), f"Downloading file {download_path}", file_size, chunk_size
+    ):
         index = futures[future]
         try:
             result = future.result()
             if result is not None:
                 failed_downloads[index] = result
-            if pbar:
-                pbar.update(min(file_size - index * chunk_size, chunk_size))
-                pbar.refresh()
         except Exception as e:
             failed_downloads[index] = {
                 "error_status_code": 500,
                 "error_text": repr(e),
             }
-    if pbar:
-        pbar.close()
 
     return failed_downloads
 

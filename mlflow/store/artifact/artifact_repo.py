@@ -5,11 +5,11 @@ import tempfile
 from abc import abstractmethod, ABCMeta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from mlflow.environment_variables import MLFLOW_ARTIFACTS_PROGRESS_BAR_ENABLED
 from mlflow.exceptions import MlflowException
 from mlflow.entities.file_info import FileInfo
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.annotations import developer_stable
+from mlflow.utils.file_utils import ArtifactProgressBar
 from mlflow.utils.validation import path_not_unique, bad_path_message
 
 _logger = logging.getLogger(__name__)
@@ -192,30 +192,12 @@ class ArtifactRepository:
 
         # Wait for downloads to complete and collect failures
         failed_downloads = {}
-        if MLFLOW_ARTIFACTS_PROGRESS_BAR_ENABLED:
-            try:
-                from tqdm.notebook import tqdm
-
-                pbar = tqdm(total=len(futures), desc="Downloading artifacts")
-            except ImportError:
-                _logger.warning(
-                    "module not found: tqdm. To enable progress bar for artifacts, "
-                    "install with `pip install tqdm`"
-                )
-                pbar = None
-        else:
-            pbar = None
-        for f in as_completed(futures):
+        for f in as_completed(ArtifactProgressBar(futures, description="Downloading artifacts")):
             try:
                 f.result()
-                if pbar:
-                    pbar.update()
-                    pbar.refresh()
             except Exception as e:
                 path = futures[f]
                 failed_downloads[path] = repr(e)
-        if pbar:
-            pbar.close()
 
         if failed_downloads:
             raise MlflowException(
