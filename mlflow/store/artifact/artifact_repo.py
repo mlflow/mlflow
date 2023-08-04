@@ -8,6 +8,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.entities.file_info import FileInfo
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.annotations import developer_stable
+from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.utils.validation import path_not_unique, bad_path_message
 from mlflow.utils import chunk_list
 
@@ -32,9 +33,6 @@ _ARTIFACT_UPLOAD_BATCH_SIZE = (
     50  # Max number of artifacts for which to fetch write credentials at once.
 )
 
-from mlflow.utils.file_utils import (
-    relative_path_to_artifact_path,,
-)
 
 @developer_stable
 class ArtifactRepository:
@@ -51,7 +49,6 @@ class ArtifactRepository:
         # constants._NUM_MAX_THREADS threads or 2 * the number of CPU cores available on the
         # system (whichever is smaller)
         self.thread_pool = self._create_thread_pool()
-
 
     def log_artifacts_parallel(self, local_dir, artifact_path=None):
         """
@@ -104,7 +101,7 @@ class ArtifactRepository:
 
             inflight_uploads = {}
             for staged_upload, write_credential_info in zip(
-                    staged_upload_chunk, write_credential_infos
+                staged_upload_chunk, write_credential_infos
             ):
                 upload_future = self.thread_pool.submit(
                     self._upload_to_cloud,
@@ -141,7 +138,9 @@ class ArtifactRepository:
         """
         pass
 
-    def _upload_to_cloud(self, cloud_credential_info, src_file_path, dst_run_relative_artifact_path):
+    def _upload_to_cloud(
+        self, cloud_credential_info, src_file_path, dst_run_relative_artifact_path
+    ):
         """
         Upload a single file to the cloud.
         :param cloud_credential_info: ArtifactCredentialInfo containing presigned URL for the current file
@@ -151,8 +150,6 @@ class ArtifactRepository:
         :return:
         """
         pass
-
-
 
     def _create_thread_pool(self):
         return ThreadPoolExecutor(max_workers=self.max_workers)

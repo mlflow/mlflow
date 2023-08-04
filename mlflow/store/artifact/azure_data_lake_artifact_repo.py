@@ -11,8 +11,13 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 
 from mlflow.azure.client import put_adls_file_creation, patch_adls_flush, patch_adls_file_upload
-from mlflow.store.artifact.databricks_artifact_repo import _MULTIPART_UPLOAD_CHUNK_SIZE, _compute_num_chunks, _complete_futures
+from mlflow.store.artifact.databricks_artifact_repo import (
+    _MULTIPART_UPLOAD_CHUNK_SIZE,
+    _compute_num_chunks,
+    _complete_futures,
+)
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
+
 
 def _parse_abfss_uri(uri):
     """
@@ -227,8 +232,12 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
     #             )
 
     def _get_write_credential_infos(self, paths) -> list[ArtifactCredentialInfo]:
-        return [ArtifactCredentialInfo(signed_uri=self._get_multipart_upload_credentials(path))
-                for path in paths]
+        return [
+            ArtifactCredentialInfo(signed_uri=self._get_multipart_upload_credentials(path))
+            for path in paths
+        ]
 
     def _upload_to_cloud(self, local_path, remote_path, credential_info):
-        self._azure_adls_gen2_upload_file(credentials=credential_info, local_file=local_path, artifact_path=remote_path)
+        self._azure_adls_gen2_upload_file(
+            credentials=credential_info, local_file=local_path, artifact_path=remote_path
+        )
