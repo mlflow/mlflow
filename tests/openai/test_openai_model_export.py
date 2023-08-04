@@ -346,7 +346,7 @@ def test_spark_udf(tmp_path, spark):
 
 
 class ChatCompletionModel(mlflow.pyfunc.PythonModel):
-    def predict(self, context, model_input):
+    def predict(self, context, model_input, params=None):
         completion = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "What is MLflow?"}],
@@ -389,11 +389,11 @@ def test_auto_request_retry_exceeds_maximum_attempts(tmp_path):
 def test_auto_request_retry_is_disabled_when_env_var_is_false(tmp_path, monkeypatch):
     mlflow.pyfunc.save_model(tmp_path, python_model=ChatCompletionModel())
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    monkeypatch.setenv("MLFLOW_OPENAI_RETRIES_ENABLED", "false")
     with pytest.raises(openai.error.RateLimitError, match="RateLimitError"):
         with _mock_request(
             side_effect=openai.error.RateLimitError(message="RateLimitError", code=403)
         ) as mock_request:
-            monkeypatch.setenv("MLFLOW_OPENAI_RETRIES_ENABLED", "false")
             loaded_model.predict(None)
 
     assert mock_request.call_count == 1

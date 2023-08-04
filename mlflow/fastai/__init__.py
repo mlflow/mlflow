@@ -18,6 +18,7 @@ import tempfile
 from pathlib import Path
 import pandas as pd
 import numpy as np
+from typing import Any, Dict, Optional
 
 from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature, ModelInputExample
@@ -357,7 +358,18 @@ class _FastaiModelWrapper:
     def __init__(self, learner):
         self.learner = learner
 
-    def predict(self, dataframe):
+    def predict(
+        self, dataframe, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param dataframe: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         dl = self.learner.dls.test_dl(dataframe)
         preds, _ = self.learner.get_preds(dl=dl)
         return pd.Series(map(np.array, preds.numpy())).to_frame("predictions")
@@ -427,6 +439,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
+    extra_tags=None,
 ):  # pylint: disable=unused-argument
     """
     Enable automatic logging from Fastai to MLflow.
@@ -456,6 +469,7 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
 
     .. code-block:: python
         :caption: Example
@@ -626,7 +640,7 @@ def autolog(
             self, original, args, kwargs, unlogged_params, is_fine_tune=False
         )
 
-    safe_patch(FLAVOR_NAME, Learner, "fit", fit, manage_run=True)
+    safe_patch(FLAVOR_NAME, Learner, "fit", fit, manage_run=True, extra_tags=extra_tags)
 
     def fine_tune(original, self, *args, **kwargs):
         unlogged_params = ["self", "cbs", "learner", "lr", "lr_max", "wd"]
@@ -634,4 +648,4 @@ def autolog(
             self, original, args, kwargs, unlogged_params, is_fine_tune=True
         )
 
-    safe_patch(FLAVOR_NAME, Learner, "fine_tune", fine_tune, manage_run=True)
+    safe_patch(FLAVOR_NAME, Learner, "fine_tune", fine_tune, manage_run=True, extra_tags=extra_tags)

@@ -14,6 +14,7 @@ Paddle (native) format
 import os
 import logging
 import yaml
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow import pyfunc
@@ -447,7 +448,18 @@ class _PaddleWrapper:
     def __init__(self, pd_model):
         self.pd_model = pd_model
 
-    def predict(self, data):
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         import pandas as pd
         import numpy as np
 
@@ -483,6 +495,7 @@ def autolog(
     exclusive=False,
     silent=False,
     registered_model_name=None,
+    extra_tags=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from PaddlePaddle to MLflow.
@@ -507,6 +520,7 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
 
     .. code-block:: python
         :caption: Example
@@ -577,4 +591,6 @@ def autolog(
     import paddle
     from mlflow.paddle._paddle_autolog import patched_fit
 
-    safe_patch(FLAVOR_NAME, paddle.Model, "fit", patched_fit, manage_run=True)
+    safe_patch(
+        FLAVOR_NAME, paddle.Model, "fit", patched_fit, manage_run=True, extra_tags=extra_tags
+    )

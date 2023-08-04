@@ -8,7 +8,7 @@ import json
 import importlib
 import sqlite3
 
-
+import numpy as np
 import openai
 from contextlib import contextmanager
 from packaging import version
@@ -19,12 +19,12 @@ from langchain.chains import (
     LLMChain,
     RetrievalQA,
     HypotheticalDocumentEmbedder,
-    SQLDatabaseChain,
 )
 from langchain.chains.api import open_meteo_docs
 from langchain.chains.base import Chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
 from langchain.document_loaders import TextLoader
+from langchain.embeddings.base import Embeddings
 from langchain.embeddings.fake import FakeEmbeddings
 from langchain.evaluation.qa import QAEvalChain
 from langchain.llms import HuggingFacePipeline, OpenAI
@@ -34,6 +34,8 @@ from langchain.prompts import PromptTemplate
 from langchain.requests import TextRequestsWrapper
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
+from langchain_experimental.sql import SQLDatabaseChain
+from pydantic import BaseModel
 from pyspark.sql import SparkSession
 from typing import Any, List, Mapping, Optional, Dict
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -380,6 +382,114 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
     )
 
 
+# Define a special embedding for testing
+class DeterministicDummyEmbeddings(Embeddings, BaseModel):
+    size: int
+
+    def _get_embedding(self, text: str) -> List[float]:
+        seed = abs(hash(text)) % (10**8)
+        np.random.seed(seed)
+        return list(np.random.normal(size=self.size))
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        return [self._get_embedding(t) for t in texts]
+
+    def embed_query(self, text: str) -> List[float]:
+        return self._get_embedding(text)
+
+
+def assert_equal_retrievers(retriever, expected_retreiver):
+    assert isinstance(retriever, langchain.schema.retriever.BaseRetriever)
+    assert isinstance(retriever, type(expected_retreiver))
+    assert isinstance(retriever.vectorstore, type(expected_retreiver.vectorstore))
+    assert retriever.tags == expected_retreiver.tags
+    assert retriever.metadata == expected_retreiver.metadata
+    assert retriever.search_type == expected_retreiver.search_type
+    assert retriever.search_kwargs == expected_retreiver.search_kwargs
+
+
+def test_log_and_load_retriever_chain(tmp_path):
+    # Create the vector db, persist the db to a local fs folder
+    loader = TextLoader("tests/langchain/state_of_the_union.txt")
+    documents = loader.load()
+    text_splitter = CharacterTextSplitter(chunk_size=10, chunk_overlap=0)
+    docs = text_splitter.split_documents(documents)
+    embeddings = DeterministicDummyEmbeddings(size=5)
+    db = FAISS.from_documents(docs, embeddings)
+    persist_dir = str(tmp_path / "faiss_index")
+    db.save_local(persist_dir)
+
+    # Define the loader_fn
+    def load_retriever(persist_directory):
+        from typing import List  # pylint: disable=lazy-builtin-import
+
+        import numpy as np
+        from langchain.embeddings.base import Embeddings
+        from pydantic import BaseModel
+
+        class DeterministicDummyEmbeddings(Embeddings, BaseModel):
+            size: int
+
+            def _get_embedding(self, text: str) -> List[float]:
+                if isinstance(text, np.ndarray):
+                    text = text.item()
+                seed = abs(hash(text)) % (10**8)
+                np.random.seed(seed)
+                return list(np.random.normal(size=self.size))
+
+            def embed_documents(self, texts: List[str]) -> List[List[float]]:
+                return [self._get_embedding(t) for t in texts]
+
+            def embed_query(self, text: str) -> List[float]:
+                return self._get_embedding(text)
+
+        embeddings = DeterministicDummyEmbeddings(size=5)
+        vectorstore = FAISS.load_local(persist_directory, embeddings)
+        return vectorstore.as_retriever()
+
+    # Log the retriever
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(
+            db.as_retriever(),
+            "retriever",
+            loader_fn=load_retriever,
+            persist_dir=persist_dir,
+        )
+
+    # Remove the persist_dir
+    shutil.rmtree(persist_dir)
+
+    # Load the retriever
+    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
+    assert_equal_retrievers(loaded_model, db.as_retriever())
+
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+    query = "What did the president say about Ketanji Brown Jackson"
+    langchain_input = {"query": query}
+    result = loaded_pyfunc_model.predict([langchain_input])
+    expected_result = json.dumps(
+        [doc.page_content for doc in db.as_retriever().get_relevant_documents(query)]
+    )
+    assert result == [expected_result]
+
+    # Serve the retriever
+    inference_payload = json.dumps({"inputs": langchain_input})
+    response = pyfunc_serve_and_score_model(
+        logged_model.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    pred = PredictionsResponse.from_json(response.content.decode("utf-8"))["predictions"]
+    assert type(pred) == list
+    assert len(pred) == 1
+    docs_list = json.loads(pred[0])
+    assert type(docs_list) == list
+    assert len(docs_list) == 4
+    # The returned docs are non-deterministic when used with dummy embeddings,
+    # so we cannot assert pred == {"predictions": [expected_result]}
+
+
 def load_requests_wrapper(_):
     return TextRequestsWrapper(headers=None, aiosession=None)
 
@@ -399,6 +509,27 @@ def test_log_and_load_api_chain():
     # Load the chain
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
     assert loaded_model == apichain
+
+
+def test_log_and_load_subclass_of_specialized_chain():
+    class APIChainSubclass(APIChain):
+        pass
+
+    llm = OpenAI(temperature=0)
+    apichain_subclass = APIChainSubclass.from_llm_and_api_docs(
+        llm, open_meteo_docs.OPEN_METEO_DOCS, verbose=True
+    )
+
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(
+            apichain_subclass,
+            "apichain_subclass",
+            loader_fn=load_requests_wrapper,
+        )
+
+    # Load the chain
+    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
+    assert loaded_model == apichain_subclass
 
 
 def load_base_embeddings(_):
@@ -508,7 +639,7 @@ def test_unsupported_class():
     llm = FakeLLM()
     with pytest.raises(
         MlflowException,
-        match="MLflow langchain flavor only supports logging subclasses of "
+        match="MLflow langchain flavor only supports subclasses of "
         + "langchain.chains.base.Chain",
     ):
         with mlflow.start_run():
