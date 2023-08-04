@@ -64,6 +64,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
     def __init__(self, artifact_uri, credential):
         super().__init__(artifact_uri)
         _DEFAULT_TIMEOUT = 600  # 10 minutes
+        self.credential = credential
         self.write_timeout = MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT
 
         (filesystem, account_name, path) = _parse_abfss_uri(artifact_uri)
@@ -72,6 +73,17 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         data_lake_client = _get_data_lake_client(account_url=account_url, credential=credential)
         self.fs_client = data_lake_client.get_file_system_client(filesystem)
         self.base_data_lake_directory = path
+
+        from azure.storage.blob import BlobServiceClient
+        (container, account_name, path) = _parse_abfss_uri(self.artifact_uri)
+        account_url = f"https://{account_name}.{path}"
+        azure_blob_storage_client = BlobServiceClient(
+            account_url=account_url,
+            credential=credential,
+            # connection_verify=_get_default_host_creds(artifact_uri).verify,
+        )
+        self.container_client = azure_blob_Storage_client.client.get_container_client(container)
+
 
     def log_artifact(self, local_file, artifact_path=None):
         raise NotImplementedError(
@@ -196,7 +208,8 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         try:
             # headers = self._extract_headers_from_credentials(self.credentials.headers)
 
-            headers = self._extract_headers_from_credentials(self.credentials)
+
+            # headers = self._extract_headers_from_credentials(self.credentials)
 
         except Exception as err:
             raise MlflowException(err)

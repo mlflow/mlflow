@@ -10,6 +10,9 @@ from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 
 from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 
+def get_account_url():
+    pass
+
 
 class AzureBlobArtifactRepository(ArtifactRepository):
     """
@@ -179,3 +182,8 @@ class AzureBlobArtifactRepository(ArtifactRepository):
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")
+
+    @staticmethod
+    def from_adls_url(self, adls_artifact_uri):
+
+
