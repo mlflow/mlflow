@@ -106,6 +106,7 @@ class ArtifactRepository:
                     src_file_path=file_path,
                     dst_artifact_dir=artifact_subdir,
                 )
+                # print(f"Appending a staged upload from local path {file_path} to artifact path {artifact_path}")
                 staged_uploads.append(
                     StagedArtifactUpload(
                         src_file_path=file_path,

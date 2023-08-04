@@ -149,7 +149,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
             return []
         return sorted(infos, key=lambda f: f.path)
 
-    def _download_file_legacy(self, remote_file_path, local_path):
+    def _download_file(self, remote_file_path, local_path):
         remote_full_path = posixpath.join(self.base_data_lake_directory, remote_file_path)
         base_dir = posixpath.dirname(remote_full_path)
         dir_client = self.fs_client.get_directory_client(base_dir)
@@ -158,7 +158,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         with open(local_path, "wb") as file:
             file_client.download_file().readinto(file)
 
-    def _download_file(self, remote_file_path, local_path):
+    def _download_file_new(self, remote_file_path, local_path):
         remote_full_path = posixpath.join(
             self.base_data_lake_directory, remote_file_path
         )
@@ -189,6 +189,12 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
                 read_credentials[0], file_size, local_path, remote_file_path
             )
 
+    def _extract_headers_from_credentials(self, headers):
+        """
+        :return: A python dictionary of http headers converted from the protobuf credentials
+        """
+        return {header.name: header.value for header in headers}
+
     def _parallelized_download_from_cloud(
             self, cloud_credential_info, file_size, dst_local_file_path, dst_run_relative_artifact_path
     ):
@@ -207,7 +213,8 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
                 uri_type=cloud_credential_info.type,
                 chunk_size=_DOWNLOAD_CHUNK_SIZE,
                 env=parallel_download_subproc_env,
-                headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
+                headers={}
+                # headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
             download_errors = [
                 e for e in failed_downloads.values() if e["error_status_code"] not in (401, 403)
@@ -352,7 +359,9 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         print(f"Returning {len(res)} credential infos")
         return res
 
-    def _upload_to_cloud(self, local_path, remote_path, credential_info):
+    def _upload_to_cloud(
+            self, cloud_credential_info, src_file_path, artifact_path
+    ):
         self._azure_adls_gen2_upload_file(
-            credentials=credential_info, local_file=local_path, artifact_path=remote_path
+            credentials=cloud_credential_info, local_file=src_file_path, artifact_path=artifact_path
         )
