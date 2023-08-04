@@ -15,6 +15,8 @@ from mlflow.store.artifact.databricks_artifact_repo import (
     _MULTIPART_UPLOAD_CHUNK_SIZE,
     _compute_num_chunks,
     _complete_futures,
+    _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE,
+    MLFLOW_ENABLE_MULTIPART_DOWNLOAD
 )
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 
@@ -74,6 +76,8 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
 
         (filesystem, account_name, path) = _parse_abfss_uri(artifact_uri)
 
+        # Note: this might actually be broken as is. We should set the account URL based on whether the
+        # abfss URI is associated with an Azure account in standard Azure, govcloud, mooncake, etc?
         account_url = f"https://{account_name}.dfs.core.windows.net"
         data_lake_client = _get_data_lake_client(account_url=account_url, credential=credential)
         self.fs_client = data_lake_client.get_file_system_client(filesystem)
@@ -142,7 +146,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
             return []
         return sorted(infos, key=lambda f: f.path)
 
-    def _download_file(self, remote_file_path, local_path):
+    def _download_file_legacy(self, remote_file_path, local_path):
         remote_full_path = posixpath.join(self.base_data_lake_directory, remote_file_path)
         base_dir = posixpath.dirname(remote_full_path)
         dir_client = self.fs_client.get_directory_client(base_dir)
@@ -150,6 +154,82 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         file_client = dir_client.get_file_client(filename)
         with open(local_path, "wb") as file:
             file_client.download_file().readinto(file)
+
+    def _download_file(self, remote_file_path, local_path):
+        run_relative_remote_file_path = posixpath.join(
+            self.run_relative_artifact_repo_root_path, remote_file_path
+        )
+        read_credentials = self._get_read_credential_infos(
+            run_id=self.run_id, paths=[run_relative_remote_file_path]
+        )
+        # Read credentials for only one file were requested. So we expected only one value in
+        # the response.
+        assert len(read_credentials) == 1
+
+        # list_artifacts API only returns a list of FileInfos at the specified path
+        # if it's a directory. To get file size, we need to iterate over FileInfos
+        # contained by the parent directory. A bad path could result in there being
+        # no matching FileInfos (by path), so fall back to None size to prevent
+        # parallelized download.
+        parent_dir = posixpath.dirname(remote_file_path)
+        file_infos = self.list_artifacts(parent_dir)
+        file_info = [info for info in file_infos if info.path == remote_file_path]
+        file_size = file_info[0].file_size if len(file_info) == 1 else None
+        if (
+                not file_size
+                or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE
+                or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
+        ):
+            self._download_file_legacy(remote_file_path=remote_file_path, local_path=local_path)
+        else:
+            self._parallelized_download_from_cloud(
+                read_credentials[0], file_size, local_path, remote_file_path
+            )
+
+    def _parallelized_download_from_cloud(
+            self, cloud_credential_info, file_size, dst_local_file_path, dst_run_relative_artifact_path
+    ):
+        from mlflow.utils.databricks_utils import get_databricks_env_vars
+
+        try:
+            parallel_download_subproc_env = os.environ.copy()
+            parallel_download_subproc_env.update(
+                get_databricks_env_vars(self.databricks_profile_uri)
+            )
+            failed_downloads = parallelized_download_file_using_http_uri(
+                thread_pool_executor=self.chunk_thread_pool,
+                http_uri=cloud_credential_info.signed_uri,
+                download_path=dst_local_file_path,
+                file_size=file_size,
+                uri_type=cloud_credential_info.type,
+                chunk_size=_DOWNLOAD_CHUNK_SIZE,
+                env=parallel_download_subproc_env,
+                headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
+            )
+            download_errors = [
+                e for e in failed_downloads.values() if e["error_status_code"] not in (401, 403)
+            ]
+            if download_errors:
+                raise MlflowException(
+                    f"Failed to download artifact {dst_run_relative_artifact_path}: "
+                    f"{download_errors}"
+                )
+
+            if failed_downloads:
+                new_cloud_creds = self._get_read_credential_infos(
+                    self.run_id, [dst_run_relative_artifact_path]
+                )[0]
+                new_signed_uri = new_cloud_creds.signed_uri
+                new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
+
+            for i in failed_downloads:
+                download_chunk(
+                    i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
+                )
+        except Exception as err:
+            if os.path.exists(dst_local_file_path):
+                os.remove(dst_local_file_path)
+            raise MlflowException(err)
 
     def delete_artifacts(self, artifact_path=None):
         raise NotImplementedError("This artifact repository does not support deleting artifacts")
@@ -168,6 +248,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
                 sas_url=credentials.signed_uri,
                 headers=headers,
             )
+            print(f"Created file {artifact_path} from {local_file}")
 
             # next try to append the file
             futures = {}
@@ -208,7 +289,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         except Exception as err:
             raise MlflowException(err)
 
-    def _get_multipart_upload_credentials(self, artifact_path):
+    def _get_presigned_uri(self, artifact_path):
         """
         Gets the presigned URL required to upload a file to a given Azure storage location.
         """
@@ -230,6 +311,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
 
             sas_token = self.credential.signature
             presigned_url = f"https://{self.account_name}.blob.core.windows.net/{self.container}/{artifact_path}?{sas_token}"
+            print(f"Returning presigned upload URI {presigned_url}")
             return presigned_url
         except Exception as err:
             raise MlflowException(err)
@@ -254,16 +336,18 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
     #             rel_path = os.path.relpath(local_file, local_dir)
     #             remote_file_path = posixpath.join(artifact_path, rel_path)
     #             self._azure_adls_gen2_upload_file(
-    #                 credentials=self._get_multipart_upload_credentials(remote_file_path),
+    #                 credentials=self._get_presigned_uri(remote_file_path),
     #                 local_file=local_file,
     #                 artifact_path=remote_file_path,
     #             )
 
     def _get_write_credential_infos(self, paths) -> list[ArtifactCredentialInfo]:
-        return [
-            ArtifactCredentialInfo(signed_uri=self._get_multipart_upload_credentials(path))
+        res = [
+            ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path))
             for path in paths
         ]
+        print(f"Returning {len(res)} credential infos")
+        return res
 
     def _upload_to_cloud(self, local_path, remote_path, credential_info):
         self._azure_adls_gen2_upload_file(
