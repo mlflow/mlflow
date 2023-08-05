@@ -17,11 +17,11 @@ from mlflow.store.artifact.databricks_artifact_repo import (
     _complete_futures,
     _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE,
     MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
-    _DOWNLOAD_CHUNK_SIZE
+    _DOWNLOAD_CHUNK_SIZE,
 )
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.utils.file_utils import parallelized_download_file_using_http_uri, download_chunk
-
+from typing import List
 
 
 def _parse_abfss_uri(uri):
@@ -97,7 +97,9 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
             # connection_verify=_get_default_host_creds(artifact_uri).verify,
         )
         self.container = container
-        print("Got container {} and account url {}, and path {}".format(container, account_url, path))
+        print(
+            "Got container {} and account url {}, and path {}".format(container, account_url, path)
+        )
         self.container_client = azure_blob_storage_client.get_container_client(container)
         # Use an isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
         # caused by waiting for a chunk-upload/download task within a file-upload/download task.
@@ -165,12 +167,13 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
             file_client.download_file().readinto(file)
 
     def _download_file(self, remote_file_path, local_path):
-        remote_full_path = posixpath.join(
-            self.base_data_lake_directory, remote_file_path
-        )
-        read_credentials = self._get_read_credential_infos(
-            paths=[remote_full_path]
-        )
+        # TODO add back some logic to handle downloading artifacts from an artifact
+        # repo that's not at the root of the run? Don't think it makes sense to have
+        # that logic since this repo is unaware of runs.
+        # remote_full_path = posixpath.join(
+        #     self.base_data_lake_directory, remote_file_path
+        # )
+        read_credentials = self._get_read_credential_infos(paths=[remote_file_path])
         # Read credentials for only one file were requested. So we expected only one value in
         # the response.
         assert len(read_credentials) == 1
@@ -184,13 +187,17 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         file_infos = self.list_artifacts(parent_dir)
         file_info = [info for info in file_infos if info.path == remote_file_path]
         file_size = file_info[0].file_size if len(file_info) == 1 else None
-        if (
-                not file_size
-                or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE
-                or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
-        ):
+        # if (
+        #         not file_size
+        #         or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE
+        #         or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
+        # ):
+        if False:
             self._download_file_legacy(remote_file_path=remote_file_path, local_path=local_path)
         else:
+            print(
+                f"Calling parallelized download from cloud with file size {file_size}, local path {local_path}, remote file path {remote_file_path}, signed URI: {read_credentials[0].signed_uri}"
+            )
             self._parallelized_download_from_cloud(
                 read_credentials[0], file_size, local_path, remote_file_path
             )
@@ -202,7 +209,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         return {header.name: header.value for header in headers}
 
     def _parallelized_download_from_cloud(
-            self, cloud_credential_info, file_size, dst_local_file_path, dst_run_relative_artifact_path
+        self, cloud_credential_info, file_size, dst_local_file_path, dst_run_relative_artifact_path
     ):
         from mlflow.utils.databricks_utils import get_databricks_env_vars
 
@@ -232,9 +239,9 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
                 )
 
             if failed_downloads:
-                new_cloud_creds = self._get_read_credential_infos(
-                    [dst_run_relative_artifact_path]
-                )[0]
+                new_cloud_creds = self._get_read_credential_infos([dst_run_relative_artifact_path])[
+                    0
+                ]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
 
@@ -260,9 +267,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
                 #     "Failed to authorize ADLS operation, possibly due "
                 #     "to credential expiration. Refreshing credentials and trying again..."
                 # )
-                new_credentials = self._get_write_credential_infos(
-                    paths=[artifact_path]
-                )[0]
+                new_credentials = self._get_write_credential_infos(paths=[artifact_path])[0]
                 kwargs["sas_url"] = new_credentials.signed_uri
                 func(**kwargs)
             else:
@@ -347,7 +352,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
 
             sas_token = self.credential.signature
             presigned_url = f"https://{self.account_name}.dfs.core.windows.net/{self.container}/{self.base_data_lake_directory}/{artifact_path}?{sas_token}"
-            print(f"Returning presigned upload URI {presigned_url}")
+            print(f"Returning presigned URI {presigned_url}")
             return presigned_url
         except Exception as err:
             raise MlflowException(err)
@@ -377,26 +382,18 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
     #                 artifact_path=remote_file_path,
     #             )
 
-    def _get_write_credential_infos(self, paths) -> list[ArtifactCredentialInfo]:
-        res = [
-            ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path))
-            for path in paths
-        ]
+    def _get_write_credential_infos(self, paths) -> List[ArtifactCredentialInfo]:
+        res = [ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path)) for path in paths]
         # print(f"Returning {len(res)} credential infos")
         return res
 
-    def _get_read_credential_infos(self, paths) -> list[ArtifactCredentialInfo]:
-        res = [
-            ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path))
-            for path in paths
-        ]
+    def _get_read_credential_infos(self, paths) -> List[ArtifactCredentialInfo]:
+        res = [ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path)) for path in paths]
         # print(f"Returning {len(res)} credential infos")
         return res
 
     # Called in parallel on batches of files in log_artifacts_parallel
-    def _upload_to_cloud(
-            self, cloud_credential_info, src_file_path, artifact_path
-    ):
+    def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_path):
         self._azure_adls_gen2_upload_file(
             credentials=cloud_credential_info, local_file=src_file_path, artifact_path=artifact_path
         )

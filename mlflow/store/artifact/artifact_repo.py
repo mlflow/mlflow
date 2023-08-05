@@ -108,7 +108,9 @@ class ArtifactRepository:
                     src_file_path=file_path,
                     dst_artifact_dir=artifact_subdir,
                 )
-                print(f"Appending a staged upload from local path {file_path} to artifact path {repo_relative_artifact_path}")
+                print(
+                    f"Appending a staged upload from local path {file_path} to artifact path {repo_relative_artifact_path}"
+                )
                 staged_uploads.append(
                     StagedArtifactUpload(
                         src_file_path=file_path,
@@ -123,10 +125,7 @@ class ArtifactRepository:
         # and wait for completion
         def get_creds_and_upload(staged_upload_chunk):
             write_credential_infos = self._get_write_credential_infos(
-                paths=[
-                    staged_upload.artifact_path
-                    for staged_upload in staged_upload_chunk
-                ],
+                paths=[staged_upload.artifact_path for staged_upload in staged_upload_chunk],
             )
 
             inflight_uploads = {}
@@ -168,9 +167,7 @@ class ArtifactRepository:
         """
         pass
 
-    def _upload_to_cloud(
-        self, cloud_credential_info, src_file_path, artifact_path
-    ):
+    def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_path):
         """
         Upload a single file to the cloud.
         :param cloud_credential_info: ArtifactCredentialInfo containing presigned URL for the current file
