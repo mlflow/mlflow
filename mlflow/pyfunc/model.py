@@ -201,7 +201,7 @@ def _save_model_with_class_artifacts_params(
     mlflow_model=None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    inference_config=None
+    inference_config=None,
 ):
     """
     :param path: The path to which to save the Python model.
@@ -315,7 +315,7 @@ def _save_model_with_class_artifacts_params(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _load_pyfunc(model_path:str, inference_config: Dict[str, None]=None):
+def _load_pyfunc(model_path: str, inference_config: Dict[str, None] = None):
     pyfunc_config = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
@@ -358,6 +358,7 @@ def _load_pyfunc(model_path:str, inference_config: Dict[str, None]=None):
     return _PythonModelPyfuncWrapper(
         python_model=python_model, context=context, signature=signature
     )
+
 
 def _get_first_string_column(pdf):
     iter_string_columns = (col for col, val in pdf.iloc[0].items() if isinstance(val, str))

@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -121,23 +122,25 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
         code_dir_subpath = None
     return code_dir_subpath
 
+
 def _validate_inference_config(inference_config):
     """
     Validates the values passes in the inference_config section. There are no typing
     restrictions by we require them being JSON-serializable.
     """
-    import json
-
     def is_jsonable(value):
         try:
             json.dumps(value)
             return True
         except (TypeError, OverflowError):
             return False
-        
+
     if inference_config and not is_jsonable(inference_config):
-        raise MlflowException("Some of the values indicated in ``inference_config`` are not "
-                              "supported. Only JSON-serializable data types can be indicated.")
+        raise MlflowException(
+            "Some of the values indicated in ``inference_config`` are not "
+            "supported. Only JSON-serializable data types can be indicated."
+        )
+
 
 def _add_code_to_system_path(code_path):
     sys.path = [code_path] + sys.path
