@@ -35,9 +35,9 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
+from mlflow.utils.annotations import experimental
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
-CONFIG_KEY_INFERENCE_CONFIG = "inference_config"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
 CONFIG_KEY_ARTIFACT_URI = "uri"
 CONFIG_KEY_PYTHON_MODEL = "python_model"
@@ -179,6 +179,7 @@ class PythonModelContext:
         """
         return self._artifacts
 
+    @experimental
     @property
     def inference_config(self):
         """
@@ -222,7 +223,11 @@ def _save_model_with_class_artifacts_params(
                        containing file dependencies). These files are *prepended* to the system
                        path before the model is loaded.
     :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
-    :param inference_config: The inference configuratio for the model
+    :param inference_config: The inference configuration to apply to the model. Inference
+                             configuration is available during model loading time.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     """
     if mlflow_model is None:
         mlflow_model = Model()
@@ -271,6 +276,7 @@ def _save_model_with_class_artifacts_params(
         code=saved_code_subpath,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
+        inference_config=inference_config,
         **custom_model_config_kwargs,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))

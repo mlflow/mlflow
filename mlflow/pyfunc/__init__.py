@@ -284,6 +284,7 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration_from_ml_model_file,
     _validate_and_prepare_target_save_path,
+    _validate_inference_config,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 from mlflow.utils.requirements_utils import (
@@ -315,7 +316,8 @@ _logger = logging.getLogger(__name__)
 
 
 def add_to_model(
-    model, loader_module, data=None, code=None, conda_env=None, python_env=None, inference_config=None, **kwargs
+    model, loader_module, data=None, code=None, conda_env=None, python_env=None,
+    inference_config=None, **kwargs
 ):
     """
     Add a ``pyfunc`` spec to the model configuration.
@@ -337,6 +339,11 @@ def add_to_model(
     :param req: pip requirements file.
     :param kwargs: Additional key-value pairs to include in the ``pyfunc`` flavor specification.
                    Values must be YAML-serializable.
+    :param inference_config: The inference configuration to apply to the model. Inference
+                             configuration is available during model loading time.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     :return: Updated model configuration.
     """
     params = deepcopy(kwargs)
@@ -534,6 +541,7 @@ class PyFuncModel:
             raise MlflowException("Model is missing metadata.")
         return self._model_meta
 
+    @experimental
     @property
     def inference_config(self):
         """Model's inference config"""
@@ -617,6 +625,11 @@ def load_model(
     :param dst_path: The local filesystem path to which to download the model artifact.
                      This directory must already exist. If unspecified, a local output
                      path will be created.
+    :param inference_config: The inference configuration to apply to the model. Inference
+                             configuration is available during model loading time.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     """
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
@@ -721,7 +734,7 @@ class _ServedPyFuncModel(PyFuncModel):
         return self._server_pid
 
 
-def _load_model_or_server(model_uri: str, env_manager: str):
+def _load_model_or_server(model_uri: str, env_manager: str, inference_config: Dict[str, Any]=None):
     """
     Load a model with env restoration. If a non-local ``env_manager`` is specified, prepare an
     independent Python environment with the training time dependencies of the specified model
@@ -731,12 +744,14 @@ def _load_model_or_server(model_uri: str, env_manager: str):
 
     :param model_uri: The uri of the model.
     :param env_manager: The environment manager to load the model.
+    :param inference_config: The inference configuration to use by the model, only if the model 
+                             accepts it.
     :return: A _ServedPyFuncModel for non-local ``env_manager``s or a PyFuncModel otherwise.
     """
     from mlflow.pyfunc.scoring_server.client import ScoringServerClient, StdinScoringServerClient
 
     if env_manager == _EnvManager.LOCAL:
-        return load_model(model_uri)
+        return load_model(model_uri, inference_config=inference_config)
 
     _logger.info("Starting model server for model environment restoration.")
 
@@ -1647,6 +1662,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    inference_config=None,
     **kwargs,
 ):
     """
@@ -1786,8 +1802,14 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+    :param inference_config: The inference configuration to apply to the model. Inference
+                             configuration is available during model loading time.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    _validate_inference_config(inference_config)
     if python_model:
         _validate_function_python_model(python_model)
         if callable(python_model) and all(
@@ -2049,7 +2071,11 @@ def log_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
-    :param inference_config: The inference configuration used to run this model.
+    :param inference_config: The inference configuration to apply to the model. Inference
+                             configuration is available during model loading time.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """

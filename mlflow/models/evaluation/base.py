@@ -1046,6 +1046,7 @@ def evaluate(
     validation_thresholds=None,
     baseline_model=None,
     env_manager="local",
+    inference_config=None,
 ):
     '''
     Evaluate a PyFunc model on the specified dataset using one or more specified ``evaluators``, and
@@ -1460,6 +1461,8 @@ def evaluate(
                          - ``local``: Use the current Python environment for model inference, which
                            may differ from the environment used to train the model and may lead to
                            errors or invalid predictions.
+    :param inference_config: the inference configuration to use for loading the model. Only if the
+                             model accepts it.
 
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              metrics of candidate model and baseline model, and artifacts of candidate model.
@@ -1487,7 +1490,7 @@ def evaluate(
                 )
 
     if isinstance(model, str):
-        model = _load_model_or_server(model, env_manager)
+        model = _load_model_or_server(model, env_manager, inference_config)
     elif env_manager != _EnvManager.LOCAL:
         raise MlflowException(
             message="The model argument must be a string URI referring to an MLflow model when a "
@@ -1518,7 +1521,7 @@ def evaluate(
             )
 
     if isinstance(baseline_model, str):
-        baseline_model = _load_model_or_server(baseline_model, env_manager)
+        baseline_model = _load_model_or_server(baseline_model, env_manager, inference_config)
     elif baseline_model is not None:
         raise MlflowException(
             message="The baseline model argument must be a string URI referring to an "
