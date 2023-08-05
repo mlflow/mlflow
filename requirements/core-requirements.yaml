@@ -41,7 +41,7 @@ sqlalchemy:
 
 gunicorn:
   pip_release: gunicorn
-  max_major_version: 20
+  max_major_version: 21
   markers: "platform_system != 'Windows'"
 
 waitress:
