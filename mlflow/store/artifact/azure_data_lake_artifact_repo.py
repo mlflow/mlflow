@@ -97,7 +97,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
             # connection_verify=_get_default_host_creds(artifact_uri).verify,
         )
         self.container = container
-        print("Got container {} and account url {}".format(container, account_url))
+        print("Got container {} and account url {}, and path {}".format(container, account_url, path))
         self.container_client = azure_blob_storage_client.get_container_client(container)
 
     def log_artifact(self, local_file, artifact_path=None):
@@ -214,7 +214,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
                 uri_type=cloud_credential_info.type,
                 chunk_size=_DOWNLOAD_CHUNK_SIZE,
                 env=parallel_download_subproc_env,
-                headers={}
+                headers={"x-ms-blob-type": "BlockBlob"},
                 # headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
             download_errors = [
@@ -269,6 +269,8 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         """
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
+            headers["x-ms-blob-type"] = "BlockBlob"
+            print("Making upload request with headers %s" % headers)
 
             # try to create the file
             self._retryable_adls_function(
@@ -339,7 +341,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
             #                                    expiry=datetime.utcnow() + timedelta(hours=1))
 
             sas_token = self.credential.signature
-            presigned_url = f"https://{self.account_name}.blob.core.windows.net/{self.container}/{artifact_path}?{sas_token}"
+            presigned_url = f"https://{self.account_name}.blob.core.windows.net/{self.container}/{self.base_data_lake_directory}/{artifact_path}?{sas_token}"
             print(f"Returning presigned upload URI {presigned_url}")
             return presigned_url
         except Exception as err:

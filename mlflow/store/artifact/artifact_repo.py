@@ -68,15 +68,16 @@ class ArtifactRepository:
         """
         basename = os.path.basename(src_file_path)
         dst_artifact_dir = dst_artifact_dir or ""
+        # TODO dst_artifact_dir seems misnamed
         dst_artifact_dir = posixpath.join(dst_artifact_dir, basename)
-        print("Got basename ")
-        if len(dst_artifact_dir) > 0:
-            repo_relative_artifact_path = posixpath.join(
-                dst_artifact_dir, src_file_path
-            )
-        else:
-            repo_relative_artifact_path = src_file_path
-        return repo_relative_artifact_path
+        return dst_artifact_dir
+        # if len(dst_artifact_dir) > 0:
+        #     repo_relative_artifact_path = posixpath.join(
+        #         dst_artifact_dir, src_file_path
+        #     )
+        # else:
+        #     repo_relative_artifact_path = src_file_path
+        # return repo_relative_artifact_path
 
     def log_artifacts_parallel(self, local_dir, artifact_path=None):
         """
