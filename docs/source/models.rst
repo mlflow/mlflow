@@ -914,6 +914,29 @@ Furthermore, if you want to run model inference in the same environment used in 
 from the `conda.yaml` file, ensuring that the python UDF will execute with the exact package versions that were used
 during training.
 
+Some PyFunc models may accept inference configuration, which controls how the model is loaded and how inference is
+performed. This capability is in active development and is marked as Experimental. You can learn which inference
+configuration the model supports be inspecting the model's flavor metadata:
+
+.. code-block:: python
+    model_info = mlflow.models.get_model_info(model_uri)
+    model_info.flavors[mlflow.pyfunc.FLAVOR_NAME][mlflow.pyfunc.INFERENCE_CONFIG]
+
+Alternatively, you can load the PyFunc model and inspect the `inference_config` property:
+
+.. code-block:: python
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri)
+    pyfunc_model.inference_config
+
+To change the inference configuration, use `inference_config` parameter in the :py:func:`mlflow.pyfunc.load_model`
+method:
+
+.. code-block:: python
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri, inference_config=dict(temperature=0.93))
+
+Indicating an invalid inference configuration for a model results in that configuration being ignored. A warning
+is displayed mentioning the ignored keys.
+
 
 R Function (``crate``)
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -2912,11 +2935,18 @@ Using inference_config and model signature params for `transformers` inference
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 For `transformers` inference, there are two ways to pass in additional arguments to the pipeline.
 
-* Use ``inference_config`` when saving/logging the model
+* Use ``inference_config`` when saving/logging the model. Optionally, specify ``inference_config`` when calling ``load_model``.
 * Specify params at inference time when calling ``predict()``
 
+Use ``inference_config`` to control how the model is loaded and inference performed for all input samples. Configuration in
+``inference_config`` is not overridable at ``predict()`` time unless a ``ModelSignature`` is indicated with the same parameters.
+
+Use ``ModelSignature`` with params schema to allow downstream consumers to provide additional inference params that
+may be needed to compute the predictions. Optionally, they can override any value at ``inference_config`` if the same keys
+are present in the signature.
+
 .. note::
-    If both ``inference_config`` and ``ModelSignature`` with schema are saved when logging model, both of them
+    If both ``inference_config`` and ``ModelSignature`` with params are saved when logging model, both of them
     will be used for inference. The default params in ``ModelSignature`` will override the params in ``inference_config``.
     If extra ``params`` are provided at inference time, they take precedence over all params.
 
@@ -2963,6 +2993,12 @@ For `transformers` inference, there are two ways to pass in additional arguments
     # inference_config will be applied
     result = pyfunc_loaded.predict(data)
 
+    # overriding some inference configuration with diferent values
+    pyfunc_loaded = mlflow.pyfunc.load_model("text2text", inference_config=dict(do_sample=False))
+
+.. note::
+    Note that in the previous example, the user can't override the configuration ``do_sample``
+    when calling ``predict``.
 
 * Specifying params at inference time
 
