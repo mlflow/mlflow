@@ -208,9 +208,9 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
 
         try:
             parallel_download_subproc_env = os.environ.copy()
-            parallel_download_subproc_env.update(
-                get_databricks_env_vars(self.databricks_profile_uri)
-            )
+            # parallel_download_subproc_env.update(
+            #     get_databricks_env_vars(self.databricks_profile_uri)
+            # )
             failed_downloads = parallelized_download_file_using_http_uri(
                 thread_pool_executor=self.chunk_thread_pool,
                 http_uri=cloud_credential_info.signed_uri,
