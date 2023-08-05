@@ -97,9 +97,6 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
             # connection_verify=_get_default_host_creds(artifact_uri).verify,
         )
         self.container = container
-        print(
-            "Got container {} and account url {}, and path {}".format(container, account_url, path)
-        )
         self.container_client = azure_blob_storage_client.get_container_client(container)
         # Use an isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
         # caused by waiting for a chunk-upload/download task within a file-upload/download task.
@@ -187,17 +184,13 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         file_infos = self.list_artifacts(parent_dir)
         file_info = [info for info in file_infos if info.path == remote_file_path]
         file_size = file_info[0].file_size if len(file_info) == 1 else None
-        # if (
-        #         not file_size
-        #         or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE
-        #         or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
-        # ):
-        if False:
+        if (
+                not file_size
+                or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE
+                or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
+        ):
             self._download_file_legacy(remote_file_path=remote_file_path, local_path=local_path)
         else:
-            print(
-                f"Calling parallelized download from cloud with file size {file_size}, local path {local_path}, remote file path {remote_file_path}, signed URI: {read_credentials[0].signed_uri}"
-            )
             self._parallelized_download_from_cloud(
                 read_credentials[0], file_size, local_path, remote_file_path
             )
@@ -279,9 +272,6 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         """
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
-            # headers["x-ms-blob-type"] = "BlockBlob"
-            # print("Making upload request with headers %s" % headers)
-
             # try to create the file
             self._retryable_adls_function(
                 func=put_adls_file_creation,
@@ -289,8 +279,6 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
                 sas_url=credentials.signed_uri,
                 headers=headers,
             )
-            print(f"Created file {artifact_path} from {local_file}")
-
             # next try to append the file
             futures = {}
             file_size = os.path.getsize(local_file)
@@ -352,7 +340,6 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
 
             sas_token = self.credential.signature
             presigned_url = f"https://{self.account_name}.dfs.core.windows.net/{self.container}/{self.base_data_lake_directory}/{artifact_path}?{sas_token}"
-            print(f"Returning presigned URI {presigned_url}")
             return presigned_url
         except Exception as err:
             raise MlflowException(err)
@@ -384,12 +371,10 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
 
     def _get_write_credential_infos(self, paths) -> List[ArtifactCredentialInfo]:
         res = [ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path)) for path in paths]
-        # print(f"Returning {len(res)} credential infos")
         return res
 
     def _get_read_credential_infos(self, paths) -> List[ArtifactCredentialInfo]:
         res = [ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path)) for path in paths]
-        # print(f"Returning {len(res)} credential infos")
         return res
 
     # Called in parallel on batches of files in log_artifacts_parallel

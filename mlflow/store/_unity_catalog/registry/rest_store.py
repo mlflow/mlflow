@@ -568,8 +568,10 @@ class UcModelRegistryStore(BaseRestStore):
             store = get_artifact_repo_from_storage_info(
                 storage_location=model_version.storage_location, scoped_token=scoped_token
             )
-            # TODO: get presigend URLs from the backend for uploading model version files
+            import time
+            s = time.time()
             store.log_artifacts_parallel(local_dir=local_model_dir, artifact_path="")
+            print(f"Uploading artifacts to UC took {time.time() - s} seconds")
             finalized_mv = self._finalize_model_version(name=full_name, version=version_number)
             return model_version_from_uc_proto(finalized_mv)
 
