@@ -26,16 +26,18 @@ def put_adls_file_creation(sas_url, headers):
     """
     request_url = _append_query_parameters(sas_url, {"resource": "file"})
 
-    request_headers = {}
+    request_headers = {"Content-Length": "0"}
     for name, value in headers.items():
         if _is_valid_adls_put_header(name):
             request_headers[name] = value
         else:
             _logger.debug("Removed unsupported '%s' header for ADLS Gen2 Put operation", name)
 
+    print("PUT request to azure storage with URL {} and headers {}".format(request_url, request_headers))
     with rest_utils.cloud_storage_http_request(
         "put", request_url, headers=request_headers
     ) as response:
+        print(f"Got response status code {response.status_code} and content {response.content}")
         rest_utils.augmented_raise_for_status(response)
 
 
@@ -66,6 +68,7 @@ def patch_adls_file_upload(sas_url, local_file, start_byte, size, position, head
             _logger.debug("Removed unsupported '%s' header for ADLS Gen2 Patch operation", name)
 
     data = read_chunk(local_file, size, start_byte)
+    print("PATCH request to azure storage with URL {} and headers {}".format(request_url, request_headers))
     with rest_utils.cloud_storage_http_request(
         "patch", request_url, data=data, headers=request_headers
     ) as response:
@@ -118,6 +121,7 @@ def put_block(sas_url, block_id, data, headers):
         else:
             _logger.debug("Removed unsupported '%s' header for Put Block operation", name)
 
+    print(f"Posting request to azure storage with URL {request_url} and headers {request_headers}")
     with rest_utils.cloud_storage_http_request(
         "put", request_url, data=data, headers=request_headers
     ) as response:

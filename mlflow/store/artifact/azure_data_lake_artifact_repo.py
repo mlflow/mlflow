@@ -99,6 +99,11 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         self.container = container
         print("Got container {} and account url {}, and path {}".format(container, account_url, path))
         self.container_client = azure_blob_storage_client.get_container_client(container)
+        # Use an isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
+        # caused by waiting for a chunk-upload/download task within a file-upload/download task.
+        # See https://superfastpython.com/threadpoolexecutor-deadlock/#Deadlock_1_Submit_and_Wait_for_a_Task_Within_a_Task
+        # for more details
+        self.chunk_thread_pool = self._create_thread_pool()
 
     def log_artifact(self, local_file, artifact_path=None):
         raise NotImplementedError(
@@ -150,7 +155,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
             return []
         return sorted(infos, key=lambda f: f.path)
 
-    def _download_file(self, remote_file_path, local_path):
+    def _download_file_legacy(self, remote_file_path, local_path):
         remote_full_path = posixpath.join(self.base_data_lake_directory, remote_file_path)
         base_dir = posixpath.dirname(remote_full_path)
         dir_client = self.fs_client.get_directory_client(base_dir)
@@ -159,12 +164,12 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         with open(local_path, "wb") as file:
             file_client.download_file().readinto(file)
 
-    def _download_file_new(self, remote_file_path, local_path):
+    def _download_file(self, remote_file_path, local_path):
         remote_full_path = posixpath.join(
             self.base_data_lake_directory, remote_file_path
         )
         read_credentials = self._get_read_credential_infos(
-            run_id=self.run_id, paths=[remote_full_path]
+            paths=[remote_full_path]
         )
         # Read credentials for only one file were requested. So we expected only one value in
         # the response.
@@ -214,8 +219,8 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
                 uri_type=cloud_credential_info.type,
                 chunk_size=_DOWNLOAD_CHUNK_SIZE,
                 env=parallel_download_subproc_env,
-                headers={"x-ms-blob-type": "BlockBlob"},
-                # headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
+                # headers={"x-ms-blob-type": "BlockBlob"},
+                headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
             download_errors = [
                 e for e in failed_downloads.values() if e["error_status_code"] not in (401, 403)
@@ -228,15 +233,15 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
 
             if failed_downloads:
                 new_cloud_creds = self._get_read_credential_infos(
-                    self.run_id, [dst_run_relative_artifact_path]
+                    [dst_run_relative_artifact_path]
                 )[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
 
-            for i in failed_downloads:
-                download_chunk(
-                    i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
-                )
+                for i in failed_downloads:
+                    download_chunk(
+                        i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
+                    )
         except Exception as err:
             if os.path.exists(dst_local_file_path):
                 os.remove(dst_local_file_path)
@@ -269,8 +274,8 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         """
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
-            headers["x-ms-blob-type"] = "BlockBlob"
-            print("Making upload request with headers %s" % headers)
+            # headers["x-ms-blob-type"] = "BlockBlob"
+            # print("Making upload request with headers %s" % headers)
 
             # try to create the file
             self._retryable_adls_function(
@@ -341,7 +346,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
             #                                    expiry=datetime.utcnow() + timedelta(hours=1))
 
             sas_token = self.credential.signature
-            presigned_url = f"https://{self.account_name}.blob.core.windows.net/{self.container}/{self.base_data_lake_directory}/{artifact_path}?{sas_token}"
+            presigned_url = f"https://{self.account_name}.dfs.core.windows.net/{self.container}/{self.base_data_lake_directory}/{artifact_path}?{sas_token}"
             print(f"Returning presigned upload URI {presigned_url}")
             return presigned_url
         except Exception as err:
@@ -377,9 +382,18 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
             ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path))
             for path in paths
         ]
-        print(f"Returning {len(res)} credential infos")
+        # print(f"Returning {len(res)} credential infos")
         return res
 
+    def _get_read_credential_infos(self, paths) -> list[ArtifactCredentialInfo]:
+        res = [
+            ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path))
+            for path in paths
+        ]
+        # print(f"Returning {len(res)} credential infos")
+        return res
+
+    # Called in parallel on batches of files in log_artifacts_parallel
     def _upload_to_cloud(
             self, cloud_credential_info, src_file_path, artifact_path
     ):

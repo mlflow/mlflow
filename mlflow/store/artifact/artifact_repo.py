@@ -147,7 +147,7 @@ class ArtifactRepository:
                 except Exception as e:
                     failed_uploads[src_file_path] = repr(e)
 
-        # Iterate over batches of files to upload and upload them
+        # Iterate over batches of files and upload them
         for chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
             get_creds_and_upload(chunk)
 
