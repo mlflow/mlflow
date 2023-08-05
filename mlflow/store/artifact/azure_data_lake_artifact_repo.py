@@ -2,7 +2,7 @@ import os
 import posixpath
 import re
 import urllib.parse
-
+import requests
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
@@ -88,7 +88,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
 
         from azure.storage.blob import BlobServiceClient
 
-        (container, account_name, path) = _parse_abfss_uri(self.artifact_uri)
+        (container, account_name, path) = _parse_abfss_uri(artifact_uri)
         self.account_name = account_name
         account_url = f"https://{account_name}.{path}"
         azure_blob_storage_client = BlobServiceClient(
@@ -97,6 +97,7 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
             # connection_verify=_get_default_host_creds(artifact_uri).verify,
         )
         self.container = container
+        print("Got container {} and account url {}".format(container, account_url))
         self.container_client = azure_blob_storage_client.get_container_client(container)
 
     def log_artifact(self, local_file, artifact_path=None):
@@ -243,6 +244,24 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
 
     def delete_artifacts(self, artifact_path=None):
         raise NotImplementedError("This artifact repository does not support deleting artifacts")
+
+    def _retryable_adls_function(self, func, artifact_path, **kwargs):
+        # Attempt to call the passed function.  Retry if the credentials have expired
+        try:
+            func(**kwargs)
+        except requests.HTTPError as e:
+            if e.response.status_code in [403]:
+                # _logger.info(
+                #     "Failed to authorize ADLS operation, possibly due "
+                #     "to credential expiration. Refreshing credentials and trying again..."
+                # )
+                new_credentials = self._get_write_credential_infos(
+                    paths=[artifact_path]
+                )[0]
+                kwargs["sas_url"] = new_credentials.signed_uri
+                func(**kwargs)
+            else:
+                raise e
 
     def _azure_adls_gen2_upload_file(self, credentials, local_file, artifact_path):
         """

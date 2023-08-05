@@ -69,12 +69,13 @@ class ArtifactRepository:
         basename = os.path.basename(src_file_path)
         dst_artifact_dir = dst_artifact_dir or ""
         dst_artifact_dir = posixpath.join(dst_artifact_dir, basename)
+        print("Got basename ")
         if len(dst_artifact_dir) > 0:
             repo_relative_artifact_path = posixpath.join(
-                self.artifact_uri, dst_artifact_dir
+                dst_artifact_dir, src_file_path
             )
         else:
-            repo_relative_artifact_path = self.artifact_uri
+            repo_relative_artifact_path = src_file_path
         return repo_relative_artifact_path
 
     def log_artifacts_parallel(self, local_dir, artifact_path=None):
@@ -102,15 +103,15 @@ class ArtifactRepository:
                 artifact_subdir = posixpath.join(artifact_path, rel_path)
             for name in filenames:
                 file_path = os.path.join(dirpath, name)
-                artifact_path = self._get_repo_relative_artifact_path_for_upload(
+                repo_relative_artifact_path = self._get_repo_relative_artifact_path_for_upload(
                     src_file_path=file_path,
                     dst_artifact_dir=artifact_subdir,
                 )
-                # print(f"Appending a staged upload from local path {file_path} to artifact path {artifact_path}")
+                print(f"Appending a staged upload from local path {file_path} to artifact path {repo_relative_artifact_path}")
                 staged_uploads.append(
                     StagedArtifactUpload(
                         src_file_path=file_path,
-                        artifact_path=artifact_path,
+                        artifact_path=repo_relative_artifact_path,
                     )
                 )
 
