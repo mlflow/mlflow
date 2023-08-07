@@ -126,9 +126,6 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
-        with:
-          java-version: 11
-          distribution: "adopt"
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
