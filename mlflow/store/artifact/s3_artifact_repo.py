@@ -367,7 +367,7 @@ class S3ArtifactRepository(ArtifactRepository):
                 Bucket=self.bucket,
                 Key=dest_path,
                 UploadId=upload_id,
-                MultipartUpload={"Parts": parts.values()},
+                MultipartUpload={"Parts": list(parts.values())},
             )
         except Exception as e:
             _logger.warning(
