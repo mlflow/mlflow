@@ -60,7 +60,7 @@ class ArtifactProgressBar:
 
         if MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR.get():
             try:
-                from tqdm.notebook import tqdm
+                from tqdm.auto import tqdm
 
                 self.pbar = tqdm(total=self.total, desc=desc, **kwargs)
             except ImportError:

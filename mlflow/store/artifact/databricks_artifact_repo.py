@@ -730,7 +730,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
         if MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR:
             try:
-                from tqdm.notebook import tqdm
+                from tqdm.auto import tqdm
 
                 pbar = tqdm(total=len(staged_uploads), desc="Uploading artifacts")
             except ImportError:
