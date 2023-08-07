@@ -31,19 +31,6 @@ UNITTEST_PYTEST_RAISES = Message(
     reason="To enforce 'pytest-raises-multiple-statements' Message.",
 )
 
-PYTEST_RAISES_MULTIPLE_STATEMENTS = Message(
-    id="W0004",
-    name="pytest-raises-multiple-statements",
-    message=(
-        "`with pytest.raises` should not contain multiple statements. "
-        "It should only contain a single statement that throws an exception."
-    ),
-    reason=(
-        "To prevent unreachable assertions and make it easier to tell which line is "
-        "expected to throw."
-    ),
-)
-
 
 USE_F_STRING = Message(
     id="W0006",
