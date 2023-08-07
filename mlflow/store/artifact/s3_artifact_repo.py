@@ -296,14 +296,15 @@ class S3ArtifactRepository(ArtifactRepository):
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
-        response = self.s3_client.create_multipart_upload(Bucket=self.bucket, Key=dest_path)
+        s3_client = self._get_s3_client()
+        response = s3_client.create_multipart_upload(Bucket=self.bucket, Key=dest_path)
         upload_id = response["UploadId"]
 
         # Create presigned URL for each part
         num_parts = math.ceil(os.path.getsize(local_file) / _MULTIPART_UPLOAD_CHUNK_SIZE)
 
         def _get_presigned_upload_part_url(part_number):
-            return self.s3_client.generate_presigned_url(
+            return s3_client.generate_presigned_url(
                 "upload_part",
                 Params={
                     "Bucket": self.bucket,
@@ -362,7 +363,7 @@ class S3ArtifactRepository(ArtifactRepository):
                 )
 
             # Complete multipart upload
-            self.s3_client.complete_multipart_upload(
+            s3_client.complete_multipart_upload(
                 Bucket=self.bucket,
                 Key=dest_path,
                 UploadId=upload_id,
@@ -372,7 +373,7 @@ class S3ArtifactRepository(ArtifactRepository):
             _logger.warning(
                 "Encountered an unexpected error during multipart upload: %s, aborting", e
             )
-            self.s3_client.abort_multipart_upload(
+            s3_client.abort_multipart_upload(
                 Bucket=self.bucket,
                 Key=dest_path,
                 UploadId=upload_id,
