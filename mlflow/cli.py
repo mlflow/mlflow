@@ -193,7 +193,8 @@ def run(
 
     if backend_config is not None and os.path.splitext(backend_config)[-1] != ".json":
         try:
-            backend_config = json.loads(backend_config)
+            with open(backend_config) as f:
+                backend_config = json.load(f)
         except ValueError as e:
             eprint(f"Invalid backend config JSON. Parse error: {e}")
             raise
