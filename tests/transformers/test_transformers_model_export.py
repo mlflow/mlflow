@@ -1860,10 +1860,19 @@ def test_classifier_pipeline(text_classification_pipeline, model_path, data):
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     inference = pyfunc_loaded.predict(data)
 
+    # verify that native transformers outputs match the pyfunc return values
+    native_inference = text_classification_pipeline(data)
+    inference_dict = inference.to_dict()
+
     if isinstance(data, str):
         assert len(inference) == 1
+        assert inference_dict["label"][0] == native_inference[0]["label"]
+        assert inference_dict["score"][0] == native_inference[0]["score"]
     else:
         assert len(inference) == len(data)
+        for key in ["score", "label"]:
+            for value in range(0, len(data)):
+                assert native_inference[value][key] == inference_dict[key][value]
 
 
 @pytest.mark.parametrize(
@@ -2066,6 +2075,7 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
                 "That gym smells like feet, hot garbage, and sadness",
                 "I love that we have a moon",
                 "I 'love' debugging subprocesses",
+                'Quote "in" the string',
             ]
         }
     )
@@ -2079,13 +2089,14 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
     assert len(values.to_dict()) == 2
-    assert len(values.to_dict()["score"]) == 4
+    assert len(values.to_dict()["score"]) == 5
 
     # Test the alternate TextClassificationPipeline input structure where text_pair is used
     # and ensure that model serving and direct native inference match
     inference_data = [
         {"text": "test1", "text_pair": "pair1"},
         {"text": "test2", "text_pair": "pair2"},
+        {"text": "test 'quote", "text_pair": "pair 'quote'"},
     ]
     inference_payload = json.dumps({"inputs": inference_data})
     response = pyfunc_serve_and_score_model(

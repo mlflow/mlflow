@@ -1854,11 +1854,38 @@ class _TransformersWrapper:
         Perform input type validation for TextClassification pipelines and casting of data
         that is manipulated internally by the MLflow model server back to a structure that
         can be used for pipeline inference.
-        """
 
-        def _is_list_of_type(lst, typ):
-            """Check if all items in a list are of a certain type."""
-            return isinstance(lst, list) and all(isinstance(item, typ) for item in lst)
+        To illustrate the input and outputs of this function, for the following inputs to
+        the pyfunc.predict() call for this pipeline type:
+
+        "text to classify"
+        ["text to classify", "other text to classify"]
+        {"text": "text to classify", "text_pair": "pair text"}
+        [{"text": "text", "text_pair": "pair"}, {"text": "t", "text_pair": "tp" }]
+
+        Pyfunc processing will convert these to the following structures:
+
+        [{0: "text to classify"}]
+        [{0: "text to classify"}, {0: "other text to classify"}]
+        [{"text": "text to classify", "text_pair": "pair text"}]
+        [{"text": "text", "text_pair": "pair"}, {"text": "t", "text_pair": "tp" }]
+
+        The purpose of this function is to convert them into the correct format for input
+        to the pipeline (wrapping as a list has no bearing on the correctness of the
+        inferred classifications):
+
+        ["text to classify"]
+        ["text to classify", "other text to classify"]
+        [{"text": "text to classify", "text_pair": "pair text"}]
+        [{"text": "text", "text_pair": "pair"}, {"text": "t", "text_pair": "tp" }]
+
+        Additionally, for dict input types (the 'text' & 'text_pair' input example), the dict
+        input will be JSON stringified within MLflow model serving. In order to reconvert this
+        structure back into the appropriate type, we use ast.literal_eval() to convert back
+        to a dict. We avoid using JSON.loads() due to pandas DataFrame conversions that invert
+        single and double quotes with escape sequences that are not consistent if the string
+        contains escaped quotes.
+        """
 
         def _check_keys(payload):
             """Check if a dictionary contains only allowable keys."""
@@ -1874,26 +1901,26 @@ class _TransformersWrapper:
 
         if isinstance(data, str):
             return data
-        elif _is_list_of_type(data, str):
-            return data
         elif isinstance(data, dict):
             _check_keys(data)
-
             return data
-        elif _is_list_of_type(data, dict):
-            for payload in data:
-                _check_keys(payload)
-            payload = [list(item.values())[0] for item in data]
-            try:
-                # NB: This try catch statement is to handle the optional dict input that
-                # TextClassification pipelines support. When running through MLflow server, the
-                # internal logic forces casting of the data structure to a str, removing the
-                # ability to validate the structure. We optimistically attempt to use JSON
-                # decoding to cast back to a dict structure, else, if the original inference data
-                # was passed as a str or a List[str], we just return the structure.
-                return [json.loads(s.replace("'", '"')) for s in payload]
-            except json.JSONDecodeError:
-                return payload
+        elif isinstance(data, list):
+            if all(isinstance(item, str) for item in data):
+                return data
+            elif all(isinstance(item, dict) for item in data):
+                for payload in data:
+                    _check_keys(payload)
+                if list(data[0].keys())[0] == 0:
+                    data = [list(item.values())[0] for item in data]
+                try:
+                    return [ast.literal_eval(s) for s in data]
+                except (ValueError, SyntaxError):
+                    return data
+            else:
+                raise MlflowException(
+                    "An unsupported data type has been passed for Text Classification inference. "
+                    "Only str, list of str, dict, and list of dict are supported."
+                )
         else:
             raise MlflowException(
                 "An unsupported data type has been passed for Text Classification inference. "
