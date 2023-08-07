@@ -280,23 +280,23 @@ class S3ArtifactRepository(ArtifactRepository):
 
         Return a list of CredentialInfo objects, one for each file.
         """
-        return paths
+        return [self._get_s3_client() for p in paths]
 
     def _upload_to_cloud(
         self, cloud_credential_info, src_file_path, artifact_path
     ):
         # if os.path.getsize(src_file_path) > 10_000_000: # 10 MB
-        self._multipart_upload(src_file_path, artifact_path)
+        self._multipart_upload(cloud_credential_info, src_file_path, artifact_path)
         # else:
         # use log_artifact way
 
-    def _multipart_upload(self, local_file, artifact_path):
+    def _multipart_upload(self, cloud_credential_info, local_file, artifact_path):
         # Create multipart upload
         dest_path = self.bucket_path
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
-        s3_client = self._get_s3_client()
+        s3_client = cloud_credential_info
         response = s3_client.create_multipart_upload(Bucket=self.bucket, Key=dest_path)
         upload_id = response["UploadId"]
 
