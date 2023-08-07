@@ -417,6 +417,10 @@ def test_embeddings(tmp_path):
     preds = model.predict(data)
     assert preds == [[0.0], [0.0]]
 
+    data = pd.DataFrame({"text": ["a"] * 100})
+    preds = model.predict(data)
+    assert preds == [[0.0]] * 100
+
 
 def test_spark_udf_embeddings(tmp_path, spark):
     mlflow.openai.save_model(
