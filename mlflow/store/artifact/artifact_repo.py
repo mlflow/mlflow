@@ -17,7 +17,7 @@ from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 
 # Constants used to determine max level of parallelism to use while uploading/downloading artifacts.
 # Max threads to use for parallelism.
-_NUM_MAX_THREADS = 144
+_NUM_MAX_THREADS = 20
 # Max threads per CPU
 _NUM_MAX_THREADS_PER_CPU = 2
 assert _NUM_MAX_THREADS >= _NUM_MAX_THREADS_PER_CPU
