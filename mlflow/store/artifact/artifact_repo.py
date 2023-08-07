@@ -195,7 +195,7 @@ class ArtifactRepository:
             for f in pbar:
                 try:
                     f.result()
-                    pbar.update = True
+                    pbar.update()
                 except Exception as e:
                     path = futures[f]
                     failed_downloads[path] = repr(e)

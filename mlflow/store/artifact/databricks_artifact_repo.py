@@ -102,7 +102,7 @@ def _complete_futures(futures_dict, file):
             key = futures_dict[future]
             try:
                 results[key] = future.result()
-                pbar.update = True
+                pbar.update()
             except Exception as e:
                 errors[key] = repr(e)
 
@@ -730,7 +730,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             for src_file_path, upload_future in pbar:
                 try:
                     upload_future.result()
-                    pbar.update = True
+                    pbar.update()
                 except Exception as e:
                     failed_uploads[src_file_path] = repr(e)
 

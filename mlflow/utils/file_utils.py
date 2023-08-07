@@ -81,6 +81,9 @@ class ArtifactProgressBar:
     def files(cls, iterable, desc, total, step=1):
         return cls(iterable, desc, total=total, step=step)
 
+    def update(self):
+        self.update = True
+
     def _pbar_iter(self):
         for index, item in enumerate(self.iterable):
             yield item
@@ -756,7 +759,7 @@ def parallelized_download_file_using_http_uri(
                 if result is not None:
                     failed_downloads[index] = result
                 else:
-                    pbar.update = True
+                    pbar.update()
             except Exception as e:
                 failed_downloads[index] = {
                     "error_status_code": 500,
