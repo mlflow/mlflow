@@ -662,7 +662,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def log_artifacts(self, local_dir, artifact_path=None):
         """
-        Parallelized implementation of `download_artifacts` for Databricks.
+        Parallelized implementation of `log_artifacts` for Databricks.
         """
         StagedArtifactUpload = namedtuple(
             "StagedArtifactUpload",

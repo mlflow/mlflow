@@ -80,8 +80,8 @@ class ArtifactProgressBar:
         )
 
     @classmethod
-    def files(cls, iterable, desc):
-        return cls(iterable, desc, total=len(iterable), step=1)
+    def files(cls, iterable, desc, total):
+        return cls(iterable, desc, total=total, step=1)
 
     def _pbar_iter(self):
         try:

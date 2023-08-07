@@ -192,7 +192,9 @@ class ArtifactRepository:
 
         # Wait for downloads to complete and collect failures
         failed_downloads = {}
-        for f in ArtifactProgressBar.files(as_completed(futures), desc="Downloading artifacts"):
+        for f in ArtifactProgressBar.files(
+            as_completed(futures), desc="Downloading artifacts", total=len(futures)
+        ):
             try:
                 f.result()
             except Exception as e:
