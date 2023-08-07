@@ -202,7 +202,7 @@ b: 3
 
 def test_mkdir(tmp_path):
     temp_dir = str(tmp_path)
-    new_dir_name = "mkdir_test_%d" % random_int()
+    new_dir_name = f"mkdir_test_{random_int()}"
     file_utils.mkdir(temp_dir, new_dir_name)
     assert os.listdir(temp_dir) == [new_dir_name]
 
