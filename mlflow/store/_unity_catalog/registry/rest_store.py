@@ -1,5 +1,6 @@
 import base64
 import functools
+
 # Clean up temporary model directory at end of block
 import logging
 import shutil
@@ -498,7 +499,6 @@ class UcModelRegistryStore(BaseRestStore):
         if local_model_path != source:
             shutil.rmtree(local_model_path)
 
-
     def create_model_version(
         self,
         name,
@@ -569,6 +569,7 @@ class UcModelRegistryStore(BaseRestStore):
                 storage_location=model_version.storage_location, scoped_token=scoped_token
             )
             import time
+
             s = time.time()
             store.log_artifacts_parallel(local_dir=local_model_dir, artifact_path="")
             print(f"Uploading artifacts to UC took {time.time() - s} seconds")

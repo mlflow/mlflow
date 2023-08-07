@@ -24,33 +24,23 @@ from mlflow.utils.file_utils import read_chunk, relative_path_to_artifact_path
 from mlflow.utils.rest_utils import augmented_raise_for_status
 from mlflow.utils.request_utils import cloud_storage_http_request
 
+from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
+from mlflow.store.artifact.databricks_artifact_repo import (
+    _MULTIPART_UPLOAD_CHUNK_SIZE,
+    _complete_futures,
+    _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE,
+    MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
+    _DOWNLOAD_CHUNK_SIZE,
+)
+from mlflow.utils.file_utils import parallelized_download_file_using_http_uri, download_chunk
+
 _logger = logging.getLogger(__name__)
 
 _MAX_CACHE_SECONDS = 300
-_MULTIPART_UPLOAD_CHUNK_SIZE = 10_000_000  # 10 MB
 
 
 def _get_utcnow_timestamp():
     return datetime.utcnow().timestamp()
-
-
-def _complete_futures(futures_dict):
-    """
-    Waits for the completion of all the futures in the given dictionary and returns
-    a tuple of two dictionaries. The first dictionary contains the results of the
-    futures (unordered) and the second contains the errors (unordered) that occurred
-    during the execution of the futures.
-    """
-    results = {}
-    errors = {}
-    for future in as_completed(futures_dict):
-        key = futures_dict[future]
-        try:
-            results[key] = future.result()
-        except Exception as e:
-            errors[key] = repr(e)
-
-    return results, errors
 
 
 @lru_cache(maxsize=64)
@@ -248,10 +238,92 @@ class S3ArtifactRepository(ArtifactRepository):
                 f" {listed_object_path}."
             )
 
-    def _download_file(self, remote_file_path, local_path):
-        s3_full_path = posixpath.join(self.bucket_path, remote_file_path)
+    def _get_presigned_uri(self, remote_file_path):
         s3_client = self._get_s3_client()
-        s3_client.download_file(self.bucket, s3_full_path, local_path)
+        s3_full_path = posixpath.join(self.bucket_path, remote_file_path)
+        return s3_client.generate_presigned_url(
+            "get_object", Params={"Bucket": self.bucket, "Key": s3_full_path}
+        )
+
+    def _get_read_credential_infos(self, paths):
+        res = [ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path)) for path in paths]
+        return res
+
+    def _download_file(self, remote_file_path, local_path):
+        s3_client = self._get_s3_client()
+        s3_full_path = posixpath.join(self.bucket_path, remote_file_path)
+        # list_artifacts API only returns a list of FileInfos at the specified path
+        # if it's a directory. To get file size, we need to iterate over FileInfos
+        # contained by the parent directory. A bad path could result in there being
+        # no matching FileInfos (by path), so fall back to None size to prevent
+        # parallelized download.
+        parent_dir = posixpath.dirname(remote_file_path)
+        file_infos = self.list_artifacts(parent_dir)
+        file_info = [info for info in file_infos if info.path == remote_file_path]
+        file_size = file_info[0].file_size if len(file_info) == 1 else None
+        if (
+            not file_size
+            or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE
+            or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
+        ):
+            s3_client.download_file(self.bucket, s3_full_path, local_path)
+        else:
+            presigned_url = s3_client.generate_presigned_url(
+                "get_object", Params={"Bucket": self.bucket, "Key": s3_full_path}
+            )
+            self._parallelized_download_from_cloud(
+                ArtifactCredentialInfo(signed_uri=presigned_url),
+                file_size,
+                local_path,
+                remote_file_path,
+            )
+
+    def _extract_headers_from_credentials(self, headers):
+        """
+        :return: A python dictionary of http headers converted from the protobuf credentials
+        """
+        return {header.name: header.value for header in headers}
+
+    def _parallelized_download_from_cloud(
+        self, cloud_credential_info, file_size, dst_local_file_path, dst_run_relative_artifact_path
+    ):
+        try:
+            parallel_download_subproc_env = os.environ.copy()
+
+            failed_downloads = parallelized_download_file_using_http_uri(
+                thread_pool_executor=self.chunk_thread_pool,
+                http_uri=cloud_credential_info.signed_uri,
+                download_path=dst_local_file_path,
+                file_size=file_size,
+                uri_type=cloud_credential_info.type,
+                chunk_size=_DOWNLOAD_CHUNK_SIZE,
+                env=parallel_download_subproc_env,
+                headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
+            )
+            download_errors = [
+                e for e in failed_downloads.values() if e["error_status_code"] not in (401, 403)
+            ]
+            if download_errors:
+                raise MlflowException(
+                    f"Failed to download artifact {dst_run_relative_artifact_path}: "
+                    f"{download_errors}"
+                )
+
+            if failed_downloads:
+                new_cloud_creds = self._get_read_credential_infos([dst_run_relative_artifact_path])[
+                    0
+                ]
+                new_signed_uri = new_cloud_creds.signed_uri
+                new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
+
+                for i in failed_downloads:
+                    download_chunk(
+                        i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
+                    )
+        except Exception as err:
+            if os.path.exists(dst_local_file_path):
+                os.remove(dst_local_file_path)
+            raise MlflowException(err)
 
     def delete_artifacts(self, artifact_path=None):
         dest_path = self.bucket_path
@@ -282,9 +354,7 @@ class S3ArtifactRepository(ArtifactRepository):
         """
         return [self._get_s3_client() for p in paths]
 
-    def _upload_to_cloud(
-        self, cloud_credential_info, src_file_path, artifact_path
-    ):
+    def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_path):
         # if os.path.getsize(src_file_path) > 10_000_000: # 10 MB
         self._multipart_upload(cloud_credential_info, src_file_path, artifact_path)
         # else:
@@ -328,7 +398,7 @@ class S3ArtifactRepository(ArtifactRepository):
         def _upload_part_retry(presigned_url, part_number, local_file, start_byte, size):
             data = read_chunk(local_file, size, start_byte)
             try:
-                etag = _upload_part(presigned_url, data)
+                return _upload_part(presigned_url, data)
             except requests.HTTPError as e:
                 if e.response.status_code not in (401, 403):
                     raise e
@@ -337,8 +407,7 @@ class S3ArtifactRepository(ArtifactRepository):
                     " Refreshing credentials and trying again..."
                 )
                 presigned_url = _get_presigned_upload_part_url(part_number)
-                etag = _upload_part(presigned_url, data)
-            return {"PartNumber": part_number, "ETag": etag}
+                return _upload_part(presigned_url, data)
 
         try:
             # Upload each part with retries
@@ -356,18 +425,22 @@ class S3ArtifactRepository(ArtifactRepository):
                 )
                 futures[future] = part_number
 
-            parts, errors = _complete_futures(futures)
+            results, errors = _complete_futures(futures)
             if errors:
                 raise MlflowException(
                     f"Failed to upload at least one part of {local_file}. Errors: {errors}"
                 )
+            parts = [
+                {"PartNumber": part_number, "ETag": results[part_number]}
+                for part_number in sorted(results)
+            ]
 
             # Complete multipart upload
             s3_client.complete_multipart_upload(
                 Bucket=self.bucket,
                 Key=dest_path,
                 UploadId=upload_id,
-                MultipartUpload={"Parts": list(sorted(parts).values())},
+                MultipartUpload={"Parts": parts},
             )
         except Exception as e:
             _logger.warning(
