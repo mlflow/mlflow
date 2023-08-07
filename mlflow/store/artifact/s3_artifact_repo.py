@@ -283,10 +283,10 @@ class S3ArtifactRepository(ArtifactRepository):
         return paths
 
     def _upload_to_cloud(
-        self, cloud_credential_info, src_file_path, dst_run_relative_artifact_path
+        self, cloud_credential_info, src_file_path, artifact_path
     ):
         # if os.path.getsize(src_file_path) > 10_000_000: # 10 MB
-        self._multipart_upload(src_file_path, dst_run_relative_artifact_path)
+        self._multipart_upload(src_file_path, artifact_path)
         # else:
         # use log_artifact way
 
