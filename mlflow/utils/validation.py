@@ -346,7 +346,7 @@ def _validate_experiment_name(experiment_name):
 
     if not is_string_type(experiment_name):
         raise MlflowException(
-            "Invalid experiment name: %s. Expects a string." % experiment_name,
+            f"Invalid experiment name: {experiment_name}. Expects a string.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -405,7 +405,7 @@ def _validate_model_alias_name(model_alias_name):
 def _validate_experiment_artifact_location(artifact_location):
     if artifact_location is not None and artifact_location.startswith("runs:"):
         raise MlflowException(
-            "Artifact location cannot be a runs:/ URI. Given: '%s'" % artifact_location,
+            f"Artifact location cannot be a runs:/ URI. Given: '{artifact_location}'",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

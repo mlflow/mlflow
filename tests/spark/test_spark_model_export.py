@@ -81,7 +81,7 @@ def _get_spark_session_with_retry(max_tries=3):
             if num_tries >= max_tries - 1:
                 raise
             _logger.exception(
-                e, "Attempt %s to create a SparkSession failed, retrying..." % num_tries
+                e, f"Attempt {num_tries} to create a SparkSession failed, retrying..."
             )
 
 
@@ -380,7 +380,7 @@ def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run, use_dfs
 
     try:
         tracking_dir = tmp_path.joinpath("mlruns")
-        mlflow.set_tracking_uri("file://%s" % tracking_dir)
+        mlflow.set_tracking_uri(f"file://{tracking_dir}")
         if should_start_run:
             mlflow.start_run()
         artifact_path = "model"
@@ -457,7 +457,7 @@ def test_sparkml_estimator_model_log(
 
     try:
         tracking_dir = tmp_path.joinpath("mlruns")
-        mlflow.set_tracking_uri("file://%s" % tracking_dir)
+        mlflow.set_tracking_uri(f"file://{tracking_dir}")
         if should_start_run:
             mlflow.start_run()
         artifact_path = "model"
