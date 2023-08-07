@@ -17,7 +17,6 @@ from mlflow.azure.client import (
 )
 import mlflow.tracking
 from mlflow.entities import FileInfo
-from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -698,50 +697,38 @@ class DatabricksArtifactRepository(ArtifactRepository):
         # Join futures to ensure that all artifacts have been uploaded prior to returning
         failed_uploads = {}
 
-        def get_creds_and_upload(staged_upload_chunk, pbar=None):
-            write_credential_infos = self._get_write_credential_infos(
-                run_id=self.run_id,
-                paths=[
-                    staged_upload.dst_run_relative_artifact_path
-                    for staged_upload in staged_upload_chunk
-                ],
-            )
-
-            inflight_uploads = {}
-            for staged_upload, write_credential_info in zip(
-                staged_upload_chunk, write_credential_infos
-            ):
-                upload_future = self.thread_pool.submit(
-                    self._upload_to_cloud,
-                    cloud_credential_info=write_credential_info,
-                    src_file_path=staged_upload.src_file_path,
-                    dst_run_relative_artifact_path=staged_upload.dst_run_relative_artifact_path,
+        def upload_artifacts_iter():
+            for staged_upload_chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
+                write_credential_infos = self._get_write_credential_infos(
+                    run_id=self.run_id,
+                    paths=[
+                        staged_upload.dst_run_relative_artifact_path
+                        for staged_upload in staged_upload_chunk
+                    ],
                 )
-                inflight_uploads[staged_upload.src_file_path] = upload_future
 
-            for src_file_path, upload_future in inflight_uploads.items():
-                try:
-                    upload_future.result()
-                    if pbar:
-                        pbar.update()
-                        pbar.refresh()
-                except Exception as e:
-                    failed_uploads[src_file_path] = repr(e)
+                inflight_uploads = {}
+                for staged_upload, write_credential_info in zip(
+                    staged_upload_chunk, write_credential_infos
+                ):
+                    upload_future = self.thread_pool.submit(
+                        self._upload_to_cloud,
+                        cloud_credential_info=write_credential_info,
+                        src_file_path=staged_upload.src_file_path,
+                        dst_run_relative_artifact_path=staged_upload.dst_run_relative_artifact_path,
+                    )
+                    inflight_uploads[staged_upload.src_file_path] = upload_future
 
-        if MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR:
+                for src_file_path, upload_future in inflight_uploads.items():
+                    yield src_file_path, upload_future
+
+        for src_file_path, upload_future in ArtifactProgressBar.files(
+            upload_artifacts_iter(), desc="Uploading artifacts", total=len(staged_uploads)
+        ):
             try:
-                from tqdm.auto import tqdm
-
-                pbar = tqdm(total=len(staged_uploads), desc="Uploading artifacts")
-            except ImportError:
-                pbar = None
-        else:
-            pbar = None
-
-        for chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
-            get_creds_and_upload(chunk, pbar)
-        if pbar:
-            pbar.close()
+                upload_future.result()
+            except Exception as e:
+                failed_uploads[src_file_path] = repr(e)
 
         if len(failed_uploads) > 0:
             raise MlflowException(
