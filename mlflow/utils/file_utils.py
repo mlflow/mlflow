@@ -54,7 +54,7 @@ class ArtifactProgressBar:
         self.total = total
         self.step = step
         self.pbar = None
-        self.update = False
+        self.update_pbar = False
 
         if MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR.get():
             try:
@@ -82,16 +82,16 @@ class ArtifactProgressBar:
         return cls(iterable, desc, total=total, step=step)
 
     def update(self):
-        self.update = True
+        self.update_pbar = True
 
     def _pbar_iter(self):
         for index, item in enumerate(self.iterable):
             yield item
-            if self.update:
+            if self.update_pbar:
                 remaining = self.total - index * self.step
                 self.pbar.update(min(remaining, self.step))
                 self.pbar.refresh()
-                self.update = False
+                self.update_pbar = False
 
     def __iter__(self):
         if self.pbar is None:
