@@ -1,4 +1,3 @@
-import os
 from unittest import mock
 import re
 import numpy
