@@ -9,8 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
@@ -121,8 +119,8 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     List<String> command = appendRunIdArtifactPath(
       Lists.newArrayList("download"), runId, artifactPath);
     String stdOutput = forkMlflowProcess(command, tag);
-    String[] splits = stdOutput.split("\n");
-    return new File(splits[splits.length-2].trim());
+    String[] splits = stdOutput.split(System.lineSeparator());
+    return new File(splits[splits.length-1].trim());
   }
 
   @Override
