@@ -52,45 +52,42 @@ MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
 
 
 class ArtifactProgressBar:
-    def __init__(self, iterable, description, file_size=None, chunk_size=None) -> None:
+    def __init__(self, iterable, desc, total, step, **kwargs) -> None:
         self.iterable = iterable
-        self.file_size = file_size
-        self.chunk_size = chunk_size
+        self.total = total
+        self.step = step
         self.pbar = None
 
         if MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR.get():
             try:
                 from tqdm.notebook import tqdm
 
-                if self.file_size:
-                    self.pbar = tqdm(
-                        total=self.file_size,
-                        unit="iB",
-                        unit_scale=True,
-                        unit_divisor=1024,
-                        desc=description,
-                        miniters=1,
-                    )
-                else:
-                    self.pbar = tqdm(total=len(iterable), desc=description)
+                self.pbar = tqdm(total=self.total, desc=desc, **kwargs)
             except ImportError:
-                _logger.warning(
-                    "module not found: tqdm. To enable progress bar for artifacts, "
-                    "install with `pip install tqdm`"
-                )
+                pass
+
+    @classmethod
+    def file(cls, iterable, file_size, desc, chunk_size):
+        return cls(
+            iterable,
+            desc,
+            total=file_size,
+            step=chunk_size,
+            unit="iB",
+            unit_scale=True,
+            unit_divisor=1024,
+            miniters=1,
+        )
+
+    @classmethod
+    def files(cls, iterable, desc):
+        return cls(iterable, desc, total=len(iterable), step=1)
 
     def _pbar_iter(self):
         try:
             for index, item in enumerate(self.iterable):
-                if self.file_size:
-                    self.pbar.update(
-                        min(
-                            self.file_size - index * self.chunk_size,
-                            self.chunk_size,
-                        )
-                    )
-                else:
-                    self.pbar.update()
+                remaining = self.total - index * self.step
+                self.pbar.update(min(remaining, self.step))
                 self.pbar.refresh()
                 yield item
         finally:
@@ -745,8 +742,8 @@ def parallelized_download_file_using_http_uri(
 
     failed_downloads = {}
 
-    for future in ArtifactProgressBar(
-        as_completed(futures), f"Downloading file {download_path}", file_size, chunk_size
+    for future in ArtifactProgressBar.file(
+        as_completed(futures), file_size, f"Downloading file {download_path}", chunk_size
     ):
         index = futures[future]
         try:

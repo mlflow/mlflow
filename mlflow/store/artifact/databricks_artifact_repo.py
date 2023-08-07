@@ -94,10 +94,10 @@ def _complete_futures(futures_dict, file):
     results = {}
     errors = {}
 
-    for future in ArtifactProgressBar(
+    for future in ArtifactProgressBar.file(
         as_completed(futures_dict),
-        f"Uploading file {file}",
         os.path.getsize(file),
+        f"Uploading file {file}",
         _MULTIPART_UPLOAD_CHUNK_SIZE,
     ):
         key = futures_dict[future]
@@ -735,10 +735,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
                 pbar = tqdm(total=len(staged_uploads), desc="Uploading artifacts")
             except ImportError:
-                _logger.warning(
-                    "module not found: tqdm. To enable progress bar for artifacts, "
-                    "install with `pip install tqdm`"
-                )
                 pbar = None
         else:
             pbar = None
