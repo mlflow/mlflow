@@ -92,15 +92,18 @@ def _complete_futures(futures_dict, file):
     results = {}
     errors = {}
 
-    for future in ArtifactProgressBar.file(
-        as_completed(futures_dict),
-        os.path.getsize(file),
-        f"Uploading file {file}",
-        _MULTIPART_UPLOAD_CHUNK_SIZE,
+    for future in (
+        pbar := ArtifactProgressBar.file(
+            as_completed(futures_dict),
+            os.path.getsize(file),
+            f"Uploading file {file}",
+            _MULTIPART_UPLOAD_CHUNK_SIZE,
+        )
     ):
         key = futures_dict[future]
         try:
             results[key] = future.result()
+            pbar.update = True
         except Exception as e:
             errors[key] = repr(e)
 
@@ -722,11 +725,14 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 for src_file_path, upload_future in inflight_uploads.items():
                     yield src_file_path, upload_future
 
-        for src_file_path, upload_future in ArtifactProgressBar.files(
-            upload_artifacts_iter(), desc="Uploading artifacts", total=len(staged_uploads)
+        for src_file_path, upload_future in (
+            pbar := ArtifactProgressBar.files(
+                upload_artifacts_iter(), desc="Uploading artifacts", total=len(staged_uploads)
+            )
         ):
             try:
                 upload_future.result()
+                pbar.update = True
             except Exception as e:
                 failed_uploads[src_file_path] = repr(e)
 
