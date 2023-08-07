@@ -37,18 +37,12 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/pylint.json"
           echo "::add-matcher::.github/workflows/matchers/black.json"
           echo "::add-matcher::.github/workflows/matchers/ruff.json"
-      - name: pre-cache
-        id: pre-cache
-        run: |
-          # Refresh cache daily
-          date=$(date -u "+%Y%m%d")
-          # Refresh cache if the action runner image has changed
-          image="$ImageOS-$ImageVersion"
-          echo "key=$image-$date" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/py-cache-key
+        id: py-cache-key
       - uses: actions/cache@v3
         with:
           path: .venv
-          key: ${{ steps.pre-cache.outputs.key }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('requirements/*requirements.txt') }}
+          key: ${{ steps.py-cache-key.outputs.key }}
       - name: Install dependencies
         run: |
           python -m venv .venv
