@@ -92,20 +92,19 @@ def _complete_futures(futures_dict, file):
     results = {}
     errors = {}
 
-    for future in (
-        pbar := ArtifactProgressBar.file(
-            as_completed(futures_dict),
-            os.path.getsize(file),
-            f"Uploading file {file}",
-            _MULTIPART_UPLOAD_CHUNK_SIZE,
-        )
-    ):
-        key = futures_dict[future]
-        try:
-            results[key] = future.result()
-            pbar.update = True
-        except Exception as e:
-            errors[key] = repr(e)
+    with ArtifactProgressBar.file(
+        as_completed(futures_dict),
+        os.path.getsize(file),
+        f"Uploading file {file}",
+        _MULTIPART_UPLOAD_CHUNK_SIZE,
+    ) as pbar:
+        for future in pbar:
+            key = futures_dict[future]
+            try:
+                results[key] = future.result()
+                pbar.update = True
+            except Exception as e:
+                errors[key] = repr(e)
 
     return results, errors
 
@@ -725,16 +724,15 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 for src_file_path, upload_future in inflight_uploads.items():
                     yield src_file_path, upload_future
 
-        for src_file_path, upload_future in (
-            pbar := ArtifactProgressBar.files(
-                upload_artifacts_iter(), desc="Uploading artifacts", total=len(staged_uploads)
-            )
-        ):
-            try:
-                upload_future.result()
-                pbar.update = True
-            except Exception as e:
-                failed_uploads[src_file_path] = repr(e)
+        with ArtifactProgressBar.files(
+            upload_artifacts_iter(), desc="Uploading artifacts", total=len(staged_uploads)
+        ) as pbar:
+            for src_file_path, upload_future in pbar:
+                try:
+                    upload_future.result()
+                    pbar.update = True
+                except Exception as e:
+                    failed_uploads[src_file_path] = repr(e)
 
         if len(failed_uploads) > 0:
             raise MlflowException(

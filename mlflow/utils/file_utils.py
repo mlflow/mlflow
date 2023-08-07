@@ -1,7 +1,6 @@
 import codecs
 import errno
 import gzip
-import logging
 import json
 import math
 import os
@@ -45,8 +44,6 @@ from mlflow.utils.os import is_windows
 from mlflow.utils import download_cloud_file_chunk
 from mlflow.utils.request_utils import download_chunk
 
-_logger = logging.getLogger(__name__)
-
 ENCODING = "utf-8"
 MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
 
@@ -85,22 +82,26 @@ class ArtifactProgressBar:
         return cls(iterable, desc, total=total, step=step)
 
     def _pbar_iter(self):
-        try:
-            for index, item in enumerate(self.iterable):
-                yield item
-                if self.update:
-                    remaining = self.total - index * self.step
-                    self.pbar.update(min(remaining, self.step))
-                    self.pbar.refresh()
-                    self.update = False
-        finally:
-            self.pbar.close()
+        for index, item in enumerate(self.iterable):
+            yield item
+            if self.update:
+                remaining = self.total - index * self.step
+                self.pbar.update(min(remaining, self.step))
+                self.pbar.refresh()
+                self.update = False
 
     def __iter__(self):
         if self.pbar is None:
             yield from self.iterable
         else:
             yield from self._pbar_iter()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        if self.pbar:
+            self.pbar.close()
 
 
 def is_directory(name):
@@ -745,23 +746,22 @@ def parallelized_download_file_using_http_uri(
 
     failed_downloads = {}
 
-    for future in (
-        pbar := ArtifactProgressBar.file(
-            as_completed(futures), file_size, f"Downloading file {download_path}", chunk_size
-        )
-    ):
-        index = futures[future]
-        try:
-            result = future.result()
-            if result is not None:
-                failed_downloads[index] = result
-            else:
-                pbar.update = True
-        except Exception as e:
-            failed_downloads[index] = {
-                "error_status_code": 500,
-                "error_text": repr(e),
-            }
+    with ArtifactProgressBar.file(
+        as_completed(futures), file_size, f"Downloading file {download_path}", chunk_size
+    ) as pbar:
+        for future in pbar:
+            index = futures[future]
+            try:
+                result = future.result()
+                if result is not None:
+                    failed_downloads[index] = result
+                else:
+                    pbar.update = True
+            except Exception as e:
+                failed_downloads[index] = {
+                    "error_status_code": 500,
+                    "error_text": repr(e),
+                }
 
     return failed_downloads
 
