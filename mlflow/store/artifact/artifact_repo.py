@@ -1,4 +1,3 @@
-import logging
 import os
 import posixpath
 import tempfile
@@ -11,8 +10,6 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.file_utils import ArtifactProgressBar
 from mlflow.utils.validation import path_not_unique, bad_path_message
-
-_logger = logging.getLogger(__name__)
 
 # Constants used to determine max level of parallelism to use while uploading/downloading artifacts.
 # Max threads to use for parallelism.

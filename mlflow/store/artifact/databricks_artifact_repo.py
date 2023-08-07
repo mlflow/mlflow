@@ -63,7 +63,6 @@ from mlflow.utils.uri import (
 from mlflow.environment_variables import MLFLOW_ENABLE_MULTIPART_DOWNLOAD
 
 _logger = logging.getLogger(__name__)
-
 _DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
 _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE = 500_000_000  # 500 MB
 _MULTIPART_UPLOAD_CHUNK_SIZE = 10_000_000  # 10 MB

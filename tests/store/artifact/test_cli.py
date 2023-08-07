@@ -90,8 +90,7 @@ def _run_download_artifact_command(args) -> pathlib.Path:
     runner = CliRunner()
     resp = runner.invoke(download_artifacts, args=args, catch_exceptions=False)
     assert resp.exit_code == 0
-    std_output = resp.stdout
-    download_output_path = std_output.split("\n")[-2].strip()
+    download_output_path = resp.stdout.rstrip().split("\n")[-1]
     return next(pathlib.Path(download_output_path).iterdir())
 
 

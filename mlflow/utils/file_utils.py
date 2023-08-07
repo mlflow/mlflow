@@ -80,16 +80,16 @@ class ArtifactProgressBar:
         )
 
     @classmethod
-    def files(cls, iterable, desc, total):
-        return cls(iterable, desc, total=total, step=1)
+    def files(cls, iterable, desc, total, step=1):
+        return cls(iterable, desc, total=total, step=step)
 
     def _pbar_iter(self):
         try:
             for index, item in enumerate(self.iterable):
+                yield item
                 remaining = self.total - index * self.step
                 self.pbar.update(min(remaining, self.step))
                 self.pbar.refresh()
-                yield item
         finally:
             self.pbar.close()
 
