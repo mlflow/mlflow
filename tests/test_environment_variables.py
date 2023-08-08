@@ -80,3 +80,9 @@ def test_environment_variable_functionality(
     assert os.getenv(var_name) == str(default_value)
     env_var.unset()
     assert os.getenv(var_name) is None
+
+
+def test_format():
+    env_var = _EnvironmentVariable("foo", str, "")
+    assert f"{env_var} bar" == "foo bar"
+    assert f"{env_var!r} bar" == "'foo' bar"

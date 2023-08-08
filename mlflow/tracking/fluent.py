@@ -1776,7 +1776,7 @@ def _get_experiment_id_from_env():
         if exp:
             if experiment_id and experiment_id != exp.experiment_id:
                 raise MlflowException(
-                    message=f"The provided {MLFLOW_EXPERIMENT_ID.name} environment variable "
+                    message=f"The provided {MLFLOW_EXPERIMENT_ID} environment variable "
                     f"value `{experiment_id}` does not match the experiment id "
                     f"`{exp.experiment_id}` for experiment name `{experiment_name}`",
                     error_code=INVALID_PARAMETER_VALUE,
@@ -1792,7 +1792,7 @@ def _get_experiment_id_from_env():
             return exp.experiment_id
         except MlflowException as exc:
             raise MlflowException(
-                message=f"The provided {MLFLOW_EXPERIMENT_ID.name} environment variable "
+                message=f"The provided {MLFLOW_EXPERIMENT_ID} environment variable "
                 f"value `{experiment_id}` does not exist in the tracking server. Provide a valid "
                 f"experiment_id.",
                 error_code=INVALID_PARAMETER_VALUE,
