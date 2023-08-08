@@ -514,16 +514,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
                  This path is specified relative to the root of the MLflow Run associated with
                  the artifact repository.
         """
-        basename = os.path.basename(src_file_path)
-        dst_artifact_dir = dst_artifact_dir or ""
-        dst_artifact_dir = posixpath.join(dst_artifact_dir, basename)
-        if len(dst_artifact_dir) > 0:
-            run_relative_artifact_path = posixpath.join(
-                self.run_relative_artifact_repo_root_path, dst_artifact_dir
-            )
-        else:
-            run_relative_artifact_path = self.run_relative_artifact_repo_root_path
-        return run_relative_artifact_path
+        src_file_name = os.path.basename(src_file_path)
+        dst_file_path = posixpath.join(dst_artifact_dir or "", src_file_name)
+        return posixpath.join(self.run_relative_artifact_repo_root_path, dst_file_path)
 
     def _create_multipart_upload(self, run_id, path, num_parts):
         return self._call_endpoint(

@@ -18,7 +18,7 @@ from mlflow.environment_variables import (
     MLFLOW_S3_IGNORE_TLS,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
 from mlflow.utils import data_utils
 from mlflow.utils.file_utils import read_chunk, relative_path_to_artifact_path
 from mlflow.utils.rest_utils import augmented_raise_for_status
@@ -28,11 +28,7 @@ from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.store.artifact.databricks_artifact_repo import (
     _MULTIPART_UPLOAD_CHUNK_SIZE,
     _complete_futures,
-    _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE,
-    MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
-    _DOWNLOAD_CHUNK_SIZE,
 )
-from mlflow.utils.file_utils import parallelized_download_file_using_http_uri, download_chunk
 
 _logger = logging.getLogger(__name__)
 
@@ -114,7 +110,7 @@ def _get_s3_client(access_key_id=None, secret_access_key=None, session_token=Non
     )
 
 
-class S3ArtifactRepository(ArtifactRepository):
+class S3ArtifactRepository(CloudArtifactRepository):
     """Stores artifacts on Amazon S3."""
 
     def __init__(
@@ -249,81 +245,10 @@ class S3ArtifactRepository(ArtifactRepository):
         res = [ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path)) for path in paths]
         return res
 
-    def _download_file(self, remote_file_path, local_path):
+    def _download_from_cloud(self, remote_file_path, local_path):
         s3_client = self._get_s3_client()
         s3_full_path = posixpath.join(self.bucket_path, remote_file_path)
-        # list_artifacts API only returns a list of FileInfos at the specified path
-        # if it's a directory. To get file size, we need to iterate over FileInfos
-        # contained by the parent directory. A bad path could result in there being
-        # no matching FileInfos (by path), so fall back to None size to prevent
-        # parallelized download.
-        parent_dir = posixpath.dirname(remote_file_path)
-        file_infos = self.list_artifacts(parent_dir)
-        file_info = [info for info in file_infos if info.path == remote_file_path]
-        file_size = file_info[0].file_size if len(file_info) == 1 else None
-        if (
-            not file_size
-            or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE
-            or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
-        ):
-            s3_client.download_file(self.bucket, s3_full_path, local_path)
-        else:
-            presigned_url = s3_client.generate_presigned_url(
-                "get_object", Params={"Bucket": self.bucket, "Key": s3_full_path}
-            )
-            self._parallelized_download_from_cloud(
-                ArtifactCredentialInfo(signed_uri=presigned_url),
-                file_size,
-                local_path,
-                remote_file_path,
-            )
-
-    def _extract_headers_from_credentials(self, headers):
-        """
-        :return: A python dictionary of http headers converted from the protobuf credentials
-        """
-        return {header.name: header.value for header in headers}
-
-    def _parallelized_download_from_cloud(
-        self, cloud_credential_info, file_size, dst_local_file_path, dst_run_relative_artifact_path
-    ):
-        try:
-            parallel_download_subproc_env = os.environ.copy()
-
-            failed_downloads = parallelized_download_file_using_http_uri(
-                thread_pool_executor=self.chunk_thread_pool,
-                http_uri=cloud_credential_info.signed_uri,
-                download_path=dst_local_file_path,
-                file_size=file_size,
-                uri_type=cloud_credential_info.type,
-                chunk_size=_DOWNLOAD_CHUNK_SIZE,
-                env=parallel_download_subproc_env,
-                headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
-            )
-            download_errors = [
-                e for e in failed_downloads.values() if e["error_status_code"] not in (401, 403)
-            ]
-            if download_errors:
-                raise MlflowException(
-                    f"Failed to download artifact {dst_run_relative_artifact_path}: "
-                    f"{download_errors}"
-                )
-
-            if failed_downloads:
-                new_cloud_creds = self._get_read_credential_infos([dst_run_relative_artifact_path])[
-                    0
-                ]
-                new_signed_uri = new_cloud_creds.signed_uri
-                new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
-
-                for i in failed_downloads:
-                    download_chunk(
-                        i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
-                    )
-        except Exception as err:
-            if os.path.exists(dst_local_file_path):
-                os.remove(dst_local_file_path)
-            raise MlflowException(err)
+        s3_client.download_file(self.bucket, s3_full_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
         dest_path = self.bucket_path
@@ -340,10 +265,6 @@ class S3ArtifactRepository(ArtifactRepository):
                 listed_object_path=file_path, artifact_path=dest_path
             )
             s3_client.delete_object(Bucket=self.bucket, Key=file_path)
-
-    # Option 1: s3 upload file (the multiple file parallization already helps a lot)
-    # Option 2: s3 create multipart, upload part, complete mulipart
-    # Option 3: s3 create multipart, we make the HTTP requests, complete multipart <- exitsing solution
 
     def _get_write_credential_infos(self, paths):
         """
@@ -365,7 +286,7 @@ class S3ArtifactRepository(ArtifactRepository):
         dest_path = self.bucket_path
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
-        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
+
         s3_client = cloud_credential_info
         response = s3_client.create_multipart_upload(Bucket=self.bucket, Key=dest_path)
         upload_id = response["UploadId"]
