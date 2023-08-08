@@ -1890,9 +1890,8 @@ class _TransformersWrapper:
         def _check_keys(payload):
             """Check if a dictionary contains only allowable keys."""
             allowable_str_keys = {"text", "text_pair"}
-            if (
-                not all(isinstance(key, int) for key in payload.keys())
-                and set(payload) - allowable_str_keys
+            if set(payload) - allowable_str_keys and not all(
+                isinstance(key, int) for key in payload.keys()
             ):
                 raise MlflowException(
                     "Text Classification pipelines may only define dictionary inputs with keys "
@@ -1911,8 +1910,15 @@ class _TransformersWrapper:
                 for payload in data:
                     _check_keys(payload)
                 if list(data[0].keys())[0] == 0:
-                    data = [list(item.values())[0] for item in data]
+                    data = [item[0] for item in data]
                 try:
+                    # NB: To support MLflow serving signature validation, the value within dict
+                    # inputs is JSON encoded. In order for the proper data structure input support
+                    # for a {"text": "a", "text_pair": "b"} (or the list of such a structure) as
+                    # an input, we have to convert the string encoded dict back to a dict.
+                    # Due to how unescaped characters (such as "'") are encoded, using an explicit
+                    # json.loads() attempted cast can result in invalid input data to the pipeline.
+                    # ast.literal_eval() shows correct conversion, as validated in unit tests.
                     return [ast.literal_eval(s) for s in data]
                 except (ValueError, SyntaxError):
                     return data
