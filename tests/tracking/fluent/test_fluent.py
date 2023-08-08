@@ -1,4 +1,5 @@
 import inspect
+import contextvars
 import json
 import os
 import random
@@ -150,7 +151,7 @@ def reset_experiment_id():
     its included
     """
     yield
-    mlflow.tracking.fluent._active_experiment_id = None
+    mlflow.tracking.fluent._active_experiment_id.set(None)
 
 
 @pytest.fixture(autouse=True)
@@ -515,7 +516,7 @@ def test_search_model_versions(tmp_path):
 
 @pytest.fixture
 def empty_active_run_stack():
-    with mock.patch("mlflow.tracking.fluent._active_run_stack", []):
+    with mock.patch("mlflow.tracking.fluent._active_run_stack.get", []):
         yield
 
 
@@ -720,7 +721,7 @@ def test_start_run_with_parent():
     mock_experiment_id = "123456"
     mock_source_name = mock.Mock()
 
-    active_run_stack_patch = mock.patch("mlflow.tracking.fluent._active_run_stack", [parent_run])
+    active_run_stack_patch = mock.patch("mlflow.tracking.fluent._active_run_stack.get", [parent_run])
 
     mock_user = mock.Mock()
     user_patch = mock.patch(
@@ -753,7 +754,7 @@ def test_start_run_with_parent():
 
 
 def test_start_run_with_parent_non_nested():
-    with mock.patch("mlflow.tracking.fluent._active_run_stack", [mock.Mock()]):
+    with mock.patch("mlflow.tracking.fluent._active_run_stack.get", [mock.Mock()]):
         with pytest.raises(Exception, match=r"Run with UUID .+ is already active"):
             start_run()
 
