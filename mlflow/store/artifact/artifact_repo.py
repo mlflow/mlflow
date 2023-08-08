@@ -195,7 +195,7 @@ class ArtifactRepository:
         with ArtifactProgressBar.files(desc="Downloading artifacts", total=len(futures)) as pbar:
             if len(futures) >= 10 and pbar.pbar:
                 _logger.info(
-                    "You can turn off the progress bar by setting the environment "
+                    "The progress bar can be disabled by setting the environment "
                     f"variable {MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR.name} to false"
                 )
             for f in as_completed(futures):
