@@ -15,17 +15,11 @@ from sklearn.datasets import load_iris
 import mlflow
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.utils.environment import _PYTHON_ENV_FILE_NAME, _REQUIREMENTS_FILE_NAME
-from mlflow.utils.virtualenv import (
-    _is_pyenv_available,
-    _is_virtualenv_available,
-)
+from mlflow.utils.virtualenv import _is_pyenv_available
 from mlflow.environment_variables import MLFLOW_ENV_ROOT
 from tests.helper_functions import pyfunc_serve_and_score_model
 
-pytestmark = pytest.mark.skipif(
-    not (_is_pyenv_available() and _is_virtualenv_available()),
-    reason="requires pyenv and virtualenv",
-)
+pytestmark = pytest.mark.skipif(not _is_pyenv_available(), reason="requires pyenv and virtualenv")
 
 TEST_DIR = "tests"
 TEST_MLFLOW_1X_MODEL_DIR = os.path.join(TEST_DIR, "resources", "example_mlflow_1x_sklearn_model")
