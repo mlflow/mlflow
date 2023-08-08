@@ -349,7 +349,7 @@ MLFLOW_ENV_ROOT = _EnvironmentVariable(
 #: Specifies whether or not to use DBFS FUSE mount to store artifacts on Databricks
 #: (default: ``False``)
 MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable(
-    "MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO", False
+    "MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO", True
 )
 
 #: Private environment variable that should be set to ``True`` when running autologging tests.
