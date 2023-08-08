@@ -736,9 +736,7 @@ def parallelized_download_file_using_http_uri(
 
     failed_downloads = {}
 
-    with ArtifactProgressBar.chunks(
-        file_size, f"Downloading file {download_path}", chunk_size
-    ) as pbar:
+    with ArtifactProgressBar.chunks(file_size, f"Downloading {download_path}", chunk_size) as pbar:
         for future in as_completed(futures):
             index = futures[future]
             try:

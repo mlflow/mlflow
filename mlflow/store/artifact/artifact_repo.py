@@ -196,7 +196,7 @@ class ArtifactRepository:
             if len(futures) >= 10 and pbar.pbar:
                 _logger.info(
                     "The progress bar can be disabled by setting the environment "
-                    f"variable {MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR.name} to false"
+                    f"variable {MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR} to false"
                 )
             for f in as_completed(futures):
                 try:

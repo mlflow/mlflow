@@ -95,7 +95,7 @@ def _complete_futures(futures_dict, file):
 
     with ArtifactProgressBar.chunks(
         os.path.getsize(file),
-        f"Uploading file {file}",
+        f"Uploading {file}",
         _MULTIPART_UPLOAD_CHUNK_SIZE,
     ) as pbar:
         for future in as_completed(futures_dict):
@@ -721,8 +721,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     )
                     inflight_uploads[staged_upload.src_file_path] = upload_future
 
-                for src_file_path, upload_future in inflight_uploads.items():
-                    yield src_file_path, upload_future
+                yield from inflight_uploads.items()
 
         with ArtifactProgressBar.files(
             desc="Uploading artifacts", total=len(staged_uploads)
@@ -730,7 +729,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             if len(staged_uploads) >= 10 and pbar.pbar:
                 _logger.info(
                     "The progress bar can be disabled by setting the environment "
-                    f"variable {MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR.name} to false"
+                    f"variable {MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR} to false"
                 )
             for src_file_path, upload_future in upload_artifacts_iter():
                 try:

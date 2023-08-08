@@ -364,7 +364,7 @@ _MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TE
 #: (default: ``None``)
 MLFLOW_GATEWAY_URI = _EnvironmentVariable("MLFLOW_GATEWAY_URI", str, None)
 
-#: Specifies whether to turn on the progress bar when uploading/downloading artifacts.
+#: Specifies whether to display the progress bar when uploading/downloading artifacts.
 #: (default: ``True``)
 MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR", True
