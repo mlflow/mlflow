@@ -350,7 +350,6 @@ MLFLOW_ENV_ROOT = _EnvironmentVariable(
 #: (default: ``False``)
 MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO = _EnvironmentVariable("MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO", str, False)
 
-
 #: Private environment variable that should be set to ``True`` when running autologging tests.
 #: (default: ``False``)
 _MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TESTING", False)
