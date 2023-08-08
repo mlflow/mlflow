@@ -3,37 +3,33 @@ import posixpath
 from abc import abstractmethod
 from collections import namedtuple
 
-from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-
-from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
-
-from mlflow.azure.client import put_adls_file_creation, patch_adls_flush, patch_adls_file_upload
-from mlflow.store.artifact.databricks_artifact_repo import (
-    _compute_num_chunks,
-    _complete_futures,
-    MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
-)
-from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
+from mlflow.store.artifact.databricks_artifact_repo import MLFLOW_ENABLE_MULTIPART_DOWNLOAD
 from mlflow.utils import chunk_list
 from mlflow.utils.file_utils import (
     parallelized_download_file_using_http_uri,
     relative_path_to_artifact_path,
     download_chunk,
 )
-from typing import List
 
 _DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
 _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE = 500_000_000  # 500 MB
 _MULTIPART_UPLOAD_CHUNK_SIZE = 10_000_000  # 10 MB
-_MAX_CREDENTIALS_REQUEST_SIZE = 2000  # Max number of artifact paths in a single credentials request
 _ARTIFACT_UPLOAD_BATCH_SIZE = (
     50  # Max number of artifacts for which to fetch write credentials at once.
 )
 
 
 class CloudArtifactRepository(ArtifactRepository):
+    def __init__(self, artifact_uri):
+        super().__init__(artifact_uri)
+        # Use an isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
+        # caused by waiting for a chunk-upload/download task within a file-upload/download task.
+        # See https://superfastpython.com/threadpoolexecutor-deadlock/#Deadlock_1_Submit_and_Wait_for_a_Task_Within_a_Task
+        # for more details
+        self.chunk_thread_pool = self._create_thread_pool()
+
     # Write APIs
 
     def log_artifacts_parallel(self, local_dir, artifact_path=None):

@@ -94,11 +94,6 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         )
         self.container = container
         self.container_client = azure_blob_storage_client.get_container_client(container)
-        # Use an isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
-        # caused by waiting for a chunk-upload/download task within a file-upload/download task.
-        # See https://superfastpython.com/threadpoolexecutor-deadlock/#Deadlock_1_Submit_and_Wait_for_a_Task_Within_a_Task
-        # for more details
-        self.chunk_thread_pool = self._create_thread_pool()
 
     def log_artifact(self, local_file, artifact_path=None):
         raise NotImplementedError(

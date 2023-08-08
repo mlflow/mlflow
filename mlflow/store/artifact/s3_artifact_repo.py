@@ -18,17 +18,17 @@ from mlflow.environment_variables import (
     MLFLOW_S3_IGNORE_TLS,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
+from mlflow.store.artifact.cloud_artifact_repo import (
+    CloudArtifactRepository,
+    _MULTIPART_UPLOAD_CHUNK_SIZE,
+)
 from mlflow.utils import data_utils
 from mlflow.utils.file_utils import read_chunk, relative_path_to_artifact_path
 from mlflow.utils.rest_utils import augmented_raise_for_status
 from mlflow.utils.request_utils import cloud_storage_http_request
 
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
-from mlflow.store.artifact.databricks_artifact_repo import (
-    _MULTIPART_UPLOAD_CHUNK_SIZE,
-    _complete_futures,
-)
+from mlflow.store.artifact.databricks_artifact_repo import _complete_futures
 
 _logger = logging.getLogger(__name__)
 
@@ -120,7 +120,6 @@ class S3ArtifactRepository(CloudArtifactRepository):
         self._access_key_id = access_key_id
         self._secret_access_key = secret_access_key
         self._session_token = session_token
-        self.chunk_thread_pool = self._create_thread_pool()
         self.bucket, self.bucket_path = data_utils.parse_s3_uri(self.artifact_uri)
 
     def _get_s3_client(self):
