@@ -3,7 +3,6 @@ import logging
 import shutil
 import uuid
 import re
-import sys
 import tempfile
 from pathlib import Path
 from packaging.version import Version
@@ -228,10 +227,7 @@ def _create_virtualenv(
         ),
     ):
         _logger.info("Creating a new environment in %s with %s", env_dir, python_bin_path)
-        _exec_cmd(
-            [sys.executable, "-m", "venv", "--python", python_bin_path, env_dir],
-            capture_output=capture_output,
-        )
+        _exec_cmd([python_bin_path, "-m", "venv", env_dir], capture_output=capture_output)
 
         _logger.info("Installing dependencies")
         for deps in filter(None, [python_env.build_dependencies, python_env.dependencies]):
