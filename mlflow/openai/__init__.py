@@ -291,6 +291,23 @@ def save_model(
         Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
         :ref:`mlflow.openai.messages` for more details on this parameter)
         or ``top_p`` value to use for chat completion.
+
+    .. code-block:: python
+
+        # Chat
+        mlflow.openai.save_model(
+            model="gpt-3.5-turbo",
+            task=openai.ChatCompletion,
+            messages=[{"role": "user", "content": "Tell me a joke"}],
+            path="model",
+        )
+
+        # Embeddings
+        mlflow.openai.save_model(
+            model="text-embedding-ada-002",
+            task=openai.Embedding,
+            path="model",
+        )
     """
     import numpy as np
 
@@ -463,6 +480,23 @@ def log_model(
         or ``top_p`` value to use for chat completion.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
+
+    .. code-block:: python
+
+        # Chat
+        model_info = mlflow.openai.log_model(
+            model="gpt-3.5-turbo",
+            task=openai.ChatCompletion,
+            messages=[{"role": "user", "content": "Tell me a joke"}],
+            artifact_path="model",
+        )
+
+        # Embeddings
+        model_info = mlflow.openai.log_model(
+            model="text-embedding-ada-002",
+            task=openai.Embedding,
+            artifact_path="model",
+        )
     """
     return Model.log(
         artifact_path=artifact_path,
