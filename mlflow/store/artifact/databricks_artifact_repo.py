@@ -726,6 +726,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
         with ArtifactProgressBar.files(
             desc="Uploading artifacts", total=len(staged_uploads)
         ) as pbar:
+            if len(staged_uploads) >= 10 and pbar.pbar:
+                _logger.info(
+                    "You can turn off the progress bar by setting the environment "
+                    "variable MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR to false"
+                )
             for src_file_path, upload_future in upload_artifacts_iter():
                 try:
                     upload_future.result()
