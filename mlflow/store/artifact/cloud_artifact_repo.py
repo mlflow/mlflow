@@ -3,9 +3,9 @@ import posixpath
 from abc import abstractmethod
 from collections import namedtuple
 
+from mlflow.environment_variables import MLFLOW_ENABLE_MULTIPART_DOWNLOAD
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.store.artifact.databricks_artifact_repo import MLFLOW_ENABLE_MULTIPART_DOWNLOAD
 from mlflow.utils import chunk_list
 from mlflow.utils.file_utils import (
     parallelized_download_file_using_http_uri,
@@ -136,7 +136,7 @@ class CloudArtifactRepository(ArtifactRepository):
         return {header.name: header.value for header in headers}
 
     def _parallelized_download_from_cloud(self, file_size, remote_file_path, local_path):
-        read_credentials = self._get_read_credential_infos(remote_file_path)
+        read_credentials = self._get_read_credential_infos([remote_file_path])
         # Read credentials for only one file were requested. So we expected only one value in
         # the response.
         assert len(read_credentials) == 1
