@@ -46,6 +46,9 @@ class _EnvironmentVariable:
     def __repr__(self):
         return repr(self.name)
 
+    def __format__(self, format_spec: str) -> str:
+        return self.name.__format__(format_spec)
+
 
 class _BooleanEnvironmentVariable(_EnvironmentVariable):
     """

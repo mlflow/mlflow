@@ -227,7 +227,7 @@ def test_get_experiment_id_from_env(monkeypatch):
     with pytest.raises(
         MlflowException,
         match=(
-            f"The provided {MLFLOW_EXPERIMENT_ID.name} environment variable value "
+            f"The provided {MLFLOW_EXPERIMENT_ID} environment variable value "
             f"`{random_id}` does not exist in the tracking server"
         ),
     ):
@@ -242,7 +242,7 @@ def test_get_experiment_id_from_env(monkeypatch):
     with pytest.raises(
         MlflowException,
         match=(
-            f"The provided {MLFLOW_EXPERIMENT_ID.name} environment variable value "
+            f"The provided {MLFLOW_EXPERIMENT_ID} environment variable value "
             f"`{random_id}` does not match the experiment id"
         ),
     ):
