@@ -281,14 +281,14 @@ def _validate_length_limit(entity_name, limit, value):
 def _validate_run_id(run_id):
     """Check that `run_id` is a valid run ID and raise an exception if it isn't."""
     if _RUN_ID_REGEX.match(run_id) is None:
-        raise MlflowException("Invalid run ID: '%s'" % run_id, error_code=INVALID_PARAMETER_VALUE)
+        raise MlflowException(f"Invalid run ID: '{run_id}'", error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_experiment_id(exp_id):
     """Check that `experiment_id`is a valid string or None, raise an exception if it isn't."""
     if exp_id is not None and _EXPERIMENT_ID_REGEX.match(exp_id) is None:
         raise MlflowException(
-            "Invalid experiment ID: '%s'" % exp_id, error_code=INVALID_PARAMETER_VALUE
+            f"Invalid experiment ID: '{exp_id}'", error_code=INVALID_PARAMETER_VALUE
         )
 
 
@@ -341,12 +341,12 @@ def _validate_experiment_name(experiment_name):
     """Check that `experiment_name` is a valid string and raise an exception if it isn't."""
     if experiment_name == "" or experiment_name is None:
         raise MlflowException(
-            "Invalid experiment name: '%s'" % experiment_name, error_code=INVALID_PARAMETER_VALUE
+            f"Invalid experiment name: '{experiment_name}'", error_code=INVALID_PARAMETER_VALUE
         )
 
     if not is_string_type(experiment_name):
         raise MlflowException(
-            "Invalid experiment name: %s. Expects a string." % experiment_name,
+            f"Invalid experiment name: {experiment_name}. Expects a string.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -405,7 +405,7 @@ def _validate_model_alias_name(model_alias_name):
 def _validate_experiment_artifact_location(artifact_location):
     if artifact_location is not None and artifact_location.startswith("runs:"):
         raise MlflowException(
-            "Artifact location cannot be a runs:/ URI. Given: '%s'" % artifact_location,
+            f"Artifact location cannot be a runs:/ URI. Given: '{artifact_location}'",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

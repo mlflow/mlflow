@@ -46,6 +46,9 @@ class _EnvironmentVariable:
     def __repr__(self):
         return repr(self.name)
 
+    def __format__(self, format_spec: str) -> str:
+        return self.name.__format__(format_spec)
+
 
 class _BooleanEnvironmentVariable(_EnvironmentVariable):
     """
@@ -344,6 +347,12 @@ MLFLOW_AUTH_CONFIG_PATH = _EnvironmentVariable("MLFLOW_AUTH_CONFIG_PATH", str, N
 #: (default: ``~/.mlflow/envs``)
 MLFLOW_ENV_ROOT = _EnvironmentVariable(
     "MLFLOW_ENV_ROOT", str, str(Path.home().joinpath(".mlflow", "envs"))
+)
+
+#: Specifies whether or not to use DBFS FUSE mount to store artifacts on Databricks
+#: (default: ``False``)
+MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO", True
 )
 
 #: Private environment variable that should be set to ``True`` when running autologging tests.

@@ -44,7 +44,7 @@ def test_create_experiment():
     with pytest.raises(MlflowException, match="Invalid experiment name"):
         mlflow.create_experiment("")
 
-    exp_id = mlflow.create_experiment("Some random experiment name %d" % random.randint(1, 1e6))
+    exp_id = mlflow.create_experiment(f"Some random experiment name {random.randint(1, 1e6)}")
     assert exp_id is not None
 
 
@@ -173,8 +173,8 @@ def test_start_run_context_manager():
     # different
     with pytest.raises(Exception, match="Failing run!"):
         with start_run() as second_run:
-            second_run_id = second_run.info.run_id
             raise Exception("Failing run!")
+    second_run_id = second_run.info.run_id
     assert second_run_id != first_uuid
     finished_run2 = tracking.MlflowClient().get_run(second_run_id)
     assert finished_run2.info.status == RunStatus.to_string(RunStatus.FAILED)

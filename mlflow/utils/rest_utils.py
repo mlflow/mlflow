@@ -67,7 +67,7 @@ def http_request(
         basic_auth_str = f"{host_creds.username}:{host_creds.password}".encode()
         auth_str = "Basic " + base64.standard_b64encode(basic_auth_str).decode("utf-8")
     elif host_creds.token:
-        auth_str = "Bearer %s" % host_creds.token
+        auth_str = f"Bearer {host_creds.token}"
 
     from mlflow.tracking.request_header.registry import resolve_request_headers
 
@@ -104,8 +104,8 @@ def http_request(
     except requests.exceptions.Timeout as to:
         raise MlflowException(
             f"API request to {url} failed with timeout exception {to}."
-            f" To increase the timeout, set the environment variable {MLFLOW_HTTP_REQUEST_TIMEOUT}"
-            " to a larger value."
+            " To increase the timeout, set the environment variable "
+            f"{MLFLOW_HTTP_REQUEST_TIMEOUT!s} to a larger value."
         ) from to
     except requests.exceptions.InvalidURL as iu:
         raise InvalidUrlException(f"Invalid url: {url}") from iu

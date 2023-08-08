@@ -452,9 +452,9 @@ class SearchUtils:
         tokens = _join_in_comparison_tokens(statement.tokens)
         invalids = list(filter(cls._invalid_statement_token_search_runs, tokens))
         if len(invalids) > 0:
-            invalid_clauses = ", ".join("'%s'" % token for token in invalids)
+            invalid_clauses = ", ".join(f"'{token}'" for token in invalids)
             raise MlflowException(
-                "Invalid clause(s) in filter string: %s" % invalid_clauses,
+                f"Invalid clause(s) in filter string: {invalid_clauses}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return [cls._get_comparison(si) for si in tokens if isinstance(si, Comparison)]
@@ -467,11 +467,11 @@ class SearchUtils:
             parsed = sqlparse.parse(filter_string)
         except Exception:
             raise MlflowException(
-                "Error on parsing filter '%s'" % filter_string, error_code=INVALID_PARAMETER_VALUE
+                f"Error on parsing filter '{filter_string}'", error_code=INVALID_PARAMETER_VALUE
             )
         if len(parsed) == 0 or not isinstance(parsed[0], Statement):
             raise MlflowException(
-                "Invalid filter '%s'. Could not be parsed." % filter_string,
+                f"Invalid filter '{filter_string}'. Could not be parsed.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         elif len(parsed) > 1:
@@ -587,7 +587,7 @@ class SearchUtils:
                 )
         else:
             raise MlflowException(
-                "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
+                f"Invalid search expression type '{key_type}'", error_code=INVALID_PARAMETER_VALUE
             )
         if lhs is None:
             return False
@@ -702,7 +702,7 @@ class SearchUtils:
             sort_value = getattr(run.info, key)
         else:
             raise MlflowException(
-                "Invalid order_by entity type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
+                f"Invalid order_by entity type '{key_type}'", error_code=INVALID_PARAMETER_VALUE
             )
 
         # Return a key such that None values are always at the end.
@@ -762,14 +762,14 @@ class SearchUtils:
             parsed_token = json.loads(decoded_token)
         except ValueError:
             raise MlflowException(
-                "Invalid page token, decoded value=%s" % decoded_token,
+                f"Invalid page token, decoded value={decoded_token}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
         offset_str = parsed_token.get("offset")
         if not offset_str:
             raise MlflowException(
-                "Invalid page token, parsed value=%s" % parsed_token,
+                f"Invalid page token, parsed value={parsed_token}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -777,7 +777,7 @@ class SearchUtils:
             offset = int(offset_str)
         except ValueError:
             raise MlflowException(
-                "Invalid page token, not stringable %s" % offset_str,
+                f"Invalid page token, not stringable {offset_str}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -888,7 +888,7 @@ class SearchExperimentsUtils(SearchUtils):
         if len(invalids) > 0:
             invalid_clauses = ", ".join(map(str, invalids))
             raise MlflowException.invalid_parameter_value(
-                "Invalid clause(s) in filter string: %s" % invalid_clauses
+                f"Invalid clause(s) in filter string: {invalid_clauses}"
             )
         return [cls._get_comparison(t) for t in tokens if isinstance(t, Comparison)]
 
@@ -962,7 +962,7 @@ class SearchExperimentsUtils(SearchUtils):
                 return experiment
         else:
             raise MlflowException(
-                "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
+                f"Invalid search expression type '{key_type}'", error_code=INVALID_PARAMETER_VALUE
             )
 
         return SearchUtils.get_comparison_func(comparator)(lhs, value)
@@ -1064,7 +1064,7 @@ class SearchModelUtils(SearchUtils):
             lhs = model.tags.get(key, None)
         else:
             raise MlflowException(
-                "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
+                f"Invalid search expression type '{key_type}'", error_code=INVALID_PARAMETER_VALUE
             )
         if lhs is None:
             return False
@@ -1122,7 +1122,7 @@ class SearchModelUtils(SearchUtils):
         if len(invalids) > 0:
             invalid_clauses = ", ".join(map(str, invalids))
             raise MlflowException.invalid_parameter_value(
-                "Invalid clause(s) in filter string: %s" % invalid_clauses
+                f"Invalid clause(s) in filter string: {invalid_clauses}"
             )
         return [cls._get_comparison(t) for t in tokens if isinstance(t, Comparison)]
 
@@ -1244,7 +1244,7 @@ class SearchModelVersionUtils(SearchUtils):
             lhs = mv.tags.get(key, None)
         else:
             raise MlflowException(
-                "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
+                f"Invalid search expression type '{key_type}'", error_code=INVALID_PARAMETER_VALUE
             )
         if lhs is None:
             return False
@@ -1392,7 +1392,7 @@ class SearchModelVersionUtils(SearchUtils):
         if len(invalids) > 0:
             invalid_clauses = ", ".join(map(str, invalids))
             raise MlflowException.invalid_parameter_value(
-                "Invalid clause(s) in filter string: %s" % invalid_clauses
+                f"Invalid clause(s) in filter string: {invalid_clauses}"
             )
         return [cls._get_comparison(t) for t in tokens if isinstance(t, Comparison)]
 
@@ -1415,11 +1415,11 @@ class SearchModelVersionUtils(SearchUtils):
             parsed = sqlparse.parse(filter_string)
         except Exception:
             raise MlflowException(
-                "Error on parsing filter '%s'" % filter_string, error_code=INVALID_PARAMETER_VALUE
+                f"Error on parsing filter '{filter_string}'", error_code=INVALID_PARAMETER_VALUE
             )
         if len(parsed) == 0 or not isinstance(parsed[0], Statement):
             raise MlflowException(
-                "Invalid filter '%s'. Could not be parsed." % filter_string,
+                f"Invalid filter '{filter_string}'. Could not be parsed.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         elif len(parsed) > 1:

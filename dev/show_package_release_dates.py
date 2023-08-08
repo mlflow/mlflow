@@ -1,4 +1,6 @@
 import os
+import json
+import sys
 import subprocess
 import requests
 from concurrent.futures import ThreadPoolExecutor
@@ -6,22 +8,10 @@ import traceback
 
 
 def get_distributions():
-    res = subprocess.run(["pip", "list"], stdout=subprocess.PIPE, check=True)
-    pip_list_stdout = res.stdout.decode("utf-8")
-    # `pip_list_stdout` looks like this:
-    # ``````````````````````````````````````````````````````````
-    # Package     Version             Location
-    # ----------- ------------------- --------------------------
-    # mlflow      1.21.1.dev0         /home/user/path/to/mlflow
-    # tensorflow  2.6.0
-    # ...
-    # ``````````````````````````````````````````````````````````
-    lines = pip_list_stdout.splitlines()[2:]  # `[2:]` removes the header
-    return [
-        # Extract package and version
-        line.split()[:2]
-        for line in lines
-    ]
+    res = subprocess.check_output(
+        [sys.executable, "-m", "pip", "list", "--format", "json"], text=True
+    )
+    return [(pkg["name"], pkg["version"]) for pkg in json.loads(res)]
 
 
 def get_release_date(package, version):

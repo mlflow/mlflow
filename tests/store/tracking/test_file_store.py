@@ -417,7 +417,7 @@ def _create_root(store):
                     timestamp += random_int(10000, 2000000)
                     values.append((timestamp, metric_value))
                     with open(metric_file, "a") as f:
-                        f.write("%d %d\n" % (timestamp, metric_value))
+                        f.write(f"{timestamp} {metric_value}\n")
                 metrics[metric_name] = values
             run_data[run_id]["metrics"] = metrics
             # artifacts

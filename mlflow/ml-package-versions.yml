@@ -513,6 +513,8 @@ transformers:
           "accelerate", # required for large torch models where weights will not fit in RAM
           "librosa", # required for transformers audio pipelines for bitrate conversion
           "ffmpeg", # required for transformers audio pipelines for audio byte to numpy conversion
+          "sentencepiece", # required for transformers text2text generation pipeline
+          "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
         ]
       # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
@@ -520,6 +522,8 @@ transformers:
       "< 4.30.0": ["tensorflow<2.13.0"]
     run: |
       pytest tests/transformers/test_transformers_model_export.py
+      pip uninstall -y accelerate
+      pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.25.1"
     maximum: "4.31.0"
@@ -561,7 +565,7 @@ langchain:
     install_dev: |
       pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
   models:
-    minimum: "0.0.169"
+    minimum: "0.0.244"
     maximum: "0.0.244"
     requirements:
       ">= 0.0.0":
@@ -573,6 +577,7 @@ langchain:
           "google-search-results",
           "psutil",
           "faiss-cpu",
+          "langchain-experimental",
         ]
     run: |
       pytest tests/langchain/test_langchain_model_export.py

@@ -1444,7 +1444,7 @@ def _validate_source(source: str, run_id: str) -> None:
         raise MlflowException(
             f"Invalid model version source: '{source}'. MLflow tracking server doesn't allow using "
             "a file URI as a model version source for security reasons. To disable this check, set "
-            f"the {MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE.name} environment variable to "
+            f"the {MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE} environment variable to "
             "True.",
             INVALID_PARAMETER_VALUE,
         )

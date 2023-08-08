@@ -673,7 +673,7 @@ def test_search_model_versions(store):
         return [mvd.version for mvd in _search_model_versions(store, filter_string)]
 
     # search using name should return all 4 versions
-    assert set(search_versions("name='%s'" % name)) == {1, 2, 3, 4}
+    assert set(search_versions(f"name='{name}'")) == {1, 2, 3, 4}
 
     # search using version
     assert set(search_versions("version_number=2")) == {2}
@@ -792,7 +792,7 @@ def test_search_model_versions(store):
         name=mv1.name, version=mv1.version, description="Online prediction model!"
     )
 
-    mvds = store.search_model_versions("run_id = '%s'" % run_id_1, max_results=10)
+    mvds = store.search_model_versions(f"run_id = '{run_id_1}'", max_results=10)
     assert len(mvds) == 1
     assert isinstance(mvds[0], ModelVersion)
     assert mvds[0].current_stage == "Production"
@@ -1483,7 +1483,7 @@ def test_pyfunc_model_registry_with_file_store(store):
     from mlflow.pyfunc import PythonModel
 
     class MyModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             return 7
 
     mlflow.set_registry_uri(path_to_local_file_uri(store.root_directory))
