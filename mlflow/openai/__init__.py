@@ -484,7 +484,7 @@ def log_model(
     .. code-block:: python
 
         # Chat
-        model_info = mlflow.openai.log_model(
+        mlflow.openai.log_model(
             model="gpt-3.5-turbo",
             task=openai.ChatCompletion,
             messages=[{"role": "user", "content": "Tell me a joke"}],
@@ -492,7 +492,7 @@ def log_model(
         )
 
         # Embeddings
-        model_info = mlflow.openai.log_model(
+        mlflow.openai.log_model(
             model="text-embedding-ada-002",
             task=openai.Embedding,
             artifact_path="model",
