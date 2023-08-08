@@ -24,7 +24,7 @@ from mlflow.models.docker_utils import DISABLE_ENV_CREATION
 from mlflow.pyfunc import scoring_server, mlserver, _extract_conda_env
 from mlflow.version import VERSION as MLFLOW_VERSION
 from mlflow.utils import env_manager as em
-from mlflow.utils.virtualenv import _get_or_create_virtualenv
+from mlflow.utils.virtualenv import _get_or_create_venv
 
 MODEL_PATH = "/opt/ml/model"
 
@@ -115,7 +115,7 @@ def _install_pyfunc_deps(
                     raise Exception("Failed to create model environment.")
                 activate_cmd = ["source /miniconda/bin/activate custom_env"]
             elif env_manager == em.VIRTUALENV:
-                env_activate_cmd = _get_or_create_virtualenv(model_path)
+                env_activate_cmd = _get_or_create_venv(model_path)
                 path = env_activate_cmd.split(" ")[-1]
                 os.symlink(path, "/opt/activate")
                 activate_cmd = [env_activate_cmd]

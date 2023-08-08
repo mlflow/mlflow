@@ -66,25 +66,6 @@ def _validate_pyenv_is_available():
         )
 
 
-def _is_virtualenv_available():
-    """
-    Returns True if virtualenv is available, otherwise False.
-    """
-    return shutil.which("virtualenv") is not None
-
-
-def _validate_virtualenv_is_available():
-    """
-    Validates virtualenv is available. If not, throws an `MlflowException` with a brief instruction
-    on how to install virtualenv.
-    """
-    if not _is_virtualenv_available():
-        raise MlflowException(
-            "Could not find the virtualenv binary. Run `pip install virtualenv` to install "
-            "virtualenv."
-        )
-
-
 _SEMANTIC_VERSION_REGEX = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$")
 
 
@@ -240,7 +221,7 @@ def _create_virtualenv(
     with remove_on_error(
         env_dir,
         onerror=lambda e: _logger.warning(
-            "Encountered an unexpected error: %s while creating a virtualenv environment in %s, "
+            "Encountered an unexpected error: %s while creating a virtual environment in %s, "
             "removing the environment directory...",
             repr(e),
             env_dir,
@@ -248,7 +229,7 @@ def _create_virtualenv(
     ):
         _logger.info("Creating a new environment in %s with %s", env_dir, python_bin_path)
         _exec_cmd(
-            [sys.executable, "-m", "virtualenv", "--python", python_bin_path, env_dir],
+            [sys.executable, "-m", "venv", "--python", python_bin_path, env_dir],
             capture_output=capture_output,
         )
 
@@ -320,9 +301,7 @@ _VIRTUALENV_ENVS_DIR = "virtualenv_envs"
 _PYENV_ROOT_DIR = "pyenv_root"
 
 
-def _get_or_create_virtualenv(
-    local_model_path, env_id=None, env_root_dir=None, capture_output=False
-):
+def _get_or_create_venv(local_model_path, env_id=None, env_root_dir=None, capture_output=False):
     """
     Restores an MLflow model's environment with pyenv and virtualenv and returns a command
     to activate it.
@@ -337,7 +316,6 @@ def _get_or_create_virtualenv(
              (e.g. "source /path/to/bin/activate").
     """
     _validate_pyenv_is_available()
-    _validate_virtualenv_is_available()
 
     # Read environment information
     local_model_path = Path(local_model_path)

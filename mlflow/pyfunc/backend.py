@@ -32,10 +32,7 @@ from mlflow.utils.file_utils import (
     get_or_create_nfs_tmp_dir,
 )
 from mlflow.utils.environment import Environment
-from mlflow.utils.virtualenv import (
-    _get_or_create_virtualenv,
-    _get_pip_install_mlflow,
-)
+from mlflow.utils.virtualenv import _get_or_create_venv, _get_pip_install_mlflow
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 from mlflow.utils.process import cache_return_value_per_process
 from mlflow.version import VERSION
@@ -105,7 +102,7 @@ class PyFuncBackend(FlavorBackend):
             env_root_dir = self._env_root_dir
 
         if self._env_manager == _EnvManager.VIRTUALENV:
-            activate_cmd = _get_or_create_virtualenv(
+            activate_cmd = _get_or_create_venv(
                 local_path,
                 self._env_id,
                 env_root_dir=env_root_dir,
