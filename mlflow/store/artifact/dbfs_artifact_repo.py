@@ -29,6 +29,7 @@ LIST_API_ENDPOINT = "/api/2.0/dbfs/list"
 GET_STATUS_ENDPOINT = "/api/2.0/dbfs/get-status"
 DOWNLOAD_CHUNK_SIZE = 1024
 
+
 class DbfsRestArtifactRepository(ArtifactRepository):
     """
     Stores artifacts on DBFS using the DBFS REST API.
