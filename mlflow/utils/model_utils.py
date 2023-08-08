@@ -1,5 +1,8 @@
 import os
 import sys
+import json
+
+from typing import Dict, Any
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -191,3 +194,70 @@ def _validate_onnx_session_options(onnx_session_options):
                 raise ValueError(
                     f"Value for key {key} in onnx_session_options should be >= 0, not {value}"
                 )
+
+
+def _update_inference_config(
+    pyfunc_config: Dict[str, Any], load_config: Dict[str, Any], logger
+) -> Dict[str, Any]:
+    """
+    Updates the inference configuration according to the model's configuration and the overrides.
+    Only arguments already present in the inference configuration can be updated. The environment
+    variable ``MLFLOW_PYFUNC_INFERENCE_CONFIG`` can also be used to provide additional inference
+    configuration.
+    """
+
+    overrides = {}
+    if env_overrides := os.getenv("MLFLOW_PYFUNC_INFERENCE_CONFIG"):
+        logger.debug(
+            "Inference configuration is being loaded from ``MLFLOW_PYFUNC_INFERENCE_CONFIG``"
+            " environ."
+        )
+        overrides.update(dict(json.loads(env_overrides)))
+
+    if load_config:
+        overrides.update(load_config)
+
+    if not overrides:
+        return pyfunc_config
+
+    if not pyfunc_config:
+        logger.warning(
+            f"Argument(s) {', '.join(overrides.keys())} were ignored since they are not"
+            " section of the ``pyfunc`` flavor. Use ``inference_config`` when logging the model"
+            " to allow inference configuration"
+        )
+
+        return None
+
+    allowed_config = {key: value for key, value in overrides.items() if key in pyfunc_config.keys()}
+
+    if len(allowed_config) < len(overrides):
+        ignored_keys = set(overrides.keys()) - set(allowed_config.keys())
+        logger.warning(
+            f"Argument(s) {', '.join(ignored_keys)} were ignored since they are not"
+            " section of the ``pyfunc`` flavor. Use ``inference_config`` when logging the model"
+            " to allow inference configuration. Allowed configuration includes"
+            f" {', '.join(pyfunc_config.keys())}"
+        )
+
+    return pyfunc_config.update(allowed_config)
+
+
+def _validate_inference_config(inference_config):
+    """
+    Validates the values passes in the inference_config section. There are no typing
+    restrictions but we require them being JSON-serializable.
+    """
+
+    def is_jsonable(value):
+        try:
+            json.dumps(value)
+            return True
+        except (TypeError, OverflowError):
+            return False
+
+    if inference_config and not is_jsonable(inference_config):
+        raise MlflowException(
+            "Some of the values indicated in ``inference_config`` are not "
+            "supported. Only JSON-serializable data types can be indicated."
+        )
