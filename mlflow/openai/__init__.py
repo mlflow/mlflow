@@ -61,7 +61,7 @@ from mlflow.utils.model_utils import (
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.types import Schema, ColSpec
+from mlflow.types import Schema, ColSpec, TensorSpec
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_OPENAI_SECRET_SCOPE
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
@@ -71,6 +71,7 @@ from mlflow.utils.databricks_utils import (
 
 FLAVOR_NAME = "openai"
 MODEL_FILENAME = "model.yaml"
+_PYFUNC_SUPPORTED_TASKS = ("chat.completions", "embeddings")
 
 _logger = logging.getLogger(__name__)
 
@@ -290,7 +291,29 @@ def save_model(
         Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
         :ref:`mlflow.openai.messages` for more details on this parameter)
         or ``top_p`` value to use for chat completion.
+
+    .. code-block:: python
+
+        import mlflow
+        import openai
+
+        # Chat
+        mlflow.openai.save_model(
+            model="gpt-3.5-turbo",
+            task=openai.ChatCompletion,
+            messages=[{"role": "user", "content": "Tell me a joke."}],
+            path="model",
+        )
+
+        # Embeddings
+        mlflow.openai.save_model(
+            model="text-embedding-ada-002",
+            task=openai.Embedding,
+            path="model",
+        )
     """
+    import numpy as np
+
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
@@ -316,6 +339,12 @@ def save_model(
             inputs=_get_input_schema(messages),
             outputs=Schema([ColSpec(type="string", name=None)]),
         )
+    elif task == "embeddings":
+        mlflow_model.signature = ModelSignature(
+            inputs=Schema([ColSpec(type="string", name=None)]),
+            outputs=Schema([TensorSpec(type=np.dtype("float64"), shape=(-1,))]),
+        )
+
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
     if metadata is not None:
@@ -329,7 +358,7 @@ def save_model(
     with open(model_data_path, "w") as f:
         yaml.safe_dump(model_dict, f)
 
-    if task == "chat.completions":
+    if task in _PYFUNC_SUPPORTED_TASKS:
         pyfunc.add_to_model(
             mlflow_model,
             loader_module="mlflow.openai",
@@ -454,6 +483,34 @@ def log_model(
         or ``top_p`` value to use for chat completion.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
+
+    .. code-block:: python
+
+        import mlflow
+        import openai
+
+        # Chat
+        with mlflow.start_run():
+            info = mlflow.openai.log_model(
+                model="gpt-3.5-turbo",
+                task=openai.ChatCompletion,
+                messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
+                artifact_path="model",
+            )
+            model = mlflow.pyfunc.load_model(info.model_uri)
+            df = pd.DataFrame({"animal": ["cats", "dogs"]})
+            print(model.predict(df))
+
+        # Embeddings
+        with mlflow.start_run():
+            info = mlflow.openai.log_model(
+                model="text-embedding-ada-002",
+                task=openai.Embedding,
+                artifact_path="embeddings",
+            )
+            model = mlflow.pyfunc.load_model(info.model_uri)
+            print(model.predict(["hello", "world"]))
+
     """
     return Model.log(
         artifact_path=artifact_path,
@@ -500,13 +557,33 @@ class _FormattableMessage:
         }
 
 
+def _first_string_column(pdf):
+    iter_str_cols = (c for c, v in pdf.iloc[0].items() if isinstance(v, str))
+    col = next(iter_str_cols, None)
+    if col is None:
+        raise mlflow.MlflowException.invalid_parameter_value(
+            f"Could not find a string column in the input data: {pdf.dtypes.to_dict()}"
+        )
+    return col
+
+
 class _OpenAIWrapper:
     def __init__(self, model):
-        if model["task"] != "chat.completions":
+        task = model["task"]
+        if task not in _PYFUNC_SUPPORTED_TASKS:
             raise mlflow.MlflowException.invalid_parameter_value(
-                "Currently, only 'chat.completions' task is supported",
+                f"Unsupported task: {task}. Supported tasks: {_PYFUNC_SUPPORTED_TASKS}."
             )
         self.model = model
+        self.task = task
+
+        self.messages = None
+        self.variables = None
+        self.formattable_messages = None
+        if self.task == "chat.completions":
+            self._setup_chat()
+
+    def _setup_chat(self):
         self.messages = self.model.get("messages", [])
         self.variables = _parse_variables(self.messages)
         self.formattable_messages = [_FormattableMessage(m) for m in self.messages]
@@ -520,31 +597,18 @@ class _OpenAIWrapper:
             if variable in data.columns:
                 return data[[variable]].to_dict(orient="records")
             else:
-                iter_string_columns = (c for c, v in data.iloc[0].items() if isinstance(v, str))
-                first_string_column = next(iter_string_columns)
+                first_string_column = _first_string_column(data)
                 return [{variable: s} for s in data[first_string_column]]
         else:
             return data[self.variables].to_dict(orient="records")
 
-    def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
-    ):
-        """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
-        :return: Model predictions.
-        """
+    def _predict_chat(self, data):
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         if self.variables:
             messages_list = self.format_messages(self.get_params_list(data))
         else:
-            iter_string_columns = (c for c, v in data.iloc[0].items() if isinstance(v, str))
-            first_string_column = next(iter_string_columns)
+            first_string_column = _first_string_column(data)
             messages_list = [
                 [*self.messages, {"role": "user", "content": s}] for s in data[first_string_column]
             ]
@@ -558,12 +622,50 @@ class _OpenAIWrapper:
             }
             for messages in messages_list
         ]
+        results = process_api_requests(requests)
+        return [r["choices"][0]["message"]["content"] for r in results]
+
+    def _predict_embeddings(self, data):
+        import openai
+
+        kwargs = self.model.copy()
+        kwargs.pop("task", None)
+        first_string_column = _first_string_column(data)
+        texts = data[first_string_column].tolist()
+        res = []
+        # The maximum batch size is 2048:
+        # https://github.com/openai/openai-python/blob/b82a3f7e4c462a8a10fa445193301a3cefef9a4a/openai/embeddings_utils.py#L43
+        # We use a smaller batch size to be safe.
+        batch_size = 1024
+        for i in range(0, len(texts), batch_size):
+            res.extend(
+                d["embedding"]
+                for d in openai.Embedding.create(input=texts[i : i + batch_size], **kwargs)["data"]
+            )
+        return res
+
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
+
         if _OpenAIEnvVar.OPENAI_API_KEY.value not in os.environ:
             raise mlflow.MlflowException(
                 "OpenAI API key must be set in the OPENAI_API_KEY environment variable."
             )
-        results = process_api_requests(requests)
-        return [r["choices"][0]["message"]["content"] for r in results]
+
+        if self.task == "chat.completions":
+            return self._predict_chat(data)
+        elif self.task == "embeddings":
+            return self._predict_embeddings(data)
 
 
 class _TestOpenAIWrapper(_OpenAIWrapper):
@@ -583,9 +685,9 @@ class _TestOpenAIWrapper(_OpenAIWrapper):
 
         :return: Model predictions.
         """
-        from mlflow.openai.utils import _mock_chat_completion_request
+        from mlflow.openai.utils import _mock_openai_request
 
-        with _mock_chat_completion_request():
+        with _mock_openai_request():
             return super().predict(data)
 
 
