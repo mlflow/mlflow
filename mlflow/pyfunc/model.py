@@ -164,12 +164,15 @@ class PythonModelContext:
     by the ``artifacts`` parameter of these methods.
     """
 
-    def __init__(self, artifacts):
+    def __init__(self, artifacts, inference_config):
         """
         :param artifacts: A dictionary of ``<name, artifact_path>`` entries, where ``artifact_path``
                           is an absolute filesystem path to a given artifact.
+        :param inference_config: The inference configuration to make available to the model at
+                                 loading time.
         """
         self._artifacts = artifacts
+        self._inference_config = inference_config
 
     @property
     def artifacts(self):
