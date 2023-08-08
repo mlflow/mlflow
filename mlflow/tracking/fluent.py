@@ -3,12 +3,15 @@ Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
 import atexit
+import contextvars
+import logging
+import inspect
 import contextlib
 import inspect
 import logging
 import os
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 from mlflow.data.dataset import Dataset
 from mlflow.entities import (
@@ -68,9 +71,27 @@ if TYPE_CHECKING:
     import PIL
     import plotly
 
-_active_run_stack = []
-_active_experiment_id = None
-_last_active_run_id = None
+
+class DefaultSetContextVar():
+    def __init__(self, contextvar, default: Callable):
+        self.contextvar = contextvar
+        self.default = default
+
+    def get(self):
+        try:
+            return self.contextvar.get()
+        except LookupError:
+            if self.default is not None:
+                self.set(self.default())
+        return self.contextvar.get()
+
+    def set(self, value):
+        self.contextvar.set(value)
+
+
+_active_run_stack = DefaultSetContextVar(contextvars.ContextVar("_active_run_stack"), default=lambda: [])
+_active_experiment_id = contextvars.ContextVar("_active_experiment_id", default=None)
+_last_active_run_id = contextvars.ContextVar("_last_active_run_id", default=None)
 
 SEARCH_MAX_RESULTS_PANDAS = 100000
 NUM_RUNS_PER_PAGE_PANDAS = 10000
@@ -154,8 +175,7 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> Ex
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    global _active_experiment_id
-    _active_experiment_id = experiment.experiment_id
+    _active_experiment_id.set(experiment.experiment_id)
     return experiment
 
 
@@ -278,17 +298,16 @@ def start_run(
                                      run_id params.child tags.mlflow.runName
         0  7d175204675e40328e46d9a6a5a7ee6a          yes           CHILD_RUN
     """
-    global _active_run_stack
     _validate_experiment_id_type(experiment_id)
     # back compat for int experiment_id
     experiment_id = str(experiment_id) if isinstance(experiment_id, int) else experiment_id
-    if len(_active_run_stack) > 0 and not nested:
+    if len(_active_run_stack.get()) > 0 and not nested:
         raise Exception(
             (
                 "Run with UUID {} is already active. To start a new run, first end the "
                 + "current run with mlflow.end_run(). To start a nested "
                 + "run, call start_run with nested=True"
-            ).format(_active_run_stack[0].info.run_id)
+            ).format(_active_run_stack.get()[0].info.run_id)
         )
     client = MlflowClient()
     if run_id:
@@ -303,8 +322,8 @@ def start_run(
         active_run_obj = client.get_run(existing_run_id)
         # Check to see if experiment_id from environment matches experiment_id from set_experiment()
         if (
-            _active_experiment_id is not None
-            and _active_experiment_id != active_run_obj.info.experiment_id
+            _active_experiment_id.get() is not None
+            and _active_experiment_id.get() != active_run_obj.info.experiment_id
         ):
             raise MlflowException(
                 f"Cannot start run with ID {existing_run_id} because active run ID "
@@ -339,8 +358,8 @@ def start_run(
             )
         active_run_obj = client.get_run(existing_run_id)
     else:
-        if len(_active_run_stack) > 0:
-            parent_run_id = _active_run_stack[-1].info.run_id
+        if len(_active_run_stack.get()) > 0:
+            parent_run_id = _active_run_stack.get()[-1].info.run_id
         else:
             parent_run_id = None
 
@@ -366,8 +385,8 @@ def start_run(
             experiment_id=exp_id_for_run, tags=resolved_tags, run_name=run_name
         )
 
-    _active_run_stack.append(ActiveRun(active_run_obj))
-    return _active_run_stack[-1]
+    _active_run_stack.get().append(ActiveRun(active_run_obj))
+    return _active_run_stack.get()[-1]
 
 
 def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
@@ -400,13 +419,12 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
         --
         Active run: None
     """
-    global _active_run_stack, _last_active_run_id
-    if len(_active_run_stack) > 0:
+    if len(_active_run_stack.get()) > 0:
         # Clear out the global existing run environment variable as well.
         MLFLOW_RUN_ID.unset()
-        run = _active_run_stack.pop()
+        run = _active_run_stack.get().pop()
         MlflowClient().set_terminated(run.info.run_id, status)
-        _last_active_run_id = run.info.run_id
+        _last_active_run_id.set(run.info.run_id)
 
 
 def _safe_end_run():
@@ -439,7 +457,7 @@ def active_run() -> Optional[ActiveRun]:
 
         Active run_id: 6f252757005748708cd3aad75d1ff462
     """
-    return _active_run_stack[-1] if len(_active_run_stack) > 0 else None
+    return _active_run_stack.get()[-1] if len(_active_run_stack.get()) > 0 else None
 
 
 def last_active_run() -> Optional[Run]:
@@ -495,9 +513,9 @@ def last_active_run() -> Optional[Run]:
     _active_run = active_run()
     if _active_run is not None:
         return _active_run
-    if _last_active_run_id is None:
+    if _last_active_run_id.get() is None:
         return None
-    return get_run(_last_active_run_id)
+    return get_run(_last_active_run_id.get())
 
 
 def get_run(run_id: str) -> Run:
@@ -1766,8 +1784,8 @@ def search_runs(
 
 
 def _get_or_start_run():
-    if len(_active_run_stack) > 0:
-        return _active_run_stack[-1]
+    if len(_active_run_stack.get()) > 0:
+        return _active_run_stack.get()[-1]
     return start_run()
 
 
@@ -1803,8 +1821,8 @@ def _get_experiment_id_from_env():
 
 
 def _get_experiment_id():
-    if _active_experiment_id:
-        return _active_experiment_id
+    if _active_experiment_id.get():
+        return _active_experiment_id.get()
     else:
         return _get_experiment_id_from_env() or default_experiment_registry.get_experiment_id()
 
