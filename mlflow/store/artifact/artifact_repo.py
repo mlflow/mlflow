@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from mlflow.exceptions import MlflowException
 from mlflow.entities.file_info import FileInfo
+from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.file_utils import ArtifactProgressBar
@@ -195,7 +196,7 @@ class ArtifactRepository:
             if len(futures) >= 10 and pbar.pbar:
                 _logger.info(
                     "You can turn off the progress bar by setting the environment "
-                    "variable MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR to false"
+                    f"variable {MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR.name} to false"
                 )
             for f in as_completed(futures):
                 try:

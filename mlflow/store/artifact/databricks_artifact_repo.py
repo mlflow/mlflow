@@ -17,6 +17,7 @@ from mlflow.azure.client import (
 )
 import mlflow.tracking
 from mlflow.entities import FileInfo
+from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -729,7 +730,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             if len(staged_uploads) >= 10 and pbar.pbar:
                 _logger.info(
                     "You can turn off the progress bar by setting the environment "
-                    "variable MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR to false"
+                    f"variable {MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR.name} to false"
                 )
             for src_file_path, upload_future in upload_artifacts_iter():
                 try:
