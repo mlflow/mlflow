@@ -15,6 +15,8 @@ from mlflow.openai.utils import (
     _mock_chat_completion_response,
     _mock_models_retrieve_response,
 )
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+from tests.helper_functions import pyfunc_serve_and_score_model
 
 
 @pytest.fixture(scope="module")
@@ -420,6 +422,24 @@ def test_embeddings(tmp_path):
     data = pd.DataFrame({"text": ["a"] * 100})
     preds = model.predict(data)
     assert preds == [[0.0]] * 100
+
+
+def test_embeddings_pyfunc_server_and_score(tmp_path):
+    mlflow.openai.save_model(
+        model="text-embedding-ada-002",
+        task=openai.Embedding,
+        path=tmp_path,
+    )
+    df = pd.DataFrame({"text": ["a", "b"]})
+    resp = pyfunc_serve_and_score_model(
+        tmp_path,
+        data=pd.DataFrame(df),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    expected = mlflow.pyfunc.load_model(tmp_path).predict(df)
+    actual = pd.DataFrame(data=json.loads(resp.content.decode("utf-8")))
+    pd.testing.assert_frame_equal(actual, pd.DataFrame({"predictions": expected}))
 
 
 def test_spark_udf_embeddings(tmp_path, spark):
