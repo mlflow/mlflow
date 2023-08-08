@@ -188,14 +188,12 @@ class SageMakerResponse(BaseResponse):
         https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListTags.html
         """
         arn = self.request_params["ResourceArn"]
-        if 'model' in arn:
-            sagemaker_resource = 'models'
-        elif 'endpoint' in arn:
-            sagemaker_resource = 'endpoints'
+        if "model" in arn:
+            sagemaker_resource = "models"
+        elif "endpoint" in arn:
+            sagemaker_resource = "endpoints"
         results = self.sagemaker_backend.list_tags(
-            resource_arn=arn,
-            region_name=self.region,
-            resource_type=sagemaker_resource
+            resource_arn=arn, region_name=self.region, resource_type=sagemaker_resource
         )
 
         return json.dumps({"Tags": results, "NextToken": None})
@@ -516,13 +514,19 @@ class SageMakerBackend(BaseBackend):
             summaries.append(summary)
         return summaries
 
-    def list_tags(self, resource_arn, region_name, resource_type):  # pylint: disable=unused-argument
+    def list_tags(
+        self, resource_arn, region_name, resource_type
+    ):  # pylint: disable=unused-argument
         """
         Modifies backend state during calls to the SageMaker "ListTags" API
         https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListTags.html
         """
         resource_values = getattr(self, resource_type).values()
-        sagemaker_resource = next(sagemaker_resource for sagemaker_resource in resource_values if sagemaker_resource.arn == resource_arn)
+        sagemaker_resource = next(
+            sagemaker_resource
+            for sagemaker_resource in resource_values
+            if sagemaker_resource.arn == resource_arn
+        )
         return sagemaker_resource.resource.tags
 
     def create_model(

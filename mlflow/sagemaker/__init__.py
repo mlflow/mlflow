@@ -1338,6 +1338,19 @@ def _get_sagemaker_config_name(endpoint_name):
     return f"{endpoint_name}-config-{get_unique_resource_id()}"
 
 
+def _get_sagemaker_config_tags(endpoint_name):
+    return [{"Key": "app_name", "Value": endpoint_name}]
+
+def _add_sagemaker_tags(tags, config_tags):
+    """
+    Convert dict of tags to list for SageMaker and adds to config tags list
+    """
+    if tags:
+        tags = [{"Key": key, "Value": str(value)} for key, value in tags.items()]
+        config_tags.extend(tags)
+
+    return tags
+
 def _create_sagemaker_transform_job(
     job_name,
     model_name,
@@ -1545,10 +1558,8 @@ def _create_sagemaker_endpoint(
         "InitialVariantWeight": 1,
     }
     config_name = _get_sagemaker_config_name(endpoint_name)
-    config_tags = [{"Key": "app_name", "Value": endpoint_name}]
-    if tags:
-        tags = [{"Key": key, "Value": str(value)} for key, value in tags.items()]
-        config_tags.extend(tags)
+    config_tags = _get_sagemaker_config_tags(endpoint_name)
+    tags_list = _add_sagemaker_tags(tags, config_tags)
     endpoint_config_kwargs = {
         "EndpointConfigName": config_name,
         "ProductionVariants": [production_variant],
@@ -1566,7 +1577,7 @@ def _create_sagemaker_endpoint(
     endpoint_response = sage_client.create_endpoint(
         EndpointName=endpoint_name,
         EndpointConfigName=config_name,
-        Tags=tags or [],
+        Tags=tags_list or [],
     )
     _logger.info("Created endpoint with arn: %s", endpoint_response["EndpointArn"])
 
@@ -1698,10 +1709,8 @@ def _update_sagemaker_endpoint(
     # Create the new endpoint configuration and update the endpoint
     # to adopt the new configuration
     new_config_name = _get_sagemaker_config_name(endpoint_name)
-    config_tags = [{"Key": "app_name", "Value": endpoint_name}]
-    if tags:
-        tags = [{"Key": key, "Value": str(value)} for key, value in tags.items()]
-        config_tags.extend(tags)
+    config_tags = _get_sagemaker_config_tags(endpoint_name)
+    tags_list = _add_sagemaker_tags(tags, config_tags)
     endpoint_config_kwargs = {
         "EndpointConfigName": new_config_name,
         "ProductionVariants": production_variants,
