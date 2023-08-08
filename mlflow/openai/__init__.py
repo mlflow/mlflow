@@ -585,7 +585,10 @@ class _OpenAIWrapper:
         first_string_column = _first_string_column(data)
         texts = data[first_string_column].tolist()
         res = []
-        batch_size = 20
+        # The maximum batch size is 2048:
+        # https://github.com/openai/openai-python/blob/b82a3f7e4c462a8a10fa445193301a3cefef9a4a/openai/embeddings_utils.py#L43
+        # We use a smaller batch size to be safe.
+        batch_size = 1024
         for i in range(0, len(texts), batch_size):
             res.extend(
                 d["embedding"]
