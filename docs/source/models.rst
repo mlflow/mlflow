@@ -918,12 +918,14 @@ Some PyFunc models may accept inference configuration, which controls how the mo
 performed. You can learn which inference configuration the model supports be inspecting the model's flavor metadata:
 
 .. code-block:: python
+
     model_info = mlflow.models.get_model_info(model_uri)
     model_info.flavors[mlflow.pyfunc.FLAVOR_NAME][mlflow.pyfunc.INFERENCE_CONFIG]
 
 Alternatively, you can load the PyFunc model and inspect the `inference_config` property:
 
 .. code-block:: python
+
     pyfunc_model = mlflow.pyfunc.load_model(model_uri)
     pyfunc_model.inference_config
 
@@ -931,6 +933,7 @@ Inference configuration can be changed at loading time by indicating `inference_
 :py:func:`mlflow.pyfunc.load_model` method:
 
 .. code-block:: python
+
     pyfunc_model = mlflow.pyfunc.load_model(model_uri, inference_config=dict(temperature=0.93))
 
 Indicating an invalid inference configuration for a model results in that configuration being ignored. A warning
