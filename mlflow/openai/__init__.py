@@ -294,11 +294,14 @@ def save_model(
 
     .. code-block:: python
 
+        import mlflow
+        import openai
+
         # Chat
         mlflow.openai.save_model(
             model="gpt-3.5-turbo",
             task=openai.ChatCompletion,
-            messages=[{"role": "user", "content": "Tell me a joke"}],
+            messages=[{"role": "user", "content": "Tell me a joke."}],
             path="model",
         )
 
@@ -483,20 +486,31 @@ def log_model(
 
     .. code-block:: python
 
+        import mlflow
+        import openai
+
         # Chat
-        mlflow.openai.log_model(
-            model="gpt-3.5-turbo",
-            task=openai.ChatCompletion,
-            messages=[{"role": "user", "content": "Tell me a joke"}],
-            artifact_path="model",
-        )
+        with mlflow.start_run():
+            info = mlflow.openai.log_model(
+                model="gpt-3.5-turbo",
+                task=openai.ChatCompletion,
+                messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
+                artifact_path="model",
+            )
+            model = mlflow.pyfunc.load_model(info.model_uri)
+            df = pd.DataFrame({"animal": ["cats", "dogs"]})
+            print(model.predict(df))
 
         # Embeddings
-        mlflow.openai.log_model(
-            model="text-embedding-ada-002",
-            task=openai.Embedding,
-            artifact_path="model",
-        )
+        with mlflow.start_run():
+            info = mlflow.openai.log_model(
+                model="text-embedding-ada-002",
+                task=openai.Embedding,
+                artifact_path="embeddings",
+            )
+            model = mlflow.pyfunc.load_model(info.model_uri)
+            print(model.predict(["hello", "world"]))
+
     """
     return Model.log(
         artifact_path=artifact_path,
