@@ -76,8 +76,8 @@ class ArtifactProgressBar:
         )
 
     @classmethod
-    def files(cls, desc, total, step=1):
-        return cls(desc, total=total, step=step)
+    def files(cls, desc, total):
+        return cls(desc, total=total, step=1)
 
     def update(self):
         if self.pbar:
