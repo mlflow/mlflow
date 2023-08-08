@@ -698,33 +698,30 @@ class DatabricksArtifactRepository(ArtifactRepository):
         # Join futures to ensure that all artifacts have been uploaded prior to returning
         failed_uploads = {}
 
-        def get_creds_and_upload(staged_upload_chunk, pbar):
-            write_credential_infos = self._get_write_credential_infos(
-                run_id=self.run_id,
-                paths=[
-                    staged_upload.dst_run_relative_artifact_path
-                    for staged_upload in staged_upload_chunk
-                ],
-            )
-
-            inflight_uploads = {}
-            for staged_upload, write_credential_info in zip(
-                staged_upload_chunk, write_credential_infos
-            ):
-                upload_future = self.thread_pool.submit(
-                    self._upload_to_cloud,
-                    cloud_credential_info=write_credential_info,
-                    src_file_path=staged_upload.src_file_path,
-                    dst_run_relative_artifact_path=staged_upload.dst_run_relative_artifact_path,
+        def upload_artifacts_iter():
+            for staged_upload_chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
+                write_credential_infos = self._get_write_credential_infos(
+                    run_id=self.run_id,
+                    paths=[
+                        staged_upload.dst_run_relative_artifact_path
+                        for staged_upload in staged_upload_chunk
+                    ],
                 )
-                inflight_uploads[staged_upload.src_file_path] = upload_future
 
-            for src_file_path, upload_future in inflight_uploads.items():
-                try:
-                    upload_future.result()
-                    pbar.update()
-                except Exception as e:
-                    failed_uploads[src_file_path] = repr(e)
+                inflight_uploads = {}
+                for staged_upload, write_credential_info in zip(
+                    staged_upload_chunk, write_credential_infos
+                ):
+                    upload_future = self.thread_pool.submit(
+                        self._upload_to_cloud,
+                        cloud_credential_info=write_credential_info,
+                        src_file_path=staged_upload.src_file_path,
+                        dst_run_relative_artifact_path=staged_upload.dst_run_relative_artifact_path,
+                    )
+                    inflight_uploads[staged_upload.src_file_path] = upload_future
+
+                for src_file_path, upload_future in inflight_uploads.items():
+                    yield src_file_path, upload_future
 
         with ArtifactProgressBar.files(
             desc="Uploading artifacts", total=len(staged_uploads)
@@ -734,8 +731,12 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     "You can turn off the progress bar by setting the environment "
                     "variable MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR to false"
                 )
-            for chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
-                get_creds_and_upload(chunk, pbar)
+            for src_file_path, upload_future in upload_artifacts_iter():
+                try:
+                    upload_future.result()
+                    pbar.update()
+                except Exception as e:
+                    failed_uploads[src_file_path] = repr(e)
 
         if len(failed_uploads) > 0:
             raise MlflowException(
