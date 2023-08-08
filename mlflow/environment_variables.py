@@ -348,7 +348,7 @@ MLFLOW_ENV_ROOT = _EnvironmentVariable(
 
 #: Specifies whether or not to use DBFS FUSE mount to store artifacts on Databricks 
 #: (default: ``False``)
-MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO = _EnvironmentVariable("MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO", str, False)
+MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable("MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO", False)
 
 
 #: Specifies whether or not to use DBFS FUSE mount to store artifacts on Databricks 

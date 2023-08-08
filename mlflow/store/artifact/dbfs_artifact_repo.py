@@ -212,7 +212,7 @@ def dbfs_artifact_repo_factory(artifact_uri):
         return DatabricksArtifactRepository(cleaned_artifact_uri)
     elif (
         mlflow.utils.databricks_utils.is_dbfs_fuse_available()
-        and MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO.get().lower() != "false"
+        and MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO.get()
         and not is_databricks_model_registry_artifacts_uri(artifact_uri)
         and (db_profile_uri is None or db_profile_uri == "databricks")
     ):
