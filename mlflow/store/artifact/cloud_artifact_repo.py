@@ -34,7 +34,7 @@ class CloudArtifactRepository(ArtifactRepository):
 
     def log_artifacts_parallel(self, local_dir, artifact_path=None):
         """
-        Parallelized implementation of `download_artifacts` for Databricks.
+        Parallelized implementation of `log_artifacts`.
         """
         StagedArtifactUpload = namedtuple(
             "StagedArtifactUpload",
@@ -135,9 +135,12 @@ class CloudArtifactRepository(ArtifactRepository):
         """
         return {header.name: header.value for header in headers}
 
-    def _parallelized_download_from_cloud(
-        self, cloud_credential_info, file_size, dst_local_file_path, dst_run_relative_artifact_path
-    ):
+    def _parallelized_download_from_cloud(self, file_size, remote_file_path, local_path):
+        read_credentials = self._get_read_credential_infos(remote_file_path)
+        # Read credentials for only one file were requested. So we expected only one value in
+        # the response.
+        assert len(read_credentials) == 1
+        cloud_credential_info = read_credentials[0]
         # from mlflow.utils.databricks_utils import get_databricks_env_vars
 
         try:
@@ -148,12 +151,11 @@ class CloudArtifactRepository(ArtifactRepository):
             failed_downloads = parallelized_download_file_using_http_uri(
                 thread_pool_executor=self.chunk_thread_pool,
                 http_uri=cloud_credential_info.signed_uri,
-                download_path=dst_local_file_path,
+                download_path=local_path,
                 file_size=file_size,
                 uri_type=cloud_credential_info.type,
                 chunk_size=_DOWNLOAD_CHUNK_SIZE,
                 env=parallel_download_subproc_env,
-                # headers={"x-ms-blob-type": "BlockBlob"},
                 headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
             download_errors = [
@@ -161,38 +163,22 @@ class CloudArtifactRepository(ArtifactRepository):
             ]
             if download_errors:
                 raise MlflowException(
-                    f"Failed to download artifact {dst_run_relative_artifact_path}: "
-                    f"{download_errors}"
+                    f"Failed to download artifact {remote_file_path}: " f"{download_errors}"
                 )
 
             if failed_downloads:
-                new_cloud_creds = self._get_read_credential_infos([dst_run_relative_artifact_path])[
-                    0
-                ]
+                new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
 
                 for i in failed_downloads:
-                    download_chunk(
-                        i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
-                    )
+                    download_chunk(i, _DOWNLOAD_CHUNK_SIZE, new_headers, local_path, new_signed_uri)
         except Exception as err:
-            if os.path.exists(dst_local_file_path):
-                os.remove(dst_local_file_path)
+            if os.path.exists(local_path):
+                os.remove(local_path)
             raise MlflowException(err)
 
     def _download_file(self, remote_file_path, local_path):
-        # TODO add back some logic to handle downloading artifacts from an artifact
-        # repo that's not at the root of the run? Don't think it makes sense to have
-        # that logic since this repo is unaware of runs.
-        # remote_full_path = posixpath.join(
-        #     self.base_data_lake_directory, remote_file_path
-        # )
-        read_credentials = self._get_read_credential_infos(paths=[remote_file_path])
-        # Read credentials for only one file were requested. So we expected only one value in
-        # the response.
-        assert len(read_credentials) == 1
-
         # list_artifacts API only returns a list of FileInfos at the specified path
         # if it's a directory. To get file size, we need to iterate over FileInfos
         # contained by the parent directory. A bad path could result in there being
@@ -207,11 +193,9 @@ class CloudArtifactRepository(ArtifactRepository):
             or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE
             or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
         ):
-            self._download_from_cloud(remote_file_path=remote_file_path, local_path=local_path)
+            self._download_from_cloud(remote_file_path, local_path)
         else:
-            self._parallelized_download_from_cloud(
-                read_credentials[0], file_size, local_path, remote_file_path
-            )
+            self._parallelized_download_from_cloud(file_size, remote_file_path, local_path)
 
     @abstractmethod
     def _download_from_cloud(self, remote_file_path, local_path):

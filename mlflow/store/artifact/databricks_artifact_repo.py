@@ -34,14 +34,14 @@ from mlflow.protos.databricks_artifacts_pb2 import (
     GetPresignedUploadPartUrl,
 )
 from mlflow.protos.service_pb2 import MlflowService, GetRun, ListArtifacts
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.cloud_artifact_repo import (
+    CloudArtifactRepository,
+    _DOWNLOAD_CHUNK_SIZE,
+    _MULTIPART_UPLOAD_CHUNK_SIZE,
+)
 from mlflow.utils import chunk_list
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.file_utils import (
-    download_file_using_http_uri,
-    parallelized_download_file_using_http_uri,
-    relative_path_to_artifact_path,
-)
+from mlflow.utils.file_utils import download_file_using_http_uri
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.file_utils import read_chunk
 from mlflow.utils.rest_utils import (
@@ -50,7 +50,7 @@ from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     augmented_raise_for_status,
 )
-from mlflow.utils.request_utils import cloud_storage_http_request, download_chunk
+from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.uri import (
     extract_and_normalize_path,
     get_databricks_profile_uri_from_artifact_uri,
@@ -58,20 +58,13 @@ from mlflow.utils.uri import (
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
 )
-from mlflow.environment_variables import MLFLOW_ENABLE_MULTIPART_DOWNLOAD
 
 _logger = logging.getLogger(__name__)
-_DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
-_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE = 500_000_000  # 500 MB
-_MULTIPART_UPLOAD_CHUNK_SIZE = 10_000_000  # 10 MB
 _MAX_CREDENTIALS_REQUEST_SIZE = 2000  # Max number of artifact paths in a single credentials request
 _SERVICE_AND_METHOD_TO_INFO = {
     service: extract_api_info_for_service(service, _REST_API_PATH_PREFIX)
     for service in [MlflowService, DatabricksMlflowArtifactsService]
 }
-_ARTIFACT_UPLOAD_BATCH_SIZE = (
-    50  # Max number of artifacts for which to fetch write credentials at once.
-)
 
 
 def _compute_num_chunks(local_file: os.PathLike, chunk_size: int) -> int:
@@ -100,7 +93,7 @@ def _complete_futures(futures_dict):
     return results, errors
 
 
-class DatabricksArtifactRepository(ArtifactRepository):
+class DatabricksArtifactRepository(CloudArtifactRepository):
     """
     Performs storage operations on artifacts in the access-controlled
     `dbfs:/databricks/mlflow-tracking` location.
@@ -150,11 +143,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
         self.run_relative_artifact_repo_root_path = (
             "" if run_artifact_root_path == artifact_repo_root_path else run_relative_root_path
         )
-        # Use an isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
-        # caused by waiting for a chunk-upload/download task within a file-upload/download task.
-        # See https://superfastpython.com/threadpoolexecutor-deadlock/#Deadlock_1_Submit_and_Wait_for_a_Task_Within_a_Task
-        # for more details
-        self.chunk_thread_pool = self._create_thread_pool()
 
     @staticmethod
     def _extract_run_id(artifact_uri):
@@ -218,7 +206,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         return self._get_credential_infos(GetCredentialsForWrite, run_id, paths)
 
-    def _get_read_credential_infos(self, run_id, paths):
+    def _get_read_credential_infos(self, paths):
         """
         :return: A list of `ArtifactCredentialInfo` objects providing read access to the specified
                  run-relative artifact `paths` within the MLflow Run specified by `run_id`.
@@ -227,7 +215,13 @@ class DatabricksArtifactRepository(ArtifactRepository):
             paths = [paths]
         if type(paths) != list:
             raise MlflowException(f"Expected `paths` to be a list of strings. Got {type(paths)}")
-        return self._get_credential_infos(GetCredentialsForRead, run_id, paths)
+        run_relative_remote_paths = [
+            posixpath.join(self.run_relative_artifact_repo_root_path, remote_file_path)
+            for remote_file_path in paths
+        ]
+        return self._get_credential_infos(
+            GetCredentialsForRead, self.run_id, run_relative_remote_paths
+        )
 
     def _extract_headers_from_credentials(self, headers):
         """
@@ -431,55 +425,16 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 message="Cloud provider not supported.", error_code=INTERNAL_ERROR
             )
 
-    def _parallelized_download_from_cloud(
-        self, cloud_credential_info, file_size, dst_local_file_path, dst_run_relative_artifact_path
-    ):
-        from mlflow.utils.databricks_utils import get_databricks_env_vars
-
-        try:
-            parallel_download_subproc_env = os.environ.copy()
-            parallel_download_subproc_env.update(
-                get_databricks_env_vars(self.databricks_profile_uri)
-            )
-            failed_downloads = parallelized_download_file_using_http_uri(
-                thread_pool_executor=self.chunk_thread_pool,
-                http_uri=cloud_credential_info.signed_uri,
-                download_path=dst_local_file_path,
-                file_size=file_size,
-                uri_type=cloud_credential_info.type,
-                chunk_size=_DOWNLOAD_CHUNK_SIZE,
-                env=parallel_download_subproc_env,
-                headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
-            )
-            download_errors = [
-                e for e in failed_downloads.values() if e["error_status_code"] not in (401, 403)
-            ]
-            if download_errors:
-                raise MlflowException(
-                    f"Failed to download artifact {dst_run_relative_artifact_path}: "
-                    f"{download_errors}"
-                )
-
-            if failed_downloads:
-                new_cloud_creds = self._get_read_credential_infos(
-                    self.run_id, [dst_run_relative_artifact_path]
-                )[0]
-                new_signed_uri = new_cloud_creds.signed_uri
-                new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
-
-            for i in failed_downloads:
-                download_chunk(
-                    i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
-                )
-        except Exception as err:
-            if os.path.exists(dst_local_file_path):
-                os.remove(dst_local_file_path)
-            raise MlflowException(err)
-
-    def _download_from_cloud(self, cloud_credential_info, dst_local_file_path):
+    def _download_from_cloud(self, remote_file_path, local_path):
         """
         Download a file from the input `cloud_credential_info` and save it to `dst_local_file_path`.
         """
+        read_credentials = self._get_read_credential_infos(remote_file_path)
+        # Read credentials for only one file were requested. So we expected only one value in
+        # the response.
+        assert len(read_credentials) == 1
+        cloud_credential_info = read_credentials[0]
+
         if cloud_credential_info.type not in [
             ArtifactCredentialType.AZURE_SAS_URI,
             ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
@@ -492,7 +447,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         try:
             download_file_using_http_uri(
                 cloud_credential_info.signed_uri,
-                dst_local_file_path,
+                local_path,
                 _DOWNLOAD_CHUNK_SIZE,
                 self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
@@ -645,84 +600,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
         )
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        """
-        Parallelized implementation of `download_artifacts` for Databricks.
-        """
-        StagedArtifactUpload = namedtuple(
-            "StagedArtifactUpload",
-            [
-                # Local filesystem path of the source file to upload
-                "src_file_path",
-                # Run-relative artifact path specifying the upload destination
-                "dst_run_relative_artifact_path",
-            ],
-        )
-
         artifact_path = artifact_path or ""
-
-        staged_uploads = []
-        for dirpath, _, filenames in os.walk(local_dir):
-            artifact_subdir = artifact_path
-            if dirpath != local_dir:
-                rel_path = os.path.relpath(dirpath, local_dir)
-                rel_path = relative_path_to_artifact_path(rel_path)
-                artifact_subdir = posixpath.join(artifact_path, rel_path)
-            for name in filenames:
-                file_path = os.path.join(dirpath, name)
-                dst_run_relative_artifact_path = self._get_run_relative_artifact_path_for_upload(
-                    src_file_path=file_path,
-                    dst_artifact_dir=artifact_subdir,
-                )
-                staged_uploads.append(
-                    StagedArtifactUpload(
-                        src_file_path=file_path,
-                        dst_run_relative_artifact_path=dst_run_relative_artifact_path,
-                    )
-                )
-
-        # Join futures to ensure that all artifacts have been uploaded prior to returning
-        failed_uploads = {}
-
-        # For each batch of files, upload them in parallel
-        # and wait for completion
-        def get_creds_and_upload(staged_upload_chunk):
-            write_credential_infos = self._get_write_credential_infos(
-                run_id=self.run_id,
-                paths=[
-                    staged_upload.dst_run_relative_artifact_path
-                    for staged_upload in staged_upload_chunk
-                ],
-            )
-
-            inflight_uploads = {}
-            for staged_upload, write_credential_info in zip(
-                staged_upload_chunk, write_credential_infos
-            ):
-                upload_future = self.thread_pool.submit(
-                    self._upload_to_cloud,
-                    cloud_credential_info=write_credential_info,
-                    src_file_path=staged_upload.src_file_path,
-                    dst_run_relative_artifact_path=staged_upload.dst_run_relative_artifact_path,
-                )
-                inflight_uploads[staged_upload.src_file_path] = upload_future
-
-            for src_file_path, upload_future in inflight_uploads.items():
-                try:
-                    upload_future.result()
-                except Exception as e:
-                    failed_uploads[src_file_path] = repr(e)
-
-        # Iterate over batches of files to upload and upload them
-        for chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
-            get_creds_and_upload(chunk)
-
-        if len(failed_uploads) > 0:
-            raise MlflowException(
-                message=(
-                    "The following failures occurred while uploading one or more artifacts"
-                    f" to {self.artifact_uri}: {failed_uploads}"
-                )
-            )
+        run_relative_artifact_path = posixpath.join(
+            self.run_relative_artifact_repo_root_path, artifact_path
+        )
+        self.log_artifacts_parallel(local_dir, run_relative_artifact_path)
 
     def list_artifacts(self, path=None):
         if path:
@@ -756,39 +638,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 break
             page_token = response.next_page_token
         return infos
-
-    def _download_file(self, remote_file_path, local_path):
-        run_relative_remote_file_path = posixpath.join(
-            self.run_relative_artifact_repo_root_path, remote_file_path
-        )
-        read_credentials = self._get_read_credential_infos(
-            run_id=self.run_id, paths=[run_relative_remote_file_path]
-        )
-        # Read credentials for only one file were requested. So we expected only one value in
-        # the response.
-        assert len(read_credentials) == 1
-
-        # list_artifacts API only returns a list of FileInfos at the specified path
-        # if it's a directory. To get file size, we need to iterate over FileInfos
-        # contained by the parent directory. A bad path could result in there being
-        # no matching FileInfos (by path), so fall back to None size to prevent
-        # parallelized download.
-        parent_dir = posixpath.dirname(remote_file_path)
-        file_infos = self.list_artifacts(parent_dir)
-        file_info = [info for info in file_infos if info.path == remote_file_path]
-        file_size = file_info[0].file_size if len(file_info) == 1 else None
-        if (
-            not file_size
-            or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE
-            or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
-        ):
-            self._download_from_cloud(
-                cloud_credential_info=read_credentials[0], dst_local_file_path=local_path
-            )
-        else:
-            self._parallelized_download_from_cloud(
-                read_credentials[0], file_size, local_path, remote_file_path
-            )
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")
