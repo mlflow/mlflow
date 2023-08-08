@@ -14,13 +14,14 @@ from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
 import mlflow.gateway.utils
 from mlflow.utils.request_utils import _cached_get_request_session
 
-from tests.gateway.helper_functions import (
-    start_mlflow_server,
-    stop_mlflow_server,
+from tests.gateway.tools import (
+    UvicornGateway,
+    save_yaml,
     log_sentence_transformers_model,
     log_completions_transformers_model,
+    start_mlflow_server,
+    stop_mlflow_server,
 )
-from tests.gateway.tools import UvicornGateway, save_yaml
 
 
 @pytest.fixture
@@ -96,7 +97,7 @@ def basic_config_dict():
                 "model": {
                     "provider": "mlflow-model-serving",
                     "name": "mpt-chatbot",
-                    "config": {"mlflow_server_url": "http://127.0.0.1:5000"},
+                    "config": {"model_server_url": "http://127.0.0.1:5000"},
                 },
             },
             {
@@ -105,7 +106,7 @@ def basic_config_dict():
                 "model": {
                     "provider": "mlflow-model-serving",
                     "name": "completion-model",
-                    "config": {"mlflow_server_url": "http://127.0.0.1:6000"},
+                    "config": {"model_server_url": "http://127.0.0.1:6000"},
                 },
             },
             {
@@ -114,7 +115,7 @@ def basic_config_dict():
                 "model": {
                     "provider": "mlflow-model-serving",
                     "name": "sentence-transformers",
-                    "config": {"mlflow_server_url": "http://127.0.0.1:5002"},
+                    "config": {"model_server_url": "http://127.0.0.1:5002"},
                 },
             },
         ]
@@ -509,28 +510,18 @@ def test_gateway_query_mlflow_completions_model(serve_completions_model, gateway
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("completions-oss")
 
-    # validate that we can override a param in the served model
-    top_k = 4
-
-    data = {"prompt": "test1", "top_k": top_k}
+    data = {"prompt": "test [MASK]"}
 
     response = client.query(route=route.name, data=data)
 
     completions_response = response["candidates"]
 
     assert isinstance(completions_response, list)
-    assert len(completions_response[0]) == top_k
-    assert all(isinstance(v, dict) for v in completions_response[0].values())
+    assert isinstance(completions_response[0]["text"], str)
+    assert len(completions_response) == 1
 
     metadata_response = response["metadata"]
     assert not metadata_response["input_tokens"]
     assert not metadata_response["output_tokens"]
     assert metadata_response["model"] == "completion-model"
     assert metadata_response["route_type"] == route.route_type
-
-    data2 = {"prompt": ["test0", "test1"], "top_k": top_k}
-
-    response_multi = client.query(route=route.name, data=data2)
-    completions_response2 = response_multi["candidates"]
-    assert len(completions_response2) == 2
-    assert all(len(k.keys()) == top_k for k in completions_response2)

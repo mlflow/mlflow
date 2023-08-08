@@ -93,7 +93,7 @@ def mlflow_mixed_config_dict():
                 "model": {
                     "provider": "mlflow-model-serving",
                     "name": "mpt-chatbot",
-                    "config": {"mlflow_server_url": "http://127.0.0.1:5000"},
+                    "config": {"model_server_url": "http://127.0.0.1:5000"},
                 },
             },
             {
@@ -102,7 +102,7 @@ def mlflow_mixed_config_dict():
                 "model": {
                     "provider": "mlflow-model-serving",
                     "name": "mpt-completion-model",
-                    "config": {"mlflow_server_url": "http://127.0.0.1:5001"},
+                    "config": {"model_server_url": "http://127.0.0.1:5001"},
                 },
             },
             {
@@ -111,7 +111,7 @@ def mlflow_mixed_config_dict():
                 "model": {
                     "provider": "mlflow-model-serving",
                     "name": "sentence-transformers",
-                    "config": {"mlflow_server_url": "http://127.0.0.1:5002"},
+                    "config": {"model_server_url": "http://127.0.0.1:5002"},
                 },
             },
             {

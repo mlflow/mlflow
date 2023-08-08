@@ -1,4 +1,7 @@
 import asyncio
+import os
+import signal
+from collections import namedtuple
 from pathlib import Path
 import subprocess
 import sys
@@ -6,14 +9,18 @@ import threading
 import time
 from typing import Any, Union, Dict
 from unittest import mock
+
+import transformers
 import uvicorn
 
 import requests
 import yaml
+from sentence_transformers import SentenceTransformer
 
+import mlflow
 from mlflow.gateway import app
 from mlflow.gateway.utils import kill_child_processes
-from tests.helper_functions import get_safe_port
+from tests.helper_functions import get_safe_port, _get_mlflow_home, _start_scoring_proc
 
 
 class Gateway:
@@ -189,3 +196,87 @@ class UvicornGateway:
         if self.server is not None:
             self.server.should_exit = True
         self.thread.join()
+
+
+ServerInfo = namedtuple("ServerInfo", ["pid", "url"])
+
+
+def log_sentence_transformers_model():
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    artifact_path = "gen_model"
+
+    with mlflow.start_run():
+        mlflow.sentence_transformers.log_model(
+            model,
+            artifact_path=artifact_path,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+    return model_uri
+
+
+def log_completions_transformers_model():
+    architecture = "microsoft/mdeberta-v3-base"
+
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+    model = transformers.AutoModelForMaskedLM.from_pretrained(architecture)
+    pipe = transformers.pipeline(task="fill-mask", model=model, tokenizer=tokenizer)
+
+    inference_params = {"top_k": 1}
+
+    signature = mlflow.models.infer_signature(
+        ["test1 [MASK]", "[MASK] test2"],
+        mlflow.transformers.generate_signature_output(pipe, ["test3 [MASK]"]),
+        inference_params,
+    )
+
+    artifact_path = "mask_model"
+
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            pipe,
+            signature=signature,
+            artifact_path=artifact_path,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+    return model_uri
+
+
+def start_mlflow_server(port, model_uri):
+    server_url = f"http://127.0.0.1:{port}"
+
+    env = dict(os.environ)
+    env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
+    env.update(MLFLOW_TRACKING_URI=mlflow.get_tracking_uri())
+    env.update(MLFLOW_HOME=_get_mlflow_home())
+    scoring_cmd = [
+        "mlflow",
+        "models",
+        "serve",
+        "-m",
+        model_uri,
+        "-p",
+        str(port),
+        "--install-mlflow",
+        "--no-conda",
+    ]
+
+    server_pid = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=sys.stdout, stderr=sys.stdout)
+
+    ping_status = None
+    for i in range(120):
+        time.sleep(1)
+        try:
+            ping_status = requests.get(url=f"{server_url}/ping")
+            if ping_status.status_code == 200:
+                break
+        except Exception:
+            pass
+    if ping_status is None or ping_status.status_code != 200:
+        raise Exception("Could not start mlflow serving instance.")
+
+    return ServerInfo(pid=server_pid, url=server_url)
+
+
+def stop_mlflow_server(server_pid):
+    process_group = os.getpgid(server_pid.pid)
+    os.killpg(process_group, signal.SIGTERM)

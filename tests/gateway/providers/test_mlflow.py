@@ -7,7 +7,10 @@ import pydantic
 import pytest
 
 from mlflow.gateway.config import MlflowModelServingConfig, RouteConfig
-from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
+from mlflow.gateway.constants import (
+    MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
+    MLFLOW_SERVING_RESPONSE_KEY,
+)
 from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from tests.gateway.tools import MockAsyncResponse, mock_http_client
@@ -21,7 +24,7 @@ def completions_config():
             "provider": "mlflow-model-serving",
             "name": "text2text",
             "config": {
-                "mlflow_server_url": "http://127.0.0.1:5000",
+                "model_server_url": "http://127.0.0.1:5000",
             },
         },
     }
@@ -37,11 +40,12 @@ async def test_completions():
         provider = MlflowModelServingProvider(RouteConfig(**config))
         payload = {
             "prompt": "Is this a test?",
-            "temperature": 0,
+            "temperature": 0.0,
+            "candidate_count": 1,
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": ["This is a test!"],
+            "candidates": [{"text": "This is a test!", "metadata": {}}],
             "metadata": {
                 "input_tokens": None,
                 "output_tokens": None,
@@ -56,11 +60,47 @@ async def test_completions():
             json={
                 "inputs": ["Is this a test?"],
                 "params": {
-                    "temperature": 0,
+                    "temperature": 0.0,
+                    "candidate_count": 1,
                 },
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        {MLFLOW_SERVING_RESPONSE_KEY: {"not_candidates": []}},
+        {MLFLOW_SERVING_RESPONSE_KEY: {"candidates": [1, 2, 3]}},
+        {MLFLOW_SERVING_RESPONSE_KEY: ["string", 2, 3]},
+        {MLFLOW_SERVING_RESPONSE_KEY: "string_value"},
+        {MLFLOW_SERVING_RESPONSE_KEY: [1, 2, 3]},
+    ],
+)
+def test_invalid_completions_response(response):
+    config = completions_config()
+    provider = MlflowModelServingProvider(RouteConfig(**config))
+    with pytest.raises(HTTPException, match=r".*") as e:
+        provider._process_completions_response_for_mlflow_serving(response)
+
+    assert (
+        "The response structure from the MLflow serving endpoint is not compatible"
+        in e.value.detail
+    )
+    assert e.value.status_code == 502
+
+
+def test_invalid_return_key_from_mlflow_serving():
+    config = completions_config()
+    provider = MlflowModelServingProvider(RouteConfig(**config))
+    with pytest.raises(HTTPException, match=r".*") as e:
+        provider._process_completions_response_for_mlflow_serving(
+            {"invalid_return_key": ["invalid", "response"]}
+        )
+
+    assert "The response is missing the required key:" in e.value.detail
+    assert e.value.status_code == 502
 
 
 def embedding_config():
@@ -71,7 +111,7 @@ def embedding_config():
             "provider": "mlflow-model-serving",
             "name": "sentence-piece",
             "config": {
-                "mlflow_server_url": "http://127.0.0.1:2000",
+                "model_server_url": "http://127.0.0.1:2000",
             },
         },
     }
@@ -108,6 +148,29 @@ async def test_embeddings():
         )
 
 
+@pytest.mark.parametrize(
+    "response",
+    [
+        {MLFLOW_SERVING_RESPONSE_KEY: "string_value"},
+        {MLFLOW_SERVING_RESPONSE_KEY: ["string", "values"]},
+        {MLFLOW_SERVING_RESPONSE_KEY: [[1.0, 2.3], ["string", "values"]]},
+        {MLFLOW_SERVING_RESPONSE_KEY: [[1.0, 2.3], [1.2, "string"]]},
+        {MLFLOW_SERVING_RESPONSE_KEY: [[], []]},
+    ],
+)
+def test_invalid_embeddings_response(response):
+    config = embedding_config()
+    provider = MlflowModelServingProvider(RouteConfig(**config))
+    with pytest.raises(HTTPException, match=r".*") as e:
+        provider._process_embeddings_response_for_mlflow_serving(response)
+
+    assert (
+        "The response structure from the MLflow serving endpoint is not compatible"
+        in e.value.detail
+    )
+    assert e.value.status_code == 502
+
+
 def chat_config():
     return {
         "name": "chat",
@@ -116,7 +179,7 @@ def chat_config():
             "provider": "mlflow-model-serving",
             "name": "chat-bot-9000",
             "config": {
-                "mlflow_server_url": "http://127.0.0.1:4000",
+                "model_server_url": "http://127.0.0.1:4000",
             },
         },
     }
@@ -124,7 +187,7 @@ def chat_config():
 
 @pytest.mark.asyncio
 async def test_chat():
-    resp = {"predictions": "It is a test"}
+    resp = {"predictions": ["It is a test"]}
     config = chat_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
@@ -153,7 +216,10 @@ async def test_chat():
         mock_build_client.assert_called_once()
         mock_client.post.assert_called_once_with(
             "http://127.0.0.1:4000/invocations",
-            json={"inputs": ["Is this a test?"]},
+            json={
+                "inputs": ["Is this a test?"],
+                "params": {"temperature": 0.0, "candidate_count": 1},
+            },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
 
@@ -178,6 +244,29 @@ async def test_chat_exception_raised_for_multiple_elements_in_query():
         assert "MLflow chat models are only capable of processing" in e.value.detail
 
 
+@pytest.mark.parametrize(
+    "response",
+    [
+        {MLFLOW_SERVING_RESPONSE_KEY: {"not_candidates": []}},
+        {MLFLOW_SERVING_RESPONSE_KEY: {"candidates": [1, 2, 3]}},
+        {MLFLOW_SERVING_RESPONSE_KEY: ["string", 2, 3]},
+        {MLFLOW_SERVING_RESPONSE_KEY: "string_value"},
+        {MLFLOW_SERVING_RESPONSE_KEY: [1, 2, 3]},
+    ],
+)
+def test_invalid_chat_response(response):
+    config = completions_config()
+    provider = MlflowModelServingProvider(RouteConfig(**config))
+    with pytest.raises(HTTPException, match=r".*") as e:
+        provider._process_chat_response_for_mlflow_serving(response)
+
+    assert (
+        "The response structure from the MLflow serving endpoint is not compatible"
+        in e.value.detail
+    )
+    assert e.value.status_code == 502
+
+
 def test_route_construction_fails_with_invalid_config():
     with pytest.raises(pydantic.ValidationError, match="none is not an allowed"):
-        MlflowModelServingConfig(mlflow_server_url=None)
+        MlflowModelServingConfig(model_server_url=None)

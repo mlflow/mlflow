@@ -2,6 +2,7 @@ from unittest import mock
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
+from pydantic import ValidationError
 import pytest
 
 from mlflow.gateway.providers.cohere import CohereProvider
@@ -176,6 +177,6 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
     config = completions_config()
     provider = CohereProvider(RouteConfig(**config))
     payload = {"prompt": prompt}
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(ValidationError, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
-    assert "The prompt must be a str" in e.value.detail
+    assert "str type expected" in e.value.errors()[0]["msg"]

@@ -118,7 +118,7 @@ class AnthropicConfig(ConfigModel):
 
 
 class MlflowModelServingConfig(ConfigModel):
-    mlflow_server_url: str
+    model_server_url: str
 
 
 config_types = {

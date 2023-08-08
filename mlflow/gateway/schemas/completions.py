@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Union
+from typing import List, Optional, Dict
 
 from ..base_models import ResponseModel
 from .chat import BaseRequestPayload, FinishReason
@@ -6,7 +6,7 @@ from ..config import RouteType
 
 
 class RequestPayload(BaseRequestPayload):
-    prompt: Union[str, List[str]]
+    prompt: str
 
     class Config:
         schema_extra = {
@@ -26,7 +26,7 @@ class CandidateMetadata(ResponseModel):
 
 class Candidate(ResponseModel):
     text: str
-    metadata: Optional[Dict]
+    metadata: Optional[Dict[str, str]]
 
 
 class Metadata(ResponseModel):
@@ -38,7 +38,7 @@ class Metadata(ResponseModel):
 
 
 class ResponsePayload(ResponseModel):
-    candidates: Union[List[Candidate], List[str], List[Dict]]
+    candidates: List[Candidate]
     metadata: Metadata
 
     class Config:
