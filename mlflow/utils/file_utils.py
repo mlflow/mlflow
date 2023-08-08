@@ -53,6 +53,7 @@ class ArtifactProgressBar:
         self.total = total
         self.step = step
         self.pbar = None
+        self.progress = 0
 
         if MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR.get():
             try:
@@ -78,11 +79,12 @@ class ArtifactProgressBar:
     def files(cls, desc, total, step=1):
         return cls(desc, total=total, step=step)
 
-    def update(self, index):
+    def update(self):
         if self.pbar:
-            remaining = self.total - index * self.step
-            self.pbar.update(min(remaining, self.step))
+            update_step = min(self.total - self.progress, self.step)
+            self.pbar.update(update_step)
             self.pbar.refresh()
+            self.progress += update_step
 
     def __enter__(self):
         return self
@@ -737,14 +739,14 @@ def parallelized_download_file_using_http_uri(
     with ArtifactProgressBar.chunks(
         file_size, f"Downloading file {download_path}", chunk_size
     ) as pbar:
-        for i, future in enumerate(as_completed(futures)):
+        for future in as_completed(futures):
             index = futures[future]
             try:
                 result = future.result()
                 if result is not None:
                     failed_downloads[index] = result
                 else:
-                    pbar.update(i)
+                    pbar.update()
             except Exception as e:
                 failed_downloads[index] = {
                     "error_status_code": 500,

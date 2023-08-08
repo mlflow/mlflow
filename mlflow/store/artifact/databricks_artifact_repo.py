@@ -97,11 +97,11 @@ def _complete_futures(futures_dict, file):
         f"Uploading file {file}",
         _MULTIPART_UPLOAD_CHUNK_SIZE,
     ) as pbar:
-        for index, future in enumerate(as_completed(futures_dict)):
+        for future in as_completed(futures_dict):
             key = futures_dict[future]
             try:
                 results[key] = future.result()
-                pbar.update(index)
+                pbar.update()
             except Exception as e:
                 errors[key] = repr(e)
 
@@ -726,10 +726,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
         with ArtifactProgressBar.files(
             desc="Uploading artifacts", total=len(staged_uploads)
         ) as pbar:
-            for index, (src_file_path, upload_future) in enumerate(upload_artifacts_iter()):
+            for src_file_path, upload_future in upload_artifacts_iter():
                 try:
                     upload_future.result()
-                    pbar.update(index)
+                    pbar.update()
                 except Exception as e:
                     failed_uploads[src_file_path] = repr(e)
 
