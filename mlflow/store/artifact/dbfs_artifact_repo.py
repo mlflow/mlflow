@@ -8,6 +8,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
+from mlflow.environment_variables import MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.tracking._tracking_service import utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -27,7 +28,6 @@ import mlflow.utils.databricks_utils
 LIST_API_ENDPOINT = "/api/2.0/dbfs/list"
 GET_STATUS_ENDPOINT = "/api/2.0/dbfs/get-status"
 DOWNLOAD_CHUNK_SIZE = 1024
-USE_FUSE_ENV_VAR = "MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO"
 
 
 class DbfsRestArtifactRepository(ArtifactRepository):
@@ -213,7 +213,7 @@ def dbfs_artifact_repo_factory(artifact_uri):
         return DatabricksArtifactRepository(cleaned_artifact_uri)
     elif (
         mlflow.utils.databricks_utils.is_dbfs_fuse_available()
-        and os.environ.get(USE_FUSE_ENV_VAR, "").lower() != "false"
+        and MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO.get()
         and not is_databricks_model_registry_artifacts_uri(artifact_uri)
         and (db_profile_uri is None or db_profile_uri == "databricks")
     ):
