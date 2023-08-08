@@ -49,12 +49,10 @@ MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
 
 
 class ArtifactProgressBar:
-    def __init__(self, iterable, desc, total, step, **kwargs) -> None:
-        self.iterable = iterable
+    def __init__(self, desc, total, step, **kwargs) -> None:
         self.total = total
         self.step = step
         self.pbar = None
-        self.update_pbar = False
 
         if MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR.get():
             try:
@@ -65,9 +63,8 @@ class ArtifactProgressBar:
                 pass
 
     @classmethod
-    def file(cls, iterable, file_size, desc, chunk_size):
+    def chunks(cls, file_size, desc, chunk_size):
         return cls(
-            iterable,
             desc,
             total=file_size,
             step=chunk_size,
@@ -78,26 +75,14 @@ class ArtifactProgressBar:
         )
 
     @classmethod
-    def files(cls, iterable, desc, total, step=1):
-        return cls(iterable, desc, total=total, step=step)
+    def files(cls, desc, total, step=1):
+        return cls(desc, total=total, step=step)
 
-    def update(self):
-        self.update_pbar = True
-
-    def _pbar_iter(self):
-        for index, item in enumerate(self.iterable):
-            yield item
-            if self.update_pbar:
-                remaining = self.total - index * self.step
-                self.pbar.update(min(remaining, self.step))
-                self.pbar.refresh()
-                self.update_pbar = False
-
-    def __iter__(self):
-        if self.pbar is None:
-            yield from self.iterable
-        else:
-            yield from self._pbar_iter()
+    def update(self, index):
+        if self.pbar:
+            remaining = self.total - index * self.step
+            self.pbar.update(min(remaining, self.step))
+            self.pbar.refresh()
 
     def __enter__(self):
         return self
@@ -749,17 +734,17 @@ def parallelized_download_file_using_http_uri(
 
     failed_downloads = {}
 
-    with ArtifactProgressBar.file(
-        as_completed(futures), file_size, f"Downloading file {download_path}", chunk_size
+    with ArtifactProgressBar.chunks(
+        file_size, f"Downloading file {download_path}", chunk_size
     ) as pbar:
-        for future in pbar:
+        for i, future in enumerate(as_completed(futures)):
             index = futures[future]
             try:
                 result = future.result()
                 if result is not None:
                     failed_downloads[index] = result
                 else:
-                    pbar.update()
+                    pbar.update(i)
             except Exception as e:
                 failed_downloads[index] = {
                     "error_status_code": 500,

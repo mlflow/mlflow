@@ -189,13 +189,11 @@ class ArtifactRepository:
 
         # Wait for downloads to complete and collect failures
         failed_downloads = {}
-        with ArtifactProgressBar.files(
-            as_completed(futures), desc="Downloading artifacts", total=len(futures)
-        ) as pbar:
-            for f in pbar:
+        with ArtifactProgressBar.files(desc="Downloading artifacts", total=len(futures)) as pbar:
+            for index, f in enumerate(as_completed(futures)):
                 try:
                     f.result()
-                    pbar.update()
+                    pbar.update(index)
                 except Exception as e:
                     path = futures[f]
                     failed_downloads[path] = repr(e)
