@@ -154,12 +154,6 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         with open(local_path, "wb") as file:
             file_client.download_file().readinto(file)
 
-    def _extract_headers_from_credentials(self, headers):
-        """
-        :return: A python dictionary of http headers converted from the protobuf credentials
-        """
-        return {header.name: header.value for header in headers}
-
     def delete_artifacts(self, artifact_path=None):
         raise NotImplementedError("This artifact repository does not support deleting artifacts")
 
@@ -235,27 +229,8 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         """
         Gets the presigned URL required to upload a file to a given Azure storage location.
         """
-        try:
-            # # headers = self._extract_headers_from_credentials(self.credentials)
-            # from azure.storage.blob import (
-            #     generate_blob_sas,
-            #     BlobSasPermissions
-            # )
-            # from datetime import datetime, timedelta #For setting the token validity duration
-            #
-            #
-            # input_sas_blob = generate_blob_sas(account_name=self.account_name,
-            #                                    container_name=self.container_client,
-            #                                    blob_name=artifact_path,
-            #                                    account_key=self.credential,
-            #                                    permission=BlobSasPermissions(read=True),
-            #                                    expiry=datetime.utcnow() + timedelta(hours=1))
-
-            sas_token = self.credential.signature
-            presigned_url = f"https://{self.account_name}.dfs.core.windows.net/{self.container}/{self.base_data_lake_directory}/{artifact_path}?{sas_token}"
-            return presigned_url
-        except Exception as err:
-            raise MlflowException(err)
+        sas_token = self.credential.signature
+        return f"https://{self.account_name}.dfs.core.windows.net/{self.container}/{self.base_data_lake_directory}/{artifact_path}?{sas_token}"
 
     def _get_write_credential_infos(self, paths) -> List[ArtifactCredentialInfo]:
         res = [ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path)) for path in paths]
