@@ -31,7 +31,6 @@ class CohereProvider(BaseProvider):
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
-
         key_mapping = {
             "stop": "stop_sequences",
             "candidate_count": "num_generations",

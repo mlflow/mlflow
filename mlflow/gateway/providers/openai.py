@@ -153,7 +153,6 @@ class OpenAIProvider(BaseProvider):
             raise HTTPException(
                 status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
             )
-
         payload = rename_payload_keys(
             payload,
             {"candidate_count": "n"},
