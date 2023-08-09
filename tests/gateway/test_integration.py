@@ -416,7 +416,7 @@ def test_mlflow_chat(gateway):
                     "role": "assistant",
                     "content": "test",
                 },
-                "metadata": {},
+                "metadata": {"finish_reason": None},
             }
         ],
         "metadata": {

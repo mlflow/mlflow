@@ -1,7 +1,7 @@
 from enum import Enum
-from typing import List, Optional, Dict
+from typing import List, Optional
 
-from pydantic import Field
+from pydantic import Field, Extra
 
 from ..base_models import RequestModel, ResponseModel
 from ..config import RouteType
@@ -49,13 +49,13 @@ class ResponseMessage(ResponseModel):
     content: str
 
 
-class CandidateMetadata(ResponseModel):
+class CandidateMetadata(ResponseModel, extra=Extra.allow):
     finish_reason: Optional[FinishReason]
 
 
 class Candidate(ResponseModel):
     message: ResponseMessage
-    metadata: Optional[Dict[str, str]]
+    metadata: CandidateMetadata
 
 
 class Metadata(ResponseModel):

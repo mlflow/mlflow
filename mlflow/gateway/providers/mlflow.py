@@ -1,11 +1,53 @@
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
+from pydantic import BaseModel, validator, StrictStr, ValidationError, StrictFloat
+from typing import List
+
 
 from .base import BaseProvider
 from .utils import send_request
 from ..config import RouteConfig, MlflowModelServingConfig
 from ..constants import MLFLOW_SERVING_RESPONSE_KEY
 from ..schemas import completions, chat, embeddings
+
+
+class ServingTextResponse(BaseModel):
+    predictions: List[StrictStr]
+
+    @validator("predictions", pre=True)
+    def extract_candidates(cls, predictions):
+        if isinstance(predictions, list) and not predictions:
+            raise ValueError("The input list is empty")
+        if isinstance(predictions, dict):
+            if "candidates" not in predictions and len(predictions) > 1:
+                raise ValueError(
+                    "The dict format is invalid for this route type. Ensure the served model "
+                    "returns a dict key containing 'candidates'"
+                )
+            if len(predictions) == 1:
+                predictions = next(iter(predictions.values()))
+            else:
+                predictions = predictions.get("candidates", predictions)
+            if not predictions:
+                raise ValueError("The input list is empty")
+        return predictions
+
+
+class EmbeddingsResponse(BaseModel):
+    predictions: List[List[float]]
+
+    @validator("predictions", pre=True)
+    def validate_predictions(cls, predictions):
+        if isinstance(predictions, list) and not predictions:
+            raise ValueError("The input list is empty")
+        if isinstance(predictions, list) and all(
+            isinstance(item, list) and not item for item in predictions
+        ):
+            raise ValueError("One or more lists in the returned prediction response are empty")
+        elif all(isinstance(item, (float, StrictFloat)) for item in predictions):
+            return [predictions]
+        else:
+            return predictions
 
 
 class MlflowModelServingProvider(BaseProvider):
@@ -39,25 +81,13 @@ class MlflowModelServingProvider(BaseProvider):
 
         return request_payload
 
-    def _process_completions_response_for_mlflow_serving(self, response):
-        inference_data = self._extract_mlflow_response_key(response)
-
-        if isinstance(inference_data, dict):
-            inference_data = inference_data.get("candidates", inference_data)
-
-        is_list_of_strings = isinstance(inference_data, list) and all(
-            isinstance(item, str) for item in inference_data
-        )
-
-        if not is_list_of_strings:
-            raise HTTPException(
-                status_code=502,
-                detail=(
-                    "The response structure from the MLflow serving endpoint is not "
-                    "compatible with the completions route type. The value components must be "
-                    "a list of strings."
-                ),
-            )
+    @staticmethod
+    def _process_completions_response_for_mlflow_serving(response):
+        try:
+            validated_response = ServingTextResponse(**response)
+            inference_data = validated_response.predictions
+        except ValidationError as e:
+            raise HTTPException(status_code=502, detail=str(e))
 
         return [{"text": entry, "metadata": {}} for entry in inference_data]
 
@@ -92,24 +122,11 @@ class MlflowModelServingProvider(BaseProvider):
         )
 
     def _process_chat_response_for_mlflow_serving(self, response):
-        inference_data = self._extract_mlflow_response_key(response)
-
-        if isinstance(inference_data, dict):
-            inference_data = inference_data.get("candidates", inference_data)
-
-        is_list_of_strings = isinstance(inference_data, list) and all(
-            isinstance(item, str) for item in inference_data
-        )
-
-        if not is_list_of_strings:
-            raise HTTPException(
-                status_code=502,
-                detail=(
-                    "The response structure from the MLflow serving endpoint is not "
-                    "compatible with the chat route type. The value components must be "
-                    "a list of strings."
-                ),
-            )
+        try:
+            validated_response = ServingTextResponse(**response)
+            inference_data = validated_response.predictions
+        except ValidationError as e:
+            raise HTTPException(status_code=502, detail=str(e))
 
         return [
             {"message": {"role": "assistant", "content": entry}, "metadata": {}}
@@ -156,24 +173,11 @@ class MlflowModelServingProvider(BaseProvider):
         )
 
     def _process_embeddings_response_for_mlflow_serving(self, response):
-        inference_data = self._extract_mlflow_response_key(response)
-
-        is_list_of_list_of_floats = isinstance(inference_data, list) and all(
-            isinstance(sublist, list)
-            and sublist
-            and all(isinstance(item, float) for item in sublist)
-            for sublist in inference_data
-        )
-
-        if not is_list_of_list_of_floats:
-            raise HTTPException(
-                status_code=502,
-                detail=(
-                    "The response structure from the MLflow serving endpoint is not "
-                    "compatible with the embeddings route type. The value components must be "
-                    "a list of lists of floats."
-                ),
-            )
+        try:
+            validated_response = EmbeddingsResponse(**response)
+            inference_data = validated_response.predictions
+        except ValidationError as e:
+            raise HTTPException(status_code=502, detail=str(e))
 
         return inference_data
 

@@ -69,26 +69,56 @@ async def test_completions():
 
 
 @pytest.mark.parametrize(
-    "response",
+    ("input_data", "expected_output"),
     [
-        {MLFLOW_SERVING_RESPONSE_KEY: {"not_candidates": []}},
-        {MLFLOW_SERVING_RESPONSE_KEY: {"candidates": [1, 2, 3]}},
-        {MLFLOW_SERVING_RESPONSE_KEY: ["string", 2, 3]},
-        {MLFLOW_SERVING_RESPONSE_KEY: "string_value"},
-        {MLFLOW_SERVING_RESPONSE_KEY: [1, 2, 3]},
+        (
+            {"predictions": ["string1", "string2"]},
+            [{"text": "string1", "metadata": {}}, {"text": "string2", "metadata": {}}],
+        ),
+        (
+            {"predictions": {"candidates": ["string1", "string2"]}},
+            [{"text": "string1", "metadata": {}}, {"text": "string2", "metadata": {}}],
+        ),
+        (
+            {"predictions": {"candidates": ["string1", "string2"], "ignored": ["a", "b"]}},
+            [{"text": "string1", "metadata": {}}, {"text": "string2", "metadata": {}}],
+        ),
+        (
+            {"predictions": {"arbitrary_key": ["string1", "string2", "string3"]}},
+            [
+                {"text": "string1", "metadata": {}},
+                {"text": "string2", "metadata": {}},
+                {"text": "string3", "metadata": {}},
+            ],
+        ),
     ],
 )
-def test_invalid_completions_response(response):
+def test_valid_completions_input_parsing(input_data, expected_output):
+    config = completions_config()
+    provider = MlflowModelServingProvider(RouteConfig(**config))
+    parsed = provider._process_completions_response_for_mlflow_serving(input_data)
+
+    assert parsed == expected_output
+
+
+@pytest.mark.parametrize(
+    "invalid_data",
+    [
+        {"predictions": [1, 2, 3]},  # List of integers
+        {"predictions": {"candidates": [1, 2, 3]}},  # Dict with list of integers
+        {"predictions": {"arbitrary_key": [1, 2, 3]}},  # Dict with list of integers
+        {"predictions": {"key1": ["string1"], "key2": ["string2"]}},  # Multiple keys in dict
+        {"predictions": []},  # Empty list
+        {"predictions": {"candidates": []}},  # Dict with empty list
+    ],
+)
+def test_validation_errors(invalid_data):
     config = completions_config()
     provider = MlflowModelServingProvider(RouteConfig(**config))
     with pytest.raises(HTTPException, match=r".*") as e:
-        provider._process_completions_response_for_mlflow_serving(response)
-
-    assert (
-        "The response structure from the MLflow serving endpoint is not compatible"
-        in e.value.detail
-    )
+        provider._process_completions_response_for_mlflow_serving(invalid_data)
     assert e.value.status_code == 502
+    assert "ServingTextResponse\npredictions" in e.value.detail
 
 
 def test_invalid_return_key_from_mlflow_serving():
@@ -99,7 +129,10 @@ def test_invalid_return_key_from_mlflow_serving():
             {"invalid_return_key": ["invalid", "response"]}
         )
 
-    assert "The response is missing the required key:" in e.value.detail
+    assert (
+        "1 validation error for ServingTextResponse\npredictions\n  field required"
+        in e.value.detail
+    )
     assert e.value.status_code == 502
 
 
@@ -156,6 +189,7 @@ async def test_embeddings():
         {MLFLOW_SERVING_RESPONSE_KEY: [[1.0, 2.3], ["string", "values"]]},
         {MLFLOW_SERVING_RESPONSE_KEY: [[1.0, 2.3], [1.2, "string"]]},
         {MLFLOW_SERVING_RESPONSE_KEY: [[], []]},
+        {MLFLOW_SERVING_RESPONSE_KEY: []},
     ],
 )
 def test_invalid_embeddings_response(response):
@@ -164,10 +198,7 @@ def test_invalid_embeddings_response(response):
     with pytest.raises(HTTPException, match=r".*") as e:
         provider._process_embeddings_response_for_mlflow_serving(response)
 
-    assert (
-        "The response structure from the MLflow serving endpoint is not compatible"
-        in e.value.detail
-    )
+    assert "EmbeddingsResponse\npredictions" in e.value.detail
     assert e.value.status_code == 502
 
 
@@ -202,7 +233,7 @@ async def test_chat():
                         "role": "assistant",
                         "content": "It is a test",
                     },
-                    "metadata": {},
+                    "metadata": {"finish_reason": None},
                 }
             ],
             "metadata": {
@@ -242,29 +273,6 @@ async def test_chat_exception_raised_for_multiple_elements_in_query():
         with pytest.raises(HTTPException, match=r".*") as e:
             await provider.chat(chat.RequestPayload(**payload))
         assert "MLflow chat models are only capable of processing" in e.value.detail
-
-
-@pytest.mark.parametrize(
-    "response",
-    [
-        {MLFLOW_SERVING_RESPONSE_KEY: {"not_candidates": []}},
-        {MLFLOW_SERVING_RESPONSE_KEY: {"candidates": [1, 2, 3]}},
-        {MLFLOW_SERVING_RESPONSE_KEY: ["string", 2, 3]},
-        {MLFLOW_SERVING_RESPONSE_KEY: "string_value"},
-        {MLFLOW_SERVING_RESPONSE_KEY: [1, 2, 3]},
-    ],
-)
-def test_invalid_chat_response(response):
-    config = completions_config()
-    provider = MlflowModelServingProvider(RouteConfig(**config))
-    with pytest.raises(HTTPException, match=r".*") as e:
-        provider._process_chat_response_for_mlflow_serving(response)
-
-    assert (
-        "The response structure from the MLflow serving endpoint is not compatible"
-        in e.value.detail
-    )
-    assert e.value.status_code == 502
 
 
 def test_route_construction_fails_with_invalid_config():
