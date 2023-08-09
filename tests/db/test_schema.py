@@ -162,7 +162,7 @@ Manually copy & paste the expected schema in {rel_path} or run the following com
 
 def main():
     tracking_uri = get_tracking_uri()
-    assert tracking_uri, f"Environment variable {MLFLOW_TRACKING_URI.name} must be set"
+    assert tracking_uri, f"Environment variable {MLFLOW_TRACKING_URI} must be set"
     get_database_dialect(tracking_uri)  # Ensure `tracking_uri` is a database URI
     mlflow.set_tracking_uri(tracking_uri)
     initialize_database()

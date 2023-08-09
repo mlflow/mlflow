@@ -15,7 +15,7 @@ from tests.tracking.integration_test_utils import _init_server
 
 
 def _get_expected_table_info_row(path, data_format, version=None):
-    expected_path = "file:%s" % path
+    expected_path = f"file:{path}"
     if version is None:
         return f"path={expected_path},format={data_format}"
     return f"path={expected_path},version={version},format={data_format}"

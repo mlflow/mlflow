@@ -46,6 +46,9 @@ class _EnvironmentVariable:
     def __repr__(self):
         return repr(self.name)
 
+    def __format__(self, format_spec: str) -> str:
+        return self.name.__format__(format_spec)
+
 
 class _BooleanEnvironmentVariable(_EnvironmentVariable):
     """
@@ -346,6 +349,12 @@ MLFLOW_ENV_ROOT = _EnvironmentVariable(
     "MLFLOW_ENV_ROOT", str, str(Path.home().joinpath(".mlflow", "envs"))
 )
 
+#: Specifies whether or not to use DBFS FUSE mount to store artifacts on Databricks
+#: (default: ``False``)
+MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO", True
+)
+
 #: Private environment variable that should be set to ``True`` when running autologging tests.
 #: (default: ``False``)
 _MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TESTING", False)
@@ -354,3 +363,9 @@ _MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TE
 #: Specifies the uri of a Mlflow Gateway Server instance to be used with the Gateway Client APIs
 #: (default: ``None``)
 MLFLOW_GATEWAY_URI = _EnvironmentVariable("MLFLOW_GATEWAY_URI", str, None)
+
+#: Specifies whether to display the progress bar when uploading/downloading artifacts.
+#: (default: ``True``)
+MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR", True
+)

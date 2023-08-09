@@ -2,7 +2,7 @@ import astroid
 from pylint.interfaces import IAstroidChecker
 from pylint.checkers import BaseChecker
 
-from ..errors import PYTEST_RAISES_WITHOUT_MATCH, PYTEST_RAISES_MULTIPLE_STATEMENTS, to_msgs
+from ..errors import PYTEST_RAISES_WITHOUT_MATCH, to_msgs
 
 
 def _is_pytest_raises_call(node: astroid.NodeNG):
@@ -27,7 +27,7 @@ class PytestRaisesChecker(BaseChecker):
     __implements__ = IAstroidChecker
 
     name = "pytest-raises-checker"
-    msgs = to_msgs(PYTEST_RAISES_WITHOUT_MATCH, PYTEST_RAISES_MULTIPLE_STATEMENTS)
+    msgs = to_msgs(PYTEST_RAISES_WITHOUT_MATCH)
     priority = -1
 
     def visit_call(self, node: astroid.Call):
@@ -36,9 +36,3 @@ class PytestRaisesChecker(BaseChecker):
 
         if not _called_with_match(node):
             self.add_message(PYTEST_RAISES_WITHOUT_MATCH.name, node=node)
-
-    def visit_with(self, node: astroid.With):
-        if any(_is_pytest_raises_call(item[0]) for item in node.items) and (
-            _contains_multiple_statements(node)
-        ):
-            self.add_message(PYTEST_RAISES_MULTIPLE_STATEMENTS.name, node=node)

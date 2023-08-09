@@ -98,7 +98,7 @@ def test_string_repr():
         end_time=1,
         lifecycle_stage=LifecycleStage.ACTIVE,
     )
-    metrics = [Metric(key="key-%s" % i, value=i, timestamp=0, step=i) for i in range(3)]
+    metrics = [Metric(key=f"key-{i}", value=i, timestamp=0, step=i) for i in range(3)]
     run_data = RunData(metrics=metrics, params=[], tags=[])
     dataset_inputs = DatasetInput(
         dataset=Dataset(

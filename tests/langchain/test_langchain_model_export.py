@@ -19,7 +19,6 @@ from langchain.chains import (
     LLMChain,
     RetrievalQA,
     HypotheticalDocumentEmbedder,
-    SQLDatabaseChain,
 )
 from langchain.chains.api import open_meteo_docs
 from langchain.chains.base import Chain
@@ -35,6 +34,7 @@ from langchain.prompts import PromptTemplate
 from langchain.requests import TextRequestsWrapper
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
+from langchain_experimental.sql import SQLDatabaseChain
 from pydantic import BaseModel
 from pyspark.sql import SparkSession
 from typing import Any, List, Mapping, Optional, Dict
@@ -509,6 +509,27 @@ def test_log_and_load_api_chain():
     # Load the chain
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
     assert loaded_model == apichain
+
+
+def test_log_and_load_subclass_of_specialized_chain():
+    class APIChainSubclass(APIChain):
+        pass
+
+    llm = OpenAI(temperature=0)
+    apichain_subclass = APIChainSubclass.from_llm_and_api_docs(
+        llm, open_meteo_docs.OPEN_METEO_DOCS, verbose=True
+    )
+
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(
+            apichain_subclass,
+            "apichain_subclass",
+            loader_fn=load_requests_wrapper,
+        )
+
+    # Load the chain
+    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
+    assert loaded_model == apichain_subclass
 
 
 def load_base_embeddings(_):

@@ -1,4 +1,6 @@
 import os
+import json
+import sys
 import subprocess
 import requests
 from concurrent.futures import ThreadPoolExecutor
@@ -6,22 +8,10 @@ import traceback
 
 
 def get_distributions():
-    res = subprocess.run(["pip", "list"], stdout=subprocess.PIPE, check=True)
-    pip_list_stdout = res.stdout.decode("utf-8")
-    # `pip_list_stdout` looks like this:
-    # ``````````````````````````````````````````````````````````
-    # Package     Version             Location
-    # ----------- ------------------- --------------------------
-    # mlflow      1.21.1.dev0         /home/user/path/to/mlflow
-    # tensorflow  2.6.0
-    # ...
-    # ``````````````````````````````````````````````````````````
-    lines = pip_list_stdout.splitlines()[2:]  # `[2:]` removes the header
-    return [
-        # Extract package and version
-        line.split()[:2]
-        for line in lines
-    ]
+    res = subprocess.check_output(
+        [sys.executable, "-m", "pip", "list", "--format", "json"], text=True
+    )
+    return [(pkg["name"], pkg["version"]) for pkg in json.loads(res)]
 
 
 def get_release_date(package, version):
@@ -56,11 +46,11 @@ def main():
         release_dates = [safe_result(f) for f in futures]
 
     packages, versions = list(zip(*distributions))
-    package_legnth = get_longest_string_length(packages)
+    package_length = get_longest_string_length(packages)
     version_length = get_longest_string_length(versions)
     release_date_length = len("Release Date")
-    print("Package".ljust(package_legnth), "Version".ljust(version_length), "Release Date")
-    print("-" * (package_legnth + version_length + release_date_length + 2))
+    print("Package".ljust(package_length), "Version".ljust(version_length), "Release Date")
+    print("-" * (package_length + version_length + release_date_length + 2))
     for package, version, release_date in sorted(
         zip(packages, versions, release_dates),
         # Sort by release date in descending order
@@ -68,7 +58,7 @@ def main():
         reverse=True,
     ):
         print(
-            package.ljust(package_legnth),
+            package.ljust(package_length),
             version.ljust(version_length),
             release_date.ljust(release_date_length),
         )

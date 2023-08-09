@@ -208,7 +208,7 @@ def test_log_batch_api_req(mock_get_request_json):
     json_response = json.loads(response.get_data())
     assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     assert (
-        "Batched logging API requests must be at most %s bytes" % MAX_BATCH_LOG_REQUEST_SIZE
+        f"Batched logging API requests must be at most {MAX_BATCH_LOG_REQUEST_SIZE} bytes"
         in json_response["message"]
     )
 

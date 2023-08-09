@@ -28,7 +28,7 @@ def dump_db_schema(db_url, dst_file):
 def dump_sqlalchemy_store_schema(dst_file):
     with tempfile.TemporaryDirectory() as db_tmpdir:
         path = os.path.join(db_tmpdir, "db_file")
-        db_url = "sqlite:///%s" % path
+        db_url = f"sqlite:///{path}"
         SqlAlchemyStore(db_url, db_tmpdir)
         dump_db_schema(db_url, dst_file)
 
