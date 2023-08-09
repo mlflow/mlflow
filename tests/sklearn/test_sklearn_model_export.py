@@ -747,28 +747,13 @@ scipy
     ).values.squeeze()
     np.testing.assert_array_almost_equal(scores, model_predict)
 
-    # Raise error if trying to pass params to model logged with mlflow < 2.5.0
-    with pytest.raises(
-        MlflowException,
-        match=r"`params` can only be specified at inference "
-        r"time if the model signature defines a params schema.",
-    ):
+    # Issues a warning if params are specified prior to MLflow support in 2.5.0
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
         pyfunc_loaded.predict(inference_dataframe, params={"top_k": 2})
-
-    # Raise error if trying to pass params to model logged with mlflow < 2.5.0 for model serving
-    response = pyfunc_serve_and_score_model(
-        model_uri,
-        data=json.dumps(
-            {"dataframe_split": inference_dataframe.to_dict(orient="split"), "params": {"top_k": 2}}
-        ),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 400
-    assert (
-        "`params` can only be specified at inference time if the model "
-        "signature defines a params schema."
-        in json.loads(response.content.decode("utf-8"))["message"]
+    mock_warning.assert_called_with(
+        "`params` can only be specified at inference time if the model signature defines a params "
+        "schema. This model does not define a params schema. Ignoring provided params: "
+        "['top_k']"
     )
 
 
