@@ -20,9 +20,10 @@ _logger = logging.getLogger(__name__)
 class Provider(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
-    # Note: Databricks Model Serving is only supported on Databricks
-    DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     COHERE = "cohere"
+    # Note: The following providers are only supported on Databricks
+    DATABRICKS_MODEL_SERVING = "databricks-model-serving"
+    MOSAICLML = "mosaicml"
 
     @classmethod
     def values(cls):
