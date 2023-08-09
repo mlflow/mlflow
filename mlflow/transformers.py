@@ -1835,7 +1835,6 @@ class _TransformersWrapper:
                     transformers.FillMaskPipeline,
                     transformers.TextGenerationPipeline,
                     transformers.TranslationPipeline,
-                    transformers.TextClassificationPipeline,
                     transformers.SummarizationPipeline,
                     transformers.TokenClassificationPipeline,
                 ),
@@ -1844,8 +1843,95 @@ class _TransformersWrapper:
             and all(isinstance(entry, dict) for entry in data)
         ):
             return [list(entry.values())[0] for entry in data]
+        elif isinstance(self.pipeline, transformers.TextClassificationPipeline):
+            return self._validate_text_classification_input(data)
         else:
             return data
+
+    @staticmethod
+    def _validate_text_classification_input(data):
+        """
+        Perform input type validation for TextClassification pipelines and casting of data
+        that is manipulated internally by the MLflow model server back to a structure that
+        can be used for pipeline inference.
+
+        To illustrate the input and outputs of this function, for the following inputs to
+        the pyfunc.predict() call for this pipeline type:
+
+        "text to classify"
+        ["text to classify", "other text to classify"]
+        {"text": "text to classify", "text_pair": "pair text"}
+        [{"text": "text", "text_pair": "pair"}, {"text": "t", "text_pair": "tp" }]
+
+        Pyfunc processing will convert these to the following structures:
+
+        [{0: "text to classify"}]
+        [{0: "text to classify"}, {0: "other text to classify"}]
+        [{"text": "text to classify", "text_pair": "pair text"}]
+        [{"text": "text", "text_pair": "pair"}, {"text": "t", "text_pair": "tp" }]
+
+        The purpose of this function is to convert them into the correct format for input
+        to the pipeline (wrapping as a list has no bearing on the correctness of the
+        inferred classifications):
+
+        ["text to classify"]
+        ["text to classify", "other text to classify"]
+        [{"text": "text to classify", "text_pair": "pair text"}]
+        [{"text": "text", "text_pair": "pair"}, {"text": "t", "text_pair": "tp" }]
+
+        Additionally, for dict input types (the 'text' & 'text_pair' input example), the dict
+        input will be JSON stringified within MLflow model serving. In order to reconvert this
+        structure back into the appropriate type, we use ast.literal_eval() to convert back
+        to a dict. We avoid using JSON.loads() due to pandas DataFrame conversions that invert
+        single and double quotes with escape sequences that are not consistent if the string
+        contains escaped quotes.
+        """
+
+        def _check_keys(payload):
+            """Check if a dictionary contains only allowable keys."""
+            allowable_str_keys = {"text", "text_pair"}
+            if set(payload) - allowable_str_keys and not all(
+                isinstance(key, int) for key in payload.keys()
+            ):
+                raise MlflowException(
+                    "Text Classification pipelines may only define dictionary inputs with keys "
+                    f"defined as {allowable_str_keys}"
+                )
+
+        if isinstance(data, str):
+            return data
+        elif isinstance(data, dict):
+            _check_keys(data)
+            return data
+        elif isinstance(data, list):
+            if all(isinstance(item, str) for item in data):
+                return data
+            elif all(isinstance(item, dict) for item in data):
+                for payload in data:
+                    _check_keys(payload)
+                if list(data[0].keys())[0] == 0:
+                    data = [item[0] for item in data]
+                try:
+                    # NB: To support MLflow serving signature validation, the value within dict
+                    # inputs is JSON encoded. In order for the proper data structure input support
+                    # for a {"text": "a", "text_pair": "b"} (or the list of such a structure) as
+                    # an input, we have to convert the string encoded dict back to a dict.
+                    # Due to how unescaped characters (such as "'") are encoded, using an explicit
+                    # json.loads() attempted cast can result in invalid input data to the pipeline.
+                    # ast.literal_eval() shows correct conversion, as validated in unit tests.
+                    return [ast.literal_eval(s) for s in data]
+                except (ValueError, SyntaxError):
+                    return data
+            else:
+                raise MlflowException(
+                    "An unsupported data type has been passed for Text Classification inference. "
+                    "Only str, list of str, dict, and list of dict are supported."
+                )
+        else:
+            raise MlflowException(
+                "An unsupported data type has been passed for Text Classification inference. "
+                "Only str, list of str, dict, and list of dict are supported."
+            )
 
     def _parse_conversation_input(self, data):
         import transformers
