@@ -32,6 +32,7 @@ except ImportError:
     from yaml import SafeLoader as YamlSafeLoader, SafeDumper as YamlSafeDumper
 
 from mlflow.entities import FileInfo
+from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
 from mlflow.exceptions import MissingConfigException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.utils.rest_utils import augmented_raise_for_status
@@ -43,9 +44,63 @@ from mlflow.utils.os import is_windows
 from mlflow.utils import download_cloud_file_chunk
 from mlflow.utils.request_utils import download_chunk
 
-
 ENCODING = "utf-8"
 MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
+_PROGRESS_BAR_DISPLAY_THRESHOLD = 500_000_000  # 500 MB
+
+
+class ArtifactProgressBar:
+    def __init__(self, desc, total, step, **kwargs) -> None:
+        self.desc = desc
+        self.total = total
+        self.step = step
+        self.pbar = None
+        self.progress = 0
+        self.kwargs = kwargs
+
+    def set_pbar(self):
+        if MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR.get():
+            try:
+                from tqdm.auto import tqdm
+
+                self.pbar = tqdm(total=self.total, desc=self.desc, **self.kwargs)
+            except ImportError:
+                pass
+
+    @classmethod
+    def chunks(cls, file_size, desc, chunk_size):
+        bar = cls(
+            desc,
+            total=file_size,
+            step=chunk_size,
+            unit="iB",
+            unit_scale=True,
+            unit_divisor=1024,
+            miniters=1,
+        )
+        if file_size >= _PROGRESS_BAR_DISPLAY_THRESHOLD:
+            bar.set_pbar()
+        return bar
+
+    @classmethod
+    def files(cls, desc, total):
+        bar = cls(desc, total=total, step=1)
+        bar.set_pbar()
+        return bar
+
+    def update(self):
+        if self.pbar:
+            update_step = min(self.total - self.progress, self.step)
+            self.pbar.update(update_step)
+            self.pbar.refresh()
+            self.progress += update_step
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        if self.pbar:
+            self.pbar.close()
 
 
 def is_directory(name):
@@ -689,18 +744,21 @@ def parallelized_download_file_using_http_uri(
         futures[thread_pool_executor.submit(run_download, range_start, range_end)] = i
 
     failed_downloads = {}
-    for future in as_completed(futures):
-        index = futures[future]
-        try:
-            result = future.result()
-            if result is not None:
-                failed_downloads[index] = result
 
-        except Exception as e:
-            failed_downloads[index] = {
-                "error_status_code": 500,
-                "error_text": repr(e),
-            }
+    with ArtifactProgressBar.chunks(file_size, f"Downloading {download_path}", chunk_size) as pbar:
+        for future in as_completed(futures):
+            index = futures[future]
+            try:
+                result = future.result()
+                if result is not None:
+                    failed_downloads[index] = result
+                else:
+                    pbar.update()
+            except Exception as e:
+                failed_downloads[index] = {
+                    "error_status_code": 500,
+                    "error_text": repr(e),
+                }
 
     return failed_downloads
 
