@@ -934,7 +934,9 @@ Inference configuration can be changed at loading time by indicating `inference_
 
 .. code-block:: python
 
-    pyfunc_model = mlflow.pyfunc.load_model(model_uri, inference_config=dict(temperature=0.93))
+    pyfunc_model = mlflow.pyfunc.load_model(
+        model_uri, inference_config=dict(temperature=0.93)
+    )
 
 Indicating an invalid inference configuration for a model results in that configuration being ignored. A warning
 is displayed mentioning the ignored keys.
@@ -2994,7 +2996,9 @@ may be needed to compute the predictions for their specific samples.
     result = pyfunc_loaded.predict(data)
 
     # overriding some inference configuration with diferent values
-    pyfunc_loaded = mlflow.pyfunc.load_model("text2text", inference_config=dict(do_sample=False))
+    pyfunc_loaded = mlflow.pyfunc.load_model(
+        "text2text", inference_config=dict(do_sample=False)
+    )
 
 .. note::
     Note that in the previous example, the user can't override the configuration ``do_sample``
