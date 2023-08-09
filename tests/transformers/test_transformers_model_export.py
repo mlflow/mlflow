@@ -1420,6 +1420,7 @@ def test_text2text_generation_pipeline_with_inference_config_and_params(
         "num_beams": 5,
         "top_p": 0.85,
         "repetition_penalty": 1.15,
+        "do_sample": True,
     }
     parameters = {"top_k": 3, "max_length": 30}
     generated_output = mlflow.transformers.generate_signature_output(
@@ -1455,7 +1456,7 @@ def test_text2text_generation_pipeline_with_inference_config_and_params(
 
 def test_text2text_generation_pipeline_with_params_success(text2text_generation_pipeline, tmp_path):
     data = "muppet keyboard type"
-    parameters = {"top_k": 2, "num_beams": 5}
+    parameters = {"top_k": 2, "num_beams": 5, "do_sample": True}
     generated_output = mlflow.transformers.generate_signature_output(
         text2text_generation_pipeline, data
     )
@@ -1483,7 +1484,7 @@ def test_text2text_generation_pipeline_with_params_with_errors(
     text2text_generation_pipeline, tmp_path
 ):
     data = "muppet keyboard type"
-    parameters = {"top_k": 2, "num_beams": 5, "invalid_param": "invalid_param"}
+    parameters = {"top_k": 2, "num_beams": 5, "invalid_param": "invalid_param", "do_sample": True}
     generated_output = mlflow.transformers.generate_signature_output(
         text2text_generation_pipeline, data
     )
