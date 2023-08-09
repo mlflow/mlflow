@@ -21,6 +21,7 @@ class Provider(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     COHERE = "cohere"
+    MLFLOW_MODEL_SERVING = "mlflow-model-serving"
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     MOSAICLML = "mosaicml"
