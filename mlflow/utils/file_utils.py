@@ -50,36 +50,43 @@ _PROGRESS_BAR_DISPLAY_THRESHOLD = 500_000_000  # 500 MB
 
 
 class ArtifactProgressBar:
-    def __init__(self, desc, total, step, enable_pbar=True, **kwargs) -> None:
+    def __init__(self, desc, total, step, **kwargs) -> None:
+        self.desc = desc
         self.total = total
         self.step = step
         self.pbar = None
         self.progress = 0
+        self.kwargs = kwargs
 
-        if enable_pbar and MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR.get():
+    def set_pbar(self):
+        if MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR.get():
             try:
                 from tqdm.auto import tqdm
 
-                self.pbar = tqdm(total=self.total, desc=desc, **kwargs)
+                self.pbar = tqdm(total=self.total, desc=self.desc, **self.kwargs)
             except ImportError:
                 pass
 
     @classmethod
     def chunks(cls, file_size, desc, chunk_size):
-        return cls(
+        bar = cls(
             desc,
             total=file_size,
             step=chunk_size,
-            enable_pbar=file_size >= _PROGRESS_BAR_DISPLAY_THRESHOLD,
             unit="iB",
             unit_scale=True,
             unit_divisor=1024,
             miniters=1,
         )
+        if file_size >= _PROGRESS_BAR_DISPLAY_THRESHOLD:
+            bar.set_pbar()
+        return bar
 
     @classmethod
     def files(cls, desc, total):
-        return cls(desc, total=total, step=1)
+        bar = cls(desc, total=total, step=1)
+        bar.set_pbar()
+        return bar
 
     def update(self):
         if self.pbar:
