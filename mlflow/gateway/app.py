@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import RedirectResponse, FileResponse
+from fastapi.responses import RedirectResponse, FileResponse, StreamingResponse
 from fastapi.openapi.docs import get_swagger_ui_html
 from pydantic import BaseModel
 import logging
@@ -56,7 +56,13 @@ def _create_chat_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
     async def _chat(payload: chat.RequestPayload) -> chat.ResponsePayload:
-        return await prov.chat(payload)
+        if payload.stream:
+            return StreamingResponse(
+                (x.json() + "\n" async for x in prov.chat_stream(payload)),
+                media_type="text/event-stream",
+            )
+        else:
+            return await prov.chat(payload)
 
     return _chat
 

@@ -1,4 +1,5 @@
 from abc import ABC
+from typing import AsyncIterable
 from fastapi import HTTPException
 from typing import Tuple
 
@@ -16,6 +17,11 @@ class BaseProvider(ABC):
 
     def __init__(self, config: RouteConfig):
         self.config = config
+
+    async def chat_stream(
+        self, payload: chat.RequestPayload
+    ) -> AsyncIterable[chat.ResponsePayload]:
+        raise NotImplementedError
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         raise NotImplementedError

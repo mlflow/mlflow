@@ -1,3 +1,7 @@
+import json
+import asyncio
+from typing import AsyncIterable
+
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
@@ -5,7 +9,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
 from mlflow.gateway.providers.base import BaseProvider
-from mlflow.gateway.providers.utils import send_request, rename_payload_keys
+from mlflow.gateway.providers.utils import send_request, send_request_stream, rename_payload_keys
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.config import OpenAIConfig, OpenAIAPIType, RouteConfig
 
@@ -76,6 +80,81 @@ class OpenAIProvider(BaseProvider):
             return {"model": self.config.model.name, **payload}
         else:
             return payload
+
+    async def chat_stream(
+        self, payload: chat.RequestPayload
+    ) -> AsyncIterable[chat.ResponsePayload]:
+        payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
+        if "n" in payload:
+            raise HTTPException(
+                status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
+            )
+
+        payload = rename_payload_keys(
+            payload,
+            {"candidate_count": "n"},
+        )
+        # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
+        payload["temperature"] = 2 * payload["temperature"]
+
+        stream = send_request_stream(
+            headers=self._request_headers,
+            base_url=self._request_base_url,
+            path="chat/completions",
+            payload=self._add_model_to_payload_if_necessary(payload),
+        )
+
+        async for chunk in stream:
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+
+            if chunk.startswith(b"data: "):
+                chunk = chunk[len(b"data: ") :]
+
+            if chunk == b"[DONE]":
+                return
+
+            data = json.loads(chunk)
+            # Sample
+            # ------
+            # {
+            #     "id": "chatcmpl-xxx",
+            #     "object": "chat.completion.chunk",
+            #     "created": 1691497452,
+            #     "model": "gpt-3.5-turbo-0613",
+            #     "choices": [
+            #         {
+            #             "index": 0,
+            #             "delta": {"content": " set"},
+            #             "finish_reason": None,
+            #         }
+            #     ],
+            # }
+            # ------
+            print(data)
+            await asyncio.sleep(0.1)
+            yield chat.ResponsePayload(
+                **{
+                    "candidates": [
+                        {
+                            "message": {
+                                "role": c["delta"].get("role"),
+                                "content": c["delta"].get("content"),
+                            },
+                            "metadata": {
+                                "finish_reason": c.get("finish_reason"),
+                            },
+                        }
+                        for c in data["choices"]
+                    ],
+                    "metadata": {
+                        "model": data["model"],
+                        "route_type": self.config.route_type,
+                    },
+                }
+            )
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)

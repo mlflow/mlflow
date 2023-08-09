@@ -132,7 +132,7 @@ def delete_route(name: str) -> None:
 
 
 @experimental
-def query(route: str, data):
+def query(route: str, data, stream: bool = False):
     """
     Issues a query request to a configured service through a named route on the Gateway Server.
     This function will interface with a configured route name (examples below) and return the
@@ -142,6 +142,10 @@ def query(route: str, data):
                   `mlflow.gateway.search_routes()`
     :param data: The request payload to be submitted to the route. The exact configuration of
                  the expected structure varies based on the route configuration.
+    :param stream: Enable streaming of the response. If enabled, this function will return
+        a generator that will yield the response in chunks as they are received from the
+        server. If disabled, the function will return the full response as a dictionary.
+        Ignored for routes that do not support streaming (e.g. embeddings).
     :return: The response from the configured route endpoint provider in a standardized format.
 
     Chat example:
@@ -176,4 +180,4 @@ def query(route: str, data):
             "embeddings_route", {"text": ["I like spaghetti", "and sushi", "but not together"]}
         )
     """
-    return MlflowGatewayClient().query(route, data)
+    return MlflowGatewayClient().query(route, data, stream)

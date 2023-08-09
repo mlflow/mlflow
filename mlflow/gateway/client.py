@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Iterator, Union
 
 import requests.exceptions
 
@@ -60,7 +60,13 @@ class MlflowGatewayClient:
         """
         return self._gateway_uri
 
-    def _call_endpoint(self, method: str, route: str, json_body: Optional[str] = None):
+    def _call_endpoint(
+        self,
+        method: str,
+        route: str,
+        json_body: Optional[str] = None,
+        stream: bool = False,
+    ):
         """
         Call a specific endpoint on the Gateway API.
 
@@ -84,6 +90,7 @@ class MlflowGatewayClient:
             method=method,
             timeout=MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
             retry_codes=MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
+            stream=stream,
             **call_kwargs,
         )
         augmented_raise_for_status(response)
@@ -242,13 +249,19 @@ class MlflowGatewayClient:
         self._call_endpoint("DELETE", route)
 
     @experimental
-    def query(self, route: str, data: Dict[str, Any]):
+    def query(
+        self, route: str, data: Dict[str, Any], stream: bool = False
+    ) -> Union[Dict[str, Any], Iterator[Dict[str, Any]]]:
         """
         Submit a query to a configured provider route.
 
         :param route: The name of the route to submit the query to.
         :param data: The data to send in the query. A dictionary representing the per-route
             specific structure required for a given provider.
+        :param stream: Enable streaming of the response. If enabled, this function will return
+            a generator that will yield the response in chunks as they are received from the
+            server. If disabled, the function will return the full response as a dictionary.
+            Ignored for routes that do not support streaming (e.g. embeddings).
         :return: The route's response as a dictionary, standardized to the route type.
 
         For chat, the structure should be:
@@ -290,13 +303,19 @@ class MlflowGatewayClient:
             )
 
         """
-
-        data = json.dumps(data)
+        data = json.dumps({**data, **({"stream": stream} if stream else {})})
 
         query_route = assemble_uri_path([MLFLOW_GATEWAY_ROUTE_BASE, route, MLFLOW_QUERY_SUFFIX])
 
         try:
-            return self._call_endpoint("POST", query_route, data).json()
+            resp = self._call_endpoint("POST", query_route, data, stream=stream)
+            print(resp.headers)
+            return (
+                (json.loads(chunk) for chunk in resp.iter_lines(decode_unicode=True) if chunk)
+                if stream
+                else resp.json()
+            )
+
         except MlflowException as e:
             if isinstance(e.__cause__, requests.exceptions.Timeout):
                 timeout_message = (

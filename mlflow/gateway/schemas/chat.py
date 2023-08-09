@@ -17,6 +17,7 @@ class BaseRequestPayload(RequestModel):
     candidate_count: int = Field(1, ge=1, le=5)
     stop: Optional[List[str]] = Field(None, min_items=1)
     max_tokens: Optional[int] = Field(None, ge=1)
+    stream: bool = Field(False)
 
 
 class RequestPayload(BaseRequestPayload):
@@ -45,8 +46,8 @@ class FinishReason(str, Enum):
 
 
 class ResponseMessage(ResponseModel):
-    role: str
-    content: str
+    role: Optional[str] = Field(None)
+    content: Optional[str] = Field(None)
 
 
 class CandidateMetadata(ResponseModel, extra=Extra.allow):
