@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from ..base_models import ResponseModel
 from .chat import BaseRequestPayload, FinishReason
@@ -26,7 +26,7 @@ class CandidateMetadata(ResponseModel):
 
 class Candidate(ResponseModel):
     text: str
-    metadata: CandidateMetadata
+    metadata: Optional[Dict[str, str]]
 
 
 class Metadata(ResponseModel):
