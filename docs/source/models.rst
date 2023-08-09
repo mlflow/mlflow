@@ -915,7 +915,7 @@ from the `conda.yaml` file, ensuring that the python UDF will execute with the e
 during training.
 
 Some PyFunc models may accept inference configuration, which controls how the model is loaded and inference
-performed. You can learn which inference configuration the model supports be inspecting the model's flavor metadata:
+performed. You can learn which inference configuration the model supports by inspecting the model's flavor metadata:
 
 .. code-block:: python
 

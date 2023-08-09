@@ -449,7 +449,6 @@ def save_model(
             component_config=components,
             pipeline=built_pipeline,
             processor=processor,
-            inference_config=None,  # inference_config has been moved to pyfunc general construct
         )
 
     # Get the model card from either the argument or the HuggingFace marketplace
@@ -1074,7 +1073,7 @@ def _record_pipeline_components(pipeline) -> Dict[str, Any]:
 
 
 def _save_components(
-    root_path: pathlib.Path, component_config: Dict[str, Any], pipeline, processor, inference_config
+    root_path: pathlib.Path, component_config: Dict[str, Any], pipeline, processor
 ):
     """
     Saves non-model pipeline components.
@@ -1085,8 +1084,6 @@ def _save_components(
         component.save_pretrained(root_path.joinpath(component_name))
     if processor:
         processor.save_pretrained(root_path.joinpath(_PROCESSOR_KEY))
-    if inference_config:
-        root_path.joinpath(_INFERENCE_CONFIG_BINARY_KEY).write_text(json.dumps(inference_config))
 
 
 def _load_component(root_path: pathlib.Path, component_key: str, component_type):
