@@ -46,16 +46,17 @@ from mlflow.utils.request_utils import download_chunk
 
 ENCODING = "utf-8"
 MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
+_PROGRESS_BAR_DISPLAY_THRESHOLD = 500_000_000  # 500 MB
 
 
 class ArtifactProgressBar:
-    def __init__(self, desc, total, step, **kwargs) -> None:
+    def __init__(self, desc, total, step, enable_pbar=True, **kwargs) -> None:
         self.total = total
         self.step = step
         self.pbar = None
         self.progress = 0
 
-        if MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR.get():
+        if enable_pbar and MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR.get():
             try:
                 from tqdm.auto import tqdm
 
@@ -69,6 +70,7 @@ class ArtifactProgressBar:
             desc,
             total=file_size,
             step=chunk_size,
+            enable_pbar=file_size >= _PROGRESS_BAR_DISPLAY_THRESHOLD,
             unit="iB",
             unit_scale=True,
             unit_divisor=1024,
