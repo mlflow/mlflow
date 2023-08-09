@@ -69,9 +69,7 @@ def test_pyfunc_without_inference_config(model_path, inference_config):
     model = TestModel()
     mlflow.pyfunc.save_model(model_path, python_model=model)
 
-    loaded_model = mlflow.pyfunc.load_model(
-        model_uri=model_path, inference_config=inference_config
-    )
+    loaded_model = mlflow.pyfunc.load_model(model_uri=model_path, inference_config=inference_config)
 
     assert loaded_model.predict([[5]])
     assert not loaded_model.inference_config
