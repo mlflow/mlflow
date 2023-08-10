@@ -2,10 +2,7 @@ sklearn:
   package_info:
     pip_release: "scikit-learn"
     install_dev: |
-      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "scikit_learn-*.whl") ]; then
-        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/scikit-learn/scikit-learn.git
-      fi
-      pip install $CACHE_DIR/scikit_learn-*.whl
+      pip install git+https://github.com/scikit-learn/scikit-learn.git
 
   models:
     minimum: "0.22.1"
@@ -175,13 +172,9 @@ catboost:
   package_info:
     pip_release: "catboost"
     install_dev: |
-      # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
-      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "catboost-*.whl") ]; then
-        # TODO: Remove the commit once https://github.com/catboost/catboost/issues/2242 is fixed
-        pip wheel --no-deps --wheel-dir $CACHE_DIR \
-          git+https://github.com/catboost/catboost.git@f8921d839eccf11e533a46347dde5b5b25b17190#subdirectory=catboost/python-package
-      fi
-      pip install $CACHE_DIR/catboost-*.whl
+      # TODO: Remove the commit once https://github.com/catboost/catboost/issues/2242 is fixed
+      pip install \
+        git+https://github.com/catboost/catboost.git@f8921d839eccf11e533a46347dde5b5b25b17190#subdirectory=catboost/python-package
 
   models:
     minimum: "0.23.1"
@@ -318,18 +311,12 @@ spark:
   package_info:
     pip_release: "pyspark"
     install_dev: |
-      # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
-      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "pyspark-*.whl") ]; then
-        # Build wheel from source
-        temp_dir=$(mktemp -d)
-        git clone --depth 1 https://github.com/apache/spark.git $temp_dir
-        git --git-dir=$temp_dir/.git rev-parse HEAD
-        cd $temp_dir
-        ./build/mvn -DskipTests --no-transfer-progress clean package
-        cd python
-        python setup.py bdist_wheel --dist-dir $CACHE_DIR
-      fi
-      pip install $CACHE_DIR/pyspark-*.whl
+      temp_dir=$(mktemp -d)
+      git clone --depth 1 https://github.com/apache/spark.git $temp_dir
+      cd $temp_dir
+      ./build/mvn -DskipTests --no-transfer-progress clean package
+      cd python
+      python setup.py install
 
   models:
     minimum: "3.0.0"
@@ -403,10 +390,7 @@ prophet:
     pip_release: "prophet"
     install_dev: |
       sudo apt-get -y install libtbb2
-      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "prophet-*.whl") ]; then
-        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/facebook/prophet.git#subdirectory=python
-      fi
-      pip install $CACHE_DIR/prophet-*.whl
+      pip install git+https://github.com/facebook/prophet.git#subdirectory=python
 
   models:
     minimum: "1.0.1"
@@ -424,11 +408,8 @@ pmdarima:
   package_info:
     pip_release: "pmdarima"
     install_dev: |
-      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "pmdarima-*.whl") ]; then
-        pip install Cython
-        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/alkaline-ml/pmdarima.git
-      fi
-      pip install $CACHE_DIR/pmdarima-*.whl
+      pip install Cython
+      pip install git+https://github.com/alkaline-ml/pmdarima.git
 
   models:
     minimum: "1.8.0"
