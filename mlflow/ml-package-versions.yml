@@ -315,6 +315,7 @@ spark:
       git clone --depth 1 https://github.com/apache/spark.git $temp_dir
       cd $temp_dir
       ./build/mvn -DskipTests --no-transfer-progress clean package
+      cd python
       python setup.py install
 
   models:
