@@ -37,33 +37,28 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/pylint.json"
           echo "::add-matcher::.github/workflows/matchers/black.json"
           echo "::add-matcher::.github/workflows/matchers/ruff.json"
-      - uses: ./.github/actions/py-cache-key
-        id: py-cache-key
-      - uses: actions/cache@v3
-        with:
-          path: .venv
-          key: ${{ steps.py-cache-key.outputs.key }}
+      - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
-          python -m venv .venv
-          . .venv/bin/activate
+          python -m venv ~/.venv
+          . ~/.venv/bin/activate
           source ./dev/install-common-deps.sh --ml
           pip install -r requirements/lint-requirements.txt
       - uses: ./.github/actions/pipdeptree
       - name: Test custom pylint-plugins
         run: |
-          . .venv/bin/activate
+          . ~/.venv/bin/activate
           pytest pylint_plugins/tests
       - name: Install pre-commit hooks
         run: |
-          . .venv/bin/activate
+          . ~/.venv/bin/activate
           pre-commit install -t pre-commit -t prepare-commit-msg
       - name: Run pre-commit (only changed files)
         id: run-pre-commit
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          . .venv/bin/activate
+          . ~/.venv/bin/activate
           # pylint is ridiculously slow. It takes ~3 minutes to run on all files.
           # To fail fast for faster iteration, first run pylint only on changed files,
           # then run it on all files in the next step.
@@ -73,7 +68,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          . .venv/bin/activate
+          . ~/.venv/bin/activate
           changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
           if echo "$changed_files" | grep -q '\.py$\|^pyproject\.toml$\|^pylintrc$\|^requirements/lint-requirements\.txt$'; then
             pre-commit run --all-files
@@ -121,13 +116,17 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
+          python -m venv ~/.venv
+          . ~/.venv/bin/activate
           source ./dev/install-common-deps.sh --ml
       - uses: ./.github/actions/pipdeptree
       - name: Import check
         run: |
+          . ~/.venv/bin/activate
           python tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
         run: |
+          . ~/.venv/bin/activate
           source dev/setup-ssh.sh
           ./dev/run-python-tests.sh
       - uses: ./.github/actions/untracked
@@ -235,10 +234,13 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
+          python -m venv ~/.venv
+          . ~/.venv/bin/activate
           source ./dev/install-common-deps.sh --ml
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
+          . ~/.venv/bin/activate
           ./dev/run-python-flavor-tests.sh;
 
   # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
