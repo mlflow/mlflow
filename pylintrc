@@ -86,7 +86,6 @@ enable=signature-differs,
        pytest-raises-without-match,
        unittest-assert-raises,
        pytest-raises-multiple-statements,
-       use-f-string,
        lazy-builtin-import,
        useless-assignment,
 
