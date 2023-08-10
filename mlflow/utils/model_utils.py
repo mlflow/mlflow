@@ -196,7 +196,7 @@ def _validate_onnx_session_options(onnx_session_options):
                 )
 
 
-def _update_inference_config(
+def _get_overridden_inference_config(
     pyfunc_config: Dict[str, Any], load_config: Dict[str, Any], logger
 ) -> Dict[str, Any]:
     """
