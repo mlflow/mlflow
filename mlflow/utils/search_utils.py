@@ -369,7 +369,7 @@ class SearchUtils:
                 return cls._parse_run_ids(token)
             else:
                 raise MlflowException(
-                    "Expected a quoted string value for attributes. " f"Got value {token.value}",
+                    f"Expected a quoted string value for attributes. Got value {token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         elif identifier_type == cls._DATASET_IDENTIFIER:
