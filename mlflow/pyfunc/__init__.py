@@ -284,7 +284,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration_from_ml_model_file,
     _validate_and_prepare_target_save_path,
     _validate_inference_config,
-    _update_inference_config,
+    _get_overridden_inference_config,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 from mlflow.utils.requirements_utils import (
@@ -656,7 +656,7 @@ def load_model(
 
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
-    inference_config = _update_inference_config(
+    inference_config = _get_overridden_inference_config(
         conf.get(INFERENCE_CONFIG, None), inference_config, _logger
     )
 
