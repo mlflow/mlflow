@@ -222,9 +222,9 @@ def _get_overridden_inference_config(
 
     if not pyfunc_config:
         logger.warning(
-            f"Argument(s) {', '.join(overrides.keys())} were ignored since they are not"
-            " section of the ``pyfunc`` flavor. Use ``inference_config`` when logging the model"
-            " to allow inference configuration"
+            f"Argument(s) {', '.join(overrides.keys())} were ignored since the model's ``pyfunc``"
+            " flavor doesn't accept inference configuration. Use ``inference_config`` when logging"
+            " the model to allow inference configuration."
         )
 
         return None
@@ -234,9 +234,10 @@ def _get_overridden_inference_config(
     if len(allowed_config) < len(overrides):
         ignored_keys = set(overrides.keys()) - set(allowed_config.keys())
         logger.warning(
-            f"Argument(s) {', '.join(ignored_keys)} were ignored since they are not"
-            " section of the ``pyfunc`` flavor. Use ``inference_config`` when logging the model"
-            " to allow inference configuration. Allowed configuration includes"
+            f"Argument(s) {', '.join(ignored_keys)} were ignored since they are not valid keys in"
+            " the corresponding section of the ``pyfunc`` flavor. Use ``inference_config`` when"
+            " logging the model to include the keys you plan to indicate. Current allowed"
+            " configuration includes"
             f" {', '.join(pyfunc_config.keys())}"
         )
 
@@ -257,8 +258,16 @@ def _validate_inference_config(inference_config):
         except (TypeError, OverflowError):
             return False
 
-    if inference_config and not is_jsonable(inference_config):
-        raise MlflowException(
-            "Some of the values indicated in ``inference_config`` are not "
-            "supported. Only JSON-serializable data types can be indicated."
-        )
+    if inference_config:
+        if isinstance(inference_config, dict) and all(
+            isinstance(key, str) for key in inference_config.keys()
+        ):
+            if not is_jsonable(inference_config):
+                raise MlflowException(
+                    "Some of the values indicated in ``inference_config`` are not "
+                    "supported. Only JSON-serializable data types can be indicated."
+                )
+        else:
+            raise MlflowException(
+                "``inference_config`` has to be of type ``dict`` with string keys."
+            )
