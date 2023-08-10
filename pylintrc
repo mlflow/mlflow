@@ -85,7 +85,6 @@ enable=signature-differs,
        # Custom rules
        pytest-raises-without-match,
        unittest-assert-raises,
-       pytest-raises-multiple-statements,
        lazy-builtin-import,
        useless-assignment,
 
