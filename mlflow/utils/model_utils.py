@@ -240,7 +240,8 @@ def _get_overridden_inference_config(
             f" {', '.join(pyfunc_config.keys())}"
         )
 
-    return pyfunc_config.update(allowed_config)
+    pyfunc_config.update(allowed_config)
+    return pyfunc_config
 
 
 def _validate_inference_config(inference_config):
