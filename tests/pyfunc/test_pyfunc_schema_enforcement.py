@@ -1281,7 +1281,7 @@ def test_enforce_params_schema_errors():
         )
 
 
-def test_enforce_params_schema_errors_with_model_without_params():
+def test_enforce_params_schema_warns_with_model_without_params():
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, ctx, model_input, params=None):
             return list(params.values()) if isinstance(params, dict) else None
@@ -1296,11 +1296,13 @@ def test_enforce_params_schema_errors_with_model_without_params():
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
-    with pytest.raises(
-        MlflowException,
-        match=r"`params` can only be specified at inference time if the model signature",
-    ):
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
         loaded_model.predict(["input"], params=params)
+    mock_warning.assert_called_with(
+        "`params` can only be specified at inference time if the model signature defines a params "
+        "schema. This model does not define a params schema. Ignoring provided params: "
+        "['str_param', 'int_array', '123']"
+    )
 
 
 def test_enforce_params_schema_errors_with_model_with_params():

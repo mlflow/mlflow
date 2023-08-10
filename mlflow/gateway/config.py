@@ -20,9 +20,11 @@ _logger = logging.getLogger(__name__)
 class Provider(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
-    # Note: Databricks Model Serving is only supported on Databricks
-    DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     COHERE = "cohere"
+    MLFLOW_MODEL_SERVING = "mlflow-model-serving"
+    # Note: The following providers are only supported on Databricks
+    DATABRICKS_MODEL_SERVING = "databricks-model-serving"
+    MOSAICLML = "mosaicml"
 
     @classmethod
     def values(cls):
@@ -116,10 +118,15 @@ class AnthropicConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
+class MlflowModelServingConfig(ConfigModel):
+    model_server_url: str
+
+
 config_types = {
     Provider.COHERE: CohereConfig,
     Provider.OPENAI: OpenAIConfig,
     Provider.ANTHROPIC: AnthropicConfig,
+    Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
 }
 
 
@@ -173,6 +180,7 @@ class Model(ConfigModel):
             CohereConfig,
             OpenAIConfig,
             AnthropicConfig,
+            MlflowModelServingConfig,
         ]
     ] = None
 
@@ -180,8 +188,9 @@ class Model(ConfigModel):
     def validate_provider(cls, value):
         if isinstance(value, Provider):
             return value
-        if value.upper() in Provider.__members__:
-            return Provider[value.upper()]
+        formatted_value = value.replace("-", "_").upper()
+        if formatted_value in Provider.__members__:
+            return Provider[formatted_value]
         raise MlflowException.invalid_parameter_value(f"The provider '{value}' is not supported.")
 
     @validator("config", pre=True)

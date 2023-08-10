@@ -893,10 +893,16 @@ def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[Pa
     if schema is None:
         if params in [None, {}]:
             return params
-        raise MlflowException.invalid_parameter_value(
-            "`params` can only be specified at inference time if the model signature "
-            "defines a params schema. This model does not define a params schema.",
+        params_info = (
+            f"Ignoring provided params: {list(params.keys())}"
+            if isinstance(params, dict)
+            else "Ignoring invalid params (not a dictionary)."
         )
+        _logger.warning(
+            "`params` can only be specified at inference time if the model signature "
+            f"defines a params schema. This model does not define a params schema. {params_info}",
+        )
+        return {}
     params = {} if params is None else params
     if not isinstance(params, dict):
         raise MlflowException.invalid_parameter_value(

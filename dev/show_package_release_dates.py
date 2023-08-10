@@ -46,11 +46,11 @@ def main():
         release_dates = [safe_result(f) for f in futures]
 
     packages, versions = list(zip(*distributions))
-    package_legnth = get_longest_string_length(packages)
+    package_length = get_longest_string_length(packages)
     version_length = get_longest_string_length(versions)
     release_date_length = len("Release Date")
-    print("Package".ljust(package_legnth), "Version".ljust(version_length), "Release Date")
-    print("-" * (package_legnth + version_length + release_date_length + 2))
+    print("Package".ljust(package_length), "Version".ljust(version_length), "Release Date")
+    print("-" * (package_length + version_length + release_date_length + 2))
     for package, version, release_date in sorted(
         zip(packages, versions, release_dates),
         # Sort by release date in descending order
@@ -58,7 +58,7 @@ def main():
         reverse=True,
     ):
         print(
-            package.ljust(package_legnth),
+            package.ljust(package_length),
             version.ljust(version_length),
             release_date.ljust(release_date_length),
         )
