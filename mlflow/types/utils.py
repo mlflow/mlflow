@@ -180,7 +180,7 @@ def _infer_schema(data: Any) -> Schema:
             "- List[Dict[str, Union[str, List[str]]]]\n"
             "- Dict[str, Union[str, List[str]]]\n"
             "- bytes\n"
-            "but got '{}'".format(type(data)),
+            f"but got '{type(data)}'",
         )
     if not schema.is_tensor_spec() and any(
         t in (DataType.integer, DataType.long) for t in schema.input_types()
@@ -306,8 +306,8 @@ def _infer_spark_type(x) -> DataType:
         return DataType.datetime
     else:
         raise Exception(
-            "Unsupported Spark Type '{}', MLflow schema is only supported for scalar "
-            "Spark types.".format(type(x))
+            f"Unsupported Spark Type '{type(x)}', MLflow schema is only supported for scalar "
+            "Spark types."
         )
 
 

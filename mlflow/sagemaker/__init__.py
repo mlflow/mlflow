@@ -99,10 +99,8 @@ def _validate_deployment_flavor(model_config, flavor):
         raise MlflowException(
             message=(
                 "The specified model does not contain the specified deployment flavor:"
-                " `{flavor_name}`. Please use one of the following deployment flavors"
-                " that the model contains: {model_flavors}".format(
-                    flavor_name=flavor, model_flavors=model_config.flavors.keys()
-                )
+                f" `{flavor}`. Please use one of the following deployment flavors"
+                f" that the model contains: {model_config.flavors.keys()}"
             ),
             error_code=RESOURCE_DOES_NOT_EXIST,
         )
@@ -797,7 +795,7 @@ def deploy_transform_job(
         else:
             raise MlflowException(
                 "The batch transform job failed with the following error message:"
-                ' "{error_message}"'.format(error_message=operation_status.message)
+                f' "{operation_status.message}"'
             )
         if not archive:
             deployment_operation.clean_up()
@@ -894,7 +892,7 @@ def terminate_transform_job(
         else:
             raise MlflowException(
                 "The termination operation failed with the following error message:"
-                ' "{error_message}"'.format(error_message=operation_status.message)
+                f' "{operation_status.message}"'
             )
         if not archive:
             stop_operation.clean_up()
@@ -2840,7 +2838,7 @@ class _SageMakerOperation:
         if self.status.state != _SageMakerOperationStatus.STATE_SUCCEEDED:
             raise ValueError(
                 "Cannot clean up an operation that has not succeeded! Current operation state:"
-                " {operation_state}".format(operation_state=self.status.state)
+                f" {self.status.state}"
             )
 
         if not self.cleaned_up:

@@ -209,8 +209,7 @@ class SqlAlchemyStore(AbstractStore):
             )
         if len(rms) > 1:
             raise MlflowException(
-                "Expected only 1 registered model with name={}. "
-                "Found {}.".format(name, len(rms)),
+                f"Expected only 1 registered model with name={name}. " f"Found {len(rms)}.",
                 INVALID_STATE,
             )
         return rms[0]
@@ -255,8 +254,7 @@ class SqlAlchemyStore(AbstractStore):
                 return sql_registered_model.to_mlflow_entity()
             except sqlalchemy.exc.IntegrityError as e:
                 raise MlflowException(
-                    "Registered Model (name={}) already exists. "
-                    "Error: {}".format(new_name, str(e)),
+                    f"Registered Model (name={new_name}) already exists. " f"Error: {str(e)}",
                     RESOURCE_ALREADY_EXISTS,
                 )
 
@@ -560,8 +558,8 @@ class SqlAlchemyStore(AbstractStore):
             return None
         if len(tags) > 1:
             raise MlflowException(
-                "Expected only 1 registered model tag with name={}, key={}. "
-                "Found {}.".format(name, key, len(tags)),
+                f"Expected only 1 registered model tag with name={name}, key={key}. "
+                f"Found {len(tags)}.",
                 INVALID_STATE,
             )
         return tags[0]
@@ -993,8 +991,8 @@ class SqlAlchemyStore(AbstractStore):
             return None
         if len(tags) > 1:
             raise MlflowException(
-                "Expected only 1 model version tag with name={}, version={}, "
-                "key={}. Found {}.".format(name, version, key, len(tags)),
+                f"Expected only 1 model version tag with name={name}, version={version}, "
+                f"key={key}. Found {len(tags)}.",
                 INVALID_STATE,
             )
         return tags[0]

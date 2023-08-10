@@ -17,8 +17,7 @@ class TensorDatasetSchema:
             )
         if targets is not None and not isinstance(targets, Schema):
             raise MlflowException(
-                "targets must be either None or mlflow.types.Schema, "
-                "got '{}'".format(type(features)),
+                "targets must be either None or mlflow.types.Schema, " f"got '{type(features)}'",
                 INVALID_PARAMETER_VALUE,
             )
         self.features = features
@@ -71,9 +70,4 @@ class TensorDatasetSchema:
         )
 
     def __repr__(self) -> str:
-        return (
-            "features: \n"
-            "  {}\n"
-            "targets: \n"
-            "  {}\n".format(repr(self.features), repr(self.targets))
-        )
+        return "features: \n" f"  {repr(self.features)}\n" "targets: \n" f"  {repr(self.targets)}\n"

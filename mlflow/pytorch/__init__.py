@@ -776,7 +776,7 @@ class _PyTorchWrapper:
             if not isinstance(preds, torch.Tensor):
                 raise TypeError(
                     "Expected PyTorch model to output a single output tensor, "
-                    "but got output of type '{}'".format(type(preds))
+                    f"but got output of type '{type(preds)}'"
                 )
             if isinstance(data, pd.DataFrame):
                 predicted = pd.DataFrame(preds.numpy())
