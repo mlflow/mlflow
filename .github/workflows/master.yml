@@ -37,12 +37,7 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/pylint.json"
           echo "::add-matcher::.github/workflows/matchers/black.json"
           echo "::add-matcher::.github/workflows/matchers/ruff.json"
-      - uses: ./.github/actions/py-cache-key
-        id: py-cache-key
-      - uses: actions/cache@v3
-        with:
-          path: .venv
-          key: ${{ steps.py-cache-key.outputs.key }}
+      - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
           python -m venv .venv
@@ -121,13 +116,17 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
+          python -m venv .venv
+          . .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
       - uses: ./.github/actions/pipdeptree
       - name: Import check
         run: |
+          . .venv/bin/activate
           python tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
         run: |
+          . .venv/bin/activate
           source dev/setup-ssh.sh
           ./dev/run-python-tests.sh
       - uses: ./.github/actions/untracked
@@ -235,10 +234,13 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
+          python -m venv .venv
+          . .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
+          . .venv/bin/activate
           ./dev/run-python-flavor-tests.sh;
 
   # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
