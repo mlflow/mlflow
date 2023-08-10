@@ -309,7 +309,8 @@ class MlflowGatewayClient:
 
         try:
             resp = self._call_endpoint("POST", query_route, data, stream=stream)
-            print(resp.headers)
+            print("Request headers:", resp.request.headers)
+            print("Response headers:", resp.headers)
             return (
                 (json.loads(chunk) for chunk in resp.iter_lines(decode_unicode=True) if chunk)
                 if stream
