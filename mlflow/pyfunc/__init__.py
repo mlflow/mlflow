@@ -1372,8 +1372,8 @@ Compound types:
         if len(result.columns) == 0:
             raise MlflowException(
                 message="The model did not produce any values compatible with the requested "
-                "type '{}'. Consider requesting udf with StringType or "
-                "Arraytype(StringType).".format(str(elem_type)),
+                f"type '{str(elem_type)}'. Consider requesting udf with StringType or "
+                "Arraytype(StringType).",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

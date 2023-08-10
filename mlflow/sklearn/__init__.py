@@ -1588,7 +1588,7 @@ def _autolog(
                 except Exception as e:
                     msg = (
                         "Encountered exception during creation of child runs for parameter search."
-                        " Child runs may be missing. Exception: {}".format(str(e))
+                        f" Child runs may be missing. Exception: {str(e)}"
                     )
                     _logger.warning(msg)
 
@@ -1600,7 +1600,7 @@ def _autolog(
                 except Exception as e:
                     msg = (
                         "Failed to log parameter search results as an artifact."
-                        " Exception: {}".format(str(e))
+                        f" Exception: {str(e)}"
                     )
                     _logger.warning(msg)
 

@@ -416,7 +416,7 @@ class TrackingServiceClient:
         if not isinstance(mlflow_model, Model):
             raise TypeError(
                 "Argument 'mlflow_model' should be of type mlflow.models.Model but was "
-                "{}".format(type(mlflow_model))
+                f"{type(mlflow_model)}"
             )
         self.store.record_logged_model(run_id, mlflow_model)
 
