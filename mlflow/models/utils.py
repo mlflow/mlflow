@@ -205,7 +205,7 @@ class _Example:
                     "- list\n"
                     "- str\n"
                     "- bytes\n"
-                    "but got '{}'".format(type(input_example)),
+                    f"but got '{type(input_example)}'",
                 )
             self.data = _handle_dataframe_input(self._inference_data)
             self.info = {
@@ -465,8 +465,8 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
             )
 
         raise MlflowException(
-            "Incompatible input types for column {}. "
-            "Can not safely convert {} to {}.{}".format(name, values.dtype, numpy_type, hint)
+            f"Incompatible input types for column {name}. "
+            f"Can not safely convert {values.dtype} to {numpy_type}.{hint}"
         )
 
 
@@ -589,9 +589,7 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
                     raise MlflowException(
                         "This model contains a tensor-based model signature with input names,"
                         " which suggests a dictionary input mapping input name to a numpy"
-                        " array, but a dict with value type {} was found.".format(
-                            type(pf_input[col_name])
-                        ),
+                        f" array, but a dict with value type {type(pf_input[col_name])} was found.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 new_pf_input[col_name] = _enforce_tensor_spec(pf_input[col_name], tensor_spec)
@@ -703,7 +701,7 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                 raise MlflowException(
                     "This model contains a column-based signature, which suggests a DataFrame"
                     " input. There was an error casting the input data to a DataFrame:"
-                    " {}".format(str(e))
+                    f" {str(e)}"
                 )
         if not isinstance(pf_input, pd.DataFrame):
             raise MlflowException(

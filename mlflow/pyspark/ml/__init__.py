@@ -1003,7 +1003,7 @@ def autolog(
             except Exception:
                 msg = (
                     "Encountered exception during creation of child runs for parameter search."
-                    " Child runs may be missing. Exception: {}".format(traceback.format_exc())
+                    f" Child runs may be missing. Exception: {traceback.format_exc()}"
                 )
                 _logger.warning(msg)
 

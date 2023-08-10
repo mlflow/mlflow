@@ -360,9 +360,9 @@ class _OnnxModelWrapper:
                     "input. "
                     "Numpy arrays can only be used as input for MLflow ONNX "
                     "models that have a single input. This model requires "
-                    "{} inputs. Please pass in data as either a "
+                    f"{len(self.inputs)} inputs. Please pass in data as either a "
                     "dictionary or a DataFrame with the following tensors"
-                    ": {}.".format(len(self.inputs), inputs)
+                    f": {inputs}."
                 )
             feed_dict = {self.inputs[0][0]: data}
         elif isinstance(data, pd.DataFrame):
@@ -374,7 +374,7 @@ class _OnnxModelWrapper:
         else:
             raise TypeError(
                 "Input should be a dictionary or a numpy array or a pandas.DataFrame, "
-                "got '{}'".format(type(data))
+                f"got '{type(data)}'"
             )
 
         # ONNXRuntime throws the following exception for some operators when the input

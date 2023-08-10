@@ -533,7 +533,7 @@ def _process_conda_env(conda_env):
     elif not isinstance(conda_env, dict):
         raise TypeError(
             "Expected a string path to a conda env yaml file or a `dict` representing a conda env, "
-            "but got `{}`".format(type(conda_env).__name__)
+            f"but got `{type(conda_env).__name__}`"
         )
 
     # User-specified `conda_env` may contain requirements/constraints file references

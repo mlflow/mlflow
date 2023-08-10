@@ -115,8 +115,8 @@ class MlflowClient:
             except UnsupportedModelRegistryStoreURIException as exc:
                 raise MlflowException(
                     "Model Registry features are not supported by the store with URI:"
-                    " '{uri}'. Stores with the following URI schemes are supported:"
-                    " {schemes}.".format(uri=self._registry_uri, schemes=exc.supported_uri_schemes),
+                    f" '{self._registry_uri}'. Stores with the following URI schemes are supported:"
+                    f" {exc.supported_uri_schemes}.",
                     FEATURE_DISABLED,
                 )
         return registry_client
