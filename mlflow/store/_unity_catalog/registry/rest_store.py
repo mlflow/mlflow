@@ -108,7 +108,6 @@ def _raise_unsupported_arg(arg_name, message=None):
     ]
     if message is not None:
         messages.append(message)
-    messages.append("See the user guide for more information")
     raise MlflowException(" ".join(messages))
 
 
@@ -118,7 +117,6 @@ def _raise_unsupported_method(method, message=None):
     ]
     if message is not None:
         messages.append(message)
-    messages.append("See the user guide for more information")
     raise MlflowException(" ".join(messages))
 
 
