@@ -196,7 +196,7 @@ def _validate_onnx_session_options(onnx_session_options):
                 )
 
 
-def _get_overridden_inference_config(
+def _get_overridden_pyfunc_model_config(
     pyfunc_config: Dict[str, Any], load_config: Dict[str, Any], logger
 ) -> Dict[str, Any]:
     """
@@ -223,8 +223,8 @@ def _get_overridden_inference_config(
     if not pyfunc_config:
         logger.warning(
             f"Argument(s) {', '.join(overrides.keys())} were ignored since the model's ``pyfunc``"
-            " flavor doesn't accept inference configuration. Use ``inference_config`` when logging"
-            " the model to allow inference configuration."
+            " flavor doesn't accept model configuration. Use ``model_config`` when logging"
+            " the model to allow it."
         )
 
         return None
@@ -235,7 +235,7 @@ def _get_overridden_inference_config(
         ignored_keys = set(overrides.keys()) - set(allowed_config.keys())
         logger.warning(
             f"Argument(s) {', '.join(ignored_keys)} were ignored since they are not valid keys in"
-            " the corresponding section of the ``pyfunc`` flavor. Use ``inference_config`` when"
+            " the corresponding section of the ``pyfunc`` flavor. Use ``model_config`` when"
             " logging the model to include the keys you plan to indicate. Current allowed"
             " configuration includes"
             f" {', '.join(pyfunc_config.keys())}"
@@ -245,9 +245,9 @@ def _get_overridden_inference_config(
     return pyfunc_config
 
 
-def _validate_inference_config(inference_config):
+def _validate_pyfunc_model_config(model_config):
     """
-    Validates the values passes in the inference_config section. There are no typing
+    Validates the values passes in the model_config section. There are no typing
     restrictions but we require them being JSON-serializable.
     """
 
@@ -258,16 +258,14 @@ def _validate_inference_config(inference_config):
         except (TypeError, OverflowError):
             return False
 
-    if inference_config:
-        if isinstance(inference_config, dict) and all(
-            isinstance(key, str) for key in inference_config.keys()
+    if model_config:
+        if isinstance(model_config, dict) and all(
+            isinstance(key, str) for key in model_config.keys()
         ):
-            if not is_jsonable(inference_config):
+            if not is_jsonable(model_config):
                 raise MlflowException(
-                    "Some of the values indicated in ``inference_config`` are not "
+                    "Some of the values indicated in ``model_config`` are not "
                     "supported. Only JSON-serializable data types can be indicated."
                 )
         else:
-            raise MlflowException(
-                "``inference_config`` has to be of type ``dict`` with string keys."
-            )
+            raise MlflowException("``model_config`` has to be of type ``dict`` with string keys.")

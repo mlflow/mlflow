@@ -1046,8 +1046,8 @@ def evaluate(
     validation_thresholds=None,
     baseline_model=None,
     env_manager="local",
-    inference_config=None,
-    baseline_inference_config=None,
+    model_config=None,
+    baseline_config=None,
 ):
     '''
     Evaluate a PyFunc model on the specified dataset using one or more specified ``evaluators``, and
@@ -1463,13 +1463,13 @@ def evaluate(
                            may differ from the environment used to train the model and may lead to
                            errors or invalid predictions.
 
-    :param inference_config: the inference configuration to use for loading the model. Inspect the
-                             model's pyfunc flavor to know which keys are supported for your
-                             specific model. If not indicated, the default inference configuration
-                             from the model is used (if any).
-    :param baseline_inference_config: the inference configuration to use for loading the baseline
-                                      model. If not indicated, the default inference configuration
-                                      from the baseline model is used (if any).
+    :param model_config: the model configuration to use for loading the model with pyfunc. Inspect
+                         the model's pyfunc flavor to know which keys are supported for your
+                         specific model. If not indicated, the default model configuration
+                         from the model is used (if any).
+    :param baseline_config: the model configuration to use for loading the baseline
+                            model. If not indicated, the default model configuration
+                            from the baseline model is used (if any).
 
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              metrics of candidate model and baseline model, and artifacts of candidate model.
@@ -1497,7 +1497,7 @@ def evaluate(
                 )
 
     if isinstance(model, str):
-        model = _load_model_or_server(model, env_manager, inference_config)
+        model = _load_model_or_server(model, env_manager, model_config)
     elif env_manager != _EnvManager.LOCAL:
         raise MlflowException(
             message="The model argument must be a string URI referring to an MLflow model when a "
@@ -1505,12 +1505,12 @@ def evaluate(
             error_code=INVALID_PARAMETER_VALUE,
         )
     elif isinstance(model, PyFuncModel):
-        if inference_config:
+        if model_config:
             raise MlflowException(
-                message="Indicating ``inference_config`` when passing a `PyFuncModel`` object as "
-                "model argument is not allowed. If you need to change the inference configuration "
-                "of the model to evaluate, use "
-                "``mlflow.pyfunc.load_model(model_uri, inference_config=<value>)`` and indicate "
+                message="Indicating ``model_config`` when passing a `PyFuncModel`` object as "
+                "model argument is not allowed. If you need to change the model configuration "
+                "for the evaluation model, use "
+                "``mlflow.pyfunc.load_model(model_uri, model_config=<value>)`` and indicate "
                 "the desired configuration there.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -1538,7 +1538,7 @@ def evaluate(
 
     if isinstance(baseline_model, str):
         baseline_model = _load_model_or_server(
-            baseline_model, env_manager, baseline_inference_config
+            baseline_model, env_manager, model_config=baseline_config
         )
     elif baseline_model is not None:
         raise MlflowException(
