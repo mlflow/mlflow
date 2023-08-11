@@ -787,6 +787,34 @@ def test_create_model_version_azure(store, local_model_dir):
         )
 
 
+def test_create_model_version_unknown_storage_creds(store, local_model_dir):
+    storage_location = "abfss://filesystem@account.dfs.core.windows.net"
+    fake_sas_token = "fake_session_token"
+    temporary_creds = TemporaryCredentials(
+        azure_user_delegation_sas=AzureUserDelegationSAS(sas_token=fake_sas_token)
+    )
+    unknown_credential_type = "some_new_credential_type"
+    source = str(local_model_dir)
+    model_name = "model_1"
+    version = "1"
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
+            name=model_name,
+            version=version,
+            temp_credentials=temporary_creds,
+            storage_location=storage_location,
+            source=source,
+        ),
+    ), mock.patch.object(TemporaryCredentials, "WhichOneof", return_value=unknown_credential_type):
+        with pytest.raises(
+            MlflowException,
+            match=f"Got unexpected credential type {unknown_credential_type} when attempting to access model "
+            f"version files",
+        ):
+            store.create_model_version(name=model_name, source=source)
+
+
 @pytest.mark.parametrize(
     "create_args",
     [
