@@ -240,29 +240,30 @@ With the rapid development of LLMs, there is no guarantee that this list will be
 below can be used as a helpful guide when configuring a given route for any newly released model types as they become available with a given provider.
 ``N/A`` means that the provider currently doesn't support the route type.
 
-+--------------------+--------------------------+------------------+-----------------------------+--------------------------+-------------------------+
-| Route Type         | OpenAI                   | Anthropic        | Cohere                      | Azure OpenAI             | MLflow                  |
-+====================+==========================+==================+=============================+==========================+=========================+
-| llm/v1/completions | - gpt-3.5-turbo          | - claude-1       | - command                   | - text-davinci-003       | - transformers*         |
-|                    | - gpt-4                  | - claude-1.3-100k| - command-light-nightly     | - gpt-35-turbo           |                         |
-+--------------------+--------------------------+------------------+-----------------------------+--------------------------+-------------------------+
-| llm/v1/chat        | - gpt-3.5-turbo          | N/A              | N/A                         | - gpt-35-turbo           | - transformers*         |
-|                    | - gpt-4                  |                  |                             | - gpt-4                  |                         |
-+--------------------+--------------------------+------------------+-----------------------------+--------------------------+-------------------------+
-| llm/v1/embeddings  | - text-embedding-ada-002 | N/A              | - embed-english-v2.0        | - text-embedding-ada-002 | - transformers**        |
-|                    |                          |                  | - embed-multilingual-v2.0   |                          | - sentence-transformers |
-+--------------------+--------------------------+------------------+-----------------------------+--------------------------+-------------------------+
++--------------------+--------------------------+------------------+-----------------------------+--------------------------+--------------------------+
+| Route Type         | OpenAI                   | Anthropic        | Cohere                      | Azure OpenAI             | MLflow                   |
++====================+==========================+==================+=============================+==========================+==========================+
+| llm/v1/completions | - gpt-3.5-turbo          | - claude-1       | - command                   | - text-davinci-003       | - MLflow served models*  |
+|                    | - gpt-4                  | - claude-1.3-100k| - command-light-nightly     | - gpt-35-turbo           |                          |
++--------------------+--------------------------+------------------+-----------------------------+--------------------------+--------------------------+
+| llm/v1/chat        | - gpt-3.5-turbo          | N/A              | N/A                         | - gpt-35-turbo           | - MLflow served models*  |
+|                    | - gpt-4                  |                  |                             | - gpt-4                  |                          |
++--------------------+--------------------------+------------------+-----------------------------+--------------------------+--------------------------+
+| llm/v1/embeddings  | - text-embedding-ada-002 | N/A              | - embed-english-v2.0        | - text-embedding-ada-002 | - MLflow served models** |
+|                    |                          |                  | - embed-multilingual-v2.0   |                          |                          |
++--------------------+--------------------------+------------------+-----------------------------+--------------------------+--------------------------+
 
 Within each model block in the configuration file, the provider field is used to specify the name
 of the provider for that model. This is a string value that needs to correspond to a provider the MLflow AI Gateway supports.
 
 .. note::
-    `*` The transformers support for MLflow Model Serving will only work for chat or completions if the output return is in a route-compatible format. The
-    response must conform to either an output of ``{"predictions": str}`` or ``{"predictions": {"candidates": str}}``. Any complex return type from a transformers pipeline that
+    `*` MLflow Model Serving will only work for chat or completions if the output return is in a route-compatible format. The
+    response must conform to either an output of ``{"predictions": str}`` or ``{"predictions": {"candidates": str}}``. Any complex return type from a model that
     does not conform to these structures will raise an exception at query time.
 
-    `**` Transformers embeddings support is only available for ``FeatureExtractionPipeline`` pipeline types. Response signatures from models served that do not conform to
-    the structured format of ``{"predictions": List[float]}`` or ``{"predictions": List[List[float]]}`` will raise an exception at query time.
+    `**` Embeddings support is only available for models whose response signatures conform to the structured format of ``{"predictions": List[float]}``
+    or ``{"predictions": List[List[float]]}``. Any other return type will raise an exception at query time. ``FeatureExtractionPipeline`` in ``transformers`` and
+    models using the ``sentence_transformers`` flavor will return the correct data structures for the embeddings route.
 
 Here's an example of a provider configuration within a route:
 
@@ -876,10 +877,22 @@ This integration enable users to use prompt engineering, retrieval augmented gen
 
 MLflow Models
 ~~~~~~~~~~~~~
+Interfacing with MLflow Models can be done in two ways. With the use of a custom PyFunc Model, a query can be issued directly to an AI Gateway endpoint and used in a broader context within a model.
+Data may be augmented, manipulated, or used in a mixture of experts paradigm. The other means of utilizing the AI Gateway along with MLflow Models is to define a served MLflow model directly as a
+route within the AI Gateway.
+
+Using the AI Gateway to Query a served MLflow Model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For a full walkthrough and example of using the MLflow serving integration to query a model directly through the MLflow AI Gateway, please see `the full example <https://github.com/mlflow/mlflow/tree/master/examples/gateway/mlflow_serving/README.md>`_.
+Within the guide, you will see the entire end-to-end process of serving multiple models from different servers and configuring an MLflow AI Gateway server instance to provide a single unified point to handle queries from.
+
+Using an MLflow Model to Query the AI Gateway
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 You can also build and deploy MLflow Models that call the MLflow AI Gateway.
 The example below demonstrates how to use an AI Gateway server from within a custom ``pyfunc`` model.
 
-For a full walkthrough and example of using the MLflow serving integration to query a model directly through the MLflow AI Gateway, please see `the example <https://github.com/mlflow/mlflow/tree/master/examples/gateway/mlflow_serving/README.md>`_.
 
 .. note::
     The custom ``Model`` shown in the example below is utilizing environment variables for the AI Gateway server's uri. These values can also be set manually within the
