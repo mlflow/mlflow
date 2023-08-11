@@ -401,6 +401,14 @@ def save_model(
     if isinstance(transformers_model, dict):
         transformers_model = _TransformersModel.from_dict(**transformers_model)
 
+    # Remove this check once model_config goes stable.
+    if "inference_config" in kwargs:
+        raise MlflowException(
+            "``inference_config`` argument has been renamed to ``model_config``. Use"
+            "``model_config`` key instead.",
+            error_code=BAD_REQUEST,
+        )
+
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = pathlib.Path(path).absolute()

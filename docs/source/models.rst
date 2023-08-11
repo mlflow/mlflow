@@ -2943,7 +2943,7 @@ For `transformers` inference, there are two ways to pass in additional arguments
 Use ``model_config`` to control how the model is loaded and inference performed for all input samples. Configuration in
 ``model_config`` is not overridable at ``predict()`` time unless a ``ModelSignature`` is indicated with the same parameters.
 
-Use ``ModelSignature`` with params schema, on the other hand, allows downstream consumers to provide additional inference
+Use ``ModelSignature`` with params schema, on the other hand, to allow downstream consumers to provide additional inference
 params that may be needed to compute the predictions for their specific samples.
 
 .. note::

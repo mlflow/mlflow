@@ -345,8 +345,8 @@ def add_to_model(
     :param req: pip requirements file.
     :param kwargs: Additional key-value pairs to include in the ``pyfunc`` flavor specification.
                    Values must be YAML-serializable.
-    :param model_config: The model configuration to apply to the model. Inference
-                             configuration is available during model loading time.
+    :param model_config: The model configuration to apply to the model. This configuration
+                         is available during model loading.
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
@@ -550,7 +550,7 @@ class PyFuncModel:
     @experimental
     @property
     def model_config(self):
-        """Model's model configuration"""
+        """Model's flavor configuration"""
         return self._model_meta.flavors[FLAVOR_NAME].get(MODEL_CONFIG, {})
 
     def __repr__(self):
@@ -631,8 +631,8 @@ def load_model(
     :param dst_path: The local filesystem path to which to download the model artifact.
                      This directory must already exist. If unspecified, a local output
                      path will be created.
-    :param model_config: The model configuration to apply to the model. Inference
-                             configuration is available during model loading time.
+    :param model_config: The model configuration to apply to the model. This configuration
+                         is available during model loading.
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
@@ -1768,8 +1768,8 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
-    :param model_config: The model configuration to apply to the model. Inference
-                         configuration is available during model loading time.
+    :param model_config: The model configuration to apply to the model. This configuration
+                         is available during model loading.
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
@@ -2037,8 +2037,8 @@ def log_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
-    :param model_config: The model configuration to apply to the model. Inference
-                             configuration is available during model loading time.
+    :param model_config: The model configuration to apply to the model. This configuration
+                         is available during model loading.
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
