@@ -806,13 +806,14 @@ def test_create_model_version_unknown_storage_creds(store, local_model_dir):
             storage_location=storage_location,
             source=source,
         ),
-    ), mock.patch.object(TemporaryCredentials, "WhichOneof", return_value=unknown_credential_type):
-        with pytest.raises(
-            MlflowException,
-            match=f"Got unexpected credential type {unknown_credential_type} when attempting to access model "
-            f"version files",
-        ):
-            store.create_model_version(name=model_name, source=source)
+    ), mock.patch.object(
+        TemporaryCredentials, "WhichOneof", return_value=unknown_credential_type
+    ), pytest.raises(
+        MlflowException,
+        match=f"Got unexpected credential type {unknown_credential_type} when attempting to access model "
+        f"version files",
+    ):
+        store.create_model_version(name=model_name, source=source)
 
 
 @pytest.mark.parametrize(
