@@ -45,9 +45,7 @@ def test_override_model_config(model_path, model_config):
     inference_override = {"timeout": 400}
 
     mlflow.pyfunc.save_model(model_path, python_model=model, model_config=model_config)
-    loaded_model = mlflow.pyfunc.load_model(
-        model_uri=model_path, model_config=inference_override
-    )
+    loaded_model = mlflow.pyfunc.load_model(model_uri=model_path, model_config=inference_override)
 
     assert all(loaded_model.model_config[k] == v for k, v in inference_override.items())
 
@@ -57,9 +55,7 @@ def test_override_model_config_ignore_invalid(model_path, model_config):
     inference_override = {"invalid_key": 400}
 
     mlflow.pyfunc.save_model(model_path, python_model=model, model_config=model_config)
-    loaded_model = mlflow.pyfunc.load_model(
-        model_uri=model_path, model_config=inference_override
-    )
+    loaded_model = mlflow.pyfunc.load_model(model_uri=model_path, model_config=inference_override)
 
     assert loaded_model.predict([[5]])
     assert all(k not in loaded_model.model_config for k in inference_override.keys())

@@ -934,9 +934,7 @@ Model configuration can be changed at loading time by indicating `model_config` 
 
 .. code-block:: python
 
-    pyfunc_model = mlflow.pyfunc.load_model(
-        model_uri, model_config=dict(temperature=0.93)
-    )
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri, model_config=dict(temperature=0.93))
 
 Indicating an invalid model configuration for a model results in that configuration being ignored. A warning
 is displayed mentioning the ignored entries. Any key not included when saving the model is considered an invalid
