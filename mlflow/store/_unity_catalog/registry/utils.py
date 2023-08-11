@@ -134,7 +134,8 @@ def _get_artifact_repo_from_storage_info(
         return GCSArtifactRepository(artifact_uri=storage_location, client=client)
     else:
         raise MlflowException(
-            f"Got unexpected token type {credential_type} for Unity Catalog managed file access"
+            f"Got unexpected credential type {credential_type} when attempting to access model version files "
+            f"in Unity Catalog. Try upgrading to the latest version of the MLflow Python client."
         )
 
 
