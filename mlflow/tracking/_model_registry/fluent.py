@@ -238,27 +238,27 @@ def search_model_versions(
         and logical operators are supported.
 
         Identifiers
-        - ``name``: model name.
-        - ``source_path``: model version source path.
-        - ``run_id``: The id of the mlflow run that generates the model version.
-        - ``tags.<tag_key>``: model version tag. If ``tag_key`` contains spaces, it must be
+          - ``name``: model name.
+          - ``source_path``: model version source path.
+          - ``run_id``: The id of the mlflow run that generates the model version.
+          - ``tags.<tag_key>``: model version tag. If ``tag_key`` contains spaces, it must be
             wrapped with backticks (e.g., ``"tags.`extra key`"``).
 
         Comparators
-        - ``=``: Equal to.
-        - ``!=``: Not equal to.
-        - ``LIKE``: Case-sensitive pattern match.
-        - ``ILIKE``: Case-insensitive pattern match.
-        - ``IN``: In a value list. Only ``run_id`` identifier supports ``IN`` comparator.
+          - ``=``: Equal to.
+          - ``!=``: Not equal to.
+          - ``LIKE``: Case-sensitive pattern match.
+          - ``ILIKE``: Case-insensitive pattern match.
+          - ``IN``: In a value list. Only ``run_id`` identifier supports ``IN`` comparator.
 
         Logical operators
-        - ``AND``: Combines two sub-queries and returns True if both of them are True.
+          - ``AND``: Combines two sub-queries and returns True if both of them are True.
 
     :param max_results: If passed, specifies the maximum number of models desired. If not
                         passed, all models will be returned.
     :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
                     matching search results.
-    :return: A list of `mlflow.entities.model_registry.ModelVersion` objects
+    :return: A list of :py:class:`mlflow.entities.model_registry.ModelVersion` objects
             that satisfy the search expressions.
 
     .. code-block:: python
@@ -283,7 +283,7 @@ def search_model_versions(
             print("name={}; run_id={}; version={}".format(res.name, res.run_id, res.version))
 
         # Get the version of the model filtered by run_id
-        filter_string = "run_id='c0d756267a2c45bfac8d92c5e17b4483'"
+        filter_string = "run_id = 'c0d756267a2c45bfac8d92c5e17b4483'"
         results = mlflow.search_model_versions(filter_string=filter_string)
         print("-" * 80)
         for res in results:
