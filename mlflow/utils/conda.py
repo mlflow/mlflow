@@ -8,18 +8,11 @@ import yaml
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import process
 from mlflow.utils.environment import Environment
+from mlflow.environment_variables import MLFLOW_CONDA_CREATE_ENV_CMD
 
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
 MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
-# Environment variable indicated the name of the command that should be used to create environments.
-# If it is unset, it will default to "conda". This command must be in the $PATH when the user runs,
-# or within MLFLOW_CONDA_HOME if that is set. For example, let's say we want to use mamba
-# (https://github.com/mamba-org/mamba) instead of conda to create environments. Then:
-# > conda install mamba -n base -c conda-forge
-# > MLFLOW_CONDA_CREATE_ENV_CMD="mamba"
-# > mlflow run ...
-MLFLOW_CONDA_CREATE_ENV_CMD = "MLFLOW_CONDA_CREATE_ENV_CMD"
 
 _logger = logging.getLogger(__name__)
 
@@ -87,14 +80,8 @@ def _get_conda_executable_for_create_env():
     by default, but it can be set to something else by setting the environment variable
 
     """
-    conda_env_create_cmd = os.environ.get(MLFLOW_CONDA_CREATE_ENV_CMD)
-    if conda_env_create_cmd is not None:
-        conda_env_create_path = get_conda_bin_executable(conda_env_create_cmd)
-    else:
-        # Use the same as conda_path
-        conda_env_create_path = get_conda_bin_executable("conda")
 
-    return conda_env_create_path
+    return get_conda_bin_executable(MLFLOW_CONDA_CREATE_ENV_CMD.get())
 
 
 def _list_conda_environments(extra_env=None):
