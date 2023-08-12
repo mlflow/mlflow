@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from mlflow.recipes.utils.execution import _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR
+from mlflow.environment_variables import MLFLOW_RECIPES_EXECUTION_DIRECTORY
 from mlflow.utils.file_utils import TempDir
 from tests.recipes.helper_functions import (
     RECIPE_EXAMPLE_PATH_ENV_VAR_FOR_TESTS,
@@ -42,7 +42,7 @@ def enter_test_recipe_directory(enter_recipe_example_directory):
 def tmp_recipe_exec_path(monkeypatch, tmp_path) -> Path:
     path = tmp_path.joinpath("recipe_execution")
     path.mkdir(parents=True)
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(path))
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_DIRECTORY.name, str(path))
     yield path
     shutil.rmtree(path)
 
