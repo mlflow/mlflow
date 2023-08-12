@@ -229,6 +229,77 @@ def search_model_versions(
     filter_string: Optional[str] = None,
     order_by: Optional[List[str]] = None,
 ) -> List[ModelVersion]:
+    """
+    Search for model versions that satisfy the filter criteria.
+
+    :param filter_string: Filter query string
+        (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),
+        defaults to searching for all model versions. The following identifiers, comparators,
+        and logical operators are supported.
+
+        Identifiers
+        - ``name``: model name.
+        - ``source_path``: model version source path.
+        - ``run_id``: The id of the mlflow run that generates the model version.
+        - ``tags.<tag_key>``: model version tag. If ``tag_key`` contains spaces, it must be
+            wrapped with backticks (e.g., ``"tags.`extra key`"``).
+
+        Comparators
+        - ``=``: Equal to.
+        - ``!=``: Not equal to.
+        - ``LIKE``: Case-sensitive pattern match.
+        - ``ILIKE``: Case-insensitive pattern match.
+        - ``IN``: In a value list. Only ``run_id`` identifier supports ``IN`` comparator.
+
+        Logical operators
+        - ``AND``: Combines two sub-queries and returns True if both of them are True.
+
+    :param max_results: If passed, specifies the maximum number of models desired. If not
+                        passed, all models will be returned.
+    :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                    matching search results.
+    :return: A list of `mlflow.entities.model_registry.ModelVersion` objects
+            that satisfy the search expressions.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        from sklearn.linear_model import LogisticRegression
+
+        for _ in range(2):
+            with mlflow.start_run():
+                mlflow.sklearn.log_model(
+                    LogisticRegression(),
+                    "Cordoba",
+                    registered_model_name="CordobaWeatherForecastModel",
+                )
+
+        # Get all versions of the model filtered by name
+        filter_string = "name = 'CordobaWeatherForecastModel'"
+        results = mlflow.search_model_versions(filter_string=filter_string)
+        print("-" * 80)
+        for res in results:
+            print("name={}; run_id={}; version={}".format(res.name, res.run_id, res.version))
+
+        # Get the version of the model filtered by run_id
+        filter_string = "run_id='c0d756267a2c45bfac8d92c5e17b4483'"
+        results = mlflow.search_model_versions(filter_string=filter_string)
+        print("-" * 80)
+        for res in results:
+            print("name={}; run_id={}; version={}".format(res.name, res.run_id, res.version))
+
+    .. code-block:: text
+        :caption: Output
+
+        --------------------------------------------------------------------------------
+        name=CordobaWeatherForecastModel; run_id=ae9a606a12834c04a8ef1006d0cff779; version=2
+        name=CordobaWeatherForecastModel; run_id=d8f028b5fedf4faf8e458f7693dfa7ce; version=1
+        --------------------------------------------------------------------------------
+        name=CordobaWeatherForecastModel; run_id=ae9a606a12834c04a8ef1006d0cff779; version=2
+
+    """
+
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_model_versions(
             max_results=number_to_get,
