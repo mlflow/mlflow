@@ -283,7 +283,7 @@ def search_model_versions(
             print("name={}; run_id={}; version={}".format(res.name, res.run_id, res.version))
 
         # Get the version of the model filtered by run_id
-        filter_string = "run_id = 'c0d756267a2c45bfac8d92c5e17b4483'"
+        filter_string = "run_id = 'ae9a606a12834c04a8ef1006d0cff779'"
         results = mlflow.search_model_versions(filter_string=filter_string)
         print("-" * 80)
         for res in results:
