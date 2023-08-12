@@ -369,3 +369,11 @@ MLFLOW_GATEWAY_URI = _EnvironmentVariable("MLFLOW_GATEWAY_URI", str, None)
 MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR", True
 )
+
+#: Specifies the name of the command to use when creating the environments.
+#: For example, let's say we want to use mamba (https://github.com/mamba-org/mamba)
+#: instead of conda to create environments.
+#: Then: > conda install mamba -n base -c conda-forge
+#: If not set, use the same as conda_path
+#: (default: ``conda``)
+MLFLOW_CONDA_CREATE_ENV_CMD = _EnvironmentVariable("MLFLOW_CONDA_CREATE_ENV_CMD", str, "conda")
