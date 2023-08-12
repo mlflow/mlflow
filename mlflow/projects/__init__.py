@@ -17,7 +17,6 @@ from mlflow.projects.utils import (
     get_run_env_vars,
     fetch_and_validate_project,
     get_or_create_run,
-    load_project,
     MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
     PROJECT_ENV_MANAGER,
     PROJECT_STORAGE_DIR,
@@ -118,8 +117,7 @@ def _run(
                 tracking.MlflowClient().set_tag(submitted_run.run_id, MLFLOW_RUN_NAME, run_name)
             return submitted_run
 
-    work_dir = fetch_and_validate_project(uri, version, entry_point, parameters)
-    project = load_project(work_dir)
+    work_dir, project = fetch_and_validate_project(uri, version, entry_point, parameters)
     _validate_execution_environment(project, backend_name)
 
     active_run = get_or_create_run(

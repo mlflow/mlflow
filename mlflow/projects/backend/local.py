@@ -14,7 +14,6 @@ from mlflow.projects.backend.abstract_backend import AbstractBackend
 from mlflow.projects.utils import (
     fetch_and_validate_project,
     get_or_create_run,
-    load_project,
     get_run_env_vars,
     get_entry_point_command,
     MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
@@ -80,8 +79,7 @@ class LocalBackend(AbstractBackend):
         tracking_uri,
         experiment_id,
     ):
-        work_dir = fetch_and_validate_project(project_uri, version, entry_point, params)
-        project = load_project(work_dir)
+        work_dir, project = fetch_and_validate_project(project_uri, version, entry_point, params)
         if MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG in backend_config:
             run_id = backend_config[MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG]
         else:
