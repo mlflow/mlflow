@@ -241,7 +241,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
         process._exec_cmd([conda_env_create_path, "--help"], throw_on_error=False)
     except OSError:
         raise ExecutionException(
-            f"You have set the env variable {MLFLOW_CONDA_CREATE_ENV_CMD.name}, but "
+            f"You have set the env variable {MLFLOW_CONDA_CREATE_ENV_CMD}, but "
             f"{conda_env_create_path} does not exist or it is not working properly. "
             f"Note that {conda_env_create_path} and the conda executable need to be "
             "in the same conda environment. You can change the search path by"
