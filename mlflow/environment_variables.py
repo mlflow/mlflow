@@ -377,3 +377,9 @@ MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR = _BooleanEnvironmentVariable(
 #: If not set, use the same as conda_path
 #: (default: ``conda``)
 MLFLOW_CONDA_CREATE_ENV_CMD = _EnvironmentVariable("MLFLOW_CONDA_CREATE_ENV_CMD", str, "conda")
+
+#: Specifies the execution directory for recipes.
+#: (default: ``None``)
+MLFLOW_RECIPES_EXECUTION_DIRECTORY = _EnvironmentVariable(
+    "MLFLOW_RECIPES_EXECUTION_DIRECTORY", str, None
+)
