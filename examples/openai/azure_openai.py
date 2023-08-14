@@ -27,7 +27,7 @@ with mlflow.start_run():
 # Load native OpenAI model
 native_model = mlflow.openai.load_model(model_info.model_uri)
 completion = openai.ChatCompletion.create(
-    model=native_model["model"],
+    deployment_id="<YOUR AZURE OPENAI DEPLOYMENT ID (ALSO CALLED DEPLOYMENT NAME)>",
     messages=native_model["messages"],
 )
 print(completion["choices"][0]["message"]["content"])
