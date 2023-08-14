@@ -12,8 +12,9 @@ body:
         A summary of the issue.
   - type: markdown
     attributes:
-      label: Notes
       value: |
+        ## Notes
+
         - Make sure to open a PR from a **non-master** branch.
         - Sign off the commit using the `-s` flag when making a commit:
 
