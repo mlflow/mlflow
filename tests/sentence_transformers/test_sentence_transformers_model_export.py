@@ -294,7 +294,7 @@ def test_log_model_with_code_paths(basic_model):
 def test_default_signature_assignment():
     expected_signature = {
         "inputs": '[{"type": "string"}]',
-        "outputs": '[{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": ' "[-1]}}]",
+        "outputs": '[{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1]}}]',
         "params": None,
     }
 
