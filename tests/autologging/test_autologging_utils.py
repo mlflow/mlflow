@@ -196,7 +196,7 @@ def test_if_getting_input_example_fails(logger):
     assert signature is None
     calls = [
         mock.call("Failed to gather input example: " + error_msg),
-+       mock.call(
+        mock.call(
             "Failed to infer model signature: "
             + "could not sample data to infer model signature: "
             + error_msg
