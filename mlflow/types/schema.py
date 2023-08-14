@@ -119,11 +119,7 @@ class DataType(Enum):
 
     @classmethod
     def from_numpy_type(cls, np_type):
-        for dt in cls._member_map_.values():
-            if np_type == dt.to_numpy():
-                return dt
-
-        return None
+        return next((v for v in cls._member_map_.values() if v.to_numpy() == np_type), None)
 
 
 class ColSpec:
