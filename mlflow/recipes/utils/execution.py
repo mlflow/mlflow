@@ -17,6 +17,7 @@ _STEPS_SUBDIRECTORY_NAME = "steps"
 _STEP_OUTPUTS_SUBDIRECTORY_NAME = "outputs"
 _STEP_CONF_YAML_NAME = "conf.yaml"
 
+
 def run_recipe_step(
     recipe_root_path: str,
     recipe_steps: List[BaseStep],

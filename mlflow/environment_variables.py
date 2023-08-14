@@ -383,3 +383,9 @@ MLFLOW_CONDA_CREATE_ENV_CMD = _EnvironmentVariable("MLFLOW_CONDA_CREATE_ENV_CMD"
 MLFLOW_RECIPES_EXECUTION_DIRECTORY = _EnvironmentVariable(
     "MLFLOW_RECIPES_EXECUTION_DIRECTORY", str, None
 )
+
+#: Specifies the target step to execute for recipes.
+#: (default: ``None``)
+MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME = _EnvironmentVariable(
+    "MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME", str, None
+)

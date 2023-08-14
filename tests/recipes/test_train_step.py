@@ -16,12 +16,10 @@ import sklearn.compose
 
 from mlflow.tracking import MlflowClient
 from mlflow.utils.file_utils import read_yaml
-from mlflow.recipes.utils.execution import (
-    get_step_output_path,
-    _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
-)
+from mlflow.recipes.utils.execution import get_step_output_path
 from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
 from mlflow.recipes.steps.train import TrainStep
+from mlflow.environment_variables import MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME
 
 from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
@@ -443,7 +441,7 @@ def test_train_steps_autologs(tmp_recipe_root_path: Path, tmp_recipe_exec_path: 
 def test_train_steps_with_correct_tags(
     tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, use_tuning, monkeypatch
 ):
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR, "train")
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME.name, "train")
     train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
     recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
     recipe_steps_dir.mkdir(parents=True)
@@ -593,7 +591,7 @@ def test_automl(
     generate_custom_metrics,
     monkeypatch,
 ):
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR, "train")
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME.name, "train")
     train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
     recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
     recipe_steps_dir.mkdir(parents=True)
@@ -637,7 +635,7 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
 
 
 def test_tuning_multiclass(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, monkeypatch):
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR, "train")
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME.name, "train")
     train_step_output_dir = setup_train_dataset(
         tmp_recipe_exec_path, recipe="classification/multiclass"
     )
