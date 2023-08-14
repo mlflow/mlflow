@@ -261,7 +261,7 @@ def search_model_versions(
     :return: A list of :py:class:`mlflow.entities.model_registry.ModelVersion` objects
             that satisfy the search expressions.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
