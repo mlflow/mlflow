@@ -13,7 +13,7 @@ It also extends the functionality to support custom hooks for import errors
 
 import sys
 import threading
-import importlib  # pylint: disable=unused-import
+import importlib  # noqa: F401
 
 string_types = (str,)
 

@@ -239,7 +239,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
 
     # This import statement adds `serializeToBundle` and `deserializeFromBundle` to `Transformer`:
     # https://github.com/combust/mleap/blob/37f6f61634798118e2c2eb820ceeccf9d234b810/python/mleap/pyspark/spark_support.py#L32-L33
-    from mleap.pyspark.spark_support import SimpleSparkSerializer  # pylint: disable=unused-import
+    from mleap.pyspark.spark_support import SimpleSparkSerializer  # noqa: F401
     from py4j.protocol import Py4JError
 
     if not isinstance(spark_model, PipelineModel):

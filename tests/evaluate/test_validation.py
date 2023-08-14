@@ -14,10 +14,9 @@ from mlflow.models.evaluation.evaluator_registry import _model_evaluation_regist
 from unittest import mock
 import pytest
 
-# pylint: disable=unused-import
 from tests.evaluate.test_evaluation import (
-    multiclass_logistic_regressor_model_uri,
-    iris_dataset,
+    multiclass_logistic_regressor_model_uri,  # noqa: F401
+    iris_dataset,  # noqa: F401
 )
 
 message_separator = "\n"

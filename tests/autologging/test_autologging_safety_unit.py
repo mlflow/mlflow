@@ -33,7 +33,7 @@ from mlflow.utils.autologging_utils.safety import (
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
 from tests.autologging.fixtures import test_mode_off, test_mode_on
-from tests.autologging.fixtures import patch_destination  # pylint: disable=unused-import
+from tests.autologging.fixtures import patch_destination  # noqa: F401
 from tests.autologging.test_autologging_utils import get_func_attrs
 
 

@@ -1182,7 +1182,7 @@ def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
 def test_import_tensorflow_with_fluent_autolog_enables_tensorflow_autologging():
     mlflow.autolog()
 
-    import tensorflow  # pylint: disable=unused-import,reimported
+    import tensorflow  # pylint: disable=reimported  # noqa: F401
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
 
