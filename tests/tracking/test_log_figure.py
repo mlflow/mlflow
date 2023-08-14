@@ -71,7 +71,6 @@ def test_log_figure_save_kwargs():
     from plotly import graph_objects as go
 
     fig = go.Figure(go.Scatter(x=[0, 1], y=[2, 3]))
-    fig.update_layout(title={"text": r"$\text{A line with slope}\quad \frac{3-2}{1-0}=1$"})
     with mlflow.start_run():
         name = "figure.html"
         div_id = uuid.uuid4().hex
