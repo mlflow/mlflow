@@ -1101,6 +1101,10 @@ For a minimal Sequential model, an example configuration for the pyfunc predict(
 MLeap (``mleap``)
 ^^^^^^^^^^^^^^^^^
 
+.. warning::
+
+    The ``mleap`` model flavor is deprecated as of MLflow 2.6.0 and will be removed in a future release.
+
 The ``mleap`` model flavor supports saving Spark models in MLflow format using the
 `MLeap <https://combust.github.io/mleap-docs/>`_ persistence mechanism. MLeap is an inference-optimized
 format and execution engine for Spark models that does not depend on
