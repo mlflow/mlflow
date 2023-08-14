@@ -411,8 +411,8 @@ class EvaluateStep(BaseStep):
             shap_plot_tab.add_image("SHAP_BEESWARM_PLOT", shap_beeswarm_plot_path, width=800)
 
         try:
-            import shap  # pylint: disable=unused-import
-            from matplotlib import pyplot  # pylint: disable=unused-import
+            import shap  # noqa: F401
+            from matplotlib import pyplot  # noqa: F401
 
             _add_shap_plots(card)
         except ImportError:

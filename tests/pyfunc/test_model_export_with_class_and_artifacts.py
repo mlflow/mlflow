@@ -1363,7 +1363,7 @@ def test_functional_python_model_unsupported_types(tmp_path):
 
 
 def requires_sklearn(x: List[str]) -> List[str]:
-    import sklearn  # pylint: disable=unused-import,reimported
+    import sklearn  # pylint: disable=reimported  # noqa: F401
 
     return x
 

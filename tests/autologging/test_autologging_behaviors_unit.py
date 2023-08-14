@@ -14,7 +14,7 @@ from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 import pytest
 import numpy as np
 from tests.autologging.fixtures import test_mode_off, patch_destination
-from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
+from tests.autologging.fixtures import reset_stderr  # noqa: F401
 
 
 @pytest.fixture

@@ -20,7 +20,7 @@ from mlflow.utils.autologging_utils import (
 )
 
 from tests.autologging.fixtures import test_mode_off
-from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
+from tests.autologging.fixtures import reset_stderr  # noqa: F401
 
 
 AUTOLOGGING_INTEGRATIONS_TO_TEST = {
@@ -220,7 +220,7 @@ def test_autolog_respects_disable_flag_across_import_orders():
         assert all("mlflow." in key for key in tags)
 
     def import_sklearn():
-        import sklearn  # pylint: disable=unused-import
+        import sklearn  # noqa: F401
 
     def disable_autolog():
         mlflow.sklearn.autolog(disable=True)
@@ -312,9 +312,9 @@ def test_autolog_globally_configured_flag_set_correctly():
     from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
     AUTOLOGGING_INTEGRATIONS.clear()
-    import sklearn  # pylint: disable=unused-import
-    import pyspark  # pylint: disable=unused-import
-    import pyspark.ml  # pylint: disable=unused-import
+    import sklearn  # noqa: F401
+    import pyspark
+    import pyspark.ml  # noqa: F401
 
     integrations_to_test = ["sklearn", "spark", "pyspark.ml"]
     mlflow.autolog()

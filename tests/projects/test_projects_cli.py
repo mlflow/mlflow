@@ -11,7 +11,7 @@ import pytest
 from mlflow import cli, MlflowClient
 from mlflow.utils import process
 from tests.integration.utils import invoke_cli_runner
-from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
+from tests.projects.utils import docker_example_base_image  # noqa: F401
 from tests.projects.utils import (
     TEST_PROJECT_DIR,
     GIT_PROJECT_URI,
