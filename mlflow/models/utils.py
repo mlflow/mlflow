@@ -701,7 +701,7 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                 raise MlflowException(
                     "This model contains a column-based signature, which suggests a DataFrame"
                     " input. There was an error casting the input data to a DataFrame:"
-                    f" {str(e)}"
+                    f" {e}"
                 )
         if not isinstance(pf_input, pd.DataFrame):
             raise MlflowException(
