@@ -1,5 +1,6 @@
 import mlflow
 import openai
+import os
 import pandas as pd
 
 """
@@ -12,6 +13,7 @@ export OPENAI_API_BASE="<YOUR AZURE OPENAI BASE>"
 # OPENAI_API_VERSION e.g. 2023-05-15
 export OPENAI_API_VERSION="<YOUR AZURE OPENAI API VERSION>"
 export OPENAI_API_TYPE="azure"
+export DEPLOYMENT_ID="<YOUR AZURE OPENAI DEPLOYMENT ID (ALSO CALLED DEPLOYMENT NAME)>"
 """
 
 with mlflow.start_run():
@@ -21,13 +23,13 @@ with mlflow.start_run():
         task=openai.ChatCompletion,
         artifact_path="model",
         messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
-        deployment_id="<YOUR AZURE OPENAI DEPLOYMENT ID (ALSO CALLED DEPLOYMENT NAME)>",
+        deployment_id=os.environ["DEPLOYMENT_ID"],
     )
 
 # Load native OpenAI model
 native_model = mlflow.openai.load_model(model_info.model_uri)
 completion = openai.ChatCompletion.create(
-    deployment_id="<YOUR AZURE OPENAI DEPLOYMENT ID (ALSO CALLED DEPLOYMENT NAME)>",
+    deployment_id=os.environ["DEPLOYMENT_ID"],
     messages=native_model["messages"],
 )
 print(completion["choices"][0]["message"]["content"])
