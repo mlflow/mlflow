@@ -50,6 +50,13 @@ matches the name of the image referenced in the ``MLproject`` file.
 
 Finally, run the example project using ``mlflow run examples/docker -P alpha=0.5``.
 
+.. note::
+    If running this example on M1 / M2 Mac, ensure that Docker Desktop is running and that you are
+    logged in to the Docker service. It is recommended to run this example with the optional
+    'Rosetta' compatibility mode (configured in settings) to ensure that if you make modifications
+    to scikit-learn versions that the appropriate cython compiler will be used to build
+    scikit-learn without errors.
+
 What happens when the project is run?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

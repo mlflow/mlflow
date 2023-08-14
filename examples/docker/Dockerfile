@@ -1,9 +1,12 @@
 FROM python:3.8
 
-RUN pip install mlflow>=1.0 \
-    && pip install azure-storage-blob==12.3.0 \
-    && pip install numpy==1.21.2 \
+RUN pip install mlflow \
+    && pip install azure-storage-blob \
+    && pip install numpy \
     && pip install scipy \
-    && pip install pandas==1.3.3 \
-    && pip install scikit-learn==0.24.2 \
+    && pip install pandas \
+    && pip install scikit-learn \
     && pip install cloudpickle
+
+COPY train.py train.py
+COPY wine-quality.csv wine-quality.csv
