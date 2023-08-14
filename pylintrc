@@ -78,7 +78,6 @@ enable=signature-differs,
        consider-using-from-import,
        consider-merging-isinstance,
        consider-using-dict-items,
-       unnecessary-lambda-assignment,
        # Built-in rules
        # --------------
        # Custom rules
