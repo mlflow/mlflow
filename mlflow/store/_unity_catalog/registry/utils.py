@@ -103,7 +103,7 @@ def _get_artifact_repo_from_storage_info(
     credential_type = scoped_token.WhichOneof("credentials")
     if credential_type == "aws_temp_credentials":
         # Verify upfront that boto3 is importable
-        import boto3  # pylint: disable=unused-import
+        import boto3  # noqa: F401
         from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 
         aws_creds = scoped_token.aws_temp_credentials

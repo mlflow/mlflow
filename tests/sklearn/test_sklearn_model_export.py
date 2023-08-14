@@ -36,10 +36,9 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec
 
-# pylint: disable=unused-import
 from tests.store._unity_catalog.conftest import (
-    mock_databricks_uc_host_creds,
-    configure_client_for_uc,
+    mock_databricks_uc_host_creds,  # noqa: F401
+    configure_client_for_uc,  # noqa: F401
 )
 
 from tests.helper_functions import (

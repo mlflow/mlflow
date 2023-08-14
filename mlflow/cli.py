@@ -658,21 +658,21 @@ cli.add_command(mlflow.db.commands)
 # We are conditional loading these commands since the skinny client does
 # not support them due to the pandas and numpy dependencies of MLflow Models
 try:
-    import mlflow.models.cli  # pylint: disable=unused-import
+    import mlflow.models.cli
 
     cli.add_command(mlflow.models.cli.commands)
 except ImportError:
     pass
 
 try:
-    import mlflow.recipes.cli  # pylint: disable=unused-import
+    import mlflow.recipes.cli
 
     cli.add_command(mlflow.recipes.cli.commands)
 except ImportError:
     pass
 
 try:
-    import mlflow.sagemaker.cli  # pylint: disable=unused-import
+    import mlflow.sagemaker.cli
 
     cli.add_command(mlflow.sagemaker.cli.commands)
 except ImportError:

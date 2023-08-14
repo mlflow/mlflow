@@ -10,7 +10,7 @@ from tests.helper_functions import AnyStringWith
 
 def is_matplotlib_installed():
     try:
-        import matplotlib  # pylint: disable=unused-import
+        import matplotlib  # noqa: F401
 
         return True
     except ImportError:

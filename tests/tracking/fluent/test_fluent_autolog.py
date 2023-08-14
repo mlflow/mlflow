@@ -24,7 +24,7 @@ import transformers
 import setfit
 
 from tests.autologging.fixtures import test_mode_off, test_mode_on
-from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
+from tests.autologging.fixtures import reset_stderr  # noqa: F401
 
 
 library_to_mlflow_module_without_spark_datasource = {

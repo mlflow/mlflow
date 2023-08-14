@@ -1,1 +1,3 @@
-from . import ml  # pylint: disable=unused-import
+from . import ml
+
+__all__ = ["ml"]

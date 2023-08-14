@@ -22,7 +22,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
-from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
+from tests.projects.utils import docker_example_base_image  # noqa: F401
 
 
 def _build_uri(base_uri, subdirectory):

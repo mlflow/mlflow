@@ -117,7 +117,7 @@ def _model_packages(model) -> List[str]:
     if engine == "torch":
         packages = ["torch", "torchvision"]
         try:
-            import accelerate
+            import accelerate  # noqa: F401
 
             packages.append("accelerate")
         except ImportError:

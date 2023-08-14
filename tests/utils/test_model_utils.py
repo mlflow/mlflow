@@ -92,12 +92,12 @@ def test_add_code_to_system_path(sklearn_knn_model, model_path):
             import dummy_module
 
         mlflow_model_utils._add_code_from_conf_to_system_path(model_path, sklearn_flavor_config)
-        import dummy_module
+        import dummy_module  # noqa: F401
 
     # If this raises an exception it's because dummy_package.test imported
     # dummy_package.operator and not the built-in operator module. This only
     # happens if MLflow is misconfiguring the system path.
-    from dummy_package import base  # pylint: disable=unused-import
+    from dummy_package import base  # noqa: F401
 
     # Ensure that the custom tests/utils/test_resources/dummy_package/pandas.py is not
     # overwriting the 3rd party `pandas` package
