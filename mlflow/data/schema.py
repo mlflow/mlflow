@@ -70,4 +70,4 @@ class TensorDatasetSchema:
         )
 
     def __repr__(self) -> str:
-        return f"features:\n  {repr(self.features)}\ntargets:\n  {repr(self.targets)}\n"
+        return f"features:\n  {self.features!r}\ntargets:\n  {self.targets!r}\n"

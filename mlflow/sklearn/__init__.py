@@ -1584,11 +1584,10 @@ def _autolog(
                         child_tags=child_tags,
                     )
                 except Exception as e:
-                    msg = (
+                    _logger.warning(
                         "Encountered exception during creation of child runs for parameter search."
-                        f" Child runs may be missing. Exception: {str(e)}"
+                        f" Child runs may be missing. Exception: {e}"
                     )
-                    _logger.warning(msg)
 
                 try:
                     cv_results_df = pd.DataFrame.from_dict(estimator.cv_results_)
@@ -1596,11 +1595,9 @@ def _autolog(
                         cv_results_df, mlflow.active_run().info.run_id
                     )
                 except Exception as e:
-                    msg = (
-                        "Failed to log parameter search results as an artifact."
-                        f" Exception: {str(e)}"
+                    _logger.warning(
+                        f"Failed to log parameter search results as an artifact. Exception: {e}"
                     )
-                    _logger.warning(msg)
 
     def patched_fit(fit_impl, allow_children_patch, original, self, *args, **kwargs):
         """

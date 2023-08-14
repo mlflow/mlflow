@@ -127,11 +127,11 @@ class ModelSignature:
     def __repr__(self) -> str:
         return (
             "inputs: \n"
-            f"  {repr(self.inputs)}\n"
+            f"  {self.inputs!r}\n"
             "outputs: \n"
-            f"  {repr(self.outputs)}\n"
+            f"  {self.outputs!r}\n"
             "params: \n"
-            f"  {repr(self.params)}\n"
+            f"  {self.params!r}\n"
         )
 
 
