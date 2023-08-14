@@ -60,7 +60,7 @@ def delete_run(run_id):
     """
     store = _get_store()
     store.delete_run(run_id)
-    click.echo(f"Run with ID {str(run_id)} has been deleted.")
+    click.echo(f"Run with ID {run_id} has been deleted.")
 
 
 @commands.command("restore")
@@ -72,7 +72,7 @@ def restore_run(run_id):
     """
     store = _get_store()
     store.restore_run(run_id)
-    click.echo(f"Run with id {str(run_id)} has been restored.")
+    click.echo(f"Run with id {run_id} has been restored.")
 
 
 @commands.command("describe")
