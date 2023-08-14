@@ -1,5 +1,6 @@
 import os
 import posixpath
+import uuid
 
 import pytest
 
@@ -72,7 +73,13 @@ def test_log_figure_save_kwargs():
     fig = go.Figure(go.Scatter(x=[0, 1], y=[2, 3]))
     fig.update_layout(title={"text": r"$\text{A line with slope}\quad \frac{3-2}{1-0}=1$"})
     with mlflow.start_run():
-        mlflow.log_figure(fig, "figure.html", save_kwargs={"include_mathjax": "cdn"})
+        name = "figure.html"
+        div_id = uuid.uuid4().hex
+        mlflow.log_figure(fig, name, save_kwargs={"div_id": div_id})
+        artifact_uri = mlflow.get_artifact_uri(name)
+        local_path = local_file_uri_to_path(artifact_uri)
+        with open(local_path) as f:
+            assert div_id in f.read()
 
 
 @pytest.mark.parametrize("extension", ["", ".py"])
