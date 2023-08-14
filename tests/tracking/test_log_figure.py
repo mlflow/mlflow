@@ -1,5 +1,6 @@
 import os
 import posixpath
+import uuid
 
 import pytest
 
@@ -64,6 +65,20 @@ def test_log_figure_plotly_image(extension):
         artifact_uri = mlflow.get_artifact_uri(artifact_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         assert os.listdir(run_artifact_dir) == [filename]
+
+
+def test_log_figure_save_kwargs():
+    from plotly import graph_objects as go
+
+    fig = go.Figure(go.Scatter(x=[0, 1], y=[2, 3]))
+    with mlflow.start_run():
+        name = "figure.html"
+        div_id = uuid.uuid4().hex
+        mlflow.log_figure(fig, name, save_kwargs={"div_id": div_id})
+        artifact_uri = mlflow.get_artifact_uri(name)
+        local_path = local_file_uri_to_path(artifact_uri)
+        with open(local_path) as f:
+            assert div_id in f.read()
 
 
 @pytest.mark.parametrize("extension", ["", ".py"])
