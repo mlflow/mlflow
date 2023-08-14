@@ -4,8 +4,7 @@ import os
 import pandas as pd
 
 """
-Set environment variables for Azure OpenAI service in your terminal
-e.g. in ~/.bashrc or ~/.zshrc
+Set environment variables for Azure OpenAI service
 export OPENAI_API_KEY="<AZURE OPENAI KEY>"
 # OPENAI_API_BASE should be the endpoint of your Azure OpenAI resource
 # e.g. https://<service-name>.openai.azure.com/
