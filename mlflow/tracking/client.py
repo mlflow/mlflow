@@ -1234,7 +1234,8 @@ class MlflowClient:
         run_id: str,
         figure: Union["matplotlib.figure.Figure", "plotly.graph_objects.Figure"],
         artifact_file: str,
-        **kwargs,
+        *,
+        save_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Log a figure as an artifact. The following figure objects are supported:
@@ -1252,8 +1253,7 @@ class MlflowClient:
         :param figure: Figure to log.
         :param artifact_file: The run-relative artifact file path in posixpath format to which
                               the figure is saved (e.g. "dir/file.png").
-        :param kwargs: Additional arguments that are being passed to the
-                       matplotlib/ plotly method when saving the figure.
+        :param save_kwargs: Additional keyword arguments passed to the method that saves the figure.
 
         .. code-block:: python
             :caption: Matplotlib Example
@@ -1294,16 +1294,15 @@ class MlflowClient:
             # This allows logging a `plotly` figure in an environment where `matplotlib` is not
             # installed.
             if "matplotlib" in sys.modules and _is_matplotlib_figure(figure):
-                figure.savefig(tmp_path, **kwargs)
+                figure.savefig(tmp_path, **save_kwargs)
             elif "plotly" in sys.modules and _is_plotly_figure(figure):
                 file_extension = os.path.splitext(artifact_file)[1]
                 if file_extension == ".html":
-                    kwargs.setdefault("include_plotlyjs", "cdn")
-                    kwargs.setdefault("auto_open", False)
-
-                    figure.write_html(tmp_path, **kwargs)
+                    save_kwargs.setdefault("include_plotlyjs", "cdn")
+                    save_kwargs.setdefault("auto_open", False)
+                    figure.write_html(tmp_path, **save_kwargs)
                 elif file_extension in [".png", ".jpeg", ".webp", ".svg", ".pdf"]:
-                    figure.write_image(tmp_path, **kwargs)
+                    figure.write_image(tmp_path, **save_kwargs)
                 else:
                     raise TypeError(
                         f"Unsupported file extension for plotly figure: '{file_extension}'"

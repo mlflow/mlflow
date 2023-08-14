@@ -973,7 +973,10 @@ def log_dict(dictionary: Dict[str, Any], artifact_file: str) -> None:
 
 
 def log_figure(
-    figure: Union["matplotlib.figure.Figure", "plotly.graph_objects.Figure"], artifact_file: str
+    figure: Union["matplotlib.figure.Figure", "plotly.graph_objects.Figure"],
+    artifact_file: str,
+    *,
+    save_kwargs: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
     Log a figure as an artifact. The following figure objects are supported:
@@ -990,6 +993,7 @@ def log_figure(
     :param figure: Figure to log.
     :param artifact_file: The run-relative artifact file path in posixpath format to which
                           the figure is saved (e.g. "dir/file.png").
+    :param save_kwargs: Additional keyword arguments passed to the method that saves the figure.
 
     .. test-code-block:: python
         :caption: Matplotlib Example
@@ -1015,7 +1019,7 @@ def log_figure(
             mlflow.log_figure(fig, "figure.html")
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_figure(run_id, figure, artifact_file)
+    MlflowClient().log_figure(run_id, figure, artifact_file, save_kwargs=save_kwargs)
 
 
 def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str) -> None:

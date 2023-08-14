@@ -66,6 +66,15 @@ def test_log_figure_plotly_image(extension):
         assert os.listdir(run_artifact_dir) == [filename]
 
 
+def test_log_figure_save_kwargs():
+    from plotly import graph_objects as go
+
+    fig = go.Figure(go.Scatter(x=[0, 1], y=[2, 3]))
+    fig.update_layout(title={"text": r"$\text{A line with slope}\quad \frac{3-2}{1-0}=1$"})
+    with mlflow.start_run():
+        mlflow.log_figure(fig, "figure.html", save_kwargs={"include_mathjax": "cdn"})
+
+
 @pytest.mark.parametrize("extension", ["", ".py"])
 def test_log_figure_raises_error_for_unsupported_file_extension(extension):
     from plotly import graph_objects as go
