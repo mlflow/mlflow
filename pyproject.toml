@@ -45,7 +45,6 @@ ignore = [
   "E402",  # module-import-not-at-top-of-file
   "E501",  # line-too-long
   "E741",  # ambiguous-variable-name
-  "F402",  # import-shadowed-by-loop-var
   "F403",  # undefined-local-with-import-star
   "F811",  # redefined-while-unused
 ]

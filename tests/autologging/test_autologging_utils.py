@@ -5,7 +5,6 @@ import time
 import sys
 import pytest
 from collections import namedtuple
-from unittest.mock import Mock, call
 from unittest import mock
 
 import mlflow
@@ -172,7 +171,7 @@ def test_wrap_patch_with_module():
 
 @pytest.fixture
 def logger():
-    return Mock()
+    return mock.Mock()
 
 
 def get_input_example():
@@ -196,8 +195,8 @@ def test_if_getting_input_example_fails(logger):
     assert input_example is None
     assert signature is None
     calls = [
-        call("Failed to gather input example: " + error_msg),
-        call(
+        mock.call("Failed to gather input example: " + error_msg),
++       mock.call(
             "Failed to infer model signature: "
             + "could not sample data to infer model signature: "
             + error_msg
