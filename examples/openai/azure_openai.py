@@ -1,17 +1,18 @@
 import mlflow
 import openai
+import os
 import pandas as pd
 
 """
-Set environment variables for Azure OpenAI service in your terminal
-e.g. in ~/.bashrc or ~/.zshrc
-export OPENAI_API_KEY="<YOUR AZURE OPENAI KEY>"
+Set environment variables for Azure OpenAI service
+export OPENAI_API_KEY="<AZURE OPENAI KEY>"
 # OPENAI_API_BASE should be the endpoint of your Azure OpenAI resource
 # e.g. https://<service-name>.openai.azure.com/
-export OPENAI_API_BASE="<YOUR AZURE OPENAI BASE>"
+export OPENAI_API_BASE="<AZURE OPENAI BASE>"
 # OPENAI_API_VERSION e.g. 2023-05-15
-export OPENAI_API_VERSION="<YOUR AZURE OPENAI API VERSION>"
+export OPENAI_API_VERSION="<AZURE OPENAI API VERSION>"
 export OPENAI_API_TYPE="azure"
+export DEPLOYMENT_ID="<AZURE OPENAI DEPLOYMENT ID OR NAME>"
 """
 
 with mlflow.start_run():
@@ -21,13 +22,13 @@ with mlflow.start_run():
         task=openai.ChatCompletion,
         artifact_path="model",
         messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
-        deployment_id="<YOUR AZURE OPENAI DEPLOYMENT ID (ALSO CALLED DEPLOYMENT NAME)>",
+        deployment_id=os.environ["DEPLOYMENT_ID"],
     )
 
 # Load native OpenAI model
 native_model = mlflow.openai.load_model(model_info.model_uri)
 completion = openai.ChatCompletion.create(
-    model=native_model["model"],
+    deployment_id=native_model["deployment_id"],
     messages=native_model["messages"],
 )
 print(completion["choices"][0]["message"]["content"])
