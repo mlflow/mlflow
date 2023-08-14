@@ -22,9 +22,6 @@ You can also use the context manager syntax like this:
 
 which automatically terminates the run at the end of the ``with`` block.
 
-The fluent tracking API is not currently threadsafe. Any concurrent callers to the tracking API must
-implement mutual exclusion manually.
-
 For a lower level API, see the :py:mod:`mlflow.client` module.
 """
 import contextlib
