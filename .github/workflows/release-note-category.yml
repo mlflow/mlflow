@@ -10,6 +10,7 @@ on:
       - reopened
       - labeled
       - unlabeled
+  # post-merge job requires write access to add a label
   pull_request_target:
     types:
       - closed
