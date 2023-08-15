@@ -72,7 +72,7 @@ if TYPE_CHECKING:
     import plotly
 
 
-class DefaultSetContextVar():
+class DefaultSetContextVar:
     def __init__(self, contextvar, default: Callable):
         self.contextvar = contextvar
         self.default = default
@@ -89,7 +89,9 @@ class DefaultSetContextVar():
         self.contextvar.set(value)
 
 
-_active_run_stack = DefaultSetContextVar(contextvars.ContextVar("_active_run_stack"), default=lambda: [])
+_active_run_stack = DefaultSetContextVar(
+    contextvars.ContextVar("_active_run_stack"), default=lambda: []
+)
 _active_experiment_id = contextvars.ContextVar("_active_experiment_id", default=None)
 _last_active_run_id = contextvars.ContextVar("_last_active_run_id", default=None)
 
