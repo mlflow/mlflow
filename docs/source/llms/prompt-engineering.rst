@@ -113,7 +113,13 @@ Once you're satisfied with your chosen prompt template and parameters, click the
 button to store this information, along with your choice of LLM, as an MLflow Run. This will
 create a new Run with the prompt template, parameters, and choice of LLM stored as Run params.
 It will also automatically create an MLflow Model with this information that can be used for batch
-or real-time inference.
+or real-time inference. To view this information, click the Run name to open the **Run** page.
+You can also see the parameters and compare them with other configurations by opening the **Table**
+view tab.
+
+.. figure:: ../_static/images/prompt_eng_run_page.png
+
+.. figure:: ../_static/images/prompt_eng_table_view.png
 
 After your Run is created, MLflow will open the **Evaluation** tab where you can see your latest
 playground input & output and try out additional inputs.
