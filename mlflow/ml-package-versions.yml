@@ -277,7 +277,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.6.0"
+    maximum: "3.6.1"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0"]
@@ -467,7 +467,7 @@ paddle:
     pip_release: "paddlepaddle"
   models:
     minimum: "2.4.1"
-    maximum: "2.5.0"
+    maximum: "2.5.1"
     run: |
       pytest tests/paddle/test_paddle_model_export.py
   autolog:
@@ -547,7 +547,7 @@ langchain:
       pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
   models:
     minimum: "0.0.244"
-    maximum: "0.0.244"
+    maximum: "0.0.264"
     requirements:
       ">= 0.0.0":
         [
@@ -581,7 +581,7 @@ johnsnowlabs:
     pip_release: "johnsnowlabs"
   models:
     minimum: "4.4.6"
-    maximum: "5.0.0"
+    maximum: "5.0.1"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3", "pyspark<3.4"]
     run: |
