@@ -41,7 +41,8 @@ async def send_request_stream(
             print("Request headers: ", resp.request_info.headers)
             print("Response headers:", resp.headers)
             async for line in resp.content:
-                print(line)
+                if line.strip():
+                    print(line.strip())
                 yield line
 
 
