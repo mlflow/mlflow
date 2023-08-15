@@ -1,3 +1,5 @@
+"""MLFlow module for HuggingFace/transformer support."""
+
 import ast
 import base64
 import binascii
@@ -11,11 +13,11 @@ import os
 import pathlib
 import pandas as pd
 import re
+import sys
 from typing import Union, List, Optional, Dict, Any, NamedTuple
 from urllib.parse import urlparse
 import yaml
 
-import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import (
@@ -32,7 +34,11 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    safe_patch,
+    disable_discrete_autologging,
+)
 from mlflow.utils.docstring_utils import (
     format_docstring,
     LOG_MODEL_PARAM_DOCS,
@@ -83,7 +89,6 @@ _INFERENCE_CONFIG_BINARY_KEY = "inference_config.txt"
 _INSTANCE_TYPE_KEY = "instance_type"
 _MODEL_KEY = "model"
 _MODEL_BINARY_KEY = "model_binary"
-_MODEL_TYPE_KEY = "model_type"
 _MODEL_BINARY_FILE_NAME = "model"
 _MODEL_PATH_OR_NAME_KEY = "source_model_name"
 _PIPELINE_MODEL_TYPE_KEY = "pipeline_model_type"
@@ -106,8 +111,7 @@ _logger = logging.getLogger(__name__)
 
 def _model_packages(model) -> List[str]:
     """
-    Determines which pip libraries should be included based on the base model engine
-    type.
+    Determines which pip libraries should be included based on the base model engine type.
 
     :param model: The model instance to be saved in order to provide the required underlying
                   deep learning execution framework dependency requirements.
@@ -734,7 +738,7 @@ def log_model(
     """
     return Model.log(
         artifact_path=artifact_path,
-        flavor=mlflow.transformers,
+        flavor=sys.modules[__name__],  # Get the current module.
         registered_model_name=registered_model_name,
         await_registration_for=await_registration_for,
         metadata=metadata,
@@ -2619,9 +2623,7 @@ def autolog(
     DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING = ["sklearn", "tensorflow", "pytorch"]
 
     def train(original, *args, **kwargs):
-        with mlflow.utils.autologging_utils.disable_discrete_autologging(
-            DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING
-        ):
+        with disable_discrete_autologging(DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING):
             return original(*args, **kwargs)
 
     with contextlib.suppress(ImportError):
