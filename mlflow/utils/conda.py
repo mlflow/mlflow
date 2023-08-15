@@ -13,6 +13,14 @@ from mlflow.environment_variables import MLFLOW_CONDA_CREATE_ENV_CMD
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
 MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
+# Environment variable indicated the name of the command that should be used to create environments.
+# If it is unset, it will default to "conda". This command must be in the $PATH when the user runs,
+# or within MLFLOW_CONDA_HOME if that is set. For example, let's say we want to use mamba
+# (https://github.com/mamba-org/mamba) instead of conda to create environments. Then:
+# > conda install mamba -n base -c conda-forge
+# > MLFLOW_CONDA_CREATE_ENV_CMD="mamba"
+# > mlflow run ...
+MLFLOW_CONDA_CREATE_ENV_CMD = "MLFLOW_CONDA_CREATE_ENV_CMD"
 
 _logger = logging.getLogger(__name__)
 
