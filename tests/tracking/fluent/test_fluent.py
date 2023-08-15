@@ -1341,8 +1341,7 @@ def test_active_experiment_thread_safety():
     with ThreadPoolExecutor(max_workers=2) as executor:
         experiment_names = ["Default"] + list(executor.map(run, range(2)))
         assert experiment_names == [
-            exp.name
-            for exp in mlflow.search_experiments(order_by=["creation_time ASC"])
+            exp.name for exp in mlflow.search_experiments(order_by=["creation_time ASC"])
         ]
 
 
