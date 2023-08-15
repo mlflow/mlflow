@@ -72,7 +72,7 @@ if TYPE_CHECKING:
     import plotly
 
 
-class DefaultSetContextVar:
+class _DefaultSetContextVar:
     def __init__(self, name: str, default: Callable):
         self.contextvar = contextvars.ContextVar(name)
         self.default = default
