@@ -6,27 +6,27 @@ MLflow 2.6.0 includes several major features and improvements
 
 Features:
 
+- [Models / Scoring] Add support for passing extra params during inference for PyFunc models (#9068, @serena-ruan)
 - [Tracking] Support `save_kwargs` for `mlflow.log_figure` to specify extra options when saving a figure (#9179, @stroblme)
 - [Gateway] Add support for MLflow serving to MLflow AI Gateway (#9199, @BenWilson2)
 - [Artifacts] Display progress bars when uploading/download artifacts (#9195, @serena-ruan)
-- [Models] Support logging retriever models in langchain (#8808, @liangz1)
+- [Models] Add support for logging LangChain's retriever models (#8808, @liangz1)
 - [Tracking] Add support to log customized tags to runs created by autologging (#9114, @thinkall)
-- [Models / Scoring] Add support for passing extra params during inference for PyFunc models (#9068, @serena-ruan)
 
 Bug fixes:
 
-- [Models] Fix text_pair functionality for transformers TextClassification pipelines (#9215, @BenWilson2)
+- [Models] Fix `text_pair` functionality for transformers `TextClassification` pipelines (#9215, @BenWilson2)
 - [Models] Fix LangChain compatibility with SQLDatabase (#9192, @dbczumar)
-- [Tracking] Fix sklearn flavor `_get_metric_name_list` function (#9095, @WeichenXu123)
+- [Tracking] Remove patching `sklearn.metrics.get_scorer_names` in `mlflow.sklearn.autolog` to avoid duplicate logging (#9095, @WeichenXu123)
 
 Documentation updates:
 
 - [Docs / Examples] Add examples and documentation for MLflow AI Gateway support for MLflow model serving (#9281, @BenWilson2)
-- [Docs / Examples] Add sentence-transformers doc & example (#9047, @es94129)
+- [Docs / Examples] Add `sentence-transformers` doc & example (#9047, @es94129)
 
 Deprecation:
 
-- [Models] Mark mleap as deprecated. The `mlflow.mleap` module will be removed in a future release. (#9311, @BenWilson2)
+- [Models] The `mlflow.mleap` module has been marked as deprecated and will be removed in a future release (#9311, @BenWilson2)
 
 Small bug fixes and documentation updates:
 
