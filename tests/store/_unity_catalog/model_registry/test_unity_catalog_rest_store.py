@@ -180,7 +180,7 @@ def local_model_dir(tmp_path):
     }
     with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)
-    yield tmp_path
+    return tmp_path
 
 
 def test_create_model_version_nonexistent_directory(store, tmp_path):
@@ -234,7 +234,7 @@ def feature_store_local_model_dir(tmp_path):
     }
     with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)
-    yield tmp_path
+    return tmp_path
 
 
 def test_create_model_version_fails_fs_packaged_model(store, feature_store_local_model_dir):

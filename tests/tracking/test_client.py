@@ -678,7 +678,7 @@ def mock_registry_store_with_get_latest_version(mock_registry_store):
     ]
 
     mock_registry_store.get_latest_versions = mock_get_latest_versions
-    yield mock_registry_store
+    return mock_registry_store
 
 
 def test_set_model_version_tag(mock_registry_store_with_get_latest_version):
