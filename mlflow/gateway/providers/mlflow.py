@@ -4,11 +4,11 @@ from pydantic import BaseModel, validator, StrictStr, ValidationError, StrictFlo
 from typing import List
 
 
-from .base import BaseProvider
-from .utils import send_request
-from ..config import RouteConfig, MlflowModelServingConfig
-from ..constants import MLFLOW_SERVING_RESPONSE_KEY
-from ..schemas import completions, chat, embeddings
+from mlflow.gateway.providers.base import BaseProvider
+from mlflow.gateway.providers.utils import send_request
+from mlflow.gateway.config import RouteConfig, MlflowModelServingConfig
+from mlflow.gateway.constants import MLFLOW_SERVING_RESPONSE_KEY
+from mlflow.gateway.schemas import completions, chat, embeddings
 
 
 class ServingTextResponse(BaseModel):
