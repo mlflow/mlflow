@@ -22,4 +22,4 @@ body:
                    # ^^ make sure to use this
           ```
 
-        - Include `#<id_of_this_issue>` (e.g. `#123`) in the PR description when opening a PR.
+        - Include `#{issue_number}` (e.g. `#123`) in the PR description when opening a PR.
