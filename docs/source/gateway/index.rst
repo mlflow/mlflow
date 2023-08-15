@@ -534,7 +534,7 @@ Here's an example of route creation with the :py:func:`mlflow.gateway.create_rou
         route_type="llm/v1/embeddings",
         model={
             "name": "text-embedding-ada-002",
-            "provider": "open",
+            "provider": "openai",
             "openai_config": {
                 "openai_api_key": "<YOUR_OPENAI_API_KEY>"
             }
