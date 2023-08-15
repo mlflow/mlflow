@@ -110,18 +110,15 @@ def register_generic_import_hook(hook, name, hook_dict, overwrite):
         else:
             hook_dict[name] = [hook]
 
-    elif hooks == []:
-        # A prior registration of import hooks for the target
-        # module was done and the hooks already fired. Fire the hook
-        # immediately.
-
+    elif hooks == [] and name in sys.modules:
+        # A prior registration of import hooks for the target module was done and the hooks already
+        # fired. Fire the hook immediately.
         module = sys.modules[name]
         hook(module)
 
     else:
-        # A prior registration of import hooks for the target
-        # module was done but the module has not yet been imported.
-
+        # A prior registration of import hooks for the target module was done but the module has
+        # not yet been imported.
         def hooks_equal(existing_hook, hook):
             if hasattr(existing_hook, "__name__") and hasattr(hook, "__name__"):
                 return existing_hook.__name__ == hook.__name__
