@@ -119,7 +119,7 @@ Now that you have set the Gateway URI in your Python environment, you can create
         model={
             "name": "gpt-4",
             "provider": "openai",
-            "config": {
+            "openai_config": {
                 "openai_api_key": openai_api_key
             }
         }
@@ -132,7 +132,7 @@ Now that you have set the Gateway URI in your Python environment, you can create
         model={
             "name": "gpt-4",
             "provider": "openai",
-            "config": {
+            "openai_config": {
                 "openai_api_key": openai_api_key
             }
         }
@@ -145,7 +145,7 @@ Now that you have set the Gateway URI in your Python environment, you can create
         model={
             "name": "text-embedding-ada-002",
             "provider": "openai",
-            "config": {
+            "openai_config": {
                 "openai_api_key": openai_api_key
             }
         }
@@ -312,7 +312,7 @@ with scope ``example`` and key ``anthropic-api-key``.
         model={
             "name": "claude-v1.3",
             "provider": "anthropic",
-            "config": {
+            "anthropic_config": {
                 "anthropic_api_key": anthropic_api_key
             }
         }
@@ -462,7 +462,7 @@ Here's an example demonstrating how a provider is specified when creating a rout
         model={
             "name": "gpt-4",
             "provider": "openai",
-            "config": {
+            "openai_config": {
                 "openai_api_key": "<YOUR_OPENAI_API_KEY>"
             }
         }
@@ -535,7 +535,7 @@ Here's an example of route creation with the :py:func:`mlflow.gateway.create_rou
         model={
             "name": "text-embedding-ada-002",
             "provider": "open",
-            "config": {
+            "openai_config": {
                 "openai_api_key": "<YOUR_OPENAI_API_KEY>"
             }
         }
@@ -628,7 +628,7 @@ The following example demonstrates how to create a route with Azure OpenAI:
         model={
             "name": "gpt-35-turbo",
             "provider": "openai",
-            "config": {
+            "openai_config": {
                 "openai_api_type": "azuread"
                 "openai_api_key": "<YOUR_AZURE_OPENAI_API_KEY>"
                 "openai_deployment_name": "{your_azure_openai_deployment_name}"
@@ -668,7 +668,7 @@ The following example demonstrates how to create a route with a Databricks Model
         model={
             "name": "mpt-7b-instruct",
             "provider": "databricks-model-serving",
-            "config": {
+            "openai_config": {
                 "databricks_api_token": "<YOUR_DATABRICKS_ACCESS_TOKEN>"
                 "databricks_workspace_url": "<URL_OF_DATABRICKS_WORKSPACE_CONTAINING_ENDPOINT>"
             }
