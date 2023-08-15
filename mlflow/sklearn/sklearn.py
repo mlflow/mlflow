@@ -1,15 +1,3 @@
-"""
-The ``mlflow.sklearn`` module provides an API for logging and loading scikit-learn models. This
-module exports scikit-learn models with the following flavors:
-
-Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persistence.html>`_ format
-    This is the main flavor that can be loaded back into scikit-learn.
-
-:py:mod:`mlflow.pyfunc`
-    Produced for use by generic pyfunc-based deployment tools and batch inference.
-    NOTE: The `mlflow.pyfunc` flavor is only added for scikit-learn models that define `predict()`,
-    since `predict()` is required for pyfunc model inference.
-"""
 import inspect
 import functools
 import os
