@@ -63,7 +63,7 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
         super().__init__(name, bool, default)
 
     def get(self):
-        if not self.define:
+        if not self.defined:
             return self.default
 
         val = os.getenv(self.name)
