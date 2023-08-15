@@ -18,7 +18,7 @@ body:
         - Sign off the commit using the `-s` flag when making a commit:
 
           ```sh
-          git commit -s -m "<message>"
+          git commit -s -m "..."
                    # ^^ make sure to use this
           ```
 
