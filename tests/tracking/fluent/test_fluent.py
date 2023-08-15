@@ -1339,17 +1339,15 @@ def test_active_experiment_thread_safety():
         return experiment_name
 
     with ThreadPoolExecutor(max_workers=2) as executor:
-        experiment_names = list(executor.map(run, range(2)))
+        experiment_names = ["Default"] + list(executor.map(run, range(2)))
         assert experiment_names == [
             exp.name
-            for exp in mlflow.search_experiments(
-                order_by=["creation_time ASC"], filter_string="name != 'Default'"
-            )
+            for exp in mlflow.search_experiments(order_by=["creation_time ASC"])
         ]
 
 
 def test_last_active_run_thread_safety():
-    mlflow.search_experiments()  # Initialize database
+    # mlflow.search_experiments()  # Initialize database
 
     def run(worker: int):
         if worker == 1:
