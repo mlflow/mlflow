@@ -1308,8 +1308,6 @@ def test_get_parent_run():
 
 
 def test_active_run_thread_safety():
-    mlflow.search_experiments()  # Initialize database
-
     def run(worker: int):
         if worker == 1:
             time.sleep(1)
@@ -1328,6 +1326,8 @@ def test_active_run_thread_safety():
 
 
 def test_active_experiment_thread_safety():
+    mlflow.search_experiments()  # Initialize database
+
     def run(worker: int):
         if worker == 1:
             time.sleep(1)
@@ -1346,8 +1346,6 @@ def test_active_experiment_thread_safety():
 
 
 def test_last_active_run_thread_safety():
-    # mlflow.search_experiments()  # Initialize database
-
     def run(worker: int):
         if worker == 1:
             time.sleep(1)
