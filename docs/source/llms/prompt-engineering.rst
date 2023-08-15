@@ -24,10 +24,11 @@ MLflow Prompt Engineering UI
 The MLflow Tracking UI provides a best-in-class experience for prompt engineering. With no code required,
 you can try out multiple LLMs from the :ref:`AI Gateway <gateway>`, parameter configurations, and prompts
 to build a variety of models for question answering, document summarization, and beyond. Using the
-Evaluation UI, you can also evaluate multiple models on a set of inputs and compare the responses to
-select the best one. Every model created with the prompt engineering UI is stored in the
-:ref:`MLflow Model <models>` format and can be deployed for batch or real time inference. All model
-parameters are tracked as :ref:`MLflow Runs <tracking>`.
+embedded Evaluation UI, you can also evaluate multiple models on a set of inputs and compare the
+responses to select the best one. Every model created with the prompt engineering UI is stored in the
+:ref:`MLflow Model <models>` format and can be deployed for batch or real time inference. All
+configurations (prompt templates, choice of LLM, parameters, etc.) are tracked as
+:ref:`MLflow Runs <tracking>`.
 
 .. _prompt-engineering-quickstart:
 
