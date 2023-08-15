@@ -10,7 +10,7 @@ on:
       - reopened
       - labeled
       - unlabeled
-  # post-merge job requires write access to add a label
+  # post-merge job requires write access to add a label and post a comment.
   pull_request_target:
     types:
       - closed
