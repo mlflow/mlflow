@@ -8,7 +8,7 @@ from watchfiles import watch
 from mlflow.gateway import app
 from mlflow.gateway.config import _load_route_config
 from mlflow.gateway.utils import kill_child_processes
-
+from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 
 _logger = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ class Runner:
             ],
             env={
                 **os.environ,
-                app.MLFLOW_GATEWAY_CONFIG: self.config_path,
+                MLFLOW_GATEWAY_CONFIG.name: self.config_path,
             },
         )
 
