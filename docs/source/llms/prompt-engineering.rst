@@ -183,13 +183,14 @@ all of the previous inputs, and click the **Save** button to store the results.
 
 Step 10: Score or deploy the best configuration programmatically
 ----------------------------------------------------------------
-Once you have found a choice of LLM, prompt template, and parameters that performs well, you can
-use its corresponding MLflow Model in a notebook or
+Once you have found a configuration of LLM, prompt template, and parameters that performs well, you
+can score the corresponding MLflow Model in a notebook or
 :ref:`deploy it to Databricks Model Serving <deploy-prompt-serving>`.
 
-To load the MLflow Model in a notebook for batch inference, navigate to the **Run Page**
-and select the *model* directory in the **Artifact Viewer**. Then, copy the first few lines of code
-from the *Predict on a Pandas DataFrame* section and run them in a Databricks Notebook. For example:
+To load the MLflow Model in a notebook for batch inference, click on the Run's name to open the
+**Run Page** and select the *model* directory in the **Artifact Viewer**. Then, copy the first few
+lines of code from the *Predict on a Pandas DataFrame* section and run them in a Databricks
+Notebook. For example:
 
 .. figure:: ../_static/images/load_model.png
    :width: 80%
@@ -226,20 +227,22 @@ and pass in a dictionary of input variables. For example:
 
 .. figure:: ../_static/images/prompt_model_notebook_inference.png
 
-For more information about deployment to Databricks Model Serving, see the
-:ref:`instructions below <deploy-prompt-serving>`.
+For more information about deployment to
+`Databricks Model Serving <https://docs.databricks.com/en/machine-learning/model-serving/index.html>`_,
+see the :ref:`instructions below <deploy-prompt-serving>`.
 
 .. _deploy-prompt-serving:
 
 Deployment to Databricks Model Serving
 ======================================
-Once you have found a choice of LLM, prompt template, and parameters that performs well, you can
-deploy its corresponding MLflow Model to Databricks Model Serving for real-time inference as
-follows:
+Once you have found a configuration of LLM, prompt template, and parameters that performs well, you
+can deploy the corresponding MLflow Model to
+`Databricks Model Serving <https://docs.databricks.com/en/machine-learning/model-serving/index.html>`_
+for real-time inference as follows:
 
 1. Register your model with the MLflow Model Registry. The following example registers
    an MLflow Model created from the :ref:`Quickstart <quickstart-score>` as Version 1 of the
-   Registered Model named `"mlflow_docs_qa_model"`.
+   Registered Model named ``"mlflow_docs_qa_model"``.
 
    .. code-block:: python
 
@@ -286,7 +289,7 @@ environment variables set:
 
 3. Once the endpoint has been created, query it using the following syntax:
 
-   .. code-block:: bash
+    .. code-block:: bash
 
       input='
       {
@@ -305,6 +308,7 @@ environment variables set:
         -H 'Content-Type: application/json' \
         -u token:$DATABRICKS_TOKEN \
         -d @-
+
 
     where ``article`` and ``question`` are replaced with the input variable(s) from your
     prompt template.
