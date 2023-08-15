@@ -1,7 +1,7 @@
 from typing import List, Union, Optional
 
-from ..base_models import RequestModel, ResponseModel
-from ..config import RouteType
+from mlflow.gateway.base_models import RequestModel, ResponseModel
+from mlflow.gateway.config import RouteType
 
 
 class RequestPayload(RequestModel):

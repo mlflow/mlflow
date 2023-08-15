@@ -1,10 +1,10 @@
 from mlflow.exceptions import MlflowException
-from .base import BaseProvider
-from .openai import OpenAIProvider
-from .anthropic import AnthropicProvider
-from .cohere import CohereProvider
-from .mlflow import MlflowModelServingProvider
-from ..config import Provider
+from mlflow.gateway.providers.base import BaseProvider
+from mlflow.gateway.providers.openai import OpenAIProvider
+from mlflow.gateway.providers.anthropic import AnthropicProvider
+from mlflow.gateway.providers.cohere import CohereProvider
+from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
+from mlflow.gateway.config import Provider
 
 
 def get_provider(provider: Provider) -> BaseProvider:

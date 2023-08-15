@@ -2,7 +2,7 @@ import astroid
 from pylint.interfaces import IAstroidChecker
 from pylint.checkers import BaseChecker
 
-from .errors import UNITTEST_PYTEST_RAISES, to_msgs
+from pylint_plugins.errors import UNITTEST_PYTEST_RAISES, to_msgs
 
 
 def _is_unittest_assert_raises(node: astroid.Call):

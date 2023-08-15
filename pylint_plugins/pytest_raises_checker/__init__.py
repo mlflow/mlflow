@@ -2,7 +2,7 @@ import astroid
 from pylint.interfaces import IAstroidChecker
 from pylint.checkers import BaseChecker
 
-from ..errors import PYTEST_RAISES_WITHOUT_MATCH, to_msgs
+from pylint_plugins.errors import PYTEST_RAISES_WITHOUT_MATCH, to_msgs
 
 
 def _is_pytest_raises_call(node: astroid.NodeNG):
