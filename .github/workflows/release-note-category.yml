@@ -25,7 +25,7 @@ defaults:
 
 jobs:
   validate-labeled:
-    if: github.event.pull_request.draft == false || github.event.action == 'closed'
+    if: github.event.pull_request.draft == false && github.event.action != 'closed'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
