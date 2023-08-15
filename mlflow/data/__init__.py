@@ -1,7 +1,7 @@
 import sys
 from typing import Union
 
-from . import sources as mlflow_data_sources
+from mlflow.data import sources as mlflow_data_sources
 from mlflow.data import dataset_registry
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource

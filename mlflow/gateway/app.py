@@ -3,7 +3,6 @@ from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.openapi.docs import get_swagger_ui_html
 from pydantic import BaseModel
 import logging
-import os
 from pathlib import Path
 from typing import Any, Optional, Dict, Union, List
 
@@ -26,10 +25,9 @@ from mlflow.gateway.config import (
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.utils import SearchRoutesToken
+from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 
 _logger = logging.getLogger(__name__)
-
-MLFLOW_GATEWAY_CONFIG = "MLFLOW_GATEWAY_CONFIG"
 
 
 class GatewayAPI(FastAPI):
@@ -223,7 +221,7 @@ def create_app_from_env() -> GatewayAPI:
     """
     Load the path from the environment variable and generate the GatewayAPI app instance.
     """
-    if config_path := os.getenv(MLFLOW_GATEWAY_CONFIG):
+    if config_path := MLFLOW_GATEWAY_CONFIG.get():
         return create_app_from_path(config_path)
 
     raise MlflowException(

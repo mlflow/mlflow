@@ -496,7 +496,7 @@ class Model:
     def from_dict(cls, model_dict):
         """Load a model from its YAML representation."""
 
-        from .signature import ModelSignature
+        from mlflow.models.signature import ModelSignature
 
         model_dict = model_dict.copy()
         if "signature" in model_dict and isinstance(model_dict["signature"], dict):

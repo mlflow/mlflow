@@ -700,7 +700,7 @@ class DefaultEvaluator(ModelEvaluator):
             if algorithm:
                 if algorithm == "kernel":
                     # We need to lazily import shap, so lazily import `_PatchedKernelExplainer`
-                    from ._shap_patch import _PatchedKernelExplainer
+                    from mlflow.models.evaluation._shap_patch import _PatchedKernelExplainer
 
                     kernel_link = self.evaluator_config.get(
                         "explainability_kernel_link", "identity"

@@ -26,6 +26,7 @@ select = [
   "PT012",
   "PT013",
   "PT018",
+  "PT022",
   "PT023",
   "PT026",
   "RUF010",
@@ -39,6 +40,7 @@ select = [
   "UP032",
   "UP034",
   "T20",
+  "TID252",
 ]
 force-exclude = true
 ignore = [
@@ -68,3 +70,6 @@ extend-exclude = [
 [tool.ruff.flake8-pytest-style]
 mark-parentheses = false
 fixture-parentheses = false
+
+[tool.ruff.flake8-tidy-imports]
+ban-relative-imports = "all"

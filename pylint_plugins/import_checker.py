@@ -3,7 +3,7 @@ from pylint.interfaces import IAstroidChecker
 from pylint.checkers import BaseChecker
 from pylint.lint import PyLinter
 
-from .errors import LAZY_BUILTIN_IMPORT, to_msgs
+from pylint_plugins.errors import LAZY_BUILTIN_IMPORT, to_msgs
 
 # https://github.com/PyCQA/isort/blob/b818cec889657cb786beafe94a6641f8fc0f0e64/isort/stdlibs/py311.py
 BUILTIN_MODULES = {

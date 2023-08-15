@@ -3,8 +3,8 @@ from typing import List, Optional
 
 from pydantic import Field, Extra
 
-from ..base_models import RequestModel, ResponseModel
-from ..config import RouteType
+from mlflow.gateway.base_models import RequestModel, ResponseModel
+from mlflow.gateway.config import RouteType
 
 
 class RequestMessage(RequestModel):
