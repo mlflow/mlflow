@@ -49,7 +49,7 @@ Step 2: Create or find an MLflow Experiment
 -------------------------------------------
 Next, locate an existing MLflow Experiment by accessing the **Experiments** page from the Databricks
 Workspace sidebar and opening the experiment of your choosing. Alternatively, you can create a new
-blank experiment by selecting *Create Blank Experiment* from the Experiments page.
+blank experiment by selecting *Create Blank Experiment* from the **Experiments** page.
 
 .. figure:: ../_static/images/experiments_tab.png
 .. figure:: ../_static/images/new_experiment.png
@@ -75,8 +75,8 @@ for generating product advertisements.
 
 MLflow will embed the specified *stock_type* input
 variable value - ``"books"`` - into the specfied *prompt  template* and send it to the LLM
-associated with the AI Gateway route with the specified *temperature* (currently ``0.01``)
-and *max_tokens* (currently empty) values. The LLM response will appear in the *Output* section.
+associated with the AI Gateway route with the configured *temperature* (currently ``0.01``)
+and *max_tokens* (currently empty). The LLM response will appear in the *Output* section.
 
 .. figure:: ../_static/images/prompt_modal_2.png
 
@@ -115,8 +115,8 @@ create a new Run with the prompt template, parameters, and choice of LLM stored 
 It will also automatically create an MLflow Model with this information that can be used for batch
 or real-time inference.
 
-After your Run is created, MLflow will open the **Evaluation** tab where you can see your last
-inputs / output and try out additional inputs.
+After your Run is created, MLflow will open the **Evaluation** tab where you can see your latest
+playground input & output and try out additional inputs.
 
 .. figure:: ../_static/images/eval_view_1.png
 
@@ -147,17 +147,16 @@ Step 8: Adjust your prompt template and create a new Run
 As you try additional inputs, you might discover scenarios where your choice of LLM, prompt
 template, and parameters doesn't perform as well as you would like. For example, in the
 Databricks MLflow documentation use case, the LLM still attempts to answer irrelevant
-questions even if the answer does not appear in the specified article.
+questions about Databricks clusters even if the answer does not appear in the specified article.
 
-To improve performance, create a new Run with an adjusted prompt template (or choice of LLM
-and parameters) by selecting the *Duplicate run* option from the context menu. Then,
-from the prompt engineering playground, adjust the prompt template, evaluate an input, and click
-the *Create Run* button to create a new Run.
+To improve performance, create a new Run by selecting the *Duplicate run* option from the context
+menu. Then, from the prompt engineering playground, adjust the prompt template (and / or choice of
+LLM and parameters), evaluate an input, and click the *Create Run* button to create a new Run.
 
 For example, in the Databricks MLflow documentation use case, adding the following text to the
 prompt template helps improve robustness to irrelevant questions:
 
-*If the question does not relate to the blog post, respond exactly with the phrase*
+*If the question does not relate to the article, respond exactly with the phrase*
 *"I do not know how to answer that question." Do not include any additional text in your response.*
 
 
