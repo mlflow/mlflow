@@ -13,6 +13,8 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
 from mlflow.sklearn.sklearn import (
     _SklearnTrainingSession,
     _SklearnModelWrapper,
+    FLAVOR_NAME,
+    SERIALIZATION_FORMAT_PICKLE,
     get_default_pip_requirements,
     get_default_conda_env,
     save_model,
@@ -24,6 +26,8 @@ from mlflow.sklearn.sklearn import (
 __all__ = [
     "_SklearnTrainingSession",
     "_SklearnModelWrapper",
+    "FLAVOR_NAME",
+    "SERIALIZATION_FORMAT_PICKLE",
     "get_default_pip_requirements",
     "get_default_conda_env",
     "save_model",
