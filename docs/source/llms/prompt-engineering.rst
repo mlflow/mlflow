@@ -91,7 +91,7 @@ to instruct the LLM to answer questions about the Databricks MLflow documentatio
 backticks. Then, answer the question about the documentation that appears between triple quotes.
 Include relevant links and code examples in your answer.*
 
-*``{{article}}``*
+*```{{article}}```*
 
 *"""*
 *{{question}}*
