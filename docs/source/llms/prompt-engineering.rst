@@ -40,7 +40,7 @@ The following guide will get you started with MLflow's UI for prompt engineering
 Step 1: Create an AI Gateway Completions Route
 ----------------------------------------------
 To use the prompt engineering UI, you need to create one or more :ref:`AI Gateway <gateway>`
-completions :ref:`Route <routes>`. Follow the
+completions :ref:`Routes <routes>`. Follow the
 :ref:`AI Gateway Quickstart guide <gateway-quickstart>` to easily create a Route in less than five
 minutes. If you already have access to an AI Gateway Route of type ``llm/v1/completions``, you can
 skip this step.
