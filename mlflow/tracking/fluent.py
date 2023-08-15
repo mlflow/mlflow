@@ -73,15 +73,17 @@ if TYPE_CHECKING:
 
 
 class DefaultSetContextVar:
-    def __init__(self, contextvar, default: Callable):
-        self.contextvar = contextvar
+    def __init__(self, name: str, default: Callable):
+        self.contextvar = contextvars.ContextVar(name)
         self.default = default
 
     def get(self):
         try:
             return self.contextvar.get()
-        except LookupError:
-            if self.default is not None:
+        except LookupError as e:
+            if self.default is None:
+                raise e
+            else:
                 self.set(self.default())
         return self.contextvar.get()
 
@@ -89,9 +91,11 @@ class DefaultSetContextVar:
         self.contextvar.set(value)
 
 
-_active_run_stack = DefaultSetContextVar(
-    contextvars.ContextVar("_active_run_stack"), default=lambda: []
-)
+# fluent tracking APIs must be implemented in thread-safe way, so that if you want to add a new
+# global variable that is used and mutated by fluent tracking API implementation, please wrap it
+# with contextvars.ContextVar or DefaultSetContextVar
+
+_active_run_stack = DefaultSetContextVar("_active_run_stack", default=lambda: [])
 _active_experiment_id = contextvars.ContextVar("_active_experiment_id", default=None)
 _last_active_run_id = contextvars.ContextVar("_last_active_run_id", default=None)
 
