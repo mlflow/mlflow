@@ -1346,3 +1346,28 @@ def test_active_experiment_thread_safety():
                 order_by=["creation_time ASC"], filter_string="name != 'Default'"
             )
         ]
+
+
+def test_last_active_run_thread_safety():
+    mlflow.search_experiments()  # Initialize database
+
+    def run(worker: int):
+        if worker == 1:
+            time.sleep(1)
+
+        assert mlflow.last_active_run() is None
+        with mlflow.start_run() as run:
+            run_id = run.info.run_id
+            assert mlflow.last_active_run().info.run_id == run_id
+            time.sleep(2)
+            assert mlflow.last_active_run().info.run_id == run_id
+
+        assert mlflow.last_active_run().info.run_id == run_id
+        return run_id
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        run_ids = list(executor.map(run, range(2)))
+        assert run_ids == [
+            r.info.run_id
+            for r in mlflow.search_runs(output_format="list", order_by=["start_time ASC"])
+        ]
