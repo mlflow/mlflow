@@ -24,7 +24,7 @@ jobs:
   validate-labeled:
     if: github.event.pull_request.draft == false && github.event.action == 'closed'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v3
         with:
@@ -41,7 +41,7 @@ jobs:
   post-merge:
     if: github.event.action == 'closed' && github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
       - name: post-merge
         uses: actions/github-script@v6
