@@ -23,7 +23,7 @@ pytestmark = pytest.mark.notrackingurimock
 def store(tmp_sqlite_uri):
     store = SqlAlchemyStore()
     store.init_db(tmp_sqlite_uri)
-    yield store
+    return store
 
 
 def _user_maker(store, username, password, is_admin=False):
