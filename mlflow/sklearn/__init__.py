@@ -13,6 +13,7 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
 from mlflow.sklearn.sklearn import (
     _SklearnTrainingSession,
     _SklearnModelWrapper,
+    _load_pyfunc,
     FLAVOR_NAME,
     SERIALIZATION_FORMAT_PICKLE,
     SERIALIZATION_FORMAT_CLOUDPICKLE,
@@ -27,6 +28,7 @@ from mlflow.sklearn.sklearn import (
 __all__ = [
     "_SklearnTrainingSession",
     "_SklearnModelWrapper",
+    "_load_pyfunc",
     "FLAVOR_NAME",
     "SERIALIZATION_FORMAT_PICKLE",
     "SERIALIZATION_FORMAT_CLOUDPICKLE",
