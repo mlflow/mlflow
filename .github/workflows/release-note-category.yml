@@ -21,8 +21,8 @@ defaults:
     shell: bash --noprofile --norc -exo pipefail {0}
 
 jobs:
-  main:
-    if: github.event.pull_request.draft == false
+  validate-labeled:
+    if: github.event.pull_request.draft == false && github.event.action == 'closed'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -31,7 +31,6 @@ jobs:
           submodules: recursive
       - name: validate-labeled
         uses: actions/github-script@v6
-        if: ${{ github.event.action != 'closed' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -39,9 +38,13 @@ jobs:
             const script = require("./.github/workflows/release-note-category.js");
             await script({ core, context, github });
 
+  post-merge:
+    if: github.event.action == 'closed' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
       - name: post-merge
         uses: actions/github-script@v6
-        if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
