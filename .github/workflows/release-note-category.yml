@@ -52,4 +52,4 @@ jobs:
           script: |
             // https://github.com/actions/github-script#run-a-separate-file
             const script = require("./.github/workflows/release-note-category.js");
-            await script.postMerge({ core, context, github });
+            await script.postMerge({ context, github });
