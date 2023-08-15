@@ -8,18 +8,16 @@ import yaml
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import process
 from mlflow.utils.environment import Environment
-from mlflow.environment_variables import MLFLOW_CONDA_CREATE_ENV_CMD
-
-# Environment variable indicating a path to a conda installation. MLflow will default to running
-# "conda" if unset
-MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
+from mlflow.environment_variables import MLFLOW_CONDA_HOME, MLFLOW_CONDA_CREATE_ENV_CMD
 
 _logger = logging.getLogger(__name__)
+
+CONDA_EXE = "CONDA_EXE"
 
 
 def get_conda_command(conda_env_name):
     #  Checking for newer conda versions
-    if os.name != "nt" and ("CONDA_EXE" in os.environ or "MLFLOW_CONDA_HOME" in os.environ):
+    if os.name != "nt" and (CONDA_EXE in os.environ or MLFLOW_CONDA_HOME.defined):
         conda_path = get_conda_bin_executable("conda")
         activate_conda_env = [f"source {os.path.dirname(conda_path)}/../etc/profile.d/conda.sh"]
         activate_conda_env += [f"conda activate {conda_env_name} 1>&2"]
@@ -44,12 +42,11 @@ def get_conda_bin_executable(executable_name):
     ``mlflow.projects.MLFLOW_CONDA_HOME`` is unspecified, this method simply returns the passed-in
     executable name.
     """
-    conda_home = os.environ.get(MLFLOW_CONDA_HOME)
-    if conda_home:
+    if conda_home := MLFLOW_CONDA_HOME.get():
         return os.path.join(conda_home, f"bin/{executable_name}")
     # Use CONDA_EXE as per https://github.com/conda/conda/issues/7126
-    if "CONDA_EXE" in os.environ:
-        conda_bin_dir = os.path.dirname(os.environ["CONDA_EXE"])
+    if conda_exe := os.getenv(CONDA_EXE):
+        conda_bin_dir = os.path.dirname(conda_exe)
         return os.path.join(conda_bin_dir, executable_name)
     return executable_name
 
