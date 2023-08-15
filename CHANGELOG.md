@@ -7,8 +7,8 @@ MLflow 2.6.0 includes several major features and improvements
 Features:
 
 - [Models / Scoring] Add support for passing extra params during inference for PyFunc models (#9068, @serena-ruan)
-- [Tracking] Support `save_kwargs` for `mlflow.log_figure` to specify extra options when saving a figure (#9179, @stroblme)
 - [Gateway] Add support for MLflow serving to MLflow AI Gateway (#9199, @BenWilson2)
+- [Tracking] Support `save_kwargs` for `mlflow.log_figure` to specify extra options when saving a figure (#9179, @stroblme)
 - [Artifacts] Display progress bars when uploading/download artifacts (#9195, @serena-ruan)
 - [Models] Add support for logging LangChain's retriever models (#8808, @liangz1)
 - [Tracking] Add support to log customized tags to runs created by autologging (#9114, @thinkall)
