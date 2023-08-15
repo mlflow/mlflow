@@ -10,8 +10,9 @@ body:
       label: Summary
       description: |
         A summary of the issue.
-  - type: markdown
+  - type: textarea
     attributes:
+      label: Notes
       value: |
         ## Notes
 
@@ -20,7 +21,7 @@ body:
 
           ```sh
           git commit -s -m "<message>"
-                   # ^^ make sure to add this
+                   # ^^ make sure to use this
           ```
 
-        - Include `#<id_of_this_issue>` in the PR description when opening a PR.
+        - Include `#<id_of_this_issue>` (e.g. `#123`) in the PR description when opening a PR.
