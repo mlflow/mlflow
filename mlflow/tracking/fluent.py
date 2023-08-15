@@ -80,11 +80,8 @@ class DefaultSetContextVar:
     def get(self):
         try:
             return self.contextvar.get()
-        except LookupError as e:
-            if self.default is None:
-                raise e
-            else:
-                self.set(self.default())
+        except LookupError:
+            self.set(self.default())
         return self.contextvar.get()
 
     def set(self, value):
