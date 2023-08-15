@@ -307,12 +307,21 @@ class MlflowGatewayClient:
 
         query_route = assemble_uri_path([MLFLOW_GATEWAY_ROUTE_BASE, route, MLFLOW_QUERY_SUFFIX])
 
+        def strip_sse_prefix(s: str):
+            import re
+
+            return re.sub(r"^data:\s+", "", s)
+
         try:
             resp = self._call_endpoint("POST", query_route, data, stream=stream)
             print("Request headers:", resp.request.headers)
             print("Response headers:", resp.headers)
             return (
-                (json.loads(chunk) for chunk in resp.iter_lines(decode_unicode=True) if chunk)
+                (
+                    json.loads(strip_sse_prefix(chunk))
+                    for chunk in resp.iter_lines(decode_unicode=True)
+                    if chunk
+                )
                 if stream
                 else resp.json()
             )

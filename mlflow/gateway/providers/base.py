@@ -20,7 +20,7 @@ class BaseProvider(ABC):
 
     async def chat_stream(
         self, payload: chat.RequestPayload
-    ) -> AsyncIterable[chat.ResponsePayload]:
+    ) -> AsyncIterable[chat.StreamResponsePayload]:
         raise NotImplementedError
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:

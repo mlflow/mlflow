@@ -83,7 +83,7 @@ class OpenAIProvider(BaseProvider):
 
     async def chat_stream(
         self, payload: chat.RequestPayload
-    ) -> AsyncIterable[chat.ResponsePayload]:
+    ) -> AsyncIterable[chat.StreamResponsePayload]:
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         if "n" in payload:

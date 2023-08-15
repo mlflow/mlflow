@@ -52,13 +52,20 @@ class GatewayAPI(FastAPI):
         return self.dynamic_routes.get(route_name)
 
 
+def _to_sse_chunk(data: str) -> str:
+    # https://html.spec.whatwg.org/multipage/server-sent-events.html
+    return f"data: {data}\n\n"
+
+
 def _create_chat_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
-    async def _chat(payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(
+        payload: chat.RequestPayload,
+    ) -> Union[chat.ResponsePayload, chat.StreamResponsePayload]:
         if payload.stream:
             return StreamingResponse(
-                (x.json() + "\n" async for x in prov.chat_stream(payload)),
+                (_to_sse_chunk(d.json()) async for d in prov.chat_stream(payload)),
                 media_type="text/event-stream",
             )
         else:
