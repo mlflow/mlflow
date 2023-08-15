@@ -30,8 +30,6 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v3
-        with:
-          submodules: recursive
       - name: validate-labeled
         uses: actions/github-script@v6
         with:
@@ -39,13 +37,14 @@ jobs:
           script: |
             // https://github.com/actions/github-script#run-a-separate-file
             const script = require("./.github/workflows/release-note-category.js");
-            await script({ core, context, github });
+            await script.validateLabeled({ core, context, github });
 
   post-merge:
     if: github.event.action == 'closed' && github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v3
       - name: post-merge
         uses: actions/github-script@v6
         with:
