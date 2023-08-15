@@ -126,7 +126,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.2.4",
-            "maximum": "3.6.0"
+            "maximum": "3.6.1"
         }
     },
     "statsmodels": {
@@ -215,7 +215,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.4.1",
-            "maximum": "2.5.0"
+            "maximum": "2.5.1"
         }
     },
     "transformers": {
@@ -246,7 +246,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.0.244",
-            "maximum": "0.0.244"
+            "maximum": "0.0.264"
         }
     },
     "sentence_transformers": {
@@ -264,7 +264,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.4.6",
-            "maximum": "5.0.0"
+            "maximum": "5.0.1"
         }
     }
 }
