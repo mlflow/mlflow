@@ -1224,7 +1224,7 @@ def large_file(tmp_path, mock_chunk_size):
     with path.open("a") as f:
         f.write("a" * mock_chunk_size)
         f.write("b" * mock_chunk_size)
-    yield path
+    return path
 
 
 def extract_part_number(url):

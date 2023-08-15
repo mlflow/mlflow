@@ -104,7 +104,7 @@ def validate_model(original_model, new_model):
 
 @pytest.fixture
 def jsl_model(load_and_init_model):
-    yield load_and_init_model
+    return load_and_init_model
 
 
 @pytest.fixture

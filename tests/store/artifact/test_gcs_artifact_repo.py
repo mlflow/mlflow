@@ -14,7 +14,7 @@ from tests.helper_functions import mock_method_chain
 
 @pytest.fixture
 def mock_client():
-    yield mock.MagicMock(autospec=gcs_client.Client)
+    return mock.MagicMock(autospec=gcs_client.Client)
 
 
 def test_artifact_uri_factory():
