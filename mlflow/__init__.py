@@ -28,6 +28,7 @@ implement mutual exclusion manually.
 For a lower level API, see the :py:mod:`mlflow.client` module.
 """
 import contextlib
+import pkg_resources
 from mlflow.version import VERSION as __version__  # noqa: F401
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
@@ -241,9 +242,22 @@ __all__ = [
     "MlflowException",
 ] + _model_flavors_supported
 
+
+def should_import_gateway():
+    # AI Gateway is not compatible with pydantic>=2.0.0 and will raise validation warnings for
+    # pydantic class definitions that are defined within mlflow.gateway.config.
+    # Remove this function from the ImportError check below when FastAPI and pydantic have been
+    # updated to support the pydantic 2.x features.
+    with contextlib.suppress(pkg_resources.DistributionNotFound):
+        pydantic_version = pkg_resources.get_distribution("pydantic").version
+        if pkg_resources.parse_version(pydantic_version) < pkg_resources.parse_version("2.0.0"):
+            return True
+
+
 # `mlflow.gateway` depends on optional dependencies such as pydantic.
 # Importing this module fails if they are not installed.
-with contextlib.suppress(ImportError):
-    from mlflow import gateway  # noqa: F401
+if should_import_gateway():
+    with contextlib.suppress(ImportError):
+        from mlflow import gateway  # noqa: F401
 
-    __all__.append("gateway")
+        __all__.append("gateway")
