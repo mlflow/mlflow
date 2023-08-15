@@ -90,9 +90,6 @@ and *max_tokens* (currently empty). The LLM response will appear in the *Output*
    :scale: 25%
    :align: center
 
-   The prompt engineering playground enables you to try out multiple LLMs, prompt templates,
-   parameter configurations, and example inputs. Click the image to expand.
-
 
 Step 5: Try a prompt of your choosing
 -------------------------------------
@@ -122,9 +119,6 @@ value of *temperature* to observe how the LLM's output changes.
    :scale: 25%
    :align: center
 
-   The prompt engineering playground enables you to try out multiple LLMs, prompt templates,
-   parameter configurations, and example inputs. Click the image to expand.
-
 Step 6: Capture your choice of LLM, prompt template, and parameters as an MLflow Run
 ------------------------------------------------------------------------------------
 Once you're satisfied with your chosen prompt template and parameters, click the **Create Run**
@@ -139,9 +133,6 @@ or real-time inference.
        :scale: 25%
        :align: center
 
-       Every Run contains the prompt template, choice of LLM, parameters, and more. An MLflow Model
-       is also logged. Click the image to expand.
-
 2. You can also see the parameters and compare them with other configurations by opening the **Table**
    view tab:
 
@@ -149,18 +140,12 @@ or real-time inference.
        :scale: 25%
        :align: center
 
-       The prompt template, choice of LLM, and parameters is also displayed in the Table view,
-       where you can compare multiple configurations. Click the image to expand.
-
 3. After your Run is created, MLflow will open the **Evaluation** tab where you can see your latest
    playground input & output and try out additional inputs:
 
     .. figure:: ../_static/images/eval_view_1.png
        :scale: 25%
        :align: center
-
-       The Evaluation view displays inputs and outputs across multiple configurations. You can add
-       and evaluate additional inputs. Click the image to expand.
 
 
 Step 7: Try new inputs
@@ -226,15 +211,15 @@ configurations.
 1. From the **Evaluation** tab, click the **Evaluate all** button next to the new Run to evaluate
    all of the previous inputs.
 
-.. figure:: ../_static/images/evaluate_all.png
-   :scale: 30%
-   :align: center
+   .. figure:: ../_static/images/evaluate_all.png
+      :scale: 30%
+      :align: center
 
 2. Click the **Save** button to store the results.
 
-.. figure:: ../_static/images/evaluate_all_results.png
-   :scale: 30%
-   :align: center
+   .. figure:: ../_static/images/evaluate_all_results.png
+      :scale: 30%
+      :align: center
 
 .. _quickstart-score:
 
@@ -244,52 +229,52 @@ Once you have found a configuration of LLM, prompt template, and parameters that
 can score the corresponding MLflow Model in a notebook or
 :ref:`deploy it to Databricks Model Serving <deploy-prompt-serving>`.
 
-To load the MLflow Model in a notebook for batch inference, click on the Run's name to open the
-**Run Page** and select the *model* directory in the **Artifact Viewer**. Then, copy the first few
-lines of code from the *Predict on a Pandas DataFrame* section and run them in a Databricks
-Notebook. For example:
+1. To load the MLflow Model in a notebook for batch inference, click on the Run's name to open the
+   **Run Page** and select the *model* directory in the **Artifact Viewer**. Then, copy the first few
+   lines of code from the *Predict on a Pandas DataFrame* section and run them in a Databricks
+   Notebook. For example:
 
-.. figure:: ../_static/images/load_model.png
-   :scale: 30%
-   :align: center
+   .. figure:: ../_static/images/load_model.png
+      :scale: 30%
+      :align: center
 
-.. code-block:: python
+   .. code-block:: python
 
-    import mlflow
-    logged_model = 'runs:/8451075c46964f82b85fe16c3d2b7ea0/model'
+       import mlflow
+       logged_model = 'runs:/8451075c46964f82b85fe16c3d2b7ea0/model'
 
-    # Load model as a PyFuncModel.
-    loaded_model = mlflow.pyfunc.load_model(logged_model)
+       # Load model as a PyFuncModel.
+       loaded_model = mlflow.pyfunc.load_model(logged_model)
 
-Then, to score the model, call the :py:func:`predict() <mlflow.pyfunc.PyFuncModel.predict>` method
-and pass in a dictionary of input variables. For example:
+2. Then, to score the model, call the :py:func:`predict() <mlflow.pyfunc.PyFuncModel.predict>` method
+   and pass in a dictionary of input variables. For example:
 
-.. code-block:: python
+   .. code-block:: python
 
-    article_text = """
-    An MLflow Project is a format for packaging data science code in a reusable and reproducible way.
-    The MLflow Projects component includes an API and command-line tools for running projects, which
-    also integrate with the Tracking component to automatically record the parameters and git commit
-    of your source code for reproducibility.
+       article_text = """
+       An MLflow Project is a format for packaging data science code in a reusable and reproducible way.
+       The MLflow Projects component includes an API and command-line tools for running projects, which
+       also integrate with the Tracking component to automatically record the parameters and git commit
+       of your source code for reproducibility.
 
-    This article describes the format of an MLflow Project and how to run an MLflow project remotely
-    on Databricks clusters using the MLflow CLI, which makes it easy to vertically scale your data
-    science code.
-    """
-    question = "What is an MLflow project?"
+       This article describes the format of an MLflow Project and how to run an MLflow project remotely
+       on Databricks clusters using the MLflow CLI, which makes it easy to vertically scale your data
+       science code.
+       """
+       question = "What is an MLflow project?"
 
-    loaded_model.predict({
-        "article": article_text,
-        "question": question
-    })
+       loaded_model.predict({
+           "article": article_text,
+           "question": question
+       })
 
-.. figure:: ../_static/images/prompt_model_notebook_inference.png
-   :scale: 30%
-   :align: center
+   .. figure:: ../_static/images/prompt_model_notebook_inference.png
+      :scale: 30%
+      :align: center
 
-For more information about deployment to
-`Databricks Model Serving <https://docs.databricks.com/en/machine-learning/model-serving/index.html>`_,
-see the :ref:`instructions below <deploy-prompt-serving>`.
+   For more information about deployment to
+   `Databricks Model Serving <https://docs.databricks.com/en/machine-learning/model-serving/index.html>`_,
+   see the :ref:`instructions below <deploy-prompt-serving>`.
 
 .. _deploy-prompt-serving:
 
