@@ -10,6 +10,8 @@ on:
       - reopened
       - labeled
       - unlabeled
+  pull_request_target:
+    types:
       - closed
 
 concurrency:
