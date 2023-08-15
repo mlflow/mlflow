@@ -2,11 +2,11 @@
 The ``mlflow.mleap`` module provides an API for saving Spark MLLib models using the
 `MLeap <https://github.com/combust/mleap>`_ persistence mechanism.
 
-WARNING:
+.. warning:
 
     The mleap flavor is deprecated and will be removed in a future release of MLflow.
 
-NOTE:
+.. note:
 
     You cannot load the MLeap model flavor in Python; you must download it using the
     Java API method ``downloadArtifacts(String runId)`` and load the model
