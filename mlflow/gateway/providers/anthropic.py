@@ -1,14 +1,14 @@
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
-from .base import BaseProvider
-from .utils import send_request, rename_payload_keys
-from ..config import AnthropicConfig, RouteConfig
-from ..constants import (
+from mlflow.gateway.providers.base import BaseProvider
+from mlflow.gateway.providers.utils import send_request, rename_payload_keys
+from mlflow.gateway.config import AnthropicConfig, RouteConfig
+from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
     MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
 )
-from ..schemas import completions, chat, embeddings
+from mlflow.gateway.schemas import completions, chat, embeddings
 
 
 class AnthropicProvider(BaseProvider):

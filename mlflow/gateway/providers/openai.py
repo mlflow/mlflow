@@ -4,10 +4,10 @@ from fastapi.encoders import jsonable_encoder
 from mlflow.exceptions import MlflowException
 from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
-from .base import BaseProvider
-from .utils import send_request, rename_payload_keys
-from ..schemas import chat, completions, embeddings
-from ..config import OpenAIConfig, OpenAIAPIType, RouteConfig
+from mlflow.gateway.providers.base import BaseProvider
+from mlflow.gateway.providers.utils import send_request, rename_payload_keys
+from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.config import OpenAIConfig, OpenAIAPIType, RouteConfig
 
 
 class OpenAIProvider(BaseProvider):
