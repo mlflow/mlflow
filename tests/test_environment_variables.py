@@ -67,7 +67,7 @@ def test_environment_variable_functionality(
     env_var = _EnvironmentVariable(var_name, var_type, default_value)
 
     # Test if variable is defined
-    assert env_var.is_defined == (var_value is not None)
+    assert env_var.defined == (var_value is not None)
 
     # Test getting raw value
     assert env_var.get_raw() == expected_raw

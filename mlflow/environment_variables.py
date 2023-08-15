@@ -16,7 +16,7 @@ class _EnvironmentVariable:
         self.default = default
 
     @property
-    def is_defined(self):
+    def defined(self):
         return self.name in os.environ
 
     def get_raw(self):
@@ -63,7 +63,7 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
         super().__init__(name, bool, default)
 
     def get(self):
-        if not self.is_defined:
+        if not self.define:
             return self.default
 
         val = os.getenv(self.name)
@@ -370,10 +370,9 @@ MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR", True
 )
 
-# Environment variable indicating a path to a conda installation. MLflow will default to running
-# "conda" if unset
-MLFLOW_CONDA_HOME = _EnvironmentVariable("MLFLOW_CONDA_HOME", str, "conda")
-
+#: Specifies the conda home directory to use.
+#: (default: ``conda``)
+MLFLOW_CONDA_HOME = _EnvironmentVariable("MLFLOW_CONDA_HOME", str, None)
 
 #: Specifies the name of the command to use when creating the environments.
 #: For example, let's say we want to use mamba (https://github.com/mamba-org/mamba)
