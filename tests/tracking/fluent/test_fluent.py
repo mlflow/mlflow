@@ -1325,3 +1325,24 @@ def test_active_run_thread_safety():
             r.info.run_id
             for r in mlflow.search_runs(output_format="list", order_by=["start_time ASC"])
         ]
+
+
+def test_active_experiment_thread_safety():
+    def run(worker: int):
+        if worker == 1:
+            time.sleep(1)
+
+        experiment_name = uuid.uuid4().hex
+        experiment = mlflow.set_experiment(experiment_name)
+        time.sleep(2)
+        assert mlflow.tracking.fluent._get_experiment_id() == experiment.experiment_id
+        return experiment_name
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        experiment_names = list(executor.map(run, range(2)))
+        assert experiment_names == [
+            exp.name
+            for exp in mlflow.search_experiments(
+                order_by=["creation_time ASC"], filter_string="name != 'Default'"
+            )
+        ]
