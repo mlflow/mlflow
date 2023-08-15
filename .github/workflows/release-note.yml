@@ -1,6 +1,6 @@
 # A workflow to validate at least one release-note category is selected
 
-name: Release-note category
+name: release-note
 
 on:
   pull_request:
@@ -36,7 +36,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             // https://github.com/actions/github-script#run-a-separate-file
-            const script = require("./.github/workflows/release-note-category.js");
+            const script = require("./.github/workflows/release-note.js");
             await script.validateLabeled({ core, context, github });
 
   post-merge:
@@ -51,5 +51,5 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             // https://github.com/actions/github-script#run-a-separate-file
-            const script = require("./.github/workflows/release-note-category.js");
+            const script = require("./.github/workflows/release-note.js");
             await script.postMerge({ context, github });
