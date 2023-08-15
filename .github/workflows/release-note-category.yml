@@ -10,6 +10,10 @@ on:
       - reopened
       - labeled
       - unlabeled
+  # post-merge job requires write access to add a label and post a comment.
+  pull_request_target:
+    types:
+      - closed
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
@@ -20,21 +24,33 @@ defaults:
     shell: bash --noprofile --norc -exo pipefail {0}
 
 jobs:
-  validate:
-    if: github.event.pull_request.draft == false
+  validate-labeled:
+    if: github.event.pull_request.draft == false && github.event.action == 'closed'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: Validate
+      - name: validate-labeled
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             // https://github.com/actions/github-script#run-a-separate-file
-            const script = require(
-              `${process.env.GITHUB_WORKSPACE}/.github/workflows/release-note-category.js`
-            );
-            script({ core, context, github });
+            const script = require("./.github/workflows/release-note-category.js");
+            await script({ core, context, github });
+
+  post-merge:
+    if: github.event.action == 'closed' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: post-merge
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // https://github.com/actions/github-script#run-a-separate-file
+            const script = require("./.github/workflows/release-note-category.js");
+            await script.postMerge({ core, context, github });
