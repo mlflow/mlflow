@@ -135,7 +135,7 @@ class OpenAIProvider(BaseProvider):
             # ------
             print(data)
             await asyncio.sleep(0.1)
-            yield chat.ResponsePayload(
+            yield chat.StreamResponsePayload(
                 **{
                     "candidates": [
                         {

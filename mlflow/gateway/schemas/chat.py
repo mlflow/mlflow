@@ -107,5 +107,5 @@ class ResponsePayload(ResponseModel):
 
 
 class StreamResponsePayload(ResponseModel):
-    candidates: List[StreamResponseMessage]
+    candidates: List[StreamCandidate]
     metadata: Metadata

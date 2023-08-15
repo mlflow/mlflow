@@ -37,6 +37,7 @@ async def send_request_stream(
         url = append_to_uri_path(base_url, path)
         timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
         async with session.post(url, json=payload, timeout=timeout) as resp:
+            print("Request URL:", resp.request_info.url)
             print("Request headers: ", resp.request_info.headers)
             print("Response headers:", resp.headers)
             async for line in resp.content:

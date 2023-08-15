@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import RedirectResponse, FileResponse, StreamingResponse
+from fastapi.responses import RedirectResponse, FileResponse, StreamingResponse, HTMLResponse
 from fastapi.openapi.docs import get_swagger_ui_html
 from pydantic import BaseModel
 import logging
@@ -171,6 +171,49 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     @app.get("/", include_in_schema=False)
     async def index():
         return RedirectResponse(url="/docs")
+
+    @app.get("/stream")
+    async def stream():
+        return HTMLResponse(
+            """
+<!DOCTYPE html>
+<head>
+<meta charset="utf-8">
+</head>
+<body>
+    <ul id="messageList"></ul>
+    <script>
+fetch("/gateway/chat/invocations", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+  },
+  body: JSON.stringify({
+    messages: [{ role: "user", content: "hello world" }],
+    stream: true,
+  }),
+}).then(res => {
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  const read = () => {
+    reader.read().then(({ done, value }) => {
+      if (done) return;
+      const message = decoder.decode(value);
+      const listItem = document.createElement("li");
+      listItem.textContent = message;
+      document.getElementById("messageList").appendChild(listItem);
+      read();
+    });
+  };
+  read();
+});
+    </script>
+</body>
+</html>
+"""
+        )
 
     @app.get("/favicon.ico", include_in_schema=False)
     async def favicon():
