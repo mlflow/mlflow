@@ -51,9 +51,15 @@ Next, locate an existing MLflow Experiment by accessing the **Experiments** page
 Workspace sidebar and opening the experiment of your choosing. Alternatively, you can create a new
 blank experiment by selecting *Create Blank Experiment* from the **Experiments** page.
 
-.. figure:: ../_static/images/experiments_tab.png
-.. figure:: ../_static/images/new_experiment.png
-   :width: 25%
+|experiments_tab| |new_experiment|
+
+.. |experiments_tab| image:: ../_static/images/experiments_tab.png
+   :width: 48%
+   :scale: 50%
+
+.. |new_experiment| image:: ../_static/images/new_experiment.png
+   :width: 48%
+   :scale: 50%
 
 Step 3: Create a run with prompt engineering
 --------------------------------------------
@@ -61,11 +67,13 @@ Once you have opened the Experiment, click the **New Run** button and select
 *using Prompt Engineering*. This will open the prompt engineering playground where you can try
 out different LLMs, parameters, and prompts.
 
-.. figure:: ../_static/images/new_run.png
-   :width: 30%
+|new_run| |prompt_modal_1|
 
-.. figure:: ../_static/images/prompt_modal_1.png
+.. |new_run| image:: ../_static/images/new_run.png
+   :width: 25%
 
+.. |prompt_modal_1| image:: ../_static/images/prompt_modal_1.png
+   :width: 70%
 
 Step 4: Select your Route and evaluate the example prompt
 ---------------------------------------------------------
@@ -79,6 +87,11 @@ associated with the AI Gateway route with the configured *temperature* (currentl
 and *max_tokens* (currently empty). The LLM response will appear in the *Output* section.
 
 .. figure:: ../_static/images/prompt_modal_2.png
+   :scale: 25%
+   :align: center
+
+   The prompt engineering playground enables you to try out multiple LLMs, prompt templates,
+   parameter configurations, and example inputs. Click the image to expand.
 
 
 Step 5: Try a prompt of your choosing
@@ -106,6 +119,11 @@ Finally, click the **Evaluate** button to see the new output. You can also try c
 value of *temperature* to observe how the LLM's output changes.
 
 .. figure:: ../_static/images/prompt_modal_3.png
+   :scale: 25%
+   :align: center
+
+   The prompt engineering playground enables you to try out multiple LLMs, prompt templates,
+   parameter configurations, and example inputs. Click the image to expand.
 
 Step 6: Capture your choice of LLM, prompt template, and parameters as an MLflow Run
 ------------------------------------------------------------------------------------
@@ -113,40 +131,66 @@ Once you're satisfied with your chosen prompt template and parameters, click the
 button to store this information, along with your choice of LLM, as an MLflow Run. This will
 create a new Run with the prompt template, parameters, and choice of LLM stored as Run params.
 It will also automatically create an MLflow Model with this information that can be used for batch
-or real-time inference. To view this information, click the Run name to open the **Run** page.
-You can also see the parameters and compare them with other configurations by opening the **Table**
-view tab.
+or real-time inference.
 
-.. figure:: ../_static/images/prompt_eng_run_page.png
+1. To view this information, click the Run name to open the **Run** page:
 
-.. figure:: ../_static/images/prompt_eng_table_view.png
+    .. figure:: ../_static/images/prompt_eng_run_page.png
+       :scale: 25%
+       :align: center
 
-After your Run is created, MLflow will open the **Evaluation** tab where you can see your latest
-playground input & output and try out additional inputs.
+       Every Run contains the prompt template, choice of LLM, parameters, and more. An MLflow Model
+       is also logged. Click the image to expand.
 
-.. figure:: ../_static/images/eval_view_1.png
+2. You can also see the parameters and compare them with other configurations by opening the **Table**
+   view tab:
+
+    .. figure:: ../_static/images/prompt_eng_table_view.png
+       :scale: 25%
+       :align: center
+
+       The prompt template, choice of LLM, and parameters is also displayed in the Table view,
+       where you can compare multiple configurations. Click the image to expand.
+
+3. After your Run is created, MLflow will open the **Evaluation** tab where you can see your latest
+   playground input & output and try out additional inputs:
+
+    .. figure:: ../_static/images/eval_view_1.png
+       :scale: 25%
+       :align: center
+
+       The Evaluation view displays inputs and outputs across multiple configurations. You can add
+       and evaluate additional inputs. Click the image to expand.
 
 
 Step 7: Try new inputs
 ----------------------
-To test the behavior of your chosen LLM, prompt template, and parameters on a new inputs, click the
-*Add Row* button and fill in a value(s) your prompt template's input variable(s). Then,
-click the **Evaluate** button to see the output. Finally, click the **Save** button to store the
-new inputs and output.
+To test the behavior of your chosen LLM, prompt template, and parameters on a new inputs:
 
-For example, in the Databricks MLflow documentation use case, you can try asking a question
-unrelated to MLflow to see how the LLM responds. This is important to ensure that the application
-is robust to irrelevant inputs.
+1. Click the *Add Row* button and fill in a value(s) your prompt template's input variable(s).
+   For example, in the Databricks MLflow documentation use case, you can try asking a question
+   unrelated to MLflow to see how the LLM responds. This is important to ensure that the application
+   is robust to irrelevant inputs.
 
-.. figure:: ../_static/images/add_row.png
-   :width: 20%
+    |add_row| |add_row_modal|
 
-.. figure:: ../_static/images/add_row_modal.png
-   :width: 50%
+    .. |add_row| image:: ../_static/images/add_row.png
+       :width: 10%
 
-.. figure:: ../_static/images/evaluate_new_input.png
+    .. |add_row_modal| image:: ../_static/images/add_row_modal.png
+       :width: 50%
 
-.. figure:: ../_static/images/save_new_input.png
+2. Then, click the **Evaluate** button to see the output.
+
+    .. figure:: ../_static/images/evaluate_new_input.png
+        :align: center
+        :scale: 30%
+
+3. Finally, click the **Save** button to store the new inputs and output.
+
+    .. figure:: ../_static/images/save_new_input.png
+        :align: center
+        :scale: 30%
 
 Step 8: Adjust your prompt template and create a new Run
 --------------------------------------------------------
@@ -155,21 +199,23 @@ template, and parameters doesn't perform as well as you would like. For example,
 Databricks MLflow documentation use case, the LLM still attempts to answer irrelevant
 questions about Databricks clusters even if the answer does not appear in the specified article.
 
-To improve performance, create a new Run by selecting the *Duplicate run* option from the context
-menu. Then, from the prompt engineering playground, adjust the prompt template (and / or choice of
-LLM and parameters), evaluate an input, and click the *Create Run* button to create a new Run.
+1. To improve performance, create a new Run by selecting the *Duplicate run* option from the context
+   menu. For example, in the Databricks MLflow documentation use case, adding the following text to
+   the prompt template helps improve robustness to irrelevant questions:
 
-For example, in the Databricks MLflow documentation use case, adding the following text to the
-prompt template helps improve robustness to irrelevant questions:
+    *If the question does not relate to the article, respond exactly with the phrase*
+    *"I do not know how to answer that question." Do not include any additional text in your response.*
 
-*If the question does not relate to the article, respond exactly with the phrase*
-*"I do not know how to answer that question." Do not include any additional text in your response.*
+    .. figure:: ../_static/images/duplicate_run.png
+       :scale: 25%
+       :align: center
 
+2. Then, from the prompt engineering playground, adjust the prompt template (and / or choice of
+   LLM and parameters), evaluate an input, and click the *Create Run* button to create a new Run.
 
-.. figure:: ../_static/images/duplicate_run.png
-   :width: 50%
-
-.. figure:: ../_static/images/prompt_modal_4.png
+    .. figure:: ../_static/images/prompt_modal_4.png
+           :scale: 30%
+           :align: center
 
 Step 9: Evalute the new prompt template on previous inputs
 ----------------------------------------------------------
@@ -177,13 +223,18 @@ Now that you've made an adjustment to your prompt template, it's important to ma
 the new template performs well on the previous inputs and compare the outputs with older
 configurations.
 
-From the **Evaluation** tab, click the **Evaluate all** button next to the new Run to evaluate
-all of the previous inputs, and click the **Save** button to store the results.
+1. From the **Evaluation** tab, click the **Evaluate all** button next to the new Run to evaluate
+   all of the previous inputs.
 
 .. figure:: ../_static/images/evaluate_all.png
-   :width: 30%
+   :scale: 30%
+   :align: center
+
+2. Click the **Save** button to store the results.
 
 .. figure:: ../_static/images/evaluate_all_results.png
+   :scale: 30%
+   :align: center
 
 .. _quickstart-score:
 
@@ -199,7 +250,8 @@ lines of code from the *Predict on a Pandas DataFrame* section and run them in a
 Notebook. For example:
 
 .. figure:: ../_static/images/load_model.png
-   :width: 80%
+   :scale: 30%
+   :align: center
 
 .. code-block:: python
 
@@ -232,6 +284,8 @@ and pass in a dictionary of input variables. For example:
     })
 
 .. figure:: ../_static/images/prompt_model_notebook_inference.png
+   :scale: 30%
+   :align: center
 
 For more information about deployment to
 `Databricks Model Serving <https://docs.databricks.com/en/machine-learning/model-serving/index.html>`_,

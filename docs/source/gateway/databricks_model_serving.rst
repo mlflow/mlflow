@@ -112,7 +112,7 @@ this, run the following code in your Databricks notebook:
             prompt_length = len(self.tokenizer.encode(prompt, return_tensors='pt')[0])
             generated_response = self.tokenizer.decode(output[0][prompt_length:], skip_special_tokens=True)
 
-            return generated_response
+            return {"candidates": [generated_response]}
 
 
 .. _compatible_signature_mpt7b:
@@ -183,7 +183,7 @@ this model using the following URI: ``models:/mpt-7b-instruct/1``.
 
 For more information about model logging, see :py:func:`mlflow.pyfunc.log_model`.
 
-Step 5: Create a Databricks Model Serving endpoint for MPT-7B-Instruct 
+Step 5: Create a Databricks Model Serving endpoint for MPT-7B-Instruct
 ----------------------------------------------------------------------
 Next, follow the instructions in
 https://docs.databricks.com/machine-learning/model-serving/create-manage-serving-endpoints.html
