@@ -6,6 +6,7 @@ import random
 import time
 import uuid
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from importlib import reload
 from itertools import zip_longest
 from unittest import mock
@@ -1304,3 +1305,23 @@ def test_get_parent_run():
     assert parent_run.data.params == {"a": "1"}
 
     assert mlflow.get_parent_run(run_id) is None
+
+
+def test_active_run_thread_safety():
+    mlflow.search_experiments()  # Initialize database
+
+    def run(worker: int):
+        if worker == 1:
+            time.sleep(1)
+
+        with mlflow.start_run() as run:
+            time.sleep(2)
+            assert mlflow.tracking.fluent.active_run().info.run_id == run.info.run_id
+            return run.info.run_id
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        run_ids = list(executor.map(run, range(2)))
+        assert run_ids == [
+            r.info.run_id
+            for r in mlflow.search_runs(output_format="list", order_by=["start_time ASC"])
+        ]

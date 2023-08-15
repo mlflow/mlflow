@@ -90,9 +90,9 @@ class _DefaultSetContextVar:
 
 # fluent tracking APIs must be implemented in thread-safe way, so that if you want to add a new
 # global variable that is used and mutated by fluent tracking API implementation, please wrap it
-# with contextvars.ContextVar or DefaultSetContextVar
+# with contextvars.ContextVar or _DefaultSetContextVar
 
-_active_run_stack = DefaultSetContextVar("_active_run_stack", default=lambda: [])
+_active_run_stack = _DefaultSetContextVar("_active_run_stack", default=lambda: [])
 _active_experiment_id = contextvars.ContextVar("_active_experiment_id", default=None)
 _last_active_run_id = contextvars.ContextVar("_last_active_run_id", default=None)
 
