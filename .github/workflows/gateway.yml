@@ -27,12 +27,16 @@ jobs:
         run: |
           pip install -e .[gateway]
           pip install pytest pytest-timeout pytest-asyncio httpx sentence-transformers transformers
-      - name: Run tests
+          # Ensure pydantic v1 is installed
+          pip freeze | tail -n +1 | grep -q '^pydantic==1\.'
+      - name: Run tests with pydantic v1
         run: |
           pytest tests/gateway
-      - name: Upgrade pydantic and fastapi
+      - name: Upgrade pydantic to v2
         run: |
-          pip install --upgrade pydantic fastapi
-      - name: Run tests again
+          pip install pydantic>=2.0
+          # Ensure pydantic v2 is installed
+          pip freeze | tail -n +1 | grep -q '^pydantic==2\.'
+      - name: Run tests with pydantic v2
         run: |
           pytest tests/gateway

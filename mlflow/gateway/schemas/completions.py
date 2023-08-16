@@ -21,12 +21,12 @@ class RequestPayload(BaseRequestPayload):
 
 
 class CandidateMetadata(ResponseModel):
-    finish_reason: Optional[FinishReason]
+    finish_reason: Optional[FinishReason] = None
 
 
 class Candidate(ResponseModel):
     text: str
-    metadata: Optional[Dict[str, str]]
+    metadata: Optional[Dict[str, str]] = None
 
 
 class Metadata(ResponseModel):
