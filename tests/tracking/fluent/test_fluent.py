@@ -183,8 +183,8 @@ def test_all_fluent_apis_are_included_in_dunder_all():
 
 def test_get_experiment_id_from_env(monkeypatch):
     # When no env variables are set
-    assert not MLFLOW_EXPERIMENT_NAME.is_defined
-    assert not MLFLOW_EXPERIMENT_ID.is_defined
+    assert not MLFLOW_EXPERIMENT_NAME.defined
+    assert not MLFLOW_EXPERIMENT_ID.defined
     assert _get_experiment_id_from_env() is None
 
     # set only ID
