@@ -18,7 +18,7 @@ from packaging import version
 
 _logger = logging.getLogger(__name__)
 
-IS_PYDANTIC_V2 = version.parse(pydantic.__version__) >= version.parse("2.0")
+IS_PYDANTIC_V2 = version.parse(pydantic.version.VERSION) >= version.parse("2.0")
 
 
 class Provider(str, Enum):
