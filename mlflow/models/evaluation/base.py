@@ -5,6 +5,10 @@ import hashlib
 import json
 import os
 import signal
+import numpy as np
+import pandas as pd
+
+from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -36,6 +40,9 @@ from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
 import operator
 from decimal import Decimal
+
+if "pyspark" in sys.modules:
+    from pyspark.sql import DataFrame as SparkDataFrame
 
 _logger = logging.getLogger(__name__)
 
@@ -324,11 +331,8 @@ def _hash_uint64_ndarray_as_bytes(array):
 
 
 def _hash_ndarray_as_bytes(nd_array):
-    from pandas.util import hash_array
-    import numpy as np
-
     return _hash_uint64_ndarray_as_bytes(
-        hash_array(nd_array.flatten(order="C"))
+        pd.util.hash_array(nd_array.flatten(order="C"))
     ) + _hash_uint64_ndarray_as_bytes(np.array(nd_array.shape, dtype="uint64"))
 
 
@@ -338,8 +342,6 @@ def _hash_array_like_obj_as_bytes(data):
     MD5 calculation purpose.
     """
     from pandas.util import hash_pandas_object
-    import numpy as np
-    import pandas as pd
 
     if isinstance(data, pd.DataFrame):
         # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
@@ -376,8 +378,6 @@ def _gen_md5_for_arraylike_obj(md5_gen, data):
      - first NUM_SAMPLE_ROWS_FOR_HASH rows content
      - last NUM_SAMPLE_ROWS_FOR_HASH rows content
     """
-    import numpy as np
-
     len_bytes = _hash_uint64_ndarray_as_bytes(np.array([len(data)], dtype="uint64"))
     md5_gen.update(len_bytes)
     if len(data) < EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH * 2:
@@ -403,9 +403,6 @@ class EvaluationDataset:
         """
         The values of the constructor arguments comes from the `evaluate` call.
         """
-        import numpy as np
-        import pandas as pd
-
         if name is not None and '"' in name:
             raise MlflowException(
                 message=f'Dataset name cannot include a double quote (") but got {name}',
@@ -649,8 +646,6 @@ class EvaluationDataset:
         return hash(self.hash)
 
     def __eq__(self, other):
-        import numpy as np
-
         if not isinstance(other, EvaluationDataset):
             return False
 
@@ -955,6 +950,57 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
         return
 
     raise ModelValidationFailedException(message=os.linesep.join(failure_messages))
+
+
+def _convert_data_to_mlflow_dataset(data, labels=None, feature_names=None, dataset_path=None):
+    """Convert inputs to mlflow dataset."""
+    if isinstance(data, Dataset):
+        return data
+    elif isinstance(data, pd.DataFrame):
+        if feature_names is None:
+            if "label" in data.columns:
+                # If there is a "label" column, treat all columns except "label" as features.
+                features = data.drop(columns="label")
+            else:
+                features = data
+        else:
+            features = data[feature_names]
+
+        if labels is None:
+            if "label" in data.columns:
+                # If there is a "label" column, use it as the label.
+                labels = data["label"]
+            else:
+                labels = None
+        else:
+            labels = data[labels]
+        return mlflow.data.from_pandas(df=features, targets=labels, source=dataset_path)
+    elif "pyspark" in sys.modules and isinstance(data, SparkDataFrame):
+        if feature_names is None:
+            if "label" in data.columns:
+                # If there is a "label" column, treat all columns except "label" as features.
+                features = data.drop("label")
+            else:
+                features = data
+        else:
+            features = data.select(feature_names)
+
+        if labels is None:
+            if "label" in data.columns:
+                # If there is a "label" column, use it as the label.
+                labels = data.select("label")
+            else:
+                labels = None
+        else:
+            labels = data.select(labels)
+        return mlflow.data.from_spark(df=features, targets=labels, source=dataset_path)
+    elif isinstance(data, np.array):
+        return mlflow.data.from_numpy(data, targets=labels, source=dataset_path)
+    else:
+        raise TypeError(
+            "`data` must be a `mlflow.data.dataset.Dataset`, pandas DataFrame, numpy array or "
+            f"Spark DataFrame, but received `data` of type {type(data)}."
+        )
 
 
 def _evaluate(
@@ -1539,8 +1585,13 @@ def evaluate(
     ) = _normalize_evaluators_and_evaluator_config_args(evaluators, evaluator_config)
 
     with _start_run_or_reuse_active_run() as run_id:
-        from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
-
+        # Convert data to `mlflow.data.dataset.Dataset`.
+        data = _convert_data_to_mlflow_dataset(
+            data=data,
+            targets=targets,
+            feature_names=feature_names,
+            dataset_path=dataset_path,
+        )
         if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
             dataset = data.to_evaluation_dataset(dataset_path, feature_names)
             if evaluator_name_to_conf_map and "default" in evaluator_name_to_conf_map:
