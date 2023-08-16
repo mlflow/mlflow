@@ -15,6 +15,9 @@ defaults:
   run:
     shell: bash --noprofile --norc -exo pipefail {0}
 
+env:
+  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+
 jobs:
   gateway:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

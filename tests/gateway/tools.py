@@ -215,7 +215,7 @@ def log_sentence_transformers_model():
 
 
 def log_completions_transformers_model():
-    architecture = "microsoft/mdeberta-v3-base"
+    architecture = "distilbert-base-uncased"
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
     model = transformers.AutoModelForMaskedLM.from_pretrained(architecture)
