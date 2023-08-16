@@ -113,16 +113,16 @@ class OpenAIConfig(ConfigModel):
         return info
 
     if IS_PYDANTIC_V2:
-        from pydantic import model_validator
+        from pydantic import model_validator as _model_validator
 
-        @model_validator(mode="before")
+        @_model_validator(mode="before")
         def validate_field_compatibility(cls, info: Dict[str, Any]):
             return cls._validate_field_compatibility(info)
 
     else:
-        from pydantic import root_validator
+        from pydantic import root_validator as _root_validator
 
-        @root_validator(pre=False)
+        @_root_validator(pre=False)
         def validate_field_compatibility(cls, config: Dict[str, Any]):
             return cls._validate_field_compatibility(config)
 
