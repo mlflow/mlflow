@@ -4,7 +4,8 @@ import json
 import logging
 import os
 from pathlib import Path
-from pydantic import validator, root_validator, parse_obj_as, ValidationError
+import pydantic
+from pydantic import validator, ValidationError
 from pydantic.json import pydantic_encoder
 from typing import Optional, Union, List, Dict, Any
 import yaml
@@ -13,8 +14,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import ConfigModel, ResponseModel
 from mlflow.gateway.utils import is_valid_endpoint_name, check_configuration_route_name_collisions
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_BASE, MLFLOW_QUERY_SUFFIX
+from packaging import version
 
 _logger = logging.getLogger(__name__)
+
+IS_PYDANTIC_V2 = version.parse(pydantic.__version__) >= version.parse("2.0")
 
 
 class Provider(str, Enum):
@@ -76,27 +80,26 @@ class OpenAIConfig(ConfigModel):
     def validate_openai_api_key(cls, value):
         return _resolve_api_key_from_input(value)
 
-    @root_validator(pre=False)
-    def validate_field_compatibility(cls, config: Dict[str, Any]):
-        api_type = config.get("openai_api_type")
+    def _validate_field_compatibility(cls, info: Dict[str, Any]):
+        api_type = (info.get("openai_api_type") or OpenAIAPIType.OPENAI).lower()
         if api_type == OpenAIAPIType.OPENAI:
-            if config.get("openai_deployment_name") is not None:
+            if info.get("openai_deployment_name") is not None:
                 raise MlflowException.invalid_parameter_value(
                     f"OpenAI route configuration can only specify a value for "
                     f"'openai_deployment_name' if 'openai_api_type' is '{OpenAIAPIType.AZURE}' "
                     f"or '{OpenAIAPIType.AZUREAD}'. Found type: '{api_type}'"
                 )
-            if config.get("openai_api_base") is None:
-                config["openai_api_base"] = "https://api.openai.com/v1"
+            if info.get("openai_api_base") is None:
+                info["openai_api_base"] = "https://api.openai.com/v1"
         elif api_type in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD):
-            if config.get("openai_organization") is not None:
+            if info.get("openai_organization") is not None:
                 raise MlflowException.invalid_parameter_value(
                     f"OpenAI route configuration can only specify a value for "
                     f"'openai_organization' if 'openai_api_type' is '{OpenAIAPIType.OPENAI}'"
                 )
-            base_url = config.get("openai_api_base")
-            deployment_name = config.get("openai_deployment_name")
-            api_version = config.get("openai_api_version")
+            base_url = info.get("openai_api_base")
+            deployment_name = info.get("openai_deployment_name")
+            api_version = info.get("openai_api_version")
             if (base_url, deployment_name, api_version).count(None) > 0:
                 raise MlflowException.invalid_parameter_value(
                     f"OpenAI route configuration must specify 'openai_api_base', "
@@ -106,7 +109,21 @@ class OpenAIConfig(ConfigModel):
         else:
             raise MlflowException.invalid_parameter_value(f"Invalid OpenAI API type '{api_type}'")
 
-        return config
+        return info
+
+    if IS_PYDANTIC_V2:
+        from pydantic import model_validator
+
+        @model_validator(mode="before")
+        def validate_field_compatibility(cls, info: Dict[str, Any]):
+            return cls._validate_field_compatibility(cls, info)
+
+    else:
+        from pydantic import root_validator
+
+        @root_validator(pre=False)
+        def validate_field_compatibility(cls, config: Dict[str, Any]):
+            return cls._validate_field_compatibility(cls, config)
 
 
 class AnthropicConfig(ConfigModel):
@@ -193,15 +210,26 @@ class Model(ConfigModel):
             return Provider[formatted_value]
         raise MlflowException.invalid_parameter_value(f"The provider '{value}' is not supported.")
 
-    @validator("config", pre=True)
-    def validate_config(cls, config, values):
+    def __validate_config(info, values):
         if provider := values.get("provider"):
             config_type = config_types[provider]
-            return config_type(**config)
+            return config_type(**info)
 
         raise MlflowException.invalid_parameter_value(
             "A provider must be provided for each gateway route."
         )
+
+    if IS_PYDANTIC_V2:
+
+        @validator("config", pre=True)
+        def validate_config(cls, info, values):
+            return cls.__validate_config(info, values)
+
+    else:
+
+        @validator("config", pre=True)
+        def validate_config(cls, config, values):
+            return cls.__validate_config(config, values)
 
 
 # pylint: disable=no-self-argument
@@ -288,7 +316,7 @@ def _load_route_config(path: Union[str, Path]) -> GatewayConfig:
         ) from e
     check_configuration_route_name_collisions(configuration)
     try:
-        return parse_obj_as(GatewayConfig, configuration)
+        return GatewayConfig(**configuration)
     except ValidationError as e:
         raise MlflowException.invalid_parameter_value(
             f"The gateway configuration is invalid: {e}"

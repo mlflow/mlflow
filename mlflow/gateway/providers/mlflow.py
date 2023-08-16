@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, validator, StrictStr, ValidationError, StrictFloat
+from pydantic import BaseModel, validator, StrictStr, ValidationError
 from typing import List
 
 
@@ -44,7 +44,7 @@ class EmbeddingsResponse(BaseModel):
             isinstance(item, list) and not item for item in predictions
         ):
             raise ValueError("One or more lists in the returned prediction response are empty")
-        elif all(isinstance(item, (float, StrictFloat)) for item in predictions):
+        elif all(isinstance(item, float) for item in predictions):
             return [predictions]
         else:
             return predictions
