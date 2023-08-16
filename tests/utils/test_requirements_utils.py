@@ -203,7 +203,7 @@ def test_capture_imported_modules():
     from mlflow.utils._capture_modules import _CaptureImportedModules
 
     with _CaptureImportedModules() as cap:
-        import math  # pylint: disable=lazy-builtin-import,unused-import
+        import math  # pylint: disable=lazy-builtin-import  # noqa: F401
 
         __import__("pandas")
         importlib.import_module("numpy")
@@ -332,7 +332,6 @@ def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmp_pat
             pass
 
     with _CaptureImportedModules() as cap:
-        # pylint: disable=unused-import
         import databricks
         import databricks.automl
         import databricks.automl_foo
@@ -345,12 +344,11 @@ def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmp_pat
     assert "databricks.automl_foo" not in cap.imported_modules
 
     with _CaptureImportedModules() as cap:
-        # pylint: disable=unused-import
         import databricks.automl
         import databricks.automl_foo
         import databricks.automl_runtime
         import databricks.model_monitoring
-        import databricks.other
+        import databricks.other  # noqa: F401
 
     assert "databricks.automl" in cap.imported_modules
     assert "databricks.model_monitoring" in cap.imported_modules

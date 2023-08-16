@@ -38,7 +38,7 @@ def _build_uri(base_uri, subdirectory):
 
 @pytest.fixture
 def zipped_repo(tmp_path):
-    zip_name = tmp_path.joinpath("%s.zip" % TEST_PROJECT_NAME)
+    zip_name = tmp_path.joinpath(f"{TEST_PROJECT_NAME}.zip")
     with zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED) as zip_file:
         for root, _, files in os.walk(TEST_PROJECT_DIR):
             for file_name in files:
@@ -77,9 +77,9 @@ def test__fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpser
         (local_git_repo_uri, "", local_git_repo),
         (local_git_repo_uri, "example_project", os.path.join(local_git_repo, "example_project")),
         (os.path.dirname(TEST_PROJECT_DIR), os.path.basename(TEST_PROJECT_DIR), TEST_PROJECT_DIR),
-        (httpserver.url + "/%s.zip" % TEST_PROJECT_NAME, "", TEST_PROJECT_DIR),
+        (httpserver.url + f"/{TEST_PROJECT_NAME}.zip", "", TEST_PROJECT_DIR),
         (zipped_repo, "", TEST_PROJECT_DIR),
-        ("file://%s" % zipped_repo, "", TEST_PROJECT_DIR),
+        (f"file://{zipped_repo}", "", TEST_PROJECT_DIR),
     ]
     for base_uri, subdirectory, expected in test_list:
         work_dir = _fetch_project(uri=_build_uri(base_uri, subdirectory))

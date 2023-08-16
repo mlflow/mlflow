@@ -115,8 +115,8 @@ class MlflowClient:
             except UnsupportedModelRegistryStoreURIException as exc:
                 raise MlflowException(
                     "Model Registry features are not supported by the store with URI:"
-                    " '{uri}'. Stores with the following URI schemes are supported:"
-                    " {schemes}.".format(uri=self._registry_uri, schemes=exc.supported_uri_schemes),
+                    f" '{self._registry_uri}'. Stores with the following URI schemes are supported:"
+                    f" {exc.supported_uri_schemes}.",
                     FEATURE_DISABLED,
                 )
         return registry_client
@@ -1234,6 +1234,8 @@ class MlflowClient:
         run_id: str,
         figure: Union["matplotlib.figure.Figure", "plotly.graph_objects.Figure"],
         artifact_file: str,
+        *,
+        save_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Log a figure as an artifact. The following figure objects are supported:
@@ -1251,6 +1253,7 @@ class MlflowClient:
         :param figure: Figure to log.
         :param artifact_file: The run-relative artifact file path in posixpath format to which
                               the figure is saved (e.g. "dir/file.png").
+        :param save_kwargs: Additional keyword arguments passed to the method that saves the figure.
 
         .. code-block:: python
             :caption: Matplotlib Example
@@ -1286,18 +1289,21 @@ class MlflowClient:
 
             return isinstance(fig, plotly.graph_objects.Figure)
 
+        save_kwargs = save_kwargs or {}
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
             # `is_matplotlib_figure` is executed only when `matplotlib` is found in `sys.modules`.
             # This allows logging a `plotly` figure in an environment where `matplotlib` is not
             # installed.
             if "matplotlib" in sys.modules and _is_matplotlib_figure(figure):
-                figure.savefig(tmp_path)
+                figure.savefig(tmp_path, **save_kwargs)
             elif "plotly" in sys.modules and _is_plotly_figure(figure):
                 file_extension = os.path.splitext(artifact_file)[1]
                 if file_extension == ".html":
-                    figure.write_html(tmp_path, include_plotlyjs="cdn", auto_open=False)
+                    save_kwargs.setdefault("include_plotlyjs", "cdn")
+                    save_kwargs.setdefault("auto_open", False)
+                    figure.write_html(tmp_path, **save_kwargs)
                 elif file_extension in [".png", ".jpeg", ".webp", ".svg", ".pdf"]:
-                    figure.write_image(tmp_path)
+                    figure.write_image(tmp_path, **save_kwargs)
                 else:
                     raise TypeError(
                         f"Unsupported file extension for plotly figure: '{file_extension}'"
@@ -1634,7 +1640,7 @@ class MlflowClient:
         import pandas as pd
 
         self._check_artifact_file_string(artifact_file)
-        subset_tag_value = json.dumps({"path": artifact_file, "type": "table"})
+        subset_tag_value = f'"path"%:%"{artifact_file}",%"type"%:%"table"'
 
         # Build the filter string
         filter_string = f"tags.{MLFLOW_LOGGED_ARTIFACTS} LIKE '%{subset_tag_value}%'"

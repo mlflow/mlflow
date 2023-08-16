@@ -65,12 +65,12 @@ class ModelSignature:
         if outputs is not None and not isinstance(outputs, Schema):
             raise TypeError(
                 "outputs must be either None or mlflow.models.signature.Schema, "
-                "got '{}'".format(type(inputs))
+                f"got '{type(inputs)}'"
             )
         if params and not isinstance(params, ParamSchema):
             raise TypeError(
                 "If params are provided, they must by of type mlflow.models.signature.ParamSchema. "
-                "Got '{}'".format(type(params))
+                f"Got '{type(params)}'"
             )
         self.inputs = inputs
         self.outputs = outputs
@@ -127,11 +127,11 @@ class ModelSignature:
     def __repr__(self) -> str:
         return (
             "inputs: \n"
-            "  {}\n"
+            f"  {self.inputs!r}\n"
             "outputs: \n"
-            "  {}\n"
+            f"  {self.outputs!r}\n"
             "params: \n"
-            "  {}\n".format(repr(self.inputs), repr(self.outputs), repr(self.params))
+            f"  {self.params!r}\n"
         )
 
 

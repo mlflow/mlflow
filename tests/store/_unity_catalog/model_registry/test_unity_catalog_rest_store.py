@@ -180,7 +180,7 @@ def local_model_dir(tmp_path):
     }
     with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)
-    yield tmp_path
+    return tmp_path
 
 
 def test_create_model_version_nonexistent_directory(store, tmp_path):
@@ -234,7 +234,7 @@ def feature_store_local_model_dir(tmp_path):
     }
     with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)
-    yield tmp_path
+    return tmp_path
 
 
 def test_create_model_version_fails_fs_packaged_model(store, feature_store_local_model_dir):
@@ -785,6 +785,35 @@ def test_create_model_version_azure(store, local_model_dir):
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, name=model_name, source=source, version=version, tags=tags
         )
+
+
+def test_create_model_version_unknown_storage_creds(store, local_model_dir):
+    storage_location = "abfss://filesystem@account.dfs.core.windows.net"
+    fake_sas_token = "fake_session_token"
+    temporary_creds = TemporaryCredentials(
+        azure_user_delegation_sas=AzureUserDelegationSAS(sas_token=fake_sas_token)
+    )
+    unknown_credential_type = "some_new_credential_type"
+    source = str(local_model_dir)
+    model_name = "model_1"
+    version = "1"
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
+            name=model_name,
+            version=version,
+            temp_credentials=temporary_creds,
+            storage_location=storage_location,
+            source=source,
+        ),
+    ), mock.patch.object(
+        TemporaryCredentials, "WhichOneof", return_value=unknown_credential_type
+    ), pytest.raises(
+        MlflowException,
+        match=f"Got unexpected credential type {unknown_credential_type} when "
+        "attempting to access model version files",
+    ):
+        store.create_model_version(name=model_name, source=source)
 
 
 @pytest.mark.parametrize(

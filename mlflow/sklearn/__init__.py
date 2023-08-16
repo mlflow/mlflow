@@ -1309,9 +1309,7 @@ def _autolog(
         _gen_xgboost_sklearn_estimators_to_patch,
         _gen_lightgbm_sklearn_estimators_to_patch,
         _log_estimator_content,
-        _all_estimators,
         _get_estimator_info_tags,
-        _get_meta_estimators_for_autologging,
         _is_parameter_search_estimator,
         _log_parameter_search_results_as_artifact,
         _create_child_runs_for_parameter_search,
@@ -1586,11 +1584,10 @@ def _autolog(
                         child_tags=child_tags,
                     )
                 except Exception as e:
-                    msg = (
+                    _logger.warning(
                         "Encountered exception during creation of child runs for parameter search."
-                        " Child runs may be missing. Exception: {}".format(str(e))
+                        f" Child runs may be missing. Exception: {e}"
                     )
-                    _logger.warning(msg)
 
                 try:
                     cv_results_df = pd.DataFrame.from_dict(estimator.cv_results_)
@@ -1598,11 +1595,9 @@ def _autolog(
                         cv_results_df, mlflow.active_run().info.run_id
                     )
                 except Exception as e:
-                    msg = (
-                        "Failed to log parameter search results as an artifact."
-                        " Exception: {}".format(str(e))
+                    _logger.warning(
+                        f"Failed to log parameter search results as an artifact. Exception: {e}"
                     )
-                    _logger.warning(msg)
 
     def patched_fit(fit_impl, allow_children_patch, original, self, *args, **kwargs):
         """

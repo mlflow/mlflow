@@ -3,6 +3,7 @@ from unittest import mock
 from aiohttp import ClientTimeout
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
+from pydantic import ValidationError
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -182,12 +183,23 @@ async def test_completions():
 
 @pytest.mark.asyncio
 async def test_completions_throws_if_request_payload_contains_n():
-    config = chat_config()
+    config = completions_config()
     provider = OpenAIProvider(RouteConfig(**config))
     payload = {"prompt": "This is a test", "n": 1}
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "Invalid parameter `n`" in e.value.detail
+
+
+@pytest.mark.parametrize("prompt", [{"set1", "set2"}, ["list1"], [1], ["list1", "list2"], [1, 2]])
+@pytest.mark.asyncio
+async def test_completions_throws_if_prompt_contains_non_string(prompt):
+    config = completions_config()
+    provider = OpenAIProvider(RouteConfig(**config))
+    payload = {"prompt": prompt}
+    with pytest.raises(ValidationError, match=r".*") as e:
+        await provider.completions(completions.RequestPayload(**payload))
+    assert "str type expected" in e.value.errors()[0]["msg"]
 
 
 @pytest.mark.asyncio

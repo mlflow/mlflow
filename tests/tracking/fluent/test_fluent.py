@@ -183,12 +183,12 @@ def test_all_fluent_apis_are_included_in_dunder_all():
 
 def test_get_experiment_id_from_env(monkeypatch):
     # When no env variables are set
-    assert not MLFLOW_EXPERIMENT_NAME.is_defined
-    assert not MLFLOW_EXPERIMENT_ID.is_defined
+    assert not MLFLOW_EXPERIMENT_NAME.defined
+    assert not MLFLOW_EXPERIMENT_ID.defined
     assert _get_experiment_id_from_env() is None
 
     # set only ID
-    name = "random experiment %d" % random.randint(1, 1e6)
+    name = f"random experiment {random.randint(1, 1e6)}"
     exp_id = mlflow.create_experiment(name)
     assert exp_id is not None
     monkeypatch.delenv(MLFLOW_EXPERIMENT_NAME.name, raising=False)
@@ -196,7 +196,7 @@ def test_get_experiment_id_from_env(monkeypatch):
     assert _get_experiment_id_from_env() == exp_id
 
     # set only name
-    name = "random experiment %d" % random.randint(1, 1e6)
+    name = f"random experiment {random.randint(1, 1e6)}"
     exp_id = mlflow.create_experiment(name)
     assert exp_id is not None
     monkeypatch.delenv(MLFLOW_EXPERIMENT_ID.name, raising=False)
@@ -204,21 +204,21 @@ def test_get_experiment_id_from_env(monkeypatch):
     assert _get_experiment_id_from_env() == exp_id
 
     # create experiment from env name
-    name = "random experiment %d" % random.randint(1, 1e6)
+    name = f"random experiment {random.randint(1, 1e6)}"
     monkeypatch.delenv(MLFLOW_EXPERIMENT_ID.name, raising=False)
     monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, name)
     assert MlflowClient().get_experiment_by_name(name) is None
     assert _get_experiment_id_from_env() is not None
 
     # assert experiment creation from encapsulating function
-    name = "random experiment %d" % random.randint(1, 1e6)
+    name = f"random experiment {random.randint(1, 1e6)}"
     monkeypatch.delenv(MLFLOW_EXPERIMENT_ID.name, raising=False)
     monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, name)
     assert MlflowClient().get_experiment_by_name(name) is None
     assert _get_experiment_id() is not None
 
     # assert raises from conflicting experiment_ids
-    name = "random experiment %d" % random.randint(1, 1e6)
+    name = f"random experiment {random.randint(1, 1e6)}"
     exp_id = mlflow.create_experiment(name)
     random_id = random.randint(100, 1e6)
     assert exp_id != random_id
@@ -227,14 +227,14 @@ def test_get_experiment_id_from_env(monkeypatch):
     with pytest.raises(
         MlflowException,
         match=(
-            f"The provided {MLFLOW_EXPERIMENT_ID.name} environment variable value "
+            f"The provided {MLFLOW_EXPERIMENT_ID} environment variable value "
             f"`{random_id}` does not exist in the tracking server"
         ),
     ):
         _get_experiment_id_from_env()
 
     # assert raises from name to id mismatch
-    name = "random experiment %d" % random.randint(1, 1e6)
+    name = f"random experiment {random.randint(1, 1e6)}"
     exp_id = mlflow.create_experiment(name)
     random_id = random.randint(100, 1e6)
     assert exp_id != random_id
@@ -242,7 +242,7 @@ def test_get_experiment_id_from_env(monkeypatch):
     with pytest.raises(
         MlflowException,
         match=(
-            f"The provided {MLFLOW_EXPERIMENT_ID.name} environment variable value "
+            f"The provided {MLFLOW_EXPERIMENT_ID} environment variable value "
             f"`{random_id}` does not match the experiment id"
         ),
     ):
@@ -250,7 +250,7 @@ def test_get_experiment_id_from_env(monkeypatch):
 
     # assert does not raise if active experiment is set with invalid env variables
     invalid_name = "invalid experiment"
-    name = "random experiment %d" % random.randint(1, 1e6)
+    name = f"random experiment {random.randint(1, 1e6)}"
     exp_id = mlflow.create_experiment(name)
     assert exp_id is not None
     random_id = random.randint(100, 1e6)
@@ -263,7 +263,7 @@ def test_get_experiment_id_from_env(monkeypatch):
 
 def test_get_experiment_id_with_active_experiment_returns_active_experiment_id():
     # Create a new experiment and set that as active experiment
-    name = "Random experiment %d" % random.randint(1, 1e6)
+    name = f"Random experiment {random.randint(1, 1e6)}"
     exp_id = mlflow.create_experiment(name)
     assert exp_id is not None
     mlflow.set_experiment(name)
@@ -285,7 +285,7 @@ def test_get_experiment_id_in_databricks_detects_notebook_id_by_default():
 
 
 def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_experiment_id():
-    exp_name = "random experiment %d" % random.randint(1, 1e6)
+    exp_name = f"random experiment {random.randint(1, 1e6)}"
     exp_id = mlflow.create_experiment(exp_name)
     mlflow.set_experiment(exp_name)
     notebook_id = str(int(exp_id) + 73)
@@ -301,7 +301,7 @@ def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_e
 def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_env_experiment_id(
     monkeypatch,
 ):
-    exp_name = "random experiment %d" % random.randint(1, 1e6)
+    exp_name = f"random experiment {random.randint(1, 1e6)}"
     exp_id = mlflow.create_experiment(exp_name)
     notebook_id = str(int(exp_id) + 73)
     monkeypatch.delenv(MLFLOW_EXPERIMENT_NAME.name, raising=False)
@@ -316,7 +316,7 @@ def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_
 
 
 def test_get_experiment_by_id():
-    name = "Random experiment %d" % random.randint(1, 1e6)
+    name = f"Random experiment {random.randint(1, 1e6)}"
     exp_id = mlflow.create_experiment(name)
 
     experiment = mlflow.get_experiment(exp_id)
@@ -333,7 +333,7 @@ def test_get_experiment_by_id_with_is_in_databricks_job():
 
 
 def test_get_experiment_by_name():
-    name = "Random experiment %d" % random.randint(1, 1e6)
+    name = f"Random experiment {random.randint(1, 1e6)}"
     exp_id = mlflow.create_experiment(name)
 
     experiment = mlflow.get_experiment_by_name(name)
@@ -953,7 +953,7 @@ def validate_search_runs(results, data, output_format):
         expected_df["end_time"] = pd.to_datetime(expected_df["end_time"], unit="ms", utc=True)
         pd.testing.assert_frame_equal(results, expected_df, check_like=True, check_frame_type=False)
     else:
-        raise Exception("Invalid output format %s" % output_format)
+        raise Exception(f"Invalid output format {output_format}")
 
 
 def test_search_runs_attributes(search_runs_output_format):

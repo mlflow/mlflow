@@ -45,21 +45,21 @@ def mock_data_lake_client():
 def mock_filesystem_client(mock_data_lake_client):
     mock_fs_client = mock.MagicMock(autospec=FileSystemClient)
     mock_data_lake_client.get_file_system_client.return_value = mock_fs_client
-    yield mock_fs_client
+    return mock_fs_client
 
 
 @pytest.fixture
 def mock_directory_client(mock_filesystem_client):
     mock_directory_client = mock.MagicMock(autospec=DataLakeDirectoryClient)
     mock_filesystem_client.get_directory_client.return_value = mock_directory_client
-    yield mock_directory_client
+    return mock_directory_client
 
 
 @pytest.fixture
 def mock_file_client(mock_directory_client):
     mock_file_client = mock.MagicMock(autospec=DataLakeFileClient)
     mock_directory_client.get_file_client.return_value = mock_file_client
-    yield mock_file_client
+    return mock_file_client
 
 
 @pytest.mark.parametrize(

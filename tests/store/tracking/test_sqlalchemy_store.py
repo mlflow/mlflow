@@ -1705,7 +1705,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         ) == [r2]
         assert self._search(
             experiment_id,
-            filter_string="tags.generic_2 ILIKE '%Other%' and " "tags.generic_tag ILIKE 'p_val'",
+            filter_string="tags.generic_2 ILIKE '%Other%' and tags.generic_tag ILIKE 'p_val'",
         ) == [r2]
 
     def test_search_metrics(self):
@@ -2486,7 +2486,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # SQL limitations, etc)
         experiment_id = self._experiment_factory("log_batch_limits")
         run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
-        metric_tuples = [("m%s" % i, i, 12345, i * 2) for i in range(1000)]
+        metric_tuples = [(f"m{i}", i, 12345, i * 2) for i in range(1000)]
         metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
         self.store.log_batch(run_id=run_id, metrics=metric_entities, params=[], tags=[])
         run = self.store.get_run(run_id)
@@ -2826,7 +2826,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
             for i in range(100):
                 metric = {
-                    "key": "mkey_%s" % i,
+                    "key": f"mkey_{i}",
                     "value": i,
                     "timestamp": i * 2,
                     "step": i * 3,
@@ -2835,13 +2835,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 }
                 metrics_list.append(metric)
                 tag = {
-                    "key": "tkey_%s" % i,
+                    "key": f"tkey_{i}",
                     "value": "tval_%s" % (current_run % 10),
                     "run_uuid": run_id,
                 }
                 tags_list.append(tag)
                 param = {
-                    "key": "pkey_%s" % i,
+                    "key": f"pkey_{i}",
                     "value": "pval_%s" % ((current_run + 1) % 11),
                     "run_uuid": run_id,
                 }
@@ -3473,40 +3473,41 @@ class TextClauseMatcher:
 
 
 @mock.patch("sqlalchemy.orm.session.Session", spec=True)
-class TestZeroValueInsertion(unittest.TestCase):
-    def test_set_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MYSQL
-        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-        mock_session.execute.assert_called_with(
-            TextClauseMatcher("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
-        )
+def test_set_zero_value_insertion_for_autoincrement_column_MYSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MYSQL
+    SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(
+        TextClauseMatcher("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
+    )
 
-    def test_set_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MSSQL
-        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-        mock_session.execute.assert_called_with(
-            TextClauseMatcher("SET IDENTITY_INSERT experiments ON;")
-        )
 
-    def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MYSQL
-        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
-            mock_store, mock_session
-        )
-        mock_session.execute.assert_called_with(TextClauseMatcher("SET @@SESSION.sql_mode='';"))
+@mock.patch("sqlalchemy.orm.session.Session", spec=True)
+def test_set_zero_value_insertion_for_autoincrement_column_MSSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MSSQL
+    SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(
+        TextClauseMatcher("SET IDENTITY_INSERT experiments ON;")
+    )
 
-    def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MSSQL
-        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
-            mock_store, mock_session
-        )
-        mock_session.execute.assert_called_with(
-            TextClauseMatcher("SET IDENTITY_INSERT experiments OFF;")
-        )
+
+@mock.patch("sqlalchemy.orm.session.Session", spec=True)
+def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MYSQL
+    SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(TextClauseMatcher("SET @@SESSION.sql_mode='';"))
+
+
+@mock.patch("sqlalchemy.orm.session.Session", spec=True)
+def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MSSQL
+    SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(
+        TextClauseMatcher("SET IDENTITY_INSERT experiments OFF;")
+    )
 
 
 def test_get_attribute_name():

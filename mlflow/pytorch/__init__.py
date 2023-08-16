@@ -7,12 +7,12 @@ PyTorch (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+import atexit
 import importlib
 import logging
 import os
 import yaml
 import warnings
-import atexit
 from typing import Any, Dict, Optional
 
 import numpy as np
@@ -776,7 +776,7 @@ class _PyTorchWrapper:
             if not isinstance(preds, torch.Tensor):
                 raise TypeError(
                     "Expected PyTorch model to output a single output tensor, "
-                    "but got output of type '{}'".format(type(preds))
+                    f"but got output of type '{type(preds)}'"
                 )
             if isinstance(data, pd.DataFrame):
                 predicted = pd.DataFrame(preds.numpy())

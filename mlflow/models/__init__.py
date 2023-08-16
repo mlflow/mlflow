@@ -31,10 +31,10 @@ The built-in flavors are:
 For details, see `MLflow Models <../models.html>`_.
 """
 
-from .model import Model, get_model_info
-from .flavor_backend import FlavorBackend
-from ..utils.environment import infer_pip_requirements
-from .evaluation import (
+from mlflow.models.model import Model, get_model_info
+from mlflow.models.flavor_backend import FlavorBackend
+from mlflow.utils.environment import infer_pip_requirements
+from mlflow.models.evaluation import (
     evaluate,
     make_metric,
     EvaluationMetric,
@@ -106,14 +106,9 @@ __all__ = [
 # Under skinny-mlflow requirements, the following packages cannot be imported
 # because of lack of numpy/pandas library, so wrap them with try...except block
 try:
-    # pylint: disable=unused-import
-    from .signature import (
-        ModelSignature,
-        infer_signature,
-        set_signature,
-    )
-    from .utils import ModelInputExample, validate_schema
-    from .utils import add_libraries_to_model
+    from mlflow.models.signature import ModelSignature, infer_signature, set_signature
+    from mlflow.models.utils import ModelInputExample, validate_schema
+    from mlflow.models.utils import add_libraries_to_model
 
     __all__ += [
         "ModelSignature",

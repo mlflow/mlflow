@@ -294,7 +294,7 @@ def test_log_model_with_code_paths(basic_model):
 def test_default_signature_assignment():
     expected_signature = {
         "inputs": '[{"type": "string"}]',
-        "outputs": '[{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": ' "[-1]}}]",
+        "outputs": '[{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1]}}]',
         "params": None,
     }
 
@@ -356,12 +356,13 @@ def test_model_pyfunc_predict_with_params(basic_model, tmp_path):
     model_path = tmp_path / "model3"
     mlflow.sentence_transformers.save_model(basic_model, model_path)
     loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
-    with pytest.raises(
-        MlflowException,
-        match=r"`params` can only be specified at inference time if the model "
-        r"signature defines a params schema. This model does not define a params schema.",
-    ):
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
         loaded_pyfunc.predict(sentence, params)
+    mock_warning.assert_called_with(
+        "`params` can only be specified at inference time if the model signature defines a params "
+        "schema. This model does not define a params schema. Ignoring provided params: "
+        "['batch_size']"
+    )
 
 
 def test_spark_udf(basic_model, spark):

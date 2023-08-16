@@ -5,7 +5,7 @@ import pandas as pd
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.recipes.utils.execution import _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR
+from mlflow.environment_variables import MLFLOW_RECIPES_EXECUTION_DIRECTORY
 from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
 from mlflow.utils.file_utils import read_yaml
 from mlflow.recipes.steps.split import (
@@ -49,7 +49,7 @@ def test_split_step_run(tmp_path, monkeypatch):
 
     split_ratios = [0.6, 0.3, 0.1]
 
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_path))
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_DIRECTORY.name, str(tmp_path))
     with mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
         split_step = SplitStep(
             {"split_ratios": split_ratios, "target_col": "y", "recipe": "classification/v1"},
@@ -87,7 +87,7 @@ def test_split_step_run_with_multiple_classes(tmp_path, monkeypatch):
 
     split_ratios = [0.6, 0.3, 0.1]
 
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_path))
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_DIRECTORY.name, str(tmp_path))
     with mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
         split_step = SplitStep(
             {"split_ratios": split_ratios, "target_col": "y", "recipe": "classification/v1"},
@@ -157,7 +157,7 @@ def test_get_split_df():
 
 
 def test_from_recipe_config_fails_without_target_col(tmp_path, monkeypatch):
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_path))
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_DIRECTORY.name, str(tmp_path))
     with mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
         split_step = SplitStep.from_recipe_config({}, "fake_root")
         with pytest.raises(MlflowException, match="Missing target_col config"):
@@ -165,7 +165,7 @@ def test_from_recipe_config_fails_without_target_col(tmp_path, monkeypatch):
 
 
 def test_from_recipe_config_works_with_target_col(tmp_path, monkeypatch):
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_path))
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_DIRECTORY.name, str(tmp_path))
     with mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
         assert SplitStep.from_recipe_config({"target_col": "fake_col"}, "fake_root") is not None
 
@@ -187,7 +187,7 @@ def test_split_step_skips_profiling_when_specified(tmp_path, monkeypatch):
     )
     input_dataframe.to_parquet(str(ingest_output_dir / "dataset.parquet"))
 
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_path))
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_DIRECTORY.name, str(tmp_path))
     with mock.patch(
         "mlflow.recipes.utils.step.get_pandas_data_profiles"
     ) as mock_profiling, mock.patch(

@@ -344,16 +344,16 @@ class SearchUtils:
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             raise MlflowException(
                 "Expected a quoted string value for "
-                "{identifier_type} (e.g. 'my-value'). Got value "
-                "{value}".format(identifier_type=identifier_type, value=token.value),
+                f"{identifier_type} (e.g. 'my-value'). Got value "
+                f"{token.value}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         elif identifier_type == cls._ATTRIBUTE_IDENTIFIER:
             if key in cls.NUMERIC_ATTRIBUTES:
                 if token.ttype not in cls.NUMERIC_VALUE_TYPES:
                     raise MlflowException(
-                        "Expected numeric value type for numeric attribute: {}. "
-                        "Found {}".format(key, token.value),
+                        f"Expected numeric value type for numeric attribute: {key}. "
+                        f"Found {token.value}",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 return token.value
@@ -369,8 +369,7 @@ class SearchUtils:
                 return cls._parse_run_ids(token)
             else:
                 raise MlflowException(
-                    "Expected a quoted string value for attributes. "
-                    "Got value {value}".format(value=token.value),
+                    f"Expected a quoted string value for attributes. Got value {token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         elif identifier_type == cls._DATASET_IDENTIFIER:
@@ -396,7 +395,7 @@ class SearchUtils:
             # Expected to be either "param" or "metric".
             raise MlflowException(
                 "Invalid identifier type. Expected one of "
-                "{}.".format([cls._METRIC_IDENTIFIER, cls._PARAM_IDENTIFIER])
+                f"{[cls._METRIC_IDENTIFIER, cls._PARAM_IDENTIFIER]}."
             )
 
     @classmethod
@@ -532,8 +531,8 @@ class SearchUtils:
         if key_type == cls._ATTRIBUTE_IDENTIFIER and key_name in cls.NUMERIC_ATTRIBUTES:
             if comparator not in cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
-                    "Invalid comparator '{}' not one of "
-                    "'{}".format(comparator, cls.VALID_STRING_ATTRIBUTE_COMPARATORS)
+                    f"Invalid comparator '{comparator}' not one of "
+                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}"
                 )
             return True
         return False
@@ -1169,8 +1168,8 @@ class SearchModelUtils(SearchUtils):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             raise MlflowException(
                 "Expected a quoted string value for "
-                "{identifier_type} (e.g. 'my-value'). Got value "
-                "{value}".format(identifier_type=identifier_type, value=token.value),
+                f"{identifier_type} (e.g. 'my-value'). Got value "
+                f"{token.value}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         elif identifier_type == cls._ATTRIBUTE_IDENTIFIER:
@@ -1187,14 +1186,14 @@ class SearchModelUtils(SearchUtils):
             else:
                 raise MlflowException(
                     "Expected a quoted string value or a list of quoted string values for "
-                    "attributes. Got value {value}".format(value=token.value),
+                    f"attributes. Got value {token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         else:
             # Expected to be either "param" or "metric".
             raise MlflowException(
                 "Invalid identifier type. Expected one of "
-                "{}.".format([cls._ATTRIBUTE_IDENTIFIER, cls._TAG_IDENTIFIER]),
+                f"{[cls._ATTRIBUTE_IDENTIFIER, cls._TAG_IDENTIFIER]}.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -1345,8 +1344,8 @@ class SearchModelVersionUtils(SearchUtils):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             raise MlflowException(
                 "Expected a quoted string value for "
-                "{identifier_type} (e.g. 'my-value'). Got value "
-                "{value}".format(identifier_type=identifier_type, value=token.value),
+                f"{identifier_type} (e.g. 'my-value'). Got value "
+                f"{token.value}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         elif identifier_type == cls._ATTRIBUTE_IDENTIFIER:
@@ -1374,14 +1373,14 @@ class SearchModelVersionUtils(SearchUtils):
             else:
                 raise MlflowException(
                     "Expected a quoted string value or a list of quoted string values for "
-                    "attributes. Got value {value}".format(value=token.value),
+                    f"attributes. Got value {token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         else:
             # Expected to be either "param" or "metric".
             raise MlflowException(
                 "Invalid identifier type. Expected one of "
-                "{}.".format([cls._ATTRIBUTE_IDENTIFIER, cls._TAG_IDENTIFIER]),
+                f"{[cls._ATTRIBUTE_IDENTIFIER, cls._TAG_IDENTIFIER]}.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

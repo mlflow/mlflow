@@ -119,11 +119,7 @@ class DataType(Enum):
 
     @classmethod
     def from_numpy_type(cls, np_type):
-        for dt in cls._member_map_.values():
-            if np_type == dt.to_numpy():
-                return dt
-
-        return None
+        return next((v for v in cls._member_map_.values() if v.to_numpy() == np_type), None)
 
 
 class ColSpec:
@@ -143,8 +139,8 @@ class ColSpec:
             self._type = DataType[type] if isinstance(type, str) else type
         except KeyError:
             raise MlflowException(
-                "Unsupported type '{}', expected instance of DataType or "
-                "one of {}".format(type, [t.name for t in DataType])
+                f"Unsupported type '{type}', expected instance of DataType or "
+                f"one of {[t.name for t in DataType]}"
             )
         if not isinstance(self.type, DataType):
             raise TypeError(
@@ -207,7 +203,7 @@ class TensorInfo:
         if dtype.char in ["U", "S"] and not dtype.name.isalpha():
             raise MlflowException(
                 "MLflow does not support size information in flexible numpy data types. Use"
-                ' np.dtype("{}") instead'.format(dtype.name.rstrip(string.digits))
+                f' np.dtype("{dtype.name.rstrip(string.digits)}") instead'
             )
 
         if not isinstance(shape, (tuple, list)):
@@ -344,7 +340,7 @@ class Schema:
         if not (all(x.name is None for x in inputs) or all(x.name is not None for x in inputs)):
             raise MlflowException(
                 "Creating Schema with a combination of named and unnamed inputs "
-                "is not allowed. Got input names {}".format([x.name for x in inputs])
+                f"is not allowed. Got input names {[x.name for x in inputs]}"
             )
         if not (
             all(isinstance(x, TensorSpec) for x in inputs)

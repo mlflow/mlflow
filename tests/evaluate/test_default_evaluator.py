@@ -49,22 +49,21 @@ from os.path import join as path_join
 from PIL import Image, ImageChops
 import io
 
-# pylint: disable=unused-import
 from tests.evaluate.test_evaluation import (
     get_run_data,
-    baseline_model_uri,
-    diabetes_dataset,
-    multiclass_logistic_regressor_model_uri,
-    linear_regressor_model_uri,
-    iris_dataset,
-    iris_pandas_df_dataset,
-    iris_pandas_df_num_cols_dataset,
-    binary_logistic_regressor_model_uri,
-    breast_cancer_dataset,
-    spark_linear_regressor_model_uri,
-    diabetes_spark_dataset,
-    svm_model_uri,
-    pipeline_model_uri,
+    baseline_model_uri,  # noqa: F401
+    diabetes_dataset,  # noqa: F401
+    multiclass_logistic_regressor_model_uri,  # noqa: F401
+    linear_regressor_model_uri,  # noqa: F401
+    iris_dataset,  # noqa: F401
+    iris_pandas_df_dataset,  # noqa: F401
+    iris_pandas_df_num_cols_dataset,  # noqa: F401
+    binary_logistic_regressor_model_uri,  # noqa: F401
+    breast_cancer_dataset,  # noqa: F401
+    spark_linear_regressor_model_uri,  # noqa: F401
+    diabetes_spark_dataset,  # noqa: F401
+    svm_model_uri,  # noqa: F401
+    pipeline_model_uri,  # noqa: F401
     get_pipeline_model_dataset,
 )
 

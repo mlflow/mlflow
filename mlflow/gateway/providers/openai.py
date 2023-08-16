@@ -4,10 +4,10 @@ from fastapi.encoders import jsonable_encoder
 from mlflow.exceptions import MlflowException
 from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
-from .base import BaseProvider
-from .utils import send_request, rename_payload_keys
-from ..schemas import chat, completions, embeddings
-from ..config import OpenAIConfig, OpenAIAPIType, RouteConfig
+from mlflow.gateway.providers.base import BaseProvider
+from mlflow.gateway.providers.utils import send_request, rename_payload_keys
+from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.config import OpenAIConfig, OpenAIAPIType, RouteConfig
 
 
 class OpenAIProvider(BaseProvider):
@@ -70,7 +70,7 @@ class OpenAIProvider(BaseProvider):
 
     def _add_model_to_payload_if_necessary(self, payload):
         # NB: For Azure OpenAI, the deployment name (which is included in the URL) specifies
-        # the model; it is not specified in the payoad. For OpenAI outside of Azure, the
+        # the model; it is not specified in the payload. For OpenAI outside of Azure, the
         # model is always specified in the payload
         if self.openai_config.openai_api_type not in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD):
             return {"model": self.config.model.name, **payload}

@@ -2,7 +2,11 @@
 The ``mlflow.mleap`` module provides an API for saving Spark MLLib models using the
 `MLeap <https://github.com/combust/mleap>`_ persistence mechanism.
 
-NOTE:
+.. warning:
+
+    The mleap flavor is deprecated and will be removed in a future release of MLflow.
+
+.. note:
 
     You cannot load the MLeap model flavor in Python; you must download it using the
     Java API method ``downloadArtifacts(String runId)`` and load the model
@@ -21,13 +25,14 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _save_example
 from mlflow.utils import reraise
 from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.annotations import keyword_only
+from mlflow.utils.annotations import keyword_only, deprecated
 
 FLAVOR_NAME = "mleap"
 
 _logger = logging.getLogger(__name__)
 
 
+@deprecated(alternative="mlflow.onnx", since="2.6.0")
 @keyword_only
 def log_model(
     spark_model,
@@ -136,6 +141,7 @@ def log_model(
     )
 
 
+@deprecated(alternative="mlflow.onnx", since="2.6.0")
 @keyword_only
 def save_model(
     spark_model,
@@ -221,6 +227,7 @@ def save_model(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
+@deprecated(alternative="mlflow.onnx", since="2.6.0")
 @keyword_only
 def add_to_model(mlflow_model, path, spark_model, sample_input):
     """
@@ -239,7 +246,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
 
     # This import statement adds `serializeToBundle` and `deserializeFromBundle` to `Transformer`:
     # https://github.com/combust/mleap/blob/37f6f61634798118e2c2eb820ceeccf9d234b810/python/mleap/pyspark/spark_support.py#L32-L33
-    from mleap.pyspark.spark_support import SimpleSparkSerializer  # pylint: disable=unused-import
+    from mleap.pyspark.spark_support import SimpleSparkSerializer  # noqa: F401
     from py4j.protocol import Py4JError
 
     if not isinstance(spark_model, PipelineModel):

@@ -18,32 +18,38 @@ select = [
   "E",
   "F",
   "C4",
+  "PLR0402",
   "PT001",
   "PT006",
   "PT007",
   "PT009",
   "PT010",
   "PT012",
+  "PT013",
   "PT018",
+  "PT022",
   "PT023",
   "PT026",
+  "RUF010",
   "UP004",
   "UP008",
   "UP011",
   "UP012",
   "UP015",
+  "UP030",
   "UP031",
   "UP032",
   "UP034",
+  "SIM101",
   "T20",
+  "TID252",
 ]
 force-exclude = true
 ignore = [
+  "E721",  # type-comparison
   "E402",  # module-import-not-at-top-of-file
   "E501",  # line-too-long
   "E741",  # ambiguous-variable-name
-  "F401",  # unused-import
-  "F402",  # import-shadowed-by-loop-var
   "F403",  # undefined-local-with-import-star
   "F811",  # redefined-while-unused
 ]
@@ -66,3 +72,6 @@ extend-exclude = [
 [tool.ruff.flake8-pytest-style]
 mark-parentheses = false
 fixture-parentheses = false
+
+[tool.ruff.flake8-tidy-imports]
+ban-relative-imports = "all"

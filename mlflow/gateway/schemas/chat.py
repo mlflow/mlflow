@@ -1,10 +1,10 @@
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import Field
+from pydantic import Field, Extra
 
-from ..base_models import RequestModel, ResponseModel
-from ..config import RouteType
+from mlflow.gateway.base_models import RequestModel, ResponseModel
+from mlflow.gateway.config import RouteType
 
 
 class RequestMessage(RequestModel):
@@ -49,7 +49,7 @@ class ResponseMessage(ResponseModel):
     content: str
 
 
-class CandidateMetadata(ResponseModel):
+class CandidateMetadata(ResponseModel, extra=Extra.allow):
     finish_reason: Optional[FinishReason]
 
 

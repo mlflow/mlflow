@@ -11,7 +11,7 @@ import pytest
 from mlflow import cli, MlflowClient
 from mlflow.utils import process
 from tests.integration.utils import invoke_cli_runner
-from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
+from tests.projects.utils import docker_example_base_image  # noqa: F401
 from tests.projects.utils import (
     TEST_PROJECT_DIR,
     GIT_PROJECT_URI,
@@ -39,9 +39,9 @@ def test_run_local_params(name):
             "-P",
             "greeting=hi",
             "-P",
-            "name=%s" % name,
+            f"name={name}",
             "-P",
-            "excitement=%s" % excitement_arg,
+            f"excitement={excitement_arg}",
         ],
     )
 
@@ -100,7 +100,7 @@ def test_run_local_conda_env():
         )
     invoke_cli_runner(
         cli.run,
-        [TEST_PROJECT_DIR, "-e", "check_conda_env", "-P", "conda_env_name=%s" % expected_env_name],
+        [TEST_PROJECT_DIR, "-e", "check_conda_env", "-P", f"conda_env_name={expected_env_name}"],
     )
 
 

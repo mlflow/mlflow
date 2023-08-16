@@ -1,8 +1,8 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 
-from ..base_models import ResponseModel
-from .chat import BaseRequestPayload, FinishReason
-from ..config import RouteType
+from mlflow.gateway.base_models import ResponseModel
+from mlflow.gateway.schemas.chat import BaseRequestPayload, FinishReason
+from mlflow.gateway.config import RouteType
 
 
 class RequestPayload(BaseRequestPayload):
@@ -26,7 +26,7 @@ class CandidateMetadata(ResponseModel):
 
 class Candidate(ResponseModel):
     text: str
-    metadata: CandidateMetadata
+    metadata: Optional[Dict[str, str]]
 
 
 class Metadata(ResponseModel):

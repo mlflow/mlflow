@@ -246,7 +246,7 @@ def _fetch_zip_repo(uri):
     try:
         augmented_raise_for_status(response)
     except requests.HTTPError as error:
-        raise ExecutionException(f"Unable to retrieve ZIP file. Reason: {str(error)}")
+        raise ExecutionException(f"Unable to retrieve ZIP file. Reason: {error!s}")
     return BytesIO(response.content)
 
 

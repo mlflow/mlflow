@@ -244,10 +244,10 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
-from mlflow.pyfunc.model import (  # pylint: disable=unused-import
+from mlflow.pyfunc.model import (
     PythonModel,
-    PythonModelContext,
-    get_default_conda_env,
+    PythonModelContext,  # noqa: F401
+    get_default_conda_env,  # noqa: F401
 )
 from mlflow.pyfunc.model import (
     get_default_pip_requirements,
@@ -1372,8 +1372,8 @@ Compound types:
         if len(result.columns) == 0:
             raise MlflowException(
                 message="The model did not produce any values compatible with the requested "
-                "type '{}'. Consider requesting udf with StringType or "
-                "Arraytype(StringType).".format(str(elem_type)),
+                f"type '{elem_type}'. Consider requesting udf with StringType or "
+                "Arraytype(StringType).",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

@@ -627,12 +627,12 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
                 ),
             )
         backend_store._hard_delete_run(run_id)
-        click.echo(f"Run with ID {str(run_id)} has been permanently deleted.")
+        click.echo(f"Run with ID {run_id} has been permanently deleted.")
 
     if not skip_experiments:
         for experiment_id in experiment_ids:
             backend_store._hard_delete_experiment(experiment_id)
-            click.echo(f"Experiment with ID {str(experiment_id)} has been permanently deleted.")
+            click.echo(f"Experiment with ID {experiment_id} has been permanently deleted.")
 
 
 @cli.command(short_help="Prints out useful information for debugging issues with MLflow.")
@@ -658,21 +658,21 @@ cli.add_command(mlflow.db.commands)
 # We are conditional loading these commands since the skinny client does
 # not support them due to the pandas and numpy dependencies of MLflow Models
 try:
-    import mlflow.models.cli  # pylint: disable=unused-import
+    import mlflow.models.cli
 
     cli.add_command(mlflow.models.cli.commands)
 except ImportError:
     pass
 
 try:
-    import mlflow.recipes.cli  # pylint: disable=unused-import
+    import mlflow.recipes.cli
 
     cli.add_command(mlflow.recipes.cli.commands)
 except ImportError:
     pass
 
 try:
-    import mlflow.sagemaker.cli  # pylint: disable=unused-import
+    import mlflow.sagemaker.cli
 
     cli.add_command(mlflow.sagemaker.cli.commands)
 except ImportError:

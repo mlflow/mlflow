@@ -154,7 +154,7 @@ class RegisterStep(BaseStep):
         if self.model_uri is not None and model_source_url is not None:
             card_tab.add_html(
                 "MODEL_SOURCE_URI",
-                (f"<b>Model Source URI</b> <a href={model_source_url}>" f"{self.model_uri}</a>"),
+                f"<b>Model Source URI</b> <a href={model_source_url}>{self.model_uri}</a>",
             )
         elif self.model_uri is not None:
             card_tab.add_markdown(

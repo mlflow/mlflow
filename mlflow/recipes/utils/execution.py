@@ -6,14 +6,16 @@ import re
 import shutil
 from typing import List, Dict
 
+from mlflow.environment_variables import (
+    MLFLOW_RECIPES_EXECUTION_DIRECTORY,
+    MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME,
+)
 from mlflow.recipes.step import BaseStep, StepStatus
 from mlflow.utils.file_utils import read_yaml, write_yaml
 from mlflow.utils.process import _exec_cmd
 
 _logger = logging.getLogger(__name__)
 
-_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR = "MLFLOW_RECIPES_EXECUTION_DIRECTORY"
-_MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR = "MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME"
 _STEPS_SUBDIRECTORY_NAME = "steps"
 _STEP_OUTPUTS_SUBDIRECTORY_NAME = "outputs"
 _STEP_CONF_YAML_NAME = "conf.yaml"
@@ -75,7 +77,7 @@ def run_recipe_step(
     # should be isolated in different subprocesses
     make_env = {
         # Include target step name in the environment variable set
-        _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: target_step.name,
+        MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME.name: target_step.name,
     }
     for step in recipe_steps:
         make_env.update(step.environment)
@@ -228,7 +230,7 @@ def get_or_create_base_execution_directory(recipe_root_path: str) -> str:
     )
 
     execution_dir_path = os.path.abspath(
-        os.environ.get(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR)
+        MLFLOW_RECIPES_EXECUTION_DIRECTORY.get()
         or os.path.join(os.path.expanduser("~"), ".mlflow", "recipes", execution_directory_basename)
     )
     os.makedirs(execution_dir_path, exist_ok=True)

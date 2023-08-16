@@ -28,7 +28,7 @@ implement mutual exclusion manually.
 For a lower level API, see the :py:mod:`mlflow.client` module.
 """
 import contextlib
-from mlflow.version import VERSION as __version__  # pylint: disable=unused-import
+from mlflow.version import VERSION as __version__  # noqa: F401
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
 # Filter annoying Cython warnings that serve no good purpose, and so before
@@ -43,46 +43,45 @@ print(f"Hi from sid {now}")
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
-from mlflow import projects  # pylint: disable=unused-import
-from mlflow import tracking  # pylint: disable=unused-import
-from mlflow import models  # pylint: disable=unused-import
-from mlflow import artifacts  # pylint: disable=unused-import
-from mlflow import client  # pylint: disable=unused-import
-from mlflow import exceptions  # pylint: disable=unused-import
-from mlflow import data  # pylint: disable=unused-import
+from mlflow import projects  # noqa: F401
+from mlflow import tracking  # noqa: F401
+from mlflow import models  # noqa: F401
+from mlflow import artifacts  # noqa: F401
+from mlflow import client  # noqa: F401
+from mlflow import exceptions  # noqa: F401
+from mlflow import data  # noqa: F401
 
 # model flavors
 _model_flavors_supported = []
 try:
-    # pylint: disable=unused-import
-    from mlflow import catboost
-    from mlflow import fastai
-    from mlflow import gluon
-    from mlflow import h2o
-    from mlflow import lightgbm
-    from mlflow import mleap
-    from mlflow import onnx
-    from mlflow import recipes
-    from mlflow import pyfunc
-    from mlflow import pytorch
-    from mlflow import sklearn
-    from mlflow import spacy
-    from mlflow import spark
-    from mlflow import statsmodels
-    from mlflow import tensorflow
-    from mlflow import xgboost
-    from mlflow import shap
-    from mlflow import pyspark
-    from mlflow import paddle
-    from mlflow import prophet
-    from mlflow import pmdarima
-    from mlflow import diviner
-    from mlflow import transformers
-    from mlflow import langchain
-    from mlflow import llm
-    from mlflow import openai
-    from mlflow import sentence_transformers
-    from mlflow import johnsnowlabs
+    from mlflow import catboost  # noqa: F401
+    from mlflow import fastai  # noqa: F401
+    from mlflow import gluon  # noqa: F401
+    from mlflow import h2o  # noqa: F401
+    from mlflow import lightgbm  # noqa: F401
+    from mlflow import mleap  # noqa: F401
+    from mlflow import onnx  # noqa: F401
+    from mlflow import recipes  # noqa: F401
+    from mlflow import pyfunc  # noqa: F401
+    from mlflow import pytorch  # noqa: F401
+    from mlflow import sklearn  # noqa: F401
+    from mlflow import spacy  # noqa: F401
+    from mlflow import spark  # noqa: F401
+    from mlflow import statsmodels  # noqa: F401
+    from mlflow import tensorflow  # noqa: F401
+    from mlflow import xgboost  # noqa: F401
+    from mlflow import shap  # noqa: F401
+    from mlflow import pyspark  # noqa: F401
+    from mlflow import paddle  # noqa: F401
+    from mlflow import prophet  # noqa: F401
+    from mlflow import pmdarima  # noqa: F401
+    from mlflow import diviner  # noqa: F401
+    from mlflow import transformers  # noqa: F401
+    from mlflow import langchain  # noqa: F401
+    from mlflow import llm  # noqa: F401
+    from mlflow import openai  # noqa: F401
+    from mlflow import sentence_transformers  # noqa: F401
+    from mlflow import johnsnowlabs  # noqa: F401
 
     _model_flavors_supported = [
         "catboost",
@@ -246,9 +245,11 @@ __all__ = [
     "MlflowException",
 ] + _model_flavors_supported
 
-# `mlflow.gateway` depends on optional dependencies such as pydantic.
-# Importing this module fails if they are not installed.
-with contextlib.suppress(ImportError):
-    from mlflow import gateway  # pylint: disable=unused-import
+
+# `mlflow.gateway` depends on optional dependencies such as pydantic and has version
+# restrictions for dependencies. Importing this module fails if they are not installed or
+# if invalid versions of these required packages are installed.
+with contextlib.suppress(Exception):
+    from mlflow import gateway  # noqa: F401
 
     __all__.append("gateway")

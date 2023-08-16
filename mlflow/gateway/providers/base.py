@@ -2,8 +2,8 @@ from abc import ABC
 from fastapi import HTTPException
 from typing import Tuple
 
-from ..schemas import chat, completions, embeddings
-from ..config import RouteConfig
+from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.config import RouteConfig
 
 
 class BaseProvider(ABC):

@@ -22,10 +22,7 @@ from mlflow.recipes.artifacts import (
 from mlflow.recipes.cards import BaseCard
 from mlflow.recipes.step import BaseStep
 from mlflow.recipes.step import StepClass
-from mlflow.recipes.utils.execution import (
-    get_step_output_path,
-    _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
-)
+from mlflow.recipes.utils.execution import get_step_output_path
 from mlflow.recipes.utils.metrics import (
     _get_error_fn,
     _get_builtin_metrics,
@@ -61,6 +58,7 @@ from mlflow.utils.string_utils import strip_prefix
 from mlflow.recipes.utils.wrapped_recipe_model import WrappedRecipeModel
 from mlflow.models import Model
 from mlflow.utils.file_utils import TempDir
+from mlflow.environment_variables import MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME
 
 _REBALANCING_CUTOFF = 5000
 _REBALANCING_DEFAULT_RATIO = 0.3
@@ -359,9 +357,7 @@ class TrainStep(BaseStep):
                 MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.RECIPE),
                 MLFLOW_RECIPE_TEMPLATE_NAME: self.step_config["recipe"],
                 MLFLOW_RECIPE_PROFILE_NAME: self.step_config["profile"],
-                MLFLOW_RECIPE_STEP_NAME: os.getenv(
-                    _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR
-                ),
+                MLFLOW_RECIPE_STEP_NAME: MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME.get(),
             }
 
             run_name = self.tracking_config.run_name
