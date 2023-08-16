@@ -1116,6 +1116,38 @@ def search_datasets_handler():
         }
     else:
         return _not_implemented()
+    
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def create_promptlab_run_handler():
+    request_message = _get_request_message(
+        CreateRun(),
+        schema={
+            "experiment_id": [_assert_string],
+            "start_time": [_assert_intlike],
+            "run_name": [_assert_string],
+        },
+    )
+
+    tags = [RunTag(tag.key, tag.value) for tag in request_message.tags]
+
+    store = _get_tracking_store()
+
+    if hasattr(store, "_search_datasets"):
+        run = store.create_promptlab_run(
+            experiment_id=request_message.experiment_id,
+            user_id=request_message.user_id,
+            start_time=request_message.start_time,
+            tags=tags,
+            run_name=request_message.run_name,
+        )
+        response_message = CreateRun.Response()
+        response_message.run.MergeFrom(run.to_proto())
+        response = Response(mimetype="application/json")
+        response.set_data(message_to_json(response_message))
+        return response
+    else:
+        return _not_implemented()
 
 
 @catch_mlflow_exception
