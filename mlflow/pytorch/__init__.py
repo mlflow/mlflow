@@ -7,12 +7,12 @@ PyTorch (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+import atexit
 import importlib
 import logging
 import os
 import yaml
 import warnings
-import atexit
 from typing import Any, Dict, Optional
 
 import numpy as np
