@@ -460,11 +460,13 @@ def load_model(model_uri, dst_path=None):
             signature = infer_signature(input_sample, output_sample)
 
             # Log model
-            mlflow.pmdarima.log_model(model, ARTIFACT_PATH, signature=signature)
+            input_example = input_sample.head()
+            mlflow.pmdarima.log_model(
+                model, ARTIFACT_PATH, signature=signature, input_example=input_example
+            )
 
             # Get the model URI for loading
             model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
-            print(f"Model artifact logged to: {model_uri}")
 
         # Load the model
         loaded_model = mlflow.pmdarima.load_model(model_uri)
@@ -477,8 +479,6 @@ def load_model(model_uri, dst_path=None):
     .. code-block:: text
         :caption: Output
 
-        Model artifact logged to: dbfs:/databricks/mlflow-tracking/969987237801842/
-            7944093422a641c79b37c88f63adecc2/artifacts/model
         forecast:
         234    382452.397246
         235    380639.458720
