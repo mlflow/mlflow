@@ -17,7 +17,7 @@ defaults:
 
 jobs:
   gateway:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    # if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -28,5 +28,11 @@ jobs:
           pip install -e .[gateway]
           pip install pytest pytest-timeout pytest-asyncio httpx sentence-transformers transformers
       - name: Run tests
+        run: |
+          pytest tests/gateway
+      - name: Upgrade pydantic and fastapi
+        run: |
+          pip install --upgrade pydantic fastapi
+      - name: Run tests again
         run: |
           pytest tests/gateway
