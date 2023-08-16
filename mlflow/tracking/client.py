@@ -1640,7 +1640,7 @@ class MlflowClient:
         import pandas as pd
 
         self._check_artifact_file_string(artifact_file)
-        subset_tag_value = json.dumps({"path": artifact_file, "type": "table"})
+        subset_tag_value = '"path"%:%"eval_results_table.json",%"type"%:%"table"'
 
         # Build the filter string
         filter_string = f"tags.{MLFLOW_LOGGED_ARTIFACTS} LIKE '%{subset_tag_value}%'"
