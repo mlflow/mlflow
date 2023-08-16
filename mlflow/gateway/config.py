@@ -80,6 +80,7 @@ class OpenAIConfig(ConfigModel):
     def validate_openai_api_key(cls, value):
         return _resolve_api_key_from_input(value)
 
+    @classmethod
     def _validate_field_compatibility(cls, info: Dict[str, Any]):
         api_type = (info.get("openai_api_type") or OpenAIAPIType.OPENAI).lower()
         if api_type == OpenAIAPIType.OPENAI:
@@ -116,14 +117,14 @@ class OpenAIConfig(ConfigModel):
 
         @model_validator(mode="before")
         def validate_field_compatibility(cls, info: Dict[str, Any]):
-            return cls._validate_field_compatibility(cls, info)
+            return cls._validate_field_compatibility(info)
 
     else:
         from pydantic import root_validator
 
         @root_validator(pre=False)
         def validate_field_compatibility(cls, config: Dict[str, Any]):
-            return cls._validate_field_compatibility(cls, config)
+            return cls._validate_field_compatibility(config)
 
 
 class AnthropicConfig(ConfigModel):
@@ -210,7 +211,8 @@ class Model(ConfigModel):
             return Provider[formatted_value]
         raise MlflowException.invalid_parameter_value(f"The provider '{value}' is not supported.")
 
-    def __validate_config(info, values):
+    @classmethod
+    def _validate_config(cls, info, values):
         if provider := values.get("provider"):
             config_type = config_types[provider]
             return config_type(**info)
@@ -223,13 +225,13 @@ class Model(ConfigModel):
 
         @validator("config", pre=True)
         def validate_config(cls, info, values):
-            return cls.__validate_config(info, values)
+            return cls._validate_config(info, values)
 
     else:
 
         @validator("config", pre=True)
         def validate_config(cls, config, values):
-            return cls.__validate_config(config, values)
+            return cls._validate_config(config, values)
 
 
 # pylint: disable=no-self-argument
