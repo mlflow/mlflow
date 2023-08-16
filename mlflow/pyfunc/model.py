@@ -7,6 +7,7 @@ import inspect
 import logging
 import os
 import posixpath
+import pathlib
 import shutil
 import yaml
 from typing import Any, Dict, List, Optional
@@ -237,7 +238,7 @@ def _save_model_with_class_artifacts_params(
                 tmp_artifacts_config[artifact_name] = tmp_artifact_path
                 saved_artifact_subpath = posixpath.join(
                     saved_artifacts_dir_subpath,
-                    os.path.relpath(path=tmp_artifact_path, start=tmp_artifacts_dir.path()),
+                    pathlib.Path(os.path.relpath(path=tmp_artifact_path, start=tmp_artifacts_dir.path())).as_posix(),
                 )
                 saved_artifacts_config[artifact_name] = {
                     CONFIG_KEY_ARTIFACT_RELATIVE_PATH: saved_artifact_subpath,
