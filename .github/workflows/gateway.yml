@@ -34,7 +34,7 @@ jobs:
           pytest tests/gateway
       - name: Upgrade pydantic to v2
         run: |
-          pip install pydantic>=2.0
+          pip install 'pydantic>=2.0'
           # Ensure pydantic v2 is installed
           pip freeze | tail -n +1 | grep -q '^pydantic==2\.'
       - name: Run tests with pydantic v2
