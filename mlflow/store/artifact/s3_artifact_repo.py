@@ -120,7 +120,7 @@ class S3ArtifactRepository(CloudArtifactRepository):
         self._access_key_id = access_key_id
         self._secret_access_key = secret_access_key
         self._session_token = session_token
-        self.bucket, self.bucket_path = data_utils.parse_s3_uri(self.artifact_uri)
+        self.bucket, self.bucket_path = self.parse_s3_uri(self.artifact_uri)
 
     def _get_s3_client(self):
         return _get_s3_client(
@@ -129,8 +129,7 @@ class S3ArtifactRepository(CloudArtifactRepository):
             session_token=self._session_token,
         )
 
-    @staticmethod
-    def parse_s3_uri(uri):
+    def parse_s3_uri(self, uri):
         """Parse an S3 URI, returning (bucket, path)"""
         parsed = urllib.parse.urlparse(uri)
         if parsed.scheme != "s3":
