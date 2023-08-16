@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, validator, StrictStr, ValidationError
+from pydantic import BaseModel, validator, StrictStr, ValidationError, StrictFloat
 from typing import List
 
 
@@ -34,7 +34,7 @@ class ServingTextResponse(BaseModel):
 
 
 class EmbeddingsResponse(BaseModel):
-    predictions: List[List[float]]
+    predictions: List[List[StrictFloat]]
 
     @validator("predictions", pre=True)
     def validate_predictions(cls, predictions):
