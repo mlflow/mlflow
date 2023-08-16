@@ -522,12 +522,9 @@ class SageMakerBackend(BaseBackend):
         https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListTags.html
         """
         resource_values = getattr(self, resource_type).values()
-        sagemaker_resource = next(
-            sagemaker_resource
-            for sagemaker_resource in resource_values
-            if sagemaker_resource.arn == resource_arn
-        )
-        return sagemaker_resource.resource.tags
+        for sagemaker_resource in resource_values:
+            if sagemaker_resource.arn == resource_arn:
+                return sagemaker_resource.resource.tags
 
     def create_model(
         self, model_name, primary_container, execution_role_arn, tags, region_name, vpc_config=None
