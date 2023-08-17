@@ -271,7 +271,7 @@ class RouteConfig(ConfigModel):
         return Route(
             name=self.name,
             route_type=self.route_type,
-            model=ModelInfo(
+            model=RouteModelInfo(
                 name=self.model.name,
                 provider=self.model.provider,
             ),
@@ -279,10 +279,17 @@ class RouteConfig(ConfigModel):
         )
 
 
+class RouteModelInfo(ResponseModel):
+    name: Optional[str] = None
+    # Use `str` instead of `Provider` enum to allow gateway backends such as Databricks to
+    # support new providers without breaking the gateway client.
+    provider: str
+
+
 class Route(ResponseModel):
     name: str
-    route_type: RouteType
-    model: ModelInfo
+    route_type: str
+    model: RouteModelInfo
     route_url: str
 
     class Config:
