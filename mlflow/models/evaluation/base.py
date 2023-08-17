@@ -948,7 +948,7 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
     raise ModelValidationFailedException(message=os.linesep.join(failure_messages))
 
 
-def _convert_data_to_mlflow_dataset(data, targets=None, feature_names=None, dataset_path=None):
+def _convert_data_to_mlflow_dataset(data, targets=None, dataset_path=None):
     """Convert inputs to mlflow dataset."""
     if "pyspark" in sys.modules:
         from pyspark.sql import DataFrame as SparkDataFrame
@@ -956,32 +956,8 @@ def _convert_data_to_mlflow_dataset(data, targets=None, feature_names=None, data
     if isinstance(data, Dataset):
         return data
     elif isinstance(data, pd.DataFrame):
-        if feature_names is None:
-            if "label" in data.columns:
-                # If there is a "label" column, treat all columns except "label" as features.
-                features = data.drop(columns="label")
-            else:
-                features = data
-        else:
-            features = data[feature_names]
-
-        if targets is None:
-            if "label" in data.columns:
-                # If there is a "label" column, use it as the label.
-                labels = data["label"]
-            else:
-                labels = None
-        else:
-            labels = data[targets]
-        return mlflow.data.from_pandas(df=features, targets=labels, source=dataset_path)
+        return mlflow.data.from_pandas(df=data, targets=targets, source=dataset_path)
     elif "pyspark" in sys.modules and isinstance(data, SparkDataFrame):
-        if targets is None:
-            if "label" in data.columns:
-                # If there is a "label" column, use it as the label.
-                targets = "label"
-            else:
-                targets = None
-        ds = mlflow.data.from_spark(df=data, targets=targets, path=dataset_path)
         return mlflow.data.from_spark(df=data, targets=targets, path=dataset_path)
     elif isinstance(data, np.ndarray):
         return mlflow.data.from_numpy(data, targets=targets, source=dataset_path)
@@ -1578,7 +1554,6 @@ def evaluate(
         data = _convert_data_to_mlflow_dataset(
             data=data,
             targets=targets,
-            feature_names=feature_names,
             dataset_path=dataset_path,
         )
         from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin

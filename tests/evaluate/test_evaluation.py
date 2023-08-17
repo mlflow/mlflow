@@ -26,7 +26,6 @@ from sklearn.metrics import (
 import sklearn.pipeline
 import sklearn.preprocessing
 
-import pyspark
 from pyspark.sql import SparkSession
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression as SparkLinearRegression
