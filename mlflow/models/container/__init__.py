@@ -25,11 +25,10 @@ from mlflow.pyfunc import scoring_server, mlserver, _extract_conda_env
 from mlflow.version import VERSION as MLFLOW_VERSION
 from mlflow.utils import env_manager as em
 from mlflow.utils.virtualenv import _get_or_create_virtualenv
+from mlflow.environment_variables import MLFLOW_DEPLOYMENT_FLAVOR_NAME
 
 MODEL_PATH = "/opt/ml/model"
 
-
-DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME = "MLFLOW_DEPLOYMENT_FLAVOR_NAME"
 
 DEFAULT_SAGEMAKER_SERVER_PORT = 8080
 DEFAULT_INFERENCE_SERVER_PORT = 8000
@@ -70,8 +69,8 @@ def _serve(env_manager):
     model_config_path = os.path.join(MODEL_PATH, MLMODEL_FILE_NAME)
     m = Model.load(model_config_path)
 
-    if DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME in os.environ:
-        serving_flavor = os.environ[DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME]
+    if MLFLOW_DEPLOYMENT_FLAVOR_NAME.defined():
+        serving_flavor = MLFLOW_DEPLOYMENT_FLAVOR_NAME.get()
     else:
         # Older versions of mlflow may not specify a deployment configuration
         serving_flavor = pyfunc.FLAVOR_NAME
