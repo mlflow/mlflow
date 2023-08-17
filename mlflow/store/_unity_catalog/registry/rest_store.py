@@ -497,12 +497,10 @@ class UcModelRegistryStore(BaseRestStore):
                 ) from e
             # Clean up temporary model directory at end of block. We assume a temporary
             # model directory was created if the `source` is not a local path (must be downloaded
-            # from remote to a temporary directory); to be safe, we also verify that the
-            # directory is located under the temporary directory prefix
-            local_dir_is_temporary = Path(tempfile.gettempdir()) in Path(local_model_dir).parents
-            if not os.path.exists(source) and local_dir_is_temporary:
-                shutil.rmtree(local_model_dir)
+            # from remote to a temporary directory)
             yield local_model_dir
+            if not os.path.exists(source):
+                shutil.rmtree(local_model_dir)
 
     def create_model_version(
         self,
