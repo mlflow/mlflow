@@ -279,10 +279,17 @@ class RouteConfig(ConfigModel):
         )
 
 
+class RouteModel(ResponseModel):
+    name: Optional[str] = None
+    # Override the provider field to be a string instead of an enum to
+    # allow for new providers to be added without breaking the gateway.
+    provider: str
+
+
 class Route(ResponseModel):
     name: str
-    route_type: RouteType
-    model: ModelInfo
+    route_type: str
+    model: RouteModel
     route_url: str
 
     class Config:
