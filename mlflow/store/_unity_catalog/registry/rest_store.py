@@ -3,8 +3,10 @@ import functools
 
 import logging
 import shutil
+import tempfile
 import os
 from contextlib import contextmanager
+from pathlib import Path
 
 from mlflow.entities import Run
 from mlflow.protos.service_pb2 import GetRun, MlflowService
@@ -479,9 +481,11 @@ class UcModelRegistryStore(BaseRestStore):
 
     @contextmanager
     def _local_model_dir(self, source, local_model_path):
-        if local_model_path is None:
+        if local_model_path is not None:
+            yield local_model_path
+        else:
             try:
-                local_model_path = mlflow.artifacts.download_artifacts(
+                local_model_dir = mlflow.artifacts.download_artifacts(
                     artifact_uri=source, tracking_uri=self.tracking_uri
                 )
             except Exception as e:
@@ -491,12 +495,14 @@ class UcModelRegistryStore(BaseRestStore):
                     f"the source artifact location exists and that you can download from "
                     f"it via mlflow.artifacts.download_artifacts()"
                 ) from e
-        yield local_model_path
-        # Clean up temporary model directory at end of block. We assume a temporary
-        # model directory was created if the `source` is not a local path (must be downloaded
-        # from remote) or if local_model_path and source differ.
-        if not os.path.exists(source) or not os.path.samefile(local_model_path, source):
-            shutil.rmtree(local_model_path)
+            # Clean up temporary model directory at end of block. We assume a temporary
+            # model directory was created if the `source` is not a local path (must be downloaded
+            # from remote to a temporary directory); to be safe, we also verify that the
+            # directory is located under the temporary directory prefix
+            local_dir_is_temporary = Path(tempfile.gettempdir()) in Path(local_model_dir).parents
+            if not os.path.exists(source) and local_dir_is_temporary:
+                shutil.rmtree(local_model_dir)
+            yield local_model_dir
 
     def create_model_version(
         self,
