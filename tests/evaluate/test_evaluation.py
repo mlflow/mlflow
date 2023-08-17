@@ -1241,3 +1241,52 @@ def test_targets_is_required_for_regressor_and_classifier_models(model_type):
             data=pd.DataFrame(),
             model_type=model_type,
         )
+
+
+def test_evaluate_xgboost_classifier():
+    import xgboost as xgb
+
+    X, y = sklearn.datasets.load_iris(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    data = xgb.DMatrix(X, label=y)
+    model = xgb.train({"objective": "multi:softmax", "num_class": 3}, data, num_boost_round=5)
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.xgboost.log_model(model, "model")
+        mlflow.evaluate(
+            model_info.model_uri,
+            X.assign(y=y),
+            targets="y",
+            model_type="classifier",
+        )
+
+    run = mlflow.get_run(run.info.run_id)
+    assert "accuracy_score" in run.data.metrics
+    assert "recall_score" in run.data.metrics
+    assert "precision_score" in run.data.metrics
+    assert "f1_score" in run.data.metrics
+
+
+def test_evaluate_lightgbm_regressor():
+    import lightgbm as lgb
+
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    data = lgb.Dataset(X, label=y)
+    model = lgb.train({"objective": "regression"}, data, num_boost_round=5)
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.lightgbm.log_model(model, "model")
+        mlflow.evaluate(
+            model_info.model_uri,
+            X.assign(y=y),
+            targets="y",
+            model_type="regressor",
+        )
+
+    run = mlflow.get_run(run.info.run_id)
+    assert "mean_absolute_error" in run.data.metrics
+    assert "mean_squared_error" in run.data.metrics
+    assert "root_mean_squared_error" in run.data.metrics
