@@ -281,8 +281,7 @@ class RouteConfig(ConfigModel):
 
 class RouteModelInfo(ResponseModel):
     name: Optional[str] = None
-    # Override the provider field to be a string instead of an enum to
-    # allow for new providers to be added without breaking the gateway.
+    # Use a string instead of an enum to accept new providers the client may not know about yet.
     provider: str
 
 
