@@ -90,6 +90,7 @@ from mlflow.utils.uri import (
 )
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
+    MLFLOW_LOGGED_ARTIFACTS,
     MLFLOW_LOGGED_MODELS,
     MLFLOW_RUN_NAME,
     _get_run_name_from_tags,
@@ -1274,6 +1275,46 @@ class FileStore(AbstractStore):
             )
             for summary in summaries
         ]
+
+    def _create_promptlab_run(
+        self,
+        experiment_id,
+        run_name,
+        tags,
+        prompt_template,
+        prompt_parameters,
+        model_route,
+        model_parameters,
+        model_input,
+        model_output_parameters,
+        mlflow_version,
+        user_id,
+        start_time,
+    ):
+        """
+        Creates a run with the specified attributes.
+        """
+        run = self.create_run(experiment_id, user_id, start_time, tags, run_name)
+        run_id = run.info.run_id
+
+        # log model parameters
+        parameters_to_log = (
+            model_parameters
+            + Param("model_route", model_route)
+            + Param("prompt_template", prompt_template)
+        )
+        self.log_batch(run_id, [], parameters_to_log, [])
+
+        # set logged artifacts tag
+        tag_value = [{"path": "eval_results_table.json", "type": "table"}]
+        self.set_tag(run_id, MLFLOW_LOGGED_ARTIFACTS, json.dumps(tag_value))
+
+        # log model
+
+        # upload artifact files
+
+        # return the run
+        return self.get_run(run_id=run_id)
 
     @staticmethod
     def _get_dataset_from_dir(parent_path, dataset_dir) -> Dataset:
