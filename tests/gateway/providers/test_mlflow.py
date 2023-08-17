@@ -129,10 +129,7 @@ def test_invalid_return_key_from_mlflow_serving():
             {"invalid_return_key": ["invalid", "response"]}
         )
 
-    assert (
-        "1 validation error for ServingTextResponse\npredictions\n  field required"
-        in e.value.detail
-    )
+    assert "1 validation error for ServingTextResponse\npredictions" in e.value.detail
     assert e.value.status_code == 502
 
 
@@ -276,5 +273,5 @@ async def test_chat_exception_raised_for_multiple_elements_in_query():
 
 
 def test_route_construction_fails_with_invalid_config():
-    with pytest.raises(pydantic.ValidationError, match="none is not an allowed"):
+    with pytest.raises(pydantic.ValidationError, match="model_server_url"):
         MlflowModelServingConfig(model_server_url=None)
