@@ -34,7 +34,7 @@ class ServingTextResponse(BaseModel):
 
 
 class EmbeddingsResponse(BaseModel):
-    predictions: List[List[float]]
+    predictions: List[List[StrictFloat]]
 
     @validator("predictions", pre=True)
     def validate_predictions(cls, predictions):
@@ -44,7 +44,7 @@ class EmbeddingsResponse(BaseModel):
             isinstance(item, list) and not item for item in predictions
         ):
             raise ValueError("One or more lists in the returned prediction response are empty")
-        elif all(isinstance(item, (float, StrictFloat)) for item in predictions):
+        elif all(isinstance(item, float) for item in predictions):
             return [predictions]
         else:
             return predictions
