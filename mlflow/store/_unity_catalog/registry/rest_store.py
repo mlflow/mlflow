@@ -1,7 +1,6 @@
 import base64
 import functools
 
-# Clean up temporary model directory at end of block
 import logging
 import shutil
 import os
@@ -485,7 +484,6 @@ class UcModelRegistryStore(BaseRestStore):
                 local_model_path = mlflow.artifacts.download_artifacts(
                     artifact_uri=source, tracking_uri=self.tracking_uri
                 )
-                print(f"Downloading artifacts from {source} to {local_model_path}")
             except Exception as e:
                 raise MlflowException(
                     f"Unable to download model artifacts from source artifact location "
