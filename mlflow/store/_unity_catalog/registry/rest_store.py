@@ -3,10 +3,8 @@ import functools
 
 import logging
 import shutil
-import tempfile
 import os
 from contextlib import contextmanager
-from pathlib import Path
 
 from mlflow.entities import Run
 from mlflow.protos.service_pb2 import GetRun, MlflowService
