@@ -403,6 +403,6 @@ MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME = _EnvironmentVariable(
 #: (default ``None``)
 MLFLOW_DEPLOYMENT_FLAVOR_NAME = _EnvironmentVariable("MLFLOW_DEPLOYMENT_FLAVOR_NAME", str, None)
 
-#: Specified the profile to use for recipes.
+#: Specifies the profile to use for recipes.
 #: (default: ``None``)
 MLFLOW_RECIPES_PROFILE = _EnvironmentVariable("MLFLOW_RECIPES_PROFILE", str, None)
