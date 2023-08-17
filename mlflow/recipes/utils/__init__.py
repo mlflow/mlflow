@@ -11,7 +11,6 @@ from mlflow.utils.file_utils import read_yaml, render_and_merge_yaml
 
 _RECIPE_CONFIG_FILE_NAME = "recipe.yaml"
 _RECIPE_PROFILE_DIR = "profiles"
-_RECIPE_PROFILE_ENV_VAR = "MLFLOW_RECIPES_PROFILE"
 
 _logger = logging.getLogger(__name__)
 
