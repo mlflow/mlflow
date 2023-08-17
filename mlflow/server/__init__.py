@@ -87,6 +87,7 @@ def serve_get_metric_history_bulk():
 def serve_search_datasets():
     return search_datasets_handler()
 
+
 # Serve the "runs/create-promptlab-run" route.
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/runs/create-promptlab-run"))
 def serve_create_promptlab_run():

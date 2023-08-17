@@ -1116,30 +1116,43 @@ def search_datasets_handler():
         }
     else:
         return _not_implemented()
-    
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def create_promptlab_run_handler():
-    request_message = _get_request_message(
-        CreateRun(),
-        schema={
-            "experiment_id": [_assert_string],
-            "start_time": [_assert_intlike],
-            "run_name": [_assert_string],
-        },
-    )
-
-    tags = [RunTag(tag.key, tag.value) for tag in request_message.tags]
+    args = request.args.to_dict(flat=False)
+    experiment_id = args.get("experiment_id")
+    run_name = args.get("run_name")
+    tags = args.get("tags")
+    prompt_template = args.get("prompt_template")
+    prompt_parameters = [
+        Param(param.get("key"), param.get("value")) for param in args.get("prompt_parameters")
+    ]
+    model_route = args.get("model_route")
+    model_parameters = [
+        Param(param.get("key"), param.get("value")) for param in args.get("model_parameters")
+    ]
+    model_input = args.get("model_input")
+    model_output_parameters = [
+        Param(param.get("key"), param.get("value")) for param in args.get("model_output_parameters")
+    ]
+    mlflow_version = args.get("mlflow_version")
 
     store = _get_tracking_store()
 
     if hasattr(store, "_search_datasets"):
         run = store.create_promptlab_run(
-            experiment_id=request_message.experiment_id,
-            user_id=request_message.user_id,
-            start_time=request_message.start_time,
+            experiment_id=experiment_id,
+            run_name=run_name,
             tags=tags,
-            run_name=request_message.run_name,
+            prompt_template=prompt_template,
+            prompt_parameters=prompt_parameters,
+            model_route=model_route,
+            model_parameters=model_parameters,
+            model_input=model_input,
+            model_output_parameters=model_output_parameters,
+            mlflow_version=mlflow_version,
         )
         response_message = CreateRun.Response()
         response_message.run.MergeFrom(run.to_proto())
