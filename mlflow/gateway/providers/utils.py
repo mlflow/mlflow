@@ -32,15 +32,12 @@ async def send_request(headers: Dict[str, str], base_url: str, path: str, payloa
 
 def rename_payload_keys(payload: Dict[str, Any], mapping: Dict[str, str]) -> Dict[str, Any]:
     """
-    Transform the keys in a dictionary based on a provided mapping.
+    Rename payload keys based on the specified mapping. If a key is not present in the
+    mapping, the key and its value will remain unchanged.
 
     :param payload: The original dictionary to transform.
     :param mapping: A dictionary where each key-value pair represents a mapping from the old
                     key to the new key.
     :return: A new dictionary containing the transformed keys.
     """
-    result = payload.copy()
-    for old_key, new_key in mapping.items():
-        if old_key in result:
-            result[new_key] = result.pop(old_key)
-    return result
+    return {mapping.get(k, k): v for k, v in payload.items()}

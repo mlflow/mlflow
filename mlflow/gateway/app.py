@@ -104,7 +104,7 @@ class HealthResponse(BaseModel):
 
 class SearchRoutesResponse(BaseModel):
     routes: List[Route]
-    next_page_token: Optional[str]
+    next_page_token: Optional[str] = None
 
     class Config:
         schema_extra = {
