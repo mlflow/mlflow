@@ -5,8 +5,6 @@ import hashlib
 import json
 import os
 import signal
-import numpy as np
-import pandas as pd
 
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
@@ -39,6 +37,13 @@ from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
 import operator
 from decimal import Decimal
+
+try:
+    # `numpy` and `pandas` are not required for `mlflow-skinny`.
+    import numpy as np
+    import pandas as pd
+except ImportError:
+    pass
 
 _logger = logging.getLogger(__name__)
 
