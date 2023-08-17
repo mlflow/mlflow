@@ -281,7 +281,8 @@ class RouteConfig(ConfigModel):
 
 class RouteModelInfo(ResponseModel):
     name: Optional[str] = None
-    # Use a string instead of an enum to accept new providers the client may not know about yet.
+    # Use `str` instead of `Provider` enum to allow gateway backends such as Databricks to
+    # support new providers without breaking the gateway client.
     provider: str
 
 
