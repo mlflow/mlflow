@@ -1,7 +1,11 @@
 import base64
 import functools
+
+# Clean up temporary model directory at end of block
 import logging
-import tempfile
+import shutil
+import os
+from contextlib import contextmanager
 
 from mlflow.entities import Run
 from mlflow.protos.service_pb2 import GetRun, MlflowService
@@ -474,6 +478,28 @@ class UcModelRegistryStore(BaseRestStore):
                 f"{signature_required_explanation}"
             )
 
+    @contextmanager
+    def _local_model_dir(self, source, local_model_path):
+        if local_model_path is None:
+            try:
+                local_model_path = mlflow.artifacts.download_artifacts(
+                    artifact_uri=source, tracking_uri=self.tracking_uri
+                )
+                print(f"Downloading artifacts from {source} to {local_model_path}")
+            except Exception as e:
+                raise MlflowException(
+                    f"Unable to download model artifacts from source artifact location "
+                    f"'{source}' in order to upload them to Unity Catalog. Please ensure "
+                    f"the source artifact location exists and that you can download from "
+                    f"it via mlflow.artifacts.download_artifacts()"
+                ) from e
+        yield local_model_path
+        # Clean up temporary model directory at end of block. We assume a temporary
+        # model directory was created if the `source` is not a local path (must be downloaded
+        # from remote) or if local_model_path and source differ.
+        if not os.path.exists(source) or not os.path.samefile(local_model_path, source):
+            shutil.rmtree(local_model_path)
+
     def create_model_version(
         self,
         name,
@@ -519,21 +545,9 @@ class UcModelRegistryStore(BaseRestStore):
             header_base64 = base64.b64encode(header_json.encode())
             extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: header_base64}
         full_name = get_full_name_from_sc(name, self.spark)
-        with tempfile.TemporaryDirectory() as tmpdir:
-            if local_model_path is None:
-                try:
-                    local_model_path = mlflow.artifacts.download_artifacts(
-                        artifact_uri=source, dst_path=tmpdir, tracking_uri=self.tracking_uri
-                    )
-                except Exception as e:
-                    raise MlflowException(
-                        f"Unable to download model artifacts from source artifact location "
-                        f"'{source}' in order to upload them to Unity Catalog. Please ensure "
-                        f"the source artifact location exists and that you can download from "
-                        f"it via mlflow.artifacts.download_artifacts()"
-                    ) from e
-            self._validate_model_signature(local_model_path)
-            feature_deps = get_feature_dependencies(local_model_path)
+        with self._local_model_dir(source, local_model_path) as local_model_dir:
+            self._validate_model_signature(local_model_dir)
+            feature_deps = get_feature_dependencies(local_model_dir)
             req_body = message_to_json(
                 CreateModelVersionRequest(
                     name=full_name,
@@ -555,9 +569,9 @@ class UcModelRegistryStore(BaseRestStore):
             store = get_artifact_repo_from_storage_info(
                 storage_location=model_version.storage_location, scoped_token=scoped_token
             )
-            store.log_artifacts(local_dir=local_model_path, artifact_path="")
-        finalized_mv = self._finalize_model_version(name=full_name, version=version_number)
-        return model_version_from_uc_proto(finalized_mv)
+            store.log_artifacts(local_dir=local_model_dir, artifact_path="")
+            finalized_mv = self._finalize_model_version(name=full_name, version=version_number)
+            return model_version_from_uc_proto(finalized_mv)
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
         """

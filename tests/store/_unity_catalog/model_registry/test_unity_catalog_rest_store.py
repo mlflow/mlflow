@@ -746,6 +746,48 @@ def test_create_model_version_local_model_path(store, local_model_dir):
         )
 
 
+def test_create_model_version_doesnt_redownload_model_from_local_dir(store, local_model_dir):
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+    )
+    storage_location = "s3://blah"
+    model_name = "model_1"
+    version = "1"
+    tags = [
+        ModelVersionTag(key="key", value="value"),
+        ModelVersionTag(key="anotherKey", value="some other value"),
+    ]
+    mock_artifact_repo = mock.MagicMock(autospec=S3ArtifactRepository)
+    model_dir = str(local_model_dir)
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
+            name=model_name,
+            version=version,
+            temp_credentials=aws_temp_creds,
+            storage_location=storage_location,
+            source=model_dir,
+            tags=tags,
+        ),
+    ), mock.patch(
+        "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository",
+        return_value=mock_artifact_repo,
+    ):
+        # Assert that we create the model version from the local model dir directly,
+        # rather than downloading it to a tmpdir + creating from there
+        store.create_model_version(name=model_name, source=model_dir, tags=tags)
+        mock_artifact_repo.log_artifacts.assert_called_once_with(
+            local_dir=model_dir, artifact_path=""
+        )
+
+
 def test_create_model_version_azure(store, local_model_dir):
     storage_location = "abfss://filesystem@account.dfs.core.windows.net"
     fake_sas_token = "fake_session_token"
