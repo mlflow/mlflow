@@ -171,6 +171,17 @@ setup(
             "boto3>1",
         ],
         "gateway": GATEWAY_REQUIREMENTS,
+        # Extra dependencies required for `mlflow.evaluate`
+        "evaluate": [
+            # shap < 0.42 is incompatible with numpy >= 1.24.
+            "shap>=0.42",
+            "evaluate",
+            "torch",
+            "transformers",
+            "textstat",
+            "nltk",
+            "rouge_score",
+        ],
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
     },

@@ -1262,6 +1262,15 @@ def evaluate(
           specified, unless the ``evaluator_config`` option **log_model_explainability** is
           explicitly set to ``True``.
 
+    .. note::
+
+        To compute and log a full set of metrics and artifacts supported by the default
+        evaluator, use the following command to install required extra dependencies:
+
+        .. code-block:: bash
+
+            pip install 'mlflow[evaluate]'
+
     :param model: A pyfunc model instance, or a URI referring to such a model.
 
     :param data: One of the following:
