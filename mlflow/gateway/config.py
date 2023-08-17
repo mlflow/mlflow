@@ -271,7 +271,7 @@ class RouteConfig(ConfigModel):
         return Route(
             name=self.name,
             route_type=self.route_type,
-            model=ModelInfo(
+            model=RouteModelInfo(
                 name=self.model.name,
                 provider=self.model.provider,
             ),
