@@ -1271,6 +1271,9 @@ def evaluate(
 
             pip install 'mlflow[evaluate]'
 
+        Note that this is optional. `mlflow.evaluate` works without the extra dependencies
+        installed. However, some metrics and artifacts will not be logged.
+
     :param model: A pyfunc model instance, or a URI referring to such a model.
 
     :param data: One of the following:
