@@ -26,6 +26,7 @@ from sklearn.metrics import (
 import sklearn.pipeline
 import sklearn.preprocessing
 
+import pyspark
 from pyspark.sql import SparkSession
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression as SparkLinearRegression
@@ -559,6 +560,26 @@ def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
             linear_regressor_model_uri,
             data=df,
             targets="y",
+            model_type="regressor",
+            evaluators=["default"],
+        )
+    _, saved_metrics, _, _ = get_run_data(run.info.run_id)
+
+    for k, v in eval_result.metrics.items():
+        assert v == saved_metrics[k]
+
+
+def test_spark_df_regressor_evaluation(linear_regressor_model_uri):
+    data = sklearn.datasets.load_diabetes()
+    spark = SparkSession.builder.master("local[*]").getOrCreate()
+    panda_df = pd.DataFrame(data.data, columns=data.feature_names)
+    panda_df["label"] = data.target
+    spark_df = spark.createDataFrame(panda_df)
+    with mlflow.start_run() as run:
+        eval_result = evaluate(
+            linear_regressor_model_uri,
+            data=spark_df,
+            targets="label",
             model_type="regressor",
             evaluators=["default"],
         )

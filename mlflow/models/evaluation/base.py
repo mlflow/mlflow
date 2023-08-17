@@ -8,7 +8,6 @@ import signal
 import numpy as np
 import pandas as pd
 
-from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -40,9 +39,6 @@ from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
 import operator
 from decimal import Decimal
-
-if "pyspark" in sys.modules:
-    from pyspark.sql import DataFrame as SparkDataFrame
 
 _logger = logging.getLogger(__name__)
 
@@ -952,8 +948,11 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
     raise ModelValidationFailedException(message=os.linesep.join(failure_messages))
 
 
-def _convert_data_to_mlflow_dataset(data, labels=None, feature_names=None, dataset_path=None):
+def _convert_data_to_mlflow_dataset(data, targets=None, feature_names=None, dataset_path=None):
     """Convert inputs to mlflow dataset."""
+    if "pyspark" in sys.modules:
+        from pyspark.sql import DataFrame as SparkDataFrame
+
     if isinstance(data, Dataset):
         return data
     elif isinstance(data, pd.DataFrame):
@@ -966,36 +965,26 @@ def _convert_data_to_mlflow_dataset(data, labels=None, feature_names=None, datas
         else:
             features = data[feature_names]
 
-        if labels is None:
+        if targets is None:
             if "label" in data.columns:
                 # If there is a "label" column, use it as the label.
                 labels = data["label"]
             else:
                 labels = None
         else:
-            labels = data[labels]
+            labels = data[targets]
         return mlflow.data.from_pandas(df=features, targets=labels, source=dataset_path)
     elif "pyspark" in sys.modules and isinstance(data, SparkDataFrame):
-        if feature_names is None:
-            if "label" in data.columns:
-                # If there is a "label" column, treat all columns except "label" as features.
-                features = data.drop("label")
-            else:
-                features = data
-        else:
-            features = data.select(feature_names)
-
-        if labels is None:
+        if targets is None:
             if "label" in data.columns:
                 # If there is a "label" column, use it as the label.
-                labels = data.select("label")
+                targets = "label"
             else:
-                labels = None
-        else:
-            labels = data.select(labels)
-        return mlflow.data.from_spark(df=features, targets=labels, source=dataset_path)
-    elif isinstance(data, np.array):
-        return mlflow.data.from_numpy(data, targets=labels, source=dataset_path)
+                targets = None
+        ds = mlflow.data.from_spark(df=data, targets=targets, path=dataset_path)
+        return mlflow.data.from_spark(df=data, targets=targets, path=dataset_path)
+    elif isinstance(data, np.ndarray):
+        return mlflow.data.from_numpy(data, targets=targets, source=dataset_path)
     else:
         raise TypeError(
             "`data` must be a `mlflow.data.dataset.Dataset`, pandas DataFrame, numpy array or "
@@ -1592,7 +1581,9 @@ def evaluate(
             feature_names=feature_names,
             dataset_path=dataset_path,
         )
-        if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
+        from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
+
+        if issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
             dataset = data.to_evaluation_dataset(dataset_path, feature_names)
             if evaluator_name_to_conf_map and "default" in evaluator_name_to_conf_map:
                 context = evaluator_name_to_conf_map["default"].get("metric_prefix", None)
