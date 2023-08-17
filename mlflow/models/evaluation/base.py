@@ -949,7 +949,7 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
 
 
 def _convert_data_to_mlflow_dataset(data, targets=None, dataset_path=None):
-    """Convert inputs to mlflow dataset."""
+    """Convert input data to mlflow dataset."""
     if "pyspark" in sys.modules:
         from pyspark.sql import DataFrame as SparkDataFrame
 
@@ -1560,7 +1560,7 @@ def evaluate(
 
         if issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
             dataset = data.to_evaluation_dataset(dataset_path, feature_names)
-            if evaluator_name_to_conf_map and "default" in evaluator_name_to_conf_map:
+            if evaluator_name_to_conf_map and evaluator_name_to_conf_map.get("default", None):
                 context = evaluator_name_to_conf_map["default"].get("metric_prefix", None)
             else:
                 context = None
