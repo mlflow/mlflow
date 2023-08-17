@@ -19,7 +19,7 @@ import yaml
 
 import transformers
 import huggingface_hub
-from huggingface_hub import ModelCard, scan_cache_dir
+from huggingface_hub import ModelCard, scan_cache_dir, snapshot_download
 from datasets import load_dataset
 
 import mlflow
@@ -3653,3 +3653,61 @@ def test_whisper_model_supports_timestamps(raw_audio_file, whisper_pipeline):
     first_timestamp = prediction["chunks"][0]["timestamp"]
     assert isinstance(first_timestamp, tuple)
     assert prediction_inference["chunks"][0]["timestamp"][1] == first_timestamp[1]
+
+
+def test_pyfunc_model_log_load_with_artifacts_snapshot(small_qa_pipeline, model_path):
+    snapshot_location = snapshot_download(
+        repo_id="csarron/mobilebert-uncased-squad-v2",
+        local_dir=model_path,
+        # to avoid tmpdir OSError: [Errno 30] Read-only file system
+        local_dir_use_symlinks=False,
+    )
+
+    class QAModel(mlflow.pyfunc.PythonModel):
+        def load_context(self, context):
+            """
+            This method initializes the tokenizer and language model
+            using the specified snapshot location.
+            """
+            # Initialize tokenizer and language model
+            tokenizer = transformers.AutoTokenizer.from_pretrained(
+                context.artifacts["snapshot"], low_cpu_mem_usage=True
+            )
+
+            model = transformers.MobileBertForQuestionAnswering.from_pretrained(
+                context.artifacts["snapshot"], low_cpu_mem_usage=True
+            )
+
+            self.pipeline = transformers.pipeline(
+                task="question-answering", model=model, tokenizer=tokenizer
+            )
+
+        def predict(self, context, model_input, params=None):
+            return self.pipeline(
+                question=model_input["question"][0], context=model_input["context"][0]
+            )
+
+    data = {"question": "Who's house?", "context": "The house is owned by Run."}
+    pyfunc_artifact_path = "question_answering_model"
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path=pyfunc_artifact_path,
+            python_model=QAModel(),
+            artifacts={"snapshot": snapshot_location},
+            input_example=data,
+            signature=infer_signature(
+                data, mlflow.transformers.generate_signature_output(small_qa_pipeline, data)
+            ),
+        )
+
+        pyfunc_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
+        assert model_info.model_uri == pyfunc_model_uri
+        pyfunc_model_path = _download_artifact_from_uri(
+            f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
+        )
+        assert len(os.listdir(os.path.join(pyfunc_model_path, "artifacts"))) == 0
+        model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_uri)
+    assert model_config.to_yaml() == loaded_pyfunc_model.metadata.to_yaml()
+    assert loaded_pyfunc_model.predict(data)["answer"] == "Run"
