@@ -16,9 +16,9 @@ class RequestPayload(RequestModel):
 
 
 class Metadata(ResponseModel):
-    input_tokens: Optional[int]
-    output_tokens: Optional[int]
-    total_tokens: Optional[int]
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
     model: str
     route_type: RouteType
 
