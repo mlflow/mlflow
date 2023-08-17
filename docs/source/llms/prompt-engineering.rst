@@ -221,9 +221,35 @@ configurations.
       :scale: 30%
       :align: center
 
+Step 10: Load evaluation data programmatically
+----------------------------------------------
+All of the inputs and outputs produced by the MLflow prompt engineering UI and Evaluation UI are stored
+as artifacts in MLflow Runs. They can be accessed programmatically using the :py:func:`mlflow.load_table()` API
+as follows:
+
+   .. code-block:: python
+
+       import mlflow
+
+       mlflow.set_experiment("/Path/to/your/prompt/engineering/experiment")
+
+       # Load input and output data across all Runs (configurations) as a Pandas DataFrame
+       inputs_outputs_pdf = mlflow.load_table(
+           # All inputs and outputs created from the MLflow UI are stored in an artifact called
+           # "eval_results_table.json"
+           artifact_file="eval_results_table.json",
+           # Include the run ID as a column in the table to distinguish inputs and outputs
+           # produced by different runs
+           extra_columns=["run_id"]
+       )
+       # Optionally convert the Pandas DataFrame to Spark where it can be stored as a Delta
+       # table or joined with existing Delta tables
+       inputs_outputs_sdf = spark.createDataFrame(inputs_outputs_pdf)
+
+
 .. _quickstart-score:
 
-Step 10: Score or deploy the best configuration programmatically
+Step 11: Score or deploy the best configuration programmatically
 ----------------------------------------------------------------
 Once you have found a configuration of LLM, prompt template, and parameters that performs well, you
 can score the corresponding MLflow Model in a notebook or

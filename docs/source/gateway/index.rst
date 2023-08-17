@@ -1018,6 +1018,44 @@ The example below demonstrates how to use an AI Gateway server from within a cus
 
 This custom MLflow model can be used in the same way as any other MLflow model. It can be used within a ``spark_udf``, used with :func:`mlflow.evaluate`, or `deploy <https://mlflow.org/docs/latest/models.html#built-in-deployment-tools>`_ like any other model.
 
+LangChain Integration
+~~~~~~~~~~~~~~~~~~~~~
+LangChain has `an integration for MLflow AI Gateway <https://python.langchain.com/docs/ecosystem/integrations/mlflow_ai_gateway>`_.
+This integration enable users to use prompt engineering, retrieval augmented generation, and other
+techniques with LLMs in the gateway.
+
+.. code-block:: python
+
+    import mlflow
+    from langchain import LLMChain, PromptTemplate
+    from langchain.llms import MlflowAIGateway
+
+    gateway = MlflowAIGateway(
+        gateway_uri="databricks",
+        route="completions",
+        params={
+            "temperature": 0.0,
+            "top_p": 0.1,
+        },
+    )
+
+    llm_chain = LLMChain(
+        llm=gateway,
+        prompt=PromptTemplate(
+            input_variables=["adjective"],
+            template="Tell me a {adjective} joke",
+        ),
+    )
+    result = llm_chain.run(adjective="funny")
+    print(result)
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(chain, "model")
+
+    model = mlflow.pyfunc.load_model(model_info.model_uri)
+    print(model.predict([{"adjective": "funny"}]))
+
+
 .. _gateway_query_serving_endpoint:
 
 Querying the AI Gateway from Databricks Model Serving Endpoints
