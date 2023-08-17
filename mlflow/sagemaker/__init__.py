@@ -23,10 +23,13 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAME
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_unique_resource_id
 from mlflow.utils.file_utils import TempDir
-from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
-from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME, SERVING_ENVIRONMENT
+from mlflow.models.container import (
+    SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS,
+    SERVING_ENVIRONMENT,
+)
 from mlflow.deployments import BaseDeploymentClient, PredictionsResponse
 from mlflow.utils.proto_json_utils import dump_input_data
+from mlflow.environment_variables import MLFLOW_DEPLOYMENT_FLAVOR_NAME
 
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
@@ -1304,7 +1307,7 @@ def _get_deployment_config(flavor_name, env_override=None):
     :return: The deployment configuration as a dictionary
     """
     deployment_config = {
-        DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME: flavor_name,
+        MLFLOW_DEPLOYMENT_FLAVOR_NAME.name: flavor_name,
         SERVING_ENVIRONMENT: SAGEMAKER_SERVING_ENVIRONMENT,
     }
     if env_override:

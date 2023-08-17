@@ -398,3 +398,7 @@ MLFLOW_RECIPES_EXECUTION_DIRECTORY = _EnvironmentVariable(
 MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME = _EnvironmentVariable(
     "MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME", str, None
 )
+
+#: Specifies the flavor to serve in the scoring server.
+#: (default ``None``)
+MLFLOW_DEPLOYMENT_FLAVOR_NAME = _EnvironmentVariable("MLFLOW_DEPLOYMENT_FLAVOR_NAME", str, None)
