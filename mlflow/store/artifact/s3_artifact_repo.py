@@ -6,6 +6,7 @@ from mimetypes import guess_type
 
 import posixpath
 import urllib.parse
+import hashlib
 
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
@@ -214,13 +215,48 @@ class S3ArtifactRepository(ArtifactRepository):
                 f" artifact path. Artifact path: {artifact_path}. Object path:"
                 f" {listed_object_path}."
             )
-
+     
     def _download_file(self, remote_file_path, local_path):
         (bucket, s3_root_path) = data_utils.parse_s3_uri(self.artifact_uri)
         s3_full_path = posixpath.join(s3_root_path, remote_file_path)
         s3_client = self._get_s3_client()
+
+        # Check if the file already exists
+        if os.path.exists(local_path):
+            # Etag comparison from: https://stackoverflow.com/questions/1775816/how-to-get-the-md5sum-of-a-file-on-amazons-s3
+            obj_dict = s3_client.get_object(Bucket=bucket, Key=s3_full_path)
+            etag = (obj_dict['ETag'])
+            # if the file with the same hash exists do not download it again
+            if self._etag_compare(local_path, etag):
+                return
         s3_client.download_file(bucket, s3_full_path, local_path)
 
+    @staticmethod
+    def _md5_checksum(filename):
+        m = hashlib.md5()
+        with open(filename, 'rb') as f:
+            for data in iter(lambda: f.read(1024 * 1024), b''):
+                m.update(data)
+        return m.hexdigest()
+
+    @staticmethod
+    def _etag_checksum(filename, chunk_size=8 * 1024 * 1024):
+        md5s = []
+        with open(filename, 'rb') as f:
+            for data in iter(lambda: f.read(chunk_size), b''):
+                md5s.append(hashlib.md5(data).digest())
+        m = hashlib.md5(b"".join(md5s))
+        return '{}-{}'.format(m.hexdigest(), len(md5s))
+
+    @classmethod
+    def _etag_compare(cls, filename, etag):
+        et = etag[1:-1] # strip quotes
+        if '-' in et and et == cls._etag_checksum(filename):
+            return True
+        if '-' not in et and et == cls._md5_checksum(filename):
+            return True
+        return False
+    
     def delete_artifacts(self, artifact_path=None):
         (bucket, dest_path) = data_utils.parse_s3_uri(self.artifact_uri)
         if artifact_path:
