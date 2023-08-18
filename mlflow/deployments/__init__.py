@@ -47,6 +47,7 @@ class PredictionsResponse(dict):
                 return pd.DataFrame(data=[predictions])
             try:
                 return pd.DataFrame(data=predictions)
+            # to catch ValueError: If using all scalar values, you must pass an index
             except ValueError:
                 return pd.DataFrame(data=[predictions])
         elif predictions_format == "ndarray":

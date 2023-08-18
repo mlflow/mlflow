@@ -417,27 +417,6 @@ def feature_extraction_pipeline():
     return transformers.pipeline(model=model, tokenizer=tokenizer, task="feature-extraction")
 
 
-@pytest.fixture
-def bert_tiny_snapshot_location(tmp_path):
-    return snapshot_download(
-        repo_id="prajjwal1/bert-tiny",
-        local_dir=tmp_path.joinpath("bert-tiny"),
-        # to avoid tmpdir OSError: [Errno 30] Read-only file system
-        local_dir_use_symlinks=False,
-    )
-
-
-@pytest.fixture
-def bert_tiny_pipeline(bert_tiny_snapshot_location):
-    tokenizer = transformers.AutoTokenizer.from_pretrained(
-        bert_tiny_snapshot_location, low_cpu_mem_usage=True
-    )
-    model = transformers.MobileBertForQuestionAnswering.from_pretrained(
-        bert_tiny_snapshot_location, low_cpu_mem_usage=True
-    )
-    return transformers.pipeline(task="question-answering", model=model, tokenizer=tokenizer)
-
-
 def test_dependencies_pytorch(small_qa_pipeline):
     pip_requirements = get_default_pip_requirements(small_qa_pipeline.model)
     expected_requirments = {"transformers", "torch", "torchvision"}
@@ -3676,9 +3655,24 @@ def test_whisper_model_supports_timestamps(raw_audio_file, whisper_pipeline):
     assert prediction_inference["chunks"][0]["timestamp"][1] == first_timestamp[1]
 
 
-def test_pyfunc_model_log_load_with_artifacts_snapshot(
-    bert_tiny_snapshot_location, bert_tiny_pipeline
-):
+def test_pyfunc_model_log_load_with_artifacts_snapshot(tmp_path):
+    snapshot_location = snapshot_download(
+        repo_id="prajjwal1/bert-tiny",
+        local_dir=tmp_path.joinpath("bert-tiny"),
+        # to avoid tmpdir OSError: [Errno 30] Read-only file system
+        local_dir_use_symlinks=False,
+    )
+
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        snapshot_location, low_cpu_mem_usage=True
+    )
+    model = transformers.MobileBertForQuestionAnswering.from_pretrained(
+        snapshot_location, low_cpu_mem_usage=True
+    )
+    bert_tiny_pipeline = transformers.pipeline(
+        task="question-answering", model=model, tokenizer=tokenizer
+    )
+
     class QAModel(mlflow.pyfunc.PythonModel):
         def load_context(self, context):
             """
@@ -3713,7 +3707,7 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot(
         model_info = mlflow.pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
             python_model=QAModel(),
-            artifacts={"snapshot": bert_tiny_snapshot_location},
+            artifacts={"snapshot": snapshot_location},
             input_example=data,
             signature=infer_signature(
                 data, mlflow.transformers.generate_signature_output(bert_tiny_pipeline, data)
