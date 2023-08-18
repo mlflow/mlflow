@@ -81,6 +81,9 @@ from mlflow.utils.file_utils import (
     local_file_uri_to_path,
     path_to_local_file_uri,
 )
+from mlflow.utils.promptlab_utils import (
+    create_conda_yaml_file,
+)
 from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time_utils import get_current_time_millis
@@ -96,6 +99,7 @@ from mlflow.utils.mlflow_tags import (
     _get_run_name_from_tags,
 )
 from mlflow.environment_variables import MLFLOW_TRACKING_DIR
+from mlflow.models import Model
 
 
 def _default_root_dir():
@@ -1309,9 +1313,22 @@ class FileStore(AbstractStore):
         tag_value = [{"path": "eval_results_table.json", "type": "table"}]
         self.set_tag(run_id, MLFLOW_LOGGED_ARTIFACTS, json.dumps(tag_value))
 
-        # log model
+        artifact_dir = self._get_artifact_dir(experiment_id, run_id)
 
-        # upload artifact files
+        # log model
+        promptlab_model = Model(
+            artifact_path=artifact_dir,
+            run_id=run_id,
+            utc_time_created=time.time(),
+            # signature=
+            # saved_input_example_info=
+            # metadata=
+        )
+        self.record_logged_model(run_id, promptlab_model)
+
+        # write artifact files
+        conda_yaml_file = create_conda_yaml_file(mlflow_version)
+        write_to(os.path.join(artifact_dir, "conda.yaml"), conda_yaml_file)
 
         # return the run
         return self.get_run(run_id=run_id)
