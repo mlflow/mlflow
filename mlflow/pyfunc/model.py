@@ -197,10 +197,12 @@ def _save_model_with_class_artifacts_params(
                         defines how the model loads artifacts and how it performs inference.
     :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries.
                       Remote artifact URIs are resolved to absolute filesystem paths, producing
-                      a dictionary of ``<name, absolute_path>`` entries. ``python_model`` can
-                      reference these resolved entries as the ``artifacts`` property of the
-                      ``context`` attribute. If ``<snapshot, snapshot_location>`` is provided,
-                      then the model can be fetched from `snapshot_location` directly.
+                      a dictionary of ``<name, absolute_path>`` entries,
+                      e.g. {"file": "aboslute_path"}). ``python_model`` can reference these resolved
+                      entries as the ``artifacts`` property of the ``context`` attribute. If
+                      ``<snapshot, snapshot_location>``
+                      (e.g. {"snapshot": "absolute_snapshot_location"}) is provided, then the model
+                      can be fetched from `snapshot_location` directly.
                       If ``None``, no artifacts are added to the model.
     :param conda_env: Either a dictionary representation of a Conda environment or the
                       path to a Conda environment yaml file. If provided, this decsribes the
