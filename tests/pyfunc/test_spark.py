@@ -845,7 +845,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
     time.sleep(10)  # waiting server to exit and release the port.
 
     # assert ping failed, i.e. the server process is killed successfully.
-    with pytest.raises(Exception):  # pylint: disable=pytest-raises-without-match
+    with pytest.raises(Exception, match=r".*"):
         client.ping()
 
 
