@@ -24,6 +24,7 @@ select = [
   "PT007",
   "PT009",
   "PT010",
+  "PT011",
   "PT012",
   "PT013",
   "PT018",
@@ -72,6 +73,7 @@ extend-exclude = [
 [tool.ruff.flake8-pytest-style]
 mark-parentheses = false
 fixture-parentheses = false
+raises-require-match-for = ["*"]
 
 [tool.ruff.flake8-tidy-imports]
 ban-relative-imports = "all"

@@ -913,9 +913,9 @@ def test_get_instance_method_first_arg_value():
     assert get_instance_method_first_arg_value(Test.f1, [3], {"cd2": 4}) == 3
     assert get_instance_method_first_arg_value(Test.f1, [], {"ab1": 3, "cd2": 4}) == 3
     assert get_instance_method_first_arg_value(Test.f2, [3, 4], {}) == 3
-    with pytest.raises(AssertionError, match=""):
+    with pytest.raises(AssertionError, match=r".*"):
         get_instance_method_first_arg_value(Test.f3, [], {"ab1": 3, "cd2": 4})
-    with pytest.raises(AssertionError, match=""):
+    with pytest.raises(AssertionError, match=r".*"):
         get_instance_method_first_arg_value(Test.f4, [], {"ab1": 3, "cd2": 4})
 
 
