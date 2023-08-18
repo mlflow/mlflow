@@ -406,3 +406,7 @@ MLFLOW_DEPLOYMENT_FLAVOR_NAME = _EnvironmentVariable("MLFLOW_DEPLOYMENT_FLAVOR_N
 #: Specifies the profile to use for recipes.
 #: (default: ``None``)
 MLFLOW_RECIPES_PROFILE = _EnvironmentVariable("MLFLOW_RECIPES_PROFILE", str, None)
+
+#: Specifies the context for ``mlflow-run``.
+#: (default: ``None``)
+MLFLOW_RUN_CONTEXT = _EnvironmentVariable("MLFLOW_RUN_CONTEXT", str, None)
