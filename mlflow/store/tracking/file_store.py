@@ -99,7 +99,6 @@ from mlflow.utils.mlflow_tags import (
     _get_run_name_from_tags,
 )
 from mlflow.environment_variables import MLFLOW_TRACKING_DIR
-from mlflow.models import Model
 
 
 def _default_root_dir():
@@ -1316,6 +1315,8 @@ class FileStore(AbstractStore):
         artifact_dir = self._get_artifact_dir(experiment_id, run_id)
 
         # log model
+        from mlflow.models import Model
+
         promptlab_model = Model(
             artifact_path=artifact_dir,
             run_id=run_id,
