@@ -3663,12 +3663,8 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot(tmp_path):
         local_dir_use_symlinks=False,
     )
 
-    tokenizer = transformers.AutoTokenizer.from_pretrained(
-        snapshot_location, low_cpu_mem_usage=True
-    )
-    model = transformers.MobileBertForQuestionAnswering.from_pretrained(
-        snapshot_location, low_cpu_mem_usage=True
-    )
+    tokenizer = transformers.AutoTokenizer.from_pretrained(snapshot_location)
+    model = transformers.MobileBertForQuestionAnswering.from_pretrained(snapshot_location)
     bert_tiny_pipeline = transformers.pipeline(
         task="question-answering", model=model, tokenizer=tokenizer
     )
