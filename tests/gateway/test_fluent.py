@@ -262,12 +262,22 @@ def test_get_route_accepts_unknown_provider():
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         route = get_route("chat")
         mock_request.assert_called_once()
-        assert route.dict() == {
-            "name": "chat",
-            "route_type": "llm/v1/chat",
-            "model": {"name": "unknown-5", "provider": "unknown-ai"},
-            "route_url": "http://localhost:5000/gateway/chat/invocations",
-        }
+        assert route.dict() == mock_resp.json()
+
+
+def test_get_route_accepts_unknown_route_type():
+    set_gateway_uri("http://localhost:5000")
+    mock_resp = mock.Mock(status_code=200)
+    mock_resp.json.return_value = {
+        "name": "chat",
+        "route_type": "llm/v1/unknown",
+        "model": {"name": "gpt4", "provider": "openai"},
+        "route_url": "http://localhost:5000/gateway/chat/invocations",
+    }
+    with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
+        route = get_route("chat")
+        mock_request.assert_called_once()
+        assert route.dict() == mock_resp.json()
 
 
 def test_search_routes_accepts_unknown_provider():
@@ -287,11 +297,24 @@ def test_search_routes_accepts_unknown_provider():
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         routes = search_routes()
         mock_request.assert_called_once()
-        assert [r.dict() for r in routes] == [
+        assert [r.dict() for r in routes] == mock_resp.json()["routes"]
+
+
+def test_search_routes_accepts_unknown_route_type():
+    set_gateway_uri("http://localhost:5000")
+    mock_resp = mock.Mock(status_code=200)
+    mock_resp.json.return_value = {
+        "routes": [
             {
                 "name": "chat",
-                "route_type": "llm/v1/chat",
-                "model": {"name": "unknown-5", "provider": "unknown-ai"},
+                "route_type": "llm/v1/unknown",
+                "model": {"name": "gpt4", "provider": "openai"},
                 "route_url": "http://localhost:5000/gateway/chat/invocations",
-            }
-        ]
+            },
+        ],
+        "next_page_token": None,
+    }
+    with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
+        routes = search_routes()
+        mock_request.assert_called_once()
+        assert [r.dict() for r in routes] == mock_resp.json()["routes"]
