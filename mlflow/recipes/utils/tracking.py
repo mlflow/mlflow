@@ -12,7 +12,6 @@ from mlflow.recipes.utils import get_recipe_name
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.registry import resolve_tags
-from mlflow.tracking.context.system_environment_context import MLFLOW_RUN_CONTEXT_ENV_VAR
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.tracking.fluent import set_experiment as fluent_set_experiment, _get_experiment_id
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
@@ -25,6 +24,8 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_REPO_URL,
     LEGACY_MLFLOW_GIT_REPO_URL,
 )
+from mlflow.environment_variables import MLFLOW_RUN_CONTEXT
+
 
 _logger = logging.getLogger(__name__)
 
@@ -255,7 +256,7 @@ def get_run_tags_env_vars(recipe_root_path: str) -> Dict[str, str]:
     if git_branch:
         git_tags[MLFLOW_GIT_BRANCH] = git_branch
 
-    return {MLFLOW_RUN_CONTEXT_ENV_VAR: json.dumps({**run_context_tags, **git_tags})}
+    return {MLFLOW_RUN_CONTEXT.name: json.dumps({**run_context_tags, **git_tags})}
 
 
 def log_code_snapshot(

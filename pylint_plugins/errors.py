@@ -16,14 +16,6 @@ def to_msgs(*messages: Message) -> Dict[str, Tuple[str, str, str]]:
     return reduce(lambda x, y: {**x, **y.to_dict()}, messages, {})
 
 
-PYTEST_RAISES_WITHOUT_MATCH = Message(
-    id="W0001",
-    name="pytest-raises-without-match",
-    message="`pytest.raises` must be called with `match` argument`.",
-    reason="`pytest.raises` without `match` argument can lead to false positives.",
-)
-
-
 UNITTEST_PYTEST_RAISES = Message(
     id="W0003",
     name="unittest-assert-raises",
