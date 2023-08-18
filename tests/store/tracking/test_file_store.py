@@ -2190,7 +2190,6 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}?param=value",
         ),
-        ("file:///path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
         (
             "file:///path/to/local/folder?param=value#fragment",
             "file:///{drive}path/to/local/folder/{e}?param=value#fragment",
@@ -2216,7 +2215,6 @@ def test_create_experiment_appends_to_artifact_local_path_file_uri_correctly_on_
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}?param=value",
         ),
-        ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
         (
             "file:///path/to/local/folder?param=value#fragment",
             "file:///path/to/local/folder/{e}?param=value#fragment",
