@@ -198,7 +198,7 @@ def _save_model_with_class_artifacts_params(
     :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries.
                       Remote artifact URIs are resolved to absolute filesystem paths, producing
                       a dictionary of ``<name, absolute_path>`` entries,
-                      e.g. {"file": "aboslute_path"}). ``python_model`` can reference these resolved
+                      (e.g. {"file": "aboslute_path"}). ``python_model`` can reference these resolved
                       entries as the ``artifacts`` property of the ``context`` attribute. If
                       ``<snapshot, snapshot_location>``
                       (e.g. {"snapshot": "absolute_snapshot_location"}) is provided, then the model
