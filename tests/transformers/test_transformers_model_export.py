@@ -3676,12 +3676,10 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot(tmp_path):
             using the specified snapshot location.
             """
             # Initialize tokenizer and language model
-            tokenizer = transformers.AutoTokenizer.from_pretrained(
-                context.artifacts["snapshot"], low_cpu_mem_usage=True
-            )
+            tokenizer = transformers.AutoTokenizer.from_pretrained(context.artifacts["snapshot"])
 
             model = transformers.MobileBertForQuestionAnswering.from_pretrained(
-                context.artifacts["snapshot"], low_cpu_mem_usage=True
+                context.artifacts["snapshot"]
             )
 
             self.pipeline = transformers.pipeline(
