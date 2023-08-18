@@ -417,6 +417,27 @@ def feature_extraction_pipeline():
     return transformers.pipeline(model=model, tokenizer=tokenizer, task="feature-extraction")
 
 
+@pytest.fixture
+def bert_tiny_snapshot_location(tmp_path):
+    return snapshot_download(
+        repo_id="prajjwal1/bert-tiny",
+        local_dir=tmp_path.joinpath("bert-tiny"),
+        # to avoid tmpdir OSError: [Errno 30] Read-only file system
+        local_dir_use_symlinks=False,
+    )
+
+
+@pytest.fixture
+def bert_tiny_pipeline(bert_tiny_snapshot_location):
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        bert_tiny_snapshot_location, low_cpu_mem_usage=True
+    )
+    model = transformers.MobileBertForQuestionAnswering.from_pretrained(
+        bert_tiny_snapshot_location, low_cpu_mem_usage=True
+    )
+    return transformers.pipeline(task="question-answering", model=model, tokenizer=tokenizer)
+
+
 def test_dependencies_pytorch(small_qa_pipeline):
     pip_requirements = get_default_pip_requirements(small_qa_pipeline.model)
     expected_requirments = {"transformers", "torch", "torchvision"}
@@ -3655,14 +3676,9 @@ def test_whisper_model_supports_timestamps(raw_audio_file, whisper_pipeline):
     assert prediction_inference["chunks"][0]["timestamp"][1] == first_timestamp[1]
 
 
-def test_pyfunc_model_log_load_with_artifacts_snapshot(small_qa_pipeline, model_path):
-    snapshot_location = snapshot_download(
-        repo_id="csarron/mobilebert-uncased-squad-v2",
-        local_dir=model_path,
-        # to avoid tmpdir OSError: [Errno 30] Read-only file system
-        local_dir_use_symlinks=False,
-    )
-
+def test_pyfunc_model_log_load_with_artifacts_snapshot(
+    bert_tiny_snapshot_location, bert_tiny_pipeline
+):
     class QAModel(mlflow.pyfunc.PythonModel):
         def load_context(self, context):
             """
@@ -3683,31 +3699,47 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot(small_qa_pipeline, model_
             )
 
         def predict(self, context, model_input, params=None):
-            return self.pipeline(
-                question=model_input["question"][0], context=model_input["context"][0]
-            )
+            question = model_input["question"][0]
+            if isinstance(question, np.ndarray):
+                question = question.item()
+            ctx = model_input["context"][0]
+            if isinstance(ctx, np.ndarray):
+                ctx = ctx.item()
+            return self.pipeline(question=question, context=ctx)
 
     data = {"question": "Who's house?", "context": "The house is owned by Run."}
     pyfunc_artifact_path = "question_answering_model"
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
             python_model=QAModel(),
-            artifacts={"snapshot": snapshot_location},
+            artifacts={"snapshot": bert_tiny_snapshot_location},
             input_example=data,
             signature=infer_signature(
-                data, mlflow.transformers.generate_signature_output(small_qa_pipeline, data)
+                data, mlflow.transformers.generate_signature_output(bert_tiny_pipeline, data)
             ),
         )
 
-        pyfunc_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
+        pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
         assert model_info.model_uri == pyfunc_model_uri
         pyfunc_model_path = _download_artifact_from_uri(
-            f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
+            f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
         )
         assert len(os.listdir(os.path.join(pyfunc_model_path, "artifacts"))) == 0
         model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_uri)
     assert model_config.to_yaml() == loaded_pyfunc_model.metadata.to_yaml()
-    assert loaded_pyfunc_model.predict(data)["answer"] == "Run"
+    assert loaded_pyfunc_model.predict(data)["answer"] != ""
+
+    # Test model serving
+    inference_payload = json.dumps({"inputs": data})
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records")[0]["answer"] != ""

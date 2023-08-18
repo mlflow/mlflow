@@ -45,7 +45,10 @@ class PredictionsResponse(dict):
             predictions = self["predictions"]
             if isinstance(predictions, str):
                 return pd.DataFrame(data=[predictions])
-            return pd.DataFrame(data=predictions)
+            try:
+                return pd.DataFrame(data=predictions)
+            except ValueError:
+                return pd.DataFrame(data=[predictions])
         elif predictions_format == "ndarray":
             return np.array(self["predictions"], dtype)
         else:
