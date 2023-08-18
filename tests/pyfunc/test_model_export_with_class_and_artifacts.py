@@ -1422,7 +1422,8 @@ def test_python_model_predict_with_params():
     assert loaded_model.predict(["a", "b"], params={"foo": [0, 1]}) == ["a", "b"]
     assert loaded_model.predict(["a", "b"], params={"foo": np.array([0, 1])}) == ["a", "b"]
 
-def test_artifact_path_posix(tmp_path, main_scoped_model_class):
+
+def test_artifact_path_posix(sklearn_knn_model, main_scoped_model_class, tmp_path):
     sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
@@ -1441,4 +1442,4 @@ def test_artifact_path_posix(tmp_path, main_scoped_model_class):
     artifacts = _load_pyfunc(pyfunc_model_path).context.artifacts
     for artifact_name, artifact_uri in artifacts.items():
         print(artifact_uri)
-        assert '\\' not in artifact_uri
+        assert "\\" not in artifact_uri
