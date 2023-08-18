@@ -197,7 +197,7 @@ def test__apply_custom_config_converts_from_string_to_bool_for_bool_fields(
     assert config[field_name] is False
 
 
-def test__apply_custom_config_converts_from_string_to_dict_for_dict_fields(  # add tests like this
+def test__apply_custom_config_converts_from_string_to_dict_for_dict_fields(
     sagemaker_deployment_client,
 ):
     vpc_config = {
