@@ -1283,16 +1283,16 @@ class FileStore(AbstractStore):
         self,
         experiment_id,
         run_name,
-        tags,
-        prompt_template,
-        prompt_parameters,
-        model_route,
-        model_parameters,
-        model_input,
-        model_output_parameters,
-        mlflow_version,
-        user_id,
-        start_time,
+        tags: List[RunTag],
+        prompt_template: str,
+        prompt_parameters: List[Param],
+        model_route: str,
+        model_parameters: List[Param],
+        model_input: str,
+        model_output_parameters: List[Param],
+        mlflow_version: str,
+        user_id: str,
+        start_time: str,
     ):
         """
         Creates a run with the specified attributes.
@@ -1303,14 +1303,15 @@ class FileStore(AbstractStore):
         # log model parameters
         parameters_to_log = (
             model_parameters
-            + Param("model_route", model_route)
-            + Param("prompt_template", prompt_template)
+            + [Param("model_route", model_route)]
+            + [Param("prompt_template", prompt_template)]
         )
+
         self.log_batch(run_id, [], parameters_to_log, [])
 
         # set logged artifacts tag
         tag_value = [{"path": "eval_results_table.json", "type": "table"}]
-        self.set_tag(run_id, MLFLOW_LOGGED_ARTIFACTS, json.dumps(tag_value))
+        self.set_tag(run_id, RunTag(MLFLOW_LOGGED_ARTIFACTS, json.dumps(tag_value)))
 
         artifact_dir = self._get_artifact_dir(experiment_id, run_id)
 
@@ -1329,6 +1330,7 @@ class FileStore(AbstractStore):
 
         # write artifact files
         conda_yaml_file = create_conda_yaml_file(mlflow_version)
+        make_containing_dirs(os.path.join(artifact_dir, "conda.yaml"))
         write_to(os.path.join(artifact_dir, "conda.yaml"), conda_yaml_file)
 
         # return the run

@@ -2702,3 +2702,23 @@ def test_search_datasets_returns_no_more_than_max_results(store):
 
     results = store._search_datasets([exp_id])
     assert len(results) == 1000
+
+
+def test_create_promptlab_run(store):
+    exp_id = store.create_experiment("test_create_promptlab_run")
+    run = store._create_promptlab_run(
+        experiment_id=exp_id,
+        run_name="my_promptlab_run",
+        tags=[],
+        prompt_template="my_prompt_template",
+        prompt_parameters=[Param("prompt_param_key", "prompt_param_value")],
+        model_route="my_route",
+        model_parameters=[Param("model_param_key", "model_param_value")],
+        model_input="",
+        model_output_parameters=[Param("output_param_key", "output_param_value")],
+        mlflow_version="1.0.0",
+        user_id="user",
+        start_time=1,
+    )
+    assert run.info.run_id is not None
+    # check the run tags
