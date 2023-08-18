@@ -241,9 +241,11 @@ __all__ = [
     "MlflowException",
 ] + _model_flavors_supported
 
-# `mlflow.gateway` depends on optional dependencies such as pydantic.
-# Importing this module fails if they are not installed.
-with contextlib.suppress(ImportError):
+
+# `mlflow.gateway` depends on optional dependencies such as pydantic and has version
+# restrictions for dependencies. Importing this module fails if they are not installed or
+# if invalid versions of these required packages are installed.
+with contextlib.suppress(Exception):
     from mlflow import gateway  # noqa: F401
 
     __all__.append("gateway")

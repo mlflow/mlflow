@@ -9,10 +9,10 @@ def test_completions_request():
     completions.RequestPayload(**{"prompt": ""})
     completions.RequestPayload(**{"prompt": "", "extra": "extra"})
 
-    with pytest.raises(pydantic.ValidationError, match="field required"):
+    with pytest.raises(pydantic.ValidationError, match=r"(?i)field required"):
         completions.RequestPayload(**{"extra": "extra"})
 
-    with pytest.raises(pydantic.ValidationError, match="field required"):
+    with pytest.raises(pydantic.ValidationError, match=r"(?i)field required"):
         completions.RequestPayload(**{})
 
 
@@ -47,5 +47,5 @@ def test_completions_response():
         }
     )
 
-    with pytest.raises(pydantic.ValidationError, match="field required"):
+    with pytest.raises(pydantic.ValidationError, match=r"(?i)field required"):
         completions.ResponsePayload(**{"metadata": {}})
