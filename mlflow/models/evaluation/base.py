@@ -456,8 +456,8 @@ class EvaluationDataset:
 
             shape_message = (
                 "If the `data` argument is a numpy array, it must be a 2-dimensional "
-                "array, with the second dimension representing the number of features. If the `data` "
-                "argument is a list, each of its elements must be a feature array of "
+                "array, with the second dimension representing the number of features. If the "
+                "`data` argument is a list, each of its elements must be a feature array of "
                 "the numpy array or list, and all elements must have the same length."
             )
 
