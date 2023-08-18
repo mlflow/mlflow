@@ -1,42 +1,42 @@
-from typing import Dict, Any
-from types import FunctionType
-import mlflow
 import hashlib
 import json
+import logging
+import math
+import operator
 import os
+import pathlib
 import signal
+import struct
+import sys
+import urllib
+from abc import ABCMeta, abstractmethod
+from collections import OrderedDict
+from contextlib import contextmanager
+from decimal import Decimal
+from types import FunctionType
+from typing import Any, Dict
 
+import mlflow
+from mlflow.data.dataset import Dataset
+from mlflow.entities import RunTag
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.tracking.client import MlflowClient
-from contextlib import contextmanager
 from mlflow.exceptions import MlflowException
-from mlflow.utils.file_utils import TempDir
-from mlflow.entities import RunTag
+from mlflow.models.evaluation.validation import (
+    MetricThreshold,
+    ModelValidationFailedException,
+    _MetricValidationResult,
+)
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.class_utils import _get_class_from_string
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
-from mlflow.utils.string_utils import generate_feature_name_if_not_string
 from mlflow.utils.proto_json_utils import NumpyEncoder
-from mlflow.data.dataset import Dataset
-from mlflow.models.evaluation.validation import (
-    _MetricValidationResult,
-    MetricThreshold,
-    ModelValidationFailedException,
-)
-import logging
-import struct
-import sys
-import math
-import urllib
-import pathlib
-from collections import OrderedDict
-from abc import ABCMeta, abstractmethod
-import operator
-from decimal import Decimal
+from mlflow.utils.string_utils import generate_feature_name_if_not_string
 
 try:
     # `numpy` and `pandas` are not required for `mlflow-skinny`.
@@ -342,8 +342,6 @@ def _hash_array_like_obj_as_bytes(data):
     Helper method to convert pandas dataframe/numpy array/list into bytes for
     MD5 calculation purpose.
     """
-    from pandas.util import hash_pandas_object
-
     if isinstance(data, pd.DataFrame):
         # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
         # run code not related to pyspark.
@@ -363,7 +361,7 @@ def _hash_array_like_obj_as_bytes(data):
             return v
 
         data = data.applymap(_hash_array_like_element_as_bytes)
-        return _hash_uint64_ndarray_as_bytes(hash_pandas_object(data))
+        return _hash_uint64_ndarray_as_bytes(pd.util.hash_pandas_object(data))
     elif isinstance(data, np.ndarray):
         return _hash_ndarray_as_bytes(data)
     elif isinstance(data, list):
@@ -1480,7 +1478,7 @@ def evaluate(
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              metrics of candidate model and baseline model, and artifacts of candidate model.
     '''
-    from mlflow.pyfunc import PyFuncModel, _ServedPyFuncModel, _load_model_or_server
+    from mlflow.pyfunc import PyFuncModel, _load_model_or_server, _ServedPyFuncModel
     from mlflow.utils import env_manager as _EnvManager
 
     _EnvManager.validate(env_manager)
