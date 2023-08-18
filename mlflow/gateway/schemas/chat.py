@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import Field, Extra
+from pydantic import Field
 
 from mlflow.gateway.base_models import RequestModel, ResponseModel
 from mlflow.gateway.config import RouteType
@@ -49,8 +49,8 @@ class ResponseMessage(ResponseModel):
     content: str
 
 
-class CandidateMetadata(ResponseModel, extra=Extra.allow):
-    finish_reason: Optional[FinishReason]
+class CandidateMetadata(ResponseModel, extra="allow"):
+    finish_reason: Optional[FinishReason] = None
 
 
 class Candidate(ResponseModel):
@@ -59,9 +59,9 @@ class Candidate(ResponseModel):
 
 
 class Metadata(ResponseModel):
-    input_tokens: Optional[int]
-    output_tokens: Optional[int]
-    total_tokens: Optional[int]
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
     model: str
     route_type: RouteType
 

@@ -197,9 +197,8 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
     config = completions_config()
     provider = OpenAIProvider(RouteConfig(**config))
     payload = {"prompt": prompt}
-    with pytest.raises(ValidationError, match=r".*") as e:
+    with pytest.raises(ValidationError, match=r"prompt"):
         await provider.completions(completions.RequestPayload(**payload))
-    assert "str type expected" in e.value.errors()[0]["msg"]
 
 
 @pytest.mark.asyncio

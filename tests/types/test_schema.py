@@ -936,7 +936,7 @@ def test_infer_param_schema():
         "d": [[1, 2], [3, 4]],
         "e": {"a": 1, "b": 2},
     }
-    with pytest.raises(MlflowException) as e:  # pylint: disable=pytest-raises-without-match
+    with pytest.raises(MlflowException, match=r".*") as e:
         _infer_param_schema(test_parameters)
     assert e.match(r"Failed to infer schema for parameters: ")
     assert e.match(
