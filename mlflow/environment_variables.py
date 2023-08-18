@@ -407,6 +407,6 @@ MLFLOW_DEPLOYMENT_FLAVOR_NAME = _EnvironmentVariable("MLFLOW_DEPLOYMENT_FLAVOR_N
 #: (default: ``None``)
 MLFLOW_RECIPES_PROFILE = _EnvironmentVariable("MLFLOW_RECIPES_PROFILE", str, None)
 
-#: Specifies the context for ``mlflow-run``.
+#: Specifies the MLflow Run context
 #: (default: ``None``)
 MLFLOW_RUN_CONTEXT = _EnvironmentVariable("MLFLOW_RUN_CONTEXT", str, None)

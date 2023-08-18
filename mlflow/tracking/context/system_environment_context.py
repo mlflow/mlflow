@@ -1,13 +1,15 @@
-import os
 import json
 
 from mlflow.tracking.context.abstract_context import RunContextProvider
 from mlflow.environment_variables import MLFLOW_RUN_CONTEXT
 
+# The constant MLFLOW_RUN_CONTEXT_ENV_VAR is marked as @developer_stable
+MLFLOW_RUN_CONTEXT_ENV_VAR = MLFLOW_RUN_CONTEXT.name
+
 
 class SystemEnvironmentContext(RunContextProvider):
     def in_context(self):
-        return MLFLOW_RUN_CONTEXT in os.environ
+        return MLFLOW_RUN_CONTEXT.defined
 
     def tags(self):
-        return json.loads(os.environ[MLFLOW_RUN_CONTEXT])
+        return json.loads(MLFLOW_RUN_CONTEXT.get())
