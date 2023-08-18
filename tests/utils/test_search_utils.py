@@ -117,7 +117,6 @@ def test_filter(filter_string, parsed_filter):
     [
         ("params.m = 'LR'", [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}]),
         ('params.m = "LR"', [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}]),
-        ('params.m = "LR"', [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}]),
         (
             'params.m = "L\'Hosp"',
             [{"type": "parameter", "comparator": "=", "key": "m", "value": "L'Hosp"}],

@@ -20,8 +20,6 @@ from mlflow.gateway.utils import (
         ("http://127.0.0.1:6000/", "/gateway/test/invocations"),
         ("http://127.0.0.1:6000/gateway", "/test/invocations"),
         ("http://127.0.0.1:6000/gateway/", "/test/invocations"),
-        ("http://127.0.0.1:6000", "gateway/test/invocations"),
-        ("http://127.0.0.1:6000/", "/gateway/test/invocations"),
         ("http://127.0.0.1:6000/gateway", "test/invocations"),
         ("http://127.0.0.1:6000/gateway/", "test/invocations"),
     ],
