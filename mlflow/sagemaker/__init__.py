@@ -50,6 +50,7 @@ DEFAULT_SAGEMAKER_INSTANCE_COUNT = 1
 
 DEFAULT_REGION_NAME = "us-west-2"
 SAGEMAKER_SERVING_ENVIRONMENT = "SageMaker"
+SAGEMAKER_APP_NAME_TAG_KEY = "app_name"
 
 _logger = logging.getLogger(__name__)
 
@@ -1339,20 +1340,23 @@ def _get_sagemaker_config_name(endpoint_name):
 
 
 def _get_sagemaker_config_tags(endpoint_name):
-    return [{"Key": "app_name", "Value": endpoint_name}]
+    return [{"Key": SAGEMAKER_APP_NAME_TAG_KEY, "Value": endpoint_name}]
+
 
 def _prepare_sagemaker_tags(
-  sagemaker_tags: Dict[str, str],
-  config_tags: List[Dict[str, str]]  
+    config_tags: List[Dict[str, str]],
+    sagemaker_tags: Optional[Dict[str, str]] = None,
 ):
-    """
-    Convert dict of tags to list for SageMaker resources and adds to config tags list.
-    """
-    if sagemaker_tags:
-        sagemaker_tags = [{"Key": key, "Value": str(value)} for key, value in sagemaker_tags.items()]
-        config_tags.extend(sagemaker_tags)
+    if not sagemaker_tags:
+        return config_tags
 
-    return sagemaker_tags
+    if SAGEMAKER_APP_NAME_TAG_KEY in sagemaker_tags:
+        raise MlflowException.invalid_parameter_value(
+            f"Duplicate tag provided for '{SAGEMAKER_APP_NAME_TAG_KEY}'"
+        )
+    parsed = [{"Key": key, "Value": str(value)} for key, value in sagemaker_tags.items()]
+
+    return config_tags + parsed
 
 def _create_sagemaker_transform_job(
     job_name,
@@ -1562,7 +1566,7 @@ def _create_sagemaker_endpoint(
     }
     config_name = _get_sagemaker_config_name(endpoint_name)
     config_tags = _get_sagemaker_config_tags(endpoint_name)
-    tags_list = _prepare_sagemaker_tags(tags, config_tags)
+    tags_list = _prepare_sagemaker_tags(config_tags, tags)
     endpoint_config_kwargs = {
         "EndpointConfigName": config_name,
         "ProductionVariants": [production_variant],
@@ -1713,7 +1717,7 @@ def _update_sagemaker_endpoint(
     # to adopt the new configuration
     new_config_name = _get_sagemaker_config_name(endpoint_name)
     config_tags = _get_sagemaker_config_tags(endpoint_name)
-    tags_list = _prepare_sagemaker_tags(tags, config_tags)
+    tags_list = _prepare_sagemaker_tags(config_tags, tags)
     endpoint_config_kwargs = {
         "EndpointConfigName": new_config_name,
         "ProductionVariants": production_variants,
