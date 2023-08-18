@@ -200,8 +200,8 @@ def _save_model_with_class_artifacts_params(
                       a dictionary of ``<name, absolute_path>`` entries. ``python_model`` can
                       reference these resolved entries as the ``artifacts`` property of the
                       ``context`` attribute. If ``None``, no artifacts are added to the model.
-                      If ``<snapshot, huggingface_snapshot_location>`` is provided, then the model
-                      will be fetched from `huggingface_snapshot_location` directly.
+                      If ``<snapshot, snapshot_location>`` is provided, then the model
+                      will be fetched from `snapshot_location` directly.
     :param conda_env: Either a dictionary representation of a Conda environment or the
                       path to a Conda environment yaml file. If provided, this decsribes the
                       environment this model should be run in. At minimum, it should specify
