@@ -349,7 +349,26 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     default=None,
     help="Path to the directory where metrics will be stored. If the directory "
     "doesn't exist, it will be created. "
-    "Activate prometheus exporter to expose metrics on /metrics endpoint.",
+    "Activate Prometheus exporter to expose metrics on /metrics endpoint.",
+)
+@click.option(
+    "--enable-statistics",
+    envvar="MLFLOW_ENABLE_STATISTICS",
+    is_flag=True,
+    default=False,
+    help="If enabled, collect server statistics to expose in the /metrics endpoint. "
+    "The server will only expose statistics if the '--expose-prometheus' option is enabled. "
+    "Use the '--statistics-update-interval' option to set the time interval in seconds "
+    "to collect the statistics and update the Prometheus exporter. "
+    "Default: False",
+)
+@click.option(
+    "--statistics-update-interval",
+    envvar="MLFLOW_STATISTICS_UPDATE_INTERVAL",
+    default=3600,
+    help="A time interval in seconds to define when to collect statistics periodically. "
+    "Use the '--enable-statistics' option to expose server statistics. "
+    "By default, statistics will be collected every hour (3600 seconds). "
 )
 @click.option(
     "--app-name",
@@ -387,6 +406,8 @@ def server(
     gunicorn_opts,
     waitress_opts,
     expose_prometheus,
+    enable_statistics,
+    statistics_update_interval,
     app_name,
     dev,
 ):
