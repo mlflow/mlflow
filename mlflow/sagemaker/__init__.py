@@ -1342,7 +1342,6 @@ def _get_sagemaker_config_name(endpoint_name):
 def _get_sagemaker_config_tags(endpoint_name):
     return [{"Key": SAGEMAKER_APP_NAME_TAG_KEY, "Value": endpoint_name}]
 
-
 def _prepare_sagemaker_tags(
     config_tags: List[Dict[str, str]],
     sagemaker_tags: Optional[Dict[str, str]] = None,

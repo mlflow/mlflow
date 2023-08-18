@@ -188,9 +188,7 @@ class SageMakerResponse(BaseResponse):
         https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListTags.html
         """
         arn = self.request_params["ResourceArn"]
-        sagemaker_resource = (
-            "models" if "model" in arn else "endpoints" if "endpoint" in arn else None
-        )
+        sagemaker_resource = "models" if "model" in arn else "endpoints" if "endpoint" in arn else None
         results = self.sagemaker_backend.list_tags(
             resource_arn=arn, region_name=self.region, resource_type=sagemaker_resource
         )
