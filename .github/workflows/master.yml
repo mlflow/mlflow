@@ -46,10 +46,6 @@ jobs:
           source ./dev/install-common-deps.sh --ml
           pip install -r requirements/lint-requirements.txt
       - uses: ./.github/actions/pipdeptree
-      - name: Test custom pylint-plugins
-        run: |
-          . ~/.venv/bin/activate
-          pytest pylint_plugins/tests
       - name: Install pre-commit hooks
         run: |
           . ~/.venv/bin/activate

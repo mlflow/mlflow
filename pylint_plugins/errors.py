@@ -16,14 +16,6 @@ def to_msgs(*messages: Message) -> Dict[str, Tuple[str, str, str]]:
     return reduce(lambda x, y: {**x, **y.to_dict()}, messages, {})
 
 
-UNITTEST_PYTEST_RAISES = Message(
-    id="W0003",
-    name="unittest-assert-raises",
-    message="Use `pytest.raises` instead of `unittest.TestCase.assertRaises`.",
-    reason="To enforce 'pytest-raises-multiple-statements' Message.",
-)
-
-
 LAZY_BUILTIN_IMPORT = Message(
     id="W0007",
     name="lazy-builtin-import",
