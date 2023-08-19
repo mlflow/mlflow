@@ -124,6 +124,7 @@ class MlflowGatewayClient:
         ).json()
         if "routes" not in response_json:
 		return PagedList([], None)
+	
 	for route in response_json["routes"]:
             route["route_url"] = resolve_route_url(self._gateway_uri, route["route_url"])
 
