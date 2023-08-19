@@ -79,7 +79,6 @@ enable=signature-differs,
        # Built-in rules
        # --------------
        # Custom rules
-       unittest-assert-raises,
        lazy-builtin-import,
        useless-assignment,
 
