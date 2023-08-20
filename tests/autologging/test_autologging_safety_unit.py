@@ -1096,7 +1096,7 @@ def test_with_managed_run_ends_run_on_keyboard_interrupt():
         "test_integration", lambda original, *args, **kwargs: original(*args, **kwargs)
     )
 
-    with pytest.raises(KeyboardInterrupt, match=""):
+    with pytest.raises(KeyboardInterrupt, match=r".*"):
         patch_function_1(original)
 
     assert not mlflow.active_run()
@@ -1112,7 +1112,7 @@ def test_with_managed_run_ends_run_on_keyboard_interrupt():
 
     patch_function_2 = with_managed_run("test_integration", PatchFunction2)
 
-    with pytest.raises(KeyboardInterrupt, match=""):
+    with pytest.raises(KeyboardInterrupt, match=r".*"):
         patch_function_2.call(original)
 
     assert not mlflow.active_run()
