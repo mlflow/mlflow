@@ -738,7 +738,7 @@ def test_dataset_with_array_data():
         data=input_data, targets=labels, feature_names=["a", "b"]
     ).feature_names == ["a", "b"]
 
-    with pytest.raises(MlflowException, match="all element must has the same length"):
+    with pytest.raises(MlflowException, match="all elements must have the same length"):
         EvaluationDataset(data=[[1, 2], [3, 4, 5]], targets=labels)
 
 
