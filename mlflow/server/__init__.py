@@ -60,6 +60,7 @@ if os.getenv(ENABLE_STATISTICS_ENV_VAR, "false") == "true":
     collector.register_metrics()
     collector.start()
 
+
 # Provide a health check endpoint to ensure the application is responsive
 @app.route("/health")
 def health():
