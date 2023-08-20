@@ -368,7 +368,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     default=3600,
     help="A time interval in seconds to define when to collect statistics periodically. "
     "Use the '--enable-statistics' option to expose server statistics. "
-    "By default, statistics will be collected every hour (3600 seconds). "
+    "By default, statistics will be collected every hour (3600 seconds).",
 )
 @click.option(
     "--app-name",
@@ -466,6 +466,8 @@ def server(
             gunicorn_opts,
             waitress_opts,
             expose_prometheus,
+            enable_statistics,
+            statistics_update_interval,
             app_name,
         )
     except ShellCommandException:

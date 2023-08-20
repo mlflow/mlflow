@@ -19,6 +19,7 @@ from mlflow.server.handlers import (
     get_model_version_artifact_handler,
     search_datasets_handler,
 )
+from mlflow.server.statistics_collector import MLflowStatisticsCollector
 from mlflow.utils.process import _exec_cmd
 from mlflow.utils.os import is_windows
 from mlflow.version import VERSION
@@ -30,6 +31,8 @@ REGISTRY_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_REGISTRY_STORE"
 ARTIFACT_ROOT_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_ROOT"
 ARTIFACTS_DESTINATION_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_DESTINATION"
 PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
+ENABLE_STATISTICS_ENV_VAR = "_MLFLOW_ENABLE_STATISTICS"
+STATISTICS_UPDATE_INTERVAL_ENV_VAR = "_MLFLOW_STATISTICS_UPDATE_INTERVAL"
 SERVE_ARTIFACTS_ENV_VAR = "_MLFLOW_SERVER_SERVE_ARTIFACTS"
 ARTIFACTS_ONLY_ENV_VAR = "_MLFLOW_SERVER_ARTIFACTS_ONLY"
 
@@ -50,6 +53,11 @@ if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
         os.makedirs(prometheus_metrics_path)
     activate_prometheus_exporter(app)
 
+if os.getenv(ENABLE_STATISTICS_ENV_VAR, "false") == "true":
+    statistics_update_interval = float(os.getenv(STATISTICS_UPDATE_INTERVAL_ENV_VAR, "3600"))
+    collector = MLflowStatisticsCollector(statistics_update_interval)
+    collector.register_metrics()
+    collector.start()
 
 # Provide a health check endpoint to ensure the application is responsive
 @app.route("/health")
@@ -206,6 +214,8 @@ def _run_server(
     gunicorn_opts=None,
     waitress_opts=None,
     expose_prometheus=None,
+    enable_statistics=False,
+    statistics_update_interval=3600,
     app_name=None,
 ):
     """
@@ -232,6 +242,10 @@ def _run_server(
 
     if expose_prometheus:
         env_map[PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
+    if enable_statistics:
+        env_map[ENABLE_STATISTICS_ENV_VAR] = "true"
+    if statistics_update_interval:
+        env_map[STATISTICS_UPDATE_INTERVAL_ENV_VAR] = str(statistics_update_interval)
 
     if app_name is None:
         app = f"{__name__}:app"
