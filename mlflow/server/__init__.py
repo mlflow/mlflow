@@ -19,7 +19,6 @@ from mlflow.server.handlers import (
     get_model_version_artifact_handler,
     search_datasets_handler,
 )
-from mlflow.server.statistics_collector import MLflowStatisticsCollector
 from mlflow.utils.process import _exec_cmd
 from mlflow.utils.os import is_windows
 from mlflow.version import VERSION
@@ -54,8 +53,10 @@ if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
     activate_prometheus_exporter(app)
 
 if os.getenv(ENABLE_STATISTICS_ENV_VAR, "false") == "true":
+    from mlflow.server.statistics_collector import MlflowStatisticsCollector
+
     statistics_update_interval = float(os.getenv(STATISTICS_UPDATE_INTERVAL_ENV_VAR, "3600"))
-    collector = MLflowStatisticsCollector(statistics_update_interval)
+    collector = MlflowStatisticsCollector(statistics_update_interval)
     collector.register_metrics()
     collector.start()
 
