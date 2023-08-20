@@ -76,10 +76,10 @@ class MlflowStatisticsCollector(threading.Thread):
 
     def collect_metrics(self):
         """
-        TODO(impl, tests, docs): collect metrics, add tests and documentation.
-        Use `_get_tracking_store()` and others to collect counts.
+        TODO(implementation, tests): collect metrics and test.
+        Use `_get_tracking_store()` to collect counts. Options:
         1) Introduce count method to stores or,
-        2) Use existing search methods (non-optimized)
+        2) Use existing paginated search methods (non-optimized)
         """
         pass
 
