@@ -2,6 +2,7 @@ import threading
 import time
 
 from prometheus_client import Gauge
+from prometheus_client.metrics import MetricWrapperBase
 
 
 class MLflowStatisticsCollector(threading.Thread):
@@ -14,7 +15,6 @@ class MLflowStatisticsCollector(threading.Thread):
         super().__init__(daemon=True)
 
         self.update_interval_seconds = update_interval_seconds
-
         self.metrics_config = {
             "namespace": metrics_namespace,
             "multiprocess_mode": metrics_multiprocess_mode,
@@ -66,8 +66,21 @@ class MLflowStatisticsCollector(threading.Thread):
             **self.metrics_config,
         )
 
+    def get_registered_metrics(self):
+        metrics = []
+        for attribute_name in dir(self):
+            attribute_value = getattr(self, attribute_name)
+            if isinstance(attribute_value, MetricWrapperBase):
+                metrics.append(attribute_value)
+        return metrics
+
     def collect_metrics(self):
-        # TODO(implementation): collect metrics, tests, docs.
+        """
+        TODO(impl, tests, docs): collect metrics, add tests and documentation.
+        Use `_get_tracking_store()` and others to collect counts.
+        1) Introduce count method to stores or,
+        2) Use existing search methods (non-optimized)
+        """
         pass
 
     def run(self):
