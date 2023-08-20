@@ -5,7 +5,7 @@ from prometheus_client import Gauge
 from prometheus_client.metrics import MetricWrapperBase
 
 
-class MLflowStatisticsCollector(threading.Thread):
+class MlflowStatisticsCollector(threading.Thread):
     def __init__(
         self,
         update_interval_seconds,
@@ -93,4 +93,4 @@ class MLflowStatisticsCollector(threading.Thread):
         self._running_event.clear()
 
 
-__all__ = ["MLflowStatisticsCollector"]
+__all__ = ["MlflowStatisticsCollector"]
