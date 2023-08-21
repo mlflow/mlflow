@@ -50,28 +50,13 @@ jobs:
         run: |
           . ~/.venv/bin/activate
           pre-commit install -t pre-commit -t prepare-commit-msg
-      - name: Run pre-commit (only changed files)
-        id: run-pre-commit
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run pre-commit
+        id: pre-commit
         run: |
           . ~/.venv/bin/activate
-          # pylint is ridiculously slow. It takes ~3 minutes to run on all files.
-          # To fail fast for faster iteration, first run pylint only on changed files,
-          # then run it on all files in the next step.
-          changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
-          pre-commit run --files $changed_files
-      - name: Run pre-commit (all files)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          . ~/.venv/bin/activate
-          changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
-          if echo "$changed_files" | grep -q '\.py$\|^pyproject\.toml$\|^pylintrc$\|^requirements/lint-requirements\.txt$'; then
-            pre-commit run --all-files
-          fi
+          pre-commit run --all-files
       - name: Update error messages
-        if: always() && steps.run-pre-commit.outcome == 'failure'
+        if: always() && steps.pre-commit.outcome == 'failure'
         run: |
           if [ -f ".black.log" ]; then
             grep -o 'reformatted .*\.py' .black.log | sed 's/reformatted \(.*\.py\)/\1: This file is unformatted. Run `black .` or comment `@mlflow-automation autoformat` on the PR if you'\''re an MLflow maintainer./'
