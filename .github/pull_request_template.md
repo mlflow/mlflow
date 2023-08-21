@@ -23,10 +23,13 @@ If you're unsure about what to test, where to add tests, or how to run tests, pl
 Please describe how you confirmed the proposed feature/bug-fix/change works here. For example, if you fixed an MLflow client API, you could attach the code that didn't work prior to the fix but works now, or if you added a new feature on MLflow UI, you could attach a video that demonstrates the feature.
 -->
 
-## Does this PR change the documentation?
+## Does this PR require documentation update?
 
 - [ ] No. You can skip the rest of this section.
-- [ ] Yes. Make sure the changed pages / sections render correctly in the documentation preview.
+- [ ] Yes. I've updated:
+  - [ ] Examples
+  - [ ] API references
+  - [ ] Instructions
 
 ## Release Notes
 

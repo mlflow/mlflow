@@ -225,7 +225,6 @@ def test_list_artifacts_for_single_file(databricks_model_artifact_repo):
         ("test_file.txt", ""),
         ("test_file.txt", None),
         ("output/test_file", None),
-        ("test_file.txt", ""),
     ],
 )
 def test_download_file(databricks_model_artifact_repo, remote_file_path, local_path):

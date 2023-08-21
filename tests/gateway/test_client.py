@@ -645,3 +645,14 @@ def test_client_query_mlflow_embeddings_route(oss_gateway):
     with mock.patch.object(gateway_client, "_call_endpoint", return_value=mock_response):
         response = gateway_client.query(route="embeddings-oss", data=data)
         assert response == expected_output
+
+
+def test_search_routes_no_routes():
+    gateway_client = MlflowGatewayClient(gateway_uri="http://localhost:5000")
+    resp = mock.Mock(status_code=200)
+    resp.json.return_value = {}
+    with mock.patch("requests.Session.request", return_value=resp) as request_mock:
+        routes = gateway_client.search_routes()
+        request_mock.assert_called_once()
+        assert routes == []
+        assert routes.token is None

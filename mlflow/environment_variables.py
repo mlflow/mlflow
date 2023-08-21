@@ -410,3 +410,7 @@ MLFLOW_RECIPES_PROFILE = _EnvironmentVariable("MLFLOW_RECIPES_PROFILE", str, Non
 #: Specifies the MLflow Run context
 #: (default: ``None``)
 MLFLOW_RUN_CONTEXT = _EnvironmentVariable("MLFLOW_RUN_CONTEXT", str, None)
+
+#: Specifies the URL of the ECR-hosted Docker image a model is deployed into for SageMaker.
+# (default: ``None``)
+MLFLOW_SAGEMAKER_DEPLOY_IMG_URL = _EnvironmentVariable("MLFLOW_SAGEMAKER_DEPLOY_IMG_URL", str, None)
