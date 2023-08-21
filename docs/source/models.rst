@@ -84,6 +84,12 @@ SageMaker as long as they support the ``python_function`` flavor:
 
     mlflow deployments create -t sagemaker -m my_model [other options]
 
+.. note::
+    When a model registered in the MLflow Model Registry is downloaded, a YAML file named
+    `registered_model_meta` is added to the model directory on the downloader's side.
+    This file contains the name and version of the model referenced in the MLflow Model Registry,
+    and will be used for deployment and other purposes.
+
 Fields in the MLmodel Format
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Apart from a **flavors** field listing the model flavors, the MLmodel YAML format can contain
