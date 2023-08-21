@@ -1424,7 +1424,7 @@ def test_python_model_predict_with_params():
 
 
 def test_artifact_path_posix(sklearn_knn_model, main_scoped_model_class, tmp_path):
-    sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
+    sklearn_model_path = tmp_path.joinpath("sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
