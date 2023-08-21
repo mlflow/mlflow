@@ -30,11 +30,7 @@ Please describe how you confirmed the proposed feature/bug-fix/change works here
   - [ ] Any existing samples / documentation have been updated.
   - [ ] Any additional relevant samples / documentation has been added.
   - [ ] Any docs reference has been checked / updated.
-
-## Does this PR change the documentation?
-
-- [ ] No. You can skip the rest of this section.
-- [ ] Yes. Make sure the changed pages / sections render correctly in the documentation preview.
+  - [ ] Changed pages / sections render correctly in the documentation preview.
 
 ## Release Notes
 
