@@ -36,7 +36,7 @@ jobs:
       - name: Run tests with pydantic v2
         run: |
           pytest tests/gateway
-      - name: Upgrade pydantic to v1
+      - name: Downgrade pydantic to v1
         run: |
           pip install 'pydantic<2.0'
           # Ensure pydantic v1 is installed
