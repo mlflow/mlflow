@@ -28,8 +28,9 @@ jobs:
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
-          pip install -e .[gateway]
-          pip install pytest pytest-timeout pytest-asyncio httpx sentence-transformers transformers
+          pip install .[gateway] \
+            pytest pytest-timeout pytest-asyncio \
+            httpx sentence-transformers transformers
           # Ensure pydantic v1 is installed
           pip freeze | tail -n +1 | grep -q '^pydantic==2\.'
       - name: Run tests with pydantic v2
