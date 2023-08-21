@@ -39,7 +39,7 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
 )
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def model_path(tmp_path):
     return tmp_path.joinpath("model")
 
