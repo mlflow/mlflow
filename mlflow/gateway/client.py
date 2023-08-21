@@ -122,13 +122,18 @@ class MlflowGatewayClient:
         response_json = self._call_endpoint(
             "GET", MLFLOW_GATEWAY_CRUD_ROUTE_BASE, json_body=json.dumps(request_parameters)
         ).json()
-        if "routes" not in response_json:
-		return PagedList([], None)
-	
-	for route in response_json["routes"]:
-            route["route_url"] = resolve_route_url(self._gateway_uri, route["route_url"])
-
-        routes = [Route(**resp) for resp in response_json["routes"]]
+        routes = [
+            Route(
+                **{
+                    **resp,
+                    "route_url": resolve_route_url(
+                        self._gateway_uri,
+                        resp["route_url"],
+                    ),
+                }
+            )
+            for resp in response_json.get("routes", [])
+        ]
         next_page_token = response_json.get("next_page_token")
         return PagedList(routes, next_page_token)
 
