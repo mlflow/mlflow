@@ -1,3 +1,7 @@
+"""
+Generate metrics and statistics tables for Monitoring documentation.
+"""
+
 from operator import itemgetter
 import os
 from pathlib import Path

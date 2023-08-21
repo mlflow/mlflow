@@ -5,6 +5,8 @@ Do not use for any other purpose as the potential Exceptions being raised will b
 for users.
 """
 
+from typing import Optional
+
 import click
 
 from mlflow.store.tracking import DEFAULT_ARTIFACTS_URI, DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
@@ -54,5 +56,25 @@ def artifacts_only_config_validation(artifacts_only: bool, backend_store_uri: st
             f"value for `--backend_store_uri`: '{backend_store_uri}'. A tracking server in "
             "`--artifacts-only` mode cannot have a value set for `--backend_store_uri` to "
             "properly proxy access to the artifact storage location."
+        )
+        raise click.UsageError(message=msg)
+
+
+def statistics_config_validation(
+    expose_prometheus: Optional[str],
+    enable_statistics: bool,
+    statistics_update_interval: int,
+) -> None:
+    if expose_prometheus is None and enable_statistics:
+        msg = (
+            "The `--expose-prometheus` option is required when starting the server with "
+            "`--enable-statistics` option."
+        )
+        raise click.UsageError(message=msg)
+
+    if statistics_update_interval < 0:
+        msg = (
+            "The `--statistics-update-interval` option must be zero or a positive integer "
+            "representing time interval in seconds."
         )
         raise click.UsageError(message=msg)

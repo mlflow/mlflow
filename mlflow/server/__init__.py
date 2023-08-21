@@ -55,7 +55,7 @@ if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
 if os.getenv(ENABLE_STATISTICS_ENV_VAR, "false") == "true":
     from mlflow.server.statistics_collector import MlflowStatisticsCollector
 
-    statistics_update_interval = float(os.getenv(STATISTICS_UPDATE_INTERVAL_ENV_VAR, "3600"))
+    statistics_update_interval = int(os.getenv(STATISTICS_UPDATE_INTERVAL_ENV_VAR, "3600"))
     collector = MlflowStatisticsCollector(statistics_update_interval)
     collector.register_metrics()
     collector.start()

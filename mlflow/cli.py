@@ -31,6 +31,7 @@ from mlflow.utils.os import is_windows
 from mlflow.utils.server_cli_utils import (
     resolve_default_artifact_root,
     artifacts_only_config_validation,
+    statistics_config_validation,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException, InvalidUrlException
@@ -443,6 +444,8 @@ def server(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
     artifacts_only_config_validation(artifacts_only, backend_store_uri)
+
+    statistics_config_validation(expose_prometheus, enable_statistics, statistics_update_interval)
 
     try:
         initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
