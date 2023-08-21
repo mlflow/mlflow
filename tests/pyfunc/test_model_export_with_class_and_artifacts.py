@@ -1430,7 +1430,7 @@ def test_artifact_path_posix(sklearn_knn_model, main_scoped_model_class, tmp_pat
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
 
-    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
+    pyfunc_model_path = tmp_path.joinpath("pyfunc_model")
 
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
