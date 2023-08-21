@@ -29,7 +29,10 @@ from mlflow.models.container import (
 )
 from mlflow.deployments import BaseDeploymentClient, PredictionsResponse
 from mlflow.utils.proto_json_utils import dump_input_data
-from mlflow.environment_variables import MLFLOW_DEPLOYMENT_FLAVOR_NAME
+from mlflow.environment_variables import (
+    MLFLOW_DEPLOYMENT_FLAVOR_NAME,
+    MLFLOW_SAGEMAKER_DEPLOY_IMG_URL,
+)
 
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
@@ -38,8 +41,6 @@ DEPLOYMENT_MODE_REPLACE = "replace"
 DEPLOYMENT_MODE_CREATE = "create"
 
 DEPLOYMENT_MODES = [DEPLOYMENT_MODE_CREATE, DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE]
-
-IMAGE_NAME_ENV_VAR = "MLFLOW_SAGEMAKER_DEPLOY_IMG_URL"
 
 DEFAULT_BUCKET_NAME_PREFIX = "mlflow-sagemaker"
 
@@ -1169,8 +1170,7 @@ def target_help():
 def _get_default_image_url(region_name):
     import boto3
 
-    env_img = os.environ.get(IMAGE_NAME_ENV_VAR)
-    if env_img:
+    if env_img := MLFLOW_SAGEMAKER_DEPLOY_IMG_URL.get():
         return env_img
 
     ecr_client = boto3.client("ecr", region_name=region_name)
