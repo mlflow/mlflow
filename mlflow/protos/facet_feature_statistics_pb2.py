@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n,mlflow/protos/facet_feature_statistics.proto\x12\x16\x66\x61\x63\x65tFeatureStatistics\"b\n\x1c\x44\x61tasetFeatureStatisticsList\x12\x42\n\x08\x64\x61tasets\x18\x01 \x03(\x0b\x32\x30.facetFeatureStatistics.DatasetFeatureStatistics\"\x14\n\x04Path\x12\x0c\n\x04step\x18\x01 \x03(\t\"\x9e\x01\n\x18\x44\x61tasetFeatureStatistics\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0cnum_examples\x18\x02 \x01(\x03\x12\x1d\n\x15weighted_num_examples\x18\x04 \x01(\x01\x12?\n\x08\x66\x65\x61tures\x18\x03 \x03(\x0b\x32-.facetFeatureStatistics.FeatureNameStatistics\"\xae\x04\n\x15\x46\x65\x61tureNameStatistics\x12\x0e\n\x04name\x18\x01 \x01(\tH\x00\x12,\n\x04path\x18\x08 \x01(\x0b\x32\x1c.facetFeatureStatistics.PathH\x00\x12@\n\x04type\x18\x02 \x01(\x0e\x32\x32.facetFeatureStatistics.FeatureNameStatistics.Type\x12>\n\tnum_stats\x18\x03 \x01(\x0b\x32).facetFeatureStatistics.NumericStatisticsH\x01\x12@\n\x0cstring_stats\x18\x04 \x01(\x0b\x32(.facetFeatureStatistics.StringStatisticsH\x01\x12>\n\x0b\x62ytes_stats\x18\x05 \x01(\x0b\x32\'.facetFeatureStatistics.BytesStatisticsH\x01\x12@\n\x0cstruct_stats\x18\x07 \x01(\x0b\x32(.facetFeatureStatistics.StructStatisticsH\x01\x12=\n\x0c\x63ustom_stats\x18\x06 \x03(\x0b\x32\'.facetFeatureStatistics.CustomStatistic\"=\n\x04Type\x12\x07\n\x03INT\x10\x00\x12\t\n\x05\x46LOAT\x10\x01\x12\n\n\x06STRING\x10\x02\x12\t\n\x05\x42YTES\x10\x03\x12\n\n\x06STRUCT\x10\x04\x42\n\n\x08\x66ield_idB\x07\n\x05stats\"x\n\x18WeightedCommonStatistics\x12\x17\n\x0fnum_non_missing\x18\x01 \x01(\x01\x12\x13\n\x0bnum_missing\x18\x02 \x01(\x01\x12\x16\n\x0e\x61vg_num_values\x18\x03 \x01(\x01\x12\x16\n\x0etot_num_values\x18\x04 \x01(\x01\"\xc3\x01\n\x0f\x43ustomStatistic\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x03num\x18\x02 \x01(\x01H\x00\x12\r\n\x03str\x18\x03 \x01(\tH\x00\x12\x36\n\thistogram\x18\x04 \x01(\x0b\x32!.facetFeatureStatistics.HistogramH\x00\x12?\n\x0erank_histogram\x18\x05 \x01(\x0b\x32%.facetFeatureStatistics.RankHistogramH\x00\x42\x05\n\x03valJ\x04\x08\x06\x10\x07\"\xb9\x02\n\x11NumericStatistics\x12>\n\x0c\x63ommon_stats\x18\x01 \x01(\x0b\x32(.facetFeatureStatistics.CommonStatistics\x12\x0c\n\x04mean\x18\x02 \x01(\x01\x12\x0f\n\x07std_dev\x18\x03 \x01(\x01\x12\x11\n\tnum_zeros\x18\x04 \x01(\x03\x12\x0b\n\x03min\x18\x05 \x01(\x01\x12\x0e\n\x06median\x18\x06 \x01(\x01\x12\x0b\n\x03max\x18\x07 \x01(\x01\x12\x35\n\nhistograms\x18\x08 \x03(\x0b\x32!.facetFeatureStatistics.Histogram\x12Q\n\x16weighted_numeric_stats\x18\t \x01(\x0b\x32\x31.facetFeatureStatistics.WeightedNumericStatistics\"\xa0\x03\n\x10StringStatistics\x12>\n\x0c\x63ommon_stats\x18\x01 \x01(\x0b\x32(.facetFeatureStatistics.CommonStatistics\x12\x0e\n\x06unique\x18\x02 \x01(\x03\x12I\n\ntop_values\x18\x03 \x03(\x0b\x32\x35.facetFeatureStatistics.StringStatistics.FreqAndValue\x12\x12\n\navg_length\x18\x04 \x01(\x02\x12=\n\x0erank_histogram\x18\x05 \x01(\x0b\x32%.facetFeatureStatistics.RankHistogram\x12O\n\x15weighted_string_stats\x18\x06 \x01(\x0b\x32\x30.facetFeatureStatistics.WeightedStringStatistics\x1aM\n\x0c\x46reqAndValue\x12\x1b\n\x0f\x64\x65precated_freq\x18\x01 \x01(\x03\x42\x02\x18\x01\x12\r\n\x05value\x18\x02 \x01(\t\x12\x11\n\tfrequency\x18\x03 \x01(\x01\"\x81\x01\n\x19WeightedNumericStatistics\x12\x0c\n\x04mean\x18\x01 \x01(\x01\x12\x0f\n\x07std_dev\x18\x02 \x01(\x01\x12\x0e\n\x06median\x18\x03 \x01(\x01\x12\x35\n\nhistograms\x18\x04 \x03(\x0b\x32!.facetFeatureStatistics.Histogram\"\xa4\x01\n\x18WeightedStringStatistics\x12I\n\ntop_values\x18\x01 \x03(\x0b\x32\x35.facetFeatureStatistics.StringStatistics.FreqAndValue\x12=\n\x0erank_histogram\x18\x02 \x01(\x0b\x32%.facetFeatureStatistics.RankHistogram\"\xac\x01\n\x0f\x42ytesStatistics\x12>\n\x0c\x63ommon_stats\x18\x01 \x01(\x0b\x32(.facetFeatureStatistics.CommonStatistics\x12\x0e\n\x06unique\x18\x02 \x01(\x03\x12\x15\n\ravg_num_bytes\x18\x03 \x01(\x02\x12\x15\n\rmin_num_bytes\x18\x04 \x01(\x02\x12\x15\n\rmax_num_bytes\x18\x05 \x01(\x02J\x04\x08\x06\x10\x07\"R\n\x10StructStatistics\x12>\n\x0c\x63ommon_stats\x18\x01 \x01(\x0b\x32(.facetFeatureStatistics.CommonStatistics\"\x88\x03\n\x10\x43ommonStatistics\x12\x17\n\x0fnum_non_missing\x18\x01 \x01(\x03\x12\x13\n\x0bnum_missing\x18\x02 \x01(\x03\x12\x16\n\x0emin_num_values\x18\x03 \x01(\x03\x12\x16\n\x0emax_num_values\x18\x04 \x01(\x03\x12\x16\n\x0e\x61vg_num_values\x18\x05 \x01(\x02\x12\x16\n\x0etot_num_values\x18\x08 \x01(\x03\x12?\n\x14num_values_histogram\x18\x06 \x01(\x0b\x32!.facetFeatureStatistics.Histogram\x12O\n\x15weighted_common_stats\x18\x07 \x01(\x0b\x32\x30.facetFeatureStatistics.WeightedCommonStatistics\x12H\n\x1d\x66\x65\x61ture_list_length_histogram\x18\t \x01(\x0b\x32!.facetFeatureStatistics.HistogramJ\x04\x08\n\x10\x0bJ\x04\x08\x0b\x10\x0c\"\xce\x02\n\tHistogram\x12\x0f\n\x07num_nan\x18\x01 \x01(\x03\x12\x15\n\rnum_undefined\x18\x02 \x01(\x03\x12\x39\n\x07\x62uckets\x18\x03 \x03(\x0b\x32(.facetFeatureStatistics.Histogram.Bucket\x12=\n\x04type\x18\x04 \x01(\x0e\x32/.facetFeatureStatistics.Histogram.HistogramType\x12\x0c\n\x04name\x18\x05 \x01(\t\x1a\x63\n\x06\x42ucket\x12\x11\n\tlow_value\x18\x01 \x01(\x01\x12\x12\n\nhigh_value\x18\x02 \x01(\x01\x12\x1c\n\x10\x64\x65precated_count\x18\x03 \x01(\x03\x42\x02\x18\x01\x12\x14\n\x0csample_count\x18\x04 \x01(\x01\",\n\rHistogramType\x12\x0c\n\x08STANDARD\x10\x00\x12\r\n\tQUANTILES\x10\x01\"\xce\x01\n\rRankHistogram\x12=\n\x07\x62uckets\x18\x01 \x03(\x0b\x32,.facetFeatureStatistics.RankHistogram.Bucket\x12\x0c\n\x04name\x18\x02 \x01(\t\x1ap\n\x06\x42ucket\x12\x10\n\x08low_rank\x18\x01 \x01(\x03\x12\x11\n\thigh_rank\x18\x02 \x01(\x03\x12\x1c\n\x10\x64\x65precated_count\x18\x03 \x01(\x03\x42\x02\x18\x01\x12\r\n\x05label\x18\x04 \x01(\t\x12\x14\n\x0csample_count\x18\x05 \x01(\x01')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n,mlflow/protos/facet_feature_statistics.proto\x12\x1dmlflow.facetFeatureStatistics\"i\n\x1c\x44\x61tasetFeatureStatisticsList\x12I\n\x08\x64\x61tasets\x18\x01 \x03(\x0b\x32\x37.mlflow.facetFeatureStatistics.DatasetFeatureStatistics\"\x14\n\x04Path\x12\x0c\n\x04step\x18\x01 \x03(\t\"\xa5\x01\n\x18\x44\x61tasetFeatureStatistics\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0cnum_examples\x18\x02 \x01(\x03\x12\x1d\n\x15weighted_num_examples\x18\x04 \x01(\x01\x12\x46\n\x08\x66\x65\x61tures\x18\x03 \x03(\x0b\x32\x34.mlflow.facetFeatureStatistics.FeatureNameStatistics\"\xdf\x04\n\x15\x46\x65\x61tureNameStatistics\x12\x0e\n\x04name\x18\x01 \x01(\tH\x00\x12\x33\n\x04path\x18\x08 \x01(\x0b\x32#.mlflow.facetFeatureStatistics.PathH\x00\x12G\n\x04type\x18\x02 \x01(\x0e\x32\x39.mlflow.facetFeatureStatistics.FeatureNameStatistics.Type\x12\x45\n\tnum_stats\x18\x03 \x01(\x0b\x32\x30.mlflow.facetFeatureStatistics.NumericStatisticsH\x01\x12G\n\x0cstring_stats\x18\x04 \x01(\x0b\x32/.mlflow.facetFeatureStatistics.StringStatisticsH\x01\x12\x45\n\x0b\x62ytes_stats\x18\x05 \x01(\x0b\x32..mlflow.facetFeatureStatistics.BytesStatisticsH\x01\x12G\n\x0cstruct_stats\x18\x07 \x01(\x0b\x32/.mlflow.facetFeatureStatistics.StructStatisticsH\x01\x12\x44\n\x0c\x63ustom_stats\x18\x06 \x03(\x0b\x32..mlflow.facetFeatureStatistics.CustomStatistic\"=\n\x04Type\x12\x07\n\x03INT\x10\x00\x12\t\n\x05\x46LOAT\x10\x01\x12\n\n\x06STRING\x10\x02\x12\t\n\x05\x42YTES\x10\x03\x12\n\n\x06STRUCT\x10\x04\x42\n\n\x08\x66ield_idB\x07\n\x05stats\"x\n\x18WeightedCommonStatistics\x12\x17\n\x0fnum_non_missing\x18\x01 \x01(\x01\x12\x13\n\x0bnum_missing\x18\x02 \x01(\x01\x12\x16\n\x0e\x61vg_num_values\x18\x03 \x01(\x01\x12\x16\n\x0etot_num_values\x18\x04 \x01(\x01\"\xd1\x01\n\x0f\x43ustomStatistic\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x03num\x18\x02 \x01(\x01H\x00\x12\r\n\x03str\x18\x03 \x01(\tH\x00\x12=\n\thistogram\x18\x04 \x01(\x0b\x32(.mlflow.facetFeatureStatistics.HistogramH\x00\x12\x46\n\x0erank_histogram\x18\x05 \x01(\x0b\x32,.mlflow.facetFeatureStatistics.RankHistogramH\x00\x42\x05\n\x03valJ\x04\x08\x06\x10\x07\"\xce\x02\n\x11NumericStatistics\x12\x45\n\x0c\x63ommon_stats\x18\x01 \x01(\x0b\x32/.mlflow.facetFeatureStatistics.CommonStatistics\x12\x0c\n\x04mean\x18\x02 \x01(\x01\x12\x0f\n\x07std_dev\x18\x03 \x01(\x01\x12\x11\n\tnum_zeros\x18\x04 \x01(\x03\x12\x0b\n\x03min\x18\x05 \x01(\x01\x12\x0e\n\x06median\x18\x06 \x01(\x01\x12\x0b\n\x03max\x18\x07 \x01(\x01\x12<\n\nhistograms\x18\x08 \x03(\x0b\x32(.mlflow.facetFeatureStatistics.Histogram\x12X\n\x16weighted_numeric_stats\x18\t \x01(\x0b\x32\x38.mlflow.facetFeatureStatistics.WeightedNumericStatistics\"\xbc\x03\n\x10StringStatistics\x12\x45\n\x0c\x63ommon_stats\x18\x01 \x01(\x0b\x32/.mlflow.facetFeatureStatistics.CommonStatistics\x12\x0e\n\x06unique\x18\x02 \x01(\x03\x12P\n\ntop_values\x18\x03 \x03(\x0b\x32<.mlflow.facetFeatureStatistics.StringStatistics.FreqAndValue\x12\x12\n\navg_length\x18\x04 \x01(\x02\x12\x44\n\x0erank_histogram\x18\x05 \x01(\x0b\x32,.mlflow.facetFeatureStatistics.RankHistogram\x12V\n\x15weighted_string_stats\x18\x06 \x01(\x0b\x32\x37.mlflow.facetFeatureStatistics.WeightedStringStatistics\x1aM\n\x0c\x46reqAndValue\x12\x1b\n\x0f\x64\x65precated_freq\x18\x01 \x01(\x03\x42\x02\x18\x01\x12\r\n\x05value\x18\x02 \x01(\t\x12\x11\n\tfrequency\x18\x03 \x01(\x01\"\x88\x01\n\x19WeightedNumericStatistics\x12\x0c\n\x04mean\x18\x01 \x01(\x01\x12\x0f\n\x07std_dev\x18\x02 \x01(\x01\x12\x0e\n\x06median\x18\x03 \x01(\x01\x12<\n\nhistograms\x18\x04 \x03(\x0b\x32(.mlflow.facetFeatureStatistics.Histogram\"\xb2\x01\n\x18WeightedStringStatistics\x12P\n\ntop_values\x18\x01 \x03(\x0b\x32<.mlflow.facetFeatureStatistics.StringStatistics.FreqAndValue\x12\x44\n\x0erank_histogram\x18\x02 \x01(\x0b\x32,.mlflow.facetFeatureStatistics.RankHistogram\"\xb3\x01\n\x0f\x42ytesStatistics\x12\x45\n\x0c\x63ommon_stats\x18\x01 \x01(\x0b\x32/.mlflow.facetFeatureStatistics.CommonStatistics\x12\x0e\n\x06unique\x18\x02 \x01(\x03\x12\x15\n\ravg_num_bytes\x18\x03 \x01(\x02\x12\x15\n\rmin_num_bytes\x18\x04 \x01(\x02\x12\x15\n\rmax_num_bytes\x18\x05 \x01(\x02J\x04\x08\x06\x10\x07\"Y\n\x10StructStatistics\x12\x45\n\x0c\x63ommon_stats\x18\x01 \x01(\x0b\x32/.mlflow.facetFeatureStatistics.CommonStatistics\"\x9d\x03\n\x10\x43ommonStatistics\x12\x17\n\x0fnum_non_missing\x18\x01 \x01(\x03\x12\x13\n\x0bnum_missing\x18\x02 \x01(\x03\x12\x16\n\x0emin_num_values\x18\x03 \x01(\x03\x12\x16\n\x0emax_num_values\x18\x04 \x01(\x03\x12\x16\n\x0e\x61vg_num_values\x18\x05 \x01(\x02\x12\x16\n\x0etot_num_values\x18\x08 \x01(\x03\x12\x46\n\x14num_values_histogram\x18\x06 \x01(\x0b\x32(.mlflow.facetFeatureStatistics.Histogram\x12V\n\x15weighted_common_stats\x18\x07 \x01(\x0b\x32\x37.mlflow.facetFeatureStatistics.WeightedCommonStatistics\x12O\n\x1d\x66\x65\x61ture_list_length_histogram\x18\t \x01(\x0b\x32(.mlflow.facetFeatureStatistics.HistogramJ\x04\x08\n\x10\x0bJ\x04\x08\x0b\x10\x0c\"\xdc\x02\n\tHistogram\x12\x0f\n\x07num_nan\x18\x01 \x01(\x03\x12\x15\n\rnum_undefined\x18\x02 \x01(\x03\x12@\n\x07\x62uckets\x18\x03 \x03(\x0b\x32/.mlflow.facetFeatureStatistics.Histogram.Bucket\x12\x44\n\x04type\x18\x04 \x01(\x0e\x32\x36.mlflow.facetFeatureStatistics.Histogram.HistogramType\x12\x0c\n\x04name\x18\x05 \x01(\t\x1a\x63\n\x06\x42ucket\x12\x11\n\tlow_value\x18\x01 \x01(\x01\x12\x12\n\nhigh_value\x18\x02 \x01(\x01\x12\x1c\n\x10\x64\x65precated_count\x18\x03 \x01(\x03\x42\x02\x18\x01\x12\x14\n\x0csample_count\x18\x04 \x01(\x01\",\n\rHistogramType\x12\x0c\n\x08STANDARD\x10\x00\x12\r\n\tQUANTILES\x10\x01\"\xd5\x01\n\rRankHistogram\x12\x44\n\x07\x62uckets\x18\x01 \x03(\x0b\x32\x33.mlflow.facetFeatureStatistics.RankHistogram.Bucket\x12\x0c\n\x04name\x18\x02 \x01(\t\x1ap\n\x06\x42ucket\x12\x10\n\x08low_rank\x18\x01 \x01(\x03\x12\x11\n\thigh_rank\x18\x02 \x01(\x03\x12\x1c\n\x10\x64\x65precated_count\x18\x03 \x01(\x03\x42\x02\x18\x01\x12\r\n\x05label\x18\x04 \x01(\t\x12\x14\n\x0csample_count\x18\x05 \x01(\x01')
 
 
 
@@ -41,49 +41,49 @@ _HISTOGRAM_HISTOGRAMTYPE = _HISTOGRAM.enum_types_by_name['HistogramType']
 DatasetFeatureStatisticsList = _reflection.GeneratedProtocolMessageType('DatasetFeatureStatisticsList', (_message.Message,), {
   'DESCRIPTOR' : _DATASETFEATURESTATISTICSLIST,
   '__module__' : 'mlflow.protos.facet_feature_statistics_pb2'
-  # @@protoc_insertion_point(class_scope:facetFeatureStatistics.DatasetFeatureStatisticsList)
+  # @@protoc_insertion_point(class_scope:mlflow.facetFeatureStatistics.DatasetFeatureStatisticsList)
   })
 _sym_db.RegisterMessage(DatasetFeatureStatisticsList)
 
 Path = _reflection.GeneratedProtocolMessageType('Path', (_message.Message,), {
   'DESCRIPTOR' : _PATH,
   '__module__' : 'mlflow.protos.facet_feature_statistics_pb2'
-  # @@protoc_insertion_point(class_scope:facetFeatureStatistics.Path)
+  # @@protoc_insertion_point(class_scope:mlflow.facetFeatureStatistics.Path)
   })
 _sym_db.RegisterMessage(Path)
 
 DatasetFeatureStatistics = _reflection.GeneratedProtocolMessageType('DatasetFeatureStatistics', (_message.Message,), {
   'DESCRIPTOR' : _DATASETFEATURESTATISTICS,
   '__module__' : 'mlflow.protos.facet_feature_statistics_pb2'
-  # @@protoc_insertion_point(class_scope:facetFeatureStatistics.DatasetFeatureStatistics)
+  # @@protoc_insertion_point(class_scope:mlflow.facetFeatureStatistics.DatasetFeatureStatistics)
   })
 _sym_db.RegisterMessage(DatasetFeatureStatistics)
 
 FeatureNameStatistics = _reflection.GeneratedProtocolMessageType('FeatureNameStatistics', (_message.Message,), {
   'DESCRIPTOR' : _FEATURENAMESTATISTICS,
   '__module__' : 'mlflow.protos.facet_feature_statistics_pb2'
-  # @@protoc_insertion_point(class_scope:facetFeatureStatistics.FeatureNameStatistics)
+  # @@protoc_insertion_point(class_scope:mlflow.facetFeatureStatistics.FeatureNameStatistics)
   })
 _sym_db.RegisterMessage(FeatureNameStatistics)
 
 WeightedCommonStatistics = _reflection.GeneratedProtocolMessageType('WeightedCommonStatistics', (_message.Message,), {
   'DESCRIPTOR' : _WEIGHTEDCOMMONSTATISTICS,
   '__module__' : 'mlflow.protos.facet_feature_statistics_pb2'
-  # @@protoc_insertion_point(class_scope:facetFeatureStatistics.WeightedCommonStatistics)
+  # @@protoc_insertion_point(class_scope:mlflow.facetFeatureStatistics.WeightedCommonStatistics)
   })
 _sym_db.RegisterMessage(WeightedCommonStatistics)
 
 CustomStatistic = _reflection.GeneratedProtocolMessageType('CustomStatistic', (_message.Message,), {
   'DESCRIPTOR' : _CUSTOMSTATISTIC,
   '__module__' : 'mlflow.protos.facet_feature_statistics_pb2'
-  # @@protoc_insertion_point(class_scope:facetFeatureStatistics.CustomStatistic)
+  # @@protoc_insertion_point(class_scope:mlflow.facetFeatureStatistics.CustomStatistic)
   })
 _sym_db.RegisterMessage(CustomStatistic)
 
 NumericStatistics = _reflection.GeneratedProtocolMessageType('NumericStatistics', (_message.Message,), {
   'DESCRIPTOR' : _NUMERICSTATISTICS,
   '__module__' : 'mlflow.protos.facet_feature_statistics_pb2'
-  # @@protoc_insertion_point(class_scope:facetFeatureStatistics.NumericStatistics)
+  # @@protoc_insertion_point(class_scope:mlflow.facetFeatureStatistics.NumericStatistics)
   })
 _sym_db.RegisterMessage(NumericStatistics)
 
@@ -92,12 +92,12 @@ StringStatistics = _reflection.GeneratedProtocolMessageType('StringStatistics', 
   'FreqAndValue' : _reflection.GeneratedProtocolMessageType('FreqAndValue', (_message.Message,), {
     'DESCRIPTOR' : _STRINGSTATISTICS_FREQANDVALUE,
     '__module__' : 'mlflow.protos.facet_feature_statistics_pb2'
-    # @@protoc_insertion_point(class_scope:facetFeatureStatistics.StringStatistics.FreqAndValue)
+    # @@protoc_insertion_point(class_scope:mlflow.facetFeatureStatistics.StringStatistics.FreqAndValue)
     })
   ,
   'DESCRIPTOR' : _STRINGSTATISTICS,
   '__module__' : 'mlflow.protos.facet_feature_statistics_pb2'
-  # @@protoc_insertion_point(class_scope:facetFeatureStatistics.StringStatistics)
+  # @@protoc_insertion_point(class_scope:mlflow.facetFeatureStatistics.StringStatistics)
   })
 _sym_db.RegisterMessage(StringStatistics)
 _sym_db.RegisterMessage(StringStatistics.FreqAndValue)
@@ -105,35 +105,35 @@ _sym_db.RegisterMessage(StringStatistics.FreqAndValue)
 WeightedNumericStatistics = _reflection.GeneratedProtocolMessageType('WeightedNumericStatistics', (_message.Message,), {
   'DESCRIPTOR' : _WEIGHTEDNUMERICSTATISTICS,
   '__module__' : 'mlflow.protos.facet_feature_statistics_pb2'
-  # @@protoc_insertion_point(class_scope:facetFeatureStatistics.WeightedNumericStatistics)
+  # @@protoc_insertion_point(class_scope:mlflow.facetFeatureStatistics.WeightedNumericStatistics)
   })
 _sym_db.RegisterMessage(WeightedNumericStatistics)
 
 WeightedStringStatistics = _reflection.GeneratedProtocolMessageType('WeightedStringStatistics', (_message.Message,), {
   'DESCRIPTOR' : _WEIGHTEDSTRINGSTATISTICS,
   '__module__' : 'mlflow.protos.facet_feature_statistics_pb2'
-  # @@protoc_insertion_point(class_scope:facetFeatureStatistics.WeightedStringStatistics)
+  # @@protoc_insertion_point(class_scope:mlflow.facetFeatureStatistics.WeightedStringStatistics)
   })
 _sym_db.RegisterMessage(WeightedStringStatistics)
 
 BytesStatistics = _reflection.GeneratedProtocolMessageType('BytesStatistics', (_message.Message,), {
   'DESCRIPTOR' : _BYTESSTATISTICS,
   '__module__' : 'mlflow.protos.facet_feature_statistics_pb2'
-  # @@protoc_insertion_point(class_scope:facetFeatureStatistics.BytesStatistics)
+  # @@protoc_insertion_point(class_scope:mlflow.facetFeatureStatistics.BytesStatistics)
   })
 _sym_db.RegisterMessage(BytesStatistics)
 
 StructStatistics = _reflection.GeneratedProtocolMessageType('StructStatistics', (_message.Message,), {
   'DESCRIPTOR' : _STRUCTSTATISTICS,
   '__module__' : 'mlflow.protos.facet_feature_statistics_pb2'
-  # @@protoc_insertion_point(class_scope:facetFeatureStatistics.StructStatistics)
+  # @@protoc_insertion_point(class_scope:mlflow.facetFeatureStatistics.StructStatistics)
   })
 _sym_db.RegisterMessage(StructStatistics)
 
 CommonStatistics = _reflection.GeneratedProtocolMessageType('CommonStatistics', (_message.Message,), {
   'DESCRIPTOR' : _COMMONSTATISTICS,
   '__module__' : 'mlflow.protos.facet_feature_statistics_pb2'
-  # @@protoc_insertion_point(class_scope:facetFeatureStatistics.CommonStatistics)
+  # @@protoc_insertion_point(class_scope:mlflow.facetFeatureStatistics.CommonStatistics)
   })
 _sym_db.RegisterMessage(CommonStatistics)
 
@@ -142,12 +142,12 @@ Histogram = _reflection.GeneratedProtocolMessageType('Histogram', (_message.Mess
   'Bucket' : _reflection.GeneratedProtocolMessageType('Bucket', (_message.Message,), {
     'DESCRIPTOR' : _HISTOGRAM_BUCKET,
     '__module__' : 'mlflow.protos.facet_feature_statistics_pb2'
-    # @@protoc_insertion_point(class_scope:facetFeatureStatistics.Histogram.Bucket)
+    # @@protoc_insertion_point(class_scope:mlflow.facetFeatureStatistics.Histogram.Bucket)
     })
   ,
   'DESCRIPTOR' : _HISTOGRAM,
   '__module__' : 'mlflow.protos.facet_feature_statistics_pb2'
-  # @@protoc_insertion_point(class_scope:facetFeatureStatistics.Histogram)
+  # @@protoc_insertion_point(class_scope:mlflow.facetFeatureStatistics.Histogram)
   })
 _sym_db.RegisterMessage(Histogram)
 _sym_db.RegisterMessage(Histogram.Bucket)
@@ -157,12 +157,12 @@ RankHistogram = _reflection.GeneratedProtocolMessageType('RankHistogram', (_mess
   'Bucket' : _reflection.GeneratedProtocolMessageType('Bucket', (_message.Message,), {
     'DESCRIPTOR' : _RANKHISTOGRAM_BUCKET,
     '__module__' : 'mlflow.protos.facet_feature_statistics_pb2'
-    # @@protoc_insertion_point(class_scope:facetFeatureStatistics.RankHistogram.Bucket)
+    # @@protoc_insertion_point(class_scope:mlflow.facetFeatureStatistics.RankHistogram.Bucket)
     })
   ,
   'DESCRIPTOR' : _RANKHISTOGRAM,
   '__module__' : 'mlflow.protos.facet_feature_statistics_pb2'
-  # @@protoc_insertion_point(class_scope:facetFeatureStatistics.RankHistogram)
+  # @@protoc_insertion_point(class_scope:mlflow.facetFeatureStatistics.RankHistogram)
   })
 _sym_db.RegisterMessage(RankHistogram)
 _sym_db.RegisterMessage(RankHistogram.Bucket)
@@ -176,44 +176,44 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _HISTOGRAM_BUCKET.fields_by_name['deprecated_count']._serialized_options = b'\030\001'
   _RANKHISTOGRAM_BUCKET.fields_by_name['deprecated_count']._options = None
   _RANKHISTOGRAM_BUCKET.fields_by_name['deprecated_count']._serialized_options = b'\030\001'
-  _DATASETFEATURESTATISTICSLIST._serialized_start=72
-  _DATASETFEATURESTATISTICSLIST._serialized_end=170
-  _PATH._serialized_start=172
-  _PATH._serialized_end=192
-  _DATASETFEATURESTATISTICS._serialized_start=195
-  _DATASETFEATURESTATISTICS._serialized_end=353
-  _FEATURENAMESTATISTICS._serialized_start=356
-  _FEATURENAMESTATISTICS._serialized_end=914
-  _FEATURENAMESTATISTICS_TYPE._serialized_start=832
-  _FEATURENAMESTATISTICS_TYPE._serialized_end=893
-  _WEIGHTEDCOMMONSTATISTICS._serialized_start=916
-  _WEIGHTEDCOMMONSTATISTICS._serialized_end=1036
-  _CUSTOMSTATISTIC._serialized_start=1039
-  _CUSTOMSTATISTIC._serialized_end=1234
-  _NUMERICSTATISTICS._serialized_start=1237
-  _NUMERICSTATISTICS._serialized_end=1550
-  _STRINGSTATISTICS._serialized_start=1553
-  _STRINGSTATISTICS._serialized_end=1969
-  _STRINGSTATISTICS_FREQANDVALUE._serialized_start=1892
-  _STRINGSTATISTICS_FREQANDVALUE._serialized_end=1969
-  _WEIGHTEDNUMERICSTATISTICS._serialized_start=1972
-  _WEIGHTEDNUMERICSTATISTICS._serialized_end=2101
-  _WEIGHTEDSTRINGSTATISTICS._serialized_start=2104
-  _WEIGHTEDSTRINGSTATISTICS._serialized_end=2268
-  _BYTESSTATISTICS._serialized_start=2271
-  _BYTESSTATISTICS._serialized_end=2443
-  _STRUCTSTATISTICS._serialized_start=2445
-  _STRUCTSTATISTICS._serialized_end=2527
-  _COMMONSTATISTICS._serialized_start=2530
-  _COMMONSTATISTICS._serialized_end=2922
-  _HISTOGRAM._serialized_start=2925
-  _HISTOGRAM._serialized_end=3259
-  _HISTOGRAM_BUCKET._serialized_start=3114
-  _HISTOGRAM_BUCKET._serialized_end=3213
-  _HISTOGRAM_HISTOGRAMTYPE._serialized_start=3215
-  _HISTOGRAM_HISTOGRAMTYPE._serialized_end=3259
-  _RANKHISTOGRAM._serialized_start=3262
-  _RANKHISTOGRAM._serialized_end=3468
-  _RANKHISTOGRAM_BUCKET._serialized_start=3356
-  _RANKHISTOGRAM_BUCKET._serialized_end=3468
+  _DATASETFEATURESTATISTICSLIST._serialized_start=79
+  _DATASETFEATURESTATISTICSLIST._serialized_end=184
+  _PATH._serialized_start=186
+  _PATH._serialized_end=206
+  _DATASETFEATURESTATISTICS._serialized_start=209
+  _DATASETFEATURESTATISTICS._serialized_end=374
+  _FEATURENAMESTATISTICS._serialized_start=377
+  _FEATURENAMESTATISTICS._serialized_end=984
+  _FEATURENAMESTATISTICS_TYPE._serialized_start=902
+  _FEATURENAMESTATISTICS_TYPE._serialized_end=963
+  _WEIGHTEDCOMMONSTATISTICS._serialized_start=986
+  _WEIGHTEDCOMMONSTATISTICS._serialized_end=1106
+  _CUSTOMSTATISTIC._serialized_start=1109
+  _CUSTOMSTATISTIC._serialized_end=1318
+  _NUMERICSTATISTICS._serialized_start=1321
+  _NUMERICSTATISTICS._serialized_end=1655
+  _STRINGSTATISTICS._serialized_start=1658
+  _STRINGSTATISTICS._serialized_end=2102
+  _STRINGSTATISTICS_FREQANDVALUE._serialized_start=2025
+  _STRINGSTATISTICS_FREQANDVALUE._serialized_end=2102
+  _WEIGHTEDNUMERICSTATISTICS._serialized_start=2105
+  _WEIGHTEDNUMERICSTATISTICS._serialized_end=2241
+  _WEIGHTEDSTRINGSTATISTICS._serialized_start=2244
+  _WEIGHTEDSTRINGSTATISTICS._serialized_end=2422
+  _BYTESSTATISTICS._serialized_start=2425
+  _BYTESSTATISTICS._serialized_end=2604
+  _STRUCTSTATISTICS._serialized_start=2606
+  _STRUCTSTATISTICS._serialized_end=2695
+  _COMMONSTATISTICS._serialized_start=2698
+  _COMMONSTATISTICS._serialized_end=3111
+  _HISTOGRAM._serialized_start=3114
+  _HISTOGRAM._serialized_end=3462
+  _HISTOGRAM_BUCKET._serialized_start=3317
+  _HISTOGRAM_BUCKET._serialized_end=3416
+  _HISTOGRAM_HISTOGRAMTYPE._serialized_start=3418
+  _HISTOGRAM_HISTOGRAMTYPE._serialized_end=3462
+  _RANKHISTOGRAM._serialized_start=3465
+  _RANKHISTOGRAM._serialized_end=3678
+  _RANKHISTOGRAM_BUCKET._serialized_start=3566
+  _RANKHISTOGRAM_BUCKET._serialized_end=3678
 # @@protoc_insertion_point(module_scope)

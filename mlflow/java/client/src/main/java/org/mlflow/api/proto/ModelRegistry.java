@@ -45844,9 +45844,9 @@ public final class ModelRegistry {
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);
-    registry.add(com.databricks.api.proto.databricks.Databricks.validateRequired);
     registry.add(org.mlflow.scalapb_interface.Scalapb.message);
     registry.add(org.mlflow.scalapb_interface.Scalapb.options);
+    registry.add(com.databricks.api.proto.databricks.Databricks.validateRequired);
     com.google.protobuf.Descriptors.FileDescriptor
         .internalUpdateFileDescriptor(descriptor, registry);
     org.mlflow.scalapb_interface.Scalapb.getDescriptor();

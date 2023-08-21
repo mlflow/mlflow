@@ -18,7 +18,7 @@ public final class Scalapb {
         (com.google.protobuf.ExtensionRegistryLite) registry);
   }
   public interface ScalaPbOptionsOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:scalapb.ScalaPbOptions)
+      // @@protoc_insertion_point(interface_extends:mlflow.scalapb.ScalaPbOptions)
       com.google.protobuf.MessageOrBuilder {
 
     /**
@@ -121,11 +121,11 @@ public final class Scalapb {
         getImportBytes(int index);
   }
   /**
-   * Protobuf type {@code scalapb.ScalaPbOptions}
+   * Protobuf type {@code mlflow.scalapb.ScalaPbOptions}
    */
   public static final class ScalaPbOptions extends
       com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:scalapb.ScalaPbOptions)
+      // @@protoc_insertion_point(message_implements:mlflow.scalapb.ScalaPbOptions)
       ScalaPbOptionsOrBuilder {
   private static final long serialVersionUID = 0L;
     // Use ScalaPbOptions.newBuilder() to construct.
@@ -212,13 +212,13 @@ public final class Scalapb {
     }
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return org.mlflow.scalapb_interface.Scalapb.internal_static_scalapb_ScalaPbOptions_descriptor;
+      return org.mlflow.scalapb_interface.Scalapb.internal_static_mlflow_scalapb_ScalaPbOptions_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return org.mlflow.scalapb_interface.Scalapb.internal_static_scalapb_ScalaPbOptions_fieldAccessorTable
+      return org.mlflow.scalapb_interface.Scalapb.internal_static_mlflow_scalapb_ScalaPbOptions_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
               org.mlflow.scalapb_interface.Scalapb.ScalaPbOptions.class, org.mlflow.scalapb_interface.Scalapb.ScalaPbOptions.Builder.class);
     }
@@ -566,21 +566,21 @@ public final class Scalapb {
       return builder;
     }
     /**
-     * Protobuf type {@code scalapb.ScalaPbOptions}
+     * Protobuf type {@code mlflow.scalapb.ScalaPbOptions}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:scalapb.ScalaPbOptions)
+        // @@protoc_insertion_point(builder_implements:mlflow.scalapb.ScalaPbOptions)
         org.mlflow.scalapb_interface.Scalapb.ScalaPbOptionsOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return org.mlflow.scalapb_interface.Scalapb.internal_static_scalapb_ScalaPbOptions_descriptor;
+        return org.mlflow.scalapb_interface.Scalapb.internal_static_mlflow_scalapb_ScalaPbOptions_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return org.mlflow.scalapb_interface.Scalapb.internal_static_scalapb_ScalaPbOptions_fieldAccessorTable
+        return org.mlflow.scalapb_interface.Scalapb.internal_static_mlflow_scalapb_ScalaPbOptions_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
                 org.mlflow.scalapb_interface.Scalapb.ScalaPbOptions.class, org.mlflow.scalapb_interface.Scalapb.ScalaPbOptions.Builder.class);
       }
@@ -615,7 +615,7 @@ public final class Scalapb {
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return org.mlflow.scalapb_interface.Scalapb.internal_static_scalapb_ScalaPbOptions_descriptor;
+        return org.mlflow.scalapb_interface.Scalapb.internal_static_mlflow_scalapb_ScalaPbOptions_descriptor;
       }
 
       @java.lang.Override
@@ -1088,10 +1088,10 @@ public final class Scalapb {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:scalapb.ScalaPbOptions)
+      // @@protoc_insertion_point(builder_scope:mlflow.scalapb.ScalaPbOptions)
     }
 
-    // @@protoc_insertion_point(class_scope:scalapb.ScalaPbOptions)
+    // @@protoc_insertion_point(class_scope:mlflow.scalapb.ScalaPbOptions)
     private static final org.mlflow.scalapb_interface.Scalapb.ScalaPbOptions DEFAULT_INSTANCE;
     static {
       DEFAULT_INSTANCE = new org.mlflow.scalapb_interface.Scalapb.ScalaPbOptions();
@@ -1129,7 +1129,7 @@ public final class Scalapb {
   }
 
   public interface MessageOptionsOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:scalapb.MessageOptions)
+      // @@protoc_insertion_point(interface_extends:mlflow.scalapb.MessageOptions)
       com.google.protobuf.MessageOrBuilder {
 
     /**
@@ -1174,11 +1174,11 @@ public final class Scalapb {
         getExtendsBytes(int index);
   }
   /**
-   * Protobuf type {@code scalapb.MessageOptions}
+   * Protobuf type {@code mlflow.scalapb.MessageOptions}
    */
   public static final class MessageOptions extends
       com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:scalapb.MessageOptions)
+      // @@protoc_insertion_point(message_implements:mlflow.scalapb.MessageOptions)
       MessageOptionsOrBuilder {
   private static final long serialVersionUID = 0L;
     // Use MessageOptions.newBuilder() to construct.
@@ -1253,13 +1253,13 @@ public final class Scalapb {
     }
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return org.mlflow.scalapb_interface.Scalapb.internal_static_scalapb_MessageOptions_descriptor;
+      return org.mlflow.scalapb_interface.Scalapb.internal_static_mlflow_scalapb_MessageOptions_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return org.mlflow.scalapb_interface.Scalapb.internal_static_scalapb_MessageOptions_fieldAccessorTable
+      return org.mlflow.scalapb_interface.Scalapb.internal_static_mlflow_scalapb_MessageOptions_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
               org.mlflow.scalapb_interface.Scalapb.MessageOptions.class, org.mlflow.scalapb_interface.Scalapb.MessageOptions.Builder.class);
     }
@@ -1477,21 +1477,21 @@ public final class Scalapb {
       return builder;
     }
     /**
-     * Protobuf type {@code scalapb.MessageOptions}
+     * Protobuf type {@code mlflow.scalapb.MessageOptions}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:scalapb.MessageOptions)
+        // @@protoc_insertion_point(builder_implements:mlflow.scalapb.MessageOptions)
         org.mlflow.scalapb_interface.Scalapb.MessageOptionsOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return org.mlflow.scalapb_interface.Scalapb.internal_static_scalapb_MessageOptions_descriptor;
+        return org.mlflow.scalapb_interface.Scalapb.internal_static_mlflow_scalapb_MessageOptions_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return org.mlflow.scalapb_interface.Scalapb.internal_static_scalapb_MessageOptions_fieldAccessorTable
+        return org.mlflow.scalapb_interface.Scalapb.internal_static_mlflow_scalapb_MessageOptions_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
                 org.mlflow.scalapb_interface.Scalapb.MessageOptions.class, org.mlflow.scalapb_interface.Scalapb.MessageOptions.Builder.class);
       }
@@ -1522,7 +1522,7 @@ public final class Scalapb {
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return org.mlflow.scalapb_interface.Scalapb.internal_static_scalapb_MessageOptions_descriptor;
+        return org.mlflow.scalapb_interface.Scalapb.internal_static_mlflow_scalapb_MessageOptions_descriptor;
       }
 
       @java.lang.Override
@@ -1793,10 +1793,10 @@ public final class Scalapb {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:scalapb.MessageOptions)
+      // @@protoc_insertion_point(builder_scope:mlflow.scalapb.MessageOptions)
     }
 
-    // @@protoc_insertion_point(class_scope:scalapb.MessageOptions)
+    // @@protoc_insertion_point(class_scope:mlflow.scalapb.MessageOptions)
     private static final org.mlflow.scalapb_interface.Scalapb.MessageOptions DEFAULT_INSTANCE;
     static {
       DEFAULT_INSTANCE = new org.mlflow.scalapb_interface.Scalapb.MessageOptions();
@@ -1834,7 +1834,7 @@ public final class Scalapb {
   }
 
   public interface FieldOptionsOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:scalapb.FieldOptions)
+      // @@protoc_insertion_point(interface_extends:mlflow.scalapb.FieldOptions)
       com.google.protobuf.MessageOrBuilder {
 
     /**
@@ -1855,11 +1855,11 @@ public final class Scalapb {
         getTypeBytes();
   }
   /**
-   * Protobuf type {@code scalapb.FieldOptions}
+   * Protobuf type {@code mlflow.scalapb.FieldOptions}
    */
   public static final class FieldOptions extends
       com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:scalapb.FieldOptions)
+      // @@protoc_insertion_point(message_implements:mlflow.scalapb.FieldOptions)
       FieldOptionsOrBuilder {
   private static final long serialVersionUID = 0L;
     // Use FieldOptions.newBuilder() to construct.
@@ -1928,13 +1928,13 @@ public final class Scalapb {
     }
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return org.mlflow.scalapb_interface.Scalapb.internal_static_scalapb_FieldOptions_descriptor;
+      return org.mlflow.scalapb_interface.Scalapb.internal_static_mlflow_scalapb_FieldOptions_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return org.mlflow.scalapb_interface.Scalapb.internal_static_scalapb_FieldOptions_fieldAccessorTable
+      return org.mlflow.scalapb_interface.Scalapb.internal_static_mlflow_scalapb_FieldOptions_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
               org.mlflow.scalapb_interface.Scalapb.FieldOptions.class, org.mlflow.scalapb_interface.Scalapb.FieldOptions.Builder.class);
     }
@@ -2148,21 +2148,21 @@ public final class Scalapb {
       return builder;
     }
     /**
-     * Protobuf type {@code scalapb.FieldOptions}
+     * Protobuf type {@code mlflow.scalapb.FieldOptions}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:scalapb.FieldOptions)
+        // @@protoc_insertion_point(builder_implements:mlflow.scalapb.FieldOptions)
         org.mlflow.scalapb_interface.Scalapb.FieldOptionsOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return org.mlflow.scalapb_interface.Scalapb.internal_static_scalapb_FieldOptions_descriptor;
+        return org.mlflow.scalapb_interface.Scalapb.internal_static_mlflow_scalapb_FieldOptions_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return org.mlflow.scalapb_interface.Scalapb.internal_static_scalapb_FieldOptions_fieldAccessorTable
+        return org.mlflow.scalapb_interface.Scalapb.internal_static_mlflow_scalapb_FieldOptions_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
                 org.mlflow.scalapb_interface.Scalapb.FieldOptions.class, org.mlflow.scalapb_interface.Scalapb.FieldOptions.Builder.class);
       }
@@ -2193,7 +2193,7 @@ public final class Scalapb {
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return org.mlflow.scalapb_interface.Scalapb.internal_static_scalapb_FieldOptions_descriptor;
+        return org.mlflow.scalapb_interface.Scalapb.internal_static_mlflow_scalapb_FieldOptions_descriptor;
       }
 
       @java.lang.Override
@@ -2399,10 +2399,10 @@ public final class Scalapb {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:scalapb.FieldOptions)
+      // @@protoc_insertion_point(builder_scope:mlflow.scalapb.FieldOptions)
     }
 
-    // @@protoc_insertion_point(class_scope:scalapb.FieldOptions)
+    // @@protoc_insertion_point(class_scope:mlflow.scalapb.FieldOptions)
     private static final org.mlflow.scalapb_interface.Scalapb.FieldOptions DEFAULT_INSTANCE;
     static {
       DEFAULT_INSTANCE = new org.mlflow.scalapb_interface.Scalapb.FieldOptions();
@@ -2488,20 +2488,20 @@ public final class Scalapb {
         org.mlflow.scalapb_interface.Scalapb.FieldOptions.class,
         org.mlflow.scalapb_interface.Scalapb.FieldOptions.getDefaultInstance());
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_scalapb_ScalaPbOptions_descriptor;
+    internal_static_mlflow_scalapb_ScalaPbOptions_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_scalapb_ScalaPbOptions_fieldAccessorTable;
+      internal_static_mlflow_scalapb_ScalaPbOptions_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_scalapb_MessageOptions_descriptor;
+    internal_static_mlflow_scalapb_MessageOptions_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_scalapb_MessageOptions_fieldAccessorTable;
+      internal_static_mlflow_scalapb_MessageOptions_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_scalapb_FieldOptions_descriptor;
+    internal_static_mlflow_scalapb_FieldOptions_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_scalapb_FieldOptions_fieldAccessorTable;
+      internal_static_mlflow_scalapb_FieldOptions_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -2511,41 +2511,42 @@ public final class Scalapb {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n#mlflow/protos/scalapb/scalapb.proto\022\007s" +
-      "calapb\032 google/protobuf/descriptor.proto" +
-      "\"L\n\016ScalaPbOptions\022\024\n\014package_name\030\001 \001(\t" +
-      "\022\024\n\014flat_package\030\002 \001(\010\022\016\n\006import\030\003 \003(\t\"!" +
-      "\n\016MessageOptions\022\017\n\007extends\030\001 \003(\t\"\034\n\014Fie" +
-      "ldOptions\022\014\n\004type\030\001 \001(\t:G\n\007options\022\034.goo" +
-      "gle.protobuf.FileOptions\030\374\007 \001(\0132\027.scalap" +
-      "b.ScalaPbOptions:J\n\007message\022\037.google.pro" +
-      "tobuf.MessageOptions\030\374\007 \001(\0132\027.scalapb.Me" +
-      "ssageOptions:D\n\005field\022\035.google.protobuf." +
-      "FieldOptions\030\374\007 \001(\0132\025.scalapb.FieldOptio" +
-      "nsB\036\n\034org.mlflow.scalapb_interface"
+      "\n#mlflow/protos/scalapb/scalapb.proto\022\016m" +
+      "lflow.scalapb\032 google/protobuf/descripto" +
+      "r.proto\"L\n\016ScalaPbOptions\022\024\n\014package_nam" +
+      "e\030\001 \001(\t\022\024\n\014flat_package\030\002 \001(\010\022\016\n\006import\030" +
+      "\003 \003(\t\"!\n\016MessageOptions\022\017\n\007extends\030\001 \003(\t" +
+      "\"\034\n\014FieldOptions\022\014\n\004type\030\001 \001(\t:N\n\007option" +
+      "s\022\034.google.protobuf.FileOptions\030\374\007 \001(\0132\036" +
+      ".mlflow.scalapb.ScalaPbOptions:Q\n\007messag" +
+      "e\022\037.google.protobuf.MessageOptions\030\374\007 \001(" +
+      "\0132\036.mlflow.scalapb.MessageOptions:K\n\005fie" +
+      "ld\022\035.google.protobuf.FieldOptions\030\374\007 \001(\013" +
+      "2\034.mlflow.scalapb.FieldOptionsB\036\n\034org.ml" +
+      "flow.scalapb_interface"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
           com.google.protobuf.DescriptorProtos.getDescriptor(),
         });
-    internal_static_scalapb_ScalaPbOptions_descriptor =
+    internal_static_mlflow_scalapb_ScalaPbOptions_descriptor =
       getDescriptor().getMessageTypes().get(0);
-    internal_static_scalapb_ScalaPbOptions_fieldAccessorTable = new
+    internal_static_mlflow_scalapb_ScalaPbOptions_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_scalapb_ScalaPbOptions_descriptor,
+        internal_static_mlflow_scalapb_ScalaPbOptions_descriptor,
         new java.lang.String[] { "PackageName", "FlatPackage", "Import", });
-    internal_static_scalapb_MessageOptions_descriptor =
+    internal_static_mlflow_scalapb_MessageOptions_descriptor =
       getDescriptor().getMessageTypes().get(1);
-    internal_static_scalapb_MessageOptions_fieldAccessorTable = new
+    internal_static_mlflow_scalapb_MessageOptions_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_scalapb_MessageOptions_descriptor,
+        internal_static_mlflow_scalapb_MessageOptions_descriptor,
         new java.lang.String[] { "Extends", });
-    internal_static_scalapb_FieldOptions_descriptor =
+    internal_static_mlflow_scalapb_FieldOptions_descriptor =
       getDescriptor().getMessageTypes().get(2);
-    internal_static_scalapb_FieldOptions_fieldAccessorTable = new
+    internal_static_mlflow_scalapb_FieldOptions_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_scalapb_FieldOptions_descriptor,
+        internal_static_mlflow_scalapb_FieldOptions_descriptor,
         new java.lang.String[] { "Type", });
     options.internalInit(descriptor.getExtensions().get(0));
     message.internalInit(descriptor.getExtensions().get(1));
