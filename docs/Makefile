@@ -68,9 +68,9 @@ rdocs:
 test-examples:
 	@pytest --no-cov .examples
 
-.PHONY: monitoring-docs
-monitoring-docs:
-	@python monitoring_docs.py
+.PHONY: monitoring-metrics
+monitoring-metrics:
+	@python monitoring_metrics.py
 
 .PHONY: gateway-api-docs
 gateway-api-docs:
@@ -78,7 +78,7 @@ gateway-api-docs:
 
 # Builds only the RST-based documentation (i.e., everything but Java & R docs)
 .PHONY: rsthtml
-rsthtml: monitoring-docs gateway-api-docs
+rsthtml: monitoring-metrics gateway-api-docs
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."

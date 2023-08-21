@@ -47,7 +47,7 @@ def build_values(metrics):
     values = []
     for metric in metrics:
         values.append((inline_code(metric.name), inline_code(metric.type), metric.documentation))
-    return sorted(set(values), key=itemgetter(1))
+    return sorted(set(values), key=itemgetter(0))
 
 
 def write_table(metrics, headers, filename):
