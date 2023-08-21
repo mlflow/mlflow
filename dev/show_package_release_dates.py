@@ -1,9 +1,8 @@
-import os
 import json
 import sys
 import subprocess
-import requests
-from concurrent.futures import ThreadPoolExecutor
+import asyncio
+import aiohttp
 import traceback
 
 
@@ -14,36 +13,35 @@ def get_distributions():
     return [(pkg["name"], pkg["version"]) for pkg in json.loads(res)]
 
 
-def get_release_date(package, version):
-    resp = requests.get(f"https://pypi.python.org/pypi/{package}/json", timeout=10)
-    if not resp.ok:
-        return ""
+async def get_release_date(session, package, version):
+    try:
+        async with session.get(f"https://pypi.python.org/pypi/{package}/json", timeout=10) as resp:
+            if resp.status != 200:
+                return ""
 
-    matched = [dist_files for ver, dist_files in resp.json()["releases"].items() if ver == version]
-    if (not matched) or (not matched[0]):
-        return ""
+            resp_json = await resp.json()
+            matched = [
+                dist_files for ver, dist_files in resp_json["releases"].items() if ver == version
+            ]
+            if not matched or not matched[0]:
+                return ""
 
-    upload_time = matched[0][0]["upload_time"]
-    return upload_time.split("T")[0]  # return year-month-day
+            upload_time = matched[0][0]["upload_time"]
+            return upload_time.split("T")[0]  # return year-month-day
+    except Exception:
+        traceback.print_exc()
+        return ""
 
 
 def get_longest_string_length(array):
     return len(max(array, key=len))
 
 
-def safe_result(future, if_error=""):
-    try:
-        return future.result()
-    except Exception:
-        traceback.print_exc()
-        return if_error
-
-
-def main():
+async def main():
     distributions = get_distributions()
-    with ThreadPoolExecutor(max_workers=min(32, os.cpu_count() + 4)) as executor:
-        futures = [executor.submit(get_release_date, pkg, ver) for pkg, ver in distributions]
-        release_dates = [safe_result(f) for f in futures]
+    async with aiohttp.ClientSession() as session:
+        tasks = [get_release_date(session, pkg, ver) for pkg, ver in distributions]
+        release_dates = await asyncio.gather(*tasks)
 
     packages, versions = list(zip(*distributions))
     package_length = get_longest_string_length(packages)
@@ -65,4 +63,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
