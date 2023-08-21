@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package scalapb;
+package mlflow.scalapb;
 
 option java_package = "org.mlflow.scalapb_interface";
 

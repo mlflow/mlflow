@@ -20,7 +20,7 @@ syntax = "proto2";
 // - unsigned int64 types changed to int64 types
 
 // Definitions for aggregated feature statistics for datasets.
-package facetFeatureStatistics;
+package mlflow.facetFeatureStatistics;
 
 // A list of features statistics for different datasets. If you wish to compare
 // different datasets using this list, then the DatasetFeatureStatistics
