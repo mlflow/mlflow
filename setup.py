@@ -160,6 +160,8 @@ setup(
             "mlserver>=1.2.0,!=1.3.1",
             "mlserver-mlflow>=1.2.0,!=1.3.1",
             "virtualenv",
+        ],
+        "prometheus": [
             # Required for exporting metrics and statistics from the MLflow server to Prometheus
             # as part of the MLflow server monitoring add-on
             "prometheus-client>=0.5.0",

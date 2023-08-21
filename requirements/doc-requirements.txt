@@ -8,3 +8,5 @@ sphinx-click
 tensorflow
 pyspark
 datasets
+Flask
+pytablewriter
