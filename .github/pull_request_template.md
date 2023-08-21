@@ -26,11 +26,10 @@ Please describe how you confirmed the proposed feature/bug-fix/change works here
 ## Does this PR need docs update?
 
 - [ ] No. You can skip the rest of this section.
-- [ ] Yes. Please verify the following:
-  - [ ] Update existing samples / documentation.
-  - [ ] Add relevant samples / documentation.
-  - [ ] Check / update docs references.
-  - [ ] Changed pages / sections render correctly in the documentation preview.
+- [ ] Yes. I've updated:
+  - [ ] Examples.
+  - [ ] References.
+  - [ ] Instructions.
 
 ## Release Notes
 
