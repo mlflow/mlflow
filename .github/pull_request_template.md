@@ -27,9 +27,9 @@ Please describe how you confirmed the proposed feature/bug-fix/change works here
 
 - [ ] No. You can skip the rest of this section.
 - [ ] Yes. Make sure you have verified below sections.
-  - [ ] Any existing samples / documentation have been updated.
-  - [ ] Any additional relevant samples / documentation has been added.
-  - [ ] Any docs reference has been checked / updated.
+  - [ ] Existing samples / documentation have been updated.
+  - [ ] Additional relevant samples / documentation have been added.
+  - [ ] Docs references have been checked / updated.
   - [ ] Changed pages / sections render correctly in the documentation preview.
 
 ## Release Notes
