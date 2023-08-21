@@ -28,7 +28,7 @@ Please describe how you confirmed the proposed feature/bug-fix/change works here
 - [ ] No. You can skip the rest of this section.
 - [ ] Yes. I've updated:
   - [ ] Examples
-  - [ ] References
+  - [ ] API references
   - [ ] Instructions
 
 ## Release Notes
