@@ -32,6 +32,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - name: Install dependencies
@@ -43,7 +44,6 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/recipes
-      - uses: ./.github/actions/untracked
 
   recipes-windows:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -52,6 +52,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - name: Install python dependencies
@@ -78,4 +79,3 @@ jobs:
           # Run recipes tests
           export MLFLOW_HOME=$(pwd)
           pytest tests/recipes
-      - uses: ./.github/actions/untracked
