@@ -1434,7 +1434,7 @@ def test_artifact_path_posix(sklearn_knn_model, main_scoped_model_class, tmp_pat
 
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
-        artifacts={"sk_model": sklearn_model_path},
+        artifacts={"sk_model": str(sklearn_model_path)},
         conda_env=_conda_env(),
         python_model=main_scoped_model_class(test_predict),
     )
