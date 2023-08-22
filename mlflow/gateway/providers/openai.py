@@ -1,3 +1,5 @@
+from typing import Optional, List 
+
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
@@ -8,6 +10,39 @@ from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import send_request, rename_payload_keys
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.config import OpenAIConfig, OpenAIAPIType, RouteConfig
+
+from mlflow.gateway.base_models import RequestModel, ResponseModel
+
+class OpenAIChatMessage(RequestModel):
+    role: str
+    content: str
+
+
+class OpenAIChatCompletionsRequestPayload(RequestModel):
+    model: str
+    messages: List[OpenAIChatMessage]
+    # Other fields are not enumerated since they don't require any special handling
+    # within the AI Gateway
+
+
+class OpenAIChatCompletionChoice(RequestModel):
+    index: int
+    message: OpenAIChatMessage
+    finish_reason: Optional[str] = None
+
+
+class OpenAIUsage(RequestModel):
+    completion_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
+
+
+class OpenAIChatCompletionsResponsePayload(ResponseModel):
+    id: str
+    object: str
+    created: int 
+    model: str
+    choices: List[OpenAIChatCompletionChoice] 
+    usage: OpenAIUsage
 
 
 class OpenAIProvider(BaseProvider):

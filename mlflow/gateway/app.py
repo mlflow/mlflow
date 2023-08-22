@@ -35,6 +35,10 @@ class GatewayAPI(FastAPI):
         super().__init__(*args, **kwargs)
         self.dynamic_routes: Dict[str, Route] = {}
         self.set_dynamic_routes(config)
+        self.route_name_to_config = {
+            route_config.name: route_config
+            for route_config in config.routes
+        }
 
     def set_dynamic_routes(self, config: GatewayConfig) -> None:
         self.dynamic_routes.clear()
@@ -206,7 +210,67 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
 
         return result
 
+    from mlflow.gateway.providers.openai import (
+        OpenAIChatCompletionsRequestPayload,
+        OpenAIChatCompletionsResponsePayload,
+        OpenAIChatMessage,
+        OpenAIChatCompletionChoice,
+        OpenAIUsage,
+    )
+
+    @app.post("/gateway/openai-compat/v1/chat/completions")
+    async def openai_chat(
+        payload: OpenAIChatCompletionsRequestPayload,
+    ) -> OpenAIChatCompletionsResponsePayload:
+        import time
+        import uuid
+        from fastapi.encoders import jsonable_encoder
+        from mlflow.gateway.schemas.chat import RequestPayload, RequestMessage, ResponsePayload
+
+        route_config = app.route_name_to_config.get(payload.model)
+        prov = get_provider(route_config.model.provider)(route_config)
+
+        json_payload = jsonable_encoder(payload, exclude_none=True)
+        json_payload.pop("messages")
+        json_payload.pop("model")
+
+        new_messages = [
+            RequestMessage(role=message.role, content=message.content)
+            for message in payload.messages
+        ]
+        new_payload = RequestPayload(
+            messages=new_messages,
+            **json_payload
+        )
+       
+        response: ResponsePayload = await prov.chat(new_payload)
+        choices = [
+            OpenAIChatCompletionChoice(
+                index=index,
+                message=OpenAIChatMessage(
+                    role=candidate.message.role,
+                    content=candidate.message.content
+                ),
+                finish_reason=candidate.metadata.finish_reason,
+            )
+            for index, candidate
+            in enumerate(response.candidates)
+        ]
+        return OpenAIChatCompletionsResponsePayload(
+            id=uuid.uuid4().hex,
+            object="chat.completion",
+            created=time.time(),
+            model=route_config.name,
+            choices=choices,
+            usage=OpenAIUsage(
+                prompt_tokens=response.metadata.input_tokens,
+                completion_tokens=response.metadata.output_tokens,
+                total_tokens=response.metadata.total_tokens,
+            )
+        )
+
     return app
+
 
 
 def create_app_from_path(config_path: Union[str, Path]) -> GatewayAPI:
