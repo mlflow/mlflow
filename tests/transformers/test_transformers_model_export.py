@@ -3733,7 +3733,8 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot_errors():
     with mlflow.start_run():
         with pytest.raises(
             MlflowException,
-            match=r"Failed to download snapshot from Hugging Face Hub: invalid-repo-id.",
+            match=r"Failed to download snapshot from Hugging Face Hub "
+            r"with artifact_uri: hf:/invalid-repo-id.",
         ):
             mlflow.pyfunc.log_model(
                 artifact_path="pyfunc_artifact_path",

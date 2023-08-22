@@ -245,10 +245,15 @@ def _save_model_with_class_artifacts_params(
                             ),
                         )
                         saved_artifact_subpath = os.path.relpath(path=snapshot_location, start=path)
+                    except ImportError as e:
+                        raise MlflowException(
+                            "Failed to import huggingface_hub. Please install huggingface_hub "
+                            f"to log the model with artifact_uri {artifact_uri}. Error: {e}"
+                        )
                     except Exception as e:
                         raise MlflowException.invalid_parameter_value(
-                            "Failed to download snapshot from Hugging Face Hub: "
-                            f"{repo_id}. Error: {e}"
+                            "Failed to download snapshot from Hugging Face Hub with artifact_uri: "
+                            f"{artifact_uri}. Error: {e}"
                         )
                 else:
                     tmp_artifact_path = _download_artifact_from_uri(
