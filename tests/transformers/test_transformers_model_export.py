@@ -19,7 +19,7 @@ import yaml
 
 import transformers
 import huggingface_hub
-from huggingface_hub import ModelCard, scan_cache_dir, snapshot_download
+from huggingface_hub import ModelCard, scan_cache_dir
 from datasets import load_dataset
 
 import mlflow
@@ -3655,16 +3655,10 @@ def test_whisper_model_supports_timestamps(raw_audio_file, whisper_pipeline):
     assert prediction_inference["chunks"][0]["timestamp"][1] == first_timestamp[1]
 
 
-def test_pyfunc_model_log_load_with_artifacts_snapshot(tmp_path):
-    snapshot_location = snapshot_download(
-        repo_id="prajjwal1/bert-tiny",
-        local_dir=tmp_path.joinpath("bert-tiny"),
-        # to avoid tmpdir OSError: [Errno 30] Read-only file system
-        local_dir_use_symlinks=False,
-    )
-
-    tokenizer = transformers.AutoTokenizer.from_pretrained(snapshot_location)
-    model = transformers.BertForQuestionAnswering.from_pretrained(snapshot_location)
+def test_pyfunc_model_log_load_with_artifacts_snapshot():
+    architecture = "prajjwal1/bert-tiny"
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+    model = transformers.BertForQuestionAnswering.from_pretrained(architecture)
     bert_tiny_pipeline = transformers.pipeline(
         task="question-answering", model=model, tokenizer=tokenizer
     )
@@ -3675,13 +3669,10 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot(tmp_path):
             This method initializes the tokenizer and language model
             using the specified snapshot location.
             """
+            snapshot_location = context.artifacts["bert-tiny-model"]
             # Initialize tokenizer and language model
-            tokenizer = transformers.AutoTokenizer.from_pretrained(context.artifacts["snapshot"])
-
-            model = transformers.BertForQuestionAnswering.from_pretrained(
-                context.artifacts["snapshot"]
-            )
-
+            tokenizer = transformers.AutoTokenizer.from_pretrained(snapshot_location)
+            model = transformers.BertForQuestionAnswering.from_pretrained(snapshot_location)
             self.pipeline = transformers.pipeline(
                 task="question-answering", model=model, tokenizer=tokenizer
             )
@@ -3701,7 +3692,7 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot(tmp_path):
         model_info = mlflow.pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
             python_model=QAModel(),
-            artifacts={"snapshot": snapshot_location},
+            artifacts={"bert-tiny-model": "hf:/prajjwal1/bert-tiny"},
             input_example=data,
             signature=infer_signature(
                 data, mlflow.transformers.generate_signature_output(bert_tiny_pipeline, data)
@@ -3713,7 +3704,7 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot(tmp_path):
         pyfunc_model_path = _download_artifact_from_uri(
             f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
         )
-        assert len(os.listdir(os.path.join(pyfunc_model_path, "artifacts"))) == 0
+        assert len(os.listdir(os.path.join(pyfunc_model_path, "artifacts"))) != 0
         model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_uri)
@@ -3731,3 +3722,20 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot(tmp_path):
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
     assert values.to_dict(orient="records")[0]["answer"] != ""
+
+
+def test_pyfunc_model_log_load_with_artifacts_snapshot_errors():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    with mlflow.start_run():
+        with pytest.raises(
+            MlflowException,
+            match=r"Failed to download snapshot from Hugging Face Hub: invalid-repo-id.",
+        ):
+            mlflow.pyfunc.log_model(
+                artifact_path="pyfunc_artifact_path",
+                python_model=TestModel(),
+                artifacts={"some-model": "hf:/invalid-repo-id"},
+            )

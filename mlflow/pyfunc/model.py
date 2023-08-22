@@ -6,7 +6,7 @@ models with a user-defined ``PythonModel`` subclass.
 import inspect
 import logging
 import os
-import posixpath
+import re
 import shutil
 import yaml
 from typing import Any, Dict, List, Optional
@@ -198,11 +198,11 @@ def _save_model_with_class_artifacts_params(
     :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries.
                       Remote artifact URIs are resolved to absolute filesystem paths, producing
                       a dictionary of ``<name, absolute_path>`` entries,
-                      (e.g. {"file": "aboslute_path"}). ``python_model`` can reference these resolved
-                      entries as the ``artifacts`` property of the ``context`` attribute. If
-                      ``<snapshot, snapshot_location>``
-                      (e.g. {"snapshot": "absolute_snapshot_location"}) is provided, then the model
-                      can be fetched from `snapshot_location` directly.
+                      (e.g. {"file": "aboslute_path"}). ``python_model`` can reference these
+                      resolved entries as the ``artifacts`` property of the ``context`` attribute.
+                      If ``<artifact_name, 'hf:/repo_id'>``(e.g. {"bert-tiny-model":
+                      "hf:/prajjwal1/bert-tiny"}) is provided, then the model can be fetched from
+                      huggingface hub using repo_id `prajjwal1/bert-tiny` directly.
                       If ``None``, no artifacts are added to the model.
     :param conda_env: Either a dictionary representation of a Conda environment or the
                       path to a Conda environment yaml file. If provided, this decsribes the
@@ -233,13 +233,28 @@ def _save_model_with_class_artifacts_params(
         with TempDir() as tmp_artifacts_dir:
             saved_artifacts_dir_subpath = "artifacts"
             for artifact_name, artifact_uri in artifacts.items():
-                if artifact_name == "snapshot":
-                    saved_artifact_subpath = artifact_uri
+                if artifact_uri.startswith("hf:/"):
+                    try:
+                        from huggingface_hub import snapshot_download
+
+                        repo_id = re.sub(r"^hf:/", "", artifact_uri)
+                        snapshot_location = snapshot_download(
+                            repo_id=repo_id,
+                            cache_dir=os.path.join(
+                                path, saved_artifacts_dir_subpath, artifact_name
+                            ),
+                        )
+                        saved_artifact_subpath = os.path.relpath(path=snapshot_location, start=path)
+                    except Exception as e:
+                        raise MlflowException.invalid_parameter_value(
+                            "Failed to download snapshot from Hugging Face Hub: "
+                            f"{repo_id}. Error: {e}"
+                        )
                 else:
                     tmp_artifact_path = _download_artifact_from_uri(
                         artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
                     )
-                    saved_artifact_subpath = posixpath.join(
+                    saved_artifact_subpath = os.path.join(
                         saved_artifacts_dir_subpath,
                         os.path.relpath(path=tmp_artifact_path, start=tmp_artifacts_dir.path()),
                     )
