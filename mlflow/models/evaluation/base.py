@@ -951,19 +951,21 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
     raise ModelValidationFailedException(message=os.linesep.join(failure_messages))
 
 
-def _convert_data_to_mlflow_dataset(data, targets=None, dataset_path=None):
+def _convert_data_to_mlflow_dataset(data, targets=None):
     """Convert input data to mlflow dataset."""
     if "pyspark" in sys.modules:
         from pyspark.sql import DataFrame as SparkDataFrame
 
     if isinstance(data, Dataset):
         return data
-    elif isinstance(data, pd.DataFrame):
-        return mlflow.data.from_pandas(df=data, targets=targets, source=dataset_path)
-    elif "pyspark" in sys.modules and isinstance(data, SparkDataFrame):
-        return mlflow.data.from_spark(df=data, targets=targets, path=dataset_path)
+    elif isinstance(data, list):
+        return mlflow.data.from_numpy(np.array(data), targets=np.array(targets))
     elif isinstance(data, np.ndarray):
-        return mlflow.data.from_numpy(data, targets=targets, source=dataset_path)
+        return mlflow.data.from_numpy(data, targets=targets)
+    elif isinstance(data, pd.DataFrame):
+        return mlflow.data.from_pandas(df=data, targets=targets)
+    elif "pyspark" in sys.modules and isinstance(data, SparkDataFrame):
+        return mlflow.data.from_spark(df=data, targets=targets)
     else:
         raise TypeError(
             "`data` must be a `mlflow.data.dataset.Dataset`, pandas DataFrame, numpy array or "
@@ -1554,11 +1556,7 @@ def evaluate(
 
     with _start_run_or_reuse_active_run() as run_id:
         # Convert data to `mlflow.data.dataset.Dataset`.
-        data = _convert_data_to_mlflow_dataset(
-            data=data,
-            targets=targets,
-            dataset_path=dataset_path,
-        )
+        data = _convert_data_to_mlflow_dataset(data=data, targets=targets)
         from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 
         if issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
