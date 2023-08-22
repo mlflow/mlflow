@@ -14,7 +14,6 @@ from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import (
     _build_image,
     _generate_dockerfile_content,
-    DISABLE_ENV_CREATION,
     SETUP_MINICONDA,
     SETUP_PYENV_AND_VIRTUALENV,
     _get_mlflow_install_step,
@@ -39,6 +38,7 @@ from mlflow.utils.virtualenv import (
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 from mlflow.utils.process import cache_return_value_per_process
 from mlflow.version import VERSION
+from mlflow.environment_variables import MLFLOW_DISABLE_ENV_CREATION
 
 _logger = logging.getLogger(__name__)
 
@@ -372,7 +372,7 @@ class PyFuncBackend(FlavorBackend):
                     ENV {disable_env}="true"
                     ENV {ENABLE_MLSERVER}={enable_mlserver}
                     """.format(
-                    disable_env=DISABLE_ENV_CREATION,
+                    disable_env=MLFLOW_DISABLE_ENV_CREATION.name,
                     model_dir=str(posixpath.join("model_dir", os.path.basename(model_path))),
                     install_mlflow=repr(install_mlflow),
                     ENABLE_MLSERVER=ENABLE_MLSERVER,
@@ -381,7 +381,7 @@ class PyFuncBackend(FlavorBackend):
                 )
             else:
                 return f"""
-                    ENV {DISABLE_ENV_CREATION}="true"
+                    ENV {MLFLOW_DISABLE_ENV_CREATION}="true"
                     ENV {ENABLE_MLSERVER}={enable_mlserver!r}
                     """
 

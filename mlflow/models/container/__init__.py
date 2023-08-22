@@ -20,12 +20,11 @@ import mlflow.version
 from mlflow import pyfunc, mleap
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.docker_utils import DISABLE_ENV_CREATION
 from mlflow.pyfunc import scoring_server, mlserver, _extract_conda_env
 from mlflow.version import VERSION as MLFLOW_VERSION
 from mlflow.utils import env_manager as em
 from mlflow.utils.virtualenv import _get_or_create_virtualenv
-from mlflow.environment_variables import MLFLOW_DEPLOYMENT_FLAVOR_NAME
+from mlflow.environment_variables import MLFLOW_DEPLOYMENT_FLAVOR_NAME, MLFLOW_DISABLE_ENV_CREATION
 
 MODEL_PATH = "/opt/ml/model"
 
@@ -141,7 +140,7 @@ def _serve_pyfunc(model, env_manager):
     # option to disable manually nginx. The default behavior is to enable nginx.
     disable_nginx = os.getenv(DISABLE_NGINX, "false").lower() == "true"
     enable_mlserver = os.getenv(ENABLE_MLSERVER, "false").lower() == "true"
-    disable_env_creation = os.environ.get(DISABLE_ENV_CREATION) == "true"
+    disable_env_creation = MLFLOW_DISABLE_ENV_CREATION.get()
 
     conf = model.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []

@@ -75,8 +75,6 @@ def _get_maven_proxy():
     )
 
 
-DISABLE_ENV_CREATION = "MLFLOW_DISABLE_ENV_CREATION"
-
 _DOCKERFILE_TEMPLATE = """
 # Build an image that can serve mlflow models.
 FROM ubuntu:20.04
