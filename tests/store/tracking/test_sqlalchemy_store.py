@@ -67,6 +67,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlDataset,
 )
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from numpy import int64
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
 from tests.store.tracking.test_file_store import assert_dataset_inputs_equal
@@ -899,10 +900,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         metric2 = entities.Metric(tkey, tval, get_current_time_millis() + 2, 0)
         nan_metric = entities.Metric("NaN", float("nan"), 0, 0)
         pos_inf_metric = entities.Metric("PosInf", float("inf"), 0, 0)
+        numpy_int_metric = entities.Metric("npInt64", int64(2), 0, 0)
         neg_inf_metric = entities.Metric("NegInf", -float("inf"), 0, 0)
         self.store.log_metric(run.info.run_id, metric)
         self.store.log_metric(run.info.run_id, metric2)
         self.store.log_metric(run.info.run_id, nan_metric)
+        # numpy type is tested because it's commonly returned from
+        # scikit-learn evaluation functions.
+        self.store.log_metric(run.info.run_id, numpy_int_metric)
         self.store.log_metric(run.info.run_id, pos_inf_metric)
         self.store.log_metric(run.info.run_id, neg_inf_metric)
 

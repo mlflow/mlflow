@@ -694,16 +694,23 @@ class SqlAlchemyStore(AbstractStore):
         for metric in metrics:
             metric, value, is_nan = self._get_metric_value_details(metric)
             if metric not in seen:
-                metric_instances.append(
-                    SqlMetric(
-                        run_uuid=run_id,
-                        key=metric.key,
-                        value=value,
-                        timestamp=metric.timestamp,
-                        step=metric.step,
-                        is_nan=is_nan,
+                try:
+                    metric_instances.append(
+                        SqlMetric(
+                            run_uuid=run_id,
+                            key=metric.key,
+                            value=float(value),
+                            timestamp=metric.timestamp,
+                            step=metric.step,
+                            is_nan=is_nan,
+                        )
                     )
-                )
+                except ValueError as exc:
+                    raise MlflowException(
+                        f"Failed to cast metric value {value} to float. "
+                        "Required to adhere to database schema type.",
+                        INVALID_PARAMETER_VALUE,
+                    ) from exc
             seen.add(metric)
 
         with self.ManagedSessionMaker() as session:
