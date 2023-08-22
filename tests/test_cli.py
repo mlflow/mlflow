@@ -146,7 +146,7 @@ def test_registry_store_uri_different_from_tracking_store(command):
         registry_store.assert_called()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def sqlite_store():
     fd, temp_dbfile = tempfile.mkstemp()
     # Close handle immediately so that we can remove the file later on in Windows
@@ -158,7 +158,7 @@ def sqlite_store():
     shutil.rmtree("artifact_folder")
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def file_store():
     ROOT_LOCATION = os.path.join(tempfile.gettempdir(), "test_mlflow_gc")
     file_store_uri = f"file:///{ROOT_LOCATION}"
