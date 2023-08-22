@@ -31,6 +31,7 @@ jobs:
     if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v3
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
         id: setup-python
       - name: Add problem matchers
@@ -74,6 +75,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
@@ -81,7 +83,6 @@ jobs:
       - name: Run tests
         run: |
           ./dev/run-python-skinny-tests.sh
-      - uses: ./.github/actions/untracked
 
   python:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -91,6 +92,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
@@ -111,7 +113,6 @@ jobs:
           . ~/.venv/bin/activate
           source dev/setup-ssh.sh
           ./dev/run-python-tests.sh
-      - uses: ./.github/actions/untracked
 
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -121,6 +122,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - name: Build
         run: |
           ./tests/db/compose.sh pull -q postgresql mysql mssql
@@ -181,7 +183,6 @@ jobs:
       - name: Clean up
         run: |
           ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
-      - uses: ./.github/actions/untracked
 
   java:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -191,6 +192,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -210,6 +212,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -235,6 +238,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -247,7 +251,6 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/models
-      - uses: ./.github/actions/untracked
 
   # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
   # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
@@ -261,6 +264,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -273,7 +277,6 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/evaluate
-      - uses: ./.github/actions/untracked
 
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -283,6 +286,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -295,7 +299,6 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest --durations=30 tests/pyfunc
-      - uses: ./.github/actions/untracked
 
   sagemaker:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -305,6 +308,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -314,7 +318,6 @@ jobs:
       - name: Run tests
         run: |
           ./dev/run-python-sagemaker-tests.sh;
-      - uses: ./.github/actions/untracked
 
   windows:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -324,6 +327,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -358,4 +362,3 @@ jobs:
           # MLeap is incompatible on Windows with PySpark3.4 release. 
           # Reinstate tests when MLeap has released a fix. [ML-30491]
           # pytest tests/mleap
-      - uses: ./.github/actions/untracked
