@@ -33,7 +33,6 @@ jobs:
         with:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
           submodules: recursive
-      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -58,7 +57,6 @@ jobs:
         with:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
           submodules: recursive
-      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
         with:
