@@ -414,3 +414,7 @@ MLFLOW_RUN_CONTEXT = _EnvironmentVariable("MLFLOW_RUN_CONTEXT", str, None)
 #: Specifies the URL of the ECR-hosted Docker image a model is deployed into for SageMaker.
 # (default: ``None``)
 MLFLOW_SAGEMAKER_DEPLOY_IMG_URL = _EnvironmentVariable("MLFLOW_SAGEMAKER_DEPLOY_IMG_URL", str, None)
+
+#: Specifies whether to disable creating a new conda environment for `mlflow models build-docker`.
+#: (default: ``False``)
+MLFLOW_DISABLE_ENV_CREATION = _BooleanEnvironmentVariable("MLFLOW_DISABLE_ENV_CREATION", False)
