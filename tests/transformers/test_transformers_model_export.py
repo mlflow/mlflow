@@ -3697,6 +3697,7 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot():
             signature=infer_signature(
                 data, mlflow.transformers.generate_signature_output(bert_tiny_pipeline, data)
             ),
+            extra_pip_requirements=["transformers", "torch", "numpy"],
         )
 
         pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"

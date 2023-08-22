@@ -3830,6 +3830,59 @@ evaluate test data.
     test_predictions = loaded_model.predict(pd.DataFrame(x_test))
     print(test_predictions)
 
+Example: Logging a transformers model with hf:/ schema to avoid copying large files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This example shows how to use a special schema ``hf:/`` to log a transformers model from huggingface
+hub directly. This is useful when the model is too large and especially when you want to serve the 
+model directly, but it doesn't save extra space if you want to download and test the model locally.
+
+.. code-block:: python
+    import mlflow
+    from mlflow.models import infer_signature
+    import numpy as np
+    import transformers
+
+
+    # Define a custom PythonModel
+    class QAModel(mlflow.pyfunc.PythonModel):
+        def load_context(self, context):
+            """
+            This method initializes the tokenizer and language model
+            using the specified snapshot location from model context.
+            """
+            snapshot_location = context.artifacts["bert-tiny-model"]
+            # Initialize tokenizer and language model
+            tokenizer = transformers.AutoTokenizer.from_pretrained(snapshot_location)
+            model = transformers.BertForQuestionAnswering.from_pretrained(snapshot_location)
+            self.pipeline = transformers.pipeline(
+                task="question-answering", model=model, tokenizer=tokenizer
+            )
+
+        def predict(self, context, model_input, params=None):
+            question = model_input["question"][0]
+            if isinstance(question, np.ndarray):
+                question = question.item()
+            ctx = model_input["context"][0]
+            if isinstance(ctx, np.ndarray):
+                ctx = ctx.item()
+            return self.pipeline(question=question, context=ctx)
+
+
+    # Log the model
+    data = {"question": "Who's house?", "context": "The house is owned by Run."}
+    pyfunc_artifact_path = "question_answering_model"
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path=pyfunc_artifact_path,
+            python_model=QAModel(),
+            artifacts={"bert-tiny-model": "hf:/prajjwal1/bert-tiny"},
+            input_example=data,
+            signature=infer_signature(data, ["Run"]),
+            extra_pip_requirements=["torch", "accelerate", "transformers", "numpy"],
+        )
+
+
 .. _custom-flavors:
 
 Custom Flavors

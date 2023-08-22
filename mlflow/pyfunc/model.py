@@ -6,7 +6,6 @@ models with a user-defined ``PythonModel`` subclass.
 import inspect
 import logging
 import os
-import re
 import shutil
 import yaml
 from typing import Any, Dict, List, Optional
@@ -232,12 +231,13 @@ def _save_model_with_class_artifacts_params(
         saved_artifacts_config = {}
         with TempDir() as tmp_artifacts_dir:
             saved_artifacts_dir_subpath = "artifacts"
+            hf_prefix = "hf:/"
             for artifact_name, artifact_uri in artifacts.items():
-                if artifact_uri.startswith("hf:/"):
+                if artifact_uri.startswith(hf_prefix):
                     try:
                         from huggingface_hub import snapshot_download
 
-                        repo_id = re.sub(r"^hf:/", "", artifact_uri)
+                        repo_id = artifact_uri[len(hf_prefix) :]
                         snapshot_location = snapshot_download(
                             repo_id=repo_id,
                             cache_dir=os.path.join(
@@ -245,10 +245,6 @@ def _save_model_with_class_artifacts_params(
                             ),
                         )
                         saved_artifact_subpath = os.path.relpath(path=snapshot_location, start=path)
-                        if extra_pip_requirements is None:
-                            extra_pip_requirements = ["transformers"]
-                        elif "transformers" not in extra_pip_requirements:
-                            extra_pip_requirements.append("transformers")
                     except Exception as e:
                         raise MlflowException.invalid_parameter_value(
                             "Failed to download snapshot from Hugging Face Hub: "
