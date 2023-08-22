@@ -7,9 +7,6 @@ import "mlflow/protos/databricks.proto";
 
 option java_package = "com.databricks.api.proto.ucmodelregistry";
 option java_generate_equals_and_hash = true;
-option (scalapb.options) = {
-  flat_package: true,
-};
 
 message RegisteredModel {
   // Unique name for the model.

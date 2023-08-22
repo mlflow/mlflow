@@ -8,9 +8,7 @@ import "mlflow/protos/databricks.proto";
 option java_package = "org.mlflow.api.proto";
 option java_generate_equals_and_hash = true;
 option py_generic_services = true;
-option (scalapb.options) = {
-  flat_package: true,
-};
+
 
 service ModelRegistryService {
   // Throws ``RESOURCE_ALREADY_EXISTS`` if a registered model with the given name exists.

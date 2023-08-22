@@ -7541,8 +7541,8 @@ public final class Databricks {
       "protobuf.EnumValueOptions\030\356\220\003 \001(\0162\022.mlfl" +
       "ow.Visibility:Z\n\016enum_value_doc\022!.google" +
       ".protobuf.EnumValueOptions\030\362\220\003 \003(\0132\035.mlf" +
-      "low.DocumentationMetadataB*\n#com.databri" +
-      "cks.api.proto.databricks\342?\002\020\001"
+      "low.DocumentationMetadataB%\n#com.databri" +
+      "cks.api.proto.databricks"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -7592,11 +7592,6 @@ public final class Databricks {
     enumDoc.internalInit(descriptor.getExtensions().get(9));
     enumValueVisibility.internalInit(descriptor.getExtensions().get(10));
     enumValueDoc.internalInit(descriptor.getExtensions().get(11));
-    com.google.protobuf.ExtensionRegistry registry =
-        com.google.protobuf.ExtensionRegistry.newInstance();
-    registry.add(org.mlflow.scalapb_interface.Scalapb.options);
-    com.google.protobuf.Descriptors.FileDescriptor
-        .internalUpdateFileDescriptor(descriptor, registry);
     com.google.protobuf.DescriptorProtos.getDescriptor();
     org.mlflow.scalapb_interface.Scalapb.getDescriptor();
   }

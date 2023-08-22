@@ -9,9 +9,6 @@ import "mlflow/protos/scalapb/scalapb.proto";
 
 option java_package = "org.mlflow.internal.proto";
 option py_generic_services = true;
-option (scalapb.options) = {
-  flat_package: true,
-};
 
 
 // Types of vertices represented in MLflow Run Inputs. Valid vertices are MLflow objects that can

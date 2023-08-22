@@ -14734,8 +14734,8 @@ public final class DatabricksArtifacts {
       "gnedUploadPartUrl\032*.mlflow.GetPresignedU" +
       "ploadPartUrl.Response\"D\362\206\031@\n<\n\003GET\022//mlf" +
       "low/artifacts/get-presigned-upload-part-" +
-      "url\032\004\010\002\020\000\020\003B,\n\037com.databricks.api.proto." +
-      "mlflow\220\001\001\240\001\001\342?\002\020\001"
+      "url\032\004\010\002\020\000\020\003B\'\n\037com.databricks.api.proto." +
+      "mlflow\220\001\001\240\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -14825,7 +14825,6 @@ public final class DatabricksArtifacts {
         com.google.protobuf.ExtensionRegistry.newInstance();
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);
     registry.add(org.mlflow.scalapb_interface.Scalapb.message);
-    registry.add(org.mlflow.scalapb_interface.Scalapb.options);
     registry.add(com.databricks.api.proto.databricks.Databricks.validateRequired);
     com.google.protobuf.Descriptors.FileDescriptor
         .internalUpdateFileDescriptor(descriptor, registry);

@@ -13,9 +13,7 @@ import "mlflow/protos/databricks.proto";
 
 option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
-option (scalapb.options) = {
-  flat_package: true,
-};
+
 
 service MlflowArtifactsService {
 

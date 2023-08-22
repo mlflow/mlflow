@@ -127,19 +127,13 @@ public final class Internal {
       "\n\034mlflow/protos/internal.proto\022\017mlflow.i" +
       "nternal\032#mlflow/protos/scalapb/scalapb.p" +
       "roto*\'\n\017InputVertexType\022\007\n\003RUN\020\001\022\013\n\007DATA" +
-      "SET\020\002B#\n\031org.mlflow.internal.proto\220\001\001\342?\002" +
-      "\020\001"
+      "SET\020\002B\036\n\031org.mlflow.internal.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
           org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
         });
-    com.google.protobuf.ExtensionRegistry registry =
-        com.google.protobuf.ExtensionRegistry.newInstance();
-    registry.add(org.mlflow.scalapb_interface.Scalapb.options);
-    com.google.protobuf.Descriptors.FileDescriptor
-        .internalUpdateFileDescriptor(descriptor, registry);
     org.mlflow.scalapb_interface.Scalapb.getDescriptor();
   }
 

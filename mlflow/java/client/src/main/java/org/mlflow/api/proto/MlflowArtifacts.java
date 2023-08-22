@@ -5080,8 +5080,8 @@ public final class MlflowArtifacts {
       "acts.DeleteArtifact\032).mlflow.artifacts.D" +
       "eleteArtifact.Response\"Z\362\206\031V\n@\n\006DELETE\0220" +
       "/mlflow-artifacts/artifacts/<path:artifa" +
-      "ct_path>\032\004\010\002\020\000\020\001*\020Delete ArtifactsB\036\n\024or" +
-      "g.mlflow.api.proto\220\001\001\342?\002\020\001"
+      "ct_path>\032\004\010\002\020\000\020\001*\020Delete ArtifactsB\031\n\024or" +
+      "g.mlflow.api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -5146,7 +5146,6 @@ public final class MlflowArtifacts {
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);
-    registry.add(org.mlflow.scalapb_interface.Scalapb.options);
     com.google.protobuf.Descriptors.FileDescriptor
         .internalUpdateFileDescriptor(descriptor, registry);
     org.mlflow.scalapb_interface.Scalapb.getDescriptor();

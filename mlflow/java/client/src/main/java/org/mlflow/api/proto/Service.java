@@ -59730,8 +59730,8 @@ public final class Service {
       "l\032\004\010\002\020\000\020\001*\tLog Model\022u\n\tlogInputs\022\021.mlfl" +
       "ow.LogInputs\032\032.mlflow.LogInputs.Response" +
       "\"9\362\206\0315\n%\n\004POST\022\027/mlflow/runs/log-inputs\032" +
-      "\004\010\002\020\000\020\001*\nLog InputsB\036\n\024org.mlflow.api.pr" +
-      "oto\220\001\001\342?\002\020\001"
+      "\004\010\002\020\000\020\001*\nLog InputsB\031\n\024org.mlflow.api.pr" +
+      "oto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -60097,7 +60097,6 @@ public final class Service {
         com.google.protobuf.ExtensionRegistry.newInstance();
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);
     registry.add(org.mlflow.scalapb_interface.Scalapb.message);
-    registry.add(org.mlflow.scalapb_interface.Scalapb.options);
     registry.add(com.databricks.api.proto.databricks.Databricks.validateRequired);
     com.google.protobuf.Descriptors.FileDescriptor
         .internalUpdateFileDescriptor(descriptor, registry);

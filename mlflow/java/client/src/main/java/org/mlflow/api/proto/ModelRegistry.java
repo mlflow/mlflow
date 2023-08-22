@@ -45551,7 +45551,7 @@ public final class ModelRegistry {
       "as\032\'.mlflow.GetModelVersionByAlias.Respo" +
       "nse\"P\362\206\031L\n,\n\003GET\022\037/mlflow/registered-mod" +
       "els/alias\032\004\010\002\020\000\020\001*\032Get Model Version by " +
-      "AliasB!\n\024org.mlflow.api.proto\220\001\001\240\001\001\342?\002\020\001"
+      "AliasB\034\n\024org.mlflow.api.proto\220\001\001\240\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -45845,7 +45845,6 @@ public final class ModelRegistry {
         com.google.protobuf.ExtensionRegistry.newInstance();
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);
     registry.add(org.mlflow.scalapb_interface.Scalapb.message);
-    registry.add(org.mlflow.scalapb_interface.Scalapb.options);
     registry.add(com.databricks.api.proto.databricks.Databricks.validateRequired);
     com.google.protobuf.Descriptors.FileDescriptor
         .internalUpdateFileDescriptor(descriptor, registry);
