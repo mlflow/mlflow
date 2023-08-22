@@ -378,6 +378,7 @@ Supported Provider Models
 The table below presents a non-exhaustive list of models and a corresponding route type within the Databricks AI Gateway.
 With the rapid development of LLMs, there is no guarantee that this list will be up to date at all times. However, the associations listed
 below can be used as a helpful guide when configuring a given route for any newly released model types as they become available with a given provider.
+Customers are responsible for ensuring compliance with applicable model licenses.
 
 .. list-table::
    :header-rows: 1
