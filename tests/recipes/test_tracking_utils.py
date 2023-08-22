@@ -1,15 +1,14 @@
 import os
 import pathlib
-import yaml
 from unittest import mock
 
 import pytest
+import yaml
 
 import mlflow
 from mlflow.recipes.utils import get_recipe_config
 from mlflow.recipes.utils.tracking import get_recipe_tracking_config, log_code_snapshot
 from mlflow.utils.file_utils import path_to_local_file_uri, path_to_local_sqlite_uri
-
 from tests.recipes.helper_functions import list_all_artifacts
 
 

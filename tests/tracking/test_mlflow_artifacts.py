@@ -1,17 +1,16 @@
+import cgi
 import os
-from collections import namedtuple
+import pathlib
 import subprocess
 import tempfile
-import requests
-import pathlib
-import cgi
+from collections import namedtuple
 
 import pytest
+import requests
 
 import mlflow
 from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
-
 from tests.helper_functions import LOCALHOST, get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 

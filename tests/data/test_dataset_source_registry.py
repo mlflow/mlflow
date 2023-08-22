@@ -1,11 +1,10 @@
 from typing import Any
+from unittest import mock
 
 import pytest
-from unittest import mock
 
 from mlflow.data.dataset_source_registry import DatasetSourceRegistry
 from mlflow.exceptions import MlflowException
-
 from tests.resources.data.dataset_source import TestDatasetSource
 
 

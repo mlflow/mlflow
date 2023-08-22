@@ -1,10 +1,10 @@
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.store.model_registry.databricks_workspace_model_registry_rest_store import (
     DatabricksWorkspaceModelRegistryRestStore,
 )
+from mlflow.utils.rest_utils import MlflowHostCreds
 
 
 @pytest.fixture

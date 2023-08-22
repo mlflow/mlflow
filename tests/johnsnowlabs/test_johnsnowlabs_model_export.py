@@ -18,7 +18,6 @@ from mlflow.models.utils import _read_example
 from mlflow.pyfunc import spark_udf
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
-
 from tests.helper_functions import assert_register_model_called_with_local_model_path
 
 MODEL_CACHE_FOLDER = None

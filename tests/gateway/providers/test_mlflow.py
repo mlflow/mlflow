@@ -1,10 +1,10 @@
 from unittest import mock
 
+import pydantic
+import pytest
 from aiohttp import ClientTimeout
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-import pydantic
-import pytest
 
 from mlflow.gateway.config import MlflowModelServingConfig, RouteConfig
 from mlflow.gateway.constants import (

@@ -5,7 +5,6 @@ import pytest
 
 import mlflow.data
 from mlflow.exceptions import MlflowException
-
 from tests.resources.data.dataset_source import TestDatasetSource
 
 

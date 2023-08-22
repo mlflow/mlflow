@@ -2,7 +2,6 @@ import pytest
 
 import mlflow.spark
 from mlflow.exceptions import MlflowException
-
 from tests.spark.autologging.utils import _get_or_create_spark_session
 
 

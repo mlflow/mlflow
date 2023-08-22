@@ -1,31 +1,32 @@
 import json
-import pytest
 import uuid
 from unittest import mock
 
-from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
+import pytest
+
+from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.protos.model_registry_pb2 import (
-    CreateRegisteredModel,
-    UpdateRegisteredModel,
-    DeleteRegisteredModel,
-    GetRegisteredModel,
-    GetLatestVersions,
     CreateModelVersion,
-    UpdateModelVersion,
+    CreateRegisteredModel,
     DeleteModelVersion,
-    GetModelVersion,
-    GetModelVersionDownloadUri,
-    SearchModelVersions,
-    RenameRegisteredModel,
-    TransitionModelVersionStage,
-    SearchRegisteredModels,
-    SetRegisteredModelTag,
-    SetModelVersionTag,
-    DeleteRegisteredModelTag,
     DeleteModelVersionTag,
-    SetRegisteredModelAlias,
+    DeleteRegisteredModel,
     DeleteRegisteredModelAlias,
+    DeleteRegisteredModelTag,
+    GetLatestVersions,
+    GetModelVersion,
     GetModelVersionByAlias,
+    GetModelVersionDownloadUri,
+    GetRegisteredModel,
+    RenameRegisteredModel,
+    SearchModelVersions,
+    SearchRegisteredModels,
+    SetModelVersionTag,
+    SetRegisteredModelAlias,
+    SetRegisteredModelTag,
+    TransitionModelVersionStage,
+    UpdateModelVersion,
+    UpdateRegisteredModel,
 )
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json

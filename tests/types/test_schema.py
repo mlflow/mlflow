@@ -2,20 +2,21 @@ import datetime
 import json
 import math
 import re
+
 import numpy as np
 import pandas as pd
 import pytest
-from scipy.sparse import csr_matrix, csc_matrix
+from scipy.sparse import csc_matrix, csr_matrix
 
-from mlflow.pyfunc import _parse_spark_datatype
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _enforce_tensor_spec
+from mlflow.pyfunc import _parse_spark_datatype
 from mlflow.types import DataType
-from mlflow.types.schema import ColSpec, Schema, TensorSpec, ParamSchema, ParamSpec
+from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.types.utils import (
+    _get_tensor_shape,
     _infer_param_schema,
     _infer_schema,
-    _get_tensor_shape,
     _validate_input_dictionary_contains_only_strings_and_lists_of_strings,
 )
 
@@ -594,16 +595,17 @@ def test_spark_schema_inference(pandas_df_with_all_types):
 def test_spark_type_mapping(pandas_df_with_all_types):
     import pyspark
     from pyspark.sql.types import (
+        BinaryType,
         BooleanType,
+        DoubleType,
+        FloatType,
         IntegerType,
         LongType,
-        FloatType,
-        DoubleType,
         StringType,
-        BinaryType,
+        StructField,
+        StructType,
         TimestampType,
     )
-    from pyspark.sql.types import StructField, StructType
 
     assert isinstance(DataType.boolean.to_spark(), BooleanType)
     assert isinstance(DataType.integer.to_spark(), IntegerType)
