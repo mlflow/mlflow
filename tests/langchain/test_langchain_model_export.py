@@ -48,6 +48,7 @@ from mlflow.openai.utils import (
     _mock_request,
     _MockResponse,
 )
+
 from tests.helper_functions import pyfunc_serve_and_score_model
 
 

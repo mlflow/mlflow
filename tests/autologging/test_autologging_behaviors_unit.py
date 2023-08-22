@@ -13,6 +13,7 @@ import pytest
 import mlflow
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.logging_utils import eprint
+
 from tests.autologging.fixtures import (
     patch_destination,
     reset_stderr,  # noqa: F401

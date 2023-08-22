@@ -24,6 +24,7 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
+
 from tests.helper_functions import (
     _assert_pip_requirements,
     _compare_conda_env_requirements,

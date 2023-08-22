@@ -25,6 +25,7 @@ from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.version import VERSION
+
 from tests.helper_functions import (
     expect_status_code,
     pyfunc_serve_and_score_model,

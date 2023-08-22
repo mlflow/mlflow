@@ -7,6 +7,7 @@ from statsmodels.tsa.base.tsa_model import TimeSeriesModel
 import mlflow
 import mlflow.statsmodels
 from mlflow import MlflowClient
+
 from tests.statsmodels.model_fixtures import (
     arma_model,
     failing_logit_model,

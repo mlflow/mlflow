@@ -7,6 +7,7 @@ from pyspark.sql.types import IntegerType, StructField, StructType
 
 import mlflow
 import mlflow.spark
+
 from tests.spark.autologging.utils import (
     _assert_spark_data_logged,
     _assert_spark_data_not_logged,

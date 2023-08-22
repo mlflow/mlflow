@@ -15,6 +15,7 @@ from mlflow.store.db.base_sql_model import Base
 from mlflow.store.db.utils import _get_alembic_config, _verify_schema
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
 from tests.integration.utils import invoke_cli_runner
 from tests.store.dump_schema import dump_db_schema
 

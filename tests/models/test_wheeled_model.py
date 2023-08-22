@@ -24,6 +24,7 @@ from mlflow.utils.environment import (
     _is_pip_deps,
     _mlflow_conda_env,
 )
+
 from tests.helper_functions import (
     _is_available_on_pypi,
     _mlflow_major_version_string,

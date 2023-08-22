@@ -33,6 +33,7 @@ from mlflow.utils.autologging_utils.versioning import (
     _violates_pep_440,
     is_flavor_supported_for_associated_package_versions,
 )
+
 from tests.autologging.fixtures import test_mode_off
 
 # Example function signature we are testing on

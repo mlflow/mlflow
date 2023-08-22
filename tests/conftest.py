@@ -10,6 +10,7 @@ import mlflow
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.os import is_windows
+
 from tests.autologging.fixtures import enable_test_mode
 
 

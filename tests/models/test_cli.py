@@ -33,6 +33,7 @@ from mlflow.utils.conda import _get_conda_env_name
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.process import ShellCommandException
+
 from tests.helper_functions import (
     PROTOBUF_REQUIREMENT,
     RestEndpoint,

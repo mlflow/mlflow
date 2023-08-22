@@ -12,6 +12,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RECIPE_TEMPLATE_NAME,
     MLFLOW_SOURCE_TYPE,
 )
+
 from tests.recipes.helper_functions import setup_model_and_evaluate
 
 

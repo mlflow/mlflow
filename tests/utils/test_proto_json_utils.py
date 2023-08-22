@@ -24,6 +24,7 @@ from mlflow.utils.proto_json_utils import (
     parse_dict,
     parse_tf_serving_input,
 )
+
 from tests.protos.test_message_pb2 import TestMessage
 
 # Prevent pytest from trying to collect TestMessage as a test class:

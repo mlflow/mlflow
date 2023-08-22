@@ -86,3 +86,6 @@ raises-require-match-for = ["*"]
 
 [tool.ruff.flake8-tidy-imports]
 ban-relative-imports = "all"
+
+[tool.ruff.isort]
+forced-separate = ["tests"]

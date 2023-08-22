@@ -6,6 +6,7 @@ import mlflow
 import mlflow.spark
 from mlflow._spark_autologging import PythonSubscriber, _get_current_listener
 from mlflow.exceptions import MlflowException
+
 from tests.spark.autologging.utils import _get_or_create_spark_session
 
 

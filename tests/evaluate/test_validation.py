@@ -15,6 +15,7 @@ from mlflow.models.evaluation.validation import (
     ModelValidationFailedException,
     _MetricValidationResult,
 )
+
 from tests.evaluate.test_evaluation import (
     iris_dataset,  # noqa: F401
     multiclass_logistic_regressor_model_uri,  # noqa: F401

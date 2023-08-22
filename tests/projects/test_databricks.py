@@ -27,6 +27,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_WEBAPP_URL,
 )
 from mlflow.utils.uri import construct_db_uri_from_profile
+
 from tests import helper_functions
 from tests.integration.utils import invoke_cli_runner
 from tests.projects.utils import TEST_PROJECT_DIR, validate_exit_status

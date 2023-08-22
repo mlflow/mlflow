@@ -8,6 +8,7 @@ from subprocess import Popen
 
 import mlflow
 from mlflow.server import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
+
 from tests.helper_functions import LOCALHOST, get_safe_port
 
 _logger = logging.getLogger(__name__)

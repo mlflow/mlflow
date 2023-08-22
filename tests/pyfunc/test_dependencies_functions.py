@@ -10,6 +10,7 @@ import mlflow.utils.requirements_utils
 from mlflow.exceptions import MlflowException
 from mlflow.pyfunc import _warn_dependency_requirement_mismatches, get_model_dependencies
 from mlflow.utils import PYTHON_VERSION
+
 from tests.helper_functions import AnyStringWith
 
 

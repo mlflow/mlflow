@@ -32,6 +32,7 @@ from mlflow.utils.autologging_utils.safety import (
     _validate_autologging_run,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
+
 from tests.autologging.fixtures import (
     patch_destination,  # noqa: F401
     test_mode_off,

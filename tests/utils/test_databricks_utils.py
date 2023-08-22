@@ -16,6 +16,7 @@ from mlflow.utils.databricks_utils import (
     is_running_in_ipython_environment,
 )
 from mlflow.utils.uri import construct_db_uri_from_profile
+
 from tests.helper_functions import mock_method_chain
 
 

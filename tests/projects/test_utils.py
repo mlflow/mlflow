@@ -21,6 +21,7 @@ from mlflow.projects.utils import (
     load_project,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_SOURCE_NAME
+
 from tests.projects.utils import (
     GIT_PROJECT_BRANCH,
     GIT_PROJECT_URI,

@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.schemas import completions, embeddings
+
 from tests.gateway.tools import MockAsyncResponse
 
 

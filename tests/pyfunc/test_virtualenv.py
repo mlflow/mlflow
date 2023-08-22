@@ -20,6 +20,7 @@ from mlflow.utils.virtualenv import (
     _is_pyenv_available,
     _is_virtualenv_available,
 )
+
 from tests.helper_functions import pyfunc_serve_and_score_model
 
 pytestmark = pytest.mark.skipif(

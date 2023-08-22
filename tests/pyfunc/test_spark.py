@@ -39,7 +39,6 @@ from sklearn.preprocessing import FunctionTransformer
 import mlflow
 import mlflow.pyfunc
 import mlflow.sklearn
-import tests
 from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
 from mlflow.pyfunc import (
@@ -51,6 +50,8 @@ from mlflow.pyfunc import (
 )
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
 from mlflow.types import ColSpec, Schema, TensorSpec
+
+import tests
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2, True]
 types = [np.int32, int, str, np.float32, np.double, bool]

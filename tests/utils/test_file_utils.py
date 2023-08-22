@@ -26,6 +26,7 @@ from mlflow.utils.file_utils import (
     write_spark_dataframe_to_parquet_on_local_disk,
 )
 from mlflow.utils.os import is_windows
+
 from tests.helper_functions import random_file, random_int, safe_edit_yaml
 from tests.projects.utils import TEST_PROJECT_DIR
 

@@ -1,6 +1,7 @@
 import json
 
 from mlflow.types.schema import Schema
+
 from tests.resources.data.dataset import TestDataset
 from tests.resources.data.dataset_source import TestDatasetSource
 

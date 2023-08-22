@@ -19,6 +19,7 @@ from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.environment import _mlflow_conda_env
+
 from tests.helper_functions import (
     _assert_pip_requirements,
     _compare_logged_code_paths,

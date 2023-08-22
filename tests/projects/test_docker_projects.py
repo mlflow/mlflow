@@ -20,6 +20,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_BACKEND,
     MLFLOW_PROJECT_ENV,
 )
+
 from tests.projects.utils import (
     TEST_DOCKER_PROJECT_DIR,
     docker_example_base_image,  # noqa: F401

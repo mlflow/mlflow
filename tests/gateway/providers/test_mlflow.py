@@ -13,6 +13,7 @@ from mlflow.gateway.constants import (
 )
 from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
+
 from tests.gateway.tools import MockAsyncResponse, mock_http_client
 
 

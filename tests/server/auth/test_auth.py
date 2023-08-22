@@ -19,6 +19,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.utils.os import is_windows
+
 from tests.server.auth.auth_test_utils import User, create_user
 from tests.tracking.integration_test_utils import (
     _init_server,

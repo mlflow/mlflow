@@ -14,6 +14,7 @@ from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.utils.request_utils import _cached_get_request_session
+
 from tests.gateway.tools import (
     UvicornGateway,
     log_completions_transformers_model,

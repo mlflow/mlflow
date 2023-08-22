@@ -10,6 +10,7 @@ from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
+
 from tests.store.artifact.constants import (
     UC_MODELS_ARTIFACT_REPOSITORY,
     WORKSPACE_MODELS_ARTIFACT_REPOSITORY,

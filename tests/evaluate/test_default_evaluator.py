@@ -48,6 +48,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _get_regressor_metrics,
     _infer_model_type_by_labels,
 )
+
 from tests.evaluate.test_evaluation import (
     baseline_model_uri,  # noqa: F401
     binary_logistic_regressor_model_uri,  # noqa: F401

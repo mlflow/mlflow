@@ -16,6 +16,7 @@ from mlflow import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.model_utils import _get_flavor_configuration
+
 from tests.helper_functions import (
     _assert_pip_requirements,
     _compare_logged_code_paths,

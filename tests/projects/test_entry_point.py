@@ -7,6 +7,7 @@ import pytest
 from mlflow.exceptions import ExecutionException
 from mlflow.projects._project_spec import EntryPoint
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
+
 from tests.projects.utils import TEST_PROJECT_DIR, load_project
 
 

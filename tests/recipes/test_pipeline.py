@@ -29,6 +29,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_NAME,
     MLFLOW_SOURCE_TYPE,
 )
+
 from tests.recipes.helper_functions import chdir, list_all_artifacts
 
 # _STEP_NAMES must contain all step names that are expected to be executed when

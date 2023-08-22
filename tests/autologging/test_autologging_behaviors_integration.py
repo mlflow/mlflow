@@ -19,6 +19,7 @@ from mlflow.utils.autologging_utils import (
     get_autologging_config,
     safe_patch,
 )
+
 from tests.autologging.fixtures import (
     reset_stderr,  # noqa: F401
     test_mode_off,
