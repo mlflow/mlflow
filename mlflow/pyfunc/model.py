@@ -245,6 +245,10 @@ def _save_model_with_class_artifacts_params(
                             ),
                         )
                         saved_artifact_subpath = os.path.relpath(path=snapshot_location, start=path)
+                        if extra_pip_requirements is None:
+                            extra_pip_requirements = ["transformers"]
+                        elif "transformers" not in extra_pip_requirements:
+                            extra_pip_requirements.append("transformers")
                     except Exception as e:
                         raise MlflowException.invalid_parameter_value(
                             "Failed to download snapshot from Hugging Face Hub: "
