@@ -236,7 +236,13 @@ def _save_model_with_class_artifacts_params(
                 if artifact_uri.startswith(hf_prefix):
                     try:
                         from huggingface_hub import snapshot_download
+                    except ImportError as e:
+                        raise MlflowException(
+                            "Failed to import huggingface_hub. Please install huggingface_hub "
+                            f"to log the model with artifact_uri {artifact_uri}. Error: {e}"
+                        )
 
+                    try:
                         repo_id = artifact_uri[len(hf_prefix) :]
                         snapshot_location = snapshot_download(
                             repo_id=repo_id,
@@ -245,11 +251,7 @@ def _save_model_with_class_artifacts_params(
                             ),
                         )
                         saved_artifact_subpath = os.path.relpath(path=snapshot_location, start=path)
-                    except ImportError as e:
-                        raise MlflowException(
-                            "Failed to import huggingface_hub. Please install huggingface_hub "
-                            f"to log the model with artifact_uri {artifact_uri}. Error: {e}"
-                        )
+
                     except Exception as e:
                         raise MlflowException.invalid_parameter_value(
                             "Failed to download snapshot from Hugging Face Hub with artifact_uri: "
