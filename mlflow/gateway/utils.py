@@ -100,7 +100,7 @@ def get_gateway_uri() -> str:
         raise MlflowException(
             "No Gateway server uri has been set. Please either set the MLflow Gateway URI via "
             "`mlflow.gateway.set_gateway_uri()` or set the environment variable "
-            f"{MLFLOW_GATEWAY_URI} "to the running Gateway API server's uri"
+            f"{MLFLOW_GATEWAY_URI} to the running Gateway API server's uri"
         )
 
 
