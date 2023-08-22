@@ -1,5 +1,4 @@
 import json
-import pytest
 from mlflow.entities import Param
 from mlflow.utils.promptlab_utils import (
     create_model_file,
