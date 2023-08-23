@@ -4,9 +4,10 @@ import posixpath
 import shutil
 import subprocess
 
+import click
 import pytest
 
-from mlflow.environment_variables import _MLFLOW_TESTING
+from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
 
 
 def pytest_addoption(parser):
@@ -33,6 +34,19 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "requires_ssh")
     config.addinivalue_line("markers", "notrackingurimock")
     config.addinivalue_line("markers", "allow_infer_pip_requirements_fallback")
+
+
+def pytest_sessionstart(session):
+    if uri := MLFLOW_TRACKING_URI.get():
+        click.echo(
+            click.style(
+                (
+                    f"Environment variable {MLFLOW_TRACKING_URI} is set to {uri!r}, "
+                    "which may interfere with tests."
+                ),
+                fg="red",
+            )
+        )
 
 
 def pytest_runtest_setup(item):
