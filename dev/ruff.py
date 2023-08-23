@@ -43,6 +43,7 @@ def main():
             sys.exit(prc.returncode)
     else:
         with subprocess.Popen(cmd) as prc:
+            prc.communicate()
             sys.exit(prc.returncode)
 
 
