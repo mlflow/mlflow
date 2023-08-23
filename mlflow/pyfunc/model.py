@@ -9,6 +9,7 @@ import os
 import posixpath
 import shutil
 from abc import ABCMeta, abstractmethod
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import cloudpickle
@@ -234,10 +235,16 @@ def _save_model_with_class_artifacts_params(
                     artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
                 )
                 tmp_artifacts_config[artifact_name] = tmp_artifact_path
-                saved_artifact_subpath = posixpath.join(
-                    saved_artifacts_dir_subpath,
-                    os.path.relpath(path=tmp_artifact_path, start=tmp_artifacts_dir.path()),
-                )
+
+                tmp_artifact_path_obj = Path(tmp_artifact_path)
+                tmp_artifacts_dir_path_obj = Path(tmp_artifacts_dir.path())
+
+                relative_path = tmp_artifact_path_obj.relative_to(
+                    tmp_artifacts_dir_path_obj
+                ).as_posix()
+
+                saved_artifact_subpath = posixpath.join(saved_artifacts_dir_subpath, relative_path)
+
                 saved_artifacts_config[artifact_name] = {
                     CONFIG_KEY_ARTIFACT_RELATIVE_PATH: saved_artifact_subpath,
                     CONFIG_KEY_ARTIFACT_URI: artifact_uri,
