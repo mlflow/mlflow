@@ -243,6 +243,12 @@ class ArtifactRepository:
         num_cpus = os.cpu_count() or _NUM_DEFAULT_CPUS
         return min(num_cpus * _NUM_MAX_THREADS_PER_CPU, _NUM_MAX_THREADS)
 
+    def create_mpu(self, local_file, num_parts, artifact_path=None):
+        """
+
+        """
+        pass
+
 
 def verify_artifact_path(artifact_path):
     if artifact_path and path_not_unique(artifact_path):

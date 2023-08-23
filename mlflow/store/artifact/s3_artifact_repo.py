@@ -234,3 +234,33 @@ class S3ArtifactRepository(ArtifactRepository):
                 listed_object_path=file_path, artifact_path=dest_path
             )
             s3_client.delete_object(Bucket=bucket, Key=file_path)
+
+    def create_mpu(self, local_file, num_parts, artifact_path=None):
+        (bucket, dest_path) = data_utils.parse_s3_uri(self.artifact_uri)
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
+        s3_client = self._get_s3_client()
+        create_response = s3_client.create_multipart_upload(
+            Bucket=bucket,
+            Key=dest_path,
+        )
+        upload_id = create_response["UploadId"]
+        urls = []
+        for i in range(1, num_parts + 1):  # part number must be in [1, 10000]
+            url = s3_client.generate_presigned_url(
+                "put_object",
+                Params={
+                    "Bucket": bucket,
+                    "Key": dest_path,
+                    "PartNumber": i,
+                    "UploadId": upload_id,
+                },
+            )
+            urls.append(url)
+        return urls
+
+
+
+
+
