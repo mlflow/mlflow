@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from tests.gateway.tools import Gateway, save_yaml
 import pytest
 
+from tests.gateway.tools import Gateway, save_yaml
 
 BASE_ROUTE = "api/2.0/gateway/routes/"
 

@@ -1,18 +1,19 @@
-import pytest
 from unittest import mock
 from unittest.mock import Mock
 
+import pytest
+
+from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
+from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
-from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow import MlflowClient
 
 from tests.store.artifact.constants import (
-    WORKSPACE_MODELS_ARTIFACT_REPOSITORY,
     UC_MODELS_ARTIFACT_REPOSITORY,
+    WORKSPACE_MODELS_ARTIFACT_REPOSITORY,
 )
 
 

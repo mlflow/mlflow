@@ -1,30 +1,27 @@
-import os
-import pytest
-
-from sklearn import datasets
-import pandas as pd
-import numpy as np
 import json
+import os
 
-import mlflow
-
+import numpy as np
+import pandas as pd
+import pytest
 import tensorflow as tf
-from tensorflow.keras.models import Sequential, Model
-from tensorflow.keras.layers import Dense, Input, Concatenate, Lambda
+from pyspark.sql.functions import struct
+from sklearn import datasets
+from tensorflow.keras.layers import Concatenate, Dense, Input, Lambda
+from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.optimizers import SGD
 
-
-from mlflow.types.schema import Schema, TensorSpec
+import mlflow
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.models import ModelSignature
 from mlflow.pyfunc import spark_udf
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from tests.helper_functions import (
-    pyfunc_serve_and_score_model,
-    expect_status_code,
-    _is_available_on_pypi,
-)
+from mlflow.types.schema import Schema, TensorSpec
 
-from pyspark.sql.functions import struct
+from tests.helper_functions import (
+    _is_available_on_pypi,
+    expect_status_code,
+    pyfunc_serve_and_score_model,
+)
 
 IS_TENSORFLOW_AVAILABLE = _is_available_on_pypi("tensorflow")
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if IS_TENSORFLOW_AVAILABLE else ["--env-manager", "local"]

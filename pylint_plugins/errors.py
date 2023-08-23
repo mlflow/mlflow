@@ -1,5 +1,5 @@
-from typing import NamedTuple, Dict, Tuple
 from functools import reduce
+from typing import Dict, NamedTuple, Tuple
 
 
 class Message(NamedTuple):

@@ -4,38 +4,41 @@ import abc
 import copy
 import inspect
 import os
-import pytest
 from collections import namedtuple
 from contextlib import nullcontext as does_not_raise
 from unittest import mock
 
+import pytest
+
 import mlflow
-from mlflow.utils import autologging_utils
-from mlflow.entities import RunStatus
 from mlflow import MlflowClient
+from mlflow.entities import RunStatus
+from mlflow.utils import autologging_utils
 from mlflow.utils.autologging_utils import (
-    safe_patch,
-    autologging_integration,
-    picklable_exception_safe_function,
     AutologgingEventLogger,
-    ExceptionSafeClass,
     ExceptionSafeAbstractClass,
+    ExceptionSafeClass,
     PatchFunction,
-    with_managed_run,
+    autologging_integration,
     is_testing,
+    picklable_exception_safe_function,
+    safe_patch,
+    with_managed_run,
 )
 from mlflow.utils.autologging_utils.safety import (
+    ValidationExemptArgument,
     _AutologgingSessionManager,
     _validate_args,
     _validate_autologging_run,
-    ValidationExemptArgument,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
-from tests.autologging.fixtures import test_mode_off, test_mode_on
-from tests.autologging.fixtures import patch_destination  # noqa: F401
+from tests.autologging.fixtures import (
+    patch_destination,  # noqa: F401
+    test_mode_off,
+    test_mode_on,
+)
 from tests.autologging.test_autologging_utils import get_func_attrs
-
 
 PATCH_DESTINATION_FN_DEFAULT_RESULT = "original_result"
 

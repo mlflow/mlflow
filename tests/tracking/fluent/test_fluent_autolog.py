@@ -1,31 +1,33 @@
-import pytest
 import sys
 from collections import namedtuple
 from io import StringIO
 from unittest import mock
 
-import mlflow
-from mlflow.utils.autologging_utils import (
-    get_autologging_config,
-    autologging_is_disabled,
-    AutologgingEventLogger,
-)
-
-import tensorflow
 import fastai
-import sklearn
-import xgboost
 import lightgbm
-import statsmodels
 import pyspark
 import pyspark.ml
+import pytest
 import pytorch_lightning
-import transformers
 import setfit
+import sklearn
+import statsmodels
+import tensorflow
+import transformers
+import xgboost
 
-from tests.autologging.fixtures import test_mode_off, test_mode_on
-from tests.autologging.fixtures import reset_stderr  # noqa: F401
+import mlflow
+from mlflow.utils.autologging_utils import (
+    AutologgingEventLogger,
+    autologging_is_disabled,
+    get_autologging_config,
+)
 
+from tests.autologging.fixtures import (
+    reset_stderr,  # noqa: F401
+    test_mode_off,
+    test_mode_on,
+)
 
 library_to_mlflow_module_without_spark_datasource = {
     tensorflow: mlflow.tensorflow,
@@ -317,9 +319,10 @@ def test_last_active_run_retrieves_autologged_run():
 
 @pytest.mark.do_not_disable_new_import_hook_firing_if_module_already_exists
 def test_extra_tags_mlflow_autolog():
-    from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
-    from mlflow.exceptions import MlflowException
     from sklearn.ensemble import RandomForestRegressor
+
+    from mlflow.exceptions import MlflowException
+    from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
     mlflow.autolog(extra_tags={"test_tag": "autolog", MLFLOW_AUTOLOGGING: "123"})
     rf = RandomForestRegressor(n_estimators=1, max_depth=1, max_features=1)

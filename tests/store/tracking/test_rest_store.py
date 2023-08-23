@@ -1,50 +1,52 @@
 import json
-
 from unittest import mock
+
 import pytest
 
 import mlflow
 from mlflow.entities import (
-    Param,
+    Dataset,
+    DatasetInput,
+    Experiment,
+    ExperimentTag,
+    InputTag,
+    LifecycleStage,
     Metric,
+    Param,
     RunTag,
     SourceType,
     ViewType,
-    ExperimentTag,
-    Experiment,
-    LifecycleStage,
-    DatasetInput,
-    Dataset,
-    InputTag,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
     CreateRun,
     DeleteExperiment,
     DeleteRun,
+    DeleteTag,
+    GetExperimentByName,
     LogBatch,
+    LogInputs,
     LogMetric,
+    LogModel,
     LogParam,
     RestoreExperiment,
     RestoreRun,
-    RunTag as ProtoRunTag,
-    SearchRuns,
-    SetTag,
-    DeleteTag,
-    SetExperimentTag,
-    GetExperimentByName,
     SearchExperiments,
-    LogModel,
-    LogInputs,
+    SearchRuns,
+    SetExperimentTag,
+    SetTag,
 )
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.service_pb2 import (
+    RunTag as ProtoRunTag,
+)
 from mlflow.store.tracking.rest_store import RestStore
-from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
 )
+from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.rest_utils import MlflowHostCreds
 
 
 class MyCoolException(Exception):

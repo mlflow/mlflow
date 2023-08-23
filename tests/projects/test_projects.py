@@ -1,43 +1,40 @@
 import json
 import os
-import git
 import shutil
-import yaml
-import uuid
 import subprocess
-
-import pytest
+import uuid
 from unittest import mock
 
+import git
+import pytest
+import yaml
 from databricks_cli.configure.provider import DatabricksConfig
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.entities import RunStatus, ViewType, SourceType
+from mlflow.entities import RunStatus, SourceType, ViewType
+from mlflow.environment_variables import MLFLOW_CONDA_CREATE_ENV_CMD, MLFLOW_CONDA_HOME
 from mlflow.exceptions import ExecutionException, MlflowException
-from mlflow.projects import _parse_kubernetes_config
-from mlflow.projects import _resolve_experiment_id
+from mlflow.projects import _parse_kubernetes_config, _resolve_experiment_id
 from mlflow.store.tracking.file_store import FileStore
+from mlflow.utils import PYTHON_VERSION
+from mlflow.utils.conda import CONDA_EXE, get_or_create_conda_env
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_PARENT_RUN_ID,
-    MLFLOW_USER,
-    MLFLOW_SOURCE_NAME,
-    MLFLOW_SOURCE_TYPE,
-    MLFLOW_GIT_BRANCH,
-    MLFLOW_GIT_REPO_URL,
     LEGACY_MLFLOW_GIT_BRANCH_NAME,
     LEGACY_MLFLOW_GIT_REPO_URL,
-    MLFLOW_PROJECT_ENTRY_POINT,
+    MLFLOW_GIT_BRANCH,
+    MLFLOW_GIT_REPO_URL,
+    MLFLOW_PARENT_RUN_ID,
     MLFLOW_PROJECT_BACKEND,
+    MLFLOW_PROJECT_ENTRY_POINT,
     MLFLOW_PROJECT_ENV,
+    MLFLOW_SOURCE_NAME,
+    MLFLOW_SOURCE_TYPE,
+    MLFLOW_USER,
 )
 from mlflow.utils.process import ShellCommandException
-from mlflow.utils.conda import get_or_create_conda_env, CONDA_EXE
-from mlflow.environment_variables import MLFLOW_CONDA_HOME, MLFLOW_CONDA_CREATE_ENV_CMD
-from mlflow.utils import PYTHON_VERSION
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, validate_exit_status
-
 
 MOCK_USER = "janebloggs"
 

@@ -1,33 +1,31 @@
 import importlib
 import json
 import math
-from collections import namedtuple
-from packaging.version import Version
-import yaml
 import pathlib
-
-import pytest
+from collections import namedtuple
 from unittest import mock
 
 import numpy as np
 import pandas as pd
-
 import pyspark
+import pytest
+import yaml
+from packaging.version import Version
 from pyspark.ml import Pipeline
-from pyspark.ml.evaluation import (
-    BinaryClassificationEvaluator,
-    MulticlassClassificationEvaluator,
-    RegressionEvaluator,
-)
-from pyspark.ml.linalg import Vectors
-from pyspark.ml.regression import LinearRegression, LinearRegressionModel
 from pyspark.ml.classification import (
     LinearSVC,
     LogisticRegression,
     MultilayerPerceptronClassifier,
     OneVsRest,
 )
-from pyspark.ml.feature import HashingTF, Tokenizer, VectorAssembler, StringIndexer, IndexToString
+from pyspark.ml.evaluation import (
+    BinaryClassificationEvaluator,
+    MulticlassClassificationEvaluator,
+    RegressionEvaluator,
+)
+from pyspark.ml.feature import HashingTF, IndexToString, StringIndexer, Tokenizer, VectorAssembler
+from pyspark.ml.linalg import Vectors
+from pyspark.ml.regression import LinearRegression, LinearRegressionModel
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder, TrainValidationSplit
 from pyspark.sql import SparkSession
 
@@ -37,24 +35,23 @@ from mlflow.entities import RunStatus
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.pyspark.ml import (
-    _should_log_model,
+    _gen_estimator_metadata,
     _get_instance_param_map,
     _get_instance_param_map_recursively,
-    _get_warning_msg_for_skip_log_model,
-    _get_warning_msg_for_fit_call_with_a_list_of_params,
-    _gen_estimator_metadata,
     _get_tuning_param_maps,
+    _get_warning_msg_for_fit_call_with_a_list_of_params,
+    _get_warning_msg_for_skip_log_model,
+    _should_log_model,
 )
 from mlflow.pyspark.ml._autolog import cast_spark_df_with_vector_to_array, get_feature_cols
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
 from mlflow.utils import _truncate_dict
+from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING, MLFLOW_PARENT_RUN_ID
 from mlflow.utils.validation import (
-    MAX_PARAM_VAL_LENGTH,
     MAX_ENTITY_KEY_LENGTH,
+    MAX_PARAM_VAL_LENGTH,
 )
 
 from tests.helper_functions import AnyStringWith
-
 
 MODEL_DIR = "model"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
@@ -403,10 +400,11 @@ def test_should_log_model_with_wildcards_in_allowlist(dataset_binomial, dataset_
 
 
 def test_log_stage_type_params(spark_session):
-    from pyspark.ml.base import Estimator, Transformer, Model as SparkModel
+    from pyspark.ml.base import Estimator, Transformer
+    from pyspark.ml.base import Model as SparkModel
     from pyspark.ml.evaluation import Evaluator
-    from pyspark.ml.param import Param, Params
     from pyspark.ml.feature import Binarizer, OneHotEncoder
+    from pyspark.ml.param import Param, Params
 
     class TestingEstimator(Estimator):
         transformer = Param(Params._dummy(), "transformer", "a transformer param")
@@ -1230,9 +1228,10 @@ def test_get_feature_cols_with_indexer_and_assembler(spark_session):
 
 
 def test_find_and_set_features_col_as_vector_if_needed(lr, dataset_binomial):
-    from mlflow.spark import _find_and_set_features_col_as_vector_if_needed
     from pyspark.ml.linalg import VectorUDT
     from pyspark.sql.utils import IllegalArgumentException
+
+    from mlflow.spark import _find_and_set_features_col_as_vector_if_needed
 
     pipeline_model = lr.fit(dataset_binomial)
     df_with_array_features = cast_spark_df_with_vector_to_array(dataset_binomial)

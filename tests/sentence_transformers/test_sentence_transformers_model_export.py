@@ -1,14 +1,16 @@
 import json
-import numpy as np
 import os
-import pandas as pd
-from sentence_transformers import SentenceTransformer
-import pytest
 from unittest import mock
+
+import numpy as np
+import pandas as pd
+import pytest
 import yaml
+from pyspark.sql import SparkSession
+from pyspark.sql.types import ArrayType, DoubleType
+from sentence_transformers import SentenceTransformer
 
 import mlflow
-
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sentence_transformers
 from mlflow import pyfunc
@@ -17,15 +19,13 @@ from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.environment import _mlflow_conda_env
-from pyspark.sql import SparkSession
-from pyspark.sql.types import ArrayType, DoubleType
 
 from tests.helper_functions import (
     _assert_pip_requirements,
     _compare_logged_code_paths,
     _mlflow_major_version_string,
-    pyfunc_serve_and_score_model,
     assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
 )
 
 

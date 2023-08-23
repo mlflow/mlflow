@@ -1,22 +1,24 @@
-from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation import (
-    evaluate,
-    EvaluationResult,
-    ModelEvaluator,
-    MetricThreshold,
-)
-from mlflow.models.evaluation.validation import (
-    _MetricValidationResult,
-    ModelValidationFailedException,
-    MetricThresholdClassException,
-)
-from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 from unittest import mock
+
 import pytest
 
+from mlflow.exceptions import MlflowException
+from mlflow.models.evaluation import (
+    EvaluationResult,
+    MetricThreshold,
+    ModelEvaluator,
+    evaluate,
+)
+from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
+from mlflow.models.evaluation.validation import (
+    MetricThresholdClassException,
+    ModelValidationFailedException,
+    _MetricValidationResult,
+)
+
 from tests.evaluate.test_evaluation import (
-    multiclass_logistic_regressor_model_uri,  # noqa: F401
     iris_dataset,  # noqa: F401
+    multiclass_logistic_regressor_model_uri,  # noqa: F401
 )
 
 message_separator = "\n"
