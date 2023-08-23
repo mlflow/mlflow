@@ -35,6 +35,7 @@ from mlflow.models.evaluation.base import (
     _ModelType,
 )
 from mlflow.models.utils import plot_lines
+from mlflow.metrics import MetricValue
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.sklearn import _SklearnModelWrapper
@@ -475,8 +476,8 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
     if metric is None:
         raise MlflowException(f"{exception_header} returned None.")
 
-    if not _is_numeric(metric):
-        raise MlflowException(f"{exception_header} did not return a scalar numeric value.")
+    if not isinstance(metric, MetricValue):
+        raise MlflowException(f"{exception_header} did not return a metric of type MetricValue.")
 
     return metric
 
@@ -1021,7 +1022,10 @@ class DefaultEvaluator(ModelEvaluator):
                 eval_df.copy(),
                 copy.deepcopy(self.metrics),
             )
-            self.metrics.update({custom_metric.name: metric_result})
+            for aggregate, value in metric_result.aggregate_results:
+                self.metrics.update({f'{custom_metric.name}/{custom_metric.version}/{aggregate}': value})
+            self.metrics_dict.update({f'{custom_metric.name}/{custom_metric.version}/score': metric_result.scores})
+            self.metrics_dict.update({f'{custom_metric.name}/{custom_metric.version}/justification': metric_result.justifications})
 
     def _log_custom_artifacts(self, eval_df):
         if not self.custom_artifacts:

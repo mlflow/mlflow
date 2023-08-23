@@ -3,10 +3,18 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.exceptions import MlflowException
 
 class MetricValue:
-    def __init__(self, scores, justification, aggregate_result):
+    '''
+    A model evaluation metric.
+
+    :param scores: List[float]
+    :param justifications: List[str]
+    :param aggregate_results: Dict[str, float]
+    '''
+
+    def __init__(self, scores, justifications, aggregate_results):
         self.scores = scores
-        self.justification = justification
-        self.aggregate_result = aggregate_result
+        self.justifications = justifications
+        self.aggregate_results = aggregate_results
 
 class EvaluationMetric:
     '''
