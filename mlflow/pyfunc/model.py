@@ -234,9 +234,29 @@ def _save_model_with_class_artifacts_params(
             hf_prefix = "hf:/"
             for artifact_name, artifact_uri in artifacts.items():
                 if artifact_uri.startswith(hf_prefix):
-                    saved_artifacts_config[artifact_name] = {
-                        CONFIG_KEY_ARTIFACT_URI: artifact_uri,
-                    }
+                    try:
+                        from huggingface_hub import snapshot_download
+                    except ImportError as e:
+                        raise MlflowException(
+                            "Failed to import huggingface_hub. Please install huggingface_hub "
+                            f"to log the model with artifact_uri {artifact_uri}. Error: {e}"
+                        )
+
+                    try:
+                        repo_id = artifact_uri[len(hf_prefix) :]
+                        snapshot_location = snapshot_download(
+                            repo_id=repo_id,
+                            cache_dir=os.path.join(
+                                path, saved_artifacts_dir_subpath, artifact_name
+                            ),
+                        )
+                        saved_artifact_subpath = os.path.relpath(path=snapshot_location, start=path)
+
+                    except Exception as e:
+                        raise MlflowException.invalid_parameter_value(
+                            "Failed to download snapshot from Hugging Face Hub with artifact_uri: "
+                            f"{artifact_uri}. Error: {e}"
+                        )
                 else:
                     tmp_artifact_path = _download_artifact_from_uri(
                         artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
@@ -245,10 +265,10 @@ def _save_model_with_class_artifacts_params(
                         saved_artifacts_dir_subpath,
                         os.path.relpath(path=tmp_artifact_path, start=tmp_artifacts_dir.path()),
                     )
-                    saved_artifacts_config[artifact_name] = {
-                        CONFIG_KEY_ARTIFACT_RELATIVE_PATH: saved_artifact_subpath,
-                        CONFIG_KEY_ARTIFACT_URI: artifact_uri,
-                    }
+                saved_artifacts_config[artifact_name] = {
+                    CONFIG_KEY_ARTIFACT_RELATIVE_PATH: saved_artifact_subpath,
+                    CONFIG_KEY_ARTIFACT_URI: artifact_uri,
+                }
 
             shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
@@ -333,40 +353,12 @@ def _load_pyfunc(model_path):
         python_model = cloudpickle.load(f)
 
     artifacts = {}
-    hf_prefix = "hf:/"
     for saved_artifact_name, saved_artifact_info in pyfunc_config.get(
         CONFIG_KEY_ARTIFACTS, {}
     ).items():
-        if CONFIG_KEY_ARTIFACT_RELATIVE_PATH in saved_artifact_info:
-            artifacts[saved_artifact_name] = os.path.join(
-                model_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH]
-            )
-        else:
-            artifact_uri = saved_artifact_info[CONFIG_KEY_ARTIFACT_URI]
-            if artifact_uri.startswith(hf_prefix):
-                try:
-                    from huggingface_hub import snapshot_download
-                except ImportError as e:
-                    raise MlflowException(
-                        "Failed to import huggingface_hub. Please install huggingface_hub to "
-                        f"download snapshot with artifact_uri: {artifact_uri}. Error: {e}"
-                    )
-                try:
-                    hf_uri = artifact_uri[len(hf_prefix) :]
-                    splits = hf_uri.split("?")
-                    repo_id = splits[0]
-                    kwargs = (
-                        dict([param.split("=") for param in splits[1].split("&")])
-                        if len(splits) > 1
-                        else {}
-                    )
-                    snapshot_location = snapshot_download(repo_id=repo_id, **kwargs)
-                    artifacts[saved_artifact_name] = snapshot_location
-                except Exception as e:
-                    raise MlflowException.invalid_parameter_value(
-                        "Failed to download snapshot from Hugging Face Hub with "
-                        f"artifact_uri: {artifact_uri}. Error: {e}"
-                    )
+        artifacts[saved_artifact_name] = os.path.join(
+            model_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH]
+        )
 
     context = PythonModelContext(artifacts=artifacts)
     python_model.load_context(context=context)

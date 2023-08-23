@@ -3705,7 +3705,7 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot():
         pyfunc_model_path = _download_artifact_from_uri(
             f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
         )
-        assert len(os.listdir(os.path.join(pyfunc_model_path, "artifacts"))) == 0
+        assert len(os.listdir(os.path.join(pyfunc_model_path, "artifacts"))) != 0
         model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_uri)
@@ -3731,14 +3731,13 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot_errors():
             return model_input
 
     with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model(
-            artifact_path="pyfunc_artifact_path",
-            python_model=TestModel(),
-            artifacts={"some-model": "hf:/invalid-repo-id"},
-        )
         with pytest.raises(
             MlflowException,
-            match=r"Failed to download snapshot from Hugging Face Hub with "
-            r"artifact_uri: hf:/invalid-repo-id.",
+            match=r"Failed to download snapshot from Hugging Face Hub "
+            r"with artifact_uri: hf:/invalid-repo-id.",
         ):
-            mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+            mlflow.pyfunc.log_model(
+                artifact_path="pyfunc_artifact_path",
+                python_model=TestModel(),
+                artifacts={"some-model": "hf:/invalid-repo-id"},
+            )
