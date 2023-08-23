@@ -378,6 +378,7 @@ Supported Provider Models
 The table below presents a non-exhaustive list of models and a corresponding route type within the Databricks AI Gateway.
 With the rapid development of LLMs, there is no guarantee that this list will be up to date at all times. However, the associations listed
 below can be used as a helpful guide when configuring a given route for any newly released model types as they become available with a given provider.
+Customers are responsible for ensuring compliance with applicable model licenses.
 
 .. list-table::
    :header-rows: 1
@@ -389,6 +390,10 @@ below can be used as a helpful guide when configuring a given route for any newl
    * - llm/v1/completions
      - OpenAI
      - gpt-3.5-turbo, gpt-4
+     - Yes
+   * - llm/v1/completions
+     - MosaicML
+     - mpt-7b-instruct, mpt-30b-instruct, llama2-70b-chat†
      - Yes
    * - llm/v1/completions
      - Anthropic
@@ -411,6 +416,10 @@ below can be used as a helpful guide when configuring a given route for any newl
      - gpt-3.5-turbo, gpt-4
      - Yes
    * - llm/v1/chat
+     - MosaicML
+     -
+     - No
+   * - llm/v1/chat
      - Anthropic
      -
      - No
@@ -431,6 +440,10 @@ below can be used as a helpful guide when configuring a given route for any newl
      - text-embedding-ada-002
      - Yes
    * - llm/v1/embeddings
+     - MosaicML
+     - instructor-large, instructor-xl
+     - Yes
+   * - llm/v1/embeddings
      - Anthropic
      -
      - No
@@ -446,6 +459,7 @@ below can be used as a helpful guide when configuring a given route for any newl
      - Databricks Model Serving
      - Endpoints with compatible schemas
      - Yes
+† Llama 2 is licensed under the [LLAMA 2 Community License](https://ai.meta.com/llama/license/), Copyright © Meta Platforms, Inc. All Rights Reserved. 
 
 When creating a route, the provider field is used to specify the name
 of the provider for that model. This is a string value that needs to correspond to a provider
@@ -473,6 +487,7 @@ In the above example, ``openai`` is the `provider` for the model.
 As of now, the Databricks AI Gateway supports the following providers:
 
 * **openai**: This is used for models offered by `OpenAI <https://platform.openai.com/>`_ and the `Azure <https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/>`_ integrations for Azure OpenAI and Azure OpenAI with AAD.
+* **mosaicml**: This is used for models offered by `MosaicML <https://docs.mosaicml.com/en/latest/>`_.
 * **anthropic**: This is used for models offered by `Anthropic <https://docs.anthropic.com/claude/docs>`_.
 * **cohere**: This is used for models offered by `Cohere <https://docs.cohere.com/docs>`_.
 * **databricks-model-serving**: This is used for Databricks Model Serving endpoints with compatible schemas. See :ref:`config_databricks_model_serving`.
@@ -506,6 +521,7 @@ A route in the Databricks AI Gateway consists of the following fields:
     * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for OpenAI's ``GPT-3.5`` models.
 
       - "openai"
+      - "mosaicml"
       - "anthropic"
       - "cohere"
       - "azure" / "azuread"
@@ -574,6 +590,15 @@ OpenAI
 | **openai_organization** | No       |                               | This is an optional field to specify the organization in    |
 |                         |          |                               | OpenAI.                                                     |
 +-------------------------+----------+-------------------------------+-------------------------------------------------------------+
+
+MosaicML
++++++++++
+
++-------------------------+----------+--------------------------+-------------------------------------------------------+
+| Configuration Parameter | Required | Default                  | Description                                           |
++=========================+==========+==========================+=======================================================+
+| **mosaicml_api_key**    | Yes      | N/A                      | This is the API key for the MosaicML service.        |
++-------------------------+----------+--------------------------+-------------------------------------------------------+
 
 
 Cohere
@@ -787,7 +812,7 @@ Additional Query Parameters
 In addition to the :ref:`standard_query_parameters`, you can pass any additional parameters supported by the route's provider as part of your query. For example:
 
 - ``logit_bias`` (supported by OpenAI, Cohere)
-- ``top_k`` (supported by Anthropic, Cohere)
+- ``top_k`` (supported by MosaicML, Anthropic, Cohere)
 - ``frequency_penalty`` (supported by OpenAI, Cohere)
 - ``presence_penalty`` (supported by OpenAI, Cohere)
 
