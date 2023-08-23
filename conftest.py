@@ -1,8 +1,8 @@
 import json
 import os
 import posixpath
-import subprocess
 import shutil
+import subprocess
 
 import pytest
 
@@ -10,7 +10,6 @@ from mlflow.environment_variables import _MLFLOW_TESTING
 
 
 def pytest_addoption(parser):
-    print("hello")
     parser.addoption(
         "--requires-ssh",
         action="store_true",
