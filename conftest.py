@@ -40,7 +40,10 @@ def pytest_sessionstart(session):
     if uri := MLFLOW_TRACKING_URI.get():
         click.echo(
             click.style(
-                f"{MLFLOW_TRACKING_URI} is set to {uri!r}, which may interfere with tests.",
+                (
+                    f"Environment variable {MLFLOW_TRACKING_URI} is set to {uri!r}, "
+                    "which may interfere with tests."
+                ),
                 fg="red",
             )
         )
