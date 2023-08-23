@@ -10,7 +10,6 @@ repos:
       - id: ruff
         name: ruff
         entry: ruff
-        args: ["--fix", "--exit-non-zero-on-fix"]
         language: system
         types_or: [python]
         stages: [commit]
