@@ -174,7 +174,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
             else:
                 raise e
 
-    def _azure_adls_gen2_upload_file(self, credentials, local_file, artifact_path):
+    def _upload_to_cloud(self, credentials, src_file_path, artifact_path):
         """
         Uploads a file to a given Azure storage location using the ADLS gen2 API.
         """
@@ -189,8 +189,8 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
             )
             # next try to append the file
             futures = {}
-            file_size = os.path.getsize(local_file)
-            num_chunks = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
+            file_size = os.path.getsize(src_file_path)
+            num_chunks = _compute_num_chunks(src_file_path, _MULTIPART_UPLOAD_CHUNK_SIZE)
             use_single_part_upload = num_chunks == 1
             for index in range(num_chunks):
                 start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
@@ -199,7 +199,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                     func=patch_adls_file_upload,
                     artifact_path=artifact_path,
                     sas_url=credentials.signed_uri,
-                    local_file=local_file,
+                    local_file=src_file_path,
                     start_byte=start_byte,
                     size=_MULTIPART_UPLOAD_CHUNK_SIZE,
                     position=start_byte,
@@ -208,7 +208,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                 )
                 futures[future] = index
 
-            _, errors = _complete_futures(futures, local_file)
+            _, errors = _complete_futures(futures, src_file_path)
             if errors:
                 raise MlflowException(
                     f"Failed to upload at least one part of {artifact_path}. Errors: {errors}"
@@ -240,9 +240,3 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
     def _get_read_credential_infos(self, paths) -> List[ArtifactCredentialInfo]:
         res = [ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path)) for path in paths]
         return res
-
-    # Called in parallel on batches of files in log_artifacts_parallel
-    def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_path):
-        self._azure_adls_gen2_upload_file(
-            credentials=cloud_credential_info, local_file=src_file_path, artifact_path=artifact_path
-        )

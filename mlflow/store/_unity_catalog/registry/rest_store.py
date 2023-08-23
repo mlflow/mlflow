@@ -1,7 +1,5 @@
 import base64
 import functools
-
-# Clean up temporary model directory at end of block
 import logging
 import os
 import shutil

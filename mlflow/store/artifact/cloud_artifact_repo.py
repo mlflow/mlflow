@@ -1,8 +1,10 @@
 import logging
+import math
 import os
 import posixpath
 from abc import abstractmethod
 from collections import namedtuple
+from concurrent.futures import as_completed
 
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
@@ -71,7 +73,7 @@ class CloudArtifactRepository(ArtifactRepository):
 
     # Write APIs
 
-    def log_artifacts_parallel(self, local_dir, artifact_path=None):
+    def log_artifacts(self, local_dir, artifact_path=None):
         """
         Parallelized implementation of `log_artifacts`.
         """

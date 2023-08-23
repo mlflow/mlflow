@@ -172,10 +172,7 @@ class S3ArtifactRepository(CloudArtifactRepository):
             key=dest_path,
         )
 
-    def log_artifacts(self, local_dir, artifact_path=None):
-        if MLFLOW_ENABLE_MULTIPART_UPLOAD.get():
-            self.log_artifacts_parallel(local_dir, artifact_path)
-            return
+    def log_artifacts_single(self, local_dir, artifact_path=None):
         dest_path = self.bucket_path
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
@@ -278,10 +275,10 @@ class S3ArtifactRepository(CloudArtifactRepository):
         return [self._get_s3_client() for p in paths]
 
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_path):
-        # if os.path.getsize(src_file_path) > 10_000_000: # 10 MB
-        self._multipart_upload(cloud_credential_info, src_file_path, artifact_path)
-        # else:
-        # use log_artifact way
+        if os.path.getsize(src_file_path) > 10_000_000 and MLFLOW_ENABLE_MULTIPART_UPLOAD.get():
+            self._multipart_upload(cloud_credential_info, src_file_path, artifact_path)
+        else:
+            self.log_artifact(src_file_path, artifact_path)
 
     def _multipart_upload(self, cloud_credential_info, local_file, artifact_path):
         # Create multipart upload

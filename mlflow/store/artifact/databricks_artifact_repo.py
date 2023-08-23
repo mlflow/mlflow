@@ -183,7 +183,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         :return: A list of `ArtifactCredentialInfo` objects providing write access to the specified
                  run-relative artifact `paths` within the MLflow Run specified by `run_id`.
         """
-        return self._get_credential_infos(GetCredentialsForWrite, self.run_id, paths)
+        run_relative_paths = [
+            posixpath.join(self.run_relative_artifact_repo_root_path, p or "") for p in paths
+        ]
+        return self._get_credential_infos(GetCredentialsForWrite, self.run_id, run_relative_paths)
 
     def _get_read_credential_infos(self, paths):
         """
@@ -535,13 +538,18 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             return response
 
     def _multipart_upload(self, local_file, artifact_path):
+        run_relative_artifact_path = posixpath.join(
+            self.run_relative_artifact_repo_root_path, artifact_path or ""
+        )
         num_parts = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
-        create_mpu_resp = self._create_multipart_upload(self.run_id, artifact_path, num_parts)
+        create_mpu_resp = self._create_multipart_upload(
+            self.run_id, run_relative_artifact_path, num_parts
+        )
         try:
             part_etags = self._upload_parts(local_file, create_mpu_resp)
             self._complete_multipart_upload(
                 self.run_id,
-                artifact_path,
+                run_relative_artifact_path,
                 create_mpu_resp.upload_id,
                 part_etags,
             )
@@ -553,25 +561,12 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             raise e
 
     def log_artifact(self, local_file, artifact_path=None):
-        run_relative_artifact_path = self._get_run_relative_artifact_path_for_upload(
-            src_file_path=local_file,
-            dst_artifact_dir=artifact_path,
-        )
-        write_credential_info = self._get_write_credential_infos(
-            paths=[run_relative_artifact_path]
-        )[0]
+        write_credential_info = self._get_write_credential_infos(paths=[artifact_path])[0]
         self._upload_to_cloud(
             cloud_credential_info=write_credential_info,
             src_file_path=local_file,
-            artifact_path=run_relative_artifact_path,
+            artifact_path=artifact_path,
         )
-
-    def log_artifacts(self, local_dir, artifact_path=None):
-        artifact_path = artifact_path or ""
-        run_relative_artifact_path = posixpath.join(
-            self.run_relative_artifact_repo_root_path, artifact_path
-        )
-        self.log_artifacts_parallel(local_dir, run_relative_artifact_path)
 
     def list_artifacts(self, path=None):
         if path:
