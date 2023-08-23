@@ -5,6 +5,7 @@ and ensures authentication is working.
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 import jwt
 import psutil
@@ -72,7 +73,12 @@ def _mlflow_search_experiments_rest(base_uri, headers):
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/jwt_auth.ini"}],
+    [
+        {
+            "MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/jwt_auth.ini",
+            "PYTHONPATH": str(Path(__file__).parent.parent.parent.parent / "examples" / "jwt_auth"),
+        }
+    ],
     indirect=True,
 )
 def test_authenticate_jwt(client):
