@@ -6,7 +6,6 @@ import pickle
 import re
 from pathlib import Path
 from unittest import mock
-from packaging.version import Version
 
 import numpy as np
 import pandas as pd
@@ -858,10 +857,7 @@ def test_pyfunc_serve_and_score(data):
     np.testing.assert_array_almost_equal(scores.values[:, 0], _predict(model=model, data=data))
 
 
-@pytest.mark.skipif(
-    not _is_importable("transformers") or Version(torch.__version__) < Version("1.8"),
-    reason="This test requires transformers and torch >= 1.8 "
-)
+@pytest.mark.skipif(not _is_importable("transformers"), reason="This test requires transformers")
 def test_pyfunc_serve_and_score_transformers():
     from transformers import BertConfig, BertModel  # pylint: disable=import-error
 
