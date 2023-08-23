@@ -412,6 +412,13 @@ def _gen_classifier_curve(
     )
 
 
+def _get_metrics_values(metrics):
+    return {
+        name: MetricValue(None, None, aggregate_results={name: value})
+        for name, value in metrics.items()
+    }
+
+
 _matplotlib_config = {
     "figure.dpi": 175,
     "figure.figsize": [6.0, 4.0],
@@ -816,7 +823,7 @@ class DefaultEvaluator(ModelEvaluator):
                 score = self.raw_model.score(
                     self.X.copy_to_avoid_mutation(), self.y, sample_weight=self.sample_weights
                 )
-                self.metrics["score"] = score
+                self.metrics_values.update(_get_metrics_values({"score": score}))
             except Exception as e:
                 _logger.warning(
                     f"Computing sklearn model score failed: {e!r}. Set logging level to "
@@ -836,7 +843,7 @@ class DefaultEvaluator(ModelEvaluator):
                 sample_weights=self.sample_weights,
             )
 
-            self.metrics["roc_auc"] = self.roc_curve.auc
+            self.metrics_values.update(_get_metrics_values({"roc_auc": self.roc_curve.auc}))
             self.pr_curve = _gen_classifier_curve(
                 is_binomial=True,
                 y=self.y,
@@ -847,7 +854,9 @@ class DefaultEvaluator(ModelEvaluator):
                 sample_weights=self.sample_weights,
             )
 
-            self.metrics["precision_recall_auc"] = self.pr_curve.auc
+            self.metrics_values.update(
+                _get_metrics_values({"precision_recall_auc": self.pr_curve.auc})
+            )
 
     def _log_multiclass_classifier_artifacts(self):
         per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
@@ -1016,15 +1025,14 @@ class DefaultEvaluator(ModelEvaluator):
             metric_result = _evaluate_custom_metric(
                 custom_metric_tuple,
                 eval_df.copy(),
-                copy.deepcopy(self.metrics),
+                copy.deepcopy(self.metrics_values),
             )
-            name, version = custom_metric.name, custom_metric.version
-            for aggregate, value in metric_result.aggregate_results:
-                self.metrics.update({f"{name}/{version}/{aggregate}": value})
-            self.metrics_dict.update({f"{name}/{version}/score": metric_result.scores})
-            self.metrics_dict.update(
-                {f"{name}/{version}/justification": metric_result.justifications}
-            )
+            if custom_metric.version:
+                self.metrics_values.update(
+                    {f"{custom_metric.name}/{custom_metric.version}": metric_result}
+                )
+            else:
+                self.metrics_values.update({custom_metric.name: metric_result})
 
     def _log_custom_artifacts(self, eval_df):
         if not self.custom_artifacts:
@@ -1042,7 +1050,7 @@ class DefaultEvaluator(ModelEvaluator):
                 artifact_results = _evaluate_custom_artifacts(
                     custom_artifact_tuple,
                     eval_df.copy(),
-                    copy.deepcopy(self.metrics),
+                    copy.deepcopy(self.metrics_values),
                 )
                 for artifact_name, raw_artifact in artifact_results.items():
                     self.artifacts[artifact_name] = self._log_custom_metric_artifact(
@@ -1131,31 +1139,39 @@ class DefaultEvaluator(ModelEvaluator):
         self._evaluate_sklearn_model_score_if_scorable()
         if self.model_type == _ModelType.CLASSIFIER:
             if self.is_binomial:
-                self.metrics.update(
-                    _get_binary_classifier_metrics(
-                        y_true=self.y,
-                        y_pred=self.y_pred,
-                        y_proba=self.y_probs,
-                        labels=self.label_list,
-                        pos_label=self.pos_label,
-                        sample_weights=self.sample_weights,
+                self.metrics_values.update(
+                    _get_metrics_values(
+                        _get_binary_classifier_metrics(
+                            y_true=self.y,
+                            y_pred=self.y_pred,
+                            y_proba=self.y_probs,
+                            labels=self.label_list,
+                            pos_label=self.pos_label,
+                            sample_weights=self.sample_weights,
+                        )
                     )
                 )
                 self._compute_roc_and_pr_curve()
             else:
                 average = self.evaluator_config.get("average", "weighted")
-                self.metrics.update(
-                    _get_multiclass_classifier_metrics(
-                        y_true=self.y,
-                        y_pred=self.y_pred,
-                        y_proba=self.y_probs,
-                        labels=self.label_list,
-                        average=average,
-                        sample_weights=self.sample_weights,
+                self.metrics_values.update(
+                    _get_metrics_values(
+                        _get_multiclass_classifier_metrics(
+                            y_true=self.y,
+                            y_pred=self.y_pred,
+                            y_proba=self.y_probs,
+                            labels=self.label_list,
+                            average=average,
+                            sample_weights=self.sample_weights,
+                        )
                     )
                 )
         elif self.model_type == _ModelType.REGRESSOR:
-            self.metrics.update(_get_regressor_metrics(self.y, self.y_pred, self.sample_weights))
+            self.metrics.update(
+                _get_metrics_values(
+                    _get_regressor_metrics(self.y, self.y_pred, self.sample_weights)
+                )
+            )
 
     def _log_artifacts(self):
         """
@@ -1195,8 +1211,10 @@ class DefaultEvaluator(ModelEvaluator):
 
         _logger.info("Computing perplexity metric:")
         results = perplexity.compute(predictions=predictions, model_id="gpt2")
-        self.metrics.update({"mean_perplexity": results["mean_perplexity"]})
-        self.metrics_dict.update({"perplexity": results["perplexities"]})
+        perplexity_value = MetricValue(
+            results["perplexities"], None, {"mean": results["mean_perplexity"]}
+        )
+        self.metrics_values.update({"perplexity": perplexity_value})
 
     def _calculate_toxicity(self, predictions):
         try:
@@ -1211,10 +1229,12 @@ class DefaultEvaluator(ModelEvaluator):
             return
 
         _logger.info("Computing toxicity metric:")
-        results = toxicity.compute(predictions=predictions)
-        self.metrics_dict.update({"toxicity": results["toxicity"]})
-        results = toxicity.compute(predictions=predictions, aggregation="ratio")
-        self.metrics.update({"toxicity_ratio": results["toxicity_ratio"]})
+        toxicity = toxicity.compute(predictions=predictions)["toxicity"]
+        toxicity_ratio = toxicity.compute(predictions=predictions, aggregation="ratio")[
+            "toxicity_ratio"
+        ]
+        toxicity_value = MetricValue(toxicity, None, {"ratio": toxicity_ratio})
+        self.metrics_values.update({"toxicity": toxicity_value})
 
     def _calculate_reading_level(self, predictions):
         try:
@@ -1227,15 +1247,13 @@ class DefaultEvaluator(ModelEvaluator):
 
         _logger.info("Computing flesch kincaid metric:")
         metrics = [textstat.flesch_kincaid_grade(prediction) for prediction in predictions]
-        self.metrics_dict.update({"flesch_kincaid_grade_level": metrics})
-        average_grade_level = {"mean_flesch_kincaid_grade_level": sum(metrics) / len(metrics)}
-        self.metrics.update(average_grade_level)
+        flesch_kincaid_value = MetricValue(metrics, None, {"mean": sum(metrics) / len(metrics)})
+        self.metrics_values.update({"flesch_kincaid_grade_level": flesch_kincaid_value})
 
         _logger.info("Computing automated readability index metric:")
         metrics = [textstat.automated_readability_index(prediction) for prediction in predictions]
-        self.metrics_dict.update({"ari_grade_level": metrics})
-        average_grade_level = {"mean_ari_grade_level": sum(metrics) / len(metrics)}
-        self.metrics.update(average_grade_level)
+        ari_value = MetricValue(metrics, None, {"mean": sum(metrics) / len(metrics)})
+        self.metrics_values.update({"ari_grade_level": ari_value})
 
     def _calculate_general_text_metrics(self):
         predictions = (
@@ -1258,7 +1276,7 @@ class DefaultEvaluator(ModelEvaluator):
     def _evaluate_question_answering(self):
         if self.dataset.has_targets:
             acc = accuracy_score(y_true=self.y, y_pred=self.y_pred)
-            self.metrics.update({"exact_match": acc})
+            self.metrics_values.update(_get_metrics_values({"exact_match": acc}))
         self._calculate_general_text_metrics()
 
         self._log_eval_table()
@@ -1282,11 +1300,12 @@ class DefaultEvaluator(ModelEvaluator):
             self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
         )
         metrics = rouge.compute(predictions=predictions, references=self.y, use_aggregator=False)
-        self.metrics_dict.update(metrics)
         aggregate_metrics = rouge.compute(
             predictions=predictions, references=self.y, use_aggregator=True
         )
-        self.metrics.update(aggregate_metrics)
+        for rouge_type in metrics:
+            rouge_value = MetricValue(metrics[rouge_type], None, aggregate_metrics[rouge_type])
+            self.metrics_values.update({rouge_type: rouge_value})
 
     def _evaluate_text_summarization(self):
         if self.dataset.has_targets:
@@ -1324,9 +1343,8 @@ class DefaultEvaluator(ModelEvaluator):
             self.model_loader_module, self.raw_model = _extract_raw_model(model)
             self.predict_fn, self.predict_proba_fn = _extract_predict_fn(model, self.raw_model)
 
-            self.metrics = {}
-            self.metrics_dict = {}
             self.artifacts = {}
+            self.metrics_values = {}
 
             if self.model_type not in _ModelType.values():
                 raise MlflowException(
@@ -1352,8 +1370,15 @@ class DefaultEvaluator(ModelEvaluator):
                     if not is_baseline_model:
                         self._log_custom_artifacts(eval_df)
 
+                def _prefix_value(value):
+                    prefix_aggregate = {f"{prefix}{k}": v for k, v in value.aggregate_values}
+                    prefix_value = MetricValue(value.scores, value.justifications, prefix_aggregate)
+                    return prefix_value
+
                 if prefix := self.evaluator_config.get("metric_prefix"):
-                    self.metrics = {f"{prefix}{k}": v for k, v in self.metrics.items()}
+                    self.metrics_values = {
+                        f"{prefix}{k}": _prefix_value(v) for k, v in self.metrics.items()
+                    }
                 if not is_baseline_model:
                     self._log_artifacts()
                     self._log_metrics()

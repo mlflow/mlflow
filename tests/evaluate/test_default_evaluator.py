@@ -22,6 +22,7 @@ from sklearn.svm import LinearSVC
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.metrics import make_metric
 from mlflow.models import Model
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
@@ -32,7 +33,7 @@ from mlflow.models.evaluation.artifacts import (
     PickleEvaluationArtifact,
     TextEvaluationArtifact,
 )
-from mlflow.models.evaluation.base import evaluate, make_metric
+from mlflow.models.evaluation.base import evaluate
 from mlflow.models.evaluation.default_evaluator import (
     _compute_df_mode_or_mean,
     _CustomArtifact,
