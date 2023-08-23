@@ -2,22 +2,29 @@ from types import FunctionType
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.exceptions import MlflowException
 
+
 class MetricValue:
-    '''
-    A model evaluation metric.
+    """
+    The value of a metric.
     :param scores: The value of the metric per row
     :param justifications: The justification (if applicable) for the respective score
     :param aggregate_results: A dictionary mapping the name of the aggregation to its value
-    '''
+    """
 
-    def __init__(self, scores: list[float] = None, justifications: list[str] = None, aggregate_results: dict[str, float] = None):
+    def __init__(
+        self,
+        scores: list[float] = None,
+        justifications: list[str] = None,
+        aggregate_results: dict[str, float] = None,
+    ):
         self.scores = scores
         self.justifications = justifications
         self.aggregate_results = aggregate_results
 
+
 class EvaluationMetric:
     '''
-    A model evaluation metric.
+    An evaluation metric.
     :param eval_fn:
         A function that computes the metric with the following signature:
         .. code-block:: python
@@ -33,7 +40,8 @@ class EvaluationMetric:
                     on that row.
                 :param builtin_metrics:
                     A dictionary containing the metrics calculated by the default evaluator.
-                    The keys are the names of the metrics and the values are the . Refer to the DefaultEvaluator behavior section for what metrics
+                    The keys are the names of the metrics and the values are the metric values.
+                    Refer to the DefaultEvaluator behavior section for what metrics
                     will be returned based on the type of model (i.e. classifier or regressor).
                 :return:
                     
@@ -43,6 +51,7 @@ class EvaluationMetric:
     :param greater_is_better: Whether a higher value of the metric is better.
     :param long_name: (Optional) The long name of the metric. For example,
         ``"root_mean_squared_error"`` for ``"mse"``.
+    :param version: (Optional) The metric version. For example ``v1``.
     '''
 
     def __init__(self, eval_fn, name, greater_is_better, long_name=None, version=None):
