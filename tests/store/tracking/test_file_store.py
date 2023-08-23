@@ -27,6 +27,7 @@ from mlflow.entities import (
     InputTag,
     _DatasetSummary,
 )
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.models import Model
@@ -2739,18 +2740,21 @@ def test_create_promptlab_run(store):
     artifact_location = store.get_experiment(exp_id).artifact_location
 
     # list the files in the model folder
-    artifact_files = os.listdir(os.path.join(artifact_location, run.info.run_id, "artifacts"))
+    artifact_location = store.get_experiment(exp_id).artifact_location
+    artifact_repo = get_artifact_repository(
+        os.path.join(artifact_location, run.info.run_id, "artifacts")
+    )
+
+    artifact_files = [f.path for f in artifact_repo.list_artifacts()]
     assert "eval_results_table.json" in artifact_files
     assert "model" in artifact_files
     assert "input_example.json" in artifact_files
 
-    model_files = os.listdir(os.path.join(artifact_location, run.info.run_id, "artifacts", "model"))
-    assert "MLmodel" in model_files
-    assert "python_env.yaml" in model_files
-    assert "conda.yaml" in model_files
-    assert "requirements.txt" in model_files
+    model_files = [f.path for f in artifact_repo.list_artifacts("model")]
+    assert "model/MLmodel" in model_files
+    assert "model/python_env.yaml" in model_files
+    assert "model/conda.yaml" in model_files
+    assert "model/requirements.txt" in model_files
 
-    loader_files = os.listdir(
-        os.path.join(artifact_location, run.info.run_id, "artifacts", "model", "loader")
-    )
-    assert "gateway_loader_module.py" in loader_files
+    loader_files = [f.path for f in artifact_repo.list_artifacts(os.path.join("model", "loader"))]
+    assert "model/loader/gateway_loader_module.py" in loader_files

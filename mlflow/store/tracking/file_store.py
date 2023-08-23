@@ -2,6 +2,7 @@ from datetime import datetime
 import hashlib
 import json
 import logging
+import tempfile
 import time
 import os
 import sys
@@ -1339,25 +1340,30 @@ class FileStore(AbstractStore):
         self.record_logged_model(run_id, promptlab_model)
 
         # write artifact files
+        from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+
+        artifact_repo = get_artifact_repository(artifact_dir)
+
+        local_dir = tempfile.mkdtemp()
         model_json = create_model_file(
             run_id, mlflow_version, prompt_parameters, promptlab_model.model_uuid, utc_time_created
         )
-        model_json_file_path = os.path.join(artifact_dir, "model", "MLmodel")
+        model_json_file_path = os.path.join(local_dir, "model", "MLmodel")
         make_containing_dirs(model_json_file_path)
         write_to(model_json_file_path, model_json)
 
         conda_yaml = create_conda_yaml_file(mlflow_version)
-        conda_yaml_file_path = os.path.join(artifact_dir, "model", "conda.yaml")
+        conda_yaml_file_path = os.path.join(local_dir, "model", "conda.yaml")
         make_containing_dirs(conda_yaml_file_path)
         write_to(conda_yaml_file_path, conda_yaml)
 
         python_yaml = create_python_env_file()
-        python_yaml_file_path = os.path.join(artifact_dir, "model", "python_env.yaml")
+        python_yaml_file_path = os.path.join(local_dir, "model", "python_env.yaml")
         make_containing_dirs(python_yaml_file_path)
         write_to(python_yaml_file_path, python_yaml)
 
         requirements_txt = create_requirements_txt_file(mlflow_version)
-        requirements_txt_file_path = os.path.join(artifact_dir, "model", "requirements.txt")
+        requirements_txt_file_path = os.path.join(local_dir, "model", "requirements.txt")
         make_containing_dirs(requirements_txt_file_path)
         write_to(requirements_txt_file_path, requirements_txt)
 
@@ -1365,7 +1371,7 @@ class FileStore(AbstractStore):
             prompt_parameters, prompt_template, model_parameters, model_route
         )
         loader_module_file_path = os.path.join(
-            artifact_dir, "model", "loader", "gateway_loader_module.py"
+            local_dir, "model", "loader", "gateway_loader_module.py"
         )
         make_containing_dirs(loader_module_file_path)
         write_to(loader_module_file_path, loader_module)
@@ -1373,14 +1379,16 @@ class FileStore(AbstractStore):
         eval_results_json = create_eval_results_file(
             prompt_parameters, model_input, model_output_parameters, model_output
         )
-        eval_results_json_file_path = os.path.join(artifact_dir, "eval_results_table.json")
+        eval_results_json_file_path = os.path.join(local_dir, "eval_results_table.json")
         make_containing_dirs(eval_results_json_file_path)
         write_to(eval_results_json_file_path, eval_results_json)
 
         input_example_json = create_input_example_file(prompt_parameters)
-        input_example_json_file_path = os.path.join(artifact_dir, "input_example.json")
+        input_example_json_file_path = os.path.join(local_dir, "input_example.json")
         make_containing_dirs(input_example_json_file_path)
         write_to(input_example_json_file_path, input_example_json)
+
+        artifact_repo.log_artifacts(local_dir)
 
         self.update_run_info(
             run_id, RunStatus.FINISHED, int(datetime.now().strftime("%Y%m%d")), run_name
