@@ -1,7 +1,9 @@
 from datetime import datetime
 import json
 import logging
+import os
 import random
+import tempfile
 import time
 import uuid
 import threading
@@ -16,6 +18,7 @@ from sqlalchemy.future import select
 
 from mlflow.entities import RunTag, Metric, DatasetInput, _DatasetSummary, Param
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import MYSQL, MSSQL
 import mlflow.store.db.utils
@@ -45,7 +48,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri, resolve_uri_if_local
-from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
+from mlflow.utils.file_utils import make_containing_dirs, mkdir, local_file_uri_to_path, write_to
 from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
@@ -1055,6 +1058,7 @@ class SqlAlchemyStore(AbstractStore):
         self.set_tag(run_id, RunTag(MLFLOW_RUN_SOURCE_TYPE, "PROMPT_ENGINEERING"))
 
         artifact_dir = self._get_artifact_location(experiment_id)
+        artifact_repo = get_artifact_repository(artifact_dir)
 
         # log model
         from mlflow.models import Model
@@ -1068,48 +1072,51 @@ class SqlAlchemyStore(AbstractStore):
         self.record_logged_model(run_id, promptlab_model)
 
         # write artifact files
+        local_dir = tempfile.mkdtemp()
         model_json = create_model_file(
             run_id, mlflow_version, prompt_parameters, promptlab_model.model_uuid, utc_time_created
         )
-        # model_json_file_path = os.path.join(artifact_dir, "model", "MLmodel")
-        # make_containing_dirs(model_json_file_path)
-        # write_to(model_json_file_path, model_json)
+        model_json_file_path = os.path.join(local_dir, "model", "MLmodel")
+        make_containing_dirs(model_json_file_path)
+        write_to(model_json_file_path, model_json)
 
         conda_yaml = create_conda_yaml_file(mlflow_version)
-        # conda_yaml_file_path = os.path.join(artifact_dir, "model", "conda.yaml")
-        # make_containing_dirs(conda_yaml_file_path)
-        # write_to(conda_yaml_file_path, conda_yaml)
+        conda_yaml_file_path = os.path.join(local_dir, "model", "conda.yaml")
+        make_containing_dirs(conda_yaml_file_path)
+        write_to(conda_yaml_file_path, conda_yaml)
 
         python_yaml = create_python_env_file()
-        # python_yaml_file_path = os.path.join(artifact_dir, "model", "python_env.yaml")
-        # make_containing_dirs(python_yaml_file_path)
-        # write_to(python_yaml_file_path, python_yaml)
+        python_yaml_file_path = os.path.join(local_dir, "model", "python_env.yaml")
+        make_containing_dirs(python_yaml_file_path)
+        write_to(python_yaml_file_path, python_yaml)
 
         requirements_txt = create_requirements_txt_file(mlflow_version)
-        # requirements_txt_file_path = os.path.join(artifact_dir, "model", "requirements.txt")
-        # make_containing_dirs(requirements_txt_file_path)
-        # write_to(requirements_txt_file_path, requirements_txt)
+        requirements_txt_file_path = os.path.join(local_dir, "model", "requirements.txt")
+        make_containing_dirs(requirements_txt_file_path)
+        write_to(requirements_txt_file_path, requirements_txt)
 
         loader_module = create_loader_file(
             prompt_parameters, prompt_template, model_parameters, model_route
         )
-        # loader_module_file_path = os.path.join(
-        #     artifact_dir, "model", "loader", "gateway_loader_module.py"
-        # )
-        # make_containing_dirs(loader_module_file_path)
-        # write_to(loader_module_file_path, loader_module)
+        loader_module_file_path = os.path.join(
+            local_dir, "model", "loader", "gateway_loader_module.py"
+        )
+        make_containing_dirs(loader_module_file_path)
+        write_to(loader_module_file_path, loader_module)
 
         eval_results_json = create_eval_results_file(
             prompt_parameters, model_input, model_output_parameters, model_output
         )
-        # eval_results_json_file_path = os.path.join(artifact_dir, "eval_results_table.json")
-        # make_containing_dirs(eval_results_json_file_path)
-        # write_to(eval_results_json_file_path, eval_results_json)
+        eval_results_json_file_path = os.path.join(local_dir, "eval_results_table.json")
+        make_containing_dirs(eval_results_json_file_path)
+        write_to(eval_results_json_file_path, eval_results_json)
 
         input_example_json = create_input_example_file(prompt_parameters)
-        # input_example_json_file_path = os.path.join(artifact_dir, "input_example.json")
-        # make_containing_dirs(input_example_json_file_path)
-        # write_to(input_example_json_file_path, input_example_json)
+        input_example_json_file_path = os.path.join(local_dir, "input_example.json")
+        make_containing_dirs(input_example_json_file_path)
+        write_to(input_example_json_file_path, input_example_json)
+
+        artifact_repo.log_artifacts(local_dir)
 
         self.update_run_info(
             run_id, RunStatus.FINISHED, int(datetime.now().strftime("%Y%m%d")), run_name
