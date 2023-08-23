@@ -1,6 +1,5 @@
-import transformers
-from packaging.version import Version
 import requests
+import transformers
 
 import mlflow
 

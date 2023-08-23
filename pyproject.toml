@@ -62,7 +62,7 @@ ignore = [
 extend-exclude = [
   "setup.py",
   "docs",
-  "examples",
+  "examples/recipes",
   "mlflow/protos",
   "mlflow/ml_package_versions.py",
   "mlflow/server/js",
@@ -73,6 +73,7 @@ extend-exclude = [
 
 [tool.ruff.per-file-ignores]
 "dev/*" = ["T201", "PT018"]
+"examples/*" = ["T20"]
 "mlflow/*" = ["PT018"]
 
 [tool.ruff.flake8-pytest-style]

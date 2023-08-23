@@ -1,7 +1,8 @@
-import mlflow
 from sklearn.datasets import fetch_california_housing
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
+
+import mlflow
 
 mlflow.sklearn.autolog()
 
