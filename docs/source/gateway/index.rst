@@ -1197,17 +1197,19 @@ Here are some examples for how you might use curl to interact with the Gateway:
 
 Using MosaicML-hosted open source models with the AI Gateway
 =================================================================================
-AI Gateway also provides access to MosaicML’s newly launched support for open source models as hosted APIs. 
+AI Gateway also provides access to MosaicML’s open source models as hosted APIs. 
 These APIs provide fast and easy access to state-of-the-art open source models for rapid experimentation and 
 token-based pricing. MosaicML supports the ``Instructor-XL``, a 1.2B parameter instruction fine-tuned embedding model 
 by HKUNLP, and the ``Llama2-70b-Chat`` API which was trained on 2 trillion tokens and fine-tuned for dialogue, safety, and 
 helpfulness by Meta.
 
 .. note::
-Llama 2 is licensed under the LLAMA 2 Community License, Copyright © Meta Platforms, Inc. All Rights Reserved
 
-To access these models via Gateway, you can create MosaicML routes in a similar fashion like for the other route providers.
-The following example demonstrates how to create a route with MosaicML (Llama2-70b-Chat model):
+    Llama 2 is licensed under the LLAMA 2 Community License, Copyright © Meta Platforms, Inc. All Rights Reserved.
+
+
+To access these models via Gateway, you can create MosaicML routes like for the other providers.
+The following example demonstrates how to create a route with MosaicML (for the Llama2-70b-Chat model):
 
 .. code-block:: python
 
@@ -1244,7 +1246,7 @@ To query these routes, you can use the :ref:`gateway_fluent_api`, for instance:
 
 .. code-block:: python
 
- from mlflow.gateway import query
+    from mlflow.gateway import query
 
     response = query(
         route="mosaicml-llama-completions",
