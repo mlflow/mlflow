@@ -1225,7 +1225,7 @@ Using MosaicML-hosted open source models with the AI Gateway
 AI Gateway also provides access to MosaicML’s open source models as hosted APIs. 
 These APIs provide fast and easy access to state-of-the-art open source models for rapid experimentation and 
 token-based pricing. MosaicML supports the ``Instructor-XL``, a 1.2B parameter instruction fine-tuned embedding model 
-by HKUNLP, and the ``Llama2-70b-Chat`` API which was trained on 2 trillion tokens and fine-tuned for dialogue, safety, and 
+by HKUNLP, and the ``Llama2-70b-Chat``† API which was trained on 2 trillion tokens and fine-tuned for dialogue, safety, and 
 helpfulness by Meta.
 
 .. note::
@@ -1234,7 +1234,7 @@ helpfulness by Meta.
 
 
 To access these models via Gateway, you can create MosaicML routes like for the other providers.
-The following example demonstrates how to create a route with MosaicML (for the Llama2-70b-Chat model):
+The following example demonstrates how to create a route with MosaicML (for the Llama2-70b-Chat† model):
 
 .. code-block:: python
 
@@ -1258,7 +1258,7 @@ For the ``Instructor-XL`` embeddings model, the route can be created like so:
             name="mosaicml-embeddings",
             route_type="llm/v1/embeddings",
             model={
-                "name": "instructor-large",
+                "name": "instructor-xl",
                 "provider": "mosaicml",
                 "mosaicml_config": {
                     "mosaicml_api_key": "<YOUR_MOSAIC_API_KEY>"
