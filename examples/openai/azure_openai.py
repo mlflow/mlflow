@@ -1,7 +1,9 @@
-import mlflow
-import openai
 import os
+
+import openai
 import pandas as pd
+
+import mlflow
 
 """
 Set environment variables for Azure OpenAI service

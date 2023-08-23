@@ -1,12 +1,12 @@
 import os
 from typing import Any, Dict, Optional
 
+from custom_code import iris_classes
 from sklearn.datasets import load_iris
 from sklearn.linear_model import LogisticRegression
 
 import mlflow
 from mlflow.models import infer_signature
-from custom_code import iris_classes
 
 
 class CustomPredict(mlflow.pyfunc.PythonModel):

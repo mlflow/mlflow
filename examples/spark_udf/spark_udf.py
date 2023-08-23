@@ -1,8 +1,9 @@
-import mlflow
-from mlflow.models import infer_signature
+from pyspark.sql import SparkSession
 from sklearn import datasets
 from sklearn.neighbors import KNeighborsClassifier
-from pyspark.sql import SparkSession
+
+import mlflow
+from mlflow.models import infer_signature
 
 with SparkSession.builder.getOrCreate() as spark:
     X, y = datasets.load_iris(as_frame=True, return_X_y=True)
