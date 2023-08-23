@@ -1,14 +1,14 @@
-import os
 import json
+import os
 
 import click
 
 import mlflow
+import mlflow.models.docker_utils
 import mlflow.sagemaker
 from mlflow.sagemaker import DEFAULT_IMAGE_NAME as IMAGE
 from mlflow.utils import cli_args
 from mlflow.utils import env_manager as em
-import mlflow.models.docker_utils
 
 
 @click.group("sagemaker")

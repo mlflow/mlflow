@@ -1,34 +1,37 @@
-from collections import defaultdict, namedtuple, OrderedDict
+import json
 import logging
-import numpy as np
 import os
-from urllib.parse import urlparse
-import weakref
 import sys
 import traceback
-import json
+import weakref
+from collections import OrderedDict, defaultdict, namedtuple
 from itertools import zip_longest
+from urllib.parse import urlparse
+
+import numpy as np
+
 import mlflow
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.spark_dataset import SparkDataset
+from mlflow.entities import Metric, Param
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
-from mlflow.tracking.client import MlflowClient
-from mlflow.entities import Metric, Param
 from mlflow.exceptions import MlflowException
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils import (
     _chunk_dict,
-    _truncate_dict,
     _get_fully_qualified_class_name,
     _inspect_original_var_name,
+    _truncate_dict,
 )
 from mlflow.utils.autologging_utils import (
+    INPUT_EXAMPLE_SAMPLE_ROWS,
     _get_new_training_session_class,
     autologging_integration,
-    safe_patch,
+    get_method_call_arg_value,
     resolve_input_example_and_signature,
+    safe_patch,
 )
-from mlflow.utils.autologging_utils import get_method_call_arg_value
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_AUTOLOGGING,
@@ -36,19 +39,16 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
 )
 from mlflow.utils.rest_utils import (
+    MlflowHostCreds,
     augmented_raise_for_status,
     http_request,
-    MlflowHostCreds,
-)
-from mlflow.utils.validation import (
-    MAX_PARAMS_TAGS_PER_BATCH,
-    MAX_PARAM_VAL_LENGTH,
-    MAX_ENTITY_KEY_LENGTH,
-)
-from mlflow.utils.autologging_utils import (
-    INPUT_EXAMPLE_SAMPLE_ROWS,
 )
 from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.validation import (
+    MAX_ENTITY_KEY_LENGTH,
+    MAX_PARAM_VAL_LENGTH,
+    MAX_PARAMS_TAGS_PER_BATCH,
+)
 
 _logger = logging.getLogger(__name__)
 _SparkTrainingSession = _get_new_training_session_class()
@@ -923,9 +923,10 @@ def autolog(
 
     :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
-    from mlflow.tracking.context import registry as context_registry
     from pyspark.ml.base import Estimator, Model
     from pyspark.ml.evaluation import Evaluator
+
+    from mlflow.tracking.context import registry as context_registry
 
     global _log_model_allowlist
 
@@ -1032,13 +1033,14 @@ def autolog(
 
         if log_models:
             if _should_log_model(spark_model):
+                from pyspark.sql import SparkSession
+
                 from mlflow.models import infer_signature
                 from mlflow.pyspark.ml._autolog import (
                     cast_spark_df_with_vector_to_array,
                     get_feature_cols,
                 )
                 from mlflow.spark import _find_and_set_features_col_as_vector_if_needed
-                from pyspark.sql import SparkSession
 
                 spark = SparkSession.builder.getOrCreate()
 

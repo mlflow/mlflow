@@ -1,34 +1,34 @@
 import logging
 import os
+import pathlib
 import re
+import shutil
 import tempfile
 import urllib.parse
-import pathlib
-import shutil
 import zipfile
 from io import BytesIO
 
-from mlflow.utils.git_utils import get_git_repo_url, get_git_commit
-from mlflow.entities import SourceType, Param
+from mlflow import tracking
+from mlflow.entities import Param, SourceType
+from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_RUN_ID, MLFLOW_TRACKING_URI
 from mlflow.exceptions import ExecutionException
 from mlflow.projects import _project_spec
-from mlflow import tracking
 from mlflow.tracking import fluent
 from mlflow.tracking.context.default_context import _get_user
+from mlflow.utils.git_utils import get_git_commit, get_git_repo_url
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_USER,
-    MLFLOW_SOURCE_NAME,
-    MLFLOW_SOURCE_TYPE,
+    LEGACY_MLFLOW_GIT_BRANCH_NAME,
+    LEGACY_MLFLOW_GIT_REPO_URL,
+    MLFLOW_GIT_BRANCH,
     MLFLOW_GIT_COMMIT,
     MLFLOW_GIT_REPO_URL,
-    MLFLOW_GIT_BRANCH,
-    LEGACY_MLFLOW_GIT_REPO_URL,
-    LEGACY_MLFLOW_GIT_BRANCH_NAME,
-    MLFLOW_PROJECT_ENTRY_POINT,
     MLFLOW_PARENT_RUN_ID,
+    MLFLOW_PROJECT_ENTRY_POINT,
+    MLFLOW_SOURCE_NAME,
+    MLFLOW_SOURCE_TYPE,
+    MLFLOW_USER,
 )
 from mlflow.utils.rest_utils import augmented_raise_for_status
-from mlflow.environment_variables import MLFLOW_TRACKING_URI, MLFLOW_RUN_ID, MLFLOW_EXPERIMENT_ID
 
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")

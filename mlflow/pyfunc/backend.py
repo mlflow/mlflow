@@ -1,44 +1,48 @@
+import ctypes
 import logging
 import os
 import pathlib
-import subprocess
 import posixpath
 import shlex
+import signal
+import subprocess
 import sys
 import warnings
-import ctypes
-import signal
 from pathlib import Path
 
+from mlflow.environment_variables import MLFLOW_DISABLE_ENV_CREATION
 from mlflow.models import FlavorBackend
+from mlflow.models.container import ENABLE_MLSERVER
 from mlflow.models.docker_utils import (
-    _build_image,
-    _generate_dockerfile_content,
     SETUP_MINICONDA,
     SETUP_PYENV_AND_VIRTUALENV,
+    _build_image,
+    _generate_dockerfile_content,
     _get_mlflow_install_step,
 )
-from mlflow.models.container import ENABLE_MLSERVER
-from mlflow.pyfunc import ENV, scoring_server, mlserver, _extract_conda_env
-
-from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable
+from mlflow.pyfunc import (
+    ENV,
+    _extract_conda_env,
+    _mlflow_pyfunc_backend_predict,
+    mlserver,
+    scoring_server,
+)
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import env_manager as _EnvManager
-from mlflow.pyfunc import _mlflow_pyfunc_backend_predict
-from mlflow.utils.file_utils import (
-    path_to_local_file_uri,
-    get_or_create_tmp_dir,
-    get_or_create_nfs_tmp_dir,
-)
+from mlflow.utils.conda import get_conda_bin_executable, get_or_create_conda_env
 from mlflow.utils.environment import Environment
+from mlflow.utils.file_utils import (
+    get_or_create_nfs_tmp_dir,
+    get_or_create_tmp_dir,
+    path_to_local_file_uri,
+)
+from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
+from mlflow.utils.process import cache_return_value_per_process
 from mlflow.utils.virtualenv import (
     _get_or_create_virtualenv,
     _get_pip_install_mlflow,
 )
-from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
-from mlflow.utils.process import cache_return_value_per_process
 from mlflow.version import VERSION
-from mlflow.environment_variables import MLFLOW_DISABLE_ENV_CREATION
 
 _logger = logging.getLogger(__name__)
 

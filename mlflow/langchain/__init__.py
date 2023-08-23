@@ -11,18 +11,18 @@ LangChain (native) format
 .. _LangChain:
     https://python.langchain.com/en/latest/index.html
 """
+import functools
+import json
 import logging
 import os
 import shutil
 import types
-import functools
-from packaging import version
-from typing import Any, Dict, List, Optional, Union, NamedTuple
+from typing import Any, Dict, List, NamedTuple, Optional, Union
 
-import pandas as pd
 import cloudpickle
-import json
+import pandas as pd
 import yaml
+from packaging import version
 
 import mlflow
 from mlflow import pyfunc
@@ -119,6 +119,7 @@ def _get_special_chain_info_or_none(chain):
 @functools.lru_cache
 def _get_map_of_special_chain_class_to_loader_arg():
     import langchain
+
     from mlflow.langchain.retriever_chain import _RetrieverChain
 
     class_name_to_loader_arg = {
@@ -637,6 +638,7 @@ def _load_model(
     persist_dir=None,
 ):
     from langchain.chains.loading import load_chain
+
     from mlflow.langchain.retriever_chain import _RetrieverChain
 
     model = None
@@ -726,7 +728,9 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         :return: Model predictions.
         """
         import langchain
+
         from mlflow.openai.utils import TEST_CONTENT
+
         from tests.langchain.test_langchain_model_export import _mock_async_request
 
         if isinstance(

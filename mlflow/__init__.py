@@ -28,56 +28,61 @@ implement mutual exclusion manually.
 For a lower level API, see the :py:mod:`mlflow.client` module.
 """
 import contextlib
-from mlflow.version import VERSION as __version__  # noqa: F401
-from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
 # Filter annoying Cython warnings that serve no good purpose, and so before
 # importing other modules.
 # See: https://github.com/numpy/numpy/pull/432/commits/170ed4e33d6196d7
 import warnings
 
+from mlflow.utils.logging_utils import _configure_mlflow_loggers
+from mlflow.version import VERSION as __version__  # noqa: F401
+
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
-from mlflow import projects  # noqa: F401
-from mlflow import tracking  # noqa: F401
-from mlflow import models  # noqa: F401
-from mlflow import artifacts  # noqa: F401
-from mlflow import client  # noqa: F401
-from mlflow import exceptions  # noqa: F401
-from mlflow import data  # noqa: F401
+from mlflow import (
+    artifacts,  # noqa: F401
+    client,  # noqa: F401
+    data,  # noqa: F401
+    exceptions,  # noqa: F401
+    models,  # noqa: F401
+    projects,  # noqa: F401
+    tracking,  # noqa: F401
+)
 
 # model flavors
 _model_flavors_supported = []
 try:
-    from mlflow import catboost  # noqa: F401
-    from mlflow import fastai  # noqa: F401
-    from mlflow import gluon  # noqa: F401
-    from mlflow import h2o  # noqa: F401
-    from mlflow import lightgbm  # noqa: F401
-    from mlflow import mleap  # noqa: F401
-    from mlflow import onnx  # noqa: F401
-    from mlflow import recipes  # noqa: F401
-    from mlflow import pyfunc  # noqa: F401
-    from mlflow import pytorch  # noqa: F401
-    from mlflow import sklearn  # noqa: F401
-    from mlflow import spacy  # noqa: F401
-    from mlflow import spark  # noqa: F401
-    from mlflow import statsmodels  # noqa: F401
-    from mlflow import tensorflow  # noqa: F401
-    from mlflow import xgboost  # noqa: F401
-    from mlflow import shap  # noqa: F401
-    from mlflow import pyspark  # noqa: F401
-    from mlflow import paddle  # noqa: F401
-    from mlflow import prophet  # noqa: F401
-    from mlflow import pmdarima  # noqa: F401
-    from mlflow import diviner  # noqa: F401
-    from mlflow import transformers  # noqa: F401
-    from mlflow import langchain  # noqa: F401
-    from mlflow import llm  # noqa: F401
-    from mlflow import openai  # noqa: F401
-    from mlflow import sentence_transformers  # noqa: F401
-    from mlflow import johnsnowlabs  # noqa: F401
+    from mlflow import (
+        catboost,  # noqa: F401
+        diviner,  # noqa: F401
+        fastai,  # noqa: F401
+        gluon,  # noqa: F401
+        h2o,  # noqa: F401
+        johnsnowlabs,  # noqa: F401
+        langchain,  # noqa: F401
+        lightgbm,  # noqa: F401
+        llm,  # noqa: F401
+        mleap,  # noqa: F401
+        onnx,  # noqa: F401
+        openai,  # noqa: F401
+        paddle,  # noqa: F401
+        pmdarima,  # noqa: F401
+        prophet,  # noqa: F401
+        pyfunc,  # noqa: F401
+        pyspark,  # noqa: F401
+        pytorch,  # noqa: F401
+        recipes,  # noqa: F401
+        sentence_transformers,  # noqa: F401
+        shap,  # noqa: F401
+        sklearn,  # noqa: F401
+        spacy,  # noqa: F401
+        spark,  # noqa: F401
+        statsmodels,  # noqa: F401
+        tensorflow,  # noqa: F401
+        transformers,  # noqa: F401
+        xgboost,  # noqa: F401
+    )
 
     _model_flavors_supported = [
         "catboost",
@@ -135,60 +140,60 @@ _configure_mlflow_loggers(root_module_name=__name__)
 #         stacklevel=2,
 #     )
 
-from mlflow.tracking.fluent import (
-    ActiveRun,
-    log_param,
-    log_metric,
-    set_tag,
-    delete_tag,
-    log_artifacts,
-    log_artifact,
-    log_text,
-    log_dict,
-    log_image,
-    log_figure,
-    log_table,
-    load_table,
-    active_run,
-    get_run,
-    start_run,
-    end_run,
-    search_runs,
-    get_artifact_uri,
-    get_experiment,
-    get_experiment_by_name,
-    search_experiments,
-    create_experiment,
-    set_experiment,
-    log_params,
-    log_metrics,
-    set_experiment_tags,
-    set_experiment_tag,
-    set_tags,
-    delete_experiment,
-    delete_run,
-    autolog,
-    last_active_run,
-    log_input,
-    get_parent_run,
+from mlflow._doctor import doctor
+from mlflow.client import MlflowClient
+from mlflow.exceptions import MlflowException
+from mlflow.models import evaluate
+from mlflow.projects import run
+from mlflow.tracking import (
+    get_registry_uri,
+    get_tracking_uri,
+    is_tracking_uri_set,
+    set_registry_uri,
+    set_tracking_uri,
 )
 from mlflow.tracking._model_registry.fluent import (
     register_model,
-    search_registered_models,
     search_model_versions,
+    search_registered_models,
 )
-from mlflow.tracking import (
-    get_tracking_uri,
-    set_tracking_uri,
-    is_tracking_uri_set,
-    set_registry_uri,
-    get_registry_uri,
+from mlflow.tracking.fluent import (
+    ActiveRun,
+    active_run,
+    autolog,
+    create_experiment,
+    delete_experiment,
+    delete_run,
+    delete_tag,
+    end_run,
+    get_artifact_uri,
+    get_experiment,
+    get_experiment_by_name,
+    get_parent_run,
+    get_run,
+    last_active_run,
+    load_table,
+    log_artifact,
+    log_artifacts,
+    log_dict,
+    log_figure,
+    log_image,
+    log_input,
+    log_metric,
+    log_metrics,
+    log_param,
+    log_params,
+    log_table,
+    log_text,
+    search_experiments,
+    search_runs,
+    set_experiment,
+    set_experiment_tag,
+    set_experiment_tags,
+    set_tag,
+    set_tags,
+    start_run,
 )
-from mlflow.models import evaluate
-from mlflow.client import MlflowClient
-from mlflow.exceptions import MlflowException
-from mlflow.projects import run
-from mlflow._doctor import doctor
 
 __all__ = [
     "ActiveRun",

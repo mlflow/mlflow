@@ -3,11 +3,10 @@ import os
 import click
 
 import mlflow
-from mlflow.utils.data_utils import is_uri
 from mlflow.entities import ViewType
 from mlflow.tracking import _get_store, fluent
+from mlflow.utils.data_utils import is_uri
 from mlflow.utils.string_utils import _create_table
-
 
 EXPERIMENT_ID = click.option("--experiment-id", "-x", type=click.STRING, required=True)
 

@@ -1,49 +1,49 @@
 import logging
-import sqlalchemy
 
+import sqlalchemy
 from sqlalchemy.future import select
 
+import mlflow.store.db.utils
 from mlflow.entities.model_registry.model_version_stages import (
-    get_canonical_stage,
     ALL_STAGES,
     DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS,
-    STAGE_DELETED_INTERNAL,
     STAGE_ARCHIVED,
+    STAGE_DELETED_INTERNAL,
+    get_canonical_stage,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
-    RESOURCE_ALREADY_EXISTS,
     INVALID_STATE,
+    RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
-import mlflow.store.db.utils
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
-    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
-    SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
 )
-from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.store.model_registry.dbmodels.models import (
-    SqlRegisteredModel,
     SqlModelVersion,
-    SqlRegisteredModelTag,
     SqlModelVersionTag,
+    SqlRegisteredModel,
     SqlRegisteredModelAlias,
+    SqlRegisteredModelTag,
 )
-from mlflow.utils.search_utils import SearchUtils, SearchModelUtils, SearchModelVersionUtils
+from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
+from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import (
-    _validate_registered_model_tag,
-    _validate_model_version_tag,
+    _validate_model_alias_name,
     _validate_model_name,
     _validate_model_version,
+    _validate_model_version_tag,
+    _validate_registered_model_tag,
     _validate_tag_name,
-    _validate_model_alias_name,
 )
-from mlflow.utils.time_utils import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
 

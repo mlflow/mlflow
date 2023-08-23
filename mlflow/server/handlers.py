@@ -1,94 +1,95 @@
 # Define all the service endpoint handlers here.
 import json
-import os
-import tempfile
-import posixpath
-import urllib
-import pathlib
-import re
-
 import logging
+import os
+import pathlib
+import posixpath
+import re
+import tempfile
+import urllib
 from functools import wraps
 
-from flask import Response, request, current_app, send_file
+from flask import Response, current_app, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 
-from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag, FileInfo, DatasetInput
-from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
+from mlflow.entities import DatasetInput, ExperimentTag, FileInfo, Metric, Param, RunTag, ViewType
+from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
+from mlflow.environment_variables import MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
-from mlflow.protos.service_pb2 import (
-    CreateExperiment,
-    MlflowService,
-    GetExperiment,
-    GetRun,
-    SearchRuns,
-    ListArtifacts,
-    GetMetricHistory,
-    CreateRun,
-    UpdateRun,
-    LogMetric,
-    LogParam,
-    SetTag,
-    SearchExperiments,
-    DeleteExperiment,
-    RestoreExperiment,
-    RestoreRun,
-    DeleteRun,
-    UpdateExperiment,
-    LogBatch,
-    DeleteTag,
-    SetExperimentTag,
-    GetExperimentByName,
-    LogModel,
-    LogInputs,
-)
-from mlflow.protos.model_registry_pb2 import (
-    ModelRegistryService,
-    CreateRegisteredModel,
-    UpdateRegisteredModel,
-    DeleteRegisteredModel,
-    GetRegisteredModel,
-    GetLatestVersions,
-    CreateModelVersion,
-    UpdateModelVersion,
-    DeleteModelVersion,
-    GetModelVersion,
-    GetModelVersionDownloadUri,
-    SearchModelVersions,
-    RenameRegisteredModel,
-    TransitionModelVersionStage,
-    SearchRegisteredModels,
-    SetRegisteredModelTag,
-    DeleteRegisteredModelTag,
-    SetModelVersionTag,
-    DeleteModelVersionTag,
-    SetRegisteredModelAlias,
-    DeleteRegisteredModelAlias,
-    GetModelVersionByAlias,
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.mlflow_artifacts_pb2 import (
+    DeleteArtifact,
+    DownloadArtifact,
+    MlflowArtifactsService,
+    UploadArtifact,
 )
 from mlflow.protos.mlflow_artifacts_pb2 import (
-    MlflowArtifactsService,
-    DownloadArtifact,
-    UploadArtifact,
     ListArtifacts as ListArtifactsMlflowArtifacts,
-    DeleteArtifact,
 )
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
+from mlflow.protos.model_registry_pb2 import (
+    CreateModelVersion,
+    CreateRegisteredModel,
+    DeleteModelVersion,
+    DeleteModelVersionTag,
+    DeleteRegisteredModel,
+    DeleteRegisteredModelAlias,
+    DeleteRegisteredModelTag,
+    GetLatestVersions,
+    GetModelVersion,
+    GetModelVersionByAlias,
+    GetModelVersionDownloadUri,
+    GetRegisteredModel,
+    ModelRegistryService,
+    RenameRegisteredModel,
+    SearchModelVersions,
+    SearchRegisteredModels,
+    SetModelVersionTag,
+    SetRegisteredModelAlias,
+    SetRegisteredModelTag,
+    TransitionModelVersionStage,
+    UpdateModelVersion,
+    UpdateRegisteredModel,
+)
+from mlflow.protos.service_pb2 import (
+    CreateExperiment,
+    CreateRun,
+    DeleteExperiment,
+    DeleteRun,
+    DeleteTag,
+    GetExperiment,
+    GetExperimentByName,
+    GetMetricHistory,
+    GetRun,
+    ListArtifacts,
+    LogBatch,
+    LogInputs,
+    LogMetric,
+    LogModel,
+    LogParam,
+    MlflowService,
+    RestoreExperiment,
+    RestoreRun,
+    SearchExperiments,
+    SearchRuns,
+    SetExperimentTag,
+    SetTag,
+    UpdateExperiment,
+    UpdateRun,
+)
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
+from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
-from mlflow.utils.validation import _validate_batch_log_api_req
 from mlflow.utils.string_utils import is_string_type
-from mlflow.utils.uri import is_local_uri, is_file_uri
-from mlflow.utils.file_utils import local_file_uri_to_path
-from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.environment_variables import MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE
+from mlflow.utils.uri import is_file_uri, is_local_uri
+from mlflow.utils.validation import _validate_batch_log_api_req
 
 _logger = logging.getLogger(__name__)
 _tracking_store = None
@@ -249,7 +250,7 @@ def _get_proxied_run_artifact_destination_path(proxied_artifact_root, relative_p
 
 
 def _get_tracking_store(backend_store_uri=None, default_artifact_root=None):
-    from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
+    from mlflow.server import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
 
     global _tracking_store
     if _tracking_store is None:
@@ -260,7 +261,7 @@ def _get_tracking_store(backend_store_uri=None, default_artifact_root=None):
 
 
 def _get_model_registry_store(registry_store_uri=None):
-    from mlflow.server import REGISTRY_STORE_URI_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
+    from mlflow.server import BACKEND_STORE_URI_ENV_VAR, REGISTRY_STORE_URI_ENV_VAR
 
     global _model_registry_store
     if _model_registry_store is None:

@@ -1,15 +1,15 @@
 import json
 import logging
-from typing import Optional, Any, Dict, Union
+from functools import cached_property
+from typing import Any, Dict, Optional, Union
 
 import numpy as np
-from functools import cached_property
 
 from mlflow.data.dataset import Dataset
-from mlflow.data.schema import TensorDatasetSchema
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.digest_utils import compute_numpy_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
+from mlflow.data.schema import TensorDatasetSchema
 from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.annotations import experimental

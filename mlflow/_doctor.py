@@ -1,9 +1,10 @@
 import os
-import pkg_resources
 import platform
-import click
 
+import click
+import pkg_resources
 import yaml
+
 import mlflow
 from mlflow.utils.databricks_utils import get_databricks_runtime
 

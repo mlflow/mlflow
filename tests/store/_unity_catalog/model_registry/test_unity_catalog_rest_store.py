@@ -53,9 +53,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     UpdateModelVersionRequest,
     UpdateRegisteredModelRequest,
 )
-from mlflow.protos.databricks_uc_registry_messages_pb2 import (
-    ModelVersion as ProtoModelVersion,
-)
+from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.service_pb2 import GetRun
 from mlflow.store._unity_catalog.registry.rest_store import (
     _DATABRICKS_LINEAGE_ID_HEADER,

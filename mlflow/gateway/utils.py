@@ -2,16 +2,16 @@ import base64
 import json
 import logging
 import posixpath
-
-import psutil
 import re
-from typing import Optional, List
+from typing import List, Optional
 from urllib.parse import urlparse
 
-from mlflow.exceptions import MlflowException
+import psutil
+
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
-from mlflow.utils.uri import append_to_uri_path
+from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
+from mlflow.utils.uri import append_to_uri_path
 
 _logger = logging.getLogger(__name__)
 _gateway_uri: Optional[str] = None

@@ -1,9 +1,10 @@
 import json
-import mlflow
-import requests
-from unittest import mock
 from contextlib import contextmanager
+from unittest import mock
 
+import requests
+
+import mlflow
 
 TEST_CONTENT = "test"
 
