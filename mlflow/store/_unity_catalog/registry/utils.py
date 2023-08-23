@@ -8,9 +8,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_uc_registry_messages_pb2 import (
-    ModelVersion as ProtoModelVersion,
-)
+from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     ModelVersionStatus as ProtoModelVersionStatus,
 )
@@ -23,9 +21,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     RegisteredModelTag as ProtoRegisteredModelTag,
 )
-from mlflow.protos.databricks_uc_registry_messages_pb2 import (
-    TemporaryCredentials,
-)
+from mlflow.protos.databricks_uc_registry_messages_pb2 import TemporaryCredentials
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 
 _STRING_TO_STATUS = {k: ProtoModelVersionStatus.Value(k) for k in ProtoModelVersionStatus.keys()}

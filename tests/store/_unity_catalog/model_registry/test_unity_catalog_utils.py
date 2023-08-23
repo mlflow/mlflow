@@ -5,9 +5,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelAlias,
     RegisteredModelTag,
 )
-from mlflow.protos.databricks_uc_registry_messages_pb2 import (
-    ModelVersion as ProtoModelVersion,
-)
+from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     ModelVersionStatus as ProtoModelVersionStatus,
 )
