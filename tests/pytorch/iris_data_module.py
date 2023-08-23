@@ -6,7 +6,7 @@
 import pytorch_lightning as pl
 import torch
 from sklearn.datasets import load_iris
-from torch.utils.data import DataLoader, random_split, TensorDataset
+from torch.utils.data import DataLoader, TensorDataset, random_split
 
 
 class IrisDataModuleBase(pl.LightningDataModule):

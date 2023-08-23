@@ -1,7 +1,8 @@
+from typing import Any, Dict
+
 from mlflow.exceptions import MlflowException
-from mlflow.types.schema import Schema
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from typing import Dict, Any
+from mlflow.types.schema import Schema
 
 
 class TensorDatasetSchema:

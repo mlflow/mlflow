@@ -1,4 +1,4 @@
-from mlflow.entities import DatasetInput, InputTag, Dataset
+from mlflow.entities import Dataset, DatasetInput, InputTag
 
 
 def _check(dataset_input, tags, dataset):

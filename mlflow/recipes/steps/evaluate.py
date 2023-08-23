@@ -1,37 +1,36 @@
+import datetime
 import logging
 import operator
 import os
-from pathlib import Path
-from typing import Dict, Any
-from collections import namedtuple
-import warnings
 import sys
-import datetime
+import warnings
+from collections import namedtuple
+from pathlib import Path
+from typing import Any, Dict
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.recipes.cards import BaseCard
-from mlflow.recipes.step import BaseStep
-from mlflow.recipes.step import StepClass
+from mlflow.recipes.step import BaseStep, StepClass
 from mlflow.recipes.steps.train import TrainStep
 from mlflow.recipes.utils.execution import get_step_output_path
 from mlflow.recipes.utils.metrics import (
     _get_builtin_metrics,
     _get_custom_metrics,
-    _get_primary_metric,
-    _get_model_type_from_template,
-    _load_custom_metrics,
     _get_extended_task,
+    _get_model_type_from_template,
+    _get_primary_metric,
+    _load_custom_metrics,
     transform_multiclass_metric,
 )
 from mlflow.recipes.utils.step import get_merged_eval_metrics, validate_classification_config
 from mlflow.recipes.utils.tracking import (
-    get_recipe_tracking_config,
-    apply_recipe_tracking_config,
     TrackingConfig,
+    apply_recipe_tracking_config,
+    get_recipe_tracking_config,
     get_run_tags_env_vars,
 )
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.fluent import _get_experiment_id, _set_experiment_primary_metric
 from mlflow.utils.databricks_utils import get_databricks_env_vars, get_databricks_run_url
 from mlflow.utils.string_utils import strip_prefix

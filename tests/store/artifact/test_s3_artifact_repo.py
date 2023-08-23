@@ -1,22 +1,21 @@
+import json
 import os
 import posixpath
 import tarfile
-import json
 from datetime import datetime
+from unittest import mock
+from unittest.mock import ANY
 
 import pytest
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.s3_artifact_repo import (
+    _MAX_CACHE_SECONDS,
     S3ArtifactRepository,
     _cached_get_s3_client,
-    _MAX_CACHE_SECONDS,
 )
 
 from tests.helper_functions import set_boto_credentials  # noqa: F401
-
-from unittest import mock
-from unittest.mock import ANY
 
 
 @pytest.fixture

@@ -1,41 +1,40 @@
-import cloudpickle
 import datetime
 import os
 import random
 import sys
-import time
-from typing import Iterator
 import threading
+import time
 from collections import namedtuple
+from typing import Iterator
 from unittest import mock
-import pytest
-from packaging.version import Version
 
+import cloudpickle
 import numpy as np
 import pandas as pd
 import pyspark
-from pyspark.sql.functions import pandas_udf, col, struct
+import pytest
+from packaging.version import Version
+from pandas.testing import assert_frame_equal
+from pyspark.sql.functions import col, pandas_udf, struct
 from pyspark.sql.types import (
     ArrayType,
+    BooleanType,
     DoubleType,
-    LongType,
-    StringType,
     FloatType,
     IntegerType,
-    BooleanType,
-    StructType,
+    LongType,
+    StringType,
     StructField,
+    StructType,
     TimestampType,
 )
 from pyspark.sql.utils import AnalysisException
 from sklearn import datasets
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import FunctionTransformer
-from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
-
-import tests
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import FunctionTransformer
 
 import mlflow
 import mlflow.pyfunc
@@ -43,16 +42,16 @@ import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
 from mlflow.pyfunc import (
-    spark_udf,
-    PythonModel,
     PyFuncModel,
+    PythonModel,
     _check_udf_return_type,
     _parse_spark_datatype,
+    spark_udf,
 )
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
-from mlflow.types import Schema, ColSpec, TensorSpec
-from pandas.testing import assert_frame_equal
+from mlflow.types import ColSpec, Schema, TensorSpec
 
+import tests
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2, True]
 types = [np.int32, int, str, np.float32, np.double, bool]
@@ -799,8 +798,8 @@ def test_model_cache(spark, model_path):
 def test_spark_udf_embedded_model_server_killed_when_job_canceled(
     spark, sklearn_model, model_path, env_manager
 ):
-    from mlflow.pyfunc.scoring_server.client import ScoringServerClient
     from mlflow.models.flavor_backend_registry import get_flavor_backend
+    from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 
     mlflow.sklearn.save_model(sklearn_model.model, model_path)
 

@@ -1,12 +1,12 @@
-from typing import Dict, Any
+from typing import Any, Dict
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.providers.base import BaseProvider
-from mlflow.gateway.providers.utils import send_request, rename_payload_keys
-from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.config import CohereConfig, RouteConfig
+from mlflow.gateway.providers.base import BaseProvider
+from mlflow.gateway.providers.utils import rename_payload_keys, send_request
+from mlflow.gateway.schemas import chat, completions, embeddings
 
 
 class CohereProvider(BaseProvider):

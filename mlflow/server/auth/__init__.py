@@ -8,100 +8,100 @@ Usage
 """
 
 import logging
-import uuid
 import re
-from typing import Callable, Dict, Optional, Any
+import uuid
+from typing import Any, Callable, Dict, Optional
 
-from flask import Flask, request, make_response, Response, flash, render_template_string
 import sqlalchemy
+from flask import Flask, Response, flash, make_response, render_template_string, request
 
 from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.model_registry import RegisteredModel
+from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
+)
+from mlflow.protos.model_registry_pb2 import (
+    CreateModelVersion,
+    CreateRegisteredModel,
+    DeleteModelVersion,
+    DeleteModelVersionTag,
+    DeleteRegisteredModel,
+    DeleteRegisteredModelAlias,
+    DeleteRegisteredModelTag,
+    GetLatestVersions,
+    GetModelVersion,
+    GetModelVersionByAlias,
+    GetModelVersionDownloadUri,
+    GetRegisteredModel,
+    RenameRegisteredModel,
+    SearchRegisteredModels,
+    SetModelVersionTag,
+    SetRegisteredModelAlias,
+    SetRegisteredModelTag,
+    TransitionModelVersionStage,
+    UpdateModelVersion,
+    UpdateRegisteredModel,
+)
+from mlflow.protos.service_pb2 import (
+    CreateExperiment,
+    CreateRun,
+    DeleteExperiment,
+    DeleteRun,
+    DeleteTag,
+    GetExperiment,
+    GetExperimentByName,
+    GetMetricHistory,
+    GetRun,
+    ListArtifacts,
+    LogBatch,
+    LogMetric,
+    LogModel,
+    LogParam,
+    RestoreExperiment,
+    RestoreRun,
+    SearchExperiments,
+    SetExperimentTag,
+    SetTag,
+    UpdateExperiment,
+    UpdateRun,
+)
 from mlflow.server import app
 from mlflow.server.auth.config import read_auth_config
 from mlflow.server.auth.logo import MLFLOW_LOGO
-from mlflow.server.auth.permissions import get_permission, Permission, MANAGE
+from mlflow.server.auth.permissions import MANAGE, Permission, get_permission
 from mlflow.server.auth.routes import (
+    CREATE_EXPERIMENT_PERMISSION,
+    CREATE_REGISTERED_MODEL_PERMISSION,
+    CREATE_USER,
+    DELETE_EXPERIMENT_PERMISSION,
+    DELETE_REGISTERED_MODEL_PERMISSION,
+    DELETE_USER,
+    GET_EXPERIMENT_PERMISSION,
+    GET_REGISTERED_MODEL_PERMISSION,
+    GET_USER,
     HOME,
     SIGNUP,
-    CREATE_USER,
-    GET_USER,
-    UPDATE_USER_PASSWORD,
-    UPDATE_USER_ADMIN,
-    DELETE_USER,
-    CREATE_EXPERIMENT_PERMISSION,
-    GET_EXPERIMENT_PERMISSION,
     UPDATE_EXPERIMENT_PERMISSION,
-    DELETE_EXPERIMENT_PERMISSION,
-    CREATE_REGISTERED_MODEL_PERMISSION,
-    GET_REGISTERED_MODEL_PERMISSION,
     UPDATE_REGISTERED_MODEL_PERMISSION,
-    DELETE_REGISTERED_MODEL_PERMISSION,
+    UPDATE_USER_ADMIN,
+    UPDATE_USER_PASSWORD,
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.handlers import (
+    _get_model_registry_store,
     _get_request_message,
     _get_tracking_store,
-    _get_model_registry_store,
     catch_mlflow_exception,
     get_endpoints,
 )
 from mlflow.store.entities import PagedList
-from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
-    BAD_REQUEST,
-    INVALID_PARAMETER_VALUE,
-    RESOURCE_DOES_NOT_EXIST,
-)
-from mlflow.protos.service_pb2 import (
-    GetExperiment,
-    GetRun,
-    ListArtifacts,
-    GetMetricHistory,
-    CreateRun,
-    UpdateRun,
-    LogMetric,
-    LogParam,
-    SetTag,
-    DeleteExperiment,
-    RestoreExperiment,
-    RestoreRun,
-    DeleteRun,
-    UpdateExperiment,
-    LogBatch,
-    DeleteTag,
-    SetExperimentTag,
-    GetExperimentByName,
-    LogModel,
-    CreateExperiment,
-    SearchExperiments,
-)
-from mlflow.protos.model_registry_pb2 import (
-    GetRegisteredModel,
-    DeleteRegisteredModel,
-    UpdateRegisteredModel,
-    RenameRegisteredModel,
-    GetLatestVersions,
-    CreateModelVersion,
-    GetModelVersion,
-    DeleteModelVersion,
-    UpdateModelVersion,
-    TransitionModelVersionStage,
-    GetModelVersionDownloadUri,
-    SetRegisteredModelTag,
-    DeleteRegisteredModelTag,
-    SetModelVersionTag,
-    DeleteModelVersionTag,
-    SetRegisteredModelAlias,
-    DeleteRegisteredModelAlias,
-    GetModelVersionByAlias,
-    CreateRegisteredModel,
-    SearchRegisteredModels,
-)
-from mlflow.utils.proto_json_utils import parse_dict, message_to_json
-from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
+from mlflow.utils.search_utils import SearchUtils
 
 _logger = logging.getLogger(__name__)
 

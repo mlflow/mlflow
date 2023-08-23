@@ -1,10 +1,10 @@
 import importlib
 import re
-from packaging.version import Version, InvalidVersion
 
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from packaging.version import InvalidVersion, Version
+
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
-
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 # A map FLAVOR_NAME -> a tuple of (dependent_module_name, key_in_ML_PACKAGE_VERSIONS)
 FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY = {

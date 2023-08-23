@@ -1,8 +1,8 @@
 import os
 
 import openai
-import mlflow
 
+import mlflow
 
 assert "OPENAI_API_KEY" in os.environ, " OPENAI_API_KEY environment variable must be set"
 

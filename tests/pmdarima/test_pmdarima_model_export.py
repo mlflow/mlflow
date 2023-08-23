@@ -1,38 +1,37 @@
+import json
 import os
 from pathlib import Path
-import pytest
 from unittest import mock
 
-import pmdarima
 import numpy as np
 import pandas as pd
-import json
+import pmdarima
+import pytest
 import yaml
 
 import mlflow.pmdarima
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import infer_signature, Model, ModelSignature
+from mlflow.models import Model, ModelSignature, infer_signature
 from mlflow.models.utils import _read_example
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
-from mlflow.types.schema import Schema, ColSpec
+from mlflow.types.schema import ColSpec, Schema
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
-from tests.prophet.test_prophet_model_export import DataGeneration
 
 from tests.helper_functions import (
-    _compare_conda_env_requirements,
     _assert_pip_requirements,
-    pyfunc_serve_and_score_model,
-    _is_available_on_pypi,
+    _compare_conda_env_requirements,
     _compare_logged_code_paths,
+    _is_available_on_pypi,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
 )
-
+from tests.prophet.test_prophet_model_export import DataGeneration
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("pmdarima") else ["--env-manager", "local"]

@@ -1,18 +1,18 @@
 import abc
+import functools
 import inspect
 import itertools
-import functools
+import typing
 import uuid
 from abc import abstractmethod
 from contextlib import contextmanager
-import typing
 
 import mlflow
 import mlflow.utils.autologging_utils
 from mlflow.entities.run_status import RunStatus
+from mlflow.environment_variables import _MLFLOW_AUTOLOGGING_TESTING
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils import gorilla
-from mlflow.utils import is_iterator
+from mlflow.utils import gorilla, is_iterator
 from mlflow.utils.autologging_utils import _logger
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
@@ -20,7 +20,6 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (
     set_non_mlflow_warnings_behavior_for_current_thread,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
-from mlflow.environment_variables import _MLFLOW_AUTOLOGGING_TESTING
 
 _AUTOLOGGING_PATCHES = {}
 
@@ -311,7 +310,7 @@ def safe_patch(
                        `patch_function`.
     :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
-    from mlflow.utils.autologging_utils import get_autologging_config, autologging_is_disabled
+    from mlflow.utils.autologging_utils import autologging_is_disabled, get_autologging_config
 
     if manage_run:
         tags = {MLFLOW_AUTOLOGGING: autologging_integration}

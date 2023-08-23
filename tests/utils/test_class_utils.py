@@ -1,5 +1,4 @@
 import mlflow
-
 from mlflow.utils.class_utils import _get_class_from_string
 
 
