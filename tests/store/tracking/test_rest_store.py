@@ -38,9 +38,7 @@ from mlflow.protos.service_pb2 import (
     SetExperimentTag,
     SetTag,
 )
-from mlflow.protos.service_pb2 import (
-    RunTag as ProtoRunTag,
-)
+from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
