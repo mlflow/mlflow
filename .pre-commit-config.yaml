@@ -9,7 +9,7 @@ repos:
     hooks:
       - id: ruff
         name: ruff
-        entry: ruff
+        entry: python dev/ruff.py
         language: system
         types_or: [python]
         stages: [commit]
