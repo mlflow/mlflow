@@ -12,11 +12,6 @@ def parse_s3_uri(uri):
     return parsed.netloc, path
 
 
-def parse_r2_uri(uri):
-    """Parse an R2 URI returning (bucket, path)"""
-    pass
-
-
 def is_uri(string):
     parsed_uri = urllib.parse.urlparse(string)
     return len(parsed_uri.scheme) > 0

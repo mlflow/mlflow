@@ -15,7 +15,6 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.utils import data_utils
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 _MAX_CACHE_SECONDS = 300
@@ -28,6 +27,7 @@ def _get_utcnow_timestamp():
 @lru_cache(maxsize=64)
 def _cached_get_s3_client(
     signature_version,
+    addressing_style,
     s3_endpoint_url,
     verify,
     timestamp,
@@ -60,7 +60,9 @@ def _cached_get_s3_client(
 
     return boto3.client(
         "s3",
-        config=Config(signature_version=signature_version),
+        config=Config(
+            signature_version=signature_version, s3={"addressing_style": addressing_style}
+        ),
         endpoint_url=s3_endpoint_url,
         verify=verify,
         aws_access_key_id=access_key_id,
@@ -69,7 +71,9 @@ def _cached_get_s3_client(
     )
 
 
-def _get_s3_client(access_key_id=None, secret_access_key=None, session_token=None):
+def _get_s3_client(
+    addressing_style="path", access_key_id=None, secret_access_key=None, session_token=None
+):
     s3_endpoint_url = MLFLOW_S3_ENDPOINT_URL.get()
     do_verify = not MLFLOW_S3_IGNORE_TLS.get()
 
@@ -87,6 +91,7 @@ def _get_s3_client(access_key_id=None, secret_access_key=None, session_token=Non
 
     return _cached_get_s3_client(
         signature_version,
+        addressing_style,
         s3_endpoint_url,
         verify,
         timestamp,
@@ -107,15 +112,15 @@ class S3ArtifactRepository(ArtifactRepository):
         self._secret_access_key = secret_access_key
         self._session_token = session_token
 
-    def _get_s3_client(self):
+    def _get_s3_client(self, addressing_style="path"):
         return _get_s3_client(
+            addressing_style=addressing_style,
             access_key_id=self._access_key_id,
             secret_access_key=self._secret_access_key,
             session_token=self._session_token,
         )
 
-    @staticmethod
-    def parse_s3_uri(uri):
+    def parse_s3_compliant_uri(self, uri):
         """Parse an S3 URI, returning (bucket, path)"""
         parsed = urllib.parse.urlparse(uri)
         if parsed.scheme != "s3":
@@ -146,7 +151,7 @@ class S3ArtifactRepository(ArtifactRepository):
         s3_client.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
 
     def log_artifact(self, local_file, artifact_path=None):
-        (bucket, dest_path) = data_utils.parse_s3_uri(self.artifact_uri)
+        (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
@@ -155,7 +160,7 @@ class S3ArtifactRepository(ArtifactRepository):
         )
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        (bucket, dest_path) = data_utils.parse_s3_uri(self.artifact_uri)
+        (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         s3_client = self._get_s3_client()
@@ -175,7 +180,7 @@ class S3ArtifactRepository(ArtifactRepository):
                 )
 
     def list_artifacts(self, path=None):
-        (bucket, artifact_path) = data_utils.parse_s3_uri(self.artifact_uri)
+        (bucket, artifact_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         dest_path = artifact_path
         if path:
             dest_path = posixpath.join(dest_path, path)
@@ -216,13 +221,13 @@ class S3ArtifactRepository(ArtifactRepository):
             )
 
     def _download_file(self, remote_file_path, local_path):
-        (bucket, s3_root_path) = data_utils.parse_s3_uri(self.artifact_uri)
+        (bucket, s3_root_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         s3_full_path = posixpath.join(s3_root_path, remote_file_path)
         s3_client = self._get_s3_client()
         s3_client.download_file(bucket, s3_full_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
-        (bucket, dest_path) = data_utils.parse_s3_uri(self.artifact_uri)
+        (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
 
