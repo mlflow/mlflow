@@ -1442,5 +1442,4 @@ def test_artifact_path_posix(sklearn_knn_model, main_scoped_model_class, tmp_pat
     )
 
     artifacts = _load_pyfunc(pyfunc_model_path).context.artifacts
-    for artifact_name, artifact_uri in artifacts.items():
-        assert "\\" not in artifact_uri
+    assert all("\\" not in artifact_uri for artifact_uri in artifacts.values())
