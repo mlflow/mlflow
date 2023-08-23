@@ -40,9 +40,10 @@ def main():
             stdout, stderr = prc.communicate()
             sys.stdout.write(transform(stdout))
             sys.stderr.write(stderr)
+            sys.exit(prc.returncode)
     else:
-        with subprocess.Popen(cmd):
-            pass
+        with subprocess.Popen(cmd) as prc:
+            sys.exit(prc.returncode)
 
 
 if __name__ == "__main__":
