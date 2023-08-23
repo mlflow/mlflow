@@ -1141,8 +1141,8 @@ def create_promptlab_run_handler():
 
     store = _get_tracking_store()
 
-    if hasattr(store, "_search_datasets"):
-        run = store.create_promptlab_run(
+    if hasattr(store, "_create_promptlab_run"):
+        run = store._create_promptlab_run(
             experiment_id=experiment_id,
             run_name=run_name,
             tags=tags,
