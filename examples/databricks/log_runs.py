@@ -7,13 +7,12 @@ $ python examples/databricks/log_runs.py --host <host> --token <token> --user <u
 See also:
 https://docs.databricks.com/dev-tools/api/latest/authentication.html#generate-a-personal-access-token
 """
+import argparse
 import os
 import uuid
-import argparse
 
-from sklearn import svm, datasets
-from sklearn.model_selection import GridSearchCV
-from sklearn.model_selection import ParameterGrid
+from sklearn import datasets, svm
+from sklearn.model_selection import GridSearchCV, ParameterGrid
 
 import mlflow
 
