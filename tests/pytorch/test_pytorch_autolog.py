@@ -1,22 +1,18 @@
-from packaging.version import Version
-
 import pytest
-
-import torch
-
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-from pytorch_lightning.callbacks import ModelCheckpoint
-
+import torch
 from iris import IrisClassification, IrisClassificationWithoutValidation
 from iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
+from packaging.version import Version
+from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 import mlflow
-from mlflow import MlflowClient
 import mlflow.pytorch
+from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
-from mlflow.utils.file_utils import TempDir
 from mlflow.pytorch._lightning_autolog import _get_optimizer_name
+from mlflow.utils.file_utils import TempDir
 
 NUM_EPOCHS = 20
 

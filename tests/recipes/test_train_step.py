@@ -1,31 +1,29 @@
 import importlib
-import os
-import sys
-from unittest.mock import Mock, MagicMock
-from unittest import mock
 import math
+import os
 import random
-import cloudpickle
+import sys
 from pathlib import Path
-import pytest
+from unittest import mock
+from unittest.mock import MagicMock, Mock
 
+import cloudpickle
 import pandas as pd
-
-import mlflow
+import pytest
 import sklearn.compose
 
+import mlflow
+from mlflow.environment_variables import MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME
+from mlflow.recipes.steps.train import TrainStep
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
+from mlflow.recipes.utils.execution import get_step_output_path
 from mlflow.tracking import MlflowClient
 from mlflow.utils.file_utils import read_yaml
-from mlflow.recipes.utils.execution import get_step_output_path
-from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
-from mlflow.recipes.steps.train import TrainStep
-from mlflow.environment_variables import MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME
-
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_SOURCE_TYPE,
-    MLFLOW_RECIPE_TEMPLATE_NAME,
     MLFLOW_RECIPE_PROFILE_NAME,
     MLFLOW_RECIPE_STEP_NAME,
+    MLFLOW_RECIPE_TEMPLATE_NAME,
+    MLFLOW_SOURCE_TYPE,
 )
 
 

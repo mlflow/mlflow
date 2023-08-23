@@ -3,12 +3,13 @@ Small script used to generate mock data to test the UI.
 """
 
 import argparse
-import mlflow
 import itertools
 import random
 import string
-from mlflow import MlflowClient
 from random import random as rand
+
+import mlflow
+from mlflow import MlflowClient
 
 
 def log_metrics(metrics):

@@ -1,21 +1,21 @@
+import builtins
 import sys
 from unittest import mock
+
 import pytest
-import builtins
+from databricks_cli.configure.provider import DatabricksConfig
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils import databricks_utils
 from mlflow.utils.databricks_utils import (
+    check_databricks_secret_scope_access,
     get_mlflow_credential_context_by_run_id,
-    get_workspace_info_from_dbutils,
     get_workspace_info_from_databricks_secrets,
+    get_workspace_info_from_dbutils,
     is_databricks_default_tracking_uri,
     is_running_in_ipython_environment,
-    check_databricks_secret_scope_access,
 )
 from mlflow.utils.uri import construct_db_uri_from_profile
-
-from databricks_cli.configure.provider import DatabricksConfig
 
 from tests.helper_functions import mock_method_chain
 

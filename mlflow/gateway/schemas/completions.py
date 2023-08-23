@@ -1,8 +1,8 @@
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 
 from mlflow.gateway.base_models import ResponseModel
-from mlflow.gateway.schemas.chat import BaseRequestPayload, FinishReason
 from mlflow.gateway.config import RouteType
+from mlflow.gateway.schemas.chat import BaseRequestPayload, FinishReason
 
 
 class RequestPayload(BaseRequestPayload):

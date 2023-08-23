@@ -1,31 +1,32 @@
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import RedirectResponse, FileResponse
-from fastapi.openapi.docs import get_swagger_ui_html
-from pydantic import BaseModel
 import logging
 from pathlib import Path
-from typing import Any, Optional, Dict, Union, List
+from typing import Any, Dict, List, Optional, Union
 
-from mlflow.version import VERSION
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import FileResponse, RedirectResponse
+from pydantic import BaseModel
+
+from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.constants import (
-    MLFLOW_GATEWAY_HEALTH_ENDPOINT,
-    MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
-    MLFLOW_GATEWAY_ROUTE_BASE,
-    MLFLOW_QUERY_SUFFIX,
-    MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE,
-)
 from mlflow.gateway.config import (
+    GatewayConfig,
     Route,
     RouteConfig,
     RouteType,
-    GatewayConfig,
     _load_route_config,
 )
-from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.constants import (
+    MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
+    MLFLOW_GATEWAY_HEALTH_ENDPOINT,
+    MLFLOW_GATEWAY_ROUTE_BASE,
+    MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE,
+    MLFLOW_QUERY_SUFFIX,
+)
 from mlflow.gateway.providers import get_provider
+from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.utils import SearchRoutesToken
-from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
+from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
 

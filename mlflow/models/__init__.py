@@ -31,21 +31,20 @@ The built-in flavors are:
 For details, see `MLflow Models <../models.html>`_.
 """
 
-from mlflow.models.model import Model, get_model_info
-from mlflow.models.flavor_backend import FlavorBackend
-from mlflow.utils.environment import infer_pip_requirements
 from mlflow.models.evaluation import (
-    evaluate,
-    make_metric,
-    EvaluationMetric,
     EvaluationArtifact,
+    EvaluationMetric,
     EvaluationResult,
-    list_evaluators,
     MetricThreshold,
+    evaluate,
+    list_evaluators,
+    make_metric,
 )
-
+from mlflow.models.flavor_backend import FlavorBackend
 from mlflow.models.flavor_backend_registry import get_flavor_backend
+from mlflow.models.model import Model, get_model_info
 from mlflow.utils import env_manager as _EnvManager
+from mlflow.utils.environment import infer_pip_requirements
 
 
 def build_docker(
@@ -107,8 +106,7 @@ __all__ = [
 # because of lack of numpy/pandas library, so wrap them with try...except block
 try:
     from mlflow.models.signature import ModelSignature, infer_signature, set_signature
-    from mlflow.models.utils import ModelInputExample, validate_schema
-    from mlflow.models.utils import add_libraries_to_model
+    from mlflow.models.utils import ModelInputExample, add_libraries_to_model, validate_schema
 
     __all__ += [
         "ModelSignature",

@@ -5,16 +5,15 @@
 import math
 import os
 
-import numpy as np
-import pandas as pd
 import lightning as L
+import pandas as pd
 import torch
 import torch.nn.functional as F
 import torchtext.datasets as td
 from lightning.pytorch.callbacks import (
     EarlyStopping,
-    ModelCheckpoint,
     LearningRateMonitor,
+    ModelCheckpoint,
 )
 from lightning.pytorch.cli import LightningCLI
 from sklearn.datasets import fetch_20newsgroups
@@ -174,9 +173,9 @@ class BertDataModule(L.LightningDataModule):
                 self.test_count = int(self.train_count / 10)
                 self.train_count = self.train_count - (self.val_count + self.test_count)
 
-            print("Number of samples used for training: {}".format(self.train_count))
-            print("Number of samples used for validation: {}".format(self.val_count))
-            print("Number of samples used for test: {}".format(self.test_count))
+            print(f"Number of samples used for training: {self.train_count}")
+            print(f"Number of samples used for validation: {self.val_count}")
+            print(f"Number of samples used for test: {self.test_count}")
 
     def create_data_loader(self, source, count):
         """

@@ -6,7 +6,7 @@ specification (e.g. requirements/core-requirements.yaml) to the maximum availabl
 import argparse
 
 import requests
-from packaging.version import Version, InvalidVersion
+from packaging.version import InvalidVersion, Version
 from ruamel.yaml import YAML
 
 

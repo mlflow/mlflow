@@ -1,14 +1,16 @@
-import pytest
-from requests.exceptions import HTTPError, Timeout
 from unittest import mock
 
-from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
-from mlflow.environment_variables import MLFLOW_GATEWAY_URI
-from mlflow.exceptions import MlflowException, InvalidUrlException
+import pytest
+from requests.exceptions import HTTPError, Timeout
+
 import mlflow.gateway.utils
-from mlflow.gateway.utils import resolve_route_url
-from mlflow.gateway import set_gateway_uri, MlflowGatewayClient
+from mlflow.environment_variables import MLFLOW_GATEWAY_URI
+from mlflow.exceptions import InvalidUrlException, MlflowException
+from mlflow.gateway import MlflowGatewayClient, set_gateway_uri
 from mlflow.gateway.config import Route
+from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
+from mlflow.gateway.utils import resolve_route_url
+
 from tests.gateway.tools import Gateway, save_yaml
 
 
@@ -645,3 +647,14 @@ def test_client_query_mlflow_embeddings_route(oss_gateway):
     with mock.patch.object(gateway_client, "_call_endpoint", return_value=mock_response):
         response = gateway_client.query(route="embeddings-oss", data=data)
         assert response == expected_output
+
+
+def test_search_routes_no_routes():
+    gateway_client = MlflowGatewayClient(gateway_uri="http://localhost:5000")
+    resp = mock.Mock(status_code=200)
+    resp.json.return_value = {}
+    with mock.patch("requests.Session.request", return_value=resp) as request_mock:
+        routes = gateway_client.search_routes()
+        request_mock.assert_called_once()
+        assert routes == []
+        assert routes.token is None

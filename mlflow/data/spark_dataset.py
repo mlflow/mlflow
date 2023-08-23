@@ -11,7 +11,7 @@ from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFu
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationDataset
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.annotations import experimental
@@ -305,13 +305,13 @@ def from_spark(
     :return: An instance of :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>`.
     """
     from mlflow.data.code_dataset_source import CodeDatasetSource
-    from mlflow.tracking.context import registry
     from mlflow.data.spark_delta_utils import (
         _is_delta_table,
         _is_delta_table_path,
         _try_get_delta_table_latest_version_from_path,
         _try_get_delta_table_latest_version_from_table_name,
     )
+    from mlflow.tracking.context import registry
 
     if (path, table_name, sql).count(None) < 2:
         raise MlflowException(

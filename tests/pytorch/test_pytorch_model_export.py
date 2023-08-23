@@ -1,44 +1,44 @@
-from pathlib import Path
-import torch
-from torch import nn
-from torch.utils.data import DataLoader
 import importlib
-import os
 import json
 import logging
+import os
 import pickle
 import re
+from pathlib import Path
 from unittest import mock
 
-import pytest
 import numpy as np
 import pandas as pd
-from sklearn import datasets
+import pytest
+import torch
 import yaml
+from sklearn import datasets
+from torch import nn
+from torch.utils.data import DataLoader
 
-from mlflow import pyfunc
-import mlflow.pytorch
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow.pytorch import get_default_conda_env
+import mlflow.pytorch
+from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example
+from mlflow.pytorch import get_default_conda_env
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env, _mlflow_additional_pip_env
+from mlflow.types.schema import Schema, TensorSpec
+from mlflow.utils.environment import _mlflow_additional_pip_env, _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.types.schema import Schema, TensorSpec
 
 from tests.helper_functions import (
-    _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _compare_conda_env_requirements,
+    _compare_logged_code_paths,
     _is_available_on_pypi,
     _is_importable,
-    _compare_logged_code_paths,
-    assert_array_almost_equal,
     _mlflow_major_version_string,
+    assert_array_almost_equal,
     assert_register_model_called_with_local_model_path,
 )
 
@@ -286,8 +286,9 @@ def test_raise_exception(sequential_model):
         with pytest.raises(MlflowException, match=f"Path '{os.path.abspath(path)}' already exists"):
             mlflow.pytorch.save_model(sequential_model, path)
 
-        from mlflow import sklearn
         import sklearn.neighbors as knn
+
+        from mlflow import sklearn
 
         path = tmp.path("knn.pkl")
         knn = knn.KNeighborsClassifier()
@@ -858,7 +859,8 @@ def test_pyfunc_serve_and_score(data):
 
 @pytest.mark.skipif(not _is_importable("transformers"), reason="This test requires transformers")
 def test_pyfunc_serve_and_score_transformers():
-    from transformers import BertModel, BertConfig  # pylint: disable=import-error
+    from transformers import BertConfig, BertModel  # pylint: disable=import-error
+
     from mlflow.deployments import PredictionsResponse
 
     class MyBertModel(BertModel):

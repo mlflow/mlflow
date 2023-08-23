@@ -1,27 +1,27 @@
 import json
-import pytest
 from unittest import mock
 
-from numba import njit
 import numpy as np
-from packaging.version import Version
 import pandas as pd
-import sklearn
-from sklearn.datasets import load_diabetes, fetch_california_housing
+import pytest
 import shap
+import sklearn
+from numba import njit
+from packaging.version import Version
+from sklearn.datasets import fetch_california_housing, load_diabetes
 
 import mlflow
-from mlflow import MlflowClient
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+from mlflow import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import (
-    pyfunc_serve_and_score_model,
     _assert_pip_requirements,
     _compare_logged_code_paths,
     _mlflow_major_version_string,
+    pyfunc_serve_and_score_model,
 )
 
 

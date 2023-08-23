@@ -1,6 +1,6 @@
 import astroid
-from pylint.interfaces import IAstroidChecker
 from pylint.checkers import BaseChecker
+from pylint.interfaces import IAstroidChecker
 from pylint.lint import PyLinter
 
 from pylint_plugins.errors import LAZY_BUILTIN_IMPORT, to_msgs

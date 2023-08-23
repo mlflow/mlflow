@@ -1,5 +1,7 @@
-import entrypoints
 import warnings
+
+import entrypoints
+
 from mlflow.exceptions import MlflowException
 from mlflow.utils.import_hooks import register_post_import_hook
 

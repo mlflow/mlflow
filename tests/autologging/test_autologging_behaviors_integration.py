@@ -2,7 +2,6 @@
 
 import importlib
 import logging
-import pytest
 import sys
 import warnings
 from concurrent.futures import ThreadPoolExecutor
@@ -10,18 +9,21 @@ from io import StringIO
 from itertools import permutations
 from unittest import mock
 
+import pytest
+
 import mlflow
 from mlflow import MlflowClient
 from mlflow.utils import gorilla
 from mlflow.utils.autologging_utils import (
-    safe_patch,
-    get_autologging_config,
     autologging_is_disabled,
+    get_autologging_config,
+    safe_patch,
 )
 
-from tests.autologging.fixtures import test_mode_off
-from tests.autologging.fixtures import reset_stderr  # noqa: F401
-
+from tests.autologging.fixtures import (
+    reset_stderr,  # noqa: F401
+    test_mode_off,
+)
 
 AUTOLOGGING_INTEGRATIONS_TO_TEST = {
     mlflow.sklearn: "sklearn",
@@ -206,7 +208,7 @@ def test_autolog_reverts_patched_code_when_disabled():
 
 def test_autolog_respects_disable_flag_across_import_orders():
     def test():
-        from sklearn import svm, datasets
+        from sklearn import datasets, svm
 
         iris = datasets.load_iris()
         svc = svm.SVC(C=2.0, degree=5, kernel="rbf")
@@ -312,9 +314,9 @@ def test_autolog_globally_configured_flag_set_correctly():
     from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
     AUTOLOGGING_INTEGRATIONS.clear()
-    import sklearn  # noqa: F401
     import pyspark
     import pyspark.ml  # noqa: F401
+    import sklearn  # noqa: F401
 
     integrations_to_test = ["sklearn", "spark", "pyspark.ml"]
     mlflow.autolog()

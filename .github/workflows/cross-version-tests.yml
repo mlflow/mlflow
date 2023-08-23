@@ -54,6 +54,7 @@ jobs:
           submodules: recursive
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
@@ -181,4 +182,3 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           ${{ matrix.run }}
-      - uses: ./.github/actions/untracked

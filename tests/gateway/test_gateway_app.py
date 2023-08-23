@@ -1,12 +1,13 @@
 from unittest import mock
 
-from fastapi.testclient import TestClient
 import pytest
+from fastapi.testclient import TestClient
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.app import create_app_from_config, create_app_from_env
-from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_BASE, MLFLOW_GATEWAY_CRUD_ROUTE_BASE
 from mlflow.gateway.config import GatewayConfig
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CRUD_ROUTE_BASE, MLFLOW_GATEWAY_ROUTE_BASE
+
 from tests.gateway.tools import MockAsyncResponse
 
 

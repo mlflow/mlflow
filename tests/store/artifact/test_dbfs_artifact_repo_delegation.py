@@ -1,12 +1,14 @@
 import os
-import pytest
 from unittest import mock
 
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
-from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
-from mlflow.store.artifact.dbfs_artifact_repo import DatabricksArtifactRepository
+import pytest
 
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.dbfs_artifact_repo import (
+    DatabricksArtifactRepository,
+    DbfsRestArtifactRepository,
+)
+from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.utils.rest_utils import MlflowHostCreds
 
 

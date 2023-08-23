@@ -3,22 +3,22 @@ Example of a custom python function implementing image classifier with image pre
 in the model.
 """
 import base64
+import os
 from io import BytesIO
+from typing import Any, Dict, Optional
+
 import keras
 import numpy as np
-import os
 import pandas as pd
 import PIL
-from PIL import Image
 import pip
-import yaml
 import tensorflow as tf
-from typing import Any, Dict, Optional
+import yaml
+from PIL import Image
 
 import mlflow
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.environment import _mlflow_conda_env
 
 
 def decode_and_resize_image(raw_bytes, size):
@@ -52,7 +52,7 @@ class KerasImageClassifierPyfunc:
         self._model = model
         self._image_dims = image_dims
         self._domain = domain
-        probs_names = ["p({})".format(x) for x in domain]
+        probs_names = [f"p({x})" for x in domain]
         self._column_names = ["predicted_label", "predicted_label_id"] + probs_names
 
     def predict(

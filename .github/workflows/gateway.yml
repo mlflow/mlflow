@@ -25,21 +25,23 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
-          pip install -e .[gateway]
-          pip install pytest pytest-timeout pytest-asyncio httpx sentence-transformers transformers
-          # Ensure pydantic v1 is installed
-          pip freeze | tail -n +1 | grep -q '^pydantic==1\.'
-      - name: Run tests with pydantic v1
-        run: |
-          pytest tests/gateway
-      - name: Upgrade pydantic to v2
-        run: |
-          pip install 'pydantic>=2.0'
+          pip install .[gateway] \
+            pytest pytest-timeout pytest-asyncio \
+            httpx sentence-transformers transformers
           # Ensure pydantic v2 is installed
           pip freeze | tail -n +1 | grep -q '^pydantic==2\.'
       - name: Run tests with pydantic v2
+        run: |
+          pytest tests/gateway
+      - name: Downgrade pydantic to v1
+        run: |
+          pip install 'pydantic<2.0'
+          # Ensure pydantic v1 is installed
+          pip freeze | tail -n +1 | grep -q '^pydantic==1\.'
+      - name: Run tests with pydantic v1
         run: |
           pytest tests/gateway

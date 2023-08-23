@@ -5,10 +5,10 @@ import os
 
 import yaml
 
+from mlflow.environment_variables import MLFLOW_CONDA_CREATE_ENV_CMD, MLFLOW_CONDA_HOME
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import process
 from mlflow.utils.environment import Environment
-from mlflow.environment_variables import MLFLOW_CONDA_HOME, MLFLOW_CONDA_CREATE_ENV_CMD
 
 _logger = logging.getLogger(__name__)
 

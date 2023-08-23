@@ -1,14 +1,15 @@
+from pathlib import Path
 from unittest import mock
-import pytest
+
 import cloudpickle
+import pytest
 import sklearn
 from sklearn.linear_model import LinearRegression
-from pathlib import Path
 
+import mlflow.utils.requirements_utils
 from mlflow.exceptions import MlflowException
 from mlflow.pyfunc import _warn_dependency_requirement_mismatches, get_model_dependencies
 from mlflow.utils import PYTHON_VERSION
-import mlflow.utils.requirements_utils
 
 from tests.helper_functions import AnyStringWith
 

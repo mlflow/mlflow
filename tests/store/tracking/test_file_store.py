@@ -3,48 +3,47 @@ import json
 import os
 import posixpath
 import random
+import re
 import shutil
 import time
 import uuid
 from pathlib import Path
-import re
 from typing import List
-
-import pytest
 from unittest import mock
 
+import pytest
+
 from mlflow.entities import (
-    Metric,
-    Param,
-    RunTag,
-    ViewType,
-    LifecycleStage,
-    RunStatus,
-    RunData,
-    ExperimentTag,
     Dataset,
     DatasetInput,
+    ExperimentTag,
     InputTag,
+    LifecycleStage,
+    Metric,
+    Param,
+    RunData,
+    RunStatus,
+    RunTag,
+    ViewType,
     _DatasetSummary,
 )
-from mlflow.store.entities.paged_list import PagedList
-from mlflow.exceptions import MlflowException, MissingConfigException
+from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.models import Model
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.tracking.file_store import FileStore
-from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
-from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_LOGGED_MODELS
-from mlflow.utils.os import is_windows
-from mlflow.utils.uri import append_to_uri_path
-from mlflow.utils.name_utils import _GENERATOR_PREDICATES, _EXPERIMENT_ID_FIXED_WIDTH
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
-from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
-    RESOURCE_DOES_NOT_EXIST,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking.file_store import FileStore
+from mlflow.utils.file_utils import TempDir, path_to_local_file_uri, read_yaml, write_yaml
+from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME
+from mlflow.utils.name_utils import _EXPERIMENT_ID_FIXED_WIDTH, _GENERATOR_PREDICATES
+from mlflow.utils.os import is_windows
+from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.uri import append_to_uri_path
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
 
@@ -2190,7 +2189,6 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}?param=value",
         ),
-        ("file:///path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
         (
             "file:///path/to/local/folder?param=value#fragment",
             "file:///{drive}path/to/local/folder/{e}?param=value#fragment",
@@ -2216,7 +2214,6 @@ def test_create_experiment_appends_to_artifact_local_path_file_uri_correctly_on_
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}?param=value",
         ),
-        ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
         (
             "file:///path/to/local/folder?param=value#fragment",
             "file:///path/to/local/folder/{e}?param=value#fragment",

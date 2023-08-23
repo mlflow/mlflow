@@ -1,9 +1,9 @@
 from unittest import mock
+
 import pytest
 
 import mlflow
 from mlflow.utils.rest_utils import MlflowHostCreds
-
 
 _DATABRICKS_UC_REGISTRY_URI = "databricks-uc"
 _DATABRICKS_TRACKING_URI = "databricks"

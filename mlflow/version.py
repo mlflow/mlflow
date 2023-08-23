@@ -1,7 +1,6 @@
 # Copyright 2018 Databricks, Inc.
 import re
 
-
 VERSION = "2.6.1.dev0"
 
 

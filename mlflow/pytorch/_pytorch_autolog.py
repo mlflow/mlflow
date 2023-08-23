@@ -1,16 +1,16 @@
 import time
-import mlflow
 from contextlib import contextmanager
-from mlflow.tracking import MlflowClient
-from mlflow.entities import Param, Metric
+
+import mlflow
+from mlflow.entities import Metric, Param
 from mlflow.tensorflow import (
+    _MAX_METRIC_QUEUE_SIZE,
     _flush_queue,
     _metric_queue,
     _metric_queue_lock,
     _thread_pool,
-    _MAX_METRIC_QUEUE_SIZE,
 )
-
+from mlflow.tracking import MlflowClient
 
 DISABLED = False
 

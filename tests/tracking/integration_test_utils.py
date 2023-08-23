@@ -1,14 +1,14 @@
+import contextlib
+import logging
+import os
+import socket
+import sys
+import time
 from subprocess import Popen
 
-import sys
-import os
-import logging
-import socket
-import time
-import contextlib
-
 import mlflow
-from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
+from mlflow.server import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
+
 from tests.helper_functions import LOCALHOST, get_safe_port
 
 _logger = logging.getLogger(__name__)

@@ -5,73 +5,74 @@ import base64
 import binascii
 import contextlib
 import functools
-from functools import lru_cache
 import json
 import logging
-import numpy as np
 import os
 import pathlib
-import pandas as pd
 import re
 import sys
-from typing import Union, List, Optional, Dict, Any, NamedTuple
+from functools import lru_cache
+from typing import Any, Dict, List, NamedTuple, Optional, Union
 from urllib.parse import urlparse
+
+import numpy as np
+import pandas as pd
 import yaml
 
 from mlflow import pyfunc
+from mlflow.environment_variables import (
+    MLFLOW_DEFAULT_PREDICTION_DEVICE,
+    MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY,
+    MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES,
+    MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE,
+    MLFLOW_HUGGINGFACE_USE_DEVICE_MAP,
+    MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import (
     Model,
     ModelInputExample,
     ModelSignature,
-    infer_signature,
     infer_pip_requirements,
+    infer_signature,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.types.schema import Schema, ColSpec, TensorSpec
+from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
-    safe_patch,
     disable_discrete_autologging,
+    safe_patch,
 )
 from mlflow.utils.docstring_utils import (
-    format_docstring,
     LOG_MODEL_PARAM_DOCS,
     docstring_version_compatibility_warning,
-)
-from mlflow.utils.environment import _find_duplicate_requirements
-from mlflow.environment_variables import (
-    MLFLOW_DEFAULT_PREDICTION_DEVICE,
-    MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES,
-    MLFLOW_HUGGINGFACE_USE_DEVICE_MAP,
-    MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY,
-    MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE,
-    MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE,
+    format_docstring,
 )
 from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _validate_env_arguments,
     _CONDA_ENV_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _find_duplicate_requirements,
+    _mlflow_conda_env,
     _process_conda_env,
     _process_pip_requirements,
-    _CONSTRAINTS_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
     _PythonEnv,
+    _validate_env_arguments,
 )
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
-    _validate_and_copy_code_paths,
-    _validate_and_prepare_target_save_path,
+    _add_code_from_conf_to_system_path,
     _download_artifact_from_uri,
     _get_flavor_configuration,
     _get_flavor_configuration_from_uri,
-    _add_code_from_conf_to_system_path,
+    _validate_and_copy_code_paths,
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
@@ -142,7 +143,7 @@ def get_default_pip_requirements(model) -> List[str]:
              produce a pip environment that contain these requirements at a minimum.
     """
 
-    from transformers import TFPreTrainedModel, FlaxPreTrainedModel, PreTrainedModel
+    from transformers import FlaxPreTrainedModel, PreTrainedModel, TFPreTrainedModel
 
     if not isinstance(model, (TFPreTrainedModel, FlaxPreTrainedModel, PreTrainedModel)):
         raise MlflowException(
@@ -1223,7 +1224,7 @@ def _get_engine_type(model):
     Determines the underlying execution engine for the model based on the 3 currently supported
     deep learning framework backends: ``tensorflow``, ``torch``, or ``flax``.
     """
-    from transformers import PreTrainedModel, TFPreTrainedModel, FlaxPreTrainedModel
+    from transformers import FlaxPreTrainedModel, PreTrainedModel, TFPreTrainedModel
 
     for cls in model.__class__.__mro__:
         if issubclass(cls, TFPreTrainedModel):
@@ -1471,14 +1472,14 @@ class _TransformersModel(NamedTuple):
         cls, model, tokenizer, feature_extractor, image_processor, processor
     ):
         from transformers import (
-            PreTrainedModel,
-            TFPreTrainedModel,
-            FlaxPreTrainedModel,
-            PreTrainedTokenizerBase,
             FeatureExtractionMixin,
+            FlaxPreTrainedModel,
             ImageFeatureExtractionMixin,
             ImageProcessingMixin,
+            PreTrainedModel,
+            PreTrainedTokenizerBase,
             ProcessorMixin,
+            TFPreTrainedModel,
         )
 
         validation = [

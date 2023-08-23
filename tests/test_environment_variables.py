@@ -1,6 +1,8 @@
-from mlflow.environment_variables import _BooleanEnvironmentVariable, _EnvironmentVariable
 import os
+
 import pytest
+
+from mlflow.environment_variables import _BooleanEnvironmentVariable, _EnvironmentVariable
 
 
 @pytest.mark.parametrize("value", [0, 1, "0", "1", "TRUE", "FALSE"])

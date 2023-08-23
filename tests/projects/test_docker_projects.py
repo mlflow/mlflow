@@ -1,28 +1,30 @@
 import os
-
-import docker
-import pytest
 from unittest import mock
 
+import pytest
 from databricks_cli.configure.provider import DatabricksConfig
 
+import docker
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import ViewType
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 from mlflow.projects import ExecutionException, _project_spec
-from mlflow.projects.docker import _get_docker_image_uri
 from mlflow.projects.backend.local import _get_docker_command
+from mlflow.projects.docker import _get_docker_image_uri
 from mlflow.store.tracking import file_store
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_PROJECT_ENV,
-    MLFLOW_PROJECT_BACKEND,
-    MLFLOW_DOCKER_IMAGE_URI,
     MLFLOW_DOCKER_IMAGE_ID,
+    MLFLOW_DOCKER_IMAGE_URI,
+    MLFLOW_PROJECT_BACKEND,
+    MLFLOW_PROJECT_ENV,
 )
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
-from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
-from tests.projects.utils import docker_example_base_image  # noqa: F401
+
+from tests.projects.utils import (
+    TEST_DOCKER_PROJECT_DIR,
+    docker_example_base_image,  # noqa: F401
+)
 
 
 def _build_uri(base_uri, subdirectory):
