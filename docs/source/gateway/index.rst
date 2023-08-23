@@ -459,6 +459,7 @@ Customers are responsible for ensuring compliance with applicable model licenses
      - Databricks Model Serving
      - Endpoints with compatible schemas
      - Yes
+
 † Llama 2 is licensed under the [LLAMA 2 Community License](https://ai.meta.com/llama/license/), Copyright © Meta Platforms, Inc. All Rights Reserved. 
 
 When creating a route, the provider field is used to specify the name
