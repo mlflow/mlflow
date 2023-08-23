@@ -62,18 +62,18 @@ def create_model_file(
             "pandas_orient": "split",
         },
         "signature": {
-            "inputs": json.dumps(inputs_signature, indent=4),
-            "outputs": json.dumps(outputs_signature, indent=4),
+            "inputs": json.dumps(inputs_signature),
+            "outputs": json.dumps(outputs_signature),
         },
     }
 
-    model_json = json.dumps(model_file, indent=4)
+    model_json = json.dumps(model_file)
     return model_json
 
 
 def create_input_example_file(prompt_parameters: List[Param]) -> str:
     input_example = {"inputs": [param.value for param in prompt_parameters]}
-    input_example_json = json.dumps(input_example, indent=4)
+    input_example_json = json.dumps(input_example)
     return input_example_json
 
 
@@ -137,5 +137,5 @@ def create_eval_results_file(prompt_parameters, model_input, model_output_parame
 
     eval_results = {"columns": updated_columns, "data": [updated_data]}
 
-    eval_results_json = json.dumps(eval_results, indent=4)
+    eval_results_json = json.dumps(eval_results)
     return eval_results_json

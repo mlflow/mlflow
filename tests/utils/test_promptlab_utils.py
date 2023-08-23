@@ -64,12 +64,32 @@ def test_requirements_txt():
 
 def test_create_model_file():
     model_file = create_model_file(run_uuid, mlflow_version, prompt_parameters, model_uuid)
-    expected_model_file = """
-    { ... } # This contains the expected JSON output 
-    """
-
     model_json = json.loads(model_file)
-    expected_model_json = json.loads(expected_model_file)
+
+    expected_model_json = {
+        "artifact_path": "model",
+        "flavors": {
+            "python_function": {
+                "env": {"conda": "conda.yaml", "virtualenv": "python_env.yaml"},
+                "loader_module": "gateway_loader_module",
+                "code": "loader",
+            }
+        },
+        "mlflow_version": "1.0.0",
+        "model_uuid": "456",
+        "run_id": "123",
+        "utc_time_created": "2023-08-22 18:37:14.724592",
+        "metadata": {"mlflow_uses_gateway": "true"},
+        "saved_input_example_info": {
+            "artifact_path": "input_example.json",
+            "type": "dataframe",
+            "pandas_orient": "split",
+        },
+        "signature": {
+            "inputs": '[{"name": "question", "type": "string"}, {"name": "context", "type": "string"}]',
+            "outputs": '[{"name": "output", "type": "string"}]',
+        },
+    }
 
     # Drop the utc_time_created field since it is dynamic
     # and model_uuid since it is random
@@ -87,24 +107,70 @@ def test_loader_module():
         prompt_parameters, prompt_template, model_parameters, model_route
     )
     expected_loader_file = """
-    ... # This contains the expected Python code 
-    """
-    assert loader_file.strip() == expected_loader_file.strip()
+# loader/gateway_loader_module.py
+from typing import List, Dict
+from string import Template
+import pandas as pd
+import mlflow.gateway
 
+mlflow.gateway.set_gateway_uri("databricks")
+
+class GatewayModel:
+    def __init__(self, model_path):
+        self.prompt_template = Template(\"\"\"
+answer this question: $question using the following context: $context
+\"\"\")
+
+    def predict(self, inputs: pd.DataFrame) -> List[str]:
+        results = []
+        for idx in inputs.index:
+            prompt = self.prompt_template.substitute(
+                question=inputs['question'][idx],
+                                context=inputs['context'][idx]
+            )
+            result = mlflow.gateway.query(
+                route="gpt4",
+                data={
+                    "prompt": prompt,
+                    "temperature": 0.5,
+                                        "max_tokens": 100
+                }
+            )
+            results.append(result["candidates"][0]["text"])
+        return results
+
+def _load_pyfunc(model_path):
+    return GatewayModel(model_path)
+    """
+    generated_lines = loader_file.strip().split("\n")
+    expected_lines = expected_loader_file.strip().split("\n")
+    
+    assert len(generated_lines) == len(expected_lines)
+    
+    for g, e in zip(generated_lines, expected_lines):
+        assert g.strip() == e.strip()
 
 def test_eval_results_file():
     eval_results_file = create_eval_results_file(
         prompt_parameters, model_input, model_output_parameters, model_output
     )
-    expected_eval_results_file = """
-    { ... } # This contains the expected JSON output
-    """
-    assert json.loads(eval_results_file) == json.loads(expected_eval_results_file)
+    expected_eval_results_json = {
+        "columns": ["question", "context", "prompt", "output", "tokens", "latency"],
+        "data": [
+            [
+                "my_question",
+                "my_context",
+                "answer this question: my_question using the following context: my_context",
+                "my_answer",
+                "10",
+                "100",
+            ]
+        ],
+    }
+    assert json.loads(eval_results_file) == expected_eval_results_json
 
 
 def test_input_example_file():
     input_example_file = create_input_example_file(prompt_parameters)
-    expected_input_example_file = """
-    { ... } # This contains the expected JSON output
-    """
-    assert json.loads(input_example_file) == json.loads(expected_input_example_file)
+    expected_input_example_json = {"inputs": ["my_question", "my_context"]}
+    assert json.loads(input_example_file) == expected_input_example_json
