@@ -407,8 +407,3 @@ class _PendingRunOperations:
         self.tags_queue += tags or []
         self.metrics_queue += metrics or []
         self.datasets_queue += datasets or []
-
-
-__all__ = [
-    "MlflowAutologgingQueueingClient",
-]
