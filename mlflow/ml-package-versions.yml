@@ -35,7 +35,9 @@ pytorch:
     minimum: "1.6.0"
     maximum: "2.0.1"
     requirements:
-      ">= 0.0.0": ["torchvision", "scikit-learn", "transformers"]
+      ">= 0.0.0": ["torchvision", "scikit-learn"]
+      ">= 1.8": ["transformers"]
+      "< 1.8": ["transformers<4.32.0"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
