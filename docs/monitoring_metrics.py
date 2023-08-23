@@ -51,6 +51,9 @@ def write_table(metrics, headers, filename):
 
 def main():
     metrics = get_metrics()
+    if len(metrics) == 0:
+        raise ValueError("No metrics could be exported to documentation.")
+
     headers = ["Name", "Type", "Description"]
     generated_docs_dir = Path("generated/monitoring")
 
