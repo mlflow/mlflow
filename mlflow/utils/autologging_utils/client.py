@@ -8,29 +8,28 @@ MlflowAutologgingQueueingClient to MlflowClient in order to provide broader bene
 Remove this developer API.
 """
 
-import os
 import logging
+import os
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
 from typing import Any, Dict, List, Optional, Union
 
-from mlflow.entities import Param, RunTag, Metric
+from mlflow.entities import Metric, Param, RunTag
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils import chunk_list, _truncate_dict
+from mlflow.utils import _truncate_dict, chunk_list
+from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.validation import (
+    MAX_DATASETS_PER_BATCH,
     MAX_ENTITIES_PER_BATCH,
     MAX_ENTITY_KEY_LENGTH,
-    MAX_TAG_VAL_LENGTH,
+    MAX_METRICS_PER_BATCH,
     MAX_PARAM_VAL_LENGTH,
     MAX_PARAMS_TAGS_PER_BATCH,
-    MAX_METRICS_PER_BATCH,
-    MAX_DATASETS_PER_BATCH,
+    MAX_TAG_VAL_LENGTH,
 )
-from mlflow.utils.time_utils import get_current_time_millis
-
 
 _logger = logging.getLogger(__name__)
 

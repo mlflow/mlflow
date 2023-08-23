@@ -1,15 +1,17 @@
 from unittest import mock
 
+import pytest
 from aiohttp import ClientTimeout
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-import pytest
+from pydantic import ValidationError
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import OpenAIConfig, RouteConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
+
 from tests.gateway.tools import MockAsyncResponse, mock_http_client
 
 
@@ -182,12 +184,22 @@ async def test_completions():
 
 @pytest.mark.asyncio
 async def test_completions_throws_if_request_payload_contains_n():
-    config = chat_config()
+    config = completions_config()
     provider = OpenAIProvider(RouteConfig(**config))
     payload = {"prompt": "This is a test", "n": 1}
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "Invalid parameter `n`" in e.value.detail
+
+
+@pytest.mark.parametrize("prompt", [{"set1", "set2"}, ["list1"], [1], ["list1", "list2"], [1, 2]])
+@pytest.mark.asyncio
+async def test_completions_throws_if_prompt_contains_non_string(prompt):
+    config = completions_config()
+    provider = OpenAIProvider(RouteConfig(**config))
+    payload = {"prompt": prompt}
+    with pytest.raises(ValidationError, match=r"prompt"):
+        await provider.completions(completions.RequestPayload(**payload))
 
 
 @pytest.mark.asyncio

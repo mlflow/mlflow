@@ -1,11 +1,12 @@
 """
 Definitions of click options shared by several CLI commands.
 """
-import click
 import warnings
 
-from mlflow.utils import env_manager as _EnvManager
+import click
+
 from mlflow.environment_variables import MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING
+from mlflow.utils import env_manager as _EnvManager
 
 MODEL_PATH = click.option(
     "--model-path",

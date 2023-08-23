@@ -1,14 +1,13 @@
 import os
 
 import numpy as np
+import shap
 from sklearn.datasets import load_iris
 from sklearn.ensemble import RandomForestClassifier
-import shap
 
 import mlflow
-from mlflow.tracking import MlflowClient
 from mlflow.artifacts import download_artifacts
-
+from mlflow.tracking import MlflowClient
 
 # prepare training data
 X, y = load_iris(return_X_y=True, as_frame=True)

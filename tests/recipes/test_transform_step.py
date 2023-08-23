@@ -1,19 +1,18 @@
 import os
 from pathlib import Path
+from unittest import mock
 from unittest.mock import Mock
 
+import pandas as pd
 import pytest
 
-import pandas as pd
-
 import mlflow
-from mlflow.exceptions import MlflowException
 from mlflow import MlflowClient
-from mlflow.utils.file_utils import read_yaml
-from mlflow.recipes.utils.execution import _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR
-from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
+from mlflow.environment_variables import MLFLOW_RECIPES_EXECUTION_DIRECTORY
+from mlflow.exceptions import MlflowException
 from mlflow.recipes.steps.transform import TransformStep, _validate_user_code_output
-from unittest import mock
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
+from mlflow.utils.file_utils import read_yaml
 
 
 # Sets up the transform step and returns the constructed TransformStep instance and step output dir
@@ -64,7 +63,7 @@ def test_transform_step_writes_onehot_encoded_dataframe_and_transformer_pkl(
 
     m = Mock()
     m.transformer_fn = lambda: StandardScaler()  # pylint: disable=unnecessary-lambda
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_recipe_root_path))
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_DIRECTORY.name, str(tmp_recipe_root_path))
     with mock.patch.dict("sys.modules", {"steps.transform": m}):
         transform_step, transform_step_output_dir, _ = set_up_transform_step(
             tmp_recipe_root_path, "transformer_fn"
@@ -107,7 +106,7 @@ def test_transform_steps_work_without_step_config(tmp_recipe_root_path, recipe):
 
 
 def test_transform_empty_step(tmp_recipe_root_path, monkeypatch):
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_recipe_root_path))
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_DIRECTORY.name, str(tmp_recipe_root_path))
     with mock.patch("steps.transform.transformer_fn", return_value=None):
         transform_step, transform_step_output_dir, split_step_output_dir = set_up_transform_step(
             tmp_recipe_root_path, "transformer_fn"

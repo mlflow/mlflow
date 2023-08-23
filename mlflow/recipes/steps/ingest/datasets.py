@@ -1,4 +1,3 @@
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import importlib
 import logging
 import os
@@ -6,28 +5,29 @@ import pathlib
 import posixpath
 import sys
 from abc import abstractmethod
-from typing import Dict, Any, List, Optional, Union
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import (
     _NUM_DEFAULT_CPUS,
-    _NUM_MAX_THREADS_PER_CPU,
     _NUM_MAX_THREADS,
+    _NUM_MAX_THREADS_PER_CPU,
+)
+from mlflow.utils._spark_utils import (
+    _create_local_spark_session_for_recipes,
+    _get_active_spark_session,
 )
 from mlflow.utils.file_utils import (
     TempDir,
+    download_file_using_http_uri,
     get_local_path_or_none,
     local_file_uri_to_path,
-    write_pandas_df_as_parquet,
     read_parquet_as_pandas_df,
-    download_file_using_http_uri,
-)
-from mlflow.utils._spark_utils import (
-    _get_active_spark_session,
-    _create_local_spark_session_for_recipes,
+    write_pandas_df_as_parquet,
 )
 
 _logger = logging.getLogger(__name__)

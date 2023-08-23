@@ -1,5 +1,5 @@
-from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.exceptions import MlflowException
+from mlflow.store.model_registry.rest_store import RestStore
 
 
 def _raise_unsupported_method(method, message=None):

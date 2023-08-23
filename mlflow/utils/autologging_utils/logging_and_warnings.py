@@ -2,7 +2,8 @@ import os
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
-from threading import RLock, get_ident as get_current_thread_id
+from threading import RLock
+from threading import get_ident as get_current_thread_id
 
 import mlflow
 from mlflow.utils import logging_utils

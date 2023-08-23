@@ -2,13 +2,13 @@ import pathlib
 import posixpath
 import urllib.parse
 import uuid
-from typing import Tuple, Any
+from typing import Any, Tuple
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.utils.validation import _validate_db_type_string
 from mlflow.utils.os import is_windows
+from mlflow.utils.validation import _validate_db_type_string
 
 _INVALID_DB_URI_MSG = (
     "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for "
@@ -88,18 +88,18 @@ def validate_db_scope_prefix_info(scope, prefix):
     for c in ["/", ":", " "]:
         if c in scope:
             raise MlflowException(
-                "Unsupported Databricks profile name: %s." % scope
-                + " Profile names cannot contain '%s'." % c
+                f"Unsupported Databricks profile name: {scope}."
+                f" Profile names cannot contain '{c}'."
             )
         if prefix and c in prefix:
             raise MlflowException(
-                "Unsupported Databricks profile key prefix: %s." % prefix
-                + " Key prefixes cannot contain '%s'." % c
+                f"Unsupported Databricks profile key prefix: {prefix}."
+                f" Key prefixes cannot contain '{c}'."
             )
     if prefix is not None and prefix.strip() == "":
         raise MlflowException(
-            "Unsupported Databricks profile key prefix: '%s'." % prefix
-            + " Key prefixes cannot be empty."
+            f"Unsupported Databricks profile key prefix: '{prefix}'."
+            " Key prefixes cannot be empty."
         )
 
 
@@ -113,8 +113,8 @@ def get_db_info_from_uri(uri):
         # netloc should not be an empty string unless URI is formatted incorrectly.
         if parsed_uri.netloc == "":
             raise MlflowException(
-                "URI is formatted incorrectly: no netloc in URI '%s'." % uri
-                + " This may be the case if there is only one slash in the URI."
+                f"URI is formatted incorrectly: no netloc in URI '{uri}'."
+                " This may be the case if there is only one slash in the URI."
             )
         profile_tokens = parsed_uri.netloc.split(":")
         parsed_scope = profile_tokens[0]

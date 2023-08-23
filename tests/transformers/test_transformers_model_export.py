@@ -1,68 +1,69 @@
 import base64
-from functools import wraps
 import gc
-import logging
+import importlib.util
 import json
+import logging
+import os
+import pathlib
+import textwrap
 import time
+from functools import wraps
+from unittest import mock
 
+import huggingface_hub
 import librosa
 import numpy as np
-import os
 import pandas as pd
-from packaging.version import Version
-import pathlib
 import pytest
-import textwrap
-from unittest import mock
-import yaml
-
+import torch
 import transformers
-import huggingface_hub
-from huggingface_hub import ModelCard, scan_cache_dir
+import yaml
 from datasets import load_dataset
+from huggingface_hub import ModelCard, scan_cache_dir
+from packaging.version import Version
 
 import mlflow
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.transformers import (
-    _build_pipeline_from_model_input,
-    get_default_pip_requirements,
-    get_default_conda_env,
-    _infer_transformers_task_type,
-    _validate_transformers_task_type,
-    _get_instance_type,
-    _generate_base_flavor_configuration,
-    _TASK_KEY,
-    _PIPELINE_MODEL_TYPE_KEY,
+    _CARD_DATA_FILE_NAME,
+    _CARD_TEXT_FILE_NAME,
+    _FRAMEWORK_KEY,
     _INSTANCE_TYPE_KEY,
     _MODEL_PATH_OR_NAME_KEY,
+    _PIPELINE_MODEL_TYPE_KEY,
+    _TASK_KEY,
+    _build_pipeline_from_model_input,
     _fetch_model_card,
+    _generate_base_flavor_configuration,
     _get_base_model_architecture,
+    _get_instance_type,
     _get_or_infer_task_type,
+    _infer_transformers_task_type,
     _record_pipeline_components,
     _should_add_pyfunc_to_model,
     _TransformersModel,
-    _FRAMEWORK_KEY,
+    _validate_transformers_task_type,
     _write_card_data,
-    _CARD_TEXT_FILE_NAME,
-    _CARD_DATA_FILE_NAME,
+    get_default_conda_env,
+    get_default_pip_requirements,
 )
 from mlflow.utils.environment import _mlflow_conda_env
-import torch
+
 from tests.helper_functions import (
-    _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _compare_conda_env_requirements,
     _compare_logged_code_paths,
-    _mlflow_major_version_string,
-    pyfunc_serve_and_score_model,
     _get_deps_from_requirement_file,
+    _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
 )
 
 pytestmark = pytest.mark.large
@@ -1099,6 +1100,9 @@ def test_transformers_log_with_duplicate_extra_pip_requirements(small_multi_moda
     )
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("accelerate") is not None, reason="fails when accelerate is installed"
+)
 def test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
     small_seq2seq_pipeline, model_path
 ):
@@ -1109,6 +1113,7 @@ def test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expe
     pip_requirements = _get_deps_from_requirement_file(model_path)
     assert "tensorflow" in pip_requirements
     assert "torch" not in pip_requirements
+    assert "accelerate" not in pip_requirements
 
 
 def test_transformers_pt_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
@@ -1120,6 +1125,23 @@ def test_transformers_pt_model_save_without_conda_env_uses_default_env_with_expe
     )
     pip_requirements = _get_deps_from_requirement_file(model_path)
     assert "tensorflow" not in pip_requirements
+    assert "accelerate" in pip_requirements
+    assert "torch" in pip_requirements
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("accelerate") is not None, reason="fails when accelerate is installed"
+)
+def test_transformers_pt_model_save_dependencies_without_accelerate(
+    translation_pipeline, model_path
+):
+    mlflow.transformers.save_model(translation_pipeline, model_path)
+    _assert_pip_requirements(
+        model_path, mlflow.transformers.get_default_pip_requirements(translation_pipeline.model)
+    )
+    pip_requirements = _get_deps_from_requirement_file(model_path)
+    assert "tensorflow" not in pip_requirements
+    assert "accelerate" not in pip_requirements
     assert "torch" in pip_requirements
 
 
@@ -1398,6 +1420,7 @@ def test_text2text_generation_pipeline_with_inference_config_and_params(
         "num_beams": 5,
         "top_p": 0.85,
         "repetition_penalty": 1.15,
+        "do_sample": True,
     }
     parameters = {"top_k": 3, "max_length": 30}
     generated_output = mlflow.transformers.generate_signature_output(
@@ -1433,7 +1456,7 @@ def test_text2text_generation_pipeline_with_inference_config_and_params(
 
 def test_text2text_generation_pipeline_with_params_success(text2text_generation_pipeline, tmp_path):
     data = "muppet keyboard type"
-    parameters = {"top_k": 2, "num_beams": 5}
+    parameters = {"top_k": 2, "num_beams": 5, "do_sample": True}
     generated_output = mlflow.transformers.generate_signature_output(
         text2text_generation_pipeline, data
     )
@@ -1461,7 +1484,7 @@ def test_text2text_generation_pipeline_with_params_with_errors(
     text2text_generation_pipeline, tmp_path
 ):
     data = "muppet keyboard type"
-    parameters = {"top_k": 2, "num_beams": 5, "invalid_param": "invalid_param"}
+    parameters = {"top_k": 2, "num_beams": 5, "invalid_param": "invalid_param", "do_sample": True}
     generated_output = mlflow.transformers.generate_signature_output(
         text2text_generation_pipeline, data
     )
@@ -1823,9 +1846,10 @@ def test_summarization_pipeline(summarizer_pipeline, model_path, data):
             "That gym smells like feet, hot garbage, and sadness",
             "I love that we have a moon",
         ],
+        [{"text": "test1", "text_pair": "test2"}],
+        [{"text": "test1", "text_pair": "pair1"}, {"text": "test2", "text_pair": "pair2"}],
     ],
 )
-@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 def test_classifier_pipeline(text_classification_pipeline, model_path, data):
     signature = infer_signature(
         data, mlflow.transformers.generate_signature_output(text_classification_pipeline, data)
@@ -1837,10 +1861,19 @@ def test_classifier_pipeline(text_classification_pipeline, model_path, data):
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     inference = pyfunc_loaded.predict(data)
 
+    # verify that native transformers outputs match the pyfunc return values
+    native_inference = text_classification_pipeline(data)
+    inference_dict = inference.to_dict()
+
     if isinstance(data, str):
         assert len(inference) == 1
+        assert inference_dict["label"][0] == native_inference[0]["label"]
+        assert inference_dict["score"][0] == native_inference[0]["score"]
     else:
         assert len(inference) == len(data)
+        for key in ["score", "label"]:
+            for value in range(0, len(data)):
+                assert native_inference[value][key] == inference_dict[key][value]
 
 
 @pytest.mark.parametrize(
@@ -2043,6 +2076,7 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
                 "That gym smells like feet, hot garbage, and sadness",
                 "I love that we have a moon",
                 "I 'love' debugging subprocesses",
+                'Quote "in" the string',
             ]
         }
     )
@@ -2056,9 +2090,34 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
     assert len(values.to_dict()) == 2
-    assert len(values.to_dict()["score"]) == 4
+    assert len(values.to_dict()["score"]) == 5
 
-    inference_payload = json.dumps({"inputs": ["I really love MLflow!"]})
+    # Test the alternate TextClassificationPipeline input structure where text_pair is used
+    # and ensure that model serving and direct native inference match
+    inference_data = [
+        {"text": "test1", "text_pair": "pair1"},
+        {"text": "test2", "text_pair": "pair2"},
+        {"text": "test 'quote", "text_pair": "pair 'quote'"},
+    ]
+    inference_payload = json.dumps({"inputs": inference_data})
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    values_dict = values.to_dict()
+    native_predict = text_classification_pipeline(inference_data)
+
+    # validate that the pyfunc served model registers text_pair in the same manner as native
+    for key in ["score", "label"]:
+        for value in [0, 1]:
+            assert values_dict[key][value] == native_predict[value][key]
+
+    # test simple string input
+    inference_payload = json.dumps({"inputs": ["testing"]})
+
     response = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_payload,

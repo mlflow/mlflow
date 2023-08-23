@@ -4,12 +4,12 @@ Example of scoring images with MLflow model deployed to a REST API endpoint.
 The MLflow model to be scored is expected to be an instance of KerasImageClassifierPyfunc
 (e.g. produced by running this project) and deployed with MLflow prior to invoking this script.
 """
-import os
 import base64
-import requests
+import os
 
 import click
 import pandas as pd
+import requests
 
 from mlflow.utils import cli_args
 
@@ -39,7 +39,7 @@ def score_model(path, host, port):
     ).to_json(orient="split")
 
     response = requests.post(
-        url="{host}:{port}/invocations".format(host=host, port=port),
+        url=f"{host}:{port}/invocations",
         data={
             "dataframe_split": data,
         },
@@ -47,11 +47,7 @@ def score_model(path, host, port):
     )
 
     if response.status_code != 200:
-        raise Exception(
-            "Status Code {status_code}. {text}".format(
-                status_code=response.status_code, text=response.text
-            )
-        )
+        raise Exception(f"Status Code {response.status_code}. {response.text}")
     return response
 
 

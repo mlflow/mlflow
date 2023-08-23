@@ -3,31 +3,32 @@ Internal package providing a Python CRUD interface to MLflow experiments, runs, 
 and model versions. This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module,
 and is exposed in the :py:mod:`mlflow.tracking` module.
 """
-import mlflow
 import contextlib
-import logging
 import json
+import logging
 import os
 import posixpath
 import sys
 import tempfile
-import yaml
-from typing import Any, Dict, Sequence, List, Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
-from mlflow.entities import Experiment, Run, Param, Metric, RunTag, FileInfo, ViewType, DatasetInput
-from mlflow.store.entities.paged_list import PagedList
-from mlflow.entities.model_registry import RegisteredModel, ModelVersion
+import yaml
+
+import mlflow
+from mlflow.entities import DatasetInput, Experiment, FileInfo, Metric, Param, Run, RunTag, ViewType
+from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED, RESOURCE_DOES_NOT_EXIST
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
-    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.tracking._model_registry.client import ModelRegistryClient
-from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.tracking._model_registry import utils as registry_utils
+from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
@@ -35,24 +36,24 @@ from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.uri import is_databricks_uri, is_databricks_unity_catalog_uri
-from mlflow.utils.validation import (
-    _validate_model_version_or_stage_exists,
-    _validate_model_name,
-    _validate_model_alias_name,
-    _validate_model_version,
-)
 from mlflow.utils.mlflow_tags import (
     MLFLOW_LOGGED_ARTIFACTS,
     MLFLOW_PARENT_RUN_ID,
 )
+from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_databricks_uri
+from mlflow.utils.validation import (
+    _validate_model_alias_name,
+    _validate_model_name,
+    _validate_model_version,
+    _validate_model_version_or_stage_exists,
+)
 
 if TYPE_CHECKING:
-    import pandas
     import matplotlib
-    import plotly
     import numpy
+    import pandas
     import PIL
+    import plotly
 
 _logger = logging.getLogger(__name__)
 
@@ -115,8 +116,8 @@ class MlflowClient:
             except UnsupportedModelRegistryStoreURIException as exc:
                 raise MlflowException(
                     "Model Registry features are not supported by the store with URI:"
-                    " '{uri}'. Stores with the following URI schemes are supported:"
-                    " {schemes}.".format(uri=self._registry_uri, schemes=exc.supported_uri_schemes),
+                    f" '{self._registry_uri}'. Stores with the following URI schemes are supported:"
+                    f" {exc.supported_uri_schemes}.",
                     FEATURE_DISABLED,
                 )
         return registry_client
@@ -1234,6 +1235,8 @@ class MlflowClient:
         run_id: str,
         figure: Union["matplotlib.figure.Figure", "plotly.graph_objects.Figure"],
         artifact_file: str,
+        *,
+        save_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Log a figure as an artifact. The following figure objects are supported:
@@ -1251,6 +1254,7 @@ class MlflowClient:
         :param figure: Figure to log.
         :param artifact_file: The run-relative artifact file path in posixpath format to which
                               the figure is saved (e.g. "dir/file.png").
+        :param save_kwargs: Additional keyword arguments passed to the method that saves the figure.
 
         .. code-block:: python
             :caption: Matplotlib Example
@@ -1286,18 +1290,21 @@ class MlflowClient:
 
             return isinstance(fig, plotly.graph_objects.Figure)
 
+        save_kwargs = save_kwargs or {}
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
             # `is_matplotlib_figure` is executed only when `matplotlib` is found in `sys.modules`.
             # This allows logging a `plotly` figure in an environment where `matplotlib` is not
             # installed.
             if "matplotlib" in sys.modules and _is_matplotlib_figure(figure):
-                figure.savefig(tmp_path)
+                figure.savefig(tmp_path, **save_kwargs)
             elif "plotly" in sys.modules and _is_plotly_figure(figure):
                 file_extension = os.path.splitext(artifact_file)[1]
                 if file_extension == ".html":
-                    figure.write_html(tmp_path, include_plotlyjs="cdn", auto_open=False)
+                    save_kwargs.setdefault("include_plotlyjs", "cdn")
+                    save_kwargs.setdefault("auto_open", False)
+                    figure.write_html(tmp_path, **save_kwargs)
                 elif file_extension in [".png", ".jpeg", ".webp", ".svg", ".pdf"]:
-                    figure.write_image(tmp_path)
+                    figure.write_image(tmp_path, **save_kwargs)
                 else:
                     raise TypeError(
                         f"Unsupported file extension for plotly figure: '{file_extension}'"
@@ -1634,7 +1641,7 @@ class MlflowClient:
         import pandas as pd
 
         self._check_artifact_file_string(artifact_file)
-        subset_tag_value = json.dumps({"path": artifact_file, "type": "table"})
+        subset_tag_value = f'"path"%:%"{artifact_file}",%"type"%:%"table"'
 
         # Build the filter string
         filter_string = f"tags.{MLFLOW_LOGGED_ARTIFACTS} LIKE '%{subset_tag_value}%'"
@@ -2560,7 +2567,7 @@ class MlflowClient:
             # NOTE: we can't easily delete the target temp location due to the async nature
             # of the model version creation - printing to let the user know.
             eprint(
-                "=== Source model files were copied to %s" % new_source
+                f"=== Source model files were copied to {new_source}"
                 + " in the model registry workspace. You may want to delete the files once the"
                 + " model version is in 'READY' status. You can also find this location in the"
                 + " `source` field of the created model version. ==="

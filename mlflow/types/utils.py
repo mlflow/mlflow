@@ -1,6 +1,6 @@
-from typing import Any, Optional, List, Dict
-import warnings
 import logging
+import warnings
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -31,7 +31,7 @@ def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple:
     :param variable_dimension: An optional integer representing a variable dimension.
     :return: tuple : Shape of the inputted data (including a variable dimension)
     """
-    from scipy.sparse import csr_matrix, csc_matrix
+    from scipy.sparse import csc_matrix, csr_matrix
 
     if not isinstance(data, (np.ndarray, csr_matrix, csc_matrix)):
         raise TypeError(f"Expected numpy.ndarray or csc/csr matrix, got '{type(data)}'.")
@@ -104,7 +104,7 @@ def _infer_schema(data: Any) -> Schema:
 
     :return: Schema
     """
-    from scipy.sparse import csr_matrix, csc_matrix
+    from scipy.sparse import csc_matrix, csr_matrix
 
     if isinstance(data, dict) and all(isinstance(values, np.ndarray) for values in data.values()):
         res = []
@@ -180,7 +180,7 @@ def _infer_schema(data: Any) -> Schema:
             "- List[Dict[str, Union[str, List[str]]]]\n"
             "- Dict[str, Union[str, List[str]]]\n"
             "- bytes\n"
-            "but got '{}'".format(type(data)),
+            f"but got '{type(data)}'",
         )
     if not schema.is_tensor_spec() and any(
         t in (DataType.integer, DataType.long) for t in schema.input_types()
@@ -306,8 +306,8 @@ def _infer_spark_type(x) -> DataType:
         return DataType.datetime
     else:
         raise Exception(
-            "Unsupported Spark Type '{}', MLflow schema is only supported for scalar "
-            "Spark types.".format(type(x))
+            f"Unsupported Spark Type '{type(x)}', MLflow schema is only supported for scalar "
+            "Spark types."
         )
 
 

@@ -1,52 +1,48 @@
 import json
 import os
+import re
 import subprocess
 import sys
 import warnings
 from pathlib import Path
+from unittest import mock
 
-from click.testing import CliRunner
 import numpy as np
 import pandas as pd
 import pytest
-import re
 import sklearn
 import sklearn.datasets
 import sklearn.neighbors
-
-from unittest import mock
-
+from click.testing import CliRunner
 
 import mlflow
-import mlflow.sklearn
-from mlflow.models.flavor_backend_registry import get_flavor_backend
-
-from mlflow.utils.conda import _get_conda_env_name
-
 import mlflow.models.cli as models_cli
-
+import mlflow.sklearn
 from mlflow.environment_variables import MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
+from mlflow.models.flavor_backend_registry import get_flavor_backend
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc.backend import PyFuncBackend
 from mlflow.pyfunc.scoring_server import (
-    CONTENT_TYPE_JSON,
     CONTENT_TYPE_CSV,
+    CONTENT_TYPE_JSON,
 )
-from mlflow.utils.file_utils import TempDir
-from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils import PYTHON_VERSION
+from mlflow.utils import env_manager as _EnvManager
+from mlflow.utils.conda import _get_conda_env_name
+from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.process import ShellCommandException
+
 from tests.helper_functions import (
-    pyfunc_build_image,
-    pyfunc_serve_from_docker_image,
-    pyfunc_serve_from_docker_image_with_env_override,
+    PROTOBUF_REQUIREMENT,
     RestEndpoint,
     get_safe_port,
-    pyfunc_serve_and_score_model,
-    PROTOBUF_REQUIREMENT,
+    pyfunc_build_image,
     pyfunc_generate_dockerfile,
+    pyfunc_serve_and_score_model,
+    pyfunc_serve_from_docker_image,
+    pyfunc_serve_from_docker_image_with_env_override,
 )
 
 # NB: for now, windows tests do not have conda available.
@@ -300,7 +296,8 @@ def test_predict(iris_data, sk_model):
             text=True,
             check=True,
         )
-        actual = pd.read_json(prc.stdout, orient="records")
+        predictions = re.search(r"{\"predictions\": .*}", prc.stdout).group(0)
+        actual = pd.read_json(predictions, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
         assert all(expected == actual)
@@ -685,9 +682,9 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
     with RestEndpoint(proc=scoring_proc, port=host_port, validate_version=False) as endpoint:
         for content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_CSV]:
             scoring_response = endpoint.invoke(df, content_type)
-            assert scoring_response.status_code == 200, (
-                "Failed to serve prediction, got response %s" % scoring_response.text
-            )
+            assert (
+                scoring_response.status_code == 200
+            ), f"Failed to serve prediction, got response {scoring_response.text}"
             np.testing.assert_array_equal(
                 np.array(json.loads(scoring_response.text)["predictions"]), sk_model.predict(x)
             )

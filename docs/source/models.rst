@@ -374,7 +374,7 @@ of the value, it should be ``None`` for scalar values and ``(-1,)`` for a list.
 Signature Enforcement
 ~~~~~~~~~~~~~~~~~~~~~
 Schema enforcement checks the provided input and params against the model's signature and 
-raises an exception if the input or params is not compatible. This enforcement is applied in MLflow before
+raises an exception if the input is not compatible and will issue a warning or raise an exception if the params are incompatible. This enforcement is applied in MLflow before
 calling the underlying model implementation, and during model inference process.
 Note that this enforcement only applies when using :ref:`MLflow
 model deployment tools <built-in-deployment>` or when loading models as ``python_function``. In
@@ -412,6 +412,8 @@ a shape of ``(-1,)``. If the parameter's type or shape is incompatible, an excep
 Additionally, the value of the parameter is validated against the specified type in the signature. We attempt 
 to convert the value to the specified type, and if this conversion fails, an MlflowException will be raised.
 A valid list of params is documented in :ref:`Model Inference Params <inference-params>` section.
+Models that have signatures and are used for inference with declared params not part of the logged signature will
+have a warning issued with each request and the invalid params ignored during inference.
 
 Handling Integers With Missing Values
 """""""""""""""""""""""""""""""""""""
@@ -1098,6 +1100,10 @@ For a minimal Sequential model, an example configuration for the pyfunc predict(
 
 MLeap (``mleap``)
 ^^^^^^^^^^^^^^^^^
+
+.. warning::
+
+    The ``mleap`` model flavor is deprecated as of MLflow 2.6.0 and will be removed in a future release.
 
 The ``mleap`` model flavor supports saving Spark models in MLflow format using the
 `MLeap <https://combust.github.io/mleap-docs/>`_ persistence mechanism. MLeap is an inference-optimized
@@ -3512,7 +3518,7 @@ in your current system environment in order to run the example):
 MLflow also provides an Artifact View UI for comparing inputs and outputs across multiple models
 built with LLMs. For example, after evaluating multiple prompts for question answering
 (see the
-`MLflow OpenAI question answering full example <https://github.com/mlflow/mlflow/tree/master/examples/llms/openai>`_), you can navigate to the Artifact View to view the questions and compare the answers for
+`MLflow OpenAI question answering full example <https://github.com/mlflow/mlflow/tree/master/examples/llms/question_answering/question_answering.py>`_), you can navigate to the Artifact View to view the questions and compare the answers for
 each model:
 
 .. image:: _static/images/artifact-view-ui.png

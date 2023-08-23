@@ -1,7 +1,7 @@
 import click
 import sqlalchemy
 
-from . import utils
+from mlflow.server.auth.db import utils
 
 
 @click.group(name="db")

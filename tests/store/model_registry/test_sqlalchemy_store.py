@@ -1,28 +1,30 @@
-from unittest import mock
 import time
 import uuid
+from unittest import mock
+
 import pytest
 
 from mlflow.entities.model_registry import (
     ModelVersion,
-    RegisteredModelTag,
     ModelVersionTag,
+    RegisteredModelTag,
 )
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
-from mlflow.store.model_registry.dbmodels.models import (
-    SqlRegisteredModel,
-    SqlRegisteredModelTag,
-    SqlModelVersion,
-    SqlModelVersionTag,
-)
 from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
-    RESOURCE_DOES_NOT_EXIST,
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
+)
+from mlflow.store.model_registry.dbmodels.models import (
+    SqlModelVersion,
+    SqlModelVersionTag,
+    SqlRegisteredModel,
+    SqlRegisteredModelTag,
 )
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+
 from tests.helper_functions import random_str
 
 pytestmark = pytest.mark.notrackingurimock
@@ -746,17 +748,17 @@ def test_search_model_versions(store):
         ]
 
     # search using name should return all 4 versions
-    assert set(search_versions("name='%s'" % name)) == {1, 2, 3, 4}
+    assert set(search_versions(f"name='{name}'")) == {1, 2, 3, 4}
 
     # search using version
     assert set(search_versions("version_number=2")) == {2}
     assert set(search_versions("version_number<=3")) == {1, 2, 3}
 
     # search using run_id_1 should return version 1
-    assert set(search_versions("run_id='%s'" % run_id_1)) == {1}
+    assert set(search_versions(f"run_id='{run_id_1}'")) == {1}
 
     # search using run_id_2 should return versions 2 and 3
-    assert set(search_versions("run_id='%s'" % run_id_2)) == {2, 3}
+    assert set(search_versions(f"run_id='{run_id_2}'")) == {2, 3}
 
     # search using the IN operator should return all versions
     assert set(search_versions(f"run_id IN ('{run_id_1}','{run_id_2}')")) == {1, 2, 3}
@@ -855,7 +857,7 @@ def test_search_model_versions(store):
 
     assert set(search_versions(None)) == {1, 2, 3}
 
-    assert set(search_versions("name='%s'" % name)) == {1, 2, 3}
+    assert set(search_versions(f"name='{name}'")) == {1, 2, 3}
 
     assert set(search_versions("source_path = 'A/D'")) == {3}
 
@@ -867,7 +869,7 @@ def test_search_model_versions(store):
         name=mv1.name, version=mv1.version, description="Online prediction model!"
     )
 
-    mvds = store.search_model_versions("run_id = '%s'" % run_id_1, max_results=10)
+    mvds = store.search_model_versions(f"run_id = '{run_id_1}'", max_results=10)
     assert len(mvds) == 1
     assert isinstance(mvds[0], ModelVersion)
     assert mvds[0].current_stage == "Production"

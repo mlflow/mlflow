@@ -1,40 +1,39 @@
+import json
 import os
+from collections import namedtuple
+from datetime import date, datetime, timedelta
 from pathlib import Path
-import pytest
-import yaml
+from unittest import mock
+
 import numpy as np
 import pandas as pd
-from collections import namedtuple
-from datetime import datetime, timedelta, date
-from unittest import mock
-from packaging.version import Version
-import json
-
 import prophet
+import pytest
+import yaml
+from packaging.version import Version
 from prophet import Prophet
 
 import mlflow
 import mlflow.prophet
-import mlflow.utils
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+import mlflow.utils
 from mlflow import pyfunc
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
-from mlflow.models import infer_signature, Model
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import (
-    _compare_conda_env_requirements,
     _assert_pip_requirements,
-    pyfunc_serve_and_score_model,
+    _compare_conda_env_requirements,
     _compare_logged_code_paths,
     _is_available_on_pypi,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
 )
-
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("prophet") else ["--env-manager", "local"]

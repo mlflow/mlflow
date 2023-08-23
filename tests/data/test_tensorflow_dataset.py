@@ -1,17 +1,17 @@
 import json
+
 import numpy as np
 import pytest
+import tensorflow as tf
 
 import mlflow.data
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
+from mlflow.data.schema import TensorDatasetSchema
 from mlflow.data.tensorflow_dataset import TensorFlowDataset
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationDataset
-from mlflow.data.schema import TensorDatasetSchema
 from mlflow.types.utils import _infer_schema
-
-import tensorflow as tf
 
 from tests.resources.data.dataset_source import TestDatasetSource
 

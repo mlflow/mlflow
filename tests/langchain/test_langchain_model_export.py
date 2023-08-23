@@ -1,25 +1,23 @@
+import importlib
+import json
 import os
 import shutil
-import langchain
-import mlflow
-import pytest
-import transformers
-import json
-import importlib
 import sqlite3
+from contextlib import contextmanager
+from typing import Any, Dict, List, Mapping, Optional
 
+import langchain
 import numpy as np
 import openai
-from contextlib import contextmanager
-from packaging import version
+import pytest
+import transformers
 from langchain import SQLDatabase
 from langchain.chains import (
     APIChain,
     ConversationChain,
+    HypotheticalDocumentEmbedder,
     LLMChain,
     RetrievalQA,
-    HypotheticalDocumentEmbedder,
-    SQLDatabaseChain,
 )
 from langchain.chains.api import open_meteo_docs
 from langchain.chains.base import Chain
@@ -35,19 +33,23 @@ from langchain.prompts import PromptTemplate
 from langchain.requests import TextRequestsWrapper
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
+from langchain_experimental.sql import SQLDatabaseChain
+from packaging import version
 from pydantic import BaseModel
 from pyspark.sql import SparkSession
-from typing import Any, List, Mapping, Optional, Dict
-from tests.helper_functions import pyfunc_serve_and_score_model
+
+import mlflow
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.openai.utils import (
+    TEST_CONTENT,
     _mock_chat_completion_response,
     _mock_request,
     _MockResponse,
-    TEST_CONTENT,
 )
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow.deployments import PredictionsResponse
+
+from tests.helper_functions import pyfunc_serve_and_score_model
 
 
 @contextmanager
@@ -119,9 +121,7 @@ def create_qa_with_sources_chain():
 
 
 def create_openai_llmagent():
-    from langchain.agents import load_tools
-    from langchain.agents import initialize_agent
-    from langchain.agents import AgentType
+    from langchain.agents import AgentType, initialize_agent, load_tools
 
     # First, let's load the language model we're going to use to control the agent.
     llm = OpenAI(temperature=0)
@@ -509,6 +509,27 @@ def test_log_and_load_api_chain():
     # Load the chain
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
     assert loaded_model == apichain
+
+
+def test_log_and_load_subclass_of_specialized_chain():
+    class APIChainSubclass(APIChain):
+        pass
+
+    llm = OpenAI(temperature=0)
+    apichain_subclass = APIChainSubclass.from_llm_and_api_docs(
+        llm, open_meteo_docs.OPEN_METEO_DOCS, verbose=True
+    )
+
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(
+            apichain_subclass,
+            "apichain_subclass",
+            loader_fn=load_requests_wrapper,
+        )
+
+    # Load the chain
+    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
+    assert loaded_model == apichain_subclass
 
 
 def load_base_embeddings(_):

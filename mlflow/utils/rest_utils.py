@@ -3,23 +3,22 @@ import json
 
 import requests
 
+from mlflow.environment_variables import (
+    MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
+    MLFLOW_HTTP_REQUEST_MAX_RETRIES,
+    MLFLOW_HTTP_REQUEST_TIMEOUT,
+)
+from mlflow.exceptions import InvalidUrlException, MlflowException, RestException, get_error_code
 from mlflow.protos import databricks_pb2
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ENDPOINT_NOT_FOUND, ErrorCode
+from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.utils.proto_json_utils import parse_dict
-from mlflow.utils.request_utils import (  # pylint: disable=unused-import
+from mlflow.utils.request_utils import (
     _TRANSIENT_FAILURE_RESPONSE_CODES,
     _get_http_response_with_retries,
-    augmented_raise_for_status,
-    cloud_storage_http_request,
+    augmented_raise_for_status,  # noqa: F401
+    cloud_storage_http_request,  # noqa: F401
 )
 from mlflow.utils.string_utils import strip_suffix
-from mlflow.exceptions import get_error_code, MlflowException, RestException, InvalidUrlException
-
-from mlflow.environment_variables import (
-    MLFLOW_HTTP_REQUEST_TIMEOUT,
-    MLFLOW_HTTP_REQUEST_MAX_RETRIES,
-    MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
-)
 
 RESOURCE_DOES_NOT_EXIST = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
@@ -67,7 +66,7 @@ def http_request(
         basic_auth_str = f"{host_creds.username}:{host_creds.password}".encode()
         auth_str = "Basic " + base64.standard_b64encode(basic_auth_str).decode("utf-8")
     elif host_creds.token:
-        auth_str = "Bearer %s" % host_creds.token
+        auth_str = f"Bearer {host_creds.token}"
 
     from mlflow.tracking.request_header.registry import resolve_request_headers
 
@@ -104,8 +103,8 @@ def http_request(
     except requests.exceptions.Timeout as to:
         raise MlflowException(
             f"API request to {url} failed with timeout exception {to}."
-            f" To increase the timeout, set the environment variable {MLFLOW_HTTP_REQUEST_TIMEOUT}"
-            " to a larger value."
+            " To increase the timeout, set the environment variable "
+            f"{MLFLOW_HTTP_REQUEST_TIMEOUT!s} to a larger value."
         ) from to
     except requests.exceptions.InvalidURL as iu:
         raise InvalidUrlException(f"Invalid url: {url}") from iu

@@ -37,6 +37,9 @@ defaults:
   run:
     shell: bash --noprofile --norc -exo pipefail {0}
 
+env:
+  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+
 jobs:
   set-matrix:
     runs-on: ubuntu-latest
@@ -49,8 +52,9 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
@@ -114,7 +118,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/free-disk-space
         if: matrix.package == 'transformers' || matrix.package == 'sentence-transformers' || (matrix.package == 'torch' && startsWith(matrix.version, '2.'))
@@ -148,26 +152,6 @@ jobs:
         with:
           java-version: ${{ steps.get-java-version.outputs.version }}
           distribution: "adopt"
-      - name: Get cache key
-        env:
-          INSTALL_COMMAND: ${{ matrix.install }}
-        id: get-cache-key
-        run: |
-          date=$(date -u "+%Y%m%d")
-          hash=$(echo -n "$INSTALL_COMMAND" | sha256sum)
-          echo "key=$ImageOS-$ImageVersion-wheels-$date-$hash" >> $GITHUB_OUTPUT
-      - uses: actions/cache@v3
-        # We only cache wheels that take long (> 10 min) to build
-        if: ${{ contains('pyspark, catboost, scikit-learn', matrix.package) && matrix.version == 'dev' }}
-        continue-on-error: true
-        # https://github.com/actions/cache/issues/810
-        env:
-          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 5
-        with:
-          path: /home/runner/.cache/wheels
-          key: ${{ steps.get-cache-key.outputs.key }}
-          restore-keys: |
-            ${{ steps.get-cache-key.outputs.key }}
       - name: Install mlflow & test dependencies
         run: |
           python --version
@@ -183,8 +167,6 @@ jobs:
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
-        env:
-          CACHE_DIR: /home/runner/.cache/wheels
         run: |
           ${{ matrix.install }}
       - name: Check package versions
@@ -200,4 +182,3 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           ${{ matrix.run }}
-      - uses: ./.github/actions/untracked

@@ -1,35 +1,34 @@
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import RedirectResponse, FileResponse
-from fastapi.openapi.docs import get_swagger_ui_html
-from pydantic import BaseModel
 import logging
-import os
 from pathlib import Path
-from typing import Any, Optional, Dict, Union, List
+from typing import Any, Dict, List, Optional, Union
 
-from mlflow.version import VERSION
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import FileResponse, RedirectResponse
+from pydantic import BaseModel
+
+from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.constants import (
-    MLFLOW_GATEWAY_HEALTH_ENDPOINT,
-    MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
-    MLFLOW_GATEWAY_ROUTE_BASE,
-    MLFLOW_QUERY_SUFFIX,
-    MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE,
-)
 from mlflow.gateway.config import (
+    GatewayConfig,
     Route,
     RouteConfig,
     RouteType,
-    GatewayConfig,
     _load_route_config,
 )
-from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.constants import (
+    MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
+    MLFLOW_GATEWAY_HEALTH_ENDPOINT,
+    MLFLOW_GATEWAY_ROUTE_BASE,
+    MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE,
+    MLFLOW_QUERY_SUFFIX,
+)
 from mlflow.gateway.providers import get_provider
+from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.utils import SearchRoutesToken
+from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
-
-MLFLOW_GATEWAY_CONFIG = "MLFLOW_GATEWAY_CONFIG"
 
 
 class GatewayAPI(FastAPI):
@@ -106,7 +105,7 @@ class HealthResponse(BaseModel):
 
 class SearchRoutesResponse(BaseModel):
     routes: List[Route]
-    next_page_token: Optional[str]
+    next_page_token: Optional[str] = None
 
     class Config:
         schema_extra = {
@@ -223,7 +222,7 @@ def create_app_from_env() -> GatewayAPI:
     """
     Load the path from the environment variable and generate the GatewayAPI app instance.
     """
-    if config_path := os.getenv(MLFLOW_GATEWAY_CONFIG):
+    if config_path := MLFLOW_GATEWAY_CONFIG.get():
         return create_app_from_path(config_path)
 
     raise MlflowException(

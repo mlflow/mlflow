@@ -4,18 +4,18 @@ from unittest import mock
 
 import pytest
 
+from mlflow.environment_variables import (
+    MLFLOW_TRACKING_CLIENT_CERT_PATH,
+    MLFLOW_TRACKING_INSECURE_TLS,
+    MLFLOW_TRACKING_PASSWORD,
+    MLFLOW_TRACKING_SERVER_CERT_PATH,
+    MLFLOW_TRACKING_TOKEN,
+    MLFLOW_TRACKING_USERNAME,
+)
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.rest_utils import MlflowHostCreds
-from mlflow.environment_variables import (
-    MLFLOW_TRACKING_USERNAME,
-    MLFLOW_TRACKING_PASSWORD,
-    MLFLOW_TRACKING_TOKEN,
-    MLFLOW_TRACKING_INSECURE_TLS,
-    MLFLOW_TRACKING_SERVER_CERT_PATH,
-    MLFLOW_TRACKING_CLIENT_CERT_PATH,
-)
 
 
 @pytest.mark.parametrize("scheme", ["http", "https"])
@@ -261,7 +261,7 @@ def test_download_artifacts(http_artifact_repo, tmp_path):
         assert read_file(paths[1]) == "data_b"
 
 
-def test_default_host_creds():
+def test_default_host_creds(monkeypatch):
     artifact_uri = "https://test.com"
     username = "user"
     password = "pass"
@@ -282,8 +282,7 @@ def test_default_host_creds():
 
     repo = HttpArtifactRepository(artifact_uri)
 
-    with mock.patch.dict(
-        "mlflow.tracking._tracking_service.utils.os.environ",
+    monkeypatch.setenvs(
         {
             MLFLOW_TRACKING_USERNAME.name: username,
             MLFLOW_TRACKING_PASSWORD.name: password,
@@ -291,9 +290,9 @@ def test_default_host_creds():
             MLFLOW_TRACKING_INSECURE_TLS.name: str(ignore_tls_verification),
             MLFLOW_TRACKING_CLIENT_CERT_PATH.name: client_cert_path,
             MLFLOW_TRACKING_SERVER_CERT_PATH.name: server_cert_path,
-        },
-    ):
-        assert repo._host_creds == expected_host_creds
+        }
+    )
+    assert repo._host_creds == expected_host_creds
 
 
 @pytest.mark.parametrize("remote_file_path", ["a.txt", "dir/b.txt", None])

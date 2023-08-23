@@ -2,10 +2,7 @@ sklearn:
   package_info:
     pip_release: "scikit-learn"
     install_dev: |
-      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "scikit_learn-*.whl") ]; then
-        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/scikit-learn/scikit-learn.git
-      fi
-      pip install $CACHE_DIR/scikit_learn-*.whl
+      pip install git+https://github.com/scikit-learn/scikit-learn.git
 
   models:
     minimum: "0.22.1"
@@ -38,7 +35,9 @@ pytorch:
     minimum: "1.6.0"
     maximum: "2.0.1"
     requirements:
-      ">= 0.0.0": ["torchvision", "scikit-learn", "transformers"]
+      ">= 0.0.0": ["torchvision", "scikit-learn"]
+      ">= 1.8": ["transformers"]
+      "< 1.8": ["transformers<4.32.0"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
@@ -175,13 +174,9 @@ catboost:
   package_info:
     pip_release: "catboost"
     install_dev: |
-      # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
-      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "catboost-*.whl") ]; then
-        # TODO: Remove the commit once https://github.com/catboost/catboost/issues/2242 is fixed
-        pip wheel --no-deps --wheel-dir $CACHE_DIR \
-          git+https://github.com/catboost/catboost.git@f8921d839eccf11e533a46347dde5b5b25b17190#subdirectory=catboost/python-package
-      fi
-      pip install $CACHE_DIR/catboost-*.whl
+      # TODO: Remove the commit once https://github.com/catboost/catboost/issues/2242 is fixed
+      pip install \
+        git+https://github.com/catboost/catboost.git@f8921d839eccf11e533a46347dde5b5b25b17190#subdirectory=catboost/python-package
 
   models:
     minimum: "0.23.1"
@@ -284,7 +279,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.6.0"
+    maximum: "3.6.1"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0"]
@@ -318,18 +313,12 @@ spark:
   package_info:
     pip_release: "pyspark"
     install_dev: |
-      # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
-      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "pyspark-*.whl") ]; then
-        # Build wheel from source
-        temp_dir=$(mktemp -d)
-        git clone --depth 1 https://github.com/apache/spark.git $temp_dir
-        git --git-dir=$temp_dir/.git rev-parse HEAD
-        cd $temp_dir
-        ./build/mvn -DskipTests --no-transfer-progress clean package
-        cd python
-        python setup.py bdist_wheel --dist-dir $CACHE_DIR
-      fi
-      pip install $CACHE_DIR/pyspark-*.whl
+      temp_dir=$(mktemp -d)
+      git clone --depth 1 https://github.com/apache/spark.git $temp_dir
+      cd $temp_dir
+      ./build/mvn -DskipTests --no-transfer-progress clean package
+      cd python
+      python setup.py install
 
   models:
     minimum: "3.0.0"
@@ -340,7 +329,7 @@ spark:
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow"]
-      "<= 3.3.2": ["pandas<2"]
+      "<= 3.3.3": ["pandas<2"]
     run: |
       SAGEMAKER_OUT=$(mktemp)
       if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
@@ -361,7 +350,7 @@ spark:
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["scikit-learn"]
-      "<= 3.3.2": ["pandas<2"]
+      "<= 3.3.3": ["pandas<2"]
     run: |
       find tests/spark/autologging/ml -name 'test*.py' | xargs -L 1 pytest
 
@@ -403,10 +392,7 @@ prophet:
     pip_release: "prophet"
     install_dev: |
       sudo apt-get -y install libtbb2
-      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "prophet-*.whl") ]; then
-        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/facebook/prophet.git#subdirectory=python
-      fi
-      pip install $CACHE_DIR/prophet-*.whl
+      pip install git+https://github.com/facebook/prophet.git#subdirectory=python
 
   models:
     minimum: "1.0.1"
@@ -424,11 +410,8 @@ pmdarima:
   package_info:
     pip_release: "pmdarima"
     install_dev: |
-      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "pmdarima-*.whl") ]; then
-        pip install Cython
-        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/alkaline-ml/pmdarima.git
-      fi
-      pip install $CACHE_DIR/pmdarima-*.whl
+      pip install Cython
+      pip install git+https://github.com/alkaline-ml/pmdarima.git
 
   models:
     minimum: "1.8.0"
@@ -486,7 +469,7 @@ paddle:
     pip_release: "paddlepaddle"
   models:
     minimum: "2.4.1"
-    maximum: "2.5.0"
+    maximum: "2.5.1"
     run: |
       pytest tests/paddle/test_paddle_model_export.py
   autolog:
@@ -522,6 +505,8 @@ transformers:
       "< 4.30.0": ["tensorflow<2.13.0"]
     run: |
       pytest tests/transformers/test_transformers_model_export.py
+      pip uninstall -y accelerate
+      pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.25.1"
     maximum: "4.31.0"
@@ -564,7 +549,7 @@ langchain:
       pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
   models:
     minimum: "0.0.244"
-    maximum: "0.0.244"
+    maximum: "0.0.264"
     requirements:
       ">= 0.0.0":
         [
@@ -575,6 +560,7 @@ langchain:
           "google-search-results",
           "psutil",
           "faiss-cpu",
+          "langchain-experimental",
         ]
     run: |
       pytest tests/langchain/test_langchain_model_export.py
@@ -597,7 +583,7 @@ johnsnowlabs:
     pip_release: "johnsnowlabs"
   models:
     minimum: "4.4.6"
-    maximum: "5.0.0"
+    maximum: "5.0.1"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3", "pyspark<3.4"]
     run: |
