@@ -199,12 +199,12 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
         return credential_infos
 
-    def _get_write_credential_infos(self, run_id, paths):
+    def _get_write_credential_infos(self, paths):
         """
         :return: A list of `ArtifactCredentialInfo` objects providing write access to the specified
                  run-relative artifact `paths` within the MLflow Run specified by `run_id`.
         """
-        return self._get_credential_infos(GetCredentialsForWrite, run_id, paths)
+        return self._get_credential_infos(GetCredentialsForWrite, self.run_id, paths)
 
     def _get_read_credential_infos(self, paths):
         """
@@ -245,7 +245,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     " Refreshing credentials and trying again..."
                 )
                 credential_info = self._get_write_credential_infos(
-                    run_id=self.run_id, paths=[artifact_path]
+                    paths=[artifact_path]
                 )[0]
                 put_block(credential_info.signed_uri, block_id, chunk, headers=headers)
             else:
@@ -297,7 +297,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                         " Refreshing credentials and trying again..."
                     )
                     credential_info = self._get_write_credential_infos(
-                        run_id=self.run_id, paths=[artifact_path]
+                        paths=[artifact_path]
                     )[0]
                     put_block_list(
                         credential_info.signed_uri, uploading_block_list, headers=headers
@@ -318,7 +318,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     "to credential expiration. Refreshing credentials and trying again..."
                 )
                 new_credentials = self._get_write_credential_infos(
-                    run_id=self.run_id, paths=[artifact_path]
+                    paths=[artifact_path]
                 )[0]
                 kwargs["sas_url"] = new_credentials.signed_uri
                 func(**kwargs)
@@ -399,23 +399,23 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             raise MlflowException(err)
 
     def _upload_to_cloud(
-        self, cloud_credential_info, src_file_path, dst_run_relative_artifact_path
+        self, cloud_credential_info, src_file_path, artifact_path
     ):
         """
-        Upload a local file to the specified run-relative `dst_run_relative_artifact_path` using
+        Upload a local file to the specified run-relative `artifact_path` using
         the supplied `cloud_credential_info`.
         """
         if cloud_credential_info.type == ArtifactCredentialType.AZURE_SAS_URI:
             self._azure_upload_file(
-                cloud_credential_info, src_file_path, dst_run_relative_artifact_path
+                cloud_credential_info, src_file_path, artifact_path
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
             self._azure_adls_gen2_upload_file(
-                cloud_credential_info, src_file_path, dst_run_relative_artifact_path
+                cloud_credential_info, src_file_path, artifact_path
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AWS_PRESIGNED_URL:
             if os.path.getsize(src_file_path) > _MULTIPART_UPLOAD_CHUNK_SIZE:
-                self._multipart_upload(src_file_path, dst_run_relative_artifact_path)
+                self._multipart_upload(src_file_path, artifact_path)
             else:
                 self._signed_url_upload_file(cloud_credential_info, src_file_path)
         elif cloud_credential_info.type == ArtifactCredentialType.GCP_SIGNED_URL:
@@ -591,12 +591,12 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             dst_artifact_dir=artifact_path,
         )
         write_credential_info = self._get_write_credential_infos(
-            run_id=self.run_id, paths=[run_relative_artifact_path]
+            paths=[run_relative_artifact_path]
         )[0]
         self._upload_to_cloud(
             cloud_credential_info=write_credential_info,
             src_file_path=local_file,
-            dst_run_relative_artifact_path=run_relative_artifact_path,
+            artifact_path=run_relative_artifact_path,
         )
 
     def log_artifacts(self, local_dir, artifact_path=None):
