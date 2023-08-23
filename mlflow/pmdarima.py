@@ -57,8 +57,8 @@ Pmdarima format
 
 """
 
-import os
 import logging
+import os
 import pickle
 import warnings
 import pandas as pd
@@ -180,7 +180,6 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
-                                             import pandas as pd
 
     .. code-block:: python
         :caption: Example
@@ -526,8 +525,10 @@ class _PmdarimaModelWrapper:
         """
         :param dataframe: Model input data.
         :param params: Additional parameters to pass to the model for inference.
+        
                        .. Note:: Experimental: This parameter may change or be removed in a future
                                                release without warning.
+                                               
         :return: Model predictions.
         """
         df_schema = dataframe.columns.values.tolist()
