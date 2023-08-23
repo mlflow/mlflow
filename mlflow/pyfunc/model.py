@@ -242,21 +242,23 @@ def _save_model_with_class_artifacts_params(
                             f"to log the model with artifact_uri {artifact_uri}. Error: {e}"
                         )
 
+                    repo_id = artifact_uri[len(hf_prefix) :]
                     try:
-                        repo_id = artifact_uri[len(hf_prefix) :]
                         snapshot_location = snapshot_download(
                             repo_id=repo_id,
-                            cache_dir=os.path.join(
+                            local_dir=os.path.join(
                                 path, saved_artifacts_dir_subpath, artifact_name
                             ),
+                            local_dir_use_symlinks=False,
                         )
-                        saved_artifact_subpath = os.path.relpath(path=snapshot_location, start=path)
-
                     except Exception as e:
                         raise MlflowException.invalid_parameter_value(
                             "Failed to download snapshot from Hugging Face Hub with artifact_uri: "
                             f"{artifact_uri}. Error: {e}"
                         )
+                    saved_artifact_subpath = os.path.relpath(
+                        path=snapshot_location, start=os.path.realpath(path)
+                    )
                 else:
                     tmp_artifact_path = _download_artifact_from_uri(
                         artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
