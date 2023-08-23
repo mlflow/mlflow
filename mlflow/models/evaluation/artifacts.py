@@ -1,12 +1,12 @@
+import json
 import pathlib
+import pickle
+from collections import namedtuple
 from json import JSONDecodeError
 
-import pandas as pd
-import numpy as np
-import json
-import pickle
 import matplotlib.pyplot as plt
-from collections import namedtuple
+import numpy as np
+import pandas as pd
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationArtifact

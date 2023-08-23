@@ -18,18 +18,19 @@ Spark MLlib (native) format
     ``mlflow/java`` package. This flavor is produced only if you specify
     MLeap-compatible arguments.
 """
-import os
 import logging
+import os
 import posixpath
 import re
 import shutil
+from typing import Any, Dict, Optional
+
+import pandas as pd
 import yaml
 from packaging.version import Version
-from typing import Any, Dict, Optional
-import pandas as pd
 
 import mlflow
-from mlflow import environment_variables, pyfunc, mleap
+from mlflow import environment_variables, mleap, pyfunc
 from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
@@ -37,43 +38,42 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE
 from mlflow.models.utils import _Example, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
     _get_root_uri_and_artifact_path,
 )
+from mlflow.utils import databricks_utils
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _validate_env_arguments,
-    _process_pip_requirements,
-    _process_conda_env,
     _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _mlflow_conda_env,
+    _process_conda_env,
+    _process_pip_requirements,
     _PythonEnv,
+    _validate_env_arguments,
 )
-from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
-from mlflow.utils.file_utils import TempDir, write_to, shutil_copytree_without_file_permissions
-from mlflow.utils.uri import (
-    is_local_uri,
-    append_to_uri_path,
-    dbfs_hdfs_uri_to_fuse_path,
-    is_valid_dbfs_uri,
-    is_databricks_acled_artifacts_uri,
-    get_databricks_profile_uri_from_artifact_uri,
-    generate_tmp_dfs_path,
-)
-from mlflow.utils import databricks_utils
+from mlflow.utils.file_utils import TempDir, shutil_copytree_without_file_permissions, write_to
 from mlflow.utils.model_utils import (
+    _add_code_from_conf_to_system_path,
     _get_flavor_configuration_from_uri,
     _validate_and_copy_code_paths,
-    _add_code_from_conf_to_system_path,
 )
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.autologging_utils import autologging_integration, safe_patch
-
+from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.uri import (
+    append_to_uri_path,
+    dbfs_hdfs_uri_to_fuse_path,
+    generate_tmp_dfs_path,
+    get_databricks_profile_uri_from_artifact_uri,
+    is_databricks_acled_artifacts_uri,
+    is_local_uri,
+    is_valid_dbfs_uri,
+)
 
 FLAVOR_NAME = "spark"
 
@@ -554,9 +554,9 @@ def _save_model_metadata(
 
 
 def _validate_model(spark_model):
-    from pyspark.ml.util import MLReadable, MLWritable
     from pyspark.ml import Model as PySparkModel
     from pyspark.ml import Transformer as PySparkTransformer
+    from pyspark.ml.util import MLReadable, MLWritable
 
     if (
         (
@@ -649,6 +649,7 @@ def save_model(
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     from pyspark.ml import PipelineModel
+
     from mlflow.utils._spark_utils import _get_active_spark_session
 
     if not isinstance(spark_model, PipelineModel):
@@ -852,9 +853,9 @@ def _find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):
     :param spark_model: A pipeline model or a single transformer that contains `featuresCol` param
     :return: A spark dataframe that contains features column of `vector` type.
     """
-    from pyspark.sql.functions import udf
     from pyspark.ml.linalg import Vectors, VectorUDT
     from pyspark.sql import types as t
+    from pyspark.sql.functions import udf
 
     def _find_stage_with_features_col(stage):
         if stage.hasParam("featuresCol"):
@@ -996,12 +997,13 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
                    datasource autologging. If ``False``, show all events and warnings during Spark
                    datasource autologging.
     """
-    from mlflow.utils._spark_utils import _get_active_spark_session
+    from pyspark.sql import SparkSession
+
     from mlflow._spark_autologging import (
         _listen_for_spark_activity,
         _stop_listen_for_spark_activity,
     )
-    from pyspark.sql import SparkSession
+    from mlflow.utils._spark_utils import _get_active_spark_session
 
     def __init__(original, self, *args, **kwargs):
         original(self, *args, **kwargs)

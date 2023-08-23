@@ -1,20 +1,21 @@
-import pathlib
-from enum import Enum
 import json
 import logging
 import os
+import pathlib
+from enum import Enum
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+
 import pydantic
-from pydantic import validator, ValidationError
-from pydantic.json import pydantic_encoder
-from typing import Optional, Union, List, Dict, Any
 import yaml
+from packaging import version
+from pydantic import ValidationError, validator
+from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import ConfigModel, ResponseModel
-from mlflow.gateway.utils import is_valid_endpoint_name, check_configuration_route_name_collisions
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_BASE, MLFLOW_QUERY_SUFFIX
-from packaging import version
+from mlflow.gateway.utils import check_configuration_route_name_collisions, is_valid_endpoint_name
 
 _logger = logging.getLogger(__name__)
 

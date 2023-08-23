@@ -2,15 +2,15 @@ import decimal
 import json
 import logging
 import os
-from typing import Union, Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 
-from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
+from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
 from mlflow.store.artifact.utils.models import get_model_name_and_version
-from mlflow.types import DataType, ParamSchema, Schema, TensorSpec, ParamSpec
+from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.types.utils import TensorsNotSupportedException, clean_tensor_type
 from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import (
@@ -21,7 +21,7 @@ from mlflow.utils.proto_json_utils import (
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 
 try:
-    from scipy.sparse import csr_matrix, csc_matrix
+    from scipy.sparse import csc_matrix, csr_matrix
 
     HAS_SCIPY = True
 except ImportError:

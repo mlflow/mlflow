@@ -1,13 +1,14 @@
-from pyspark.sql.utils import IllegalArgumentException
-from pyspark.sql import DataFrame
 import re
 from functools import reduce
+from typing import Set, Union
+
+from pyspark.ml.base import Transformer
 from pyspark.ml.functions import vector_to_array
 from pyspark.ml.linalg import VectorUDT
-from pyspark.sql import types as t
-from pyspark.ml.base import Transformer
 from pyspark.ml.pipeline import PipelineModel
-from typing import Union, Set
+from pyspark.sql import DataFrame
+from pyspark.sql import types as t
+from pyspark.sql.utils import IllegalArgumentException
 
 
 def cast_spark_df_with_vector_to_array(input_spark_df):

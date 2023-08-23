@@ -76,6 +76,7 @@ from mlflow.tracking.artifact_utils import (
     _get_root_uri_and_artifact_path,
 )
 from mlflow.utils import databricks_utils
+from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -93,6 +94,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration_from_uri,
     _validate_and_copy_code_paths,
 )
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.uri import (
     append_to_uri_path,
     dbfs_hdfs_uri_to_fuse_path,
@@ -101,9 +103,6 @@ from mlflow.utils.uri import (
     is_local_uri,
     is_valid_dbfs_uri,
 )
-from mlflow.utils.annotations import experimental
-from mlflow.utils.requirements_utils import _get_pinned_requirement
-
 
 FLAVOR_NAME = "johnsnowlabs"
 _JOHNSNOWLABS_ENV_JSON_LICENSE_KEY = "JOHNSNOWLABS_LICENSE_JSON"
@@ -753,6 +752,7 @@ def _get_or_create_sparksession(model_path=None):
     :return:
     """
     from johnsnowlabs import nlp
+
     from mlflow.utils._spark_utils import _get_active_spark_session
 
     _validate_env_vars()

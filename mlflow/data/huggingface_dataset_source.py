@@ -1,8 +1,7 @@
-from typing import Any, Union, Optional, Mapping, Sequence, Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.utils.annotations import experimental
-
 
 if TYPE_CHECKING:
     import datasets
