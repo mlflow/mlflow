@@ -23,7 +23,7 @@ compatible pickling APIs.
 # Python pickle library.
 from pickle import Unpickler  # noqa: F401
 
-from cloudpickle import *
+from cloudpickle import *  # noqa: F403
 
 # PyTorch uses the ``Pickler`` class of the specified ``pickle_module``
 # (https://github.com/pytorch/pytorch/blob/692898fe379c9092f5e380797c32305145cd06e1/torch/
