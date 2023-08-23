@@ -29,10 +29,12 @@ def transform(stdout: str) -> str:
 
 
 def main():
-    cmd = [*RUFF, *sys.argv[1:]]
     if "GITHUB_ACTIONS" in os.environ:
         with subprocess.Popen(
-            cmd,
+            [
+                *RUFF,
+                *sys.argv[1:],
+            ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -42,7 +44,14 @@ def main():
             sys.stderr.write(stderr)
             sys.exit(prc.returncode)
     else:
-        with subprocess.Popen(cmd) as prc:
+        with subprocess.Popen(
+            [
+                *RUFF,
+                "--fix",
+                "--exit-non-zero-on-fix",
+                *sys.argv[1:],
+            ]
+        ) as prc:
             prc.communicate()
             sys.exit(prc.returncode)
 
