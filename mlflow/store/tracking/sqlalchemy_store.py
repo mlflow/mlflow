@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import logging
 import random
@@ -13,7 +14,7 @@ import sqlalchemy.sql.expression as sql
 from sqlalchemy import and_, sql, text
 from sqlalchemy.future import select
 
-from mlflow.entities import RunTag, Metric, DatasetInput, _DatasetSummary
+from mlflow.entities import RunTag, Metric, DatasetInput, _DatasetSummary, Param
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import MYSQL, MSSQL
@@ -62,11 +63,22 @@ from mlflow.utils.validation import (
 )
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
+    MLFLOW_LOGGED_ARTIFACTS,
     MLFLOW_LOGGED_MODELS,
     MLFLOW_RUN_NAME,
+    MLFLOW_RUN_SOURCE_TYPE,
     _get_run_name_from_tags,
 )
 from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.promptlab_utils import (
+    create_model_file,
+    create_conda_yaml_file,
+    create_python_env_file,
+    create_requirements_txt_file,
+    create_loader_file,
+    create_eval_results_file,
+    create_input_example_file,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -1003,6 +1015,107 @@ class SqlAlchemyStore(AbstractStore):
                 )
                 for summary in summaries
             ]
+
+    def _create_promptlab_run(
+        self,
+        experiment_id: str,
+        run_name: str,
+        tags: List[RunTag],
+        prompt_template: str,
+        prompt_parameters: List[Param],
+        model_route: str,
+        model_parameters: List[Param],
+        model_input: str,
+        model_output_parameters: List[Param],
+        model_output: str,
+        mlflow_version: str,
+        user_id: str,
+        start_time: str,
+    ):
+        """
+        Creates a run for prompt engineering with the specified attributes.
+        """
+        run = self.create_run(experiment_id, user_id, start_time, tags, run_name)
+        run_id = run.info.run_id
+
+        # log model parameters
+        parameters_to_log = (
+            model_parameters
+            + [Param("model_route", model_route)]
+            + [Param("prompt_template", prompt_template)]
+        )
+
+        self.log_batch(run_id, [], parameters_to_log, [])
+
+        # set logged artifacts tag
+        tag_value = [{"path": "eval_results_table.json", "type": "table"}]
+        self.set_tag(run_id, RunTag(MLFLOW_LOGGED_ARTIFACTS, json.dumps(tag_value)))
+
+        # set the promptlab run tag
+        self.set_tag(run_id, RunTag(MLFLOW_RUN_SOURCE_TYPE, "PROMPT_ENGINEERING"))
+
+        artifact_dir = self._get_artifact_dir(experiment_id, run_id)
+
+        # log model
+        from mlflow.models import Model
+
+        utc_time_created = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+        promptlab_model = Model(
+            artifact_path=artifact_dir,
+            run_id=run_id,
+            utc_time_created=utc_time_created,
+        )
+        self.record_logged_model(run_id, promptlab_model)
+
+        # write artifact files
+        model_json = create_model_file(
+            run_id, mlflow_version, prompt_parameters, promptlab_model.model_uuid, utc_time_created
+        )
+        # model_json_file_path = os.path.join(artifact_dir, "model", "MLmodel")
+        # make_containing_dirs(model_json_file_path)
+        # write_to(model_json_file_path, model_json)
+
+        conda_yaml = create_conda_yaml_file(mlflow_version)
+        # conda_yaml_file_path = os.path.join(artifact_dir, "model", "conda.yaml")
+        # make_containing_dirs(conda_yaml_file_path)
+        # write_to(conda_yaml_file_path, conda_yaml)
+
+        python_yaml = create_python_env_file()
+        # python_yaml_file_path = os.path.join(artifact_dir, "model", "python_env.yaml")
+        # make_containing_dirs(python_yaml_file_path)
+        # write_to(python_yaml_file_path, python_yaml)
+
+        requirements_txt = create_requirements_txt_file(mlflow_version)
+        # requirements_txt_file_path = os.path.join(artifact_dir, "model", "requirements.txt")
+        # make_containing_dirs(requirements_txt_file_path)
+        # write_to(requirements_txt_file_path, requirements_txt)
+
+        loader_module = create_loader_file(
+            prompt_parameters, prompt_template, model_parameters, model_route
+        )
+        # loader_module_file_path = os.path.join(
+        #     artifact_dir, "model", "loader", "gateway_loader_module.py"
+        # )
+        # make_containing_dirs(loader_module_file_path)
+        # write_to(loader_module_file_path, loader_module)
+
+        eval_results_json = create_eval_results_file(
+            prompt_parameters, model_input, model_output_parameters, model_output
+        )
+        # eval_results_json_file_path = os.path.join(artifact_dir, "eval_results_table.json")
+        # make_containing_dirs(eval_results_json_file_path)
+        # write_to(eval_results_json_file_path, eval_results_json)
+
+        input_example_json = create_input_example_file(prompt_parameters)
+        # input_example_json_file_path = os.path.join(artifact_dir, "input_example.json")
+        # make_containing_dirs(input_example_json_file_path)
+        # write_to(input_example_json_file_path, input_example_json)
+
+        self.update_run_info(
+            run_id, RunStatus.FINISHED, int(datetime.now().strftime("%Y%m%d")), run_name
+        )
+
+        return self.get_run(run_id=run_id)
 
     def log_param(self, run_id, param):
         _validate_param(param.key, param.value)

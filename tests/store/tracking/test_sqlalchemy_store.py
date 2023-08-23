@@ -2459,6 +2459,57 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         results = self.store._search_datasets([exp_id])
         assert len(results) == 1000
 
+    def test_create_promptlab_run(self):
+        exp_id = self.store.create_experiment("test_create_promptlab_run")
+        run = self.store._create_promptlab_run(
+            experiment_id=exp_id,
+            run_name="my_promptlab_run",
+            tags=[],
+            prompt_template="my_prompt_template",
+            prompt_parameters=[Param("prompt_param_key", "prompt_param_value")],
+            model_route="my_route",
+            model_parameters=[Param("temperature", "0.1")],
+            model_input="",
+            model_output_parameters=[Param("output_param_key", "output_param_value")],
+            model_output="my_output",
+            mlflow_version="1.0.0",
+            user_id="user",
+            start_time=1,
+        )
+        assert run.info.run_id is not None
+        assert run.info.status == RunStatus.to_string(RunStatus.FINISHED)
+
+        assert run.data.params["prompt_template"] == "my_prompt_template"
+        assert run.data.params["model_route"] == "my_route"
+        assert run.data.params["temperature"] == "0.1"
+
+        assert run.data.tags["mlflow.runName"] == "my_promptlab_run"
+        assert (
+            run.data.tags["mlflow.loggedArtifacts"]
+            == '[{"path": "eval_results_table.json", "type": "table"}]'
+        )
+        assert run.data.tags["mlflow.runSourceType"] == "PROMPT_ENGINEERING"
+        assert run.data.tags["mlflow.log-model.history"] is not None
+
+        # artifact_location = self.store.get_experiment(exp_id).artifact_location
+
+        # list the files in the model folder
+        # artifact_files = os.listdir(os.path.join(artifact_location, run.info.run_id, "artifacts"))
+        # assert "eval_results_table.json" in artifact_files
+        # assert "model" in artifact_files
+        # assert "input_example.json" in artifact_files
+
+        # model_files = os.listdir(os.path.join(artifact_location, run.info.run_id, "artifacts", "model"))
+        # assert "MLmodel" in model_files
+        # assert "python_env.yaml" in model_files
+        # assert "conda.yaml" in model_files
+        # assert "requirements.txt" in model_files
+
+        # loader_files = os.listdir(
+        #     os.path.join(artifact_location, run.info.run_id, "artifacts", "model", "loader")
+        # )
+        # assert "gateway_loader_module.py" in loader_files
+
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")
         run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
