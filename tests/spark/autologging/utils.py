@@ -1,8 +1,8 @@
 import os
 
-import mlflow
 from pyspark.sql import SparkSession
 
+import mlflow
 from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 
 

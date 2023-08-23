@@ -3,13 +3,15 @@ Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
 import time
+
 import pytest
 
-from mlflow.entities.model_registry import RegisteredModel, ModelVersion
-from mlflow.exceptions import MlflowException
 from mlflow import MlflowClient
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.entities.model_registry import ModelVersion, RegisteredModel
+from mlflow.exceptions import MlflowException
 from mlflow.utils.os import is_windows
+from mlflow.utils.time_utils import get_current_time_millis
+
 from tests.tracking.integration_test_utils import _init_server
 
 

@@ -1,34 +1,34 @@
 import codecs
 import filecmp
 import hashlib
+import json
 import os
 import shutil
-import json
+import stat
+import tarfile
 
 import jinja2.exceptions
-import pytest
-import tarfile
-import stat
 import pandas as pd
+import pytest
 from pyspark.sql import SparkSession
 
 import mlflow
 from mlflow.exceptions import MissingConfigException
 from mlflow.utils import file_utils
 from mlflow.utils.file_utils import (
-    get_parent_dir,
+    TempDir,
     _copy_file_or_tree,
+    _handle_readonly_on_windows,
+    get_parent_dir,
+    local_file_uri_to_path,
     read_parquet_as_pandas_df,
     write_pandas_df_as_parquet,
     write_spark_dataframe_to_parquet_on_local_disk,
-    TempDir,
-    _handle_readonly_on_windows,
-    local_file_uri_to_path,
 )
 from mlflow.utils.os import is_windows
-from tests.projects.utils import TEST_PROJECT_DIR
 
-from tests.helper_functions import random_int, random_file, safe_edit_yaml
+from tests.helper_functions import random_file, random_int, safe_edit_yaml
+from tests.projects.utils import TEST_PROJECT_DIR
 
 
 @pytest.fixture(scope="module")

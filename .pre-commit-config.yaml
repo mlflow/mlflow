@@ -7,6 +7,13 @@ repos:
         args: ["--no-config", "--print-width", "100"]
   - repo: local
     hooks:
+      - id: ruff
+        name: ruff
+        entry: ruff
+        language: system
+        types_or: [python]
+        stages: [commit]
+
       - id: black
         name: black
         entry: black
@@ -28,13 +35,6 @@ repos:
         language: system
         types: [python]
         args: ["--rcfile=pylintrc"]
-        stages: [commit]
-
-      - id: ruff
-        name: ruff
-        entry: ruff
-        language: system
-        types: [python]
         stages: [commit]
 
       - id: disallow-rule-ids

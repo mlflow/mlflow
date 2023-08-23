@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-import cloudpickle
-import os
 import json
+import os
 import sys
 import uuid
-from subprocess import Popen, PIPE
+from subprocess import PIPE, Popen
+from typing import Any, Dict, List, Tuple
 from unittest import mock
-from typing import List, Dict, Tuple, Any
 
+import cloudpickle
 import numpy as np
 import pandas as pd
 import pandas.testing
@@ -29,20 +29,22 @@ from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import (
-    get_artifact_uri as utils_get_artifact_uri,
     _download_artifact_from_uri,
+)
+from mlflow.tracking.artifact_utils import (
+    get_artifact_uri as utils_get_artifact_uri,
 )
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 import tests
-from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import (
-    _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _compare_conda_env_requirements,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
 )
 
 

@@ -1,38 +1,38 @@
+import json
 import os
-import pytest
 import time
 from collections import namedtuple
+from functools import wraps
 from io import BytesIO
 from unittest import mock
-from functools import wraps
 
-import json
 import boto3
 import botocore
 import numpy as np
 import pandas as pd
+import pytest
 from click.testing import CliRunner
-from sklearn.linear_model import LogisticRegression
 from moto.core import DEFAULT_ACCOUNT_ID
+from sklearn.linear_model import LogisticRegression
 
 import mlflow
 import mlflow.pyfunc
-import mlflow.sklearn
 import mlflow.sagemaker as mfs
+import mlflow.sklearn
 from mlflow.deployments.cli import commands as cli_commands
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
-    RESOURCE_DOES_NOT_EXIST,
-    INVALID_PARAMETER_VALUE,
     INTERNAL_ERROR,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 
 from tests.helper_functions import set_boto_credentials  # noqa: F401
-from tests.sagemaker.mock import mock_sagemaker, Endpoint, EndpointOperation
+from tests.sagemaker.mock import Endpoint, EndpointOperation, mock_sagemaker
 
 TrainedModel = namedtuple("TrainedModel", ["model_path", "run_id", "model_uri"])
 
@@ -95,7 +95,7 @@ def get_sagemaker_backend(region_name):
 
 
 def mock_sagemaker_aws_services(fn):
-    from moto import mock_s3, mock_ecr, mock_sts, mock_iam
+    from moto import mock_ecr, mock_iam, mock_s3, mock_sts
 
     @mock_ecr
     @mock_iam

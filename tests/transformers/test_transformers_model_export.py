@@ -1,69 +1,69 @@
 import base64
-from functools import wraps
 import gc
 import importlib.util
-import logging
 import json
+import logging
+import os
+import pathlib
+import textwrap
 import time
+from functools import wraps
+from unittest import mock
 
+import huggingface_hub
 import librosa
 import numpy as np
-import os
 import pandas as pd
-from packaging.version import Version
-import pathlib
 import pytest
-import textwrap
-from unittest import mock
-import yaml
-
+import torch
 import transformers
-import huggingface_hub
-from huggingface_hub import ModelCard, scan_cache_dir
+import yaml
 from datasets import load_dataset
+from huggingface_hub import ModelCard, scan_cache_dir
+from packaging.version import Version
 
 import mlflow
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.transformers import (
-    _build_pipeline_from_model_input,
-    get_default_pip_requirements,
-    get_default_conda_env,
-    _infer_transformers_task_type,
-    _validate_transformers_task_type,
-    _get_instance_type,
-    _generate_base_flavor_configuration,
-    _TASK_KEY,
-    _PIPELINE_MODEL_TYPE_KEY,
+    _CARD_DATA_FILE_NAME,
+    _CARD_TEXT_FILE_NAME,
+    _FRAMEWORK_KEY,
     _INSTANCE_TYPE_KEY,
     _MODEL_PATH_OR_NAME_KEY,
+    _PIPELINE_MODEL_TYPE_KEY,
+    _TASK_KEY,
+    _build_pipeline_from_model_input,
     _fetch_model_card,
+    _generate_base_flavor_configuration,
     _get_base_model_architecture,
+    _get_instance_type,
     _get_or_infer_task_type,
+    _infer_transformers_task_type,
     _record_pipeline_components,
     _should_add_pyfunc_to_model,
     _TransformersModel,
-    _FRAMEWORK_KEY,
+    _validate_transformers_task_type,
     _write_card_data,
-    _CARD_TEXT_FILE_NAME,
-    _CARD_DATA_FILE_NAME,
+    get_default_conda_env,
+    get_default_pip_requirements,
 )
 from mlflow.utils.environment import _mlflow_conda_env
-import torch
+
 from tests.helper_functions import (
-    _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _compare_conda_env_requirements,
     _compare_logged_code_paths,
-    _mlflow_major_version_string,
-    pyfunc_serve_and_score_model,
     _get_deps_from_requirement_file,
+    _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
 )
 
 pytestmark = pytest.mark.large

@@ -2,16 +2,26 @@ from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
     RegisteredModel,
-    RegisteredModelTag,
     RegisteredModelAlias,
+    RegisteredModelTag,
 )
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     ModelVersion as ProtoModelVersion,
-    ModelVersionTag as ProtoModelVersionTag,
+)
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     ModelVersionStatus as ProtoModelVersionStatus,
+)
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    ModelVersionTag as ProtoModelVersionTag,
+)
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     RegisteredModel as ProtoRegisteredModel,
-    RegisteredModelTag as ProtoRegisteredModelTag,
+)
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     RegisteredModelAlias as ProtoRegisteredModelAlias,
+)
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    RegisteredModelTag as ProtoRegisteredModelTag,
 )
 from mlflow.store._unity_catalog.registry.utils import (
     model_version_from_uc_proto,

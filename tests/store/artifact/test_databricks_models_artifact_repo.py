@@ -1,18 +1,18 @@
 import json
 import re
-
-import pytest
 from unittest import mock
 from unittest.mock import ANY
 
+import pytest
+
+from mlflow import MlflowClient
 from mlflow.entities import FileInfo
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.databricks_models_artifact_repo import (
-    DatabricksModelsArtifactRepository,
     _DOWNLOAD_CHUNK_SIZE,
+    DatabricksModelsArtifactRepository,
 )
-from mlflow import MlflowClient
 
 DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE = (
     "mlflow.store.artifact.databricks_models_artifact_repo"

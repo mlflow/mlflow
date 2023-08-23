@@ -1,18 +1,19 @@
 import os
 import tempfile
-import pandas as pd
 from pathlib import Path
+from unittest import mock
+
+import pandas as pd
 import pytest
 from pyspark.sql import SparkSession
 from sklearn.datasets import load_diabetes
-from unittest import mock
 
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.recipes.artifacts import RegisteredModelVersionInfo
-from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
-from mlflow.recipes.steps.predict import PredictStep, _INPUT_FILE_NAME, _SCORED_OUTPUT_FILE_NAME
+from mlflow.recipes.steps.predict import _INPUT_FILE_NAME, _SCORED_OUTPUT_FILE_NAME, PredictStep
 from mlflow.recipes.steps.register import _REGISTERED_MV_INFO_FILE
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
 from mlflow.utils.file_utils import read_yaml
 
 from tests.recipes.helper_functions import (

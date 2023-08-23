@@ -1,8 +1,8 @@
 import json
 import pathlib
+from unittest import mock
 
 import pytest
-from unittest import mock
 from click.testing import CliRunner
 
 import mlflow

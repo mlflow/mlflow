@@ -7,14 +7,18 @@ import warnings
 from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
 
-import mlflow
-from mlflow.utils.logging_utils import eprint
-from mlflow.utils.autologging_utils import autologging_integration, safe_patch
-
-import pytest
 import numpy as np
-from tests.autologging.fixtures import test_mode_off, patch_destination
-from tests.autologging.fixtures import reset_stderr  # noqa: F401
+import pytest
+
+import mlflow
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.logging_utils import eprint
+
+from tests.autologging.fixtures import (
+    patch_destination,
+    reset_stderr,  # noqa: F401
+    test_mode_off,
+)
 
 
 @pytest.fixture

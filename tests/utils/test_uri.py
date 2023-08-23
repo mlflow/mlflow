@@ -1,13 +1,16 @@
 import pathlib
 import posixpath
+
 import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.utils.os import is_windows
 from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     append_to_uri_path,
     append_to_uri_query_params,
+    dbfs_hdfs_uri_to_fuse_path,
     extract_and_normalize_path,
     extract_db_type_from_uri,
     get_databricks_profile_uri_from_artifact_uri,
@@ -19,10 +22,8 @@ from mlflow.utils.uri import (
     is_local_uri,
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
-    dbfs_hdfs_uri_to_fuse_path,
     resolve_uri_if_local,
 )
-from mlflow.utils.os import is_windows
 
 
 def test_extract_db_type_from_uri():

@@ -1,9 +1,10 @@
-import json
-import sys
-import subprocess
 import asyncio
-import aiohttp
+import json
+import subprocess
+import sys
 import traceback
+
+import aiohttp
 
 
 def get_distributions():
