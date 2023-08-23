@@ -89,7 +89,8 @@ def test_create_model_file():
             "pandas_orient": "split",
         },
         "signature": {
-            "inputs": '[{"name": "question", "type": "string"}, {"name": "context", "type": "string"}]',
+            "inputs": '[{"name": "question", "type": "string"}, '
+            '{"name": "context", "type": "string"}]',
             "outputs": '[{"name": "output", "type": "string"}]',
         },
     }
