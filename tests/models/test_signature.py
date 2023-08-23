@@ -130,6 +130,27 @@ def test_signature_inference_infers_input_and_output_as_expected():
     assert sig1.outputs == sig0.inputs
 
 
+def test_infer_signature_on_list_of_dictionaries():
+    signature = infer_signature(
+        model_input=[{"query": "test query"}],
+        model_output=[
+            {
+                "output": "Output from the LLM",
+                "candidate_ids": ["412", "1233"],
+                "candidate_sources": ["file1.md", "file201.md"],
+            }
+        ],
+    )
+    assert signature.inputs == Schema([ColSpec(DataType.string, name="query")])
+    assert signature.outputs == Schema(
+        [
+            ColSpec(DataType.string, name="output"),
+            ColSpec(DataType.string, name="candidate_ids"),
+            ColSpec(DataType.string, name="candidate_sources"),
+        ]
+    )
+
+
 def test_signature_inference_infers_datime_types_as_expected():
     col_name = "datetime_col"
     test_datetime = np.datetime64("2021-01-01")
