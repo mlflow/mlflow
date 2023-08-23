@@ -524,10 +524,10 @@ class _PmdarimaModelWrapper:
         """
         :param dataframe: Model input data.
         :param params: Additional parameters to pass to the model for inference.
-        
+
                        .. Note:: Experimental: This parameter may change or be removed in a future
                                                release without warning.
-                                               
+
         :return: Model predictions.
         """
         df_schema = dataframe.columns.values.tolist()
