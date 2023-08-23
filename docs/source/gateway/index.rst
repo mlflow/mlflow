@@ -1194,6 +1194,71 @@ Here are some examples for how you might use curl to interact with the Gateway:
            -d '{"text": ["I'd like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}' \
            http://your.workspace.databricks.com/gateway/<your_embeddings_route>/invocations
 
+
+Using MosaicML-hosted open source models with the AI Gateway
+=================================================================================
+AI Gateway also provides access to MosaicML’s open source models as hosted APIs. 
+These APIs provide fast and easy access to state-of-the-art open source models for rapid experimentation and 
+token-based pricing. MosaicML supports the ``Instructor-XL``, a 1.2B parameter instruction fine-tuned embedding model 
+by HKUNLP, and the ``Llama2-70b-Chat`` API which was trained on 2 trillion tokens and fine-tuned for dialogue, safety, and 
+helpfulness by Meta.
+
+.. note::
+
+    Llama 2 is licensed under the LLAMA 2 Community License, Copyright © Meta Platforms, Inc. All Rights Reserved.
+
+
+To access these models via Gateway, you can create MosaicML routes like for the other providers.
+The following example demonstrates how to create a route with MosaicML (for the Llama2-70b-Chat model):
+
+.. code-block:: python
+
+    create_route(
+        name="mosaicml-llama-completions",
+        route_type="llm/v1/completions",
+        model={
+            "name": "llama2-70b-chat",
+            "provider": "mosaicml",
+            "mosaicml_config": {
+                "mosaicml_api_key": "<YOUR_MOSAIC_API_KEY>"
+            }
+        }
+    )
+
+For the ``Instructor-XL`` embeddings model, the route can be created like so:
+
+.. code-block:: python
+
+    create_route(
+            name="mosaicml-embeddings",
+            route_type="llm/v1/embeddings",
+            model={
+                "name": "instructor-large",
+                "provider": "mosaicml",
+                "mosaicml_config": {
+                    "mosaicml_api_key": "<YOUR_MOSAIC_API_KEY>"
+                }
+            }
+    )
+
+
+To query these routes, you can use the :ref:`gateway_fluent_api`, for instance:
+
+.. code-block:: python
+
+    from mlflow.gateway import query
+
+    response = query(
+        route="mosaicml-llama-completions",
+        data={
+            "prompt": "What is MLflow?",
+        }
+    )
+    print(response)
+
+The :ref:`gateway_rest_api` can also be used.
+
+
 .. _config_databricks_model_serving:
 
 Using open source models with the AI Gateway (Databricks Model Serving Endpoints)
