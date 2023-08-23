@@ -3,23 +3,22 @@ Trains a Keras model for user/movie ratings. The input is a Parquet
 ratings dataset (see etl_data.py) and an ALS model (see als.py), which we
 will use to supplement our input and train using.
 """
+from itertools import chain
+
 import click
+import numpy as np
+import pandas as pd
+import pyspark
+import tensorflow as tf
+from pyspark.sql.functions import col, udf
+from pyspark.sql.types import ArrayType, FloatType
+from tensorflow import keras
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.models import Sequential
 
 import mlflow
 import mlflow.spark
-
-from itertools import chain
-import pyspark
-from pyspark.sql.functions import *
-from pyspark.sql.types import *
-
-import tensorflow as tf
-import tensorflow.keras as keras
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
-import numpy as np
-import pandas as pd
 
 
 @click.command()
@@ -42,7 +41,7 @@ def train_keras(ratings_data, als_model_uri, hidden_units):
     mlflow.log_metric("training_nrows", training_df.count())
     mlflow.log_metric("test_nrows", test_df.count())
 
-    print("Training: {}, test: {}".format(training_df.count(), test_df.count()))
+    print(f"Training: {training_df.count()}, test: {test_df.count()}")
 
     user_factors = als_model.userFactors.selectExpr("id as userId", "features as uFeatures")
     item_factors = als_model.itemFactors.selectExpr("id as movieId", "features as iFeatures")
@@ -89,7 +88,6 @@ def train_keras(ratings_data, als_model_uri, hidden_units):
 
     model.compile(loss="mse", optimizer=keras.optimizers.Adam(lr=0.0001))
 
-    filepath = "/tmp/ALS_checkpoint_weights.hdf5"
     early_stopping = EarlyStopping(monitor="val_loss", min_delta=0.0001, patience=2, mode="auto")
 
     model.fit(
@@ -108,7 +106,7 @@ def train_keras(ratings_data, als_model_uri, hidden_units):
     mlflow.log_metric("test_mse", test_mse)
     mlflow.log_metric("train_mse", train_mse)
 
-    print("The model had a MSE on the test set of {}".format(test_mse))
+    print(f"The model had a MSE on the test set of {test_mse}")
     mlflow.tensorflow.log_model(model, "keras-model")
 
 

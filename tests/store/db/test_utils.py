@@ -1,9 +1,10 @@
-import pytest
 from unittest import mock
 
-from mlflow.store.db import utils
+import pytest
 from sqlalchemy.pool import NullPool
 from sqlalchemy.pool.impl import QueuePool
+
+from mlflow.store.db import utils
 
 
 def test_create_sqlalchemy_engine_inject_pool_options(monkeypatch):

@@ -1,22 +1,23 @@
-import json
 import hashlib
+import json
+import logging
 import os
 import shutil
-import logging
 from unittest import mock
 
-from click.testing import CliRunner
 import pytest
+from click.testing import CliRunner
 
-from mlflow import cli, MlflowClient
+from mlflow import MlflowClient, cli
 from mlflow.utils import process
+
 from tests.integration.utils import invoke_cli_runner
-from tests.projects.utils import docker_example_base_image  # noqa: F401
 from tests.projects.utils import (
-    TEST_PROJECT_DIR,
     GIT_PROJECT_URI,
     SSH_PROJECT_URI,
     TEST_DOCKER_PROJECT_DIR,
+    TEST_PROJECT_DIR,
+    docker_example_base_image,  # noqa: F401
 )
 
 _logger = logging.getLogger(__name__)

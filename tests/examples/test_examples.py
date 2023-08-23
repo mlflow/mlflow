@@ -1,14 +1,16 @@
+import os
 import re
 import shutil
-import os
 import sys
 from pathlib import Path
+
+import pytest
 
 import mlflow
 from mlflow import cli
 from mlflow.utils import process
 from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
-import pytest
+
 from tests.helper_functions import clear_hub_cache, get_free_disk_space_in_GiB
 from tests.integration.utils import invoke_cli_runner
 
@@ -34,7 +36,7 @@ def report_free_disk_space(capsys):
         sys.stdout.write(f" | Free disk space: {get_free_disk_space_in_GiB():.1f} GiB")
 
 
-@pytest.fixture(scope="function", autouse=True)
+@pytest.fixture(autouse=True)
 def clean_up_mlflow_virtual_environments():
     yield
 

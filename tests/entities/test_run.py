@@ -1,17 +1,18 @@
 import pytest
 
 from mlflow.entities import (
-    Run,
-    Metric,
     Dataset,
     DatasetInput,
+    LifecycleStage,
+    Metric,
+    Run,
     RunData,
-    RunStatus,
     RunInfo,
     RunInputs,
-    LifecycleStage,
+    RunStatus,
 )
 from mlflow.exceptions import MlflowException
+
 from tests.entities.test_run_data import _check as run_data_check
 from tests.entities.test_run_info import _check as run_info_check
 from tests.entities.test_run_inputs import _check as run_inputs_check

@@ -1,14 +1,13 @@
+import numpy as np
 import pytest
 
 import mlflow
 from mlflow import tracking
+from mlflow.exceptions import INVALID_PARAMETER_VALUE, ErrorCode, MlflowException
 from mlflow.tracking.fluent import start_run
-
-from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
-from tests.helper_functions import random_int
 
-import numpy as np
+from tests.helper_functions import random_int
 
 
 def test_reraised_value_errors():

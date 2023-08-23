@@ -1,12 +1,12 @@
-import logging
-import subprocess
-from itertools import islice
-from sys import version_info
-import socket
-from contextlib import closing
-import uuid
 import base64
 import inspect
+import logging
+import socket
+import subprocess
+import uuid
+from contextlib import closing
+from itertools import islice
+from sys import version_info
 
 _logger = logging.getLogger(__name__)
 

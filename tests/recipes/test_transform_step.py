@@ -1,19 +1,18 @@
 import os
 from pathlib import Path
+from unittest import mock
 from unittest.mock import Mock
 
+import pandas as pd
 import pytest
 
-import pandas as pd
-
 import mlflow
-from mlflow.exceptions import MlflowException
 from mlflow import MlflowClient
-from mlflow.utils.file_utils import read_yaml
 from mlflow.environment_variables import MLFLOW_RECIPES_EXECUTION_DIRECTORY
-from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
+from mlflow.exceptions import MlflowException
 from mlflow.recipes.steps.transform import TransformStep, _validate_user_code_output
-from unittest import mock
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
+from mlflow.utils.file_utils import read_yaml
 
 
 # Sets up the transform step and returns the constructed TransformStep instance and step output dir

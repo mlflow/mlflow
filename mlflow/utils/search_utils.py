@@ -1,32 +1,32 @@
+import ast
 import base64
 import json
+import math
 import operator
 import re
-import ast
 import shlex
 
 import sqlparse
+from packaging.version import Version
 from sqlparse.sql import (
-    Identifier,
-    Token,
     Comparison,
-    Statement,
-    Parenthesis,
+    Identifier,
     IdentifierList,
+    Parenthesis,
+    Statement,
+    Token,
     TokenList,
 )
 from sqlparse.tokens import Token as TokenType
-from packaging.version import Version
 
 from mlflow.entities import RunInfo
 from mlflow.entities.model_registry.model_version_stages import STAGE_DELETED_INTERNAL
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.db.db_types import MYSQL, MSSQL, SQLITE, POSTGRES
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
 )
-import math
 
 
 def _convert_like_pattern_to_regex(pattern, flags=0):

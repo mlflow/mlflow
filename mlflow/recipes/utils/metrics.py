@@ -1,10 +1,10 @@
-import logging
 import importlib
+import logging
 import sys
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, List, Optional
 
+from mlflow.exceptions import BAD_REQUEST, MlflowException
 from mlflow.models import EvaluationMetric, make_metric
-from mlflow.exceptions import MlflowException, BAD_REQUEST
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 _logger = logging.getLogger(__name__)

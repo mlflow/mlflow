@@ -1,22 +1,22 @@
 from sqlalchemy import (
-    Column,
-    String,
-    ForeignKey,
-    Integer,
     BigInteger,
-    PrimaryKeyConstraint,
+    Column,
+    ForeignKey,
     ForeignKeyConstraint,
+    Integer,
+    PrimaryKeyConstraint,
+    String,
 )
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy.orm import backref, relationship
 
 from mlflow.entities.model_registry import (
-    RegisteredModel,
     ModelVersion,
-    RegisteredModelTag,
     ModelVersionTag,
+    RegisteredModel,
     RegisteredModelAlias,
+    RegisteredModelTag,
 )
-from mlflow.entities.model_registry.model_version_stages import STAGE_NONE, STAGE_DELETED_INTERNAL
+from mlflow.entities.model_registry.model_version_stages import STAGE_DELETED_INTERNAL, STAGE_NONE
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.store.db.base_sql_model import Base
 from mlflow.utils.time_utils import get_current_time_millis

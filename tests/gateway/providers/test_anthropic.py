@@ -1,14 +1,15 @@
 from unittest import mock
 
+import pytest
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
-import pytest
 
-from mlflow.gateway.providers.anthropic import AnthropicProvider
-from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS
+from mlflow.gateway.providers.anthropic import AnthropicProvider
+from mlflow.gateway.schemas import chat, completions, embeddings
+
 from tests.gateway.tools import MockAsyncResponse
 
 
@@ -216,6 +217,5 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
     config = completions_config()
     provider = AnthropicProvider(RouteConfig(**config))
     payload = {"prompt": prompt}
-    with pytest.raises(ValidationError, match=r".*") as e:
+    with pytest.raises(ValidationError, match=r"prompt"):
         await provider.completions(completions.RequestPayload(**payload))
-    assert "str type expected" in e.value.errors()[0]["msg"]

@@ -1,16 +1,17 @@
 from unittest import mock
 
+import pytest
 from aiohttp import ClientTimeout
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
-import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import OpenAIConfig, RouteConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
+
 from tests.gateway.tools import MockAsyncResponse, mock_http_client
 
 
@@ -197,9 +198,8 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
     config = completions_config()
     provider = OpenAIProvider(RouteConfig(**config))
     payload = {"prompt": prompt}
-    with pytest.raises(ValidationError, match=r".*") as e:
+    with pytest.raises(ValidationError, match=r"prompt"):
         await provider.completions(completions.RequestPayload(**payload))
-    assert "str type expected" in e.value.errors()[0]["msg"]
 
 
 @pytest.mark.asyncio

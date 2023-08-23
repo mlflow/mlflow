@@ -1,8 +1,9 @@
-from pathlib import Path
 import sqlite3
+from pathlib import Path
+
+from click.testing import CliRunner
 
 from mlflow.server.auth.db import cli
-from click.testing import CliRunner
 
 
 def test_upgrade(tmp_path: Path) -> None:

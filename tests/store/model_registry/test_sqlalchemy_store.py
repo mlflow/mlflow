@@ -1,28 +1,30 @@
-from unittest import mock
 import time
 import uuid
+from unittest import mock
+
 import pytest
 
 from mlflow.entities.model_registry import (
     ModelVersion,
-    RegisteredModelTag,
     ModelVersionTag,
+    RegisteredModelTag,
 )
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
-from mlflow.store.model_registry.dbmodels.models import (
-    SqlRegisteredModel,
-    SqlRegisteredModelTag,
-    SqlModelVersion,
-    SqlModelVersionTag,
-)
 from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
-    RESOURCE_DOES_NOT_EXIST,
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
+)
+from mlflow.store.model_registry.dbmodels.models import (
+    SqlModelVersion,
+    SqlModelVersionTag,
+    SqlRegisteredModel,
+    SqlRegisteredModelTag,
 )
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+
 from tests.helper_functions import random_str
 
 pytestmark = pytest.mark.notrackingurimock

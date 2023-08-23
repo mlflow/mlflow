@@ -1,19 +1,18 @@
-import requests
-import time
 import json
-import tempfile
 import logging
+import tempfile
+import time
 import uuid
-from pathlib import Path
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Dict, Optional
 
+import requests
 
-from mlflow.pyfunc import scoring_server
-
-from mlflow.exceptions import MlflowException
-from mlflow.utils.proto_json_utils import dump_input_data
 from mlflow.deployments import PredictionsResponse
+from mlflow.exceptions import MlflowException
+from mlflow.pyfunc import scoring_server
+from mlflow.utils.proto_json_utils import dump_input_data
 
 _logger = logging.getLogger(__name__)
 

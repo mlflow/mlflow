@@ -1,25 +1,26 @@
 import os
+import platform
 import shutil
 import subprocess
 import sys
-import platform
+
 import yaml
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.pyfunc.model import Model, MLMODEL_FILE_NAME
+from mlflow.environment_variables import MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import BAD_REQUEST
+from mlflow.pyfunc.model import MLMODEL_FILE_NAME, Model
 from mlflow.store.artifact.utils.models import _parse_model_uri, get_model_name_and_version
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
-    _overwrite_pip_deps,
     _get_pip_deps,
     _mlflow_additional_pip_env,
+    _overwrite_pip_deps,
 )
-from mlflow.exceptions import MlflowException
-from mlflow.environment_variables import MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 
@@ -97,7 +98,7 @@ class WheeledModel:
         :param mlflow_model: The new :py:mod:`mlflow.models.Model` metadata file to store the
                              updated model metadata.
         """
-        from mlflow.pyfunc import FLAVOR_NAME, ENV, _extract_conda_env
+        from mlflow.pyfunc import ENV, FLAVOR_NAME, _extract_conda_env
 
         path = os.path.abspath(path)
         _validate_and_prepare_target_save_path(path)

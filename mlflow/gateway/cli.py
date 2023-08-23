@@ -1,6 +1,7 @@
 import click
-from mlflow.gateway.runner import run_app
+
 from mlflow.gateway.config import _validate_config
+from mlflow.gateway.runner import run_app
 from mlflow.utils.annotations import experimental
 
 

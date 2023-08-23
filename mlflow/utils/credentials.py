@@ -1,8 +1,8 @@
-import os
 import configparser
-from typing import Optional, NamedTuple, Tuple
+import os
+from typing import NamedTuple, Optional, Tuple
 
-from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
+from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
 
 
 class MlflowCreds(NamedTuple):

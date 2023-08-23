@@ -2,11 +2,11 @@ import os
 import pathlib
 import re
 import shutil
+from unittest import mock
 
 import pandas as pd
 import pytest
 import yaml
-from unittest import mock
 
 import mlflow
 from mlflow.entities import Run, SourceType
@@ -15,22 +15,22 @@ from mlflow.exceptions import MlflowException
 from mlflow.recipes.recipe import Recipe
 from mlflow.recipes.step import BaseStep
 from mlflow.recipes.utils.execution import (
-    get_step_output_path,
-    _get_execution_directory_basename,
     _MAKEFILE_FORMAT_STRING,
+    _get_execution_directory_basename,
+    get_step_output_path,
 )
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.registry import resolve_tags
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_SOURCE_NAME,
+    LEGACY_MLFLOW_GIT_REPO_URL,
     MLFLOW_GIT_COMMIT,
     MLFLOW_GIT_REPO_URL,
-    LEGACY_MLFLOW_GIT_REPO_URL,
+    MLFLOW_SOURCE_NAME,
     MLFLOW_SOURCE_TYPE,
 )
 
-from tests.recipes.helper_functions import list_all_artifacts, chdir
+from tests.recipes.helper_functions import chdir, list_all_artifacts
 
 # _STEP_NAMES must contain all step names that are expected to be executed when
 # `recipe.run(step=None)` is called
