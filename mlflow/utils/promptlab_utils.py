@@ -34,10 +34,12 @@ def create_requirements_txt_file(mlflow_version: str) -> str:
 
 
 def create_model_file(
-    run_uuid: str, mlflow_version: str, prompt_parameters: List[Param], model_uuid: str
+    run_uuid: str,
+    mlflow_version: str,
+    prompt_parameters: List[Param],
+    model_uuid: str,
+    utc_time_created: str,
 ) -> str:
-    utc_time_created = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-
     inputs_signature = [{"name": param.key, "type": "string"} for param in prompt_parameters]
 
     outputs_signature = [{"name": "output", "type": "string"}]

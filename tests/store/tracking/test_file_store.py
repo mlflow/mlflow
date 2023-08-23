@@ -2722,6 +2722,7 @@ def test_create_promptlab_run(store):
         start_time=1,
     )
     assert run.info.run_id is not None
+    assert run.info.status == RunStatus.to_string(RunStatus.FINISHED)
 
     assert run.data.params["prompt_template"] == "my_prompt_template"
     assert run.data.params["model_route"] == "my_route"
@@ -2732,6 +2733,7 @@ def test_create_promptlab_run(store):
         run.data.tags["mlflow.loggedArtifacts"]
         == '[{"path": "eval_results_table.json", "type": "table"}]'
     )
+    assert run.data.tags["mlflow.runSourceType"] == "PROMPT_ENGINEERING"
     assert run.data.tags["mlflow.log-model.history"] is not None
 
     artifact_location = store.get_experiment(exp_id).artifact_location

@@ -1,3 +1,4 @@
+from datetime import datetime
 import hashlib
 import json
 import logging
@@ -102,6 +103,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_LOGGED_ARTIFACTS,
     MLFLOW_LOGGED_MODELS,
     MLFLOW_RUN_NAME,
+    MLFLOW_RUN_SOURCE_TYPE,
     _get_run_name_from_tags,
 )
 from mlflow.environment_variables import MLFLOW_TRACKING_DIR
@@ -1287,8 +1289,8 @@ class FileStore(AbstractStore):
 
     def _create_promptlab_run(
         self,
-        experiment_id,
-        run_name,
+        experiment_id: str,
+        run_name: str,
         tags: List[RunTag],
         prompt_template: str,
         prompt_parameters: List[Param],
@@ -1320,24 +1322,25 @@ class FileStore(AbstractStore):
         tag_value = [{"path": "eval_results_table.json", "type": "table"}]
         self.set_tag(run_id, RunTag(MLFLOW_LOGGED_ARTIFACTS, json.dumps(tag_value)))
 
+        # set the promptlab run tag
+        self.set_tag(run_id, RunTag(MLFLOW_RUN_SOURCE_TYPE, "PROMPT_ENGINEERING"))
+
         artifact_dir = self._get_artifact_dir(experiment_id, run_id)
 
         # log model
         from mlflow.models import Model
 
+        utc_time_created = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
         promptlab_model = Model(
             artifact_path=artifact_dir,
             run_id=run_id,
-            utc_time_created=time.time(),
-            # signature=
-            # saved_input_example_info=
-            # metadata=
+            utc_time_created=utc_time_created,
         )
         self.record_logged_model(run_id, promptlab_model)
 
         # write artifact files
         model_json = create_model_file(
-            run_id, mlflow_version, prompt_parameters, promptlab_model.model_uuid
+            run_id, mlflow_version, prompt_parameters, promptlab_model.model_uuid, utc_time_created
         )
         model_json_file_path = os.path.join(artifact_dir, "model", "MLmodel")
         make_containing_dirs(model_json_file_path)
@@ -1379,7 +1382,10 @@ class FileStore(AbstractStore):
         make_containing_dirs(input_example_json_file_path)
         write_to(input_example_json_file_path, input_example_json)
 
-        # return the run
+        self.update_run_info(
+            run_id, RunStatus.FINISHED, int(datetime.now().strftime("%Y%m%d")), run_name
+        )
+
         return self.get_run(run_id=run_id)
 
     @staticmethod
