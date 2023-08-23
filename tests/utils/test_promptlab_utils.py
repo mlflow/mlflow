@@ -63,7 +63,10 @@ def test_requirements_txt():
 
 
 def test_create_model_file():
-    model_file = create_model_file(run_uuid, mlflow_version, prompt_parameters, model_uuid)
+    utc_time_created = "2023-08-22 18:37:14.724592"
+    model_file = create_model_file(
+        run_uuid, mlflow_version, prompt_parameters, model_uuid, utc_time_created
+    )
     model_json = json.loads(model_file)
 
     expected_model_json = {
@@ -78,7 +81,7 @@ def test_create_model_file():
         "mlflow_version": "1.0.0",
         "model_uuid": "456",
         "run_id": "123",
-        "utc_time_created": "2023-08-22 18:37:14.724592",
+        "utc_time_created": utc_time_created,
         "metadata": {"mlflow_uses_gateway": "true"},
         "saved_input_example_info": {
             "artifact_path": "input_example.json",
@@ -144,11 +147,12 @@ def _load_pyfunc(model_path):
     """
     generated_lines = loader_file.strip().split("\n")
     expected_lines = expected_loader_file.strip().split("\n")
-    
+
     assert len(generated_lines) == len(expected_lines)
-    
+
     for g, e in zip(generated_lines, expected_lines):
         assert g.strip() == e.strip()
+
 
 def test_eval_results_file():
     eval_results_file = create_eval_results_file(
