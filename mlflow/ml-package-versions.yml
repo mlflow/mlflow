@@ -35,7 +35,9 @@ pytorch:
     minimum: "1.6.0"
     maximum: "2.0.1"
     requirements:
-      ">= 0.0.0": ["torchvision", "scikit-learn", "transformers"]
+      ">= 0.0.0": ["torchvision", "scikit-learn"]
+      ">= 1.8": ["transformers"]
+      "< 1.8": ["transformers<4.32.0"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
@@ -327,7 +329,7 @@ spark:
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow"]
-      "<= 3.3.2": ["pandas<2"]
+      "<= 3.3.3": ["pandas<2"]
     run: |
       SAGEMAKER_OUT=$(mktemp)
       if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
@@ -348,7 +350,7 @@ spark:
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["scikit-learn"]
-      "<= 3.3.2": ["pandas<2"]
+      "<= 3.3.3": ["pandas<2"]
     run: |
       find tests/spark/autologging/ml -name 'test*.py' | xargs -L 1 pytest
 

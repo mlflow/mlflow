@@ -1,4 +1,5 @@
 import json
+
 import numpy as np
 import pandas as pd
 import pyspark
@@ -7,11 +8,10 @@ from sklearn.ensemble import RandomForestRegressor
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, ModelSignature, infer_signature, set_signature
 from mlflow.models.model import get_model_info
-from mlflow.models import ModelSignature, infer_signature, set_signature
 from mlflow.types import DataType
-from mlflow.types.schema import Schema, ColSpec, TensorSpec
+from mlflow.types.schema import ColSpec, Schema, TensorSpec
 
 
 def test_model_signature_with_colspec():

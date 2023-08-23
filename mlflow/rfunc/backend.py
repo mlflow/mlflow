@@ -5,8 +5,8 @@ import subprocess
 import sys
 
 from mlflow.models import FlavorBackend
-from mlflow.utils.string_utils import quote
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.string_utils import quote
 
 _logger = logging.getLogger(__name__)
 

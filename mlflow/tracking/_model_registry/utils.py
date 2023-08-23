@@ -1,13 +1,23 @@
-from functools import partial
 import logging
+from functools import partial
 
+from mlflow.environment_variables import (
+    MLFLOW_REGISTRY_URI,
+    MLFLOW_TRACKING_AWS_SIGV4,
+    MLFLOW_TRACKING_CLIENT_CERT_PATH,
+    MLFLOW_TRACKING_INSECURE_TLS,
+    MLFLOW_TRACKING_PASSWORD,
+    MLFLOW_TRACKING_SERVER_CERT_PATH,
+    MLFLOW_TRACKING_TOKEN,
+    MLFLOW_TRACKING_USERNAME,
+)
+from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.store.model_registry.file_store import FileStore
-from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.store.model_registry.databricks_workspace_model_registry_rest_store import (
     DatabricksWorkspaceModelRegistryRestStore,
 )
-from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+from mlflow.store.model_registry.file_store import FileStore
+from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
     _resolve_tracking_uri,
@@ -19,16 +29,6 @@ from mlflow.utils.databricks_utils import (
     warn_on_deprecated_cross_workspace_registry_uri,
 )
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
-from mlflow.environment_variables import (
-    MLFLOW_TRACKING_AWS_SIGV4,
-    MLFLOW_TRACKING_USERNAME,
-    MLFLOW_TRACKING_PASSWORD,
-    MLFLOW_TRACKING_TOKEN,
-    MLFLOW_TRACKING_INSECURE_TLS,
-    MLFLOW_TRACKING_SERVER_CERT_PATH,
-    MLFLOW_TRACKING_CLIENT_CERT_PATH,
-    MLFLOW_REGISTRY_URI,
-)
 
 _logger = logging.getLogger(__name__)
 

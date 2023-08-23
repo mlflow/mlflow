@@ -12,8 +12,6 @@ Defines four endpoints:
     /version used for getting the mlflow version
     /invocations used for scoring
 """
-from typing import Dict, NamedTuple, Tuple
-import flask
 import inspect
 import json
 import logging
@@ -21,6 +19,9 @@ import os
 import shlex
 import sys
 import traceback
+from typing import Dict, NamedTuple, Tuple
+
+import flask
 
 from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 
@@ -38,19 +39,20 @@ from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
-    dataframe_from_parsed_json,
     _get_jsonable_obj,
+    dataframe_from_parsed_json,
     parse_tf_serving_input,
 )
 from mlflow.version import VERSION
 
 try:
-    from mlflow.pyfunc import load_model, PyFuncModel
+    from mlflow.pyfunc import PyFuncModel, load_model
 except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
+from io import StringIO
+
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.server.handlers import catch_mlflow_exception
-from io import StringIO
 
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"
 

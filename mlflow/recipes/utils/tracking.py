@@ -1,29 +1,30 @@
 import json
 import logging
 import pathlib
-import tempfile
 import shutil
+import tempfile
 import uuid
-from typing import Dict, Any
+from typing import Any, Dict
 
 import mlflow
+from mlflow.environment_variables import MLFLOW_RUN_CONTEXT
 from mlflow.exceptions import MlflowException, RestException
-from mlflow.recipes.utils import get_recipe_name
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.recipes.utils import get_recipe_name
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.registry import resolve_tags
-from mlflow.tracking.context.system_environment_context import MLFLOW_RUN_CONTEXT_ENV_VAR
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
-from mlflow.tracking.fluent import set_experiment as fluent_set_experiment, _get_experiment_id
+from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.tracking.fluent import set_experiment as fluent_set_experiment
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri
-from mlflow.utils.git_utils import get_git_repo_url, get_git_commit, get_git_branch
+from mlflow.utils.file_utils import path_to_local_file_uri, path_to_local_sqlite_uri
+from mlflow.utils.git_utils import get_git_branch, get_git_commit, get_git_repo_url
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_SOURCE_NAME,
+    LEGACY_MLFLOW_GIT_REPO_URL,
     MLFLOW_GIT_BRANCH,
     MLFLOW_GIT_COMMIT,
     MLFLOW_GIT_REPO_URL,
-    LEGACY_MLFLOW_GIT_REPO_URL,
+    MLFLOW_SOURCE_NAME,
 )
 
 _logger = logging.getLogger(__name__)
@@ -255,7 +256,7 @@ def get_run_tags_env_vars(recipe_root_path: str) -> Dict[str, str]:
     if git_branch:
         git_tags[MLFLOW_GIT_BRANCH] = git_branch
 
-    return {MLFLOW_RUN_CONTEXT_ENV_VAR: json.dumps({**run_context_tags, **git_tags})}
+    return {MLFLOW_RUN_CONTEXT.name: json.dumps({**run_context_tags, **git_tags})}
 
 
 def log_code_snapshot(

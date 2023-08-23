@@ -18,17 +18,24 @@ select = [
   "E",
   "F",
   "C4",
+  "I",
+  "PLR0402",
   "PT001",
+  "PT002",
+  "PT003",
   "PT006",
   "PT007",
   "PT009",
   "PT010",
+  "PT011",
   "PT012",
   "PT013",
+  "PT014",
   "PT018",
   "PT022",
   "PT023",
   "PT026",
+  "PT027",
   "RUF010",
   "UP004",
   "UP008",
@@ -39,6 +46,7 @@ select = [
   "UP031",
   "UP032",
   "UP034",
+  "SIM101",
   "T20",
   "TID252",
 ]
@@ -54,7 +62,7 @@ ignore = [
 extend-exclude = [
   "setup.py",
   "docs",
-  "examples",
+  "examples/recipes",
   "mlflow/protos",
   "mlflow/ml_package_versions.py",
   "mlflow/server/js",
@@ -65,11 +73,16 @@ extend-exclude = [
 
 [tool.ruff.per-file-ignores]
 "dev/*" = ["T201", "PT018"]
+"examples/*" = ["T20"]
 "mlflow/*" = ["PT018"]
 
 [tool.ruff.flake8-pytest-style]
 mark-parentheses = false
 fixture-parentheses = false
+raises-require-match-for = ["*"]
 
 [tool.ruff.flake8-tidy-imports]
 ban-relative-imports = "all"
+
+[tool.ruff.isort]
+forced-separate = ["tests"]

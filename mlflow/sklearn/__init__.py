@@ -10,18 +10,19 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
     NOTE: The `mlflow.pyfunc` flavor is only added for scikit-learn models that define `predict()`,
     since `predict()` is required for pyfunc model inference.
 """
-import inspect
 import functools
-import os
+import inspect
 import logging
-import numpy as np
+import os
 import pickle
-import yaml
 import weakref
-from collections import defaultdict, OrderedDict
+from collections import OrderedDict, defaultdict
 from copy import deepcopy
-from packaging.version import Version
 from typing import Any, Dict, Optional
+
+import numpy as np
+import yaml
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -30,53 +31,52 @@ from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
-from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import _inspect_original_var_name
-from mlflow.utils.autologging_utils import get_instance_method_first_arg_value
+from mlflow.tracking.client import MlflowClient
+from mlflow.utils import _inspect_original_var_name, gorilla
+from mlflow.utils.autologging_utils import (
+    INPUT_EXAMPLE_SAMPLE_ROWS,
+    MlflowAutologgingQueueingClient,
+    _get_new_training_session_class,
+    autologging_integration,
+    disable_autologging,
+    get_autologging_config,
+    get_instance_method_first_arg_value,
+    resolve_input_example_and_signature,
+    safe_patch,
+    update_wrapper_extended,
+)
+from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _validate_env_arguments,
-    _process_pip_requirements,
-    _process_conda_env,
     _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _mlflow_conda_env,
+    _process_conda_env,
+    _process_pip_requirements,
     _PythonEnv,
+    _validate_env_arguments,
 )
-from mlflow.utils import gorilla
-from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.mlflow_tags import (
     MLFLOW_AUTOLOGGING,
     MLFLOW_DATASET_CONTEXT,
 )
 from mlflow.utils.model_utils import (
+    _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
-    _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
 )
-from mlflow.utils.autologging_utils import (
-    autologging_integration,
-    safe_patch,
-    INPUT_EXAMPLE_SAMPLE_ROWS,
-    resolve_input_example_and_signature,
-    _get_new_training_session_class,
-    MlflowAutologgingQueueingClient,
-    disable_autologging,
-    update_wrapper_extended,
-    get_autologging_config,
-)
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "sklearn"
 
@@ -1305,14 +1305,14 @@ def _autolog(
     from mlflow.models import infer_signature
     from mlflow.sklearn.utils import (
         _TRAINING_PREFIX,
-        _get_X_y_and_sample_weight,
-        _gen_xgboost_sklearn_estimators_to_patch,
-        _gen_lightgbm_sklearn_estimators_to_patch,
-        _log_estimator_content,
-        _get_estimator_info_tags,
-        _is_parameter_search_estimator,
-        _log_parameter_search_results_as_artifact,
         _create_child_runs_for_parameter_search,
+        _gen_lightgbm_sklearn_estimators_to_patch,
+        _gen_xgboost_sklearn_estimators_to_patch,
+        _get_estimator_info_tags,
+        _get_X_y_and_sample_weight,
+        _is_parameter_search_estimator,
+        _log_estimator_content,
+        _log_parameter_search_results_as_artifact,
     )
     from mlflow.tracking.context import registry as context_registry
 

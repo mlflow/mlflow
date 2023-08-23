@@ -3,21 +3,21 @@ import os
 import sqlite3
 
 import pytest
-from alembic import command
-from alembic.script import ScriptDirectory
-from alembic.migration import MigrationContext  # pylint: disable=import-error
-from alembic.autogenerate import compare_metadata
 import sqlalchemy
+from alembic import command
+from alembic.autogenerate import compare_metadata
+from alembic.migration import MigrationContext  # pylint: disable=import-error
+from alembic.script import ScriptDirectory
 
 import mlflow.db
 from mlflow.exceptions import MlflowException
-from mlflow.store.db.utils import _get_alembic_config, _verify_schema
 from mlflow.store.db.base_sql_model import Base
-
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.db.utils import _get_alembic_config, _verify_schema
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
-from tests.store.dump_schema import dump_db_schema
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
 from tests.integration.utils import invoke_cli_runner
+from tests.store.dump_schema import dump_db_schema
 
 
 def _assert_schema_files_equal(generated_schema_file, expected_schema_file):

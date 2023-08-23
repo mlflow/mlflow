@@ -1,8 +1,8 @@
 import argparse
-import sys
 import inspect
 import json
 import logging
+import sys
 
 import mlflow
 from mlflow.pyfunc import scoring_server

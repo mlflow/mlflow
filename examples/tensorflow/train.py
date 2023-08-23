@@ -1,10 +1,9 @@
 # tensorflow 2.x core api
-import mlflow
-from mlflow.models import infer_signature
-import pandas as pd
-
 import tensorflow as tf
 from sklearn.datasets import fetch_california_housing
+
+import mlflow
+from mlflow.models import infer_signature
 
 
 class Normalize(tf.Module):

@@ -398,3 +398,23 @@ MLFLOW_RECIPES_EXECUTION_DIRECTORY = _EnvironmentVariable(
 MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME = _EnvironmentVariable(
     "MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME", str, None
 )
+
+#: Specifies the flavor to serve in the scoring server.
+#: (default ``None``)
+MLFLOW_DEPLOYMENT_FLAVOR_NAME = _EnvironmentVariable("MLFLOW_DEPLOYMENT_FLAVOR_NAME", str, None)
+
+#: Specifies the profile to use for recipes.
+#: (default: ``None``)
+MLFLOW_RECIPES_PROFILE = _EnvironmentVariable("MLFLOW_RECIPES_PROFILE", str, None)
+
+#: Specifies the MLflow Run context
+#: (default: ``None``)
+MLFLOW_RUN_CONTEXT = _EnvironmentVariable("MLFLOW_RUN_CONTEXT", str, None)
+
+#: Specifies the URL of the ECR-hosted Docker image a model is deployed into for SageMaker.
+# (default: ``None``)
+MLFLOW_SAGEMAKER_DEPLOY_IMG_URL = _EnvironmentVariable("MLFLOW_SAGEMAKER_DEPLOY_IMG_URL", str, None)
+
+#: Specifies whether to disable creating a new conda environment for `mlflow models build-docker`.
+#: (default: ``False``)
+MLFLOW_DISABLE_ENV_CREATION = _BooleanEnvironmentVariable("MLFLOW_DISABLE_ENV_CREATION", False)

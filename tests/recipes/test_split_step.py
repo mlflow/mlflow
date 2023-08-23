@@ -1,29 +1,27 @@
-import pytest
+from pathlib import Path
+from unittest import mock
+from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
+import pytest
 
 import mlflow
-from mlflow.exceptions import MlflowException
 from mlflow.environment_variables import MLFLOW_RECIPES_EXECUTION_DIRECTORY
-from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
-from mlflow.utils.file_utils import read_yaml
+from mlflow.exceptions import MlflowException
 from mlflow.recipes.steps.split import (
+    _OUTPUT_TEST_FILE_NAME,
     _OUTPUT_TRAIN_FILE_NAME,
     _OUTPUT_VALIDATION_FILE_NAME,
-    _OUTPUT_TEST_FILE_NAME,
+    SplitStep,
     SplitValues,
-)
-from mlflow.recipes.steps.split import (
     _get_split_df,
     _hash_pandas_dataframe,
     _make_elem_hashable,
     _validate_user_code_output,
-    SplitStep,
 )
-from unittest import mock
-from unittest.mock import Mock
-from pathlib import Path
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
+from mlflow.utils.file_utils import read_yaml
 
 
 def set_up_dataset(tmp_path, num_classes=2):

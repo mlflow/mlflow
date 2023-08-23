@@ -1,24 +1,24 @@
 import base64
-import cloudpickle
 import datetime
 import decimal
 import json
-import numpy as np
-from packaging.version import Version
-import pandas as pd
-import pytest
 import re
-import sklearn.linear_model
 from unittest import mock
 
-import mlflow
-from mlflow.exceptions import MlflowException
+import cloudpickle
+import numpy as np
+import pandas as pd
+import pytest
+import sklearn.linear_model
+from packaging.version import Version
 
-from mlflow.models import infer_signature, Model, ModelSignature
+import mlflow
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+from mlflow.exceptions import MlflowException
+from mlflow.models import Model, ModelSignature, infer_signature
 from mlflow.models.utils import _enforce_params_schema, _enforce_schema
 from mlflow.pyfunc import PyFuncModel
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow.types import Schema, ColSpec, TensorSpec, ParamSchema, ParamSpec, DataType
+from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.utils.proto_json_utils import dump_input_data
 
 from tests.helper_functions import pyfunc_serve_and_score_model

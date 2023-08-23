@@ -1,32 +1,33 @@
-import git
 import os
 import tempfile
 import zipfile
-
-import pytest
 from unittest import mock
+
+import git
+import pytest
 
 import mlflow
 from mlflow.exceptions import ExecutionException
 from mlflow.projects import _project_spec
 from mlflow.projects.utils import (
+    _fetch_git_repo,
+    _fetch_project,
     _get_storage_dir,
     _is_valid_branch_name,
     _is_zip_uri,
-    _fetch_project,
-    _fetch_git_repo,
     _parse_subdirectory,
-    get_or_create_run,
     fetch_and_validate_project,
+    get_or_create_run,
     load_project,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_SOURCE_NAME
+
 from tests.projects.utils import (
-    assert_dirs_equal,
+    GIT_PROJECT_BRANCH,
     GIT_PROJECT_URI,
     TEST_PROJECT_DIR,
     TEST_PROJECT_NAME,
-    GIT_PROJECT_BRANCH,
+    assert_dirs_equal,
 )
 
 

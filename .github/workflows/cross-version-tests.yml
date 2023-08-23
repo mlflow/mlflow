@@ -37,6 +37,9 @@ defaults:
   run:
     shell: bash --noprofile --norc -exo pipefail {0}
 
+env:
+  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+
 jobs:
   set-matrix:
     runs-on: ubuntu-latest
@@ -51,6 +54,7 @@ jobs:
           submodules: recursive
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
@@ -178,4 +182,3 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           ${{ matrix.run }}
-      - uses: ./.github/actions/untracked

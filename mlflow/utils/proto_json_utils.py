@@ -1,18 +1,16 @@
 import base64
 import datetime
-from typing import Any, Dict, Optional
-
-import os
 import json
-from json import JSONEncoder
-
-from google.protobuf.json_format import MessageToJson, ParseDict
-from google.protobuf.descriptor import FieldDescriptor
-
-from mlflow.exceptions import MlflowException
+import os
 from collections import defaultdict
 from functools import partial
+from json import JSONEncoder
+from typing import Any, Dict, Optional
 
+from google.protobuf.descriptor import FieldDescriptor
+from google.protobuf.json_format import MessageToJson, ParseDict
+
+from mlflow.exceptions import MlflowException
 
 _PROTOBUF_INT64_FIELDS = [
     FieldDescriptor.TYPE_INT64,
@@ -207,8 +205,9 @@ class MlflowFailedTypeConversion(MlflowException):
 
 
 def cast_df_types_according_to_schema(pdf, schema):
-    from mlflow.types.schema import DataType
     import numpy as np
+
+    from mlflow.types.schema import DataType
 
     actual_cols = set(pdf.columns)
     if schema.has_input_names():
@@ -453,8 +452,8 @@ def parse_tf_serving_input(inp_dict, schema=None):
 # Reference: https://stackoverflow.com/a/12126976
 class _CustomJsonEncoder(json.JSONEncoder):
     def default(self, o):
-        import pandas as pd
         import numpy as np
+        import pandas as pd
 
         if isinstance(o, (datetime.datetime, datetime.date, datetime.time, pd.Timestamp)):
             return o.isoformat()

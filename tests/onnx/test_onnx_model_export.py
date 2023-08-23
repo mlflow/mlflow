@@ -1,41 +1,41 @@
-from pathlib import Path
-import sys
 import os
-import pytest
+import sys
+from pathlib import Path
 from unittest import mock
 
+import numpy as np
 import onnx
 import onnxruntime as ort
-import torch
-from torch import nn
-import torch.onnx
-from torch.utils.data import DataLoader
-from sklearn import datasets
-from packaging.version import Version
 import pandas as pd
-import numpy as np
+import pytest
+import torch
+import torch.onnx
 import yaml
+from packaging.version import Version
+from sklearn import datasets
+from torch import nn
+from torch.utils.data import DataLoader
 
 import mlflow.onnx
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
-from mlflow.models import infer_signature, Model
+from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
-from mlflow.utils.file_utils import TempDir
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import (
-    pyfunc_serve_and_score_model,
-    _compare_conda_env_requirements,
     _assert_pip_requirements,
-    _is_available_on_pypi,
+    _compare_conda_env_requirements,
     _compare_logged_code_paths,
+    _is_available_on_pypi,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
 )
 
 TEST_DIR = "tests"

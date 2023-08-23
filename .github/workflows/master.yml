@@ -22,14 +22,16 @@ env:
   # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
+  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
 
 jobs:
   lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v3
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
         id: setup-python
       - name: Add problem matchers
@@ -45,36 +47,17 @@ jobs:
           source ./dev/install-common-deps.sh --ml
           pip install -r requirements/lint-requirements.txt
       - uses: ./.github/actions/pipdeptree
-      - name: Test custom pylint-plugins
-        run: |
-          . ~/.venv/bin/activate
-          pytest pylint_plugins/tests
       - name: Install pre-commit hooks
         run: |
           . ~/.venv/bin/activate
           pre-commit install -t pre-commit -t prepare-commit-msg
-      - name: Run pre-commit (only changed files)
-        id: run-pre-commit
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run pre-commit
+        id: pre-commit
         run: |
           . ~/.venv/bin/activate
-          # pylint is ridiculously slow. It takes ~3 minutes to run on all files.
-          # To fail fast for faster iteration, first run pylint only on changed files,
-          # then run it on all files in the next step.
-          changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
-          pre-commit run --files $changed_files
-      - name: Run pre-commit (all files)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          . ~/.venv/bin/activate
-          changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
-          if echo "$changed_files" | grep -q '\.py$\|^pyproject\.toml$\|^pylintrc$\|^requirements/lint-requirements\.txt$'; then
-            pre-commit run --all-files
-          fi
+          pre-commit run --all-files
       - name: Update error messages
-        if: always() && steps.run-pre-commit.outcome == 'failure'
+        if: always() && steps.pre-commit.outcome == 'failure'
         run: |
           if [ -f ".black.log" ]; then
             grep -o 'reformatted .*\.py' .black.log | sed 's/reformatted \(.*\.py\)/\1: This file is unformatted. Run `black .` or comment `@mlflow-automation autoformat` on the PR if you'\''re an MLflow maintainer./'
@@ -92,6 +75,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
@@ -99,7 +83,6 @@ jobs:
       - name: Run tests
         run: |
           ./dev/run-python-skinny-tests.sh
-      - uses: ./.github/actions/untracked
 
   python:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -109,6 +92,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
@@ -129,7 +113,6 @@ jobs:
           . ~/.venv/bin/activate
           source dev/setup-ssh.sh
           ./dev/run-python-tests.sh
-      - uses: ./.github/actions/untracked
 
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -139,6 +122,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - name: Build
         run: |
           ./tests/db/compose.sh pull -q postgresql mysql mssql
@@ -199,7 +183,6 @@ jobs:
       - name: Clean up
         run: |
           ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
-      - uses: ./.github/actions/untracked
 
   java:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -209,6 +192,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -228,6 +212,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -253,6 +238,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -265,7 +251,6 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/models
-      - uses: ./.github/actions/untracked
 
   # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
   # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
@@ -279,6 +264,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -291,7 +277,6 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/evaluate
-      - uses: ./.github/actions/untracked
 
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -301,6 +286,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -313,7 +299,6 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest --durations=30 tests/pyfunc
-      - uses: ./.github/actions/untracked
 
   sagemaker:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -323,6 +308,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -332,7 +318,6 @@ jobs:
       - name: Run tests
         run: |
           ./dev/run-python-sagemaker-tests.sh;
-      - uses: ./.github/actions/untracked
 
   windows:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -342,6 +327,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -376,4 +362,3 @@ jobs:
           # MLeap is incompatible on Windows with PySpark3.4 release. 
           # Reinstate tests when MLeap has released a fix. [ML-30491]
           # pytest tests/mleap
-      - uses: ./.github/actions/untracked

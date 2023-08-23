@@ -1,6 +1,7 @@
 from importlib import reload
-import pytest
 from unittest import mock
+
+import pytest
 
 import mlflow
 from mlflow.store.artifact import artifact_repository_registry

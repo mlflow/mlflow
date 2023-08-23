@@ -1,22 +1,21 @@
+import json
 import os
-from pathlib import Path
 import random
 from collections import namedtuple
-from packaging.version import Version
+from pathlib import Path
 from unittest import mock
 
 import pandas as pd
 import pytest
 import spacy
-import json
 import yaml
+from packaging.version import Version
+from sklearn.datasets import fetch_20newsgroups
 from spacy.util import compounding, minibatch
 
-import mlflow.spacy
-from sklearn.datasets import fetch_20newsgroups
-
-from mlflow import pyfunc
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+import mlflow.spacy
+from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
@@ -24,14 +23,15 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+
 from tests.helper_functions import (
-    pyfunc_serve_and_score_model,
-    _compare_conda_env_requirements,
     _assert_pip_requirements,
-    _is_available_on_pypi,
-    allow_infer_pip_requirements_fallback_if,
+    _compare_conda_env_requirements,
     _compare_logged_code_paths,
+    _is_available_on_pypi,
     _mlflow_major_version_string,
+    allow_infer_pip_requirements_fallback_if,
+    pyfunc_serve_and_score_model,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (

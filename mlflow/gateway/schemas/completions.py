@@ -1,8 +1,8 @@
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 
 from mlflow.gateway.base_models import ResponseModel
-from mlflow.gateway.schemas.chat import BaseRequestPayload, FinishReason
 from mlflow.gateway.config import RouteType
+from mlflow.gateway.schemas.chat import BaseRequestPayload, FinishReason
 
 
 class RequestPayload(BaseRequestPayload):
@@ -21,18 +21,18 @@ class RequestPayload(BaseRequestPayload):
 
 
 class CandidateMetadata(ResponseModel):
-    finish_reason: Optional[FinishReason]
+    finish_reason: Optional[FinishReason] = None
 
 
 class Candidate(ResponseModel):
     text: str
-    metadata: Optional[Dict[str, str]]
+    metadata: Optional[Dict[str, str]] = None
 
 
 class Metadata(ResponseModel):
-    input_tokens: Optional[int]
-    output_tokens: Optional[int]
-    total_tokens: Optional[int]
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
     model: str
     route_type: RouteType
 

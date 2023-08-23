@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 from mlflow.gateway.client import MlflowGatewayClient
 from mlflow.gateway.config import Route
@@ -87,15 +87,13 @@ def create_route(name: str, route_type: str, model: Dict[str, Any]) -> Route:
         openai_api_key = ...
 
         create_route(
-            "my-new-route",
-            "llm/v1/completions",
-            {
-                "name": "question-answering-bot-1",
+            name="my-route",
+            route_type="llm/v1/completions",
+            model={
+                "name": "question-answering-bot",
                 "provider": "openai",
-                "config": {
+                "openai_config": {
                     "openai_api_key": openai_api_key,
-                    "openai_api_version": "2023-05-10",
-                    "openai_api_type": "openai/v1/chat/completions",
                 },
             },
         )
@@ -175,5 +173,24 @@ def query(route: str, data):
         response = query(
             "embeddings_route", {"text": ["I like spaghetti", "and sushi", "but not together"]}
         )
+
+    Additional parameters that are valid for a given provider and route configuration can be
+    included with the request as shown below, using an openai completions route request as
+    an example:
+
+    .. code-block:: python
+
+        from mlflow.gateway import query, set_gateway_uri
+
+        set_gateway_uri(gateway_uri="http://my.gateway:9000")
+        response = query(
+            "a_completions_route",
+            {
+                "prompt": "Give me an example of a properly formatted pytest unit test",
+                "temperature": 0.6,
+                "max_tokens": 1000,
+            },
+        )
+
     """
     return MlflowGatewayClient().query(route, data)

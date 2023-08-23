@@ -1,7 +1,8 @@
-import mlflow
 import shap
 import sklearn
 from sklearn.datasets import load_diabetes
+
+import mlflow
 
 # prepare training data
 X, y = load_diabetes(return_X_y=True, as_frame=True)

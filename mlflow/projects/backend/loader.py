@@ -1,8 +1,8 @@
-import entrypoints
 import logging
 
-from mlflow.projects.backend.local import LocalBackend
+import entrypoints
 
+from mlflow.projects.backend.local import LocalBackend
 
 ENTRYPOINT_GROUP_NAME = "mlflow.project_backend"
 

@@ -1,18 +1,18 @@
-from mlflow.server.auth.entities import User, ExperimentPermission, RegisteredModelPermission
+from mlflow.server.auth.entities import ExperimentPermission, RegisteredModelPermission, User
 from mlflow.server.auth.routes import (
-    CREATE_USER,
-    GET_USER,
-    UPDATE_USER_PASSWORD,
-    UPDATE_USER_ADMIN,
-    DELETE_USER,
     CREATE_EXPERIMENT_PERMISSION,
-    GET_EXPERIMENT_PERMISSION,
-    UPDATE_EXPERIMENT_PERMISSION,
-    DELETE_EXPERIMENT_PERMISSION,
     CREATE_REGISTERED_MODEL_PERMISSION,
-    GET_REGISTERED_MODEL_PERMISSION,
-    UPDATE_REGISTERED_MODEL_PERMISSION,
+    CREATE_USER,
+    DELETE_EXPERIMENT_PERMISSION,
     DELETE_REGISTERED_MODEL_PERMISSION,
+    DELETE_USER,
+    GET_EXPERIMENT_PERMISSION,
+    GET_REGISTERED_MODEL_PERMISSION,
+    GET_USER,
+    UPDATE_EXPERIMENT_PERMISSION,
+    UPDATE_REGISTERED_MODEL_PERMISSION,
+    UPDATE_USER_ADMIN,
+    UPDATE_USER_PASSWORD,
 )
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.rest_utils import http_request_safe

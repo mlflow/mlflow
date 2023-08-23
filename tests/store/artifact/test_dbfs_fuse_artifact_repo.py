@@ -1,8 +1,8 @@
 import os
-
-import pytest
 from unittest import mock
 from unittest.mock import PropertyMock
+
+import pytest
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 

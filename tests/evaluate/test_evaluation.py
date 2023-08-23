@@ -1,51 +1,54 @@
 import hashlib
-import os
 import io
 import json
-import uuid
+import os
 import signal
+import uuid
 from collections import namedtuple
 from unittest import mock
-import pytest
 
 import numpy as np
 import pandas as pd
-from PIL import ImageChops, Image
-
+import pytest
 import sklearn
 import sklearn.compose
 import sklearn.datasets
 import sklearn.impute
 import sklearn.linear_model
+import sklearn.pipeline
+import sklearn.preprocessing
+from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
+from PIL import Image, ImageChops
+from pyspark.ml.linalg import Vectors
+from pyspark.ml.regression import LinearRegression as SparkLinearRegression
+from pyspark.sql import SparkSession
 from sklearn.metrics import (
     accuracy_score,
     confusion_matrix,
     mean_absolute_error,
     mean_squared_error,
 )
-import sklearn.pipeline
-import sklearn.preprocessing
-
-from pyspark.sql import SparkSession
-from pyspark.ml.linalg import Vectors
-from pyspark.ml.regression import LinearRegression as SparkLinearRegression
 
 import mlflow
 from mlflow import MlflowClient
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import (
-    evaluate,
+    EvaluationArtifact,
     EvaluationResult,
     ModelEvaluator,
-    EvaluationArtifact,
+    evaluate,
 )
 from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact
 from mlflow.models.evaluation.base import (
-    _logger as _base_logger,
+    EvaluationDataset,
     _gen_md5_for_arraylike_obj,
     _start_run_or_reuse_active_run,
-    EvaluationDataset,
+)
+from mlflow.models.evaluation.base import (
+    _logger as _base_logger,
+)
+from mlflow.models.evaluation.base import (
     _normalize_evaluators_and_evaluator_config_args as _normalize_config,
 )
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
@@ -53,8 +56,6 @@ from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.utils.file_utils import TempDir
-
-from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 
 
 def get_iris():
@@ -738,7 +739,7 @@ def test_dataset_with_array_data():
         data=input_data, targets=labels, feature_names=["a", "b"]
     ).feature_names == ["a", "b"]
 
-    with pytest.raises(MlflowException, match="all element must has the same length"):
+    with pytest.raises(MlflowException, match="all elements must have the same length"):
         EvaluationDataset(data=[[1, 2], [3, 4, 5]], targets=labels)
 
 
@@ -1241,3 +1242,52 @@ def test_targets_is_required_for_regressor_and_classifier_models(model_type):
             data=pd.DataFrame(),
             model_type=model_type,
         )
+
+
+def test_evaluate_xgboost_classifier():
+    import xgboost as xgb
+
+    X, y = sklearn.datasets.load_iris(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    data = xgb.DMatrix(X, label=y)
+    model = xgb.train({"objective": "multi:softmax", "num_class": 3}, data, num_boost_round=5)
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.xgboost.log_model(model, "model")
+        mlflow.evaluate(
+            model_info.model_uri,
+            X.assign(y=y),
+            targets="y",
+            model_type="classifier",
+        )
+
+    run = mlflow.get_run(run.info.run_id)
+    assert "accuracy_score" in run.data.metrics
+    assert "recall_score" in run.data.metrics
+    assert "precision_score" in run.data.metrics
+    assert "f1_score" in run.data.metrics
+
+
+def test_evaluate_lightgbm_regressor():
+    import lightgbm as lgb
+
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    data = lgb.Dataset(X, label=y)
+    model = lgb.train({"objective": "regression"}, data, num_boost_round=5)
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.lightgbm.log_model(model, "model")
+        mlflow.evaluate(
+            model_info.model_uri,
+            X.assign(y=y),
+            targets="y",
+            model_type="regressor",
+        )
+
+    run = mlflow.get_run(run.info.run_id)
+    assert "mean_absolute_error" in run.data.metrics
+    assert "mean_squared_error" in run.data.metrics
+    assert "root_mean_squared_error" in run.data.metrics
