@@ -33,12 +33,10 @@ For details, see `MLflow Models <../models.html>`_.
 
 from mlflow.models.evaluation import (
     EvaluationArtifact,
-    EvaluationMetric,
     EvaluationResult,
     MetricThreshold,
     evaluate,
     list_evaluators,
-    make_metric,
 )
 from mlflow.models.flavor_backend import FlavorBackend
 from mlflow.models.flavor_backend_registry import get_flavor_backend
@@ -85,14 +83,11 @@ def build_docker(
         enable_mlserver=enable_mlserver,
     )
 
-
 __all__ = [
     "Model",
     "FlavorBackend",
     "infer_pip_requirements",
     "evaluate",
-    "make_metric",
-    "EvaluationMetric",
     "EvaluationArtifact",
     "EvaluationResult",
     "get_model_info",
