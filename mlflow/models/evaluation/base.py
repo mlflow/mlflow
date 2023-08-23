@@ -956,9 +956,7 @@ def _convert_data_to_mlflow_dataset(data, targets=None):
     if "pyspark" in sys.modules:
         from pyspark.sql import DataFrame as SparkDataFrame
 
-    if isinstance(data, Dataset):
-        return data
-    elif isinstance(data, list):
+    if isinstance(data, list):
         return mlflow.data.from_numpy(np.array(data), targets=np.array(targets))
     elif isinstance(data, np.ndarray):
         return mlflow.data.from_numpy(data, targets=targets)
@@ -967,10 +965,8 @@ def _convert_data_to_mlflow_dataset(data, targets=None):
     elif "pyspark" in sys.modules and isinstance(data, SparkDataFrame):
         return mlflow.data.from_spark(df=data, targets=targets)
     else:
-        raise TypeError(
-            "`data` must be a `mlflow.data.dataset.Dataset`, pandas DataFrame, numpy array or "
-            f"Spark DataFrame, but received `data` of type {type(data)}."
-        )
+        # Cannot convert to mlflow dataset, return original data.
+        return data
 
 
 def _evaluate(
@@ -1555,11 +1551,13 @@ def evaluate(
     ) = _normalize_evaluators_and_evaluator_config_args(evaluators, evaluator_config)
 
     with _start_run_or_reuse_active_run() as run_id:
-        # Convert data to `mlflow.data.dataset.Dataset`.
-        data = _convert_data_to_mlflow_dataset(data=data, targets=targets)
+        if not isinstance(data, Dataset):
+            # Convert data to `mlflow.data.dataset.Dataset`.
+            data = _convert_data_to_mlflow_dataset(data=data, targets=targets)
+
         from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 
-        if issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
+        if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
             dataset = data.to_evaluation_dataset(dataset_path, feature_names)
             if evaluator_name_to_conf_map and evaluator_name_to_conf_map.get("default", None):
                 context = evaluator_name_to_conf_map["default"].get("metric_prefix", None)
