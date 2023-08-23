@@ -619,7 +619,10 @@ The ``authorization_function`` setting supports pluggable authentication methods
 if you want to use another authentication method than HTTP basic auth. The value
 specifies ``module_name:function_name``. The function has the following signature:
 
-    def authenticate_request() -> Union[Authorization, Response]:
+    .. code-block:: python
+
+        def authenticate_request() -> Union[Authorization, Response]:
+            ...
 
 The function should return an ``Authorization`` object if the request is authenticated,
 or a ``Response`` object (typically ``401: Unauthorized``) if the request is not
