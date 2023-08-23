@@ -1678,3 +1678,56 @@ def test_update_run_name_without_changing_status(mlflow_client):
     updated_run_info = mlflow_client.get_run(created_run.info.run_id).info
     assert updated_run_info.run_name == "name_abc"
     assert updated_run_info.status == "FINISHED"
+
+
+def test_create_promptlab_run_handler_rejects_invalid_requests(mlflow_client):
+    def assert_response(resp, message_part):
+        assert resp.status_code == 400
+        response_json = resp.json()
+        assert response_json.get("error_code") == "INVALID_PARAMETER_VALUE"
+        assert message_part in response_json.get("message", "")
+
+    response_no_experiment_id_field = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        params={},
+    )
+    assert_response(
+        response_no_experiment_id_field,
+        "SearchDatasets request must specify at least one experiment_id.",
+    )
+
+    response_empty_experiment_id_field = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        params={"experiment_id": []},
+    )
+    assert_response(
+        response_empty_experiment_id_field,
+        "SearchDatasets request must specify at least one experiment_id.",
+    )
+
+    response_too_many_experiment_ids = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        params={"experiment_id": [f"id_{i}" for i in range(1000)]},
+    )
+    assert_response(
+        response_too_many_experiment_ids,
+        "SearchDatasets request cannot specify more than",
+    )
+
+
+def test_create_promptlab_run_handler_returns_expected_results(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("log inputs test")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        params={"experiment_id": [experiment_id]},
+    )
+    expected = {
+        "experiment_id": experiment_id,
+        "name": "name1",
+        "digest": "digest1",
+        "context": "training",
+    }
+
+    assert response.status_code == 200
+    assert response.json().get("dataset_summaries") == [expected]
