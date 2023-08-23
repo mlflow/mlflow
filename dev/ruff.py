@@ -42,7 +42,7 @@ def main():
             sys.stderr.write(stderr)
             sys.exit(prc.returncode)
     else:
-        with subprocess.Popen(cmd) as prc:
+        with subprocess.Popen([*cmd, "--fix", "--exit-non-zero-on-fix"]) as prc:
             prc.communicate()
             sys.exit(prc.returncode)
 
