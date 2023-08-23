@@ -353,7 +353,15 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     reason="The dev version of pyspark built from the source doesn't exist on PyPI or Anaconda",
 )
 def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris, model_path):
-    sparkm.save_model(spark_model_iris.model, path=model_path)
+    if Version(pyspark.__version__) < Version("3.4"):
+        extra_pip_req = ["pandas<2"]
+    else:
+        extra_pip_req = None
+    sparkm.save_model(
+        spark_model_iris.model,
+        path=model_path,
+        extra_pip_requirements=extra_pip_req
+    )
 
     scoring_response = score_model_in_sagemaker_docker_container(
         model_uri=model_path,
