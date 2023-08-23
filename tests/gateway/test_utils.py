@@ -2,14 +2,14 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.utils import (
-    resolve_route_url,
-    is_valid_endpoint_name,
-    check_configuration_route_name_collisions,
+    SearchRoutesToken,
     _is_valid_uri,
     assemble_uri_path,
-    set_gateway_uri,
+    check_configuration_route_name_collisions,
     get_gateway_uri,
-    SearchRoutesToken,
+    is_valid_endpoint_name,
+    resolve_route_url,
+    set_gateway_uri,
 )
 
 
@@ -20,8 +20,6 @@ from mlflow.gateway.utils import (
         ("http://127.0.0.1:6000/", "/gateway/test/invocations"),
         ("http://127.0.0.1:6000/gateway", "/test/invocations"),
         ("http://127.0.0.1:6000/gateway/", "/test/invocations"),
-        ("http://127.0.0.1:6000", "gateway/test/invocations"),
-        ("http://127.0.0.1:6000/", "/gateway/test/invocations"),
         ("http://127.0.0.1:6000/gateway", "test/invocations"),
         ("http://127.0.0.1:6000/gateway/", "test/invocations"),
     ],

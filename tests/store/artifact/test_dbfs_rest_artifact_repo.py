@@ -1,15 +1,15 @@
 import json
 import os
-
-import pytest
 from unittest import mock
 from unittest.mock import Mock
+
+import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.dbfs_artifact_repo import (
-    _get_host_creds_from_default_store,
     DbfsRestArtifactRepository,
+    _get_host_creds_from_default_store,
 )
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore

@@ -1,21 +1,21 @@
 from concurrent.futures import as_completed
-from datetime import datetime
-from functools import lru_cache
 import logging
+import json
 import math
 import os
-import requests
-import json
-from mimetypes import guess_type
-
 import posixpath
+import requests
 import urllib.parse
+from datetime import datetime
+from functools import lru_cache
+from mimetypes import guess_type
 
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
-    MLFLOW_S3_UPLOAD_EXTRA_ARGS,
+    MLFLOW_ENABLE_MULTIPART_UPLOAD,
     MLFLOW_S3_ENDPOINT_URL,
     MLFLOW_S3_IGNORE_TLS,
+    MLFLOW_S3_UPLOAD_EXTRA_ARGS,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.cloud_artifact_repo import (
@@ -173,6 +173,9 @@ class S3ArtifactRepository(CloudArtifactRepository):
         )
 
     def log_artifacts(self, local_dir, artifact_path=None):
+        if MLFLOW_ENABLE_MULTIPART_UPLOAD.get():
+            self.log_artifacts_parallel(local_dir, artifact_path)
+            return
         dest_path = self.bucket_path
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
@@ -345,7 +348,7 @@ class S3ArtifactRepository(CloudArtifactRepository):
                 )
                 futures[future] = part_number
 
-            results, errors = _complete_futures(futures)
+            results, errors = _complete_futures(futures, local_file)
             if errors:
                 raise MlflowException(
                     f"Failed to upload at least one part of {local_file}. Errors: {errors}"

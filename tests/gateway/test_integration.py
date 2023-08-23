@@ -1,18 +1,28 @@
-import pytest
 import os
-import requests
 from unittest.mock import patch
 
+import pytest
+import requests
+
+import mlflow
+import mlflow.gateway.utils
 from mlflow.exceptions import MlflowException
-from mlflow.gateway import MlflowGatewayClient, query, set_gateway_uri, get_route
+from mlflow.gateway import MlflowGatewayClient, get_route, query, set_gateway_uri
 from mlflow.gateway.config import Route
-from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.cohere import CohereProvider
-import mlflow.gateway.utils
+from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
+from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.utils.request_utils import _cached_get_request_session
 
-from tests.gateway.tools import UvicornGateway, save_yaml
+from tests.gateway.tools import (
+    UvicornGateway,
+    log_completions_transformers_model,
+    log_sentence_transformers_model,
+    save_yaml,
+    start_mlflow_server,
+    stop_mlflow_server,
+)
 
 
 @pytest.fixture
@@ -82,6 +92,33 @@ def basic_config_dict():
                     },
                 },
             },
+            {
+                "name": "chat-oss",
+                "route_type": "llm/v1/chat",
+                "model": {
+                    "provider": "mlflow-model-serving",
+                    "name": "mpt-chatbot",
+                    "config": {"model_server_url": "http://127.0.0.1:5000"},
+                },
+            },
+            {
+                "name": "completions-oss",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "mlflow-model-serving",
+                    "name": "completion-model",
+                    "config": {"model_server_url": "http://127.0.0.1:6000"},
+                },
+            },
+            {
+                "name": "embeddings-oss",
+                "route_type": "llm/v1/embeddings",
+                "model": {
+                    "provider": "mlflow-model-serving",
+                    "name": "sentence-transformers",
+                    "config": {"model_server_url": "http://127.0.0.1:5002"},
+                },
+            },
         ]
     }
 
@@ -106,12 +143,28 @@ def env_setup(monkeypatch):
     monkeypatch.setenv("COHERE_API_KEY", "test_cohere_key")
 
 
+@pytest.fixture
+def serve_embeddings_model():
+    model_uri = log_sentence_transformers_model()
+    server = start_mlflow_server(port=5002, model_uri=model_uri)
+    yield server.url
+    stop_mlflow_server(server.pid)
+
+
+@pytest.fixture
+def serve_completions_model():
+    model_uri = log_completions_transformers_model()
+    server = start_mlflow_server(port=6000, model_uri=model_uri)
+    yield server.url
+    stop_mlflow_server(server.pid)
+
+
 def test_create_gateway_client_with_declared_url(gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
     assert gateway_client.gateway_uri == gateway.url
     assert isinstance(gateway_client.get_route("chat-openai"), Route)
     routes = gateway_client.search_routes()
-    assert len(routes) == 6
+    assert len(routes) == 9
     assert all(isinstance(route, Route) for route in routes)
 
 
@@ -352,3 +405,124 @@ def test_invalid_query_request_raises(gateway):
         requests.exceptions.HTTPError, match="Unprocessable Entity for"
     ):
         query(route=route.name, data=data)
+
+
+def test_mlflow_chat(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("chat-oss")
+    expected_output = {
+        "candidates": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "test",
+                },
+                "metadata": {"finish_reason": None},
+            }
+        ],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "mpt-chatbot",
+            "route_type": "llm/v1/chat",
+        },
+    }
+
+    data = {"messages": [{"role": "user", "content": "test"}]}
+
+    with patch.object(MlflowModelServingProvider, "chat", return_value=expected_output):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_mlflow_completions(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("completions-oss")
+    expected_output = {
+        "candidates": [
+            {
+                "text": "test",
+                "metadata": {},
+            }
+        ],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "completion-model",
+            "route_type": "llm/v1/completions",
+        },
+    }
+
+    data = {"prompt": "this is a test"}
+
+    with patch.object(MlflowModelServingProvider, "completions", return_value=expected_output):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_mlflow_embeddings(gateway):
+    set_gateway_uri(gateway_uri=gateway.url)
+    route = get_route("embeddings-oss")
+    expected_output = {
+        "embeddings": [
+            [0.001, -0.001],
+            [0.002, -0.002],
+        ],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "sentence-transformers",
+            "route_type": "llm/v1/embeddings",
+        },
+    }
+
+    data = {"text": ["test1", "test2"]}
+
+    with patch.object(MlflowModelServingProvider, "embeddings", return_value=expected_output):
+        response = query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_gateway_query_mlflow_embeddings_model(serve_embeddings_model, gateway):
+    set_gateway_uri(gateway_uri=gateway.url)
+    route = get_route("embeddings-oss")
+
+    data = {"text": ["test1", "test2"]}
+
+    response = query(route=route.name, data=data)
+
+    embeddings_response = response["embeddings"]
+
+    assert isinstance(embeddings_response, list)
+    assert len(embeddings_response) == 2
+
+    metadata_response = response["metadata"]
+
+    assert not metadata_response["input_tokens"]
+    assert not metadata_response["output_tokens"]
+    assert metadata_response["model"] == "sentence-transformers"
+    assert metadata_response["route_type"] == route.route_type
+
+
+def test_gateway_query_mlflow_completions_model(serve_completions_model, gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("completions-oss")
+
+    data = {"prompt": "test [MASK]"}
+
+    response = client.query(route=route.name, data=data)
+
+    completions_response = response["candidates"]
+
+    assert isinstance(completions_response, list)
+    assert isinstance(completions_response[0]["text"], str)
+    assert len(completions_response) == 1
+
+    metadata_response = response["metadata"]
+    assert not metadata_response["input_tokens"]
+    assert not metadata_response["output_tokens"]
+    assert metadata_response["model"] == "completion-model"
+    assert metadata_response["route_type"] == route.route_type

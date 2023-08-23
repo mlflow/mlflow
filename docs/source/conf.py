@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 #
 # MLflow documentation build configuration file, created by
 # cookiecutter pipproject

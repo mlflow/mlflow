@@ -1,32 +1,33 @@
-import git
 import os
 import tempfile
 import zipfile
-
-import pytest
 from unittest import mock
+
+import git
+import pytest
 
 import mlflow
 from mlflow.exceptions import ExecutionException
 from mlflow.projects import _project_spec
 from mlflow.projects.utils import (
+    _fetch_git_repo,
+    _fetch_project,
     _get_storage_dir,
     _is_valid_branch_name,
     _is_zip_uri,
-    _fetch_project,
-    _fetch_git_repo,
     _parse_subdirectory,
-    get_or_create_run,
     fetch_and_validate_project,
+    get_or_create_run,
     load_project,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_SOURCE_NAME
+
 from tests.projects.utils import (
-    assert_dirs_equal,
+    GIT_PROJECT_BRANCH,
     GIT_PROJECT_URI,
     TEST_PROJECT_DIR,
     TEST_PROJECT_NAME,
-    GIT_PROJECT_BRANCH,
+    assert_dirs_equal,
 )
 
 
@@ -38,7 +39,7 @@ def _build_uri(base_uri, subdirectory):
 
 @pytest.fixture
 def zipped_repo(tmp_path):
-    zip_name = tmp_path.joinpath("%s.zip" % TEST_PROJECT_NAME)
+    zip_name = tmp_path.joinpath(f"{TEST_PROJECT_NAME}.zip")
     with zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED) as zip_file:
         for root, _, files in os.walk(TEST_PROJECT_DIR):
             for file_name in files:
@@ -77,9 +78,9 @@ def test__fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpser
         (local_git_repo_uri, "", local_git_repo),
         (local_git_repo_uri, "example_project", os.path.join(local_git_repo, "example_project")),
         (os.path.dirname(TEST_PROJECT_DIR), os.path.basename(TEST_PROJECT_DIR), TEST_PROJECT_DIR),
-        (httpserver.url + "/%s.zip" % TEST_PROJECT_NAME, "", TEST_PROJECT_DIR),
+        (httpserver.url + f"/{TEST_PROJECT_NAME}.zip", "", TEST_PROJECT_DIR),
         (zipped_repo, "", TEST_PROJECT_DIR),
-        ("file://%s" % zipped_repo, "", TEST_PROJECT_DIR),
+        (f"file://{zipped_repo}", "", TEST_PROJECT_DIR),
     ]
     for base_uri, subdirectory, expected in test_list:
         work_dir = _fetch_project(uri=_build_uri(base_uri, subdirectory))

@@ -1,31 +1,31 @@
 """Tests for sktime custom model flavor."""
 
-import flavor
 import os
 from pathlib import Path
 from unittest import mock
 
+import boto3
+import flavor
+import moto
 import numpy as np
 import pandas as pd
 import pytest
-
-from sktime.datatypes import convert
+from botocore.config import Config
 from sktime.datasets import load_airline, load_longley
+from sktime.datatypes import convert
 from sktime.forecasting.arima import AutoARIMA
 from sktime.forecasting.model_selection import temporal_train_test_split
 from sktime.forecasting.naive import NaiveForecaster
-import boto3
-import moto
-from botocore.config import Config
-from mlflow.utils.environment import _mlflow_conda_env
+
+import mlflow
+from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-import mlflow
-from mlflow import pyfunc
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.exceptions import MlflowException
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.environment import _mlflow_conda_env
 
 FH = [1, 2, 3]
 COVERAGE = [0.1, 0.5, 0.9]

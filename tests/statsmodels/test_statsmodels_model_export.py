@@ -1,18 +1,19 @@
+import json
+import os
 from pathlib import Path
-import pytest
+from unittest import mock
+
 import numpy as np
 import pandas as pd
-from unittest import mock
-import os
-import json
+import pytest
 import yaml
 
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.statsmodels
 import mlflow.utils
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
-from mlflow.models.utils import _read_example
 from mlflow.models import Model
+from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -20,22 +21,22 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import (
-    pyfunc_serve_and_score_model,
-    _compare_conda_env_requirements,
     _assert_pip_requirements,
-    _is_available_on_pypi,
+    _compare_conda_env_requirements,
     _compare_logged_code_paths,
+    _is_available_on_pypi,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
 )
 from tests.statsmodels.model_fixtures import (
-    ols_model,
-    ols_model_signature,
     arma_model,
-    glsar_model,
     gee_model,
     glm_model,
     gls_model,
+    glsar_model,
+    ols_model,
+    ols_model_signature,
     recursivels_model,
     rolling_ols_model,
     rolling_wls_model,

@@ -1,20 +1,23 @@
-import yaml
-import json
 import importlib
+import json
 from unittest import mock
 
-from pyspark.sql import SparkSession
 import openai
 import openai.error
-import pytest
 import pandas as pd
+import pytest
+import yaml
+from pyspark.sql import SparkSession
 
 import mlflow
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.openai.utils import (
-    _mock_request,
     _mock_chat_completion_response,
     _mock_models_retrieve_response,
+    _mock_request,
 )
+
+from tests.helper_functions import pyfunc_serve_and_score_model
 
 
 @pytest.fixture(scope="module")
@@ -320,7 +323,7 @@ def test_save_model_with_secret_scope(tmp_path, monkeypatch):
         }
 
 
-def test_spark_udf(tmp_path, spark):
+def test_spark_udf_chat(tmp_path, spark):
     mlflow.openai.save_model(
         model="gpt-3.5-turbo",
         task="chat.completions",
@@ -397,3 +400,62 @@ def test_auto_request_retry_is_disabled_when_env_var_is_false(tmp_path, monkeypa
             loaded_model.predict(None)
 
     assert mock_request.call_count == 1
+
+
+def test_embeddings(tmp_path):
+    mlflow.openai.save_model(
+        model="text-embedding-ada-002",
+        task=openai.Embedding,
+        path=tmp_path,
+    )
+
+    model = mlflow.models.Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == [{"type": "string"}]
+    assert model.signature.outputs.to_dict() == [
+        {"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": (-1,)}}
+    ]
+
+    model = mlflow.pyfunc.load_model(tmp_path)
+    data = pd.DataFrame({"text": ["a", "b"]})
+    preds = model.predict(data)
+    assert preds == [[0.0], [0.0]]
+
+    data = pd.DataFrame({"text": ["a"] * 100})
+    preds = model.predict(data)
+    assert preds == [[0.0]] * 100
+
+
+def test_embeddings_pyfunc_server_and_score(tmp_path):
+    mlflow.openai.save_model(
+        model="text-embedding-ada-002",
+        task=openai.Embedding,
+        path=tmp_path,
+    )
+    df = pd.DataFrame({"text": ["a", "b"]})
+    resp = pyfunc_serve_and_score_model(
+        tmp_path,
+        data=pd.DataFrame(df),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    expected = mlflow.pyfunc.load_model(tmp_path).predict(df)
+    actual = pd.DataFrame(data=json.loads(resp.content.decode("utf-8")))
+    pd.testing.assert_frame_equal(actual, pd.DataFrame({"predictions": expected}))
+
+
+def test_spark_udf_embeddings(tmp_path, spark):
+    mlflow.openai.save_model(
+        model="text-embedding-ada-002",
+        task=openai.Embedding,
+        path=tmp_path,
+    )
+    udf = mlflow.pyfunc.spark_udf(spark, tmp_path, result_type="array<double>")
+    df = spark.createDataFrame(
+        [
+            ("a",),
+            ("b",),
+        ],
+        ["x"],
+    )
+    df = df.withColumn("z", udf("x")).toPandas()
+    assert df["z"].tolist() == [[0.0], [0.0]]

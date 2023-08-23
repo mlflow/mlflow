@@ -31,6 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
           submodules: recursive
       - uses: ./.github/actions/setup-python
         with:
@@ -54,6 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
           submodules: recursive
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python

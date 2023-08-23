@@ -1,6 +1,5 @@
 from mlflow.server.handlers import _get_rest_path
 
-
 HOME = "/"
 SIGNUP = "/signup"
 CREATE_USER = _get_rest_path("/mlflow/users/create")

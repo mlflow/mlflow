@@ -4,13 +4,14 @@ import re
 import urllib.parse
 import requests
 
-from mlflow.entities import FileInfo
-from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
-
-from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
-
 from mlflow.azure.client import put_adls_file_creation, patch_adls_flush, patch_adls_file_upload
+from mlflow.entities import FileInfo
+from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
+from mlflow.exceptions import MlflowException
+from mlflow.store.artifact.cloud_artifact_repo import (
+    _MULTIPART_UPLOAD_CHUNK_SIZE,
+    CloudArtifactRepository,
+)
 from mlflow.store.artifact.databricks_artifact_repo import (
     _MULTIPART_UPLOAD_CHUNK_SIZE,
     _compute_num_chunks,
@@ -207,7 +208,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                 )
                 futures[future] = index
 
-            _, errors = _complete_futures(futures)
+            _, errors = _complete_futures(futures, local_file)
             if errors:
                 raise MlflowException(
                     f"Failed to upload at least one part of {artifact_path}. Errors: {errors}"

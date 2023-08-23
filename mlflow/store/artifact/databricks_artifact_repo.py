@@ -1,54 +1,59 @@
 import base64
 import logging
+import math
 import os
 import posixpath
-import requests
 import uuid
-import math
 from collections import namedtuple
 from concurrent.futures import as_completed
 
+import requests
+
+import mlflow.tracking
 from mlflow.azure.client import (
-    put_adls_file_creation,
     patch_adls_file_upload,
     patch_adls_flush,
+    put_adls_file_creation,
     put_block,
     put_block_list,
 )
-import mlflow.tracking
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import (
-    INVALID_PARAMETER_VALUE,
-    INTERNAL_ERROR,
-)
-
 from mlflow.protos.databricks_artifacts_pb2 import (
-    DatabricksMlflowArtifactsService,
-    GetCredentialsForWrite,
-    GetCredentialsForRead,
     ArtifactCredentialType,
-    CreateMultipartUpload,
     CompleteMultipartUpload,
-    PartEtag,
+    CreateMultipartUpload,
+    DatabricksMlflowArtifactsService,
+    GetCredentialsForRead,
+    GetCredentialsForWrite,
     GetPresignedUploadPartUrl,
+    PartEtag,
 )
-from mlflow.protos.service_pb2 import MlflowService, GetRun, ListArtifacts
+from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
+    INVALID_PARAMETER_VALUE,
+)
+from mlflow.protos.service_pb2 import GetRun, ListArtifacts, MlflowService
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
+    _compute_num_chunks,
+    _complete_futures,
     _DOWNLOAD_CHUNK_SIZE,
     _MULTIPART_UPLOAD_CHUNK_SIZE,
 )
 from mlflow.utils import chunk_list
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.file_utils import download_file_using_http_uri
+from mlflow.utils.file_utils import (
+    download_file_using_http_uri,
+    read_chunk,
+)
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.file_utils import read_chunk
+from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.rest_utils import (
-    call_endpoint,
-    extract_api_info_for_service,
     _REST_API_PATH_PREFIX,
     augmented_raise_for_status,
+    call_endpoint,
+    extract_api_info_for_service,
 )
 from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.uri import (
@@ -65,32 +70,6 @@ _SERVICE_AND_METHOD_TO_INFO = {
     service: extract_api_info_for_service(service, _REST_API_PATH_PREFIX)
     for service in [MlflowService, DatabricksMlflowArtifactsService]
 }
-
-
-def _compute_num_chunks(local_file: os.PathLike, chunk_size: int) -> int:
-    """
-    Computes the number of chunks to use for a multipart upload of the specified file.
-    """
-    return math.ceil(os.path.getsize(local_file) / chunk_size)
-
-
-def _complete_futures(futures_dict):
-    """
-    Waits for the completion of all the futures in the given dictionary and returns
-    a tuple of two dictionaries. The first dictionary contains the results of the
-    futures (unordered) and the second contains the errors (unordered) that occurred
-    during the execution of the futures.
-    """
-    results = {}
-    errors = {}
-    for future in as_completed(futures_dict):
-        key = futures_dict[future]
-        try:
-            results[key] = future.result()
-        except Exception as e:
-            errors[key] = repr(e)
-
-    return results, errors
 
 
 class DatabricksArtifactRepository(CloudArtifactRepository):
@@ -244,9 +223,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     "Failed to authorize request, possibly due to credential expiration."
                     " Refreshing credentials and trying again..."
                 )
-                credential_info = self._get_write_credential_infos(
-                    paths=[artifact_path]
-                )[0]
+                credential_info = self._get_write_credential_infos(paths=[artifact_path])[0]
                 put_block(credential_info.signed_uri, block_id, chunk, headers=headers)
             else:
                 raise e
@@ -280,7 +257,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 )
                 futures[future] = index
 
-            results, errors = _complete_futures(futures)
+            results, errors = _complete_futures(futures, local_file)
             if errors:
                 raise MlflowException(
                     f"Failed to upload at least one part of {local_file}. Errors: {errors}"
@@ -296,9 +273,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                         "Failed to authorize request, possibly due to credential expiration."
                         " Refreshing credentials and trying again..."
                     )
-                    credential_info = self._get_write_credential_infos(
-                        paths=[artifact_path]
-                    )[0]
+                    credential_info = self._get_write_credential_infos(paths=[artifact_path])[0]
                     put_block_list(
                         credential_info.signed_uri, uploading_block_list, headers=headers
                     )
@@ -317,9 +292,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     "Failed to authorize ADLS operation, possibly due "
                     "to credential expiration. Refreshing credentials and trying again..."
                 )
-                new_credentials = self._get_write_credential_infos(
-                    paths=[artifact_path]
-                )[0]
+                new_credentials = self._get_write_credential_infos(paths=[artifact_path])[0]
                 kwargs["sas_url"] = new_credentials.signed_uri
                 func(**kwargs)
             else:
@@ -361,7 +334,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 )
                 futures[future] = index
 
-            _, errors = _complete_futures(futures)
+            _, errors = _complete_futures(futures, local_file)
             if errors:
                 raise MlflowException(
                     f"Failed to upload at least one part of {artifact_path}. Errors: {errors}"
@@ -398,21 +371,15 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         except Exception as err:
             raise MlflowException(err)
 
-    def _upload_to_cloud(
-        self, cloud_credential_info, src_file_path, artifact_path
-    ):
+    def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_path):
         """
         Upload a local file to the specified run-relative `artifact_path` using
         the supplied `cloud_credential_info`.
         """
         if cloud_credential_info.type == ArtifactCredentialType.AZURE_SAS_URI:
-            self._azure_upload_file(
-                cloud_credential_info, src_file_path, artifact_path
-            )
+            self._azure_upload_file(cloud_credential_info, src_file_path, artifact_path)
         elif cloud_credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
-            self._azure_adls_gen2_upload_file(
-                cloud_credential_info, src_file_path, artifact_path
-            )
+            self._azure_adls_gen2_upload_file(cloud_credential_info, src_file_path, artifact_path)
         elif cloud_credential_info.type == ArtifactCredentialType.AWS_PRESIGNED_URL:
             if os.path.getsize(src_file_path) > _MULTIPART_UPLOAD_CHUNK_SIZE:
                 self._multipart_upload(src_file_path, artifact_path)
@@ -534,7 +501,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             )
             futures[future] = part_number
 
-        results, errors = _complete_futures(futures)
+        results, errors = _complete_futures(futures, local_file)
         if errors:
             raise MlflowException(
                 f"Failed to upload at least one part of {local_file}. Errors: {errors}"

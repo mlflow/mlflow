@@ -104,7 +104,7 @@ def validate_model(original_model, new_model):
 
 @pytest.fixture
 def jsl_model(load_and_init_model):
-    yield load_and_init_model
+    return load_and_init_model
 
 
 @pytest.fixture
@@ -247,7 +247,7 @@ def test_johnsnowlabs_model_log(tmp_path, jsl_model, should_start_run, use_dfs_t
 
     try:
         tracking_dir = tmp_path.joinpath("mlruns")
-        mlflow.set_tracking_uri("file://%s" % tracking_dir)
+        mlflow.set_tracking_uri(f"file://{tracking_dir}")
         if should_start_run:
             mlflow.start_run()
         artifact_path = "model"

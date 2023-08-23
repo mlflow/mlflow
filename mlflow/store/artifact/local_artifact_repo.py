@@ -3,10 +3,10 @@ import shutil
 
 from mlflow.store.artifact.artifact_repo import ArtifactRepository, verify_artifact_path
 from mlflow.utils.file_utils import (
-    mkdir,
-    list_all,
     get_file_info,
+    list_all,
     local_file_uri_to_path,
+    mkdir,
     relative_path_to_artifact_path,
 )
 

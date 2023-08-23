@@ -1,9 +1,9 @@
 import json
 import logging
-from typing import Optional, Any, Dict, Union
+from functools import cached_property
+from typing import Any, Dict, Optional, Union
 
 import pandas as pd
-from functools import cached_property
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource

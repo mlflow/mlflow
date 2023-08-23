@@ -4,14 +4,13 @@ Utilities for validating user inputs such as metric names and parameter names.
 import numbers
 import posixpath
 import re
-
 from typing import List
 
+from mlflow.entities import Dataset, DatasetInput, InputTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.string_utils import is_string_type
-from mlflow.entities import DatasetInput, Dataset, InputTag
 
 # Regex for valid param and metric names: may only contain slashes, alphanumerics,
 # underscores, periods, dashes, and spaces.
@@ -346,7 +345,7 @@ def _validate_experiment_name(experiment_name):
 
     if not is_string_type(experiment_name):
         raise MlflowException(
-            "Invalid experiment name: %s. Expects a string." % experiment_name,
+            f"Invalid experiment name: {experiment_name}. Expects a string.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -405,7 +404,7 @@ def _validate_model_alias_name(model_alias_name):
 def _validate_experiment_artifact_location(artifact_location):
     if artifact_location is not None and artifact_location.startswith("runs:"):
         raise MlflowException(
-            "Artifact location cannot be a runs:/ URI. Given: '%s'" % artifact_location,
+            f"Artifact location cannot be a runs:/ URI. Given: '{artifact_location}'",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

@@ -4,33 +4,33 @@ import os
 import shutil
 from unittest import mock
 
-from databricks_cli.configure.provider import DatabricksConfig
 import databricks_cli
 import pytest
+from databricks_cli.configure.provider import DatabricksConfig
 
 import mlflow
-from mlflow import cli, MlflowClient
-from mlflow.exceptions import MlflowException
-from mlflow.projects.databricks import DatabricksJobRunner, _get_cluster_mlflow_run_cmd
-from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
+from mlflow import MlflowClient, cli
 from mlflow.entities import RunStatus
-from mlflow.projects import databricks, ExecutionException
-from mlflow.utils import file_utils
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.exceptions import MlflowException
+from mlflow.projects import ExecutionException, databricks
+from mlflow.projects.databricks import DatabricksJobRunner, _get_cluster_mlflow_run_cmd
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.tracking.file_store import FileStore
+from mlflow.tracking.request_header.default_request_header_provider import (
+    DefaultRequestHeaderProvider,
+)
+from mlflow.utils import file_utils
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_RUN_URL,
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID,
     MLFLOW_DATABRICKS_WEBAPP_URL,
 )
-from mlflow.tracking.request_header.default_request_header_provider import (
-    DefaultRequestHeaderProvider,
-)
 from mlflow.utils.uri import construct_db_uri_from_profile
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+
 from tests import helper_functions
 from tests.integration.utils import invoke_cli_runner
-
-from tests.projects.utils import validate_exit_status, TEST_PROJECT_DIR
+from tests.projects.utils import TEST_PROJECT_DIR, validate_exit_status
 
 
 @pytest.fixture
@@ -75,12 +75,12 @@ def databricks_cluster_mlflow_run_cmd_mock():
 def cluster_spec_mock(tmp_path):
     cluster_spec_handle = tmp_path.joinpath("cluster_spec.json")
     cluster_spec_handle.write_text("{}")
-    yield str(cluster_spec_handle)
+    return str(cluster_spec_handle)
 
 
 @pytest.fixture
 def dbfs_root_mock(tmp_path):
-    yield str(tmp_path.joinpath("dbfs-root"))
+    return str(tmp_path.joinpath("dbfs-root"))
 
 
 @pytest.fixture
@@ -106,7 +106,7 @@ def dbfs_path_exists_mock(dbfs_root_mock):  # pylint: disable=unused-argument
 
 @pytest.fixture
 def dbfs_mocks(dbfs_path_exists_mock, upload_to_dbfs_mock):  # pylint: disable=unused-argument
-    yield
+    return
 
 
 @pytest.fixture

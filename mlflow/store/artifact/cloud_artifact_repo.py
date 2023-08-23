@@ -1,24 +1,63 @@
+import logging
 import os
 import posixpath
 from abc import abstractmethod
 from collections import namedtuple
 
-from mlflow.environment_variables import MLFLOW_ENABLE_MULTIPART_DOWNLOAD
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
+    MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils import chunk_list
 from mlflow.utils.file_utils import (
+    ArtifactProgressBar,
     parallelized_download_file_using_http_uri,
     relative_path_to_artifact_path,
     download_chunk,
 )
 
+_logger = logging.getLogger(__name__)
 _DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
 _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE = 500_000_000  # 500 MB
 _MULTIPART_UPLOAD_CHUNK_SIZE = 10_000_000  # 10 MB
 _ARTIFACT_UPLOAD_BATCH_SIZE = (
     50  # Max number of artifacts for which to fetch write credentials at once.
 )
+
+
+def _compute_num_chunks(local_file: os.PathLike, chunk_size: int) -> int:
+    """
+    Computes the number of chunks to use for a multipart upload of the specified file.
+    """
+    return math.ceil(os.path.getsize(local_file) / chunk_size)
+
+
+def _complete_futures(futures_dict, file):
+    """
+    Waits for the completion of all the futures in the given dictionary and returns
+    a tuple of two dictionaries. The first dictionary contains the results of the
+    futures (unordered) and the second contains the errors (unordered) that occurred
+    during the execution of the futures.
+    """
+    results = {}
+    errors = {}
+
+    with ArtifactProgressBar.chunks(
+        os.path.getsize(file),
+        f"Uploading {file}",
+        _MULTIPART_UPLOAD_CHUNK_SIZE,
+    ) as pbar:
+        for future in as_completed(futures_dict):
+            key = futures_dict[future]
+            try:
+                results[key] = future.result()
+                pbar.update()
+            except Exception as e:
+                errors[key] = repr(e)
+
+    return results, errors
 
 
 class CloudArtifactRepository(ArtifactRepository):
@@ -68,34 +107,44 @@ class CloudArtifactRepository(ArtifactRepository):
         # Join futures to ensure that all artifacts have been uploaded prior to returning
         failed_uploads = {}
 
-        # For each batch of files, upload them in parallel
-        # and wait for completion
-        def get_creds_and_upload(staged_upload_chunk):
-            write_credential_infos = self._get_write_credential_infos(
-                paths=[staged_upload.artifact_path for staged_upload in staged_upload_chunk],
-            )
-
-            inflight_uploads = {}
-            for staged_upload, write_credential_info in zip(
-                staged_upload_chunk, write_credential_infos
-            ):
-                upload_future = self.thread_pool.submit(
-                    self._upload_to_cloud,
-                    cloud_credential_info=write_credential_info,
-                    src_file_path=staged_upload.src_file_path,
-                    artifact_path=staged_upload.artifact_path,
+        # For each batch of files, upload them in parallel and wait for completion
+        def upload_artifacts_iter():
+            for staged_upload_chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
+                write_credential_infos = self._get_write_credential_infos(
+                    paths=[
+                        staged_upload.dst_run_relative_artifact_path
+                        for staged_upload in staged_upload_chunk
+                    ],
                 )
-                inflight_uploads[staged_upload.src_file_path] = upload_future
 
-            for src_file_path, upload_future in inflight_uploads.items():
+                inflight_uploads = {}
+                for staged_upload, write_credential_info in zip(
+                    staged_upload_chunk, write_credential_infos
+                ):
+                    upload_future = self.thread_pool.submit(
+                        self._upload_to_cloud,
+                        cloud_credential_info=write_credential_info,
+                        src_file_path=staged_upload.src_file_path,
+                        dst_run_relative_artifact_path=staged_upload.dst_run_relative_artifact_path,
+                    )
+                    inflight_uploads[staged_upload.src_file_path] = upload_future
+
+                yield from inflight_uploads.items()
+
+        with ArtifactProgressBar.files(
+            desc="Uploading artifacts", total=len(staged_uploads)
+        ) as pbar:
+            if len(staged_uploads) >= 10 and pbar.pbar:
+                _logger.info(
+                    "The progress bar can be disabled by setting the environment "
+                    f"variable {MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR} to false"
+                )
+            for src_file_path, upload_future in upload_artifacts_iter():
                 try:
                     upload_future.result()
+                    pbar.update()
                 except Exception as e:
                     failed_uploads[src_file_path] = repr(e)
-
-        # Iterate over batches of files and upload them
-        for chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
-            get_creds_and_upload(chunk)
 
         if len(failed_uploads) > 0:
             raise MlflowException(
