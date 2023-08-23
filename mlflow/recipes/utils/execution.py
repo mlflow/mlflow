@@ -4,7 +4,7 @@ import os
 import pathlib
 import re
 import shutil
-from typing import List, Dict
+from typing import Dict, List
 
 from mlflow.environment_variables import (
     MLFLOW_RECIPES_EXECUTION_DIRECTORY,

@@ -1,44 +1,45 @@
 import json
 import logging
+import pathlib
+from typing import Any, Dict, List, Optional, Union
+
 import numpy as np
 import pandas as pd
-import pathlib
-from typing import List, Optional, Dict, Any, Union
 import yaml
 
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import ModelInputExample, ModelSignature, Model, infer_pip_requirements
+from mlflow.models import Model, ModelInputExample, ModelSignature, infer_pip_requirements
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.types.schema import Schema, ColSpec, TensorSpec
+from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import (
-    format_docstring,
     LOG_MODEL_PARAM_DOCS,
     docstring_version_compatibility_warning,
+    format_docstring,
 )
 from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _validate_env_arguments,
     _CONDA_ENV_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _mlflow_conda_env,
     _process_conda_env,
     _process_pip_requirements,
-    _CONSTRAINTS_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
     _PythonEnv,
+    _validate_env_arguments,
 )
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
-    _validate_and_copy_code_paths,
-    _validate_and_prepare_target_save_path,
+    _add_code_from_conf_to_system_path,
     _download_artifact_from_uri,
     _get_flavor_configuration_from_uri,
-    _add_code_from_conf_to_system_path,
+    _validate_and_copy_code_paths,
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 

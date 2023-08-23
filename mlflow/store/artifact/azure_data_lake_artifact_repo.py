@@ -3,12 +3,10 @@ import posixpath
 import re
 import urllib.parse
 
-
 from mlflow.entities import FileInfo
+from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-
-from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 
 
 def _parse_abfss_uri(uri):

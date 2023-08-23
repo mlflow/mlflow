@@ -1,7 +1,7 @@
 import click
 
-from mlflow.recipes import Recipe
 from mlflow.environment_variables import MLFLOW_RECIPES_PROFILE
+from mlflow.recipes import Recipe
 
 _CLI_ARG_RECIPE_PROFILE = click.option(
     "--profile",

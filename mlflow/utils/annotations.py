@@ -2,7 +2,7 @@ import inspect
 import types
 import warnings
 from functools import wraps
-from typing import Any, Union, Callable, TypeVar
+from typing import Any, Callable, TypeVar, Union
 
 C = TypeVar("C", bound=Callable[..., Any])
 

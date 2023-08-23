@@ -1,27 +1,26 @@
 import json
 import logging
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 import requests.exceptions
 
 from mlflow import MlflowException
 from mlflow.gateway.config import Route
 from mlflow.gateway.constants import (
+    MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
+    MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
     MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
-    MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
-    MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
 )
-from mlflow.gateway.utils import get_gateway_uri, assemble_uri_path, resolve_route_url
+from mlflow.gateway.utils import assemble_uri_path, get_gateway_uri, resolve_route_url
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.rest_utils import MlflowHostCreds, http_request, augmented_raise_for_status
+from mlflow.utils.rest_utils import MlflowHostCreds, augmented_raise_for_status, http_request
 from mlflow.utils.uri import get_uri_scheme
-
 
 _logger = logging.getLogger(__name__)
 

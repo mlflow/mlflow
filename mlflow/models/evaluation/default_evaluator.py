@@ -1,45 +1,46 @@
+import copy
 import functools
+import json
+import logging
+import math
+import pathlib
+import pickle
+import shutil
+import tempfile
+from collections import namedtuple
+from functools import partial
+from typing import Callable, NamedTuple
+
+import numpy as np
+import pandas as pd
+from packaging.version import Version
+from sklearn import metrics as sk_metrics
+from sklearn.metrics import accuracy_score
+from sklearn.pipeline import Pipeline as sk_Pipeline
+
 import mlflow
 from mlflow import MlflowClient
-from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation.base import (
-    ModelEvaluator,
-    EvaluationResult,
-    _ModelType,
-)
 from mlflow.entities.metric import Metric
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils.file_utils import TempDir
-from mlflow.models.utils import plot_lines
+from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.artifacts import (
-    ImageEvaluationArtifact,
     CsvEvaluationArtifact,
+    ImageEvaluationArtifact,
+    JsonEvaluationArtifact,
     NumpyEvaluationArtifact,
     _infer_artifact_type_and_ext,
-    JsonEvaluationArtifact,
 )
+from mlflow.models.evaluation.base import (
+    EvaluationResult,
+    ModelEvaluator,
+    _ModelType,
+)
+from mlflow.models.utils import plot_lines
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.sklearn import _SklearnModelWrapper
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.utils.time_utils import get_current_time_millis
-
-from sklearn import metrics as sk_metrics
-from sklearn.pipeline import Pipeline as sk_Pipeline
-from sklearn.metrics import accuracy_score
-import math
-import json
-from collections import namedtuple
-from typing import NamedTuple, Callable
-import tempfile
-import pandas as pd
-import numpy as np
-import copy
-import shutil
-import pickle
-from functools import partial
-import logging
-from packaging.version import Version
-import pathlib
 
 _logger = logging.getLogger(__name__)
 

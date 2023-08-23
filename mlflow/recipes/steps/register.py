@@ -1,20 +1,19 @@
 import logging
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
 import mlflow
 from mlflow.entities import SourceType
-from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
+from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.recipes.artifacts import ModelVersionArtifact, RegisteredModelVersionInfo
 from mlflow.recipes.cards import BaseCard
-from mlflow.recipes.step import BaseStep
-from mlflow.recipes.step import StepClass
+from mlflow.recipes.step import BaseStep, StepClass
 from mlflow.recipes.steps.train import TrainStep
 from mlflow.recipes.utils.execution import get_step_output_path
 from mlflow.recipes.utils.tracking import (
-    get_recipe_tracking_config,
-    apply_recipe_tracking_config,
     TrackingConfig,
+    apply_recipe_tracking_config,
+    get_recipe_tracking_config,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.databricks_utils import (
@@ -22,7 +21,7 @@ from mlflow.utils.databricks_utils import (
     get_databricks_model_version_url,
     get_databricks_run_url,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_TYPE, MLFLOW_RECIPE_TEMPLATE_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_RECIPE_TEMPLATE_NAME, MLFLOW_SOURCE_TYPE
 
 _logger = logging.getLogger(__name__)
 

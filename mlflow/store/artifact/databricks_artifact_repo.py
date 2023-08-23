@@ -1,40 +1,43 @@
 import base64
 import logging
+import math
 import os
 import posixpath
-import requests
 import uuid
-import math
 from collections import namedtuple
 from concurrent.futures import as_completed
 
+import requests
+
+import mlflow.tracking
 from mlflow.azure.client import (
-    put_adls_file_creation,
     patch_adls_file_upload,
     patch_adls_flush,
+    put_adls_file_creation,
     put_block,
     put_block_list,
 )
-import mlflow.tracking
 from mlflow.entities import FileInfo
-from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
+    MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
+)
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import (
-    INVALID_PARAMETER_VALUE,
-    INTERNAL_ERROR,
-)
-
 from mlflow.protos.databricks_artifacts_pb2 import (
-    DatabricksMlflowArtifactsService,
-    GetCredentialsForWrite,
-    GetCredentialsForRead,
     ArtifactCredentialType,
-    CreateMultipartUpload,
     CompleteMultipartUpload,
-    PartEtag,
+    CreateMultipartUpload,
+    DatabricksMlflowArtifactsService,
+    GetCredentialsForRead,
+    GetCredentialsForWrite,
     GetPresignedUploadPartUrl,
+    PartEtag,
 )
-from mlflow.protos.service_pb2 import MlflowService, GetRun, ListArtifacts
+from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
+    INVALID_PARAMETER_VALUE,
+)
+from mlflow.protos.service_pb2 import GetRun, ListArtifacts, MlflowService
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils import chunk_list
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -42,17 +45,17 @@ from mlflow.utils.file_utils import (
     ArtifactProgressBar,
     download_file_using_http_uri,
     parallelized_download_file_using_http_uri,
+    read_chunk,
     relative_path_to_artifact_path,
 )
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.file_utils import read_chunk
+from mlflow.utils.request_utils import cloud_storage_http_request, download_chunk
 from mlflow.utils.rest_utils import (
-    call_endpoint,
-    extract_api_info_for_service,
     _REST_API_PATH_PREFIX,
     augmented_raise_for_status,
+    call_endpoint,
+    extract_api_info_for_service,
 )
-from mlflow.utils.request_utils import cloud_storage_http_request, download_chunk
 from mlflow.utils.uri import (
     extract_and_normalize_path,
     get_databricks_profile_uri_from_artifact_uri,
@@ -60,7 +63,6 @@ from mlflow.utils.uri import (
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
 )
-from mlflow.environment_variables import MLFLOW_ENABLE_MULTIPART_DOWNLOAD
 
 _logger = logging.getLogger(__name__)
 _DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB

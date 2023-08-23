@@ -9,18 +9,18 @@
 # constraint names - we provided a one-time migration script for pre-1.0 users so that their
 # database schema matched the schema in this file.
 import time
-from sqlalchemy.orm import relationship, backref
+
 from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
     Column,
-    String,
     Float,
     ForeignKey,
     Integer,
-    CheckConstraint,
-    BigInteger,
     PrimaryKeyConstraint,
+    String,
 )
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import backref, declarative_base, relationship
 
 Base = declarative_base()
 

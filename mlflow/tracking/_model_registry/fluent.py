@@ -1,17 +1,17 @@
-from mlflow.tracking.client import MlflowClient
+from typing import Any, Dict, List, Optional
+
+from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
-from mlflow.entities.model_registry import ModelVersion
-from mlflow.entities.model_registry import RegisteredModel
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ALREADY_EXISTS, ErrorCode
+from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
-from mlflow.utils.logging_utils import eprint
-from mlflow.utils import get_results_from_paginated_fn
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.store.model_registry import (
-    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
-from typing import Any, Dict, Optional, List
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.tracking.client import MlflowClient
+from mlflow.utils import get_results_from_paginated_fn
+from mlflow.utils.logging_utils import eprint
 
 
 def register_model(

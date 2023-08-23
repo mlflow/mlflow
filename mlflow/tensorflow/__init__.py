@@ -7,74 +7,72 @@ TensorFlow (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
-import os
-import shutil
-import logging
-import concurrent.futures
-import warnings
 import atexit
+import concurrent.futures
+import importlib
+import logging
+import os
+import re
+import shutil
 import tempfile
+import warnings
 from collections import namedtuple
-import pandas
-from packaging.version import Version
 from threading import RLock
 from typing import Any, Dict, Optional
+
 import numpy as np
-import importlib
+import pandas
 import yaml
-import re
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.tensorflow_dataset import from_tensorflow
-from mlflow.types.schema import TensorSpec
-from mlflow.tracking.client import MlflowClient
-from mlflow.exceptions import MlflowException
-from mlflow.models import Model, ModelInputExample, ModelSignature
+from mlflow.entities import Metric
+from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
+from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking.client import MlflowClient
+from mlflow.tracking.context import registry as context_registry
+from mlflow.types.schema import TensorSpec
 from mlflow.utils import is_iterator
+from mlflow.utils.autologging_utils import (
+    PatchFunction,
+    autologging_integration,
+    batch_metrics_logger,
+    get_autologging_config,
+    log_fn_args_as_params,
+    picklable_exception_safe_function,
+    resolve_input_example_and_signature,
+    safe_patch,
+)
+from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
-    _validate_env_arguments,
-    _process_pip_requirements,
-    _process_conda_env,
     _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
-    _PythonEnv,
+    _REQUIREMENTS_FILE_NAME,
     _mlflow_conda_env,
+    _process_conda_env,
+    _process_pip_requirements,
+    _PythonEnv,
+    _validate_env_arguments,
 )
 from mlflow.utils.file_utils import write_to
-from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import (
-    _get_flavor_configuration,
     _add_code_from_conf_to_system_path,
+    _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
 )
-from mlflow.utils.autologging_utils import (
-    autologging_integration,
-    safe_patch,
-    resolve_input_example_and_signature,
-    picklable_exception_safe_function,
-    PatchFunction,
-    log_fn_args_as_params,
-    batch_metrics_logger,
-    get_autologging_config,
-)
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.time_utils import get_current_time_millis
-from mlflow.entities import Metric
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.tracking.context import registry as context_registry
-from mlflow.models import infer_signature
-from mlflow.exceptions import INVALID_PARAMETER_VALUE
-
 
 FLAVOR_NAME = "tensorflow"
 
@@ -975,7 +973,7 @@ def _setup_callbacks(lst, metrics_logger):
     input list, and returns the new list and appropriate log directory.
     """
     # pylint: disable=no-name-in-module
-    from mlflow.tensorflow._autolog import _TensorBoard, __MLflowTfKeras2Callback
+    from mlflow.tensorflow._autolog import __MLflowTfKeras2Callback, _TensorBoard
 
     tb = _get_tensorboard_callback(lst)
     if tb is None:

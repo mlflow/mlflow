@@ -73,11 +73,7 @@ extend-exclude = [
 
 [tool.ruff.per-file-ignores]
 "dev/*" = ["T201", "PT018"]
-"mlflow/*" = [
-  "PT018",
-  # TODO: Sort imports in files under `mlflow` as well
-  "I",
-]
+"mlflow/*" = ["PT018"]
 
 [tool.ruff.flake8-pytest-style]
 mark-parentheses = false

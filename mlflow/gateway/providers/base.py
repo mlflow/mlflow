@@ -1,9 +1,10 @@
 from abc import ABC
-from fastapi import HTTPException
 from typing import Tuple
 
-from mlflow.gateway.schemas import chat, completions, embeddings
+from fastapi import HTTPException
+
 from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.schemas import chat, completions, embeddings
 
 
 class BaseProvider(ABC):
