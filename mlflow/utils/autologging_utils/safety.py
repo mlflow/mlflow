@@ -1040,16 +1040,3 @@ def _validate_args(
                 autologging_call_kwargs[key],
                 user_call_kwargs.get(key, None),
             )
-
-
-__all__ = [
-    "safe_patch",
-    "is_testing",
-    "exception_safe_function_for_class",
-    "picklable_exception_safe_function",
-    "ExceptionSafeClass",
-    "ExceptionSafeAbstractClass",
-    "PatchFunction",
-    "with_managed_run",
-    "update_wrapper_extended",
-]
