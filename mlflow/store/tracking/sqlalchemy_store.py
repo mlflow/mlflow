@@ -1054,7 +1054,7 @@ class SqlAlchemyStore(AbstractStore):
         # set the promptlab run tag
         self.set_tag(run_id, RunTag(MLFLOW_RUN_SOURCE_TYPE, "PROMPT_ENGINEERING"))
 
-        artifact_dir = self._get_artifact_dir(experiment_id, run_id)
+        artifact_dir = self._get_artifact_location(experiment_id)
 
         # log model
         from mlflow.models import Model
