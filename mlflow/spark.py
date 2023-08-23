@@ -95,8 +95,8 @@ def get_default_pip_requirements():
     # available for installation from Anaconda or PyPI
     pyspark_req = re.sub(r"(\.?)dev.*$", "", _get_pinned_requirement("pyspark"))
     reqs = [pyspark_req]
-    if Version(pyspark.__version__) <= Version("3.3.2"):
-        # Versions of PySpark <= 3.3.2 are incompatible with pandas >= 2
+    if Version(pyspark.__version__) < Version("3.4"):
+        # Versions of PySpark < 3.4 are incompatible with pandas >= 2
         reqs.append("pandas<2")
     return reqs
 
