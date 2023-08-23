@@ -763,6 +763,18 @@ def test_schema_enforcement_for_inputs_style_orientation_of_dataframe(orient):
     pd_check = _enforce_schema(pd_data.to_dict(orient=orient), signature.inputs)
     pd.testing.assert_frame_equal(pd_check, pd_data)
 
+    # Test List[Dict[str, Union[str, List[str]]]]
+    test_signature = {
+        "inputs": '[{"name": "query", "type": "string"}, {"name": "inputs", "type": "string"}]',
+    }
+    signature = ModelSignature.from_dict(test_signature)
+    data = [{"query": ["test_query1", "test_query2"], "inputs": "test input"}]
+    pd_data = pd.DataFrame(data)
+    check = _enforce_schema(data, signature.inputs)
+    pd.testing.assert_frame_equal(check, pd_data)
+    pd_check = _enforce_schema(pd_data.to_dict(orient=orient), signature.inputs)
+    pd.testing.assert_frame_equal(pd_check, pd_data)
+
     # Test List[str]
     test_signature = {
         "inputs": '[{"type": "string"}]',
