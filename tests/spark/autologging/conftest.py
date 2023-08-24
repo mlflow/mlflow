@@ -1,9 +1,9 @@
 import os
-import pytest
 import tempfile
 
-from pyspark.sql import SparkSession, Row
-from pyspark.sql.types import StructType, IntegerType, StringType, StructField
+import pytest
+from pyspark.sql import Row, SparkSession
+from pyspark.sql.types import IntegerType, StringType, StructField, StructType
 
 from tests.spark.autologging.utils import _get_mlflow_spark_jar_path
 

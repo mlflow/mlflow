@@ -1,81 +1,82 @@
-from itertools import combinations
-
 import base64
 import json
-import pytest
+import os
+import shutil
+from itertools import combinations
 from unittest import mock
 from unittest.mock import ANY
 
+import pytest
+import yaml
 from google.cloud.storage import Client
 from requests import Response
-import yaml
 
-from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature, Schema
+from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.run import Run
 from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
 from mlflow.entities.run_tag import RunTag
-from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
-from mlflow.protos.service_pb2 import GetRun
+from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import ModelSignature, Schema
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
-    CreateRegisteredModelRequest,
-    UpdateRegisteredModelRequest,
-    DeleteRegisteredModelRequest,
-    FinalizeModelVersionRequest,
-    FinalizeModelVersionResponse,
-    GetRegisteredModelRequest,
-    SearchRegisteredModelsRequest,
-    CreateModelVersionRequest,
-    CreateModelVersionResponse,
-    GetModelVersionRequest,
-    UpdateModelVersionRequest,
-    DeleteModelVersionRequest,
-    SearchModelVersionsRequest,
-    GetModelVersionDownloadUriRequest,
-    GenerateTemporaryModelVersionCredentialsRequest,
-    GenerateTemporaryModelVersionCredentialsResponse,
-    SetRegisteredModelAliasRequest,
-    DeleteRegisteredModelAliasRequest,
-    GetModelVersionByAliasRequest,
-    SetRegisteredModelTagRequest,
-    DeleteRegisteredModelTagRequest,
-    SetModelVersionTagRequest,
-    DeleteModelVersionTagRequest,
-    ModelVersion as ProtoModelVersion,
     MODEL_VERSION_OPERATION_READ_WRITE,
-    TemporaryCredentials,
     AwsCredentials,
     AzureUserDelegationSAS,
-    GcpOauthToken,
+    CreateModelVersionRequest,
+    CreateModelVersionResponse,
+    CreateRegisteredModelRequest,
+    DeleteModelVersionRequest,
+    DeleteModelVersionTagRequest,
+    DeleteRegisteredModelAliasRequest,
+    DeleteRegisteredModelRequest,
+    DeleteRegisteredModelTagRequest,
     Entity,
+    FinalizeModelVersionRequest,
+    FinalizeModelVersionResponse,
+    GcpOauthToken,
+    GenerateTemporaryModelVersionCredentialsRequest,
+    GenerateTemporaryModelVersionCredentialsResponse,
+    GetModelVersionByAliasRequest,
+    GetModelVersionDownloadUriRequest,
+    GetModelVersionRequest,
+    GetRegisteredModelRequest,
     Job,
-    Notebook,
     LineageHeaderInfo,
+    Notebook,
+    SearchModelVersionsRequest,
+    SearchRegisteredModelsRequest,
+    SetModelVersionTagRequest,
+    SetRegisteredModelAliasRequest,
+    SetRegisteredModelTagRequest,
+    TemporaryCredentials,
+    UpdateModelVersionRequest,
+    UpdateRegisteredModelRequest,
 )
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
-from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
+from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion as ProtoModelVersion
+from mlflow.protos.service_pb2 import GetRun
 from mlflow.store._unity_catalog.registry.rest_store import (
-    UcModelRegistryStore,
-    _DATABRICKS_ORG_ID_HEADER,
     _DATABRICKS_LINEAGE_ID_HEADER,
+    _DATABRICKS_ORG_ID_HEADER,
+    UcModelRegistryStore,
 )
 from mlflow.store._unity_catalog.registry.utils import (
     _ACTIVE_CATALOG_QUERY,
     _ACTIVE_SCHEMA_QUERY,
-    uc_registered_model_tag_from_mlflow_tags,
     uc_model_version_tag_from_mlflow_tags,
+    uc_registered_model_tag_from_mlflow_tags,
 )
+from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
+from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_ID,
     MLFLOW_DATABRICKS_JOB_RUN_ID,
     MLFLOW_DATABRICKS_NOTEBOOK_ID,
 )
 from mlflow.utils.proto_json_utils import message_to_json
-from tests.helper_functions import mock_http_200
 
+from tests.helper_functions import mock_http_200
 from tests.store._unity_catalog.conftest import (
     _REGISTRY_HOST_CREDS,
     _TRACKING_HOST_CREDS,
@@ -744,6 +745,95 @@ def test_create_model_version_local_model_path(store, local_model_dir):
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, name=model_name, source=source, version=version, tags=tags
         )
+
+
+def test_create_model_version_doesnt_redownload_model_from_local_dir(store, local_model_dir):
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+    )
+    storage_location = "s3://blah"
+    model_name = "model_1"
+    version = "1"
+    mock_artifact_repo = mock.MagicMock(autospec=S3ArtifactRepository)
+    model_dir = str(local_model_dir)
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
+            name=model_name,
+            version=version,
+            temp_credentials=aws_temp_creds,
+            storage_location=storage_location,
+            source=model_dir,
+        ),
+    ), mock.patch(
+        "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository",
+        return_value=mock_artifact_repo,
+    ):
+        # Assert that we create the model version from the local model dir directly,
+        # rather than downloading it to a tmpdir + creating from there
+        store.create_model_version(name=model_name, source=model_dir)
+        mock_artifact_repo.log_artifacts.assert_called_once_with(
+            local_dir=model_dir, artifact_path=""
+        )
+
+
+def test_create_model_version_remote_source(store, local_model_dir, tmp_path):
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+    )
+    storage_location = "s3://blah"
+    source = "s3://model/version/source"
+    model_name = "model_1"
+    version = "1"
+    mock_artifact_repo = mock.MagicMock(autospec=S3ArtifactRepository)
+    local_tmpdir = str(tmp_path.joinpath("local_tmpdir"))
+    shutil.copytree(local_model_dir, local_tmpdir)
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
+            name=model_name,
+            version=version,
+            temp_credentials=aws_temp_creds,
+            storage_location=storage_location,
+            source=source,
+        ),
+    ) as request_mock, mock.patch(
+        "mlflow.artifacts.download_artifacts",
+        return_value=local_tmpdir,
+    ) as mock_download_artifacts, mock.patch(
+        "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository",
+        return_value=mock_artifact_repo,
+    ):
+        store.create_model_version(name=model_name, source=source)
+        # Assert that we attempt to download model version files and attempt to log
+        # artifacts from the download destination directory
+        mock_download_artifacts.assert_called_once_with(
+            artifact_uri=source, tracking_uri="databricks"
+        )
+        mock_artifact_repo.log_artifacts.assert_called_once_with(
+            local_dir=local_tmpdir, artifact_path=""
+        )
+        _assert_create_model_version_endpoints_called(
+            request_mock=request_mock,
+            name=model_name,
+            source=source,
+            version=version,
+        )
+        assert not os.path.exists(local_tmpdir)
 
 
 def test_create_model_version_azure(store, local_model_dir):

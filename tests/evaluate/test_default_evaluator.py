@@ -1,70 +1,70 @@
 from __future__ import annotations
 
-from pathlib import Path
-import matplotlib.pyplot as plt
-from unittest import mock
-import numpy as np
+import io
 import json
+from contextlib import nullcontext as does_not_raise
+from os.path import join as path_join
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest import mock
+
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import pytest
-from contextlib import nullcontext as does_not_raise
+from PIL import Image, ImageChops
+from sklearn.datasets import load_breast_cancer, load_iris
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.metrics import f1_score, precision_score, recall_score
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import FunctionTransformer
+from sklearn.svm import LinearSVC
 
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.models.evaluation.base import evaluate, make_metric
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
     ImageEvaluationArtifact,
     JsonEvaluationArtifact,
     NumpyEvaluationArtifact,
     ParquetEvaluationArtifact,
-    TextEvaluationArtifact,
     PickleEvaluationArtifact,
+    TextEvaluationArtifact,
 )
+from mlflow.models.evaluation.base import evaluate, make_metric
 from mlflow.models.evaluation.default_evaluator import (
-    _infer_model_type_by_labels,
-    _extract_raw_model,
+    _compute_df_mode_or_mean,
+    _CustomArtifact,
+    _CustomMetric,
+    _evaluate_custom_artifacts,
+    _evaluate_custom_metric,
     _extract_predict_fn,
+    _extract_raw_model,
+    _gen_classifier_curve,
     _get_binary_classifier_metrics,
+    _get_binary_sum_up_label_pred_prob,
     _get_multiclass_classifier_metrics,
     _get_regressor_metrics,
-    _get_binary_sum_up_label_pred_prob,
-    _gen_classifier_curve,
-    _evaluate_custom_metric,
-    _evaluate_custom_artifacts,
-    _compute_df_mode_or_mean,
-    _CustomMetric,
-    _CustomArtifact,
+    _infer_model_type_by_labels,
 )
-from sklearn.linear_model import LogisticRegression, LinearRegression
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer
-from sklearn.datasets import load_iris, load_breast_cancer
-from sklearn.metrics import precision_score, recall_score, f1_score
-from sklearn.svm import LinearSVC
-
-from tempfile import TemporaryDirectory
-from os.path import join as path_join
-from PIL import Image, ImageChops
-import io
 
 from tests.evaluate.test_evaluation import (
-    get_run_data,
     baseline_model_uri,  # noqa: F401
+    binary_logistic_regressor_model_uri,  # noqa: F401
+    breast_cancer_dataset,  # noqa: F401
     diabetes_dataset,  # noqa: F401
-    multiclass_logistic_regressor_model_uri,  # noqa: F401
-    linear_regressor_model_uri,  # noqa: F401
+    diabetes_spark_dataset,  # noqa: F401
+    get_pipeline_model_dataset,
+    get_run_data,
     iris_dataset,  # noqa: F401
     iris_pandas_df_dataset,  # noqa: F401
     iris_pandas_df_num_cols_dataset,  # noqa: F401
-    binary_logistic_regressor_model_uri,  # noqa: F401
-    breast_cancer_dataset,  # noqa: F401
-    spark_linear_regressor_model_uri,  # noqa: F401
-    diabetes_spark_dataset,  # noqa: F401
-    svm_model_uri,  # noqa: F401
+    linear_regressor_model_uri,  # noqa: F401
+    multiclass_logistic_regressor_model_uri,  # noqa: F401
     pipeline_model_uri,  # noqa: F401
-    get_pipeline_model_dataset,
+    spark_linear_regressor_model_uri,  # noqa: F401
+    svm_model_uri,  # noqa: F401
 )
 
 

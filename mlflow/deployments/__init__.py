@@ -15,9 +15,9 @@ your own plugin for deployment to a custom serving tool, see
 """
 import json
 
-from mlflow.exceptions import MlflowException
 from mlflow.deployments.base import BaseDeploymentClient
 from mlflow.deployments.interface import get_deploy_client, run_local
+from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 

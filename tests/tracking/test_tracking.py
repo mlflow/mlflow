@@ -1,38 +1,38 @@
-import pathlib
-from collections import namedtuple
 import filecmp
 import json
 import os
+import pathlib
 import posixpath
 import random
-import yaml
 import re
-
-import pytest
+from collections import namedtuple
 from unittest import mock
 
+import pytest
+import yaml
+
 import mlflow
-from mlflow import tracking, MlflowClient
-from mlflow.entities import RunStatus, LifecycleStage, Metric, Param, RunTag, ViewType
+from mlflow import MlflowClient, tracking
+from mlflow.entities import LifecycleStage, Metric, Param, RunStatus, RunTag, ViewType
+from mlflow.environment_variables import MLFLOW_RUN_ID
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.tracking.file_store import FileStore
-from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.fluent import start_run
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
-    MLFLOW_USER,
+    MLFLOW_RUN_NAME,
     MLFLOW_SOURCE_NAME,
     MLFLOW_SOURCE_TYPE,
-    MLFLOW_RUN_NAME,
+    MLFLOW_USER,
 )
+from mlflow.utils.os import is_windows
+from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.validation import (
     MAX_METRICS_PER_BATCH,
     MAX_PARAMS_TAGS_PER_BATCH,
 )
-from mlflow.utils.time_utils import get_current_time_millis
-from mlflow.utils.os import is_windows
-from mlflow.environment_variables import MLFLOW_RUN_ID
 
 MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage"])
 

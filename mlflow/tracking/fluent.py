@@ -2,72 +2,71 @@
 Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
-import os
-
 import atexit
-import logging
-import inspect
 import contextlib
+import inspect
+import logging
+import os
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from mlflow.data.dataset import Dataset
 from mlflow.entities import (
+    DatasetInput,
     Experiment,
+    InputTag,
+    Metric,
+    Param,
     Run,
     RunStatus,
-    Param,
     RunTag,
-    Metric,
     ViewType,
-    InputTag,
-    DatasetInput,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.environment_variables import (
+    MLFLOW_EXPERIMENT_ID,
+    MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_RUN_ID,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.tracking import _get_store, artifact_utils
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.default_experiment import registry as default_experiment_registry
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
-    is_testing,
-    autologging_integration,
-    AUTOLOGGING_INTEGRATIONS,
-    autologging_is_disabled,
     AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
+    AUTOLOGGING_INTEGRATIONS,
+    autologging_integration,
+    autologging_is_disabled,
+    is_testing,
 )
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
+    MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
+    MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_RUN_NAME,
     MLFLOW_RUN_NOTE,
-    MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
-    MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
 )
-from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
 from mlflow.utils.time_utils import get_current_time_millis
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.environment_variables import (
-    MLFLOW_RUN_ID,
-    MLFLOW_EXPERIMENT_ID,
-    MLFLOW_EXPERIMENT_NAME,
-)
+from mlflow.utils.validation import _validate_experiment_id_type, _validate_run_id
 
 if TYPE_CHECKING:
-    import pandas
     import matplotlib
     import matplotlib.figure
-    import plotly
     import numpy
+    import pandas
     import PIL
+    import plotly
 
 _active_run_stack = []
 _active_experiment_id = None
@@ -1940,17 +1939,17 @@ def autolog(
                'estimator_name': 'LinearRegression'}
     """
     from mlflow import (
-        tensorflow,
+        fastai,
         gluon,
-        xgboost,
         lightgbm,
         pyspark,
-        statsmodels,
-        spark,
-        sklearn,
-        fastai,
         pytorch,
+        sklearn,
+        spark,
+        statsmodels,
+        tensorflow,
         transformers,
+        xgboost,
     )
 
     locals_copy = locals().items()

@@ -1,24 +1,25 @@
-import pytest
 import os
-import requests
 from unittest.mock import patch
 
+import pytest
+import requests
+
 import mlflow
+import mlflow.gateway.utils
 from mlflow.exceptions import MlflowException
-from mlflow.gateway import MlflowGatewayClient, query, set_gateway_uri, get_route
+from mlflow.gateway import MlflowGatewayClient, get_route, query, set_gateway_uri
 from mlflow.gateway.config import Route
-from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
-import mlflow.gateway.utils
+from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.utils.request_utils import _cached_get_request_session
 
 from tests.gateway.tools import (
     UvicornGateway,
-    save_yaml,
-    log_sentence_transformers_model,
     log_completions_transformers_model,
+    log_sentence_transformers_model,
+    save_yaml,
     start_mlflow_server,
     stop_mlflow_server,
 )

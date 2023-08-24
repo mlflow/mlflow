@@ -1,40 +1,40 @@
 from typing import List, Optional
 
-from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType, DatasetInput
+from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
     CreateExperiment,
-    MlflowService,
-    GetExperiment,
-    GetRun,
-    SearchRuns,
-    SearchExperiments,
-    GetMetricHistory,
-    LogMetric,
-    LogParam,
-    SetTag,
-    UpdateRun,
     CreateRun,
-    DeleteRun,
-    RestoreRun,
     DeleteExperiment,
-    RestoreExperiment,
-    UpdateExperiment,
-    LogBatch,
-    LogModel,
+    DeleteRun,
     DeleteTag,
-    SetExperimentTag,
+    GetExperiment,
     GetExperimentByName,
+    GetMetricHistory,
+    GetRun,
+    LogBatch,
     LogInputs,
+    LogMetric,
+    LogModel,
+    LogParam,
+    MlflowService,
+    RestoreExperiment,
+    RestoreRun,
+    SearchExperiments,
+    SearchRuns,
+    SetExperimentTag,
+    SetTag,
+    UpdateExperiment,
+    UpdateRun,
 )
-from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
+    _REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
-    _REST_API_PATH_PREFIX,
 )
 
 _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)

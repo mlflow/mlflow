@@ -1,24 +1,26 @@
-import pytest
 from unittest import mock
+
 import numpy as np
+import pytest
 from statsmodels.tsa.base.tsa_model import TimeSeriesModel
+
 import mlflow
-from mlflow import MlflowClient
 import mlflow.statsmodels
+from mlflow import MlflowClient
+
 from tests.statsmodels.model_fixtures import (
     arma_model,
-    ols_model,
     failing_logit_model,
-    glsar_model,
     gee_model,
     glm_model,
     gls_model,
+    glsar_model,
+    ols_model,
     recursivels_model,
     rolling_ols_model,
     rolling_wls_model,
     wls_model,
 )
-
 from tests.statsmodels.test_statsmodels_model_export import _get_dates_from_df
 
 # The code in this file has been adapted from the test cases of the lightgbm flavor.

@@ -1,10 +1,11 @@
 # Based on the official regression example:
 # https://catboost.ai/docs/concepts/python-usages-examples.html#regression
 
+import numpy as np
+from catboost import CatBoostRegressor
+
 import mlflow
 from mlflow.models import infer_signature
-from catboost import CatBoostRegressor
-import numpy as np
 
 # Initialize data
 train_data = np.array([[1, 4, 5, 6], [4, 5, 6, 7], [30, 40, 50, 60]])

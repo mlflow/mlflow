@@ -3,23 +3,24 @@ import sys
 from collections import namedtuple
 from io import BytesIO
 from pathlib import Path
-from stat import S_IRUSR, S_IRGRP, S_IROTH, S_IXUSR, S_IXGRP, S_IXOTH
+from stat import S_IRGRP, S_IROTH, S_IRUSR, S_IXGRP, S_IXOTH, S_IXUSR
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 import sklearn
-from sklearn.linear_model import LogisticRegression
 from sklearn.datasets import load_iris
+from sklearn.linear_model import LogisticRegression
 
 import mlflow
+from mlflow.environment_variables import MLFLOW_ENV_ROOT
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.utils.environment import _PYTHON_ENV_FILE_NAME, _REQUIREMENTS_FILE_NAME
 from mlflow.utils.virtualenv import (
     _is_pyenv_available,
     _is_virtualenv_available,
 )
-from mlflow.environment_variables import MLFLOW_ENV_ROOT
+
 from tests.helper_functions import pyfunc_serve_and_score_model
 
 pytestmark = pytest.mark.skipif(

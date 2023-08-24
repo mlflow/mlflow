@@ -1,5 +1,5 @@
-import os
 import importlib
+import os
 from unittest import mock
 
 import importlib_metadata
@@ -8,19 +8,19 @@ import pytest
 import mlflow
 import mlflow.utils.requirements_utils
 from mlflow.utils.requirements_utils import (
-    _is_comment,
-    _is_empty,
-    _is_requirements_file,
-    _strip_inline_comment,
-    _join_continued_lines,
-    _parse_requirements,
-    _prune_packages,
-    _strip_local_version_label,
     _get_installed_version,
     _get_pinned_requirement,
     _infer_requirements,
+    _is_comment,
+    _is_empty,
+    _is_requirements_file,
+    _join_continued_lines,
     _normalize_package_name,
+    _parse_requirements,
+    _prune_packages,
     _PyPIPackageIndex,
+    _strip_inline_comment,
+    _strip_local_version_label,
 )
 
 
@@ -75,8 +75,8 @@ def test_parse_requirements(tmp_path, monkeypatch):
     """
     Ensures `_parse_requirements` returns the same result as `pip._internal.req.parse_requirements`
     """
-    from pip._internal.req import parse_requirements as pip_parse_requirements
     from pip._internal.network.session import PipSession
+    from pip._internal.req import parse_requirements as pip_parse_requirements
 
     root_req_src = """
 # No version specifier

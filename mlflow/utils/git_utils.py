@@ -2,7 +2,6 @@ import logging
 import os
 from typing import Optional
 
-
 _logger = logging.getLogger(__name__)
 
 

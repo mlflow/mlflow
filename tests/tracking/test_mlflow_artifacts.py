@@ -1,12 +1,12 @@
+import cgi
 import os
-from collections import namedtuple
+import pathlib
 import subprocess
 import tempfile
-import requests
-import pathlib
-import cgi
+from collections import namedtuple
 
 import pytest
+import requests
 
 import mlflow
 from mlflow import MlflowClient

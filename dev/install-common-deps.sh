@@ -74,6 +74,7 @@ fi
 pip install --no-dependencies tests/resources/mlflow-test-plugin
 
 # Print current environment info
+pip install aiohttp
 python dev/show_package_release_dates.py
 which mlflow
 echo $MLFLOW_HOME

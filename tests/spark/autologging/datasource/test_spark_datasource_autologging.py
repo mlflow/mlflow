@@ -1,14 +1,13 @@
 import time
-
 from unittest import mock
 
 from pyspark.sql import Row
-from pyspark.sql.types import StructType, IntegerType, StructField
+from pyspark.sql.types import IntegerType, StructField, StructType
 
 import mlflow
 import mlflow.spark
-from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
+from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 
 from tests.spark.autologging.utils import _assert_spark_data_logged
 from tests.tracking.integration_test_utils import _init_server

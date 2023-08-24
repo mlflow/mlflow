@@ -7,11 +7,12 @@ import inspect
 import logging
 import os
 import shutil
-import yaml
-from typing import Any, Dict, List, Optional
 from abc import ABCMeta, abstractmethod
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import cloudpickle
+import yaml
 
 import mlflow.pyfunc
 import mlflow.utils
@@ -21,19 +22,18 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _extract_type_hints
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _process_pip_requirements,
-    _process_conda_env,
     _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _mlflow_conda_env,
+    _process_conda_env,
+    _process_pip_requirements,
     _PythonEnv,
 )
-from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
@@ -263,10 +263,18 @@ def _save_model_with_class_artifacts_params(
                     tmp_artifact_path = _download_artifact_from_uri(
                         artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
                     )
+
+                    tmp_artifact_path_obj = Path(tmp_artifact_path)
+                    tmp_artifacts_dir_path_obj = Path(tmp_artifacts_dir.path())
+
+                    relative_path = tmp_artifact_path_obj.relative_to(
+                        tmp_artifacts_dir_path_obj
+                    ).as_posix()
+
                     saved_artifact_subpath = os.path.join(
-                        saved_artifacts_dir_subpath,
-                        os.path.relpath(path=tmp_artifact_path, start=tmp_artifacts_dir.path()),
+                        saved_artifacts_dir_subpath, relative_path
                     )
+
                 saved_artifacts_config[artifact_name] = {
                     CONFIG_KEY_ARTIFACT_RELATIVE_PATH: saved_artifact_subpath,
                     CONFIG_KEY_ARTIFACT_URI: artifact_uri,

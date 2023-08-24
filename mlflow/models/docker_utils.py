@@ -1,12 +1,12 @@
-import os
-from subprocess import Popen, PIPE, STDOUT
-from urllib.parse import urlparse
 import logging
+import os
+from subprocess import PIPE, STDOUT, Popen
+from urllib.parse import urlparse
 
-from mlflow.version import VERSION
+from mlflow.utils import env_manager as em
 from mlflow.utils.file_utils import TempDir, _copy_project
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils import env_manager as em
+from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
 
@@ -74,8 +74,6 @@ def _get_maven_proxy():
         )
     )
 
-
-DISABLE_ENV_CREATION = "MLFLOW_DISABLE_ENV_CREATION"
 
 _DOCKERFILE_TEMPLATE = """
 # Build an image that can serve mlflow models.
