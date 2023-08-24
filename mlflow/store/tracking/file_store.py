@@ -1331,7 +1331,7 @@ class FileStore(AbstractStore):
         # log model
         from mlflow.models import Model
 
-        utc_time_created = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+        utc_time_created = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
         promptlab_model = Model(
             artifact_path=artifact_dir,
             run_id=run_id,
@@ -1389,6 +1389,7 @@ class FileStore(AbstractStore):
         write_to(input_example_json_file_path, input_example_json)
 
         artifact_repo.log_artifacts(local_dir)
+        shutil.rmtree(local_dir)
 
         self.update_run_info(
             run_id, RunStatus.FINISHED, int(datetime.now().strftime("%Y%m%d")), run_name

@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import random
+import shutil
 import tempfile
 import math
 import random
@@ -1057,11 +1058,11 @@ class SqlAlchemyStore(AbstractStore):
         run_id = run.info.run_id
 
         # log model parameters
-        parameters_to_log = (
-            model_parameters
-            + [Param("model_route", model_route)]
-            + [Param("prompt_template", prompt_template)]
-        )
+        parameters_to_log = [
+            *model_parameters,
+            Param("model_route", model_route),
+            Param("prompt_template", prompt_template),
+        ]
 
         self.log_batch(run_id, [], parameters_to_log, [])
 
@@ -1078,7 +1079,7 @@ class SqlAlchemyStore(AbstractStore):
         # log model
         from mlflow.models import Model
 
-        utc_time_created = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+        utc_time_created = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
         promptlab_model = Model(
             artifact_path=artifact_dir,
             run_id=run_id,
@@ -1132,6 +1133,7 @@ class SqlAlchemyStore(AbstractStore):
         write_to(input_example_json_file_path, input_example_json)
 
         artifact_repo.log_artifacts(local_dir)
+        shutil.rmtree(local_dir)
 
         self.update_run_info(
             run_id, RunStatus.FINISHED, int(datetime.now().strftime("%Y%m%d")), run_name

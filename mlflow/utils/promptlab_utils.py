@@ -6,29 +6,29 @@ from mlflow.entities import Param
 
 
 def create_conda_yaml_file(mlflow_version: str) -> str:
-    conda_yaml = f"""
-    name: mlflow-env
-    channels:
-      - defaults
-    dependencies:
-      - pip
-      - pip:
-        - mlflow[gateway]=={mlflow_version}
-    """
+    conda_yaml = f"""\
+name: mlflow-env
+channels:
+  - conda-forge
+dependencies:
+  - pip
+  - pip:
+    - mlflow[gateway]=={mlflow_version}
+"""
     return conda_yaml.strip()
 
 
 def create_python_env_file() -> str:
-    python_yaml = """
-    dependencies:
-      - -r requirements.txt
+    python_yaml = """\
+dependencies:
+    - -r requirements.txt
     """
     return python_yaml.strip()
 
 
 def create_requirements_txt_file(mlflow_version: str) -> str:
-    requirements_content = f"""
-    mlflow[gateway]=={mlflow_version}
+    requirements_content = f"""\
+mlflow[gateway]=={mlflow_version}
     """
     return requirements_content.strip()
 
@@ -88,13 +88,13 @@ def create_loader_file(prompt_parameters, prompt_template, model_parameters, mod
     python_template = prompt_template.replace("{{", "$").replace("}}", "")
 
     # Escape triple quotes in the prompt template
-    sanitized_python_template = python_template.replace('"""', '\\"""')
+    sanitized_python_template = python_template.replace('"""', '"""')
 
     python_parameters = ",\n\t\t\t\t\t".join(
         [f'"{param.key}": {param.value}' for param in model_parameters]
     )
 
-    loader_module_text = f"""
+    loader_module_text = f"""\
 # loader/gateway_loader_module.py
 from typing import List, Dict
 from string import Template
@@ -105,8 +105,8 @@ mlflow.gateway.set_gateway_uri("databricks")
 
 class GatewayModel:
     def __init__(self, model_path):
-        self.prompt_template = Template(\"\""
-{sanitized_python_template}\n\""")
+        self.prompt_template = Template(\"\"\"
+{sanitized_python_template}\n\"\"\")
 
     def predict(self, inputs: pd.DataFrame) -> List[str]:
         results = []
