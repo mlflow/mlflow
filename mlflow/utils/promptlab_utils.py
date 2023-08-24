@@ -93,40 +93,15 @@ def create_loader_file(prompt_parameters, prompt_template, model_parameters, mod
         [f'"{param.key}": {param.value}' for param in model_parameters]
     )
 
-    loader_module_text = f"""\
-# loader/gateway_loader_module.py
-from typing import List, Dict
-from string import Template
-import pandas as pd
-import mlflow.gateway
-
-mlflow.gateway.set_gateway_uri("databricks")
-
-class GatewayModel:
-    def __init__(self, model_path):
-        self.prompt_template = Template(\"\"\"
-{sanitized_python_template}\n\"\"\")
-
-    def predict(self, inputs: pd.DataFrame) -> List[str]:
-        results = []
-        for idx in inputs.index:
-            prompt = self.prompt_template.substitute(
-                {python_inputs}
-            )
-            result = mlflow.gateway.query(
-                route="{model_route}",
-                data={{
-                    "prompt": prompt,
-                    {python_parameters}
-                }}
-            )
-            results.append(result["candidates"][0]["text"])
-        return results
-
-def _load_pyfunc(model_path):
-    return GatewayModel(model_path)
-    """
-    return loader_module_text.strip()
+    with open("mlflow/utils/promptlab_loader_module_template.txt") as loader_module_template:
+        loader_module_text = loader_module_template.read()
+        loader_module_text = loader_module_text.replace(
+            "__sanitized_python_template__", sanitized_python_template
+        )
+        loader_module_text = loader_module_text.replace("__model_route__", model_route)
+        loader_module_text = loader_module_text.replace("__python_inputs__", python_inputs)
+        loader_module_text = loader_module_text.replace("__python_parameters__", python_parameters)
+        return loader_module_text.strip()
 
 
 def create_eval_results_file(prompt_parameters, model_input, model_output_parameters, model_output):

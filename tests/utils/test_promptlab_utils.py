@@ -34,23 +34,23 @@ model_output_parameters = [
 
 def test_conda_yaml():
     conda_yaml = create_conda_yaml_file(mlflow_version)
-    expected_conda_yaml = """
-    name: mlflow-env
-    channels:
-      - defaults
-    dependencies:
-      - pip
-      - pip:
-        - mlflow[gateway]==1.0.0
+    expected_conda_yaml = """\
+name: mlflow-env
+channels:
+  - conda-forge
+dependencies:
+  - pip
+  - pip:
+    - mlflow[gateway]==1.0.0
     """
     assert conda_yaml.strip() == expected_conda_yaml.strip()
 
 
 def test_python_yaml():
     python_yaml = create_python_env_file()
-    expected_python_yaml = """
-    dependencies:
-      - -r requirements.txt
+    expected_python_yaml = """\
+dependencies:
+    - -r requirements.txt
     """
     assert python_yaml.strip() == expected_python_yaml.strip()
 
@@ -111,7 +111,7 @@ def test_loader_module():
     loader_file = create_loader_file(
         prompt_parameters, prompt_template, model_parameters, model_route
     )
-    expected_loader_file = """
+    expected_loader_file = '''\
 # loader/gateway_loader_module.py
 from typing import List, Dict
 from string import Template
@@ -122,31 +122,34 @@ mlflow.gateway.set_gateway_uri("databricks")
 
 class GatewayModel:
     def __init__(self, model_path):
-        self.prompt_template = Template(\"\"\"
+        self.prompt_template = Template(
+            """
 answer this question: $question using the following context: $context
-\"\"\")
+"""
+        )
 
     def predict(self, inputs: pd.DataFrame) -> List[str]:
         results = []
         for idx in inputs.index:
-            prompt = self.prompt_template.substitute(
-                question=inputs['question'][idx],
-                                context=inputs['context'][idx]
-            )
+            prompt = self.prompt_template.substitute(question=inputs['question'][idx],
+                                context=inputs['context'][idx])
             result = mlflow.gateway.query(
                 route="gpt4",
                 data={
-                    "prompt": prompt,
-                    "temperature": 0.5,
-                                        "max_tokens": 100
-                }
+                    {
+                        "prompt": prompt,
+                        "temperature": 0.5,
+                                        "max_tokens": 100,
+                    }
+                },
             )
             results.append(result["candidates"][0]["text"])
         return results
 
+
 def _load_pyfunc(model_path):
     return GatewayModel(model_path)
-    """
+    '''
     generated_lines = loader_file.strip().split("\n")
     expected_lines = expected_loader_file.strip().split("\n")
 

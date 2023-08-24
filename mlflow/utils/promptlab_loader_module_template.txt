@@ -1,0 +1,35 @@
+# loader/gateway_loader_module.py
+from typing import List, Dict
+from string import Template
+import pandas as pd
+import mlflow.gateway
+
+mlflow.gateway.set_gateway_uri("databricks")
+
+class GatewayModel:
+    def __init__(self, model_path):
+        self.prompt_template = Template(
+            """
+__sanitized_python_template__
+"""
+        )
+
+    def predict(self, inputs: pd.DataFrame) -> List[str]:
+        results = []
+        for idx in inputs.index:
+            prompt = self.prompt_template.substitute(__python_inputs__)
+            result = mlflow.gateway.query(
+                route="__model_route__",
+                data={
+                    {
+                        "prompt": prompt,
+                        __python_parameters__,
+                    }
+                },
+            )
+            results.append(result["candidates"][0]["text"])
+        return results
+
+
+def _load_pyfunc(model_path):
+    return GatewayModel(model_path)
