@@ -92,7 +92,7 @@ class EvaluationMetric:
                     Refer to the DefaultEvaluator behavior section for what metrics
                     will be returned based on the type of model (i.e. classifier or regressor).
                 :return:
-                    
+
                 """
                 ...
     :param name: The name of the metric.
@@ -117,7 +117,6 @@ class EvaluationMetric:
             )
         else:
             return f"EvaluationMetric(name={self.name}, greater_is_better={self.greater_is_better})"
-
 
 
 def make_metric(
