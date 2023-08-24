@@ -74,9 +74,10 @@ from mlflow.protos.mlflow_artifacts_pb2 import (
     DownloadArtifact,
     UploadArtifact,
     ListArtifacts as ListArtifactsMlflowArtifacts,
-    DeleteArtifact,
+    DeleteArtifact, CreateMultipartUpload,
 )
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
+from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
@@ -1803,6 +1804,41 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
+
+
+@catch_mlflow_exception
+@_disable_unless_serve_artifacts
+def _create_multipart_upload_artifact(artifact_path):
+    """
+    A request handler for `POST /mlflow-artifacts/mpu/create` to create a multipart upload
+    to `artifact_path` (a relative path from the root artifact directory).
+    """
+    validate_path_is_safe(artifact_path)
+
+    request_message = _get_request_message(
+        CreateMultipartUpload(),
+        schema={
+            "path": [_assert_required, _assert_string],
+            "num_parts": [_assert_intlike],
+        },
+    )
+    validate_path_is_safe(request_message.path)
+    path = request_message.path
+    num_parts = request_message.num_parts
+
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    if not isinstance(artifact_repo, MultipartUploadMixin):
+        raise MlflowException(
+            "Multipart upload is not supported for artifact repository "
+            f"{artifact_repo.__class__.__name__}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    create_response = artifact_repo.create_multipart_upload(
+        path,
+        num_parts,
+    )
+    return
 
 
 def _get_rest_path(base_path):
