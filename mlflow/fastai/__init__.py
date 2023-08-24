@@ -322,7 +322,7 @@ def log_model(
             artifacts = [
                 f.path for f in MlflowClient().list_artifacts(run.info.run_id, "model")
             ]
-            print("artifacts: {}".format(artifacts))
+            print(f"artifacts: {artifacts}")
 
 
         main()
@@ -419,7 +419,7 @@ def load_model(model_uri, dst_path=None):
             mlflow.fastai.log_model(model, "model")
 
         # Load the model for scoring
-        model_uri = "runs:/{}/model".format(run.info.run_id)
+        model_uri = f"runs:/{run.info.run_id}/model"
         loaded_model = mlflow.fastai.load_model(model_uri)
         results = loaded_model.predict(predict_data)
     """
@@ -487,11 +487,11 @@ def autolog(
         def print_auto_logged_info(r):
             tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
             artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
-            print("run_id: {}".format(r.info.run_id))
-            print("artifacts: {}".format(artifacts))
-            print("params: {}".format(r.data.params))
-            print("metrics: {}".format(r.data.metrics))
-            print("tags: {}".format(tags))
+            print(f"run_id: {r.info.run_id}")
+            print(f"artifacts: {artifacts}")
+            print(f"params: {r.data.params}")
+            print(f"metrics: {r.data.metrics}")
+            print(f"tags: {tags}")
 
 
         def main(epochs=5, learning_rate=0.01):

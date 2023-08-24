@@ -631,7 +631,7 @@ def get_model_info(model_uri: str) -> ModelInfo:
                 mlflow.log_params(params)
                 mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
-            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            model_uri = f"runs:/{run.info.run_id}/sklearn-model"
             # Get model info with model_uri
             model_info = mlflow.models.get_model_info(model_uri)
             # Get model signature directly
