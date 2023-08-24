@@ -5004,12 +5004,29 @@ public final class MlflowArtifacts {
       com.google.protobuf.MessageOrBuilder {
 
     /**
-     * <code>optional int64 num_parts = 1;</code>
+     * <code>optional string path = 1;</code>
+     * @return Whether the path field is set.
+     */
+    boolean hasPath();
+    /**
+     * <code>optional string path = 1;</code>
+     * @return The path.
+     */
+    java.lang.String getPath();
+    /**
+     * <code>optional string path = 1;</code>
+     * @return The bytes for path.
+     */
+    com.google.protobuf.ByteString
+        getPathBytes();
+
+    /**
+     * <code>optional int64 num_parts = 2;</code>
      * @return Whether the numParts field is set.
      */
     boolean hasNumParts();
     /**
-     * <code>optional int64 num_parts = 1;</code>
+     * <code>optional int64 num_parts = 2;</code>
      * @return The numParts.
      */
     long getNumParts();
@@ -5027,6 +5044,7 @@ public final class MlflowArtifacts {
       super(builder);
     }
     private CreateMultipartUpload() {
+      path_ = "";
     }
 
     @java.lang.Override
@@ -5060,8 +5078,14 @@ public final class MlflowArtifacts {
             case 0:
               done = true;
               break;
-            case 8: {
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
+              path_ = bs;
+              break;
+            }
+            case 16: {
+              bitField0_ |= 0x00000002;
               numParts_ = input.readInt64();
               break;
             }
@@ -5516,18 +5540,66 @@ public final class MlflowArtifacts {
     }
 
     private int bitField0_;
-    public static final int NUM_PARTS_FIELD_NUMBER = 1;
+    public static final int PATH_FIELD_NUMBER = 1;
+    private volatile java.lang.Object path_;
+    /**
+     * <code>optional string path = 1;</code>
+     * @return Whether the path field is set.
+     */
+    @java.lang.Override
+    public boolean hasPath() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <code>optional string path = 1;</code>
+     * @return The path.
+     */
+    @java.lang.Override
+    public java.lang.String getPath() {
+      java.lang.Object ref = path_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          path_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string path = 1;</code>
+     * @return The bytes for path.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getPathBytes() {
+      java.lang.Object ref = path_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        path_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int NUM_PARTS_FIELD_NUMBER = 2;
     private long numParts_;
     /**
-     * <code>optional int64 num_parts = 1;</code>
+     * <code>optional int64 num_parts = 2;</code>
      * @return Whether the numParts field is set.
      */
     @java.lang.Override
     public boolean hasNumParts() {
-      return ((bitField0_ & 0x00000001) != 0);
+      return ((bitField0_ & 0x00000002) != 0);
     }
     /**
-     * <code>optional int64 num_parts = 1;</code>
+     * <code>optional int64 num_parts = 2;</code>
      * @return The numParts.
      */
     @java.lang.Override
@@ -5550,7 +5622,10 @@ public final class MlflowArtifacts {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (((bitField0_ & 0x00000001) != 0)) {
-        output.writeInt64(1, numParts_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, path_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        output.writeInt64(2, numParts_);
       }
       unknownFields.writeTo(output);
     }
@@ -5562,8 +5637,11 @@ public final class MlflowArtifacts {
 
       size = 0;
       if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, path_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(1, numParts_);
+          .computeInt64Size(2, numParts_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -5580,6 +5658,11 @@ public final class MlflowArtifacts {
       }
       org.mlflow.api.proto.MlflowArtifacts.CreateMultipartUpload other = (org.mlflow.api.proto.MlflowArtifacts.CreateMultipartUpload) obj;
 
+      if (hasPath() != other.hasPath()) return false;
+      if (hasPath()) {
+        if (!getPath()
+            .equals(other.getPath())) return false;
+      }
       if (hasNumParts() != other.hasNumParts()) return false;
       if (hasNumParts()) {
         if (getNumParts()
@@ -5596,6 +5679,10 @@ public final class MlflowArtifacts {
       }
       int hash = 41;
       hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasPath()) {
+        hash = (37 * hash) + PATH_FIELD_NUMBER;
+        hash = (53 * hash) + getPath().hashCode();
+      }
       if (hasNumParts()) {
         hash = (37 * hash) + NUM_PARTS_FIELD_NUMBER;
         hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
@@ -5734,8 +5821,10 @@ public final class MlflowArtifacts {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        numParts_ = 0L;
+        path_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
+        numParts_ = 0L;
+        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -5765,8 +5854,12 @@ public final class MlflowArtifacts {
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
         if (((from_bitField0_ & 0x00000001) != 0)) {
-          result.numParts_ = numParts_;
           to_bitField0_ |= 0x00000001;
+        }
+        result.path_ = path_;
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          result.numParts_ = numParts_;
+          to_bitField0_ |= 0x00000002;
         }
         result.bitField0_ = to_bitField0_;
         onBuilt();
@@ -5817,6 +5910,11 @@ public final class MlflowArtifacts {
 
       public Builder mergeFrom(org.mlflow.api.proto.MlflowArtifacts.CreateMultipartUpload other) {
         if (other == org.mlflow.api.proto.MlflowArtifacts.CreateMultipartUpload.getDefaultInstance()) return this;
+        if (other.hasPath()) {
+          bitField0_ |= 0x00000001;
+          path_ = other.path_;
+          onChanged();
+        }
         if (other.hasNumParts()) {
           setNumParts(other.getNumParts());
         }
@@ -5850,17 +5948,101 @@ public final class MlflowArtifacts {
       }
       private int bitField0_;
 
+      private java.lang.Object path_ = "";
+      /**
+       * <code>optional string path = 1;</code>
+       * @return Whether the path field is set.
+       */
+      public boolean hasPath() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <code>optional string path = 1;</code>
+       * @return The path.
+       */
+      public java.lang.String getPath() {
+        java.lang.Object ref = path_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            path_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>optional string path = 1;</code>
+       * @return The bytes for path.
+       */
+      public com.google.protobuf.ByteString
+          getPathBytes() {
+        java.lang.Object ref = path_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          path_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string path = 1;</code>
+       * @param value The path to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPath(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        path_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string path = 1;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearPath() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        path_ = getDefaultInstance().getPath();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string path = 1;</code>
+       * @param value The bytes for path to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPathBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        path_ = value;
+        onChanged();
+        return this;
+      }
+
       private long numParts_ ;
       /**
-       * <code>optional int64 num_parts = 1;</code>
+       * <code>optional int64 num_parts = 2;</code>
        * @return Whether the numParts field is set.
        */
       @java.lang.Override
       public boolean hasNumParts() {
-        return ((bitField0_ & 0x00000001) != 0);
+        return ((bitField0_ & 0x00000002) != 0);
       }
       /**
-       * <code>optional int64 num_parts = 1;</code>
+       * <code>optional int64 num_parts = 2;</code>
        * @return The numParts.
        */
       @java.lang.Override
@@ -5868,22 +6050,22 @@ public final class MlflowArtifacts {
         return numParts_;
       }
       /**
-       * <code>optional int64 num_parts = 1;</code>
+       * <code>optional int64 num_parts = 2;</code>
        * @param value The numParts to set.
        * @return This builder for chaining.
        */
       public Builder setNumParts(long value) {
-        bitField0_ |= 0x00000001;
+        bitField0_ |= 0x00000002;
         numParts_ = value;
         onChanged();
         return this;
       }
       /**
-       * <code>optional int64 num_parts = 1;</code>
+       * <code>optional int64 num_parts = 2;</code>
        * @return This builder for chaining.
        */
       public Builder clearNumParts() {
-        bitField0_ = (bitField0_ & ~0x00000001);
+        bitField0_ = (bitField0_ & ~0x00000002);
         numParts_ = 0L;
         onChanged();
         return this;
@@ -7705,47 +7887,47 @@ public final class MlflowArtifacts {
       "\003(\0132\032.mlflow.artifacts.FileInfo\"\034\n\016Delet" +
       "eArtifact\032\n\n\010Response\";\n\010FileInfo\022\014\n\004pat" +
       "h\030\001 \001(\t\022\016\n\006is_dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001" +
-      "(\003\"6\n\025CreateMultipartUpload\022\021\n\tnum_parts" +
-      "\030\001 \001(\003\032\n\n\010Response\"%\n\027CompleteMultipartU" +
-      "pload\032\n\n\010Response\"\"\n\024AbortMultipartUploa" +
-      "d\032\n\n\010Response2\231\013\n\026MlflowArtifactsService" +
-      "\022\275\001\n\020downloadArtifact\022\".mlflow.artifacts" +
-      ".DownloadArtifact\032+.mlflow.artifacts.Dow" +
-      "nloadArtifact.Response\"X\362\206\031T\n=\n\003GET\0220/ml" +
+      "(\003\"D\n\025CreateMultipartUpload\022\014\n\004path\030\001 \001(" +
+      "\t\022\021\n\tnum_parts\030\002 \001(\003\032\n\n\010Response\"%\n\027Comp" +
+      "leteMultipartUpload\032\n\n\010Response\"\"\n\024Abort" +
+      "MultipartUpload\032\n\n\010Response2\231\013\n\026MlflowAr" +
+      "tifactsService\022\275\001\n\020downloadArtifact\022\".ml" +
+      "flow.artifacts.DownloadArtifact\032+.mlflow" +
+      ".artifacts.DownloadArtifact.Response\"X\362\206" +
+      "\031T\n=\n\003GET\0220/mlflow-artifacts/artifacts/<" +
+      "path:artifact_path>\032\004\010\002\020\000\020\001*\021Download Ar" +
+      "tifact\022\265\001\n\016uploadArtifact\022 .mlflow.artif" +
+      "acts.UploadArtifact\032).mlflow.artifacts.U" +
+      "ploadArtifact.Response\"V\362\206\031R\n=\n\003PUT\0220/ml" +
       "flow-artifacts/artifacts/<path:artifact_" +
-      "path>\032\004\010\002\020\000\020\001*\021Download Artifact\022\265\001\n\016upl" +
-      "oadArtifact\022 .mlflow.artifacts.UploadArt" +
-      "ifact\032).mlflow.artifacts.UploadArtifact." +
-      "Response\"V\362\206\031R\n=\n\003PUT\0220/mlflow-artifacts" +
+      "path>\032\004\010\002\020\000\020\001*\017Upload Artifact\022\234\001\n\rlistA" +
+      "rtifacts\022\037.mlflow.artifacts.ListArtifact" +
+      "s\032(.mlflow.artifacts.ListArtifacts.Respo" +
+      "nse\"@\362\206\031<\n(\n\003GET\022\033/mlflow-artifacts/arti" +
+      "facts\032\004\010\002\020\000\020\001*\016List Artifacts\022\271\001\n\016delete" +
+      "Artifact\022 .mlflow.artifacts.DeleteArtifa" +
+      "ct\032).mlflow.artifacts.DeleteArtifact.Res" +
+      "ponse\"Z\362\206\031V\n@\n\006DELETE\0220/mlflow-artifacts" +
       "/artifacts/<path:artifact_path>\032\004\010\002\020\000\020\001*" +
-      "\017Upload Artifact\022\234\001\n\rlistArtifacts\022\037.mlf" +
-      "low.artifacts.ListArtifacts\032(.mlflow.art" +
-      "ifacts.ListArtifacts.Response\"@\362\206\031<\n(\n\003G" +
-      "ET\022\033/mlflow-artifacts/artifacts\032\004\010\002\020\000\020\001*" +
-      "\016List Artifacts\022\271\001\n\016deleteArtifact\022 .mlf" +
-      "low.artifacts.DeleteArtifact\032).mlflow.ar" +
-      "tifacts.DeleteArtifact.Response\"Z\362\206\031V\n@\n" +
-      "\006DELETE\0220/mlflow-artifacts/artifacts/<pa" +
-      "th:artifact_path>\032\004\010\002\020\000\020\001*\020Delete Artifa" +
-      "cts\022\340\001\n\025createMultipartUpload\022\'.mlflow.a" +
-      "rtifacts.CreateMultipartUpload\0320.mlflow." +
-      "artifacts.CreateMultipartUpload.Response" +
-      "\"l\362\206\031h\n?\n\004POST\0221/mlflow-artifacts/mpu/cr" +
-      "eate/<path:artifact_path>\032\004\010\002\020\000\020\001*#Creat" +
-      "e an Artifact Multipart Upload\022\352\001\n\027compl" +
-      "eteMultipartUpload\022).mlflow.artifacts.Co" +
-      "mpleteMultipartUpload\0322.mlflow.artifacts" +
-      ".CompleteMultipartUpload.Response\"p\362\206\031l\n" +
-      "A\n\004POST\0223/mlflow-artifacts/mpu/complete/" +
-      "<path:artifact_path>\032\004\010\002\020\000\020\001*%Complete a" +
-      "n Artifact Multipart Upload\022\333\001\n\024abortMul" +
-      "tipartUpload\022&.mlflow.artifacts.AbortMul" +
-      "tipartUpload\032/.mlflow.artifacts.AbortMul" +
-      "tipartUpload.Response\"j\362\206\031f\n>\n\004POST\0220/ml" +
-      "flow-artifacts/mpu/abort/<path:artifact_" +
-      "path>\032\004\010\002\020\000\020\001*\"Abort an Artifact Multipa" +
-      "rt UploadB\036\n\024org.mlflow.api.proto\220\001\001\342?\002\020" +
-      "\001"
+      "\020Delete Artifacts\022\340\001\n\025createMultipartUpl" +
+      "oad\022\'.mlflow.artifacts.CreateMultipartUp" +
+      "load\0320.mlflow.artifacts.CreateMultipartU" +
+      "pload.Response\"l\362\206\031h\n?\n\004POST\0221/mlflow-ar" +
+      "tifacts/mpu/create/<path:artifact_path>\032" +
+      "\004\010\002\020\000\020\001*#Create an Artifact Multipart Up" +
+      "load\022\352\001\n\027completeMultipartUpload\022).mlflo" +
+      "w.artifacts.CompleteMultipartUpload\0322.ml" +
+      "flow.artifacts.CompleteMultipartUpload.R" +
+      "esponse\"p\362\206\031l\nA\n\004POST\0223/mlflow-artifacts" +
+      "/mpu/complete/<path:artifact_path>\032\004\010\002\020\000" +
+      "\020\001*%Complete an Artifact Multipart Uploa" +
+      "d\022\333\001\n\024abortMultipartUpload\022&.mlflow.arti" +
+      "facts.AbortMultipartUpload\032/.mlflow.arti" +
+      "facts.AbortMultipartUpload.Response\"j\362\206\031" +
+      "f\n>\n\004POST\0220/mlflow-artifacts/mpu/abort/<" +
+      "path:artifact_path>\032\004\010\002\020\000\020\001*\"Abort an Ar" +
+      "tifact Multipart UploadB\036\n\024org.mlflow.ap" +
+      "i.proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -7812,7 +7994,7 @@ public final class MlflowArtifacts {
     internal_static_mlflow_artifacts_CreateMultipartUpload_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_artifacts_CreateMultipartUpload_descriptor,
-        new java.lang.String[] { "NumParts", });
+        new java.lang.String[] { "Path", "NumParts", });
     internal_static_mlflow_artifacts_CreateMultipartUpload_Response_descriptor =
       internal_static_mlflow_artifacts_CreateMultipartUpload_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_artifacts_CreateMultipartUpload_Response_fieldAccessorTable = new
