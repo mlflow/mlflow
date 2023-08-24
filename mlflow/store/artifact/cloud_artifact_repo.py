@@ -243,9 +243,10 @@ class CloudArtifactRepository(ArtifactRepository):
             or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
         ):
             print("TEST THIS IS NORMAL")
+            print(remote_file_path)
+            print(local_path)
             self._download_from_cloud(remote_file_path, local_path)
         else:
-            print("TEST THIS IS PARALLEL")
             self._parallelized_download_from_cloud(file_size, remote_file_path, local_path)
 
     @abstractmethod
