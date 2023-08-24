@@ -278,7 +278,7 @@ For example:
             signature = infer_signature(X_test, predictions)
             mlflow.sklearn.log_model(rf, "model", signature=signature)
 
-            print("Run ID: {}".format(run.info.run_id))
+            print(f"Run ID: {run.info.run_id}")
 
 In the case of the ``sklearn`` flavor, ``log_model`` stores the following files in the **artifacts** directory of the run's directory on the tracking server:
 
