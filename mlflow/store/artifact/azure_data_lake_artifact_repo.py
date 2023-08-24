@@ -141,7 +141,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
     def delete_artifacts(self, artifact_path=None):
         raise NotImplementedError("This artifact repository does not support deleting artifacts")
 
-    def _retryable_adls_function(self, func, artifact_path, **kwargs):
+    def _retryable_adls_function(self, func, artifact_file_path, **kwargs):
         # Attempt to call the passed function.  Retry if the credentials have expired
         try:
             func(**kwargs)
@@ -151,20 +151,20 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                 #     "Failed to authorize ADLS operation, possibly due "
                 #     "to credential expiration. Refreshing credentials and trying again..."
                 # )
-                new_credentials = self._get_write_credential_infos(paths=[artifact_path])[0]
+                new_credentials = self._get_write_credential_infos(paths=[artifact_file_path])[0]
                 kwargs["sas_url"] = new_credentials.signed_uri
                 func(**kwargs)
             else:
                 raise e
 
-    def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_path):
+    def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
         if os.path.getsize(src_file_path) > 10_000_000 and MLFLOW_ENABLE_MULTIPART_UPLOAD.get():
-            self._multipart_upload(cloud_credential_info, src_file_path, artifact_path)
+            self._multipart_upload(cloud_credential_info, src_file_path, artifact_file_path)
         else:
-            artifact_subdir = posixpath.dirname(artifact_path)
+            artifact_subdir = posixpath.dirname(artifact_file_path)
             self.log_artifact(src_file_path, artifact_subdir)
 
-    def _multipart_upload(self, credentials, src_file_path, artifact_path):
+    def _multipart_upload(self, credentials, src_file_path, artifact_file_path):
         """
         Uploads a file to a given Azure storage location using the ADLS gen2 API.
         """
@@ -173,7 +173,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
             # try to create the file
             self._retryable_adls_function(
                 func=put_adls_file_creation,
-                artifact_path=artifact_path,
+                artifact_file_path=artifact_file_path,
                 sas_url=credentials.signed_uri,
                 headers=headers,
             )
@@ -187,7 +187,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                 future = self.chunk_thread_pool.submit(
                     self._retryable_adls_function,
                     func=patch_adls_file_upload,
-                    artifact_path=artifact_path,
+                    artifact_file_path=artifact_file_path,
                     sas_url=credentials.signed_uri,
                     local_file=src_file_path,
                     start_byte=start_byte,
@@ -201,14 +201,14 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
             _, errors = _complete_futures(futures, src_file_path)
             if errors:
                 raise MlflowException(
-                    f"Failed to upload at least one part of {artifact_path}. Errors: {errors}"
+                    f"Failed to upload at least one part of {artifact_file_path}. Errors: {errors}"
                 )
 
             # finally try to flush the file
             if not use_single_part_upload:
                 self._retryable_adls_function(
                     func=patch_adls_flush,
-                    artifact_path=artifact_path,
+                    artifact_file_path=artifact_file_path,
                     sas_url=credentials.signed_uri,
                     position=file_size,
                     headers=headers,
@@ -216,12 +216,12 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         except Exception as err:
             raise MlflowException(err)
 
-    def _get_presigned_uri(self, artifact_path):
+    def _get_presigned_uri(self, artifact_file_path):
         """
         Gets the presigned URL required to upload a file to a given Azure storage location.
         """
         sas_token = self.credential.signature
-        return f"https://{self.account_name}.dfs.core.windows.net/{self.container}/{self.base_data_lake_directory}/{artifact_path}?{sas_token}"
+        return f"https://{self.account_name}.dfs.core.windows.net/{self.container}/{self.base_data_lake_directory}/{artifact_file_path}?{sas_token}"
 
     def _get_write_credential_infos(self, paths) -> List[ArtifactCredentialInfo]:
         res = [ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path)) for path in paths]
