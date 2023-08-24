@@ -249,7 +249,7 @@ class S3ArtifactRepository(ArtifactRepository):
         urls = []
         for i in range(1, num_parts + 1):  # part number must be in [1, 10000]
             url = s3_client.generate_presigned_url(
-                "put_object",
+                "upload_part",
                 Params={
                     "Bucket": bucket,
                     "Key": dest_path,
