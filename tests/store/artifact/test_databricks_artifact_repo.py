@@ -33,6 +33,9 @@ CLOUD_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.cloud_artifact_repo"
 DATABRICKS_ARTIFACT_REPOSITORY = (
     f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.DatabricksArtifactRepository"
 )
+CLOUD_ARTIFACT_REPOSITORY = (
+    f"{CLOUD_ARTIFACT_REPOSITORY_PACKAGE}.CloudArtifactRepository"
+)
 
 MOCK_AZURE_SIGNED_URI = "http://this_is_a_mock_sas_for_azure"
 MOCK_ADLS_GEN2_SIGNED_URI = "http://this_is_a_mock_sas_for_adls_gen2"
@@ -956,6 +959,35 @@ def test_databricks_download_file(
             cloud_credential_info=mock_credential_info,
             dst_local_file_path=ANY,
         )
+
+
+@pytest.mark.parametrize(
+    ("file_size", "is_parallel_download"),
+    [
+        (None, False),
+        (100, False),
+        (499_999_999, False),
+        (500_000_000, True)
+    ],
+)
+def test_databricks_download_file_in_parallel_when_necessary(
+    databricks_artifact_repo, file_size, is_parallel_download
+):
+    remote_file_path = "file_1.txt"
+    list_artifacts_result = [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)] if file_size else []
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}.list_artifacts",
+        return_value=list_artifacts_result,
+    ), mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._download_from_cloud", return_value=None
+    ) as download_mock, mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._parallelized_download_from_cloud", return_value=None
+    ) as parallel_download_mock:
+        databricks_artifact_repo.download_artifacts("")
+        if is_parallel_download:
+            parallel_download_mock.assert_called_with(file_size, remote_file_path, ANY)
+        else:
+            download_mock.assert_called_with(remote_file_path, ANY)
 
 
 @pytest.mark.parametrize(
