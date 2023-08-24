@@ -1,6 +1,7 @@
-import entrypoints
 import warnings
 from typing import Any, List
+
+import entrypoints
 
 from mlflow.data.artifact_dataset_sources import register_artifact_dataset_sources
 from mlflow.data.dataset_source import DatasetSource

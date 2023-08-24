@@ -1,8 +1,8 @@
+from typing import Optional
+
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.protos.service_pb2 import Dataset as ProtoDataset
 from mlflow.utils.annotations import experimental
-
-from typing import Optional
 
 
 @experimental

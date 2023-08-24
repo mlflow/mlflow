@@ -1,6 +1,7 @@
 import re
 
 import pytest
+
 from mlflow.utils.annotations import deprecated
 
 

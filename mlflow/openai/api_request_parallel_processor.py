@@ -22,15 +22,15 @@ Features:
 from __future__ import annotations
 
 import logging
-import time
-import threading
 import queue
-from dataclasses import dataclass
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 
-import tiktoken
 import openai
 import openai.error
+import tiktoken
 from openai.openai_object import OpenAIObject
 
 import mlflow

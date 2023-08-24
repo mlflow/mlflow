@@ -1,14 +1,14 @@
 import warnings
-from typing import Union, Dict
+from typing import Dict, Union
 
 import numpy as np
 import tensorflow
 from tensorflow.keras.callbacks import Callback, TensorBoard
 
 import mlflow
-from mlflow.utils.autologging_utils import ExceptionSafeClass
 from mlflow.utils.autologging_utils import (
     INPUT_EXAMPLE_SAMPLE_ROWS,
+    ExceptionSafeClass,
 )
 
 

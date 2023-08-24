@@ -1,14 +1,15 @@
 # pylint: disable=redefined-outer-name
 import os
 import posixpath
-import pytest
 from unittest import mock
 
-from google.cloud.storage import client as gcs_client
+import pytest
 from google.auth.exceptions import DefaultCredentialsError
+from google.cloud.storage import client as gcs_client
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
+
 from tests.helper_functions import mock_method_chain
 
 

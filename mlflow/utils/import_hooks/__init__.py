@@ -11,9 +11,9 @@ It also extends the functionality to support custom hooks for import errors
 (as opposed to only successful imports).
 """
 
+import importlib  # noqa: F401
 import sys
 import threading
-import importlib  # noqa: F401
 
 string_types = (str,)
 

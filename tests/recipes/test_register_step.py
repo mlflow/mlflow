@@ -1,15 +1,16 @@
-import pytest
 from pathlib import Path
 
+import pytest
+
 import mlflow
-from mlflow.utils.file_utils import read_yaml
-from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
-from mlflow.recipes.steps.evaluate import EvaluateStep
-from mlflow.recipes.steps.register import RegisterStep, _REGISTERED_MV_INFO_FILE
 from mlflow.exceptions import MlflowException
+from mlflow.recipes.steps.evaluate import EvaluateStep
+from mlflow.recipes.steps.register import _REGISTERED_MV_INFO_FILE, RegisterStep
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
+from mlflow.utils.file_utils import read_yaml
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_SOURCE_TYPE,
     MLFLOW_RECIPE_TEMPLATE_NAME,
+    MLFLOW_SOURCE_TYPE,
 )
 
 from tests.recipes.helper_functions import setup_model_and_evaluate

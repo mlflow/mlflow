@@ -2,16 +2,16 @@ import pickle
 from functools import partial
 from unittest.mock import patch
 
-import pytest
+import matplotlib as mpl
 import numpy as np
 import pandas as pd
-import matplotlib as mpl
-from sklearn import datasets
-from torch import nn, optim
+import pytest
+from fastai.callback.all import EarlyStoppingCallback, SaveModelCallback
 from fastai.learner import Learner
 from fastai.optimizer import OptimWrapper
 from fastai.tabular.all import TabularDataLoaders
-from fastai.callback.all import EarlyStoppingCallback, SaveModelCallback
+from sklearn import datasets
+from torch import nn, optim
 
 import mlflow
 import mlflow.fastai

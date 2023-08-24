@@ -1,10 +1,11 @@
-from collections import Counter
-import yaml
-import os
-import logging
-import re
 import hashlib
-from packaging.requirements import Requirement, InvalidRequirement
+import logging
+import os
+import re
+from collections import Counter
+
+import yaml
+from packaging.requirements import InvalidRequirement, Requirement
 from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
@@ -12,11 +13,10 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.process import _exec_cmd
 from mlflow.utils.requirements_utils import (
-    _parse_requirements,
     _infer_requirements,
+    _parse_requirements,
 )
 from mlflow.version import VERSION
-
 
 _logger = logging.getLogger(__name__)
 

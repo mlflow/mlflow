@@ -4,27 +4,26 @@ Initialize the environment and start model serving in a Docker container.
 To be executed only during the model deployment.
 
 """
+import logging
 import multiprocessing
 import os
-import signal
 import shutil
-from subprocess import check_call, Popen
+import signal
 import sys
-import logging
+from subprocess import Popen, check_call
 
 from pkg_resources import resource_filename
 
 import mlflow
 import mlflow.version
-
-from mlflow import pyfunc, mleap
+from mlflow import mleap, pyfunc
+from mlflow.environment_variables import MLFLOW_DEPLOYMENT_FLAVOR_NAME, MLFLOW_DISABLE_ENV_CREATION
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.pyfunc import scoring_server, mlserver, _extract_conda_env
-from mlflow.version import VERSION as MLFLOW_VERSION
+from mlflow.pyfunc import _extract_conda_env, mlserver, scoring_server
 from mlflow.utils import env_manager as em
 from mlflow.utils.virtualenv import _get_or_create_virtualenv
-from mlflow.environment_variables import MLFLOW_DEPLOYMENT_FLAVOR_NAME, MLFLOW_DISABLE_ENV_CREATION
+from mlflow.version import VERSION as MLFLOW_VERSION
 
 MODEL_PATH = "/opt/ml/model"
 

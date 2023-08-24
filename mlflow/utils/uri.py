@@ -2,13 +2,13 @@ import pathlib
 import posixpath
 import urllib.parse
 import uuid
-from typing import Tuple, Any
+from typing import Any, Tuple
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.utils.validation import _validate_db_type_string
 from mlflow.utils.os import is_windows
+from mlflow.utils.validation import _validate_db_type_string
 
 _INVALID_DB_URI_MSG = (
     "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for "

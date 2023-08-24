@@ -1,9 +1,9 @@
 import os
 
 import openai
-import mlflow
-import pandas as pd
 from pyspark.sql import SparkSession
+
+import mlflow
 
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
 

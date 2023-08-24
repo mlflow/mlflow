@@ -1,10 +1,12 @@
-import pytest
 from unittest import mock
 
+import pytest
+
 import mlflow
-from mlflow.exceptions import MlflowException
 import mlflow.spark
-from mlflow._spark_autologging import _get_current_listener, PythonSubscriber
+from mlflow._spark_autologging import PythonSubscriber, _get_current_listener
+from mlflow.exceptions import MlflowException
+
 from tests.spark.autologging.utils import _get_or_create_spark_session
 
 

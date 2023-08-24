@@ -5,17 +5,16 @@ ALS model, and uses the ALS model to train a Keras neural network.
 See README.rst for more details.
 """
 
-import click
 import os
 
+import click
 
 import mlflow
-from mlflow.tracking import MlflowClient
-from mlflow.utils import mlflow_tags
 from mlflow.entities import RunStatus
-from mlflow.utils.logging_utils import eprint
-
+from mlflow.tracking import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.utils import mlflow_tags
+from mlflow.utils.logging_utils import eprint
 
 
 def _already_ran(entry_point_name, parameters, git_commit, experiment_id=None):
@@ -41,19 +40,17 @@ def _already_ran(entry_point_name, parameters, git_commit, experiment_id=None):
 
         if run.info.to_proto().status != RunStatus.FINISHED:
             eprint(
-                ("Run matched, but is not FINISHED, so skipping (run_id=%s, status=%s)")
-                % (run.info.run_id, run.info.status)
+                ("Run matched, but is not FINISHED, so skipping (run_id={}, status={})").format(
+                    run.info.run_id, run.info.status
+                )
             )
             continue
 
         previous_version = tags.get(mlflow_tags.MLFLOW_GIT_COMMIT, None)
         if git_commit != previous_version:
             eprint(
-                (
-                    "Run matched, but has a different source version, so skipping "
-                    "(found=%s, expected=%s)"
-                )
-                % (previous_version, git_commit)
+                "Run matched, but has a different source version, so skipping "
+                f"(found={previous_version}, expected={git_commit})"
             )
             continue
         return client.get_run(run.info.run_id)
@@ -67,11 +64,9 @@ def _already_ran(entry_point_name, parameters, git_commit, experiment_id=None):
 def _get_or_run(entrypoint, parameters, git_commit, use_cache=True):
     existing_run = _already_ran(entrypoint, parameters, git_commit)
     if use_cache and existing_run:
-        print(
-            "Found existing run for entrypoint={} and parameters={}".format(entrypoint, parameters)
-        )
+        print(f"Found existing run for entrypoint={entrypoint} and parameters={parameters}")
         return existing_run
-    print("Launching new run for entrypoint={} and parameters={}".format(entrypoint, parameters))
+    print(f"Launching new run for entrypoint={entrypoint} and parameters={parameters}")
     submitted_run = mlflow.run(".", entrypoint, parameters=parameters, env_manager="local")
     return MlflowClient().get_run(submitted_run.run_id)
 

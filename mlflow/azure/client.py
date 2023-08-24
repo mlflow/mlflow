@@ -2,9 +2,9 @@
 This module provides utilities for performing Azure Blob Storage operations without requiring
 the heavyweight azure-storage-blob library dependency
 """
-from copy import deepcopy
-import urllib
 import logging
+import urllib
+from copy import deepcopy
 
 from mlflow.utils import rest_utils
 from mlflow.utils.file_utils import read_chunk
