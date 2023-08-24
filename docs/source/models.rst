@@ -2032,11 +2032,11 @@ using a ``fastai`` data loader:
         artifacts = [
             f.path for f in mlflow.MlflowClient().list_artifacts(r.info.run_id, "model")
         ]
-        print("run_id: {}".format(r.info.run_id))
-        print("artifacts: {}".format(artifacts))
-        print("params: {}".format(r.data.params))
-        print("metrics: {}".format(r.data.metrics))
-        print("tags: {}".format(tags))
+        print(f"run_id: {r.info.run_id}")
+        print(f"artifacts: {artifacts}")
+        print(f"params: {r.data.params}")
+        print(f"metrics: {r.data.metrics}")
+        print(f"tags: {tags}")
 
 
     def main(epochs=5, learning_rate=0.01):
@@ -2091,7 +2091,7 @@ using a ``fastai`` data loader:
 
         print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
 
-        model_uri = "runs:/{}/model".format(run.info.run_id)
+        model_uri = f"runs:/{run.info.run_id}/model"
         loaded_model = mlflow.fastai.load_model(model_uri)
 
         test_df = df.copy()
@@ -3758,9 +3758,7 @@ evaluate test data.
     from sklearn import datasets
     from sklearn.model_selection import train_test_split
 
-    PYTHON_VERSION = "{major}.{minor}.{micro}".format(
-        major=version_info.major, minor=version_info.minor, micro=version_info.micro
-    )
+    PYTHON_VERSION = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
     iris = datasets.load_iris()
     x = iris.data[:, 2:]
     y = iris.target
@@ -3799,13 +3797,13 @@ evaluate test data.
     conda_env = {
         "channels": ["defaults"],
         "dependencies": [
-            "python={}".format(PYTHON_VERSION),
+            f"python={PYTHON_VERSION}",
             "pip",
             {
                 "pip": [
-                    "mlflow=={}".format(mlflow.__version__),
-                    "xgboost=={}".format(xgb.__version__),
-                    "cloudpickle=={}".format(cloudpickle.__version__),
+                    f"mlflow=={mlflow.__version__}",
+                    f"xgboost=={xgb.__version__}",
+                    f"cloudpickle=={cloudpickle.__version__}",
                 ],
             },
         ],

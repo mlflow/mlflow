@@ -75,9 +75,9 @@ def set_registry_uri(uri: str) -> None:
         # it with the tracking uri. They should be different
         mlflow.set_registry_uri("sqlite:////tmp/registry.db")
         mr_uri = mlflow.get_registry_uri()
-        print("Current registry uri: {}".format(mr_uri))
+        print(f"Current registry uri: {mr_uri}")
         tracking_uri = mlflow.get_tracking_uri()
-        print("Current tracking uri: {}".format(tracking_uri))
+        print(f"Current tracking uri: {tracking_uri}")
 
         # They should be different
         assert tracking_uri != mr_uri
@@ -113,11 +113,11 @@ def get_registry_uri() -> str:
 
         # Get the current model registry uri
         mr_uri = mlflow.get_registry_uri()
-        print("Current model registry uri: {}".format(mr_uri))
+        print(f"Current model registry uri: {mr_uri}")
 
         # Get the current tracking uri
         tracking_uri = mlflow.get_tracking_uri()
-        print("Current tracking uri: {}".format(tracking_uri))
+        print(f"Current tracking uri: {tracking_uri}")
 
         # They should be the same
         assert mr_uri == tracking_uri
