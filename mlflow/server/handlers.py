@@ -1127,30 +1127,29 @@ def search_datasets_handler():
 @catch_mlflow_exception
 def gateway_proxy_handler():
     args = request.json
-    host = args.get("host")
+    from mlflow.server import GATEWAY_HOST_VAR, GATEWAY_PORT_VAR
+
+    host = os.environ.get(GATEWAY_HOST_VAR, None)
+    _logger.info("host: %s", host)
     if not host:
         raise MlflowException(
-            message="GatewayProxy request must specify a host.",
-            error_code=INVALID_PARAMETER_VALUE,
+            message="MLFLOW_GATEWAY_HOST environment variable must be set.",
+            error_code=INTERNAL_ERROR,
         )
-    port = args.get("port")
+    port = os.environ.get(GATEWAY_PORT_VAR, None)
     if not port:
         raise MlflowException(
-            message="GatewayProxy request must specify a port.",
-            error_code=INVALID_PARAMETER_VALUE,
+            message="MLFLOW_GATEWAY_PORT environment variable must be set.",
+            error_code=INTERNAL_ERROR,
         )
+
     gateway_path = args.get("gateway_path")
     if not gateway_path:
         raise MlflowException(
             message="GatewayProxy request must specify a gateway_path.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    request_type = args.get("request_type")
-    if not request_type:
-        raise MlflowException(
-            message="GatewayProxy request must specify a request_type.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+    request_type = request.method
     json_data = args.get("json_data", None)
 
     response = requests.request(

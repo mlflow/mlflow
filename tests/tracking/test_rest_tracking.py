@@ -1691,29 +1691,6 @@ def test_gateway_proxy_handler_rejects_invalid_requests(mlflow_client):
     )
     assert_response(
         response,
-        "GatewayProxy request must specify a host.",
-    )
-    response = requests.post(
-        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
-        json={"host": "localhost"},
-    )
-    assert_response(
-        response,
-        "GatewayProxy request must specify a port.",
-    )
-    response = requests.post(
-        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
-        json={"host": "localhost", "port": 5000},
-    )
-    assert_response(
-        response,
         "GatewayProxy request must specify a gateway_path.",
     )
-    response = requests.post(
-        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
-        json={"host": "localhost", "port": 5000, "gateway_path": "api/2.0/gateway/routes"},
-    )
-    assert_response(
-        response,
-        "GatewayProxy request must specify a request_type.",
-    )
+    assert False
