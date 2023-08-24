@@ -71,7 +71,6 @@ from mlflow.protos.service_pb2 import (
 )
 from mlflow.server import app
 from mlflow.server.auth.config import read_auth_config
-from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import MANAGE, Permission, get_permission
 from mlflow.server.auth.routes import (
     CREATE_EXPERIMENT_PERMISSION,
@@ -84,7 +83,6 @@ from mlflow.server.auth.routes import (
     GET_REGISTERED_MODEL_PERMISSION,
     GET_USER,
     HOME,
-    SIGNUP,
     UPDATE_EXPERIMENT_PERMISSION,
     UPDATE_REGISTERED_MODEL_PERMISSION,
     UPDATE_USER_ADMIN,
@@ -109,13 +107,8 @@ auth_config = read_auth_config()
 store = SqlAlchemyStore()
 
 
-UNPROTECTED_ROUTES = [CREATE_USER, SIGNUP]
-
-
 def is_unprotected_route(path: str) -> bool:
-    if path.startswith(("/static", "/favicon.ico", "/health")):
-        return True
-    return path in UNPROTECTED_ROUTES
+    return path.startswith(("/static", "/favicon.ico", "/health"))
 
 
 def make_basic_auth_response() -> Response:
@@ -382,6 +375,7 @@ BEFORE_REQUEST_VALIDATORS = {
 BEFORE_REQUEST_VALIDATORS.update(
     {
         (GET_USER, "GET"): validate_can_read_user,
+        (CREATE_USER, "POST"): validate_can_update_user_admin,
         (UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
         (UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
         (DELETE_USER, "DELETE"): validate_can_delete_user,
@@ -628,81 +622,6 @@ def alert(href: str):
     )
 
 
-def signup():
-    return render_template_string(
-        r"""
-<style>
-  form {
-    background-color: #F5F5F5;
-    border: 1px solid #CCCCCC;
-    border-radius: 4px;
-    padding: 20px;
-    max-width: 400px;
-    margin: 0 auto;
-    font-family: Arial, sans-serif;
-    font-size: 14px;
-    line-height: 1.5;
-  }
-
-  input[type=text], input[type=password] {
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 10px;
-    border: 1px solid #CCCCCC;
-    border-radius: 4px;
-    box-sizing: border-box;
-  }
-  input[type=submit] {
-    background-color: rgb(34, 114, 180);
-    color: #FFFFFF;
-    border: none;
-    border-radius: 4px;
-    padding: 10px 20px;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: bold;
-  }
-
-  input[type=submit]:hover {
-    background-color: rgb(14, 83, 139);
-  }
-
-  .logo-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 10px;
-  }
-
-  .logo {
-    max-width: 150px;
-    margin-right: 10px;
-  }
-</style>
-
-<form action="{{ users_route }}" method="post">
-  <div class="logo-container">
-    {% autoescape false %}
-    {{ mlflow_logo }}
-    {% endautoescape %}
-  </div>
-  <label for="username">Username:</label>
-  <br>
-  <input type="text" id="username" name="username">
-  <br>
-  <label for="password">Password:</label>
-  <br>
-  <input type="password" id="password" name="password">
-  <br>
-  <br>
-  <input type="submit" value="Sign up">
-</form>
-""",
-        mlflow_logo=MLFLOW_LOGO,
-        users_route=CREATE_USER,
-    )
-
-
 @catch_mlflow_exception
 def create_user():
     content_type = request.headers.get("Content-Type")
@@ -711,8 +630,7 @@ def create_user():
         password = request.form["password"]
 
         if store.has_user(username):
-            flash(f"Username has already been taken: {username}")
-            return alert(href=SIGNUP)
+            return make_response(f"User '{username}' already exists", 400)
 
         store.create_user(username, password)
         flash(f"Successfully signed up user: {username}")
@@ -842,11 +760,6 @@ def create_app(app: Flask = app):
     store.init_db(auth_config.database_uri)
     create_admin_user(auth_config.admin_username, auth_config.admin_password)
 
-    app.add_url_rule(
-        rule=SIGNUP,
-        view_func=signup,
-        methods=["GET"],
-    )
     app.add_url_rule(
         rule=CREATE_USER,
         view_func=create_user,
