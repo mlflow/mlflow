@@ -3,10 +3,8 @@ Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
 import atexit
-import contextvars
-import logging
-import inspect
 import contextlib
+import contextvars
 import inspect
 import logging
 import os
