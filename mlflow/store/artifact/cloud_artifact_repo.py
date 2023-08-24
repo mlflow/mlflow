@@ -164,14 +164,13 @@ class CloudArtifactRepository(ArtifactRepository):
         pass
 
     @abstractmethod
-    def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_path):
+    def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
         """
         Upload a single file to the cloud.
         :param cloud_credential_info: ArtifactCredentialInfo containing presigned URL for the current file
                                       Note: in S3 this gets ignored
         :param src_file_path: source file path
-        TODO rename this variable and downstream variables to artifact_file_path (that is more accurate)
-        :param artifact_path: artifact path, including file name
+        :param artifact_file_path: artifact path, including file name
         :return:
         """
         pass
@@ -242,9 +241,6 @@ class CloudArtifactRepository(ArtifactRepository):
             or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE
             or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
         ):
-            print("TEST THIS IS NORMAL")
-            print(remote_file_path)
-            print(local_path)
             self._download_from_cloud(remote_file_path, local_path)
         else:
             self._parallelized_download_from_cloud(file_size, remote_file_path, local_path)

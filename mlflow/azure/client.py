@@ -26,7 +26,7 @@ def put_adls_file_creation(sas_url, headers):
     """
     request_url = _append_query_parameters(sas_url, {"resource": "file"})
 
-    request_headers = {"Content-Length": "0"}
+    request_headers = {}
     for name, value in headers.items():
         if _is_valid_adls_put_header(name):
             request_headers[name] = value

@@ -209,14 +209,14 @@ def test_log_artifact_azure(databricks_artifact_repo, test_file, artifact_path, 
         signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
     )
     with mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_write_credential_infos",
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_credential_infos",
         return_value=[mock_credential_info],
-    ) as write_credential_infos_mock, mock.patch(
+    ) as get_credential_infos_mock, mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._azure_upload_file", return_value=None
     ) as azure_upload_mock:
         databricks_artifact_repo.log_artifact(test_file, artifact_path)
-        write_credential_infos_mock.assert_called_with(
-            run_id=MOCK_RUN_ID, paths=[expected_location]
+        get_credential_infos_mock.assert_called_with(
+            GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
         azure_upload_mock.assert_called_with(mock_credential_info, test_file, expected_location)
 
@@ -246,14 +246,14 @@ def test_log_artifact_azure_with_headers(
         ],
     )
     with mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_write_credential_infos",
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_credential_infos",
         return_value=[mock_credential_info],
-    ) as write_credential_infos_mock, mock.patch(
+    ) as get_credential_infos_mock, mock.patch(
         "requests.Session.request", return_value=mock_response
     ) as request_mock:
         databricks_artifact_repo.log_artifact(test_file, artifact_path)
-        write_credential_infos_mock.assert_called_with(
-            run_id=MOCK_RUN_ID, paths=[expected_location]
+        get_credential_infos_mock.assert_called_with(
+            GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
         request_mock.assert_called_with(
             "put",
@@ -269,14 +269,16 @@ def test_log_artifact_azure_blob_client_sas_error(databricks_artifact_repo, test
         signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
     )
     with mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_write_credential_infos",
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_credential_infos",
         return_value=[mock_credential_info],
-    ) as write_credential_infos_mock, mock.patch(
+    ) as get_credential_infos_mock, mock.patch(
         "requests.Session.request", side_effect=MlflowException("MOCK ERROR")
     ):
         with pytest.raises(MlflowException, match=r"MOCK ERROR"):
             databricks_artifact_repo.log_artifact(test_file)
-        write_credential_infos_mock.assert_called_with(run_id=MOCK_RUN_ID, paths=ANY)
+        get_credential_infos_mock.assert_called_with(
+            GetCredentialsForWrite, MOCK_RUN_ID, ANY
+        )
 
 
 @pytest.mark.parametrize(
@@ -291,14 +293,14 @@ def test_log_artifact_adls_gen2(
         type=ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
     )
     with mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_write_credential_infos",
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_credential_infos",
         return_value=[mock_credential_info],
-    ) as write_credential_infos_mock, mock.patch(
+    ) as get_credential_infos_mock, mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._azure_adls_gen2_upload_file", return_value=None
     ) as azure_adls_gen2_upload_mock:
         databricks_artifact_repo.log_artifact(test_file, artifact_path)
-        write_credential_infos_mock.assert_called_with(
-            run_id=MOCK_RUN_ID, paths=[expected_location]
+        get_credential_infos_mock.assert_called_with(
+            GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
         azure_adls_gen2_upload_mock.assert_called_with(
             mock_credential_info, test_file, expected_location
@@ -330,17 +332,17 @@ def test_log_artifact_adls_gen2_with_headers(
         ],
     )
     with mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_write_credential_infos",
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_credential_infos",
         return_value=[mock_credential_info],
-    ) as write_credential_infos_mock, mock.patch(
+    ) as get_credential_infos_mock, mock.patch(
         "requests.Session.request", return_value=mock_response
     ) as request_mock, mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}._MULTIPART_UPLOAD_CHUNK_SIZE",
         5,
     ):
         databricks_artifact_repo.log_artifact(test_file, artifact_path)
-        write_credential_infos_mock.assert_called_with(
-            run_id=MOCK_RUN_ID, paths=[expected_location]
+        get_credential_infos_mock.assert_called_with(
+            GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
         # test with block size 5
         request_mock.assert_any_call(
@@ -388,9 +390,9 @@ def test_log_artifact_adls_gen2_flush_error(databricks_artifact_repo, test_file)
         type=ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
     )
     with mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_write_credential_infos",
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_credential_infos",
         return_value=[mock_credential_info],
-    ) as write_credential_infos_mock, mock.patch(
+    ) as get_credential_infos_mock, mock.patch(
         "requests.Session.request", side_effect=[mock_successful_response, mock_error_response]
     ) as request_mock:
         mock_credential_info = ArtifactCredentialInfo(
@@ -399,7 +401,9 @@ def test_log_artifact_adls_gen2_flush_error(databricks_artifact_repo, test_file)
         )
         with pytest.raises(MlflowException, match=r"MOCK ERROR"):
             databricks_artifact_repo.log_artifact(test_file)
-        write_credential_infos_mock.assert_called_with(run_id=MOCK_RUN_ID, paths=ANY)
+        get_credential_infos_mock.assert_called_with(
+            GetCredentialsForWrite, MOCK_RUN_ID, ANY
+        )
         assert request_mock.mock_calls == [
             mock.call(
                 "put",
@@ -935,9 +939,7 @@ def test_get_write_credential_infos_respects_max_request_size(databricks_artifac
         ("output/test_file", None),
     ],
 )
-def test_databricks_download_file(
-    databricks_artifact_repo, remote_file_path, local_path
-):
+def test_databricks_download_file(databricks_artifact_repo, remote_file_path, local_path):
     with mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_read_credential_infos",
         return_value=[
