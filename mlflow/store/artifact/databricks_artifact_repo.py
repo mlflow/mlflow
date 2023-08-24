@@ -277,7 +277,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                         "Failed to authorize request, possibly due to credential expiration."
                         " Refreshing credentials and trying again..."
                     )
-                    credential_info = self._get_write_credential_infos(paths=[artifact_file_path])[0]
+                    credential_info = self._get_write_credential_infos(paths=[artifact_file_path])[
+                        0
+                    ]
                     put_block_list(
                         credential_info.signed_uri, uploading_block_list, headers=headers
                     )

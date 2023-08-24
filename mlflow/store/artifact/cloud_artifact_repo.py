@@ -83,7 +83,7 @@ class CloudArtifactRepository(ArtifactRepository):
                 # Local filesystem path of the source file to upload
                 "src_file_path",
                 # Base artifact URI-relative path specifying the upload destination
-                "artifact_path",
+                "artifact_file_path",
             ],
         )
 
@@ -102,7 +102,7 @@ class CloudArtifactRepository(ArtifactRepository):
                 staged_uploads.append(
                     StagedArtifactUpload(
                         src_file_path=src_file_path,
-                        artifact_path=posixpath.join(artifact_subdir, src_file_name),
+                        artifact_file_path=posixpath.join(artifact_subdir, src_file_name),
                     )
                 )
 
@@ -113,7 +113,9 @@ class CloudArtifactRepository(ArtifactRepository):
         def upload_artifacts_iter():
             for staged_upload_chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
                 write_credential_infos = self._get_write_credential_infos(
-                    paths=[staged_upload.artifact_path for staged_upload in staged_upload_chunk],
+                    paths=[
+                        staged_upload.artifact_file_path for staged_upload in staged_upload_chunk
+                    ],
                 )
 
                 inflight_uploads = {}
@@ -124,7 +126,7 @@ class CloudArtifactRepository(ArtifactRepository):
                         self._upload_to_cloud,
                         cloud_credential_info=write_credential_info,
                         src_file_path=staged_upload.src_file_path,
-                        artifact_path=staged_upload.artifact_path,
+                        artifact_file_path=staged_upload.artifact_file_path,
                     )
                     inflight_uploads[staged_upload.src_file_path] = upload_future
 
