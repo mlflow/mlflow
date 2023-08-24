@@ -30,6 +30,7 @@ import { ExperimentViewRunsSortSelector } from './ExperimentViewRunsSortSelector
 import { RunsSearchAutoComplete } from './RunsSearchAutoComplete';
 import { getStartTimeColumnDisplayName } from '../../utils/experimentPage.common-utils';
 import { getJson } from 'common/utils/FetchUtils';
+import { MlflowService } from 'experiment-tracking/sdk/MlflowService';
 export type ExperimentViewRunsControlsFiltersProps = {
   searchFacetsState: SearchExperimentRunsFacetsState;
   updateSearchFacets: UpdateExperimentSearchFacetsFn;
@@ -187,17 +188,17 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               <Button type='tertiary' icon={<OverflowIcon />} />
             </Dropdown>
             <ExperimentViewRefreshButton />
-            {/* create a basic button to make an api request  */}
+            {/* TODO: remove this */}
+            {/* TODO: create a basic button to make an api request */}
             <Button
               onClick={() => {
-                const url = 'http://127.0.0.1:5001/api/2.0/gateway/routes/'
-                const fetchOptions = {
-                  method: 'GET',
-                  headers: {
-                    'accept': 'application/json'
+                MlflowService.proxyQueryGatewayRoutes(
+                  {
+                    host: "127.0.0.1",
+                    port: "5001",
+                    gateway_path: "gateway/routes"
                   }
-                } 
-                fetch(url, fetchOptions).then(response => response.json()).then(data => console.log(data))
+                ).then(data => console.log(data))
               }}
             >
           <FormattedMessage

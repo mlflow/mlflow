@@ -1091,7 +1091,7 @@ def get_metric_history_bulk_handler():
 
 @catch_mlflow_exception
 def gateway_proxy_handler():
-    args = request.args.to_dict(flat=False)
+    args = request.json
     host = args.get("host")
     if not host:
         raise MlflowException(
@@ -1112,10 +1112,12 @@ def gateway_proxy_handler():
         )
     elif gateway_path == "gateway/routes":
         # call search routes
-        return requests.get(f"http://{host}:{port}/api/2.0/{gateway_path}")
+        url = f"http://{host}:{port}/api/2.0/{gateway_path}"
+        print(url)
+        return requests.get(url).json()
     elif gateway_path == "gateway/%/invocations":
         # call a route
-        return requests.post(f"http://{host}:{port}/{gateway_path}")
+        return requests.post(f"http://{host}:{port}/{gateway_path}").json()
     else:
         raise MlflowException(
             message="GatewayProxy request must specify a valid gateway_path.",

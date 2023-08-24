@@ -89,7 +89,7 @@ def serve_search_datasets():
     return search_datasets_handler()
 
 
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/gateway-proxy"))
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/gateway-proxy"), methods=["POST", "GET"])
 def serve_gateway_proxy():
     return gateway_proxy_handler()
 
