@@ -14,7 +14,7 @@ from mlflow.environment_variables import (
     MLFLOW_S3_IGNORE_TLS,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin
+from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin, MultipartUploadCredential, CreateMultipartUploadResponse
 from mlflow.utils import data_utils
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
@@ -235,7 +235,7 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             )
             s3_client.delete_object(Bucket=bucket, Key=file_path)
 
-    def create_multipart_upload(self, local_file, num_parts, artifact_path=None):
+    def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
         (bucket, dest_path) = data_utils.parse_s3_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
@@ -246,7 +246,7 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             Key=dest_path,
         )
         upload_id = create_response["UploadId"]
-        urls = []
+        credentials = []
         for i in range(1, num_parts + 1):  # part number must be in [1, 10000]
             url = s3_client.generate_presigned_url(
                 "upload_part",
@@ -257,12 +257,17 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                     "UploadId": upload_id,
                 },
             )
-            urls.append(url)
-        return {
-            "upload_id": upload_id,
-            "urls": urls,
-            "num_parts": num_parts,
-        }
+            credentials.append(
+                MultipartUploadCredential(
+                    presigned_url=url,
+                    part_number=i,
+                    headers={},
+                )
+            )
+        return CreateMultipartUploadResponse(
+            credentials=credentials,
+            upload_id=upload_id,
+        )
 
     def complete_multipart_upload(self, local_file, upload_id, parts, artifact_path=None):
         (bucket, dest_path) = data_utils.parse_s3_uri(self.artifact_uri)

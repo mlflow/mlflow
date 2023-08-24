@@ -4,6 +4,8 @@ import posixpath
 import tempfile
 from abc import abstractmethod, ABCMeta, ABC
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from typing import Dict, Any, List, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.entities.file_info import FileInfo
@@ -244,9 +246,24 @@ class ArtifactRepository:
         return min(num_cpus * _NUM_MAX_THREADS_PER_CPU, _NUM_MAX_THREADS)
 
 
+@dataclass
+class MultipartUploadCredential:
+    presigned_url: str
+    part_number: int
+    headers: Dict[str, Any]
+
+
+@dataclass
+class CreateMultipartUploadResponse:
+    credentials: List[MultipartUploadCredential]
+    upload_id: Optional[str]
+
+
 class MultipartUploadMixin(ABC):
     @abstractmethod
-    def create_multipart_upload(self, *args, **kwargs):
+    def create_multipart_upload(
+            self, local_file: str, num_parts: int = None, **kwargs
+    ) -> CreateMultipartUploadResponse:
         """
 
         """
