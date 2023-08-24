@@ -27,7 +27,6 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
@@ -36,6 +35,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore

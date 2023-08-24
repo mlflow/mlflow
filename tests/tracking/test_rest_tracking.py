@@ -1689,7 +1689,6 @@ def test_create_promptlab_run_handler_rejects_invalid_requests(mlflow_client):
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
         json={},
     )
-    print(response.text)
     assert_response(
         response,
         "CreatePromptlabRun request must specify experiment_id.",
@@ -1823,7 +1822,6 @@ def test_create_promptlab_run_handler_returns_expected_results(mlflow_client):
     ]
     assert {"key": "temperature", "value": "0.1"} in run_json["run"]["data"]["params"]
 
-    print(run_json)
     assert {
         "key": "mlflow.loggedArtifacts",
         "value": '[{"path": "eval_results_table.json", ' '"type": "table"}]',

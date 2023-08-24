@@ -17,7 +17,6 @@ import sqlalchemy
 
 import mlflow
 import mlflow.db
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 import mlflow.store.db.base_sql_model
 from mlflow import entities
 from mlflow.entities import (
@@ -40,6 +39,7 @@ from mlflow.protos.databricks_pb2 import (
     TEMPORARILY_UNAVAILABLE,
     ErrorCode,
 )
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.store.db.utils import (
     _get_latest_schema_revision,
