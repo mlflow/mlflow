@@ -161,7 +161,8 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         if os.path.getsize(src_file_path) > 10_000_000 and MLFLOW_ENABLE_MULTIPART_UPLOAD.get():
             self._multipart_upload(cloud_credential_info, src_file_path, artifact_path)
         else:
-            self.log_artifact(src_file_path, artifact_path)
+            artifact_subdir = posixpath.dirname(artifact_path)
+            self.log_artifact(src_file_path, artifact_subdir)
 
     def _multipart_upload(self, credentials, src_file_path, artifact_path):
         """

@@ -169,8 +169,9 @@ class CloudArtifactRepository(ArtifactRepository):
         Upload a single file to the cloud.
         :param cloud_credential_info: ArtifactCredentialInfo containing presigned URL for the current file
                                       Note: in S3 this gets ignored
-        :param src_file_path:
-        :param artifact_path:
+        :param src_file_path: source file path
+        TODO rename this variable and downstream variables to artifact_file_path (that is more accurate)
+        :param artifact_path: artifact path, including file name
         :return:
         """
         pass

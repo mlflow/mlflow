@@ -29,6 +29,7 @@ from mlflow.store.artifact.databricks_artifact_repo import (
 )
 
 DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.databricks_artifact_repo"
+CLOUD_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.cloud_artifact_repo"
 DATABRICKS_ARTIFACT_REPOSITORY = (
     f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.DatabricksArtifactRepository"
 )
@@ -1126,7 +1127,7 @@ def test_artifact_logging_chunks_upload_list(databricks_artifact_repo, tmp_path)
     ) as mock_get_write_creds, mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._upload_to_cloud"
     ), mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}._ARTIFACT_UPLOAD_BATCH_SIZE", 2
+        f"{CLOUD_ARTIFACT_REPOSITORY_PACKAGE}._ARTIFACT_UPLOAD_BATCH_SIZE", 2
     ):
         databricks_artifact_repo.log_artifacts(src_dir, "dir_artifact")
 
