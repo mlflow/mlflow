@@ -1,6 +1,7 @@
 from mlflow.models import EvaluationMetric as EvaluationMetric
 from mlflow.models import make_metric as make_metric
 
+
 class MetricValue:
     """
     The value of a metric.
@@ -9,13 +10,7 @@ class MetricValue:
     :param aggregate_results: A dictionary mapping the name of the aggregation to its value
     """
 
-    def __init__(
-        self,
-        scores: list[float] = None,
-        justifications: list[str] = None,
-        aggregate_results: dict[str, float] = None,
-    ):
+    def __init__(self, scores=None, justifications=None, aggregate_results=None):
         self.scores = scores
         self.justifications = justifications
         self.aggregate_results = aggregate_results
-
