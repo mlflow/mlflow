@@ -57,10 +57,13 @@ class ModelSignature:
     :py:class:`ParamSchema <mlflow.types.ParamSchema>`.
     """
 
-    def __init__(self, inputs: Schema, outputs: Schema = None, params: ParamSchema = None):
-        if not isinstance(inputs, Schema):
-            raise TypeError(f"inputs must be mlflow.models.signature.Schema, got '{type(inputs)}'")
-        if outputs is not None and not isinstance(outputs, Schema):
+    def __init__(self, inputs: Schema = None, outputs: Schema = None, params: ParamSchema = None):
+        if inputs and not isinstance(inputs, Schema):
+            raise TypeError(
+                "inputs must be either None or mlflow.models.signature.Schema, "
+                f"got '{type(inputs)}'"
+            )
+        if outputs and not isinstance(outputs, Schema):
             raise TypeError(
                 "outputs must be either None or mlflow.models.signature.Schema, "
                 f"got '{type(inputs)}'"
@@ -70,6 +73,8 @@ class ModelSignature:
                 "If params are provided, they must by of type mlflow.models.signature.ParamSchema. "
                 f"Got '{type(params)}'"
             )
+        if all(x is None for x in [inputs, outputs, params]):
+            raise ValueError("At least one of inputs, outputs or params must be provided")
         self.inputs = inputs
         self.outputs = outputs
         self.params = params
@@ -85,8 +90,8 @@ class ModelSignature:
         """
 
         return {
-            "inputs": self.inputs.to_json(),
-            "outputs": self.outputs.to_json() if self.outputs is not None else None,
+            "inputs": self.inputs.to_json() if self.inputs else None,
+            "outputs": self.outputs.to_json() if self.outputs else None,
             "params": self.params.to_json() if self.params else None,
         }
 
@@ -103,16 +108,19 @@ class ModelSignature:
 
         :return: ModelSignature populated with the data form the dictionary.
         """
-        inputs = Schema.from_json(signature_dict["inputs"])
-        if "outputs" in signature_dict and signature_dict["outputs"] is not None:
-            outputs = Schema.from_json(signature_dict["outputs"])
-        else:
-            outputs = None
-        if (params := signature_dict.get("params")) is not None:
-            params = ParamSchema.from_json(params)
-            return cls(inputs, outputs, params)
-        else:
-            return cls(inputs, outputs)
+        inputs = (
+            Schema.from_json(signature_dict["inputs"]) if signature_dict.get("inputs") else None
+        )
+        outputs = (
+            Schema.from_json(signature_dict["outputs"]) if signature_dict.get("outputs") else None
+        )
+        params = (
+            ParamSchema.from_json(signature_dict["params"])
+            if signature_dict.get("params")
+            else None
+        )
+
+        return cls(inputs, outputs, params)
 
     def __eq__(self, other) -> bool:
         return (
