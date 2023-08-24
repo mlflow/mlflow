@@ -29,7 +29,7 @@ import { ExperimentViewRunsModeSwitch } from './ExperimentViewRunsModeSwitch';
 import { ExperimentViewRunsSortSelector } from './ExperimentViewRunsSortSelector';
 import { RunsSearchAutoComplete } from './RunsSearchAutoComplete';
 import { getStartTimeColumnDisplayName } from '../../utils/experimentPage.common-utils';
-
+import { getJson } from 'common/utils/FetchUtils';
 export type ExperimentViewRunsControlsFiltersProps = {
   searchFacetsState: SearchExperimentRunsFacetsState;
   updateSearchFacets: UpdateExperimentSearchFacetsFn;
@@ -187,6 +187,24 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               <Button type='tertiary' icon={<OverflowIcon />} />
             </Dropdown>
             <ExperimentViewRefreshButton />
+            {/* create a basic button to make an api request  */}
+            <Button
+              onClick={() => {
+                const url = 'http://127.0.0.1:5001/api/2.0/gateway/routes/'
+                const fetchOptions = {
+                  method: 'GET',
+                  headers: {
+                    'accept': 'application/json'
+                  }
+                } 
+                fetch(url, fetchOptions).then(response => response.json()).then(data => console.log(data))
+              }}
+            >
+          <FormattedMessage
+            defaultMessage='Search gateway'
+            description='refresh button text to refresh the experiment runs'
+          />
+                      </Button>
           </div>
         </div>
       </>
