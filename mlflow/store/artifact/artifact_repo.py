@@ -259,20 +259,43 @@ class CreateMultipartUploadResponse:
     upload_id: Optional[str]
 
 
+@dataclass
+class MultipartUploadPart:
+    part_number: int
+    etag: str
+
+
 class MultipartUploadMixin(ABC):
     @abstractmethod
     def create_multipart_upload(
-            self, local_file: str, num_parts: int = None, **kwargs
+            self, local_file: str, num_parts: int, artifact_path = None
     ) -> CreateMultipartUploadResponse:
         """
+        Initiate a multipart upload and retrieve the pre-signed upload URLS and upload id.
 
+        :param local_file: Path of artifact to upload
+        :param num_parts: Number of parts to upload. Only required by S3 and GCS.
+        :param artifact_path: Directory within the run's artifact directory in which to upload the
+                              artifact.
         """
         pass
 
     @abstractmethod
-    def complete_multipart_upload(self, *args, **kwargs):
+    def complete_multipart_upload(
+            self,
+            local_file: str,
+            upload_id: str,
+            parts: List,
+            artifact_path = None,
+    ) -> None:
         """
+        Complete a multipart upload.
 
+        :param local_file: Path of artifact to upload
+        :param upload_id: The upload ID. Only required by S3 and GCS.
+        :param parts: A list containing the metadata of each part that has been uploaded.
+        :param artifact_path: Directory within the run's artifact directory in which to upload the
+                              artifact.
         """
         pass
 
