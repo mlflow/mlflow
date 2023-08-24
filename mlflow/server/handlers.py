@@ -9,6 +9,7 @@ import tempfile
 import urllib
 from functools import wraps
 
+import requests
 from flask import Response, current_app, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
@@ -19,7 +20,11 @@ from mlflow.environment_variables import MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.protos.mlflow_artifacts_pb2 import (
     DeleteArtifact,
     DownloadArtifact,
@@ -1117,6 +1122,46 @@ def search_datasets_handler():
         }
     else:
         return _not_implemented()
+
+
+@catch_mlflow_exception
+def gateway_proxy_handler():
+    args = request.json
+    host = args.get("host")
+    if not host:
+        raise MlflowException(
+            message="GatewayProxy request must specify a host.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    port = args.get("port")
+    if not port:
+        raise MlflowException(
+            message="GatewayProxy request must specify a port.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    request_type = args.get("request_type")
+    if not request_type:
+        raise MlflowException(
+            message="GatewayProxy request must specify a request_type.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    gateway_path = args.get("gateway_path")
+    if not gateway_path:
+        raise MlflowException(
+            message="GatewayProxy request must specify a gateway_path.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    data = args.get("data", None)
+
+    response = requests.request(request_type, f"http://{host}:{port}/{gateway_path}", data=data)
+
+    if response.status_code == 200:
+        return response.json()
+    else:
+        raise MlflowException(
+            message=f"GatewayProxy request failed with error code {response.status_code}. Error message: {response.text}",
+            error_code=INTERNAL_ERROR,
+        )
 
 
 @catch_mlflow_exception
