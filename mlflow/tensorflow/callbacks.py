@@ -1,6 +1,10 @@
-from tensorflow import keras
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from mlflow import log_param, log_text
+
+try:
+    from tensorflow import keras
+except ImportError:
+    pass
 
 
 class MLflowMetricsLoggingCallback(keras.callbacks.Callback):
