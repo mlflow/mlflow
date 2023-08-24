@@ -374,7 +374,7 @@ class TempDir:
         self._remove = remove_on_exit
 
     def __enter__(self):
-        self._path = os.path.abspath(tempfile.mkdtemp())
+        self._path = os.path.abspath(create_tmp_dir())
         assert os.path.exists(self._path)
         if self._chdr:
             self._dir = os.path.abspath(os.getcwd())
@@ -781,6 +781,20 @@ def _handle_readonly_on_windows(func, path, exc_info):
         raise exc_value
     os.chmod(path, stat.S_IWRITE)
     func(path)
+
+
+def create_tmp_dir():
+    from mlflow.utils.databricks_utils import get_repl_id, is_in_databricks_runtime
+
+    if is_in_databricks_runtime() and get_repl_id() is not None:
+        try:
+            repl_local_tmp_dir = _get_dbutils().entry_point.getReplLocalTempDir()
+        except Exception:
+            repl_local_tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id())
+
+        return tempfile.mkdtemp(dir=repl_local_tmp_dir)
+    else:
+        return tempfile.mkdtemp()
 
 
 @cache_return_value_per_process
