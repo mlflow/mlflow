@@ -1676,3 +1676,44 @@ def test_update_run_name_without_changing_status(mlflow_client):
     updated_run_info = mlflow_client.get_run(created_run.info.run_id).info
     assert updated_run_info.run_name == "name_abc"
     assert updated_run_info.status == "FINISHED"
+
+
+def test_gateway_proxy_handler_rejects_invalid_requests(mlflow_client):
+    def assert_response(resp, message_part):
+        assert resp.status_code == 400
+        response_json = resp.json()
+        assert response_json.get("error_code") == "INVALID_PARAMETER_VALUE"
+        assert message_part in response_json.get("message", "")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
+        json={},
+    )
+    assert_response(
+        response,
+        "GatewayProxy request must specify a host.",
+    )
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
+        json={"host": "localhost"},
+    )
+    assert_response(
+        response,
+        "GatewayProxy request must specify a port.",
+    )
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
+        json={"host": "localhost", "port": 5000},
+    )
+    assert_response(
+        response,
+        "GatewayProxy request must specify a gateway_path.",
+    )
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
+        json={"host": "localhost", "port": 5000, "gateway_path": "api/2.0/gateway/routes"},
+    )
+    assert_response(
+        response,
+        "GatewayProxy request must specify a request_type.",
+    )

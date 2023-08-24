@@ -1139,21 +1139,23 @@ def gateway_proxy_handler():
             message="GatewayProxy request must specify a port.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    request_type = args.get("request_type")
-    if not request_type:
-        raise MlflowException(
-            message="GatewayProxy request must specify a request_type.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
     gateway_path = args.get("gateway_path")
     if not gateway_path:
         raise MlflowException(
             message="GatewayProxy request must specify a gateway_path.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    data = args.get("data", None)
+    request_type = args.get("request_type")
+    if not request_type:
+        raise MlflowException(
+            message="GatewayProxy request must specify a request_type.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    json_data = args.get("json_data", None)
 
-    response = requests.request(request_type, f"http://{host}:{port}/{gateway_path}", data=data)
+    response = requests.request(
+        request_type, f"http://{host}:{port}/{gateway_path}", json=json_data
+    )
 
     if response.status_code == 200:
         return response.json()
