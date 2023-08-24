@@ -197,7 +197,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                     host: "127.0.0.1",
                     port: "5001",
                     request_type: "GET",
-                    gateway_path: "api/2.0/gateway/routessdfasdf"
+                    gateway_path: "api/2.0/gateway/routes"
                   }
                 ).then(response => console.log(response))
               }}
