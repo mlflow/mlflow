@@ -90,7 +90,7 @@ def serve_search_datasets():
 
 
 # Serve the "runs/create-promptlab-run" route.
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/runs/create-promptlab-run"))
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/runs/create-promptlab-run"), methods=["POST"])
 def serve_create_promptlab_run():
     return create_promptlab_run_handler()
 

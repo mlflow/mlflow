@@ -1122,23 +1122,69 @@ def search_datasets_handler():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def create_promptlab_run_handler():
-    args = request.args.to_dict(flat=False)
+    args = request.json
     experiment_id = args.get("experiment_id")
-    run_name = args.get("run_name")
-    tags = args.get("tags")
+    if not experiment_id:
+        raise MlflowException(
+            message="CreatePromptlabRun request must specify experiment_id.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    run_name = args.get("run_name", None)
+    tags = args.get("tags", [])
     prompt_template = args.get("prompt_template")
+    if not prompt_template:
+        raise MlflowException(
+            message="CreatePromptlabRun request must specify prompt_template.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    raw_prompt_parameters = args.get("prompt_parameters")
+    if not raw_prompt_parameters:
+        raise MlflowException(
+            message="CreatePromptlabRun request must specify prompt_parameters.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     prompt_parameters = [
-        Param(param.get("key"), param.get("value")) for param in args.get("prompt_parameters")
+        Param(param.get("key"), param.get("value")) for param in raw_prompt_parameters
     ]
     model_route = args.get("model_route")
+    if not model_route:
+        raise MlflowException(
+            message="CreatePromptlabRun request must specify model_route.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    raw_model_parameters = args.get("model_parameters", [])
     model_parameters = [
-        Param(param.get("key"), param.get("value")) for param in args.get("model_parameters")
+        Param(param.get("key"), param.get("value")) for param in raw_model_parameters
     ]
     model_input = args.get("model_input")
+    if not model_input:
+        raise MlflowException(
+            message="CreatePromptlabRun request must specify model_input.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    model_output = args.get("model_output", None)
+    raw_model_output_parameters = args.get("model_output_parameters", [])
     model_output_parameters = [
-        Param(param.get("key"), param.get("value")) for param in args.get("model_output_parameters")
+        Param(param.get("key"), param.get("value")) for param in raw_model_output_parameters
     ]
     mlflow_version = args.get("mlflow_version")
+    if not mlflow_version:
+        raise MlflowException(
+            message="CreatePromptlabRun request must specify mlflow_version.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    user_id = args.get("user_id")
+    if not user_id:
+        raise MlflowException(
+            message="CreatePromptlabRun request must specify user_id.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    start_time = args.get("start_time", None)
+    if not start_time:
+        raise MlflowException(
+            message="CreatePromptlabRun request must specify start_time.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     store = _get_tracking_store()
 
@@ -1152,8 +1198,11 @@ def create_promptlab_run_handler():
             model_route=model_route,
             model_parameters=model_parameters,
             model_input=model_input,
+            model_output=model_output,
             model_output_parameters=model_output_parameters,
             mlflow_version=mlflow_version,
+            user_id=user_id,
+            start_time=start_time,
         )
         response_message = CreateRun.Response()
         response_message.run.MergeFrom(run.to_proto())
