@@ -2,7 +2,7 @@ import logging
 import os
 import posixpath
 import tempfile
-from abc import abstractmethod, ABCMeta
+from abc import abstractmethod, ABCMeta, ABC
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from mlflow.exceptions import MlflowException
@@ -243,7 +243,24 @@ class ArtifactRepository:
         num_cpus = os.cpu_count() or _NUM_DEFAULT_CPUS
         return min(num_cpus * _NUM_MAX_THREADS_PER_CPU, _NUM_MAX_THREADS)
 
-    def create_mpu(self, local_file, num_parts, artifact_path=None):
+
+class MultipartUploadMixin(ABC):
+    @abstractmethod
+    def create_multipart_upload(self, *args, **kwargs):
+        """
+
+        """
+        pass
+
+    @abstractmethod
+    def complete_multipart_upload(self, *args, **kwargs):
+        """
+
+        """
+        pass
+
+    @abstractmethod
+    def abort_multipart_upload(self, *args, **kwargs):
         """
 
         """

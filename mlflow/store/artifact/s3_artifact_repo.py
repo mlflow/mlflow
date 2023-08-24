@@ -14,7 +14,7 @@ from mlflow.environment_variables import (
     MLFLOW_S3_IGNORE_TLS,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin
 from mlflow.utils import data_utils
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
@@ -96,7 +96,7 @@ def _get_s3_client(access_key_id=None, secret_access_key=None, session_token=Non
     )
 
 
-class S3ArtifactRepository(ArtifactRepository):
+class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     """Stores artifacts on Amazon S3."""
 
     def __init__(
@@ -235,7 +235,7 @@ class S3ArtifactRepository(ArtifactRepository):
             )
             s3_client.delete_object(Bucket=bucket, Key=file_path)
 
-    def create_mpu(self, local_file, num_parts, artifact_path=None):
+    def create_multipart_upload(self, local_file, num_parts, artifact_path=None):
         (bucket, dest_path) = data_utils.parse_s3_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
@@ -258,8 +258,38 @@ class S3ArtifactRepository(ArtifactRepository):
                 },
             )
             urls.append(url)
-        return urls
+        return {
+            "upload_id": upload_id,
+            "urls": urls,
+            "num_parts": num_parts,
+        }
 
+    def complete_multipart_upload(self, local_file, upload_id, parts, artifact_path=None):
+        (bucket, dest_path) = data_utils.parse_s3_uri(self.artifact_uri)
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
+        s3_client = self._get_s3_client()
+        return s3_client.complete_multipart_upload(
+            Bucket=bucket,
+            Key=dest_path,
+            UploadId=upload_id,
+            MultipartUpload={
+                "Parts": parts
+            }
+        )
+
+    def abort_multipart_upload(self, local_file, upload_id, artifact_path=None):
+        (bucket, dest_path) = data_utils.parse_s3_uri(self.artifact_uri)
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
+        s3_client = self._get_s3_client()
+        return s3_client.abort_multipart_upload(
+            Bucket=bucket,
+            Key=dest_path,
+            UploadId=upload_id,
+        )
 
 
 
