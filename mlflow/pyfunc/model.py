@@ -256,20 +256,19 @@ def _save_model_with_class_artifacts_params(
                             "Failed to download snapshot from Hugging Face Hub with artifact_uri: "
                             f"{artifact_uri}. Error: {e}"
                         )
-                    saved_artifact_subpath = os.path.relpath(
-                        path=snapshot_location, start=os.path.realpath(path)
+                    saved_artifact_subpath = (
+                        Path(snapshot_location).relative_to(Path(os.path.realpath(path))).as_posix()
                     )
                 else:
                     tmp_artifact_path = _download_artifact_from_uri(
                         artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
                     )
 
-                    tmp_artifact_path_obj = Path(tmp_artifact_path)
-                    tmp_artifacts_dir_path_obj = Path(tmp_artifacts_dir.path())
-
-                    relative_path = tmp_artifact_path_obj.relative_to(
-                        tmp_artifacts_dir_path_obj
-                    ).as_posix()
+                    relative_path = (
+                        Path(tmp_artifact_path)
+                        .relative_to(Path(tmp_artifacts_dir.path()))
+                        .as_posix()
+                    )
 
                     saved_artifact_subpath = os.path.join(
                         saved_artifacts_dir_subpath, relative_path
