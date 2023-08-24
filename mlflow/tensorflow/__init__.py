@@ -36,7 +36,7 @@ from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signat
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
-from mlflow.tensorflow.callbacks import MLflowMetricsLoggingCallback
+from mlflow.tensorflow.callbacks import MLflowMetricsLoggingCallback # noqa: F401
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
