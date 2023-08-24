@@ -15,11 +15,11 @@ from mlflow.server import handlers
 from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
+    gateway_proxy_handler,
     get_artifact_handler,
     get_metric_history_bulk_handler,
     get_model_version_artifact_handler,
     search_datasets_handler,
-    gateway_proxy_handler,
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import _exec_cmd
