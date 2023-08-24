@@ -129,4 +129,10 @@ export class MlflowService {
    */
   static setExperimentTag = (data: any) =>
     postJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/set-experiment-tag', data });
+
+  /**
+   * Use mlflow tracking server as a proxy to call the gateway server
+   */
+  static proxyQueryGatewayRoutes = (data: any) =>
+    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/gateway-proxy', data });
 }

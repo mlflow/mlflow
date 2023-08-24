@@ -12,6 +12,7 @@ from functools import wraps
 from flask import Response, current_app, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
+import requests
 
 from mlflow.entities import DatasetInput, ExperimentTag, FileInfo, Metric, Param, RunTag, ViewType
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
@@ -1086,6 +1087,40 @@ def get_metric_history_bulk_handler():
     return {
         "metrics": metrics_with_run_ids[:max_results],
     }
+
+
+@catch_mlflow_exception
+def gateway_proxy_handler():
+    args = request.args.to_dict(flat=False)
+    host = args.get("host")
+    if not host:
+        raise MlflowException(
+            message="GatewayProxy request must specify a host.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    port = args.get("port")
+    if not port:
+        raise MlflowException(
+            message="GatewayProxy request must specify a port.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    gateway_path = args.get("gateway_path")
+    if not gateway_path:
+        raise MlflowException(
+            message="GatewayProxy request must specify a gateway_path.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    elif gateway_path == "gateway/routes":
+        # call search routes
+        return requests.get(f"http://{host}:{port}/api/2.0/{gateway_path}")
+    elif gateway_path == "gateway/%/invocations":
+        # call a route
+        return requests.post(f"http://{host}:{port}/{gateway_path}")
+    else:
+        raise MlflowException(
+            message="GatewayProxy request must specify a valid gateway_path.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 @catch_mlflow_exception
