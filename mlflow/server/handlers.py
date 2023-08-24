@@ -1838,7 +1838,17 @@ def _create_multipart_upload_artifact(artifact_path):
         path,
         num_parts,
     )
-    return
+    # TODO:
+    return {
+        "upload_id": create_response.upload_id,
+        "credentials": [
+            {
+                "part_number": cred.part_number,
+                "header": cred.headers,
+            }
+            for cred in create_response.credentials
+        ],
+    }
 
 
 def _get_rest_path(base_path):
