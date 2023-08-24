@@ -66,9 +66,12 @@ class _ModelType:
 class EvaluationMetric:
     '''
     An evaluation metric.
+
     :param eval_fn:
         A function that computes the metric with the following signature:
+
         .. code-block:: python
+
             def eval_fn(
                 eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
                 builtin_metrics: Dict[str, MetricValue],
@@ -85,9 +88,10 @@ class EvaluationMetric:
                     Refer to the DefaultEvaluator behavior section for what metrics
                     will be returned based on the type of model (i.e. classifier or regressor).
                 :return:
-
+                    MetricValue with per-row scores, per-row justifications, and aggregate results.
                 """
                 ...
+
     :param name: The name of the metric.
     :param greater_is_better: Whether a higher value of the metric is better.
     :param long_name: (Optional) The long name of the metric. For example,
