@@ -51,12 +51,13 @@ class ArtifactRepositoryRegistry:
                     stacklevel=2,
                 )
 
-    def get_artifact_repository(self, artifact_uri):
+    def get_artifact_repository(self, artifact_uri, tracking_uri=None):
         """Get an artifact repository from the registry based on the scheme of artifact_uri
 
         :param artifact_uri: The artifact store URI. This URI is used to select which artifact
                              repository implementation to instantiate and is passed to the
                              constructor of the implementation.
+        :param tracking_uri: Address of local or remote tracking server.
 
         :return: An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
                  requirements.
@@ -68,7 +69,7 @@ class ArtifactRepositoryRegistry:
                 f"Could not find a registered artifact repository for: {artifact_uri}. "
                 f"Currently registered schemes are: {list(self._registry.keys())}"
             )
-        return repository(artifact_uri)
+        return repository(artifact_uri, tracking_uri=tracking_uri)
 
     def get_registered_artifact_repositories(self):
         """
@@ -100,17 +101,20 @@ _artifact_repository_registry.register("mlflow-artifacts", MlflowArtifactsReposi
 _artifact_repository_registry.register_entrypoints()
 
 
-def get_artifact_repository(artifact_uri):
+def get_artifact_repository(artifact_uri, tracking_uri=None):
     """Get an artifact repository from the registry based on the scheme of artifact_uri
 
     :param artifact_uri: The artifact store URI. This URI is used to select which artifact
                          repository implementation to instantiate and is passed to the
                          constructor of the implementation.
+    :param tracking_uri: Address of local or remote tracking server.
 
     :return: An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
              requirements.
     """
-    return _artifact_repository_registry.get_artifact_repository(artifact_uri)
+    return _artifact_repository_registry.get_artifact_repository(
+        artifact_uri, 
+        tracking_uri=tracking_uri)
 
 
 def get_registered_artifact_repositories():
