@@ -153,6 +153,7 @@ config_types = {
     Provider.COHERE: CohereConfig,
     Provider.OPENAI: OpenAIConfig,
     Provider.ANTHROPIC: AnthropicConfig,
+    Provider.MOSAICLML: MosaicMLConfig,
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
 }
 
@@ -207,6 +208,7 @@ class Model(ConfigModel):
             CohereConfig,
             OpenAIConfig,
             AnthropicConfig,
+            MosaicMLConfig,
             MlflowModelServingConfig,
         ]
     ] = None

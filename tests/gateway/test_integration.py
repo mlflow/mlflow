@@ -338,6 +338,7 @@ def test_cohere_completions(gateway):
         response = client.query(route=route.name, data=data)
     assert response == expected_output
 
+
 def test_mosaicml_completions(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("completions-mosaicml")
@@ -389,6 +390,7 @@ def test_cohere_embeddings(gateway):
     with patch.object(CohereProvider, "embeddings", mock_embeddings):
         response = client.query(route=route.name, data=data)
     assert response == expected_output
+
 
 def test_mosaicml_embeddings(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
