@@ -38,6 +38,13 @@ from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.utils.string_utils import generate_feature_name_if_not_string
 
+try:
+    # `numpy` and `pandas` are not required for `mlflow-skinny`.
+    import numpy as np
+    import pandas as pd
+except ImportError:
+    pass
+
 _logger = logging.getLogger(__name__)
 
 
@@ -325,11 +332,8 @@ def _hash_uint64_ndarray_as_bytes(array):
 
 
 def _hash_ndarray_as_bytes(nd_array):
-    import numpy as np
-    from pandas.util import hash_array
-
     return _hash_uint64_ndarray_as_bytes(
-        hash_array(nd_array.flatten(order="C"))
+        pd.util.hash_array(nd_array.flatten(order="C"))
     ) + _hash_uint64_ndarray_as_bytes(np.array(nd_array.shape, dtype="uint64"))
 
 
@@ -338,10 +342,6 @@ def _hash_array_like_obj_as_bytes(data):
     Helper method to convert pandas dataframe/numpy array/list into bytes for
     MD5 calculation purpose.
     """
-    import numpy as np
-    import pandas as pd
-    from pandas.util import hash_pandas_object
-
     if isinstance(data, pd.DataFrame):
         # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
         # run code not related to pyspark.
@@ -361,7 +361,7 @@ def _hash_array_like_obj_as_bytes(data):
             return v
 
         data = data.applymap(_hash_array_like_element_as_bytes)
-        return _hash_uint64_ndarray_as_bytes(hash_pandas_object(data))
+        return _hash_uint64_ndarray_as_bytes(pd.util.hash_pandas_object(data))
     elif isinstance(data, np.ndarray):
         return _hash_ndarray_as_bytes(data)
     elif isinstance(data, list):
@@ -377,8 +377,6 @@ def _gen_md5_for_arraylike_obj(md5_gen, data):
      - first NUM_SAMPLE_ROWS_FOR_HASH rows content
      - last NUM_SAMPLE_ROWS_FOR_HASH rows content
     """
-    import numpy as np
-
     len_bytes = _hash_uint64_ndarray_as_bytes(np.array([len(data)], dtype="uint64"))
     md5_gen.update(len_bytes)
     if len(data) < EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH * 2:
@@ -404,9 +402,6 @@ class EvaluationDataset:
         """
         The values of the constructor arguments comes from the `evaluate` call.
         """
-        import numpy as np
-        import pandas as pd
-
         if name is not None and '"' in name:
             raise MlflowException(
                 message=f'Dataset name cannot include a double quote (") but got {name}',
@@ -650,8 +645,6 @@ class EvaluationDataset:
         return hash(self.hash)
 
     def __eq__(self, other):
-        import numpy as np
-
         if not isinstance(other, EvaluationDataset):
             return False
 
@@ -956,6 +949,28 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
         return
 
     raise ModelValidationFailedException(message=os.linesep.join(failure_messages))
+
+
+def _convert_data_to_mlflow_dataset(data, targets=None):
+    """Convert input data to mlflow dataset."""
+    if "pyspark" in sys.modules:
+        from pyspark.sql import DataFrame as SparkDataFrame
+
+    if isinstance(data, list):
+        return mlflow.data.from_numpy(np.array(data), targets=np.array(targets))
+    elif isinstance(data, np.ndarray):
+        return mlflow.data.from_numpy(data, targets=targets)
+    elif isinstance(data, pd.DataFrame):
+        return mlflow.data.from_pandas(df=data, targets=targets)
+    elif "pyspark" in sys.modules and isinstance(data, SparkDataFrame):
+        return mlflow.data.from_spark(df=data, targets=targets)
+    else:
+        # Cannot convert to mlflow dataset, return original data.
+        _logger.info(
+            "Cannot convert input data to `evaluate()` to an mlflow dataset, input must be a list, "
+            f"a numpy array, a panda Dataframe or a spark Dataframe, but received {type(data)}."
+        )
+        return data
 
 
 def _evaluate(
@@ -1540,11 +1555,15 @@ def evaluate(
     ) = _normalize_evaluators_and_evaluator_config_args(evaluators, evaluator_config)
 
     with _start_run_or_reuse_active_run() as run_id:
+        if not isinstance(data, Dataset):
+            # Convert data to `mlflow.data.dataset.Dataset`.
+            data = _convert_data_to_mlflow_dataset(data=data, targets=targets)
+
         from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 
         if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
             dataset = data.to_evaluation_dataset(dataset_path, feature_names)
-            if evaluator_name_to_conf_map and "default" in evaluator_name_to_conf_map:
+            if evaluator_name_to_conf_map and evaluator_name_to_conf_map.get("default", None):
                 context = evaluator_name_to_conf_map["default"].get("metric_prefix", None)
             else:
                 context = None
