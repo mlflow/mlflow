@@ -31,6 +31,7 @@ def completions_response():
         "outputs": [
             "This is a test",
         ],
+        "headers": {"Content-Type": "application/json"},
     }
 
 
@@ -80,7 +81,7 @@ def embeddings_config():
 
 def embeddings_response():
     return {
-        "embeddings": [
+        "outputs": [
             [
                 3.25,
                 0.7685547,
@@ -90,6 +91,7 @@ def embeddings_response():
                 1.2597656,
             ]
         ],
+        "headers": {"Content-Type": "application/json"},
     }
 
 

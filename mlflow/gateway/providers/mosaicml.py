@@ -20,7 +20,7 @@ class MosaicMLProvider(BaseProvider):
         headers = {"Authorization": f"{self.mosaicml_config.mosaicml_api_key}"}
         return await send_request(
             headers=headers,
-            base_url="https://models.hosted-on.mosaicml.hosting",
+            base_url=self.mosaicml_config.mosaicml_api_base or "https://models.hosted-on.mosaicml.hosting",
             path=model + "/v1/predict",
             payload=payload,
         )
@@ -40,9 +40,28 @@ class MosaicMLProvider(BaseProvider):
                     status_code=400, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         payload = rename_payload_keys(payload, key_mapping)
+
+        # Handle 'prompt' field in payload
+        prompt = payload.pop("prompt")
+        if isinstance(prompt, str):
+            prompt = [prompt]
+
+        # Construct final payload structure
+        final_payload = {"inputs": prompt, "parameters": payload}
+
+        # Input data structure for Mosaic Text Completion endpoint
+        #
+        # {"inputs": [prompt],
+        #  {
+        #    "parameters": {
+        #      "temperature": 0.2
+        #    }
+        #   }
+        # }
+
         resp = await self._request(
             self.config.model.name,
-            payload,
+            final_payload,
         )
         # Response example (https://docs.mosaicml.com/en/latest/inference.html#text-completion-models)
         # ```
@@ -78,6 +97,11 @@ class MosaicMLProvider(BaseProvider):
                     status_code=400, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         payload = rename_payload_keys(payload, key_mapping)
+
+        # Ensure 'inputs' is a list of strings
+        if isinstance(payload["inputs"], str):
+            payload["inputs"] = [payload["inputs"]]
+
         resp = await self._request(
             self.config.model.name,
             payload,

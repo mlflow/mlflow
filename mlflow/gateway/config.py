@@ -29,7 +29,7 @@ class Provider(str, Enum):
     MLFLOW_MODEL_SERVING = "mlflow-model-serving"
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
-    MOSAICLML = "mosaicml"
+    MOSAICML = "mosaicml"
 
     @classmethod
     def values(cls):
@@ -50,8 +50,10 @@ class CohereConfig(ConfigModel):
     def validate_cohere_api_key(cls, value):
         return _resolve_api_key_from_input(value)
 
+
 class MosaicMLConfig(ConfigModel):
     mosaicml_api_key: str
+    mosaicml_api_base: Optional[str] = "https://models.hosted-on.mosaicml.hosting"
 
     # pylint: disable=no-self-argument
     @validator("mosaicml_api_key", pre=True)
@@ -155,6 +157,7 @@ config_types = {
     Provider.ANTHROPIC: AnthropicConfig,
     Provider.MOSAICLML: MosaicMLConfig,
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
+    Provider.MOSAICML: MosaicMLConfig,
 }
 
 
@@ -210,6 +213,7 @@ class Model(ConfigModel):
             AnthropicConfig,
             MosaicMLConfig,
             MlflowModelServingConfig,
+            MosaicMLConfig,
         ]
     ] = None
 
