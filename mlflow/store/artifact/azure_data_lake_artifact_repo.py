@@ -157,7 +157,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
             func(**kwargs)
         except requests.HTTPError as e:
             if e.response.status_code in [403]:
-                new_credentials = self._get_write_credential_infos(paths=[artifact_file_path])[0]
+                new_credentials = self._get_write_credential_infos([artifact_file_path])[0]
                 kwargs["sas_url"] = new_credentials.signed_uri
                 func(**kwargs)
             else:
@@ -217,13 +217,26 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
 
     def _get_presigned_uri(self, artifact_file_path):
         """
-        Gets the presigned URL required to upload a file to a given Azure storage location.
+        Gets the presigned URL required to upload a file to or download a file from a given Azure
+        storage location.
+
+        :param artifact_file_path: Path of the file relative to the artifact repository root.
+        :return: a string presigned URL.
         """
         sas_token = self.credential.signature
-        return f"https://{self.account_name}.dfs.core.windows.net/{self.container}/{self.base_data_lake_directory}/{artifact_file_path}?{sas_token}"
+        return (
+            f"https://{self.account_name}.dfs.core.windows.net/{self.container}/"
+            + f"{self.base_data_lake_directory}/{artifact_file_path}?{sas_token}"
+        )
 
-    def _get_write_credential_infos(self, paths) -> List[ArtifactCredentialInfo]:
-        return [ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path)) for path in paths]
+    def _get_write_credential_infos(self, remote_file_paths) -> List[ArtifactCredentialInfo]:
+        return [
+            ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path))
+            for path in remote_file_paths
+        ]
 
-    def _get_read_credential_infos(self, paths) -> List[ArtifactCredentialInfo]:
-        return [ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path)) for path in paths]
+    def _get_read_credential_infos(self, remote_file_paths) -> List[ArtifactCredentialInfo]:
+        return [
+            ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path))
+            for path in remote_file_paths
+        ]

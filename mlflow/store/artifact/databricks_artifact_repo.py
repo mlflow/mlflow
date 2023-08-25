@@ -178,29 +178,32 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
         return credential_infos
 
-    def _get_write_credential_infos(self, paths):
+    def _get_write_credential_infos(self, remote_file_paths):
         """
         :return: A list of `ArtifactCredentialInfo` objects providing write access to the specified
                  run-relative artifact `paths` within the MLflow Run specified by `run_id`.
         """
-        run_relative_paths = [
-            posixpath.join(self.run_relative_artifact_repo_root_path, artifact_file_path or "")
-            for artifact_file_path in paths
+        run_relative_remote_paths = [
+            posixpath.join(self.run_relative_artifact_repo_root_path, p or "")
+            for p in remote_file_paths
         ]
-        return self._get_credential_infos(GetCredentialsForWrite, self.run_id, run_relative_paths)
+        return self._get_credential_infos(
+            GetCredentialsForWrite, self.run_id, run_relative_remote_paths
+        )
 
-    def _get_read_credential_infos(self, paths):
+    def _get_read_credential_infos(self, remote_file_paths):
         """
         :return: A list of `ArtifactCredentialInfo` objects providing read access to the specified
                  run-relative artifact `paths` within the MLflow Run specified by `run_id`.
         """
-        if type(paths) == str:
-            paths = [paths]
-        if type(paths) != list:
-            raise MlflowException(f"Expected `paths` to be a list of strings. Got {type(paths)}")
+        if type(remote_file_paths) == str:
+            remote_file_paths = [remote_file_paths]
+        if type(remote_file_paths) != list:
+            raise MlflowException(
+                f"Expected `paths` to be a list of strings. Got {type(remote_file_paths)}"
+            )
         run_relative_remote_paths = [
-            posixpath.join(self.run_relative_artifact_repo_root_path, remote_file_path)
-            for remote_file_path in paths
+            posixpath.join(self.run_relative_artifact_repo_root_path, p) for p in remote_file_paths
         ]
         return self._get_credential_infos(
             GetCredentialsForRead, self.run_id, run_relative_remote_paths
@@ -227,7 +230,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     "Failed to authorize request, possibly due to credential expiration."
                     " Refreshing credentials and trying again..."
                 )
-                credential_info = self._get_write_credential_infos(paths=[artifact_file_path])[0]
+                credential_info = self._get_write_credential_infos([artifact_file_path])[0]
                 put_block(credential_info.signed_uri, block_id, chunk, headers=headers)
             else:
                 raise e
@@ -277,9 +280,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                         "Failed to authorize request, possibly due to credential expiration."
                         " Refreshing credentials and trying again..."
                     )
-                    credential_info = self._get_write_credential_infos(paths=[artifact_file_path])[
-                        0
-                    ]
+                    credential_info = self._get_write_credential_infos([artifact_file_path])[0]
                     put_block_list(
                         credential_info.signed_uri, uploading_block_list, headers=headers
                     )
@@ -298,7 +299,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     "Failed to authorize ADLS operation, possibly due "
                     "to credential expiration. Refreshing credentials and trying again..."
                 )
-                new_credentials = self._get_write_credential_infos(paths=[artifact_file_path])[0]
+                new_credentials = self._get_write_credential_infos([artifact_file_path])[0]
                 kwargs["sas_url"] = new_credentials.signed_uri
                 func(**kwargs)
             else:
@@ -379,8 +380,14 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
         """
-        Upload a local file to the specified run-relative `artifact_path` using
-        the supplied `cloud_credential_info`.
+        Upload a local file to the cloud. Note that in this artifact repository, files are uploaded
+        to run-relative artifact file paths in the artifact repository.
+
+        :param cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file.
+        :param src_file_path: Local source file path for the upload.
+        :param artifact_file_path: Path in the artifact repository, relative to the run root path,
+                                   where the artifact will be logged.
+        :return:
         """
         if cloud_credential_info.type == ArtifactCredentialType.AZURE_SAS_URI:
             self._azure_upload_file(cloud_credential_info, src_file_path, artifact_file_path)
@@ -402,7 +409,12 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
     def _download_from_cloud(self, remote_file_path, local_path):
         """
-        Download a file from the input `cloud_credential_info` and save it to `dst_local_file_path`.
+        Download a file from the input `remote_file_path` and save it to `local_path`.
+
+        :param remote_file_path: Path relative to the run root path to file in remote artifact
+                                 repository.
+        :param local_path: Local path to download file to.
+        :return:
         """
         read_credentials = self._get_read_credential_infos(remote_file_path)
         # Read credentials for only one file were requested. So we expected only one value in
@@ -523,9 +535,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             augmented_raise_for_status(response)
             return response
 
-    def _multipart_upload(self, local_file, artifact_path):
+    def _multipart_upload(self, local_file, artifact_file_path):
         run_relative_artifact_path = posixpath.join(
-            self.run_relative_artifact_repo_root_path, artifact_path or ""
+            self.run_relative_artifact_repo_root_path, artifact_file_path or ""
         )
         num_parts = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
         create_mpu_resp = self._create_multipart_upload(
@@ -549,7 +561,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
     def log_artifact(self, local_file, artifact_path=None):
         src_file_name = os.path.basename(local_file)
         artifact_file_path = posixpath.join(artifact_path or "", src_file_name)
-        write_credential_info = self._get_write_credential_infos(paths=[artifact_file_path])[0]
+        write_credential_info = self._get_write_credential_infos([artifact_file_path])[0]
         self._upload_to_cloud(
             cloud_credential_info=write_credential_info,
             src_file_path=local_file,

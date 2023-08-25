@@ -113,7 +113,7 @@ class CloudArtifactRepository(ArtifactRepository):
         def upload_artifacts_iter():
             for staged_upload_chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
                 write_credential_infos = self._get_write_credential_infos(
-                    paths=[
+                    remote_file_paths=[
                         staged_upload.artifact_file_path for staged_upload in staged_upload_chunk
                     ],
                 )
@@ -156,12 +156,12 @@ class CloudArtifactRepository(ArtifactRepository):
             )
 
     @abstractmethod
-    def _get_write_credential_infos(self, paths):
+    def _get_write_credential_infos(self, remote_file_paths):
         """
-        For a batch of local files, get the write credentials for each file, which include
-        a presigned URL per file
+        Retrieve write credentials for a batch of remote file paths, including presigned URLs.
 
-        Return a list of CredentialInfo objects, one for each file.
+        :param remote_file_paths: List of destination file paths on the remote server.
+        :return: List of ArtifactCredentialInfo objects corresponding to each file path.
         """
         pass
 
@@ -169,10 +169,11 @@ class CloudArtifactRepository(ArtifactRepository):
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
         """
         Upload a single file to the cloud.
-        :param cloud_credential_info: ArtifactCredentialInfo containing presigned URL for the
-                                      current file
-        :param src_file_path: source file path
-        :param artifact_file_path: artifact path, including file name
+
+        :param cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file.
+        :param src_file_path: Local source file path for the upload.
+        :param artifact_file_path: Path in the artifact repository where the artifact will be
+                                   logged.
         :return:
         """
         pass
@@ -248,15 +249,22 @@ class CloudArtifactRepository(ArtifactRepository):
             self._parallelized_download_from_cloud(file_size, remote_file_path, local_path)
 
     @abstractmethod
-    def _get_read_credential_infos(self, paths):
+    def _get_read_credential_infos(self, remote_file_paths):
         """
-        For a batch of remote file paths, get the read credentials for each file, which include
-        a presigned URL per file
+        Retrieve read credentials for a batch of remote file paths, including presigned URLs.
 
-        Return a list of CredentialInfo objects, one for each file.
+        :param remote_file_paths: List of file paths in remote artifact repository.
+        :return: List of ArtifactCredentialInfo objects corresponding to each file path.
         """
         pass
 
     @abstractmethod
     def _download_from_cloud(self, remote_file_path, local_path):
+        """
+        Download a file from the input `remote_file_path` and save it to `local_path`.
+
+        :param remote_file_path: Path to file in remote artifact repository.
+        :param local_path: Local path to download file to.
+        :return:
+        """
         pass
