@@ -1,5 +1,5 @@
-from mlflow.utils.autologging_utils import BatchMetricsLogger
 from mlflow import log_param, log_text
+from mlflow.utils.autologging_utils import BatchMetricsLogger
 
 try:
     from tensorflow import keras
