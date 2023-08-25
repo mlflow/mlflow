@@ -142,7 +142,7 @@ class ModelSignature:
 
 
 def infer_signature(
-    model_input: Any,
+    model_input: Any = None,
     model_output: "MlflowInferableDataset" = None,
     params: Optional[Dict[str, Any]] = None,
 ) -> ModelSignature:
@@ -217,7 +217,7 @@ def infer_signature(
 
     :return: ModelSignature
     """
-    inputs = _infer_schema(model_input)
+    inputs = _infer_schema(model_input) if model_input is not None else None
     outputs = _infer_schema(model_output) if model_output is not None else None
     params = _infer_param_schema(params) if params else None
     return ModelSignature(inputs, outputs, params)
