@@ -61,17 +61,17 @@ class ModelSignature:
         if inputs and not isinstance(inputs, Schema):
             raise TypeError(
                 "inputs must be either None or mlflow.models.signature.Schema, "
-                f"got '{type(inputs)}'"
+                f"got '{type(inputs).__name__}'"
             )
         if outputs and not isinstance(outputs, Schema):
             raise TypeError(
                 "outputs must be either None or mlflow.models.signature.Schema, "
-                f"got '{type(inputs)}'"
+                f"got '{type(outputs).__name__}'"
             )
         if params and not isinstance(params, ParamSchema):
             raise TypeError(
-                "If params are provided, they must by of type mlflow.models.signature.ParamSchema. "
-                f"Got '{type(params)}'"
+                "If params are provided, they must by of type mlflow.models.signature.ParamSchema, "
+                f"got '{type(params).__name__}'"
             )
         if all(x is None for x in [inputs, outputs, params]):
             raise ValueError("At least one of inputs, outputs or params must be provided")
@@ -108,17 +108,9 @@ class ModelSignature:
 
         :return: ModelSignature populated with the data form the dictionary.
         """
-        inputs = (
-            Schema.from_json(signature_dict["inputs"]) if signature_dict.get("inputs") else None
-        )
-        outputs = (
-            Schema.from_json(signature_dict["outputs"]) if signature_dict.get("outputs") else None
-        )
-        params = (
-            ParamSchema.from_json(signature_dict["params"])
-            if signature_dict.get("params")
-            else None
-        )
+        inputs = Schema.from_json(x) if (x := signature_dict.get("inputs")) else None
+        outputs = Schema.from_json(x) if (x := signature_dict.get("outputs")) else None
+        params = ParamSchema.from_json(x) if (x := signature_dict.get("params")) else None
 
         return cls(inputs, outputs, params)
 
