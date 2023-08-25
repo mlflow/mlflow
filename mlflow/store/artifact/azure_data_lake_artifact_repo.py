@@ -158,7 +158,10 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                 raise e
 
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
-        if os.path.getsize(src_file_path) > 10_000_000 and MLFLOW_ENABLE_MULTIPART_UPLOAD.get():
+        if (
+            os.path.getsize(src_file_path) > _MULTIPART_UPLOAD_CHUNK_SIZE
+            and MLFLOW_ENABLE_MULTIPART_UPLOAD.get()
+        ):
             self._multipart_upload(cloud_credential_info, src_file_path, artifact_file_path)
         else:
             artifact_subdir = posixpath.dirname(artifact_file_path)
@@ -224,9 +227,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         return f"https://{self.account_name}.dfs.core.windows.net/{self.container}/{self.base_data_lake_directory}/{artifact_file_path}?{sas_token}"
 
     def _get_write_credential_infos(self, paths) -> List[ArtifactCredentialInfo]:
-        res = [ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path)) for path in paths]
-        return res
+        return [ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path)) for path in paths]
 
     def _get_read_credential_infos(self, paths) -> List[ArtifactCredentialInfo]:
-        res = [ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path)) for path in paths]
-        return res
+        return [ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path)) for path in paths]

@@ -169,8 +169,8 @@ class CloudArtifactRepository(ArtifactRepository):
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
         """
         Upload a single file to the cloud.
-        :param cloud_credential_info: ArtifactCredentialInfo containing presigned URL for the current file
-                                      Note: in S3 this gets ignored
+        :param cloud_credential_info: ArtifactCredentialInfo containing presigned URL for the
+                                      current file
         :param src_file_path: source file path
         :param artifact_file_path: artifact path, including file name
         :return:
