@@ -1,24 +1,25 @@
 import os
 import posixpath
 import re
-import requests
-from typing import List
 import urllib.parse
+from typing import List
 
-from mlflow.azure.client import put_adls_file_creation, patch_adls_flush, patch_adls_file_upload
+import requests
+
+from mlflow.azure.client import patch_adls_file_upload, patch_adls_flush, put_adls_file_creation
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
     MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT,
     MLFLOW_ENABLE_MULTIPART_UPLOAD,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.cloud_artifact_repo import (
-    CloudArtifactRepository,
-    _compute_num_chunks,
-    _complete_futures,
-    _MULTIPART_UPLOAD_CHUNK_SIZE,
-)
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
+from mlflow.store.artifact.cloud_artifact_repo import (
+    _MULTIPART_UPLOAD_CHUNK_SIZE,
+    CloudArtifactRepository,
+    _complete_futures,
+    _compute_num_chunks,
+)
 
 
 def _parse_abfss_uri(uri):

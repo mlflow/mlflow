@@ -7,17 +7,17 @@ from collections import namedtuple
 from concurrent.futures import as_completed
 
 from mlflow.environment_variables import (
-    MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
     MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
+    MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils import chunk_list
 from mlflow.utils.file_utils import (
     ArtifactProgressBar,
+    download_chunk,
     parallelized_download_file_using_http_uri,
     relative_path_to_artifact_path,
-    download_chunk,
 )
 
 _logger = logging.getLogger(__name__)

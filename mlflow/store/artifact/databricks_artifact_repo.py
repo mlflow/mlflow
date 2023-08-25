@@ -32,11 +32,11 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.protos.service_pb2 import GetRun, ListArtifacts, MlflowService
 from mlflow.store.artifact.cloud_artifact_repo import (
+    _DOWNLOAD_CHUNK_SIZE,
+    _MULTIPART_UPLOAD_CHUNK_SIZE,
     CloudArtifactRepository,
     _complete_futures,
     _compute_num_chunks,
-    _DOWNLOAD_CHUNK_SIZE,
-    _MULTIPART_UPLOAD_CHUNK_SIZE,
 )
 from mlflow.utils import chunk_list
 from mlflow.utils.databricks_utils import get_databricks_host_creds
