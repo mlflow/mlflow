@@ -4,10 +4,10 @@ import tensorflow as tf
 from tensorflow import keras
 
 import mlflow
-from mlflow.tensorflow import MLflowMetricsLoggingCallback
+from mlflow.tensorflow.callbacks import MLflowMetricsLoggingCallback
 
 
-@pytest.mark.parametrize("log_every_epoch, log_every_n_steps", [(True, None), (False, 1)])
+@pytest.mark.parametrize(("log_every_epoch", "log_every_n_steps"), [(True, None), (False, 1)])
 def test_tf_mlflow_callback(log_every_epoch, log_every_n_steps):
     # Prepare data for a 2-class classification.
     data = tf.random.uniform([20, 28, 28, 3])
