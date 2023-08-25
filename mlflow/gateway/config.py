@@ -50,6 +50,14 @@ class CohereConfig(ConfigModel):
     def validate_cohere_api_key(cls, value):
         return _resolve_api_key_from_input(value)
 
+class MosaicMLConfig(ConfigModel):
+    mosaicml_api_key: str
+
+    # pylint: disable=no-self-argument
+    @validator("mosaicml_api_key", pre=True)
+    def validate_mosaicml_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
 
 class OpenAIAPIType(str, Enum):
     OPENAI = "openai"
