@@ -428,7 +428,7 @@ class TrackingServiceClient:
             artifact_uri = add_databricks_profile_info_to_artifact_uri(
                 run.info.artifact_uri, self.tracking_uri
             )
-            artifact_repo = get_artifact_repository(artifact_uri)
+            artifact_repo = get_artifact_repository(artifact_uri, self.tracking_uri)
             # Cache the artifact repo to avoid a future network call, removing the oldest
             # entry in the cache if there are too many elements
             if len(TrackingServiceClient._artifact_repos_cache) > 1024:
