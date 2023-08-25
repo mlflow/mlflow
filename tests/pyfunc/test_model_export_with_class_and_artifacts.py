@@ -27,6 +27,7 @@ import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
+from mlflow.pyfunc.model import _load_pyfunc
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
@@ -1422,3 +1423,23 @@ def test_python_model_predict_with_params():
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert loaded_model.predict(["a", "b"], params={"foo": [0, 1]}) == ["a", "b"]
     assert loaded_model.predict(["a", "b"], params={"foo": np.array([0, 1])}) == ["a", "b"]
+
+
+def test_artifact_path_posix(sklearn_knn_model, main_scoped_model_class, tmp_path):
+    sklearn_model_path = tmp_path.joinpath("sklearn_model")
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+
+    def test_predict(sk_model, model_input):
+        return sk_model.predict(model_input) * 2
+
+    pyfunc_model_path = tmp_path.joinpath("pyfunc_model")
+
+    mlflow.pyfunc.save_model(
+        path=pyfunc_model_path,
+        artifacts={"sk_model": str(sklearn_model_path)},
+        conda_env=_conda_env(),
+        python_model=main_scoped_model_class(test_predict),
+    )
+
+    artifacts = _load_pyfunc(pyfunc_model_path).context.artifacts
+    assert all("\\" not in artifact_uri for artifact_uri in artifacts.values())

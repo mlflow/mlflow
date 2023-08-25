@@ -395,7 +395,7 @@ def set_signature(
         # load model from run artifacts
         run_id = "96771d893a5e46159d9f3b49bf9013e2"
         artifact_path = "models"
-        model_uri = "runs:/{}/{}".format(run_id, artifact_path)
+        model_uri = f"runs:/{run_id}/{artifact_path}"
         model = mlflow.pyfunc.load_model(model_uri)
 
         # determine model signature

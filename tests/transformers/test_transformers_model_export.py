@@ -3653,3 +3653,91 @@ def test_whisper_model_supports_timestamps(raw_audio_file, whisper_pipeline):
     first_timestamp = prediction["chunks"][0]["timestamp"]
     assert isinstance(first_timestamp, tuple)
     assert prediction_inference["chunks"][0]["timestamp"][1] == first_timestamp[1]
+
+
+def test_pyfunc_model_log_load_with_artifacts_snapshot():
+    architecture = "prajjwal1/bert-tiny"
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+    model = transformers.BertForQuestionAnswering.from_pretrained(architecture)
+    bert_tiny_pipeline = transformers.pipeline(
+        task="question-answering", model=model, tokenizer=tokenizer
+    )
+
+    class QAModel(mlflow.pyfunc.PythonModel):
+        def load_context(self, context):
+            """
+            This method initializes the tokenizer and language model
+            using the specified snapshot location.
+            """
+            snapshot_location = context.artifacts["bert-tiny-model"]
+            # Initialize tokenizer and language model
+            tokenizer = transformers.AutoTokenizer.from_pretrained(snapshot_location)
+            model = transformers.BertForQuestionAnswering.from_pretrained(snapshot_location)
+            self.pipeline = transformers.pipeline(
+                task="question-answering", model=model, tokenizer=tokenizer
+            )
+
+        def predict(self, context, model_input, params=None):
+            question = model_input["question"][0]
+            if isinstance(question, np.ndarray):
+                question = question.item()
+            ctx = model_input["context"][0]
+            if isinstance(ctx, np.ndarray):
+                ctx = ctx.item()
+            return self.pipeline(question=question, context=ctx)
+
+    data = {"question": "Who's house?", "context": "The house is owned by Run."}
+    pyfunc_artifact_path = "question_answering_model"
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path=pyfunc_artifact_path,
+            python_model=QAModel(),
+            artifacts={"bert-tiny-model": "hf:/prajjwal1/bert-tiny"},
+            input_example=data,
+            signature=infer_signature(
+                data, mlflow.transformers.generate_signature_output(bert_tiny_pipeline, data)
+            ),
+            extra_pip_requirements=["transformers", "torch", "numpy"],
+        )
+
+        pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
+        assert model_info.model_uri == pyfunc_model_uri
+        pyfunc_model_path = _download_artifact_from_uri(
+            f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
+        )
+        assert len(os.listdir(os.path.join(pyfunc_model_path, "artifacts"))) != 0
+        model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_uri)
+    assert model_config.to_yaml() == loaded_pyfunc_model.metadata.to_yaml()
+    assert loaded_pyfunc_model.predict(data)["answer"] != ""
+
+    # Test model serving
+    inference_payload = json.dumps({"inputs": data})
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records")[0]["answer"] != ""
+
+
+def test_pyfunc_model_log_load_with_artifacts_snapshot_errors():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    with mlflow.start_run():
+        with pytest.raises(
+            MlflowException,
+            match=r"Failed to download snapshot from Hugging Face Hub "
+            r"with artifact_uri: hf:/invalid-repo-id.",
+        ):
+            mlflow.pyfunc.log_model(
+                artifact_path="pyfunc_artifact_path",
+                python_model=TestModel(),
+                artifacts={"some-model": "hf:/invalid-repo-id"},
+            )

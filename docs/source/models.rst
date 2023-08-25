@@ -2032,11 +2032,11 @@ using a ``fastai`` data loader:
         artifacts = [
             f.path for f in mlflow.MlflowClient().list_artifacts(r.info.run_id, "model")
         ]
-        print("run_id: {}".format(r.info.run_id))
-        print("artifacts: {}".format(artifacts))
-        print("params: {}".format(r.data.params))
-        print("metrics: {}".format(r.data.metrics))
-        print("tags: {}".format(tags))
+        print(f"run_id: {r.info.run_id}")
+        print(f"artifacts: {artifacts}")
+        print(f"params: {r.data.params}")
+        print(f"metrics: {r.data.metrics}")
+        print(f"tags: {tags}")
 
 
     def main(epochs=5, learning_rate=0.01):
@@ -2091,7 +2091,7 @@ using a ``fastai`` data loader:
 
         print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
 
-        model_uri = "runs:/{}/model".format(run.info.run_id)
+        model_uri = f"runs:/{run.info.run_id}/model"
         loaded_model = mlflow.fastai.load_model(model_uri)
 
         test_df = df.copy()
@@ -3758,9 +3758,7 @@ evaluate test data.
     from sklearn import datasets
     from sklearn.model_selection import train_test_split
 
-    PYTHON_VERSION = "{major}.{minor}.{micro}".format(
-        major=version_info.major, minor=version_info.minor, micro=version_info.micro
-    )
+    PYTHON_VERSION = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
     iris = datasets.load_iris()
     x = iris.data[:, 2:]
     y = iris.target
@@ -3799,13 +3797,13 @@ evaluate test data.
     conda_env = {
         "channels": ["defaults"],
         "dependencies": [
-            "python={}".format(PYTHON_VERSION),
+            f"python={PYTHON_VERSION}",
             "pip",
             {
                 "pip": [
-                    "mlflow=={}".format(mlflow.__version__),
-                    "xgboost=={}".format(xgb.__version__),
-                    "cloudpickle=={}".format(cloudpickle.__version__),
+                    f"mlflow=={mlflow.__version__}",
+                    f"xgboost=={xgb.__version__}",
+                    f"cloudpickle=={cloudpickle.__version__}",
                 ],
             },
         ],
@@ -3829,6 +3827,60 @@ evaluate test data.
 
     test_predictions = loaded_model.predict(pd.DataFrame(x_test))
     print(test_predictions)
+
+Example: Logging a transformers model with hf:/ schema to avoid copying large files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This example shows how to use a special schema ``hf:/`` to log a transformers model from huggingface
+hub directly. This is useful when the model is too large and especially when you want to serve the 
+model directly, but it doesn't save extra space if you want to download and test the model locally.
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.models import infer_signature
+    import numpy as np
+    import transformers
+
+
+    # Define a custom PythonModel
+    class QAModel(mlflow.pyfunc.PythonModel):
+        def load_context(self, context):
+            """
+            This method initializes the tokenizer and language model
+            using the specified snapshot location from model context.
+            """
+            snapshot_location = context.artifacts["bert-tiny-model"]
+            # Initialize tokenizer and language model
+            tokenizer = transformers.AutoTokenizer.from_pretrained(snapshot_location)
+            model = transformers.BertForQuestionAnswering.from_pretrained(snapshot_location)
+            self.pipeline = transformers.pipeline(
+                task="question-answering", model=model, tokenizer=tokenizer
+            )
+
+        def predict(self, context, model_input, params=None):
+            question = model_input["question"][0]
+            if isinstance(question, np.ndarray):
+                question = question.item()
+            ctx = model_input["context"][0]
+            if isinstance(ctx, np.ndarray):
+                ctx = ctx.item()
+            return self.pipeline(question=question, context=ctx)
+
+
+    # Log the model
+    data = {"question": "Who's house?", "context": "The house is owned by Run."}
+    pyfunc_artifact_path = "question_answering_model"
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path=pyfunc_artifact_path,
+            python_model=QAModel(),
+            artifacts={"bert-tiny-model": "hf:/prajjwal1/bert-tiny"},
+            input_example=data,
+            signature=infer_signature(data, ["Run"]),
+            extra_pip_requirements=["torch", "accelerate", "transformers", "numpy"],
+        )
+
 
 .. _custom-flavors:
 
