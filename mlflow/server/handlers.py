@@ -16,7 +16,10 @@ from google.protobuf.json_format import ParseError
 
 from mlflow.entities import DatasetInput, ExperimentTag, FileInfo, Metric, Param, RunTag, ViewType
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
-from mlflow.environment_variables import MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE
+from mlflow.environment_variables import (
+    MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE,
+    MLFLOW_GATEWAY_URI,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
@@ -1127,19 +1130,12 @@ def search_datasets_handler():
 @catch_mlflow_exception
 def gateway_proxy_handler():
     args = request.json
-    from mlflow.server import GATEWAY_HOST_VAR, GATEWAY_PORT_VAR
 
-    host = os.environ.get(GATEWAY_HOST_VAR, None)
-    _logger.info("host: %s", host)
-    if not host:
+    gateway_uri = MLFLOW_GATEWAY_URI.get()
+    _logger.info("gateway_uri: %s", gateway_uri)
+    if not gateway_uri:
         raise MlflowException(
-            message="MLFLOW_GATEWAY_HOST environment variable must be set.",
-            error_code=INTERNAL_ERROR,
-        )
-    port = os.environ.get(GATEWAY_PORT_VAR, None)
-    if not port:
-        raise MlflowException(
-            message="MLFLOW_GATEWAY_PORT environment variable must be set.",
+            message="MLFLOW_GATEWAY_URI environment variable must be set.",
             error_code=INTERNAL_ERROR,
         )
 
@@ -1152,9 +1148,8 @@ def gateway_proxy_handler():
     request_type = request.method
     json_data = args.get("json_data", None)
 
-    response = requests.request(
-        request_type, f"http://{host}:{port}/{gateway_path}", json=json_data
-    )
+    _logger.info("request url: %s", f"{gateway_uri}/{gateway_path}")
+    response = requests.request(request_type, f"{gateway_uri}/{gateway_path}", json=json_data)
 
     if response.status_code == 200:
         return response.json()

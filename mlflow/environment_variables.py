@@ -418,3 +418,11 @@ MLFLOW_SAGEMAKER_DEPLOY_IMG_URL = _EnvironmentVariable("MLFLOW_SAGEMAKER_DEPLOY_
 #: Specifies whether to disable creating a new conda environment for `mlflow models build-docker`.
 #: (default: ``False``)
 MLFLOW_DISABLE_ENV_CREATION = _BooleanEnvironmentVariable("MLFLOW_DISABLE_ENV_CREATION", False)
+
+#: Specifies the host of the Mlflow Gateway Server instance to be used with the Gateway APIs
+#: (default: ``None``)
+MLFLOW_GATEWAY_HOST = _EnvironmentVariable("MLFLOW_GATEWAY_HOST", str, None)
+
+#: Specifies the port of the Mlflow Gateway Server instance to be used with the Gateway APIs
+#: (default: ``None``)
+MLFLOW_GATEWAY_PORT = _EnvironmentVariable("MLFLOW_GATEWAY_PORT", str, None)
