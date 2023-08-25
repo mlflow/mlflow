@@ -966,6 +966,10 @@ def _convert_data_to_mlflow_dataset(data, targets=None):
         return mlflow.data.from_spark(df=data, targets=targets)
     else:
         # Cannot convert to mlflow dataset, return original data.
+        _logger.info(
+            "Cannot convert input data to `evaluate()` to an mlflow dataset, input must be a list, "
+            f"a numpy array, a panda Dataframe or a spark Dataframe, but received {type(data)}."
+        )
         return data
 
 
