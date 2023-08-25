@@ -1,7 +1,9 @@
 import json
+from pathlib import Path
 from typing import List
 
 from mlflow.entities import Param
+from mlflow.types.schema import ColSpec, DataType, Schema
 
 
 def create_conda_yaml_file(mlflow_version: str) -> str:
@@ -39,37 +41,74 @@ def create_model_file(
     model_uuid: str,
     utc_time_created: str,
 ) -> str:
+    from mlflow.models import Model
+    from mlflow.models.signature import ModelSignature
+
     inputs_signature = [{"name": param.key, "type": "string"} for param in prompt_parameters]
 
     outputs_signature = [{"name": "output", "type": "string"}]
 
-    model_file = {
-        "artifact_path": "model",
-        "flavors": {
+    # use mlflow.models.Model to create the model_file instead of manually creating the json
+    # model_file = {
+    #     "artifact_path": "model",
+    #     "flavors": {
+    #         "python_function": {
+    #             "env": {"conda": "conda.yaml", "virtualenv": "python_env.yaml"},
+    #             "loader_module": "gateway_loader_module",
+    #             "code": "loader",
+    #         }
+    #     },
+    #     "mlflow_version": mlflow_version,
+    #     "model_uuid": model_uuid,
+    #     "run_id": run_uuid,
+    #     "utc_time_created": utc_time_created,
+    #     "metadata": {"mlflow_uses_gateway": "true"},
+    #     "saved_input_example_info": {
+    #         "artifact_path": "input_example.json",
+    #         "type": "dataframe",
+    #         "pandas_orient": "split",
+    #     },
+    #     "signature": {
+    #         "inputs": json.dumps(inputs_signature),
+    #         "outputs": json.dumps(outputs_signature),
+    #     },
+    # }
+
+    # model_json = json.dumps(model_file)
+    # return model_json
+
+    inputs_colspec = [ColSpec(DataType.string, param.key) for param in prompt_parameters]
+
+    outputs_colspec = [ColSpec(DataType.string, "output")]
+
+    model = Model(
+        artifact_path="model",
+        run_id=run_uuid,
+        utc_time_created=utc_time_created,
+        flavors={
             "python_function": {
                 "env": {"conda": "conda.yaml", "virtualenv": "python_env.yaml"},
                 "loader_module": "gateway_loader_module",
                 "code": "loader",
             }
         },
-        "mlflow_version": mlflow_version,
-        "model_uuid": model_uuid,
-        "run_id": run_uuid,
-        "utc_time_created": utc_time_created,
-        "metadata": {"mlflow_uses_gateway": "true"},
-        "saved_input_example_info": {
+        signature=ModelSignature(
+            inputs=Schema(inputs_colspec),
+            outputs=Schema(outputs_colspec),
+        ),
+        saved_input_example_info={
             "artifact_path": "input_example.json",
             "type": "dataframe",
             "pandas_orient": "split",
         },
-        "signature": {
-            "inputs": json.dumps(inputs_signature),
-            "outputs": json.dumps(outputs_signature),
+        model_uuid=model_uuid,
+        mlflow_version=mlflow_version,
+        metadata={
+            "mlflow_uses_gateway": "true",
         },
-    }
+    )
 
-    model_json = json.dumps(model_file)
-    return model_json
+    return model.to_json()
 
 
 def create_input_example_file(prompt_parameters: List[Param]) -> str:
@@ -87,13 +126,16 @@ def create_loader_file(prompt_parameters, prompt_template, model_parameters, mod
     python_template = prompt_template.replace("{{", "$").replace("}}", "")
 
     # Escape triple quotes in the prompt template
-    sanitized_python_template = python_template.replace('"""', '"""')
+    # fmt: off
+    sanitized_python_template = python_template.replace('"""', "\"\"\"")
+    # fmt: on
 
     python_parameters = ",\n\t\t\t\t\t".join(
         [f'"{param.key}": {param.value}' for param in model_parameters]
     )
 
-    with open("mlflow/utils/promptlab_loader_module_template.txt") as loader_module_template:
+    template_path = Path(__file__).parent.joinpath("promptlab_loader_module_template.txt")
+    with template_path.open() as loader_module_template:
         loader_module_text = loader_module_template.read()
         loader_module_text = loader_module_text.replace(
             "__sanitized_python_template__", sanitized_python_template
