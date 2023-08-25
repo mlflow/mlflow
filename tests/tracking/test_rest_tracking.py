@@ -1685,12 +1685,18 @@ def test_gateway_proxy_handler_rejects_invalid_requests(mlflow_client):
         assert response_json.get("error_code") == "INVALID_PARAMETER_VALUE"
         assert message_part in response_json.get("message", "")
 
-    response = requests.post(
-        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
-        json={},
-    )
-    assert_response(
-        response,
-        "GatewayProxy request must specify a gateway_path.",
-    )
-    assert False
+    with _init_server(
+        backend_uri=mlflow_client.tracking_uri,
+        root_artifact_uri=mlflow_client.tracking_uri,
+        extra_env={"MLFLOW_GATEWAY_URI": "http://localhost:5001"},
+    ) as url:
+        patched_client = MlflowClient(url)
+
+        response = requests.post(
+            f"{patched_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
+            json={},
+        )
+        assert_response(
+            response,
+            "GatewayProxy request must specify a gateway_path.",
+        )
