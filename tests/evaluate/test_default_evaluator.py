@@ -22,7 +22,10 @@ from sklearn.svm import LinearSVC
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.metrics import make_metric
+from mlflow.metrics import (
+    MetricValue,
+    make_metric,
+)
 from mlflow.models import Model
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
@@ -1447,10 +1450,12 @@ def test_custom_metric_produced_multiple_artifacts_with_same_name_throw_exceptio
 
 def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_dataset):
     def true_count(_eval_df, given_metrics):
-        return given_metrics["true_negatives"] + given_metrics["true_positives"]
+        true_negatives = given_metrics["true_negatives"].aggregate_results["true_negatives"]
+        true_positives = given_metrics["true_positives"].aggregate_results["true_positives"]
+        return MetricValue(aggregate_results={"true_count": true_negatives + true_positives})
 
     def positive_count(eval_df, _given_metrics):
-        return np.sum(eval_df["prediction"])
+        return MetricValue(aggregate_results={"positive_count": np.sum(eval_df["prediction"])})
 
     def example_custom_artifact(_eval_df, _given_metrics, tmp_path):
         df = pd.DataFrame({"a": [1, 2, 3]})

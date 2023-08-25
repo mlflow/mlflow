@@ -22,6 +22,7 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.metric import Metric
 from mlflow.exceptions import MlflowException
+from mlflow.metrics import MetricValue
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
     ImageEvaluationArtifact,
@@ -35,7 +36,6 @@ from mlflow.models.evaluation.base import (
     _ModelType,
 )
 from mlflow.models.utils import plot_lines
-from mlflow.metrics import MetricValue
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.sklearn import _SklearnModelWrapper
@@ -413,10 +413,7 @@ def _gen_classifier_curve(
 
 
 def _get_metrics_values(metrics):
-    return {
-        name: MetricValue(None, None, aggregate_results={name: value})
-        for name, value in metrics.items()
-    }
+    return {name: MetricValue(aggregate_results={name: value}) for name, value in metrics.items()}
 
 
 _matplotlib_config = {
@@ -457,6 +454,10 @@ class _CustomArtifact(NamedTuple):
     artifacts_dir: str
 
 
+def _is_numeric(value):
+    return isinstance(value, (int, float, np.number))
+
+
 def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
     """
     This function calls the `custom_metric` function and performs validations on the returned
@@ -478,6 +479,9 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
 
     if metric is None:
         raise MlflowException(f"{exception_header} returned None.")
+
+    if _is_numeric(metric):
+        return MetricValue(aggregate_results={custom_metric_tuple.name: metric})
 
     if not isinstance(metric, MetricValue):
         raise MlflowException(f"{exception_header} did not return a MetricValue.")
@@ -558,6 +562,10 @@ class DefaultEvaluator(ModelEvaluator):
         """
         Helper method to log metrics into specified run.
         """
+        for _metric_name, metric in self.metrics_values.items():
+            for name, value in metric.aggregate_results.items():
+                self.metrics[name] = value
+
         timestamp = get_current_time_millis()
         self.client.log_batch(
             self.run_id,
@@ -1194,7 +1202,15 @@ class DefaultEvaluator(ModelEvaluator):
             )
         else:
             data = self.dataset.features_data.assign(outputs=self.y_pred)
-        data = data.assign(**self.metrics_dict)
+
+        # TODO: version should be after score or justification
+        aggregates = {}
+        for metric_name, metric in self.metrics_values.items():
+            scores = metric.scores
+            justifications = metric.justifications
+            aggregates[f"{metric_name}/score"] = scores
+            aggregates[f"{metric_name}/justification"] = justifications
+        data = data.assign(**aggregates)
         mlflow.log_table(data, artifact_file=f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}")
 
     def _calculate_perplexity(self, predictions):
@@ -1279,7 +1295,6 @@ class DefaultEvaluator(ModelEvaluator):
             self.metrics_values.update(_get_metrics_values({"exact_match": acc}))
         self._calculate_general_text_metrics()
 
-        self._log_eval_table()
         name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
             uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
@@ -1312,7 +1327,6 @@ class DefaultEvaluator(ModelEvaluator):
             self._calculate_rouge()
         self._calculate_general_text_metrics()
 
-        self._log_eval_table()
         name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
             uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
@@ -1320,7 +1334,6 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _evaluate_text(self):
         self._calculate_general_text_metrics()
-        self._log_eval_table()
         name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
             uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
@@ -1344,6 +1357,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.predict_fn, self.predict_proba_fn = _extract_predict_fn(model, self.raw_model)
 
             self.artifacts = {}
+            self.metrics = {}
             self.metrics_values = {}
 
             if self.model_type not in _ModelType.values():
@@ -1382,6 +1396,7 @@ class DefaultEvaluator(ModelEvaluator):
                 if not is_baseline_model:
                     self._log_artifacts()
                     self._log_metrics()
+                    self._log_eval_table()
                 return EvaluationResult(metrics=self.metrics, artifacts=self.artifacts)
 
     def evaluate(
