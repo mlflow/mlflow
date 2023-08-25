@@ -160,7 +160,7 @@ class CloudArtifactRepository(ArtifactRepository):
         """
         Retrieve write credentials for a batch of remote file paths, including presigned URLs.
 
-        :param remote_file_paths: List of destination file paths on the remote server.
+        :param remote_file_paths: List of file paths in the remote artifact repository.
         :return: List of ArtifactCredentialInfo objects corresponding to each file path.
         """
         pass
@@ -253,7 +253,7 @@ class CloudArtifactRepository(ArtifactRepository):
         """
         Retrieve read credentials for a batch of remote file paths, including presigned URLs.
 
-        :param remote_file_paths: List of file paths in remote artifact repository.
+        :param remote_file_paths: List of file paths in the remote artifact repository.
         :return: List of ArtifactCredentialInfo objects corresponding to each file path.
         """
         pass
@@ -263,7 +263,7 @@ class CloudArtifactRepository(ArtifactRepository):
         """
         Download a file from the input `remote_file_path` and save it to `local_path`.
 
-        :param remote_file_path: Path to file in remote artifact repository.
+        :param remote_file_path: Path to file in the remote artifact repository.
         :param local_path: Local path to download file to.
         :return:
         """
