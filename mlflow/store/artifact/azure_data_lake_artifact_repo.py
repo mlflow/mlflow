@@ -1,9 +1,9 @@
 import os
 import posixpath
 import re
-import urllib.parse
 import requests
 from typing import List
+import urllib.parse
 
 from mlflow.azure.client import put_adls_file_creation, patch_adls_flush, patch_adls_file_upload
 from mlflow.entities import FileInfo
