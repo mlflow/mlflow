@@ -1135,7 +1135,7 @@ def gateway_proxy_handler():
     _logger.info("gateway_uri: %s", gateway_uri)
     if not gateway_uri:
         raise MlflowException(
-            message=f"{MLFLOW_GATEWAY_URI} environment variable must be set.",
+            message="MLFLOW_GATEWAY_URI environment variable must be set.",
             error_code=INTERNAL_ERROR,
         )
 
@@ -1154,7 +1154,8 @@ def gateway_proxy_handler():
         return response.json()
     else:
         raise MlflowException(
-            message=f"GatewayProxy request failed with error code {response.status_code}. Error message: {response.text}",
+            message=f"GatewayProxy request failed with error code {response.status_code}. "
+            f"Error message: {response.text}",
             error_code=INTERNAL_ERROR,
         )
 
