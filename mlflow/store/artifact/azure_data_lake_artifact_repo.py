@@ -143,8 +143,8 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
 
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
         if (
-            os.path.getsize(src_file_path) > _MULTIPART_UPLOAD_CHUNK_SIZE
-            and MLFLOW_ENABLE_MULTIPART_UPLOAD.get()
+            MLFLOW_ENABLE_MULTIPART_UPLOAD.get()
+            and os.path.getsize(src_file_path) > _MULTIPART_UPLOAD_CHUNK_SIZE
         ):
             self._multipart_upload(cloud_credential_info, src_file_path, artifact_file_path)
         else:
@@ -226,7 +226,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         sas_token = self.credential.signature
         return (
             f"https://{self.account_name}.dfs.core.windows.net/{self.container}/"
-            + f"{self.base_data_lake_directory}/{artifact_file_path}?{sas_token}"
+            f"{self.base_data_lake_directory}/{artifact_file_path}?{sas_token}"
         )
 
     def _get_write_credential_infos(self, remote_file_paths) -> List[ArtifactCredentialInfo]:

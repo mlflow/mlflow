@@ -62,6 +62,17 @@ def _complete_futures(futures_dict, file):
     return results, errors
 
 
+StagedArtifactUpload = namedtuple(
+    "StagedArtifactUpload",
+    [
+        # Local filesystem path of the source file to upload
+        "src_file_path",
+        # Base artifact URI-relative path specifying the upload destination
+        "artifact_file_path",
+    ],
+)
+
+
 class CloudArtifactRepository(ArtifactRepository):
     def __init__(self, artifact_uri):
         super().__init__(artifact_uri)
@@ -77,15 +88,6 @@ class CloudArtifactRepository(ArtifactRepository):
         """
         Parallelized implementation of `log_artifacts`.
         """
-        StagedArtifactUpload = namedtuple(
-            "StagedArtifactUpload",
-            [
-                # Local filesystem path of the source file to upload
-                "src_file_path",
-                # Base artifact URI-relative path specifying the upload destination
-                "artifact_file_path",
-            ],
-        )
 
         artifact_path = artifact_path or ""
 
