@@ -44,42 +44,8 @@ def create_model_file(
     from mlflow.models import Model
     from mlflow.models.signature import ModelSignature
 
-    inputs_signature = [{"name": param.key, "type": "string"} for param in prompt_parameters]
-
-    outputs_signature = [{"name": "output", "type": "string"}]
-
-    # use mlflow.models.Model to create the model_file instead of manually creating the json
-    # model_file = {
-    #     "artifact_path": "model",
-    #     "flavors": {
-    #         "python_function": {
-    #             "env": {"conda": "conda.yaml", "virtualenv": "python_env.yaml"},
-    #             "loader_module": "gateway_loader_module",
-    #             "code": "loader",
-    #         }
-    #     },
-    #     "mlflow_version": mlflow_version,
-    #     "model_uuid": model_uuid,
-    #     "run_id": run_uuid,
-    #     "utc_time_created": utc_time_created,
-    #     "metadata": {"mlflow_uses_gateway": "true"},
-    #     "saved_input_example_info": {
-    #         "artifact_path": "input_example.json",
-    #         "type": "dataframe",
-    #         "pandas_orient": "split",
-    #     },
-    #     "signature": {
-    #         "inputs": json.dumps(inputs_signature),
-    #         "outputs": json.dumps(outputs_signature),
-    #     },
-    # }
-
-    # model_json = json.dumps(model_file)
-    # return model_json
-
-    inputs_colspec = [ColSpec(DataType.string, param.key) for param in prompt_parameters]
-
-    outputs_colspec = [ColSpec(DataType.string, "output")]
+    inputs_colspecs = [ColSpec(DataType.string, param.key) for param in prompt_parameters]
+    outputs_colspecs = [ColSpec(DataType.string, "output")]
 
     model = Model(
         artifact_path="model",
@@ -93,8 +59,8 @@ def create_model_file(
             }
         },
         signature=ModelSignature(
-            inputs=Schema(inputs_colspec),
-            outputs=Schema(outputs_colspec),
+            inputs=Schema(inputs_colspecs),
+            outputs=Schema(outputs_colspecs),
         ),
         saved_input_example_info={
             "artifact_path": "input_example.json",
@@ -157,3 +123,20 @@ def create_eval_results_file(prompt_parameters, model_input, model_output_parame
 
     eval_results_json = json.dumps(eval_results)
     return eval_results_json
+
+
+{
+    "signature": {
+        "inputs": '[{"type": "string", "name": "question"}, {"type": "string", "name": "context"}]',
+        "outputs": '[{"type": "string", "name": "output"}]',
+        "params": None,
+    }
+}
+
+{
+    "signature": {
+        "inputs": '[{"name": "question", "type": "string"}, {"name": "context", "type": "string"}]',
+        "outputs": '[{"name": "output", "type": "string"}]',
+        "params": None,
+    }
+}
