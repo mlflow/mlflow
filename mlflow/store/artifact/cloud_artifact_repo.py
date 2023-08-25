@@ -248,5 +248,15 @@ class CloudArtifactRepository(ArtifactRepository):
             self._parallelized_download_from_cloud(file_size, remote_file_path, local_path)
 
     @abstractmethod
+    def _get_read_credential_infos(self, paths):
+        """
+        For a batch of remote file paths, get the read credentials for each file, which include
+        a presigned URL per file
+
+        Return a list of CredentialInfo objects, one for each file.
+        """
+        pass
+
+    @abstractmethod
     def _download_from_cloud(self, remote_file_path, local_path):
         pass

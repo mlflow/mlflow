@@ -141,22 +141,6 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
     def delete_artifacts(self, artifact_path=None):
         raise NotImplementedError("This artifact repository does not support deleting artifacts")
 
-    def _retryable_adls_function(self, func, artifact_file_path, **kwargs):
-        # Attempt to call the passed function.  Retry if the credentials have expired
-        try:
-            func(**kwargs)
-        except requests.HTTPError as e:
-            if e.response.status_code in [403]:
-                # _logger.info(
-                #     "Failed to authorize ADLS operation, possibly due "
-                #     "to credential expiration. Refreshing credentials and trying again..."
-                # )
-                new_credentials = self._get_write_credential_infos(paths=[artifact_file_path])[0]
-                kwargs["sas_url"] = new_credentials.signed_uri
-                func(**kwargs)
-            else:
-                raise e
-
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
         if (
             os.path.getsize(src_file_path) > _MULTIPART_UPLOAD_CHUNK_SIZE
@@ -166,6 +150,18 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         else:
             artifact_subdir = posixpath.dirname(artifact_file_path)
             self.log_artifact(src_file_path, artifact_subdir)
+
+    def _retryable_adls_function(self, func, artifact_file_path, **kwargs):
+        # Attempt to call the passed function.  Retry if the credentials have expired
+        try:
+            func(**kwargs)
+        except requests.HTTPError as e:
+            if e.response.status_code in [403]:
+                new_credentials = self._get_write_credential_infos(paths=[artifact_file_path])[0]
+                kwargs["sas_url"] = new_credentials.signed_uri
+                func(**kwargs)
+            else:
+                raise e
 
     def _multipart_upload(self, credentials, src_file_path, artifact_file_path):
         """
