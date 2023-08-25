@@ -429,25 +429,6 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         except Exception as err:
             raise MlflowException(err)
 
-    def _get_run_relative_artifact_path_for_upload(self, src_file_path, dst_artifact_dir):
-        """
-        Obtain the run-relative destination artifact path for uploading the file specified by
-        `src_file_path` to the artifact directory specified by `dst_artifact_dir` within the
-        MLflow Run associated with the artifact repository.
-
-        :param src_file_path: The path to the source file on the local filesystem.
-        :param dst_artifact_dir: The destination artifact directory, specified as a POSIX-style
-                                 path relative to the artifact repository's root URI (note that
-                                 this is not equivalent to the associated MLflow Run's artifact
-                                 root location).
-        :return: A POSIX-style artifact path to be used as the destination for the file upload.
-                 This path is specified relative to the root of the MLflow Run associated with
-                 the artifact repository.
-        """
-        src_file_name = os.path.basename(src_file_path)
-        dst_file_path = posixpath.join(dst_artifact_dir or "", src_file_name)
-        return posixpath.join(self.run_relative_artifact_repo_root_path, dst_file_path)
-
     def _create_multipart_upload(self, run_id, path, num_parts):
         return self._call_endpoint(
             DatabricksMlflowArtifactsService,
