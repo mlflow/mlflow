@@ -1,11 +1,8 @@
 import base64
 import logging
-import math
 import os
 import posixpath
 import uuid
-from collections import namedtuple
-from concurrent.futures import as_completed
 
 import requests
 
@@ -36,8 +33,8 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.protos.service_pb2 import GetRun, ListArtifacts, MlflowService
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
-    _compute_num_chunks,
     _complete_futures,
+    _compute_num_chunks,
     _DOWNLOAD_CHUNK_SIZE,
     _MULTIPART_UPLOAD_CHUNK_SIZE,
 )
@@ -55,7 +52,6 @@ from mlflow.utils.rest_utils import (
     call_endpoint,
     extract_api_info_for_service,
 )
-from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.uri import (
     extract_and_normalize_path,
     get_databricks_profile_uri_from_artifact_uri,
