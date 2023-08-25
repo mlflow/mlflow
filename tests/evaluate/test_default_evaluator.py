@@ -1343,7 +1343,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def incorrect_return_type(*_):
         return "stuff", 3
 
-    with pytest.raises(MlflowException, match="did not return a scalar numeric value"):
+    with pytest.raises(MlflowException, match="did not return a MetricValue"):
         _evaluate_custom_metric(
             _CustomMetric(incorrect_return_type, incorrect_return_type.__name__, 0),
             eval_df,
@@ -1355,7 +1355,9 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     ("fn", "expectation"),
     [
         (
-            lambda eval_df, _: sum(eval_df["prediction"]),
+            lambda eval_df, _: MetricValue(
+                aggregate_results={"prediction_sum": sum(eval_df["prediction"])}
+            ),
             does_not_raise(),
         ),
         (
@@ -1376,12 +1378,19 @@ def test_evaluate_custom_metric_success():
     metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"], sample_weights=None)
 
     def example_count_times_1_point_5(_, given_metrics):
-        return given_metrics["example_count"] * 1.5
+        return MetricValue(
+            aggregate_results={
+                "example_count_times_1_point_5": given_metrics["example_count"] * 1.5
+            }
+        )
 
     res_metric = _evaluate_custom_metric(
         _CustomMetric(example_count_times_1_point_5, "", 0), eval_df, metrics
     )
-    assert res_metric == metrics["example_count"] * 1.5
+    assert (
+        res_metric.aggregate_results["example_count_times_1_point_5"]
+        == metrics["example_count"] * 1.5
+    )
 
 
 def test_evaluate_custom_artifacts_success():
@@ -1929,7 +1938,9 @@ def test_custom_metrics():
             evaluators="default",
             custom_metrics=[
                 make_metric(
-                    eval_fn=lambda _eval_df, _builtin_metrics: 1.0,
+                    eval_fn=lambda _eval_df, _builtin_metrics: MetricValue(
+                        aggregate_results={"cm": 1.0}
+                    ),
                     name="cm",
                     greater_is_better=True,
                     long_name="custom_metric",
@@ -1997,10 +2008,10 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
     columns = {
         "question",
         "outputs",
-        "toxicity",
-        "flesch_kincaid_grade_level",
-        "ari_grade_level",
-        "perplexity",
+        "toxicity/score",
+        "flesch_kincaid_grade_level/score",
+        "ari_grade_level/score",
+        "perplexity/score",
     }
     if with_targets:
         columns.update({"answer"})
@@ -2009,11 +2020,13 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
 
     assert logged_data["question"].tolist() == ["words random", "This is a sentence."]
     assert logged_data["outputs"].tolist() == ["words random", "This is a sentence."]
-    assert logged_data["toxicity"][0] < 0.5
-    assert logged_data["toxicity"][1] < 0.5
-    assert logged_data["perplexity"][0] > logged_data["perplexity"][1]
-    assert all(isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level"])
-    assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level"])
+    assert logged_data["toxicity/score"][0] < 0.5
+    assert logged_data["toxicity/score"][1] < 0.5
+    assert logged_data["perplexity/score"][0] > logged_data["perplexity/score"][1]
+    assert all(
+        isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level/score"]
+    )
+    assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level/score"])
 
     if with_targets:
         assert logged_data["answer"].tolist() == ["words random", "This is a sentence."]
@@ -2108,29 +2121,33 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
     columns = {
         "text",
         "outputs",
-        "toxicity",
-        "flesch_kincaid_grade_level",
-        "ari_grade_level",
-        "perplexity",
+        "toxicity/score",
+        "flesch_kincaid_grade_level/score",
+        "ari_grade_level/score",
+        "perplexity/score",
     }
     if with_targets:
-        columns.update({"summary", "rouge1", "rouge2", "rougeL", "rougeLsum"})
+        columns.update(
+            {"summary", "rouge1/score", "rouge2/score", "rougeL/score", "rougeLsum/score"}
+        )
 
     assert set(logged_data.columns.tolist()) == columns
 
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["outputs"].tolist() == ["a", "b"]
-    assert logged_data["toxicity"][0] < 0.5
-    assert logged_data["toxicity"][1] < 0.5
-    assert all(isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level"])
-    assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level"])
+    assert logged_data["toxicity/score"][0] < 0.5
+    assert logged_data["toxicity/score"][1] < 0.5
+    assert all(
+        isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level/score"]
+    )
+    assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level/score"])
 
     if with_targets:
         assert logged_data["summary"].tolist() == ["a", "b"]
-        assert logged_data["rouge1"].tolist() == [1.0, 1.0]
-        assert logged_data["rouge2"].tolist() == [0.0, 0.0]
-        assert logged_data["rougeL"].tolist() == [1.0, 1.0]
-        assert logged_data["rougeLsum"].tolist() == [1.0, 1.0]
+        assert logged_data["rouge1/score"].tolist() == [1.0, 1.0]
+        assert logged_data["rouge2/score"].tolist() == [0.0, 0.0]
+        assert logged_data["rougeL/score"].tolist() == [1.0, 1.0]
+        assert logged_data["rougeLsum/score"].tolist() == [1.0, 1.0]
 
 
 def test_evaluate_text_summarization_with_targets():
@@ -2264,8 +2281,8 @@ def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
         "text",
         "summary",
         "outputs",
-        "flesch_kincaid_grade_level",
-        "ari_grade_level",
+        "flesch_kincaid_grade_level/score",
+        "ari_grade_level/score",
     ]
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["summary"].tolist() == ["a", "b"]
@@ -2291,21 +2308,21 @@ def test_evaluate_text_and_text_metrics():
     assert logged_data.columns.tolist() == [
         "text",
         "outputs",
-        "toxicity",
-        "flesch_kincaid_grade_level",
-        "ari_grade_level",
-        "perplexity",
+        "toxicity/score",
+        "flesch_kincaid_grade_level/score",
+        "ari_grade_level/score",
+        "perplexity/score",
     ]
     assert logged_data["text"].tolist() == ["sentence not", "All women are bad."]
     assert logged_data["outputs"].tolist() == ["sentence not", "All women are bad."]
     # Hateful sentiments should be marked as toxic
-    assert logged_data["toxicity"][0] < 0.5
-    assert logged_data["toxicity"][1] > 0.5
+    assert logged_data["toxicity/score"][0] < 0.5
+    assert logged_data["toxicity/score"][1] > 0.5
     # The perplexity of random words should be higher than a valid sentence.
-    assert logged_data["perplexity"][0] > logged_data["perplexity"][1]
+    assert logged_data["perplexity/score"][0] > logged_data["perplexity/score"][1]
     # Simple sentences should have a low grade level.
-    assert logged_data["flesch_kincaid_grade_level"][1] < 4
-    assert logged_data["ari_grade_level"][1] < 4
+    assert logged_data["flesch_kincaid_grade_level/score"][1] < 4
+    assert logged_data["ari_grade_level/score"][1] < 4
     assert set(results.metrics.keys()) == {
         "mean_perplexity",
         "toxicity_ratio",
@@ -2316,7 +2333,9 @@ def test_evaluate_text_and_text_metrics():
 
 
 def accuracy(eval_df, _builtin_metrics):
-    return eval_df["prediction"].eq(eval_df["target"]).mean()
+    return MetricValue(
+        aggregate_results={"accuracy": eval_df["prediction"].eq(eval_df["target"]).mean()}
+    )
 
 
 def test_evaluate_text_custom_metrics():
@@ -2341,18 +2360,20 @@ def test_evaluate_text_custom_metrics():
         "text",
         "target",
         "outputs",
-        "toxicity",
-        "flesch_kincaid_grade_level",
-        "ari_grade_level",
-        "perplexity",
+        "toxicity/score",
+        "flesch_kincaid_grade_level/score",
+        "ari_grade_level/score",
+        "perplexity/score",
     ]
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["target"].tolist() == ["a", "b"]
     assert logged_data["outputs"].tolist() == ["a", "b"]
-    assert logged_data["toxicity"][0] < 0.5
-    assert logged_data["toxicity"][1] < 0.5
-    assert all(isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level"])
-    assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level"])
+    assert logged_data["toxicity/score"][0] < 0.5
+    assert logged_data["toxicity/score"][1] < 0.5
+    assert all(
+        isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level/score"]
+    )
+    assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level/score"])
     assert set(results.metrics.keys()) == {
         "accuracy",
         "mean_perplexity",

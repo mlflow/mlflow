@@ -480,8 +480,8 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
     if metric is None:
         raise MlflowException(f"{exception_header} returned None.")
 
-    if _is_numeric(metric):
-        return MetricValue(aggregate_results={custom_metric_tuple.name: metric})
+    # if _is_numeric(metric):
+    #     return MetricValue(aggregate_results={custom_metric_tuple.name: metric})
 
     if not isinstance(metric, MetricValue):
         raise MlflowException(f"{exception_header} did not return a MetricValue.")
@@ -562,10 +562,6 @@ class DefaultEvaluator(ModelEvaluator):
         """
         Helper method to log metrics into specified run.
         """
-        for _metric_name, metric in self.metrics_values.items():
-            for name, value in metric.aggregate_results.items():
-                self.metrics[name] = value
-
         timestamp = get_current_time_millis()
         self.client.log_batch(
             self.run_id,
@@ -1175,7 +1171,7 @@ class DefaultEvaluator(ModelEvaluator):
                     )
                 )
         elif self.model_type == _ModelType.REGRESSOR:
-            self.metrics.update(
+            self.metrics_values.update(
                 _get_metrics_values(
                     _get_regressor_metrics(self.y, self.y_pred, self.sample_weights)
                 )
@@ -1195,6 +1191,12 @@ class DefaultEvaluator(ModelEvaluator):
             self._log_model_explainability()
 
     def _log_eval_table(self):
+        if self.model_type not in (
+            _ModelType.QUESTION_ANSWERING,
+            _ModelType.TEXT_SUMMARIZATION,
+            _ModelType.TEXT,
+        ):
+            return
         metric_prefix = self.evaluator_config.get("metric_prefix", "")
         if self.dataset.has_targets:
             data = self.dataset.features_data.assign(
@@ -1208,8 +1210,10 @@ class DefaultEvaluator(ModelEvaluator):
         for metric_name, metric in self.metrics_values.items():
             scores = metric.scores
             justifications = metric.justifications
-            aggregates[f"{metric_name}/score"] = scores
-            aggregates[f"{metric_name}/justification"] = justifications
+            if scores:
+                aggregates[f"{metric_name}/score"] = scores
+            if justifications:
+                aggregates[f"{metric_name}/justification"] = justifications
         data = data.assign(**aggregates)
         mlflow.log_table(data, artifact_file=f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}")
 
@@ -1228,7 +1232,7 @@ class DefaultEvaluator(ModelEvaluator):
         _logger.info("Computing perplexity metric:")
         results = perplexity.compute(predictions=predictions, model_id="gpt2")
         perplexity_value = MetricValue(
-            results["perplexities"], None, {"mean": results["mean_perplexity"]}
+            results["perplexities"], None, {"mean_perplexity": results["mean_perplexity"]}
         )
         self.metrics_values.update({"perplexity": perplexity_value})
 
@@ -1245,11 +1249,11 @@ class DefaultEvaluator(ModelEvaluator):
             return
 
         _logger.info("Computing toxicity metric:")
-        toxicity = toxicity.compute(predictions=predictions)["toxicity"]
+        toxicity_score = toxicity.compute(predictions=predictions)["toxicity"]
         toxicity_ratio = toxicity.compute(predictions=predictions, aggregation="ratio")[
             "toxicity_ratio"
         ]
-        toxicity_value = MetricValue(toxicity, None, {"ratio": toxicity_ratio})
+        toxicity_value = MetricValue(toxicity_score, None, {"toxicity_ratio": toxicity_ratio})
         self.metrics_values.update({"toxicity": toxicity_value})
 
     def _calculate_reading_level(self, predictions):
@@ -1263,12 +1267,16 @@ class DefaultEvaluator(ModelEvaluator):
 
         _logger.info("Computing flesch kincaid metric:")
         metrics = [textstat.flesch_kincaid_grade(prediction) for prediction in predictions]
-        flesch_kincaid_value = MetricValue(metrics, None, {"mean": sum(metrics) / len(metrics)})
+        flesch_kincaid_value = MetricValue(
+            metrics, None, {"mean_flesch_kincaid_grade_level": sum(metrics) / len(metrics)}
+        )
         self.metrics_values.update({"flesch_kincaid_grade_level": flesch_kincaid_value})
 
         _logger.info("Computing automated readability index metric:")
         metrics = [textstat.automated_readability_index(prediction) for prediction in predictions]
-        ari_value = MetricValue(metrics, None, {"mean": sum(metrics) / len(metrics)})
+        ari_value = MetricValue(
+            metrics, None, {"mean_ari_grade_level": sum(metrics) / len(metrics)}
+        )
         self.metrics_values.update({"ari_grade_level": ari_value})
 
     def _calculate_general_text_metrics(self):
@@ -1319,7 +1327,9 @@ class DefaultEvaluator(ModelEvaluator):
             predictions=predictions, references=self.y, use_aggregator=True
         )
         for rouge_type in metrics:
-            rouge_value = MetricValue(metrics[rouge_type], None, aggregate_metrics[rouge_type])
+            rouge_value = MetricValue(
+                metrics[rouge_type], None, {rouge_type: aggregate_metrics[rouge_type]}
+            )
             self.metrics_values.update({rouge_type: rouge_value})
 
     def _evaluate_text_summarization(self):
@@ -1385,14 +1395,22 @@ class DefaultEvaluator(ModelEvaluator):
                         self._log_custom_artifacts(eval_df)
 
                 def _prefix_value(value):
-                    prefix_aggregate = {f"{prefix}{k}": v for k, v in value.aggregate_values}
-                    prefix_value = MetricValue(value.scores, value.justifications, prefix_aggregate)
-                    return prefix_value
+                    aggregate = (
+                        {f"{prefix}{k}": v for k, v in value.aggregate_results.items()}
+                        if value.aggregate_results
+                        else None
+                    )
+                    return MetricValue(value.scores, value.justifications, aggregate)
 
                 if prefix := self.evaluator_config.get("metric_prefix"):
                     self.metrics_values = {
-                        f"{prefix}{k}": _prefix_value(v) for k, v in self.metrics.items()
+                        f"{prefix}{k}": _prefix_value(v) for k, v in self.metrics_values.items()
                     }
+
+                for _metric_name, metric in self.metrics_values.items():
+                    for name, value in metric.aggregate_results.items():
+                        self.metrics[name] = value
+
                 if not is_baseline_model:
                     self._log_artifacts()
                     self._log_metrics()
