@@ -76,6 +76,11 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
         return lowercased in ["true", "1"]
 
 
+#: Specifies the environment manager.
+#: See https://mlflow.org/docs/latest/projects.html#project-environments
+#: (default: ``None``)
+MLFLOW_ENV_MANAGER = _EnvironmentVariable("MLFLOW_ENV_MANAGER", str, None)
+
 #: Specifies the tracking URI.
 #: (default: ``None``)
 MLFLOW_TRACKING_URI = _EnvironmentVariable("MLFLOW_TRACKING_URI", str, None)

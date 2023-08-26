@@ -9,6 +9,7 @@ from pathlib import Path
 import mlflow
 from mlflow import tracking
 from mlflow.environment_variables import (
+    MLFLOW_ENV_MANAGER,
     MLFLOW_KERBEROS_TICKET_CACHE,
     MLFLOW_KERBEROS_USER,
     MLFLOW_PYARROW_EXTRA_CONF,
@@ -94,9 +95,12 @@ class LocalBackend(AbstractBackend):
         storage_dir = backend_config[PROJECT_STORAGE_DIR]
         build_image = backend_config[PROJECT_BUILD_IMAGE]
         docker_auth = backend_config[PROJECT_DOCKER_AUTH]
-        # Select an appropriate env manager for the project env type
         if env_manager is None:
-            env_manager = _env_type_to_env_manager(project.env_type)
+            # Check if the env manager is specified via an environment variable
+            env_manager = MLFLOW_ENV_MANAGER.get()
+            if env_manager is None:
+                # Select an appropriate env manager for the project env type
+                env_manager = _env_type_to_env_manager(project.env_type)
         else:
             if project.env_type == env_type.PYTHON and env_manager == _EnvManager.CONDA:
                 raise MlflowException.invalid_parameter_value(

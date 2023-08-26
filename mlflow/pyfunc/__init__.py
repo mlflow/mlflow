@@ -1174,7 +1174,7 @@ def spark_udf(
     openai_env_vars = mlflow.openai._OpenAIEnvVar.read_environ()
     mlflow_testing = _MLFLOW_TESTING.get_raw()
 
-    _EnvManager.validate(env_manager)
+    _EnvManager.validate_and_set(env_manager)
 
     # Check whether spark is in local or local-cluster mode
     # this case all executors and driver share the same filesystem
