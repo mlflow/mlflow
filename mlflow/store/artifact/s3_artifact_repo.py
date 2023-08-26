@@ -14,7 +14,12 @@ from mlflow.environment_variables import (
     MLFLOW_S3_IGNORE_TLS,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin, MultipartUploadCredential, CreateMultipartUploadResponse
+from mlflow.store.artifact.artifact_repo import (
+    ArtifactRepository,
+    MultipartUploadMixin,
+    MultipartUploadCredential,
+    CreateMultipartUploadResponse,
+)
 from mlflow.utils import data_utils
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
@@ -276,12 +281,7 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         s3_client = self._get_s3_client()
         s3_client.complete_multipart_upload(
-            Bucket=bucket,
-            Key=dest_path,
-            UploadId=upload_id,
-            MultipartUpload={
-                "Parts": parts
-            }
+            Bucket=bucket, Key=dest_path, UploadId=upload_id, MultipartUpload={"Parts": parts}
         )
 
     def abort_multipart_upload(self, local_file, upload_id, artifact_path=None):
@@ -295,7 +295,3 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             Key=dest_path,
             UploadId=upload_id,
         )
-
-
-
-

@@ -268,7 +268,7 @@ class MultipartUploadPart:
 class MultipartUploadMixin(ABC):
     @abstractmethod
     def create_multipart_upload(
-            self, local_file: str, num_parts: int, artifact_path = None
+        self, local_file: str, num_parts: int, artifact_path=None
     ) -> CreateMultipartUploadResponse:
         """
         Initiate a multipart upload and retrieve the pre-signed upload URLS and upload id.
@@ -282,11 +282,11 @@ class MultipartUploadMixin(ABC):
 
     @abstractmethod
     def complete_multipart_upload(
-            self,
-            local_file: str,
-            upload_id: str,
-            parts: List,
-            artifact_path = None,
+        self,
+        local_file: str,
+        upload_id: str,
+        parts: List,
+        artifact_path=None,
     ) -> None:
         """
         Complete a multipart upload.
@@ -301,9 +301,7 @@ class MultipartUploadMixin(ABC):
 
     @abstractmethod
     def abort_multipart_upload(self, *args, **kwargs):
-        """
-
-        """
+        """ """
         pass
 
 
