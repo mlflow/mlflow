@@ -1,12 +1,12 @@
-from typing import Dict, Any
+from typing import Any, Dict
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.providers.base import BaseProvider
-from mlflow.gateway.providers.utils import send_request, rename_payload_keys
-from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.config import MosaicMLConfig, RouteConfig
+from mlflow.gateway.providers.base import BaseProvider
+from mlflow.gateway.providers.utils import rename_payload_keys, send_request
+from mlflow.gateway.schemas import chat, completions, embeddings
 
 
 class MosaicMLProvider(BaseProvider):
@@ -20,7 +20,8 @@ class MosaicMLProvider(BaseProvider):
         headers = {"Authorization": f"{self.mosaicml_config.mosaicml_api_key}"}
         return await send_request(
             headers=headers,
-            base_url=self.mosaicml_config.mosaicml_api_base or "https://models.hosted-on.mosaicml.hosting",
+            base_url=self.mosaicml_config.mosaicml_api_base
+            or "https://models.hosted-on.mosaicml.hosting",
             path=model + "/v1/predict",
             payload=payload,
         )

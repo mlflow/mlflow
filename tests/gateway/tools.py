@@ -111,7 +111,6 @@ class MockAsyncResponse:
         pass
 
 
-
 class MockHttpClient(mock.Mock):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

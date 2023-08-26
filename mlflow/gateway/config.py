@@ -53,7 +53,7 @@ class CohereConfig(ConfigModel):
 
 class MosaicMLConfig(ConfigModel):
     mosaicml_api_key: str
-    mosaicml_api_base: Optional[str] = "https://models.hosted-on.mosaicml.hosting"
+    mosaicml_api_base: Optional[str] = None
 
     # pylint: disable=no-self-argument
     @validator("mosaicml_api_key", pre=True)
@@ -155,9 +155,8 @@ config_types = {
     Provider.COHERE: CohereConfig,
     Provider.OPENAI: OpenAIConfig,
     Provider.ANTHROPIC: AnthropicConfig,
-    Provider.MOSAICLML: MosaicMLConfig,
-    Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
     Provider.MOSAICML: MosaicMLConfig,
+    Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
 }
 
 
@@ -213,7 +212,6 @@ class Model(ConfigModel):
             AnthropicConfig,
             MosaicMLConfig,
             MlflowModelServingConfig,
-            MosaicMLConfig,
         ]
     ] = None
 

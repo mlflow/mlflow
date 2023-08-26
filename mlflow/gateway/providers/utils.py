@@ -31,7 +31,7 @@ async def send_request(headers: Dict[str, str], base_url: str, path: str, payloa
                 raise HTTPException(
                     status_code=502,
                     detail=f"The returned data type from the route service is not supported. "
-                           f"Received content type: {content_type}",
+                    f"Received content type: {content_type}",
                 )
             try:
                 response.raise_for_status()
