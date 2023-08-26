@@ -41,7 +41,6 @@ from mlflow.utils.process import _exec_cmd, cache_return_value_per_process
 from mlflow.utils.request_utils import cloud_storage_http_request, download_chunk
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
-
 ENCODING = "utf-8"
 # Default to 2 if os.cpu_count() returns None (e.g. when run in a virtualenv). This is consistent.
 MAX_PARALLEL_DOWNLOAD_WORKERS = (os.cpu_count() or 1) * 2
