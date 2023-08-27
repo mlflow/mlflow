@@ -27,9 +27,9 @@ class Provider(str, Enum):
     ANTHROPIC = "anthropic"
     COHERE = "cohere"
     MLFLOW_MODEL_SERVING = "mlflow-model-serving"
+    MOSAICML = "mosaicml"
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
-    MOSAICML = "mosaicml"
 
     @classmethod
     def values(cls):
