@@ -253,6 +253,7 @@ below can be used as a helpful guide when configuring a given route for any newl
 | llm/v1/embeddings  | - text-embedding-ada-002 | - instructor-large | N/A              | - embed-english-v2.0        | - text-embedding-ada-002 | - MLflow served models** |
 |                    |                          | - instructor-xl    |                  | - embed-multilingual-v2.0   |                          |                          |
 +--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+--------------------------+
+
 † Llama 2 is licensed under the `LLAMA 2 Community License <https://ai.meta.com/llama/license/>`_, Copyright © Meta Platforms, Inc. All Rights Reserved.
 
 Within each model block in the configuration file, the provider field is used to specify the name
