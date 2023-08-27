@@ -245,7 +245,7 @@ below can be used as a helpful guide when configuring a given route for any newl
 +====================+==========================+====================+==================+=============================+==========================+==========================+
 | llm/v1/completions | - gpt-3.5-turbo          | - mpt-7b-instruct  | - claude-1       | - command                   | - text-davinci-003       | - MLflow served models*  |
 |                    | - gpt-4                  | - mpt-30b-instruct | - claude-1.3-100k| - command-light-nightly     | - gpt-35-turbo           |                          |
-|                    |                          | - llama2-70b-chat† |
+|                    |                          | - llama2-70b-chat† |                  |                             |                          |                          |
 +--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+--------------------------+
 | llm/v1/chat        | - gpt-3.5-turbo          | N/A                | N/A              | N/A                         | - gpt-35-turbo           | - MLflow served models*  |
 |                    | - gpt-4                  |                    |                  |                             | - gpt-4                  |                          |
