@@ -142,7 +142,11 @@ message CreateMultipartUpload {
 
   optional int64 num_parts = 2;
 
-  message Response {}
+  message Response {
+    optional string upload_id = 1;
+
+    repeated MultipartUploadCredential credentials = 2;
+  }
 }
 
 message CompleteMultipartUpload {
@@ -151,4 +155,18 @@ message CompleteMultipartUpload {
 
 message AbortMultipartUpload {
   message Response {}
+}
+
+message MultipartUploadCredential {
+  optional string url = 1;
+
+  optional int64 part_number = 2;
+
+  repeated Header headers = 3;
+}
+
+message Header {
+  optional string key = 1;
+
+  optional string value = 2;
 }
