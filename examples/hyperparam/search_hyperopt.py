@@ -1,12 +1,11 @@
 """
 Example of hyperparameter search in MLflow using Hyperopt.
 
-The run method will instantiate and run Hyperopt optimizer. Each parameter configuration is
-evaluated in a new MLflow run invoking main entry point with selected parameters.
+The `run` method will instantiate and run the Hyperopt optimizer. Each parameter configuration is
+evaluated in a new MLflow run, invoking the main entry point with the selected parameters.
 
-The runs are evaluated based on validation set loss. Test set score is calculated to verify the
+The runs are evaluated based on the validation set loss. Test set scores are calculated to verify the
 results.
-
 
 This example currently does not support parallel execution.
 """
@@ -20,9 +19,8 @@ from mlflow.tracking import MlflowClient
 
 _inf = np.finfo(np.float64).max
 
-
 @click.command(
-    help="Perform hyperparameter search with Hyperopt library. Optimize dl_train target."
+    help="Perform hyperparameter search with the Hyperopt library. Optimize the dl_train target."
 )
 @click.option("--max-runs", type=click.INT, default=10, help="Maximum number of runs to evaluate.")
 @click.option("--epochs", type=click.INT, default=500, help="Number of epochs")
@@ -34,34 +32,34 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
     """
     Run hyperparameter optimization.
     """
-    # create random file to store run ids of the training tasks
+    # create a random file to store run ids of the training tasks
     tracking_client = MlflowClient()
 
     def new_eval(
         nepochs, experiment_id, null_train_loss, null_valid_loss, null_test_loss, return_all=False
     ):
         """
-        Create a new eval function
+        Create a new eval function.
 
         :param nepochs: Number of epochs to train the model.
-        :experiment_id: Experiment id for the training run
-        :valid_null_loss: Loss of a null model on the validation dataset
-        :test_null_loss: Loss of a null model on the test dataset.
-        :return_test_loss: Return both validation and test loss if set.
+        :param experiment_id: Experiment id for the training run.
+        :param null_valid_loss: Loss of a null model on the validation dataset.
+        :param null_test_loss: Loss of a null model on the test dataset.
+        :param return_all: Return both validation and test loss if set.
 
-        :return: new eval function.
+        :return: A new eval function.
         """
 
         def eval(params):
             """
-            Train Keras model with given parameters by invoking MLflow run.
+            Train a Keras model with given parameters by invoking an MLflow run.
 
-            Notice we store runUuid and resulting metric in a file. We will later use these to pick
+            Notice we store runUuid and the resulting metric in a file. We will later use these to pick
             the best run and to log the runUuids of the child runs as an artifact. This is a
-            temporary workaround until MLflow offers better mechanism of linking runs together.
+            temporary workaround until MLflow offers a better mechanism for linking runs together.
 
-            :param params: Parameters to the train_keras script we optimize over:
-                          learning_rate, drop_out_1
+            :param params: Parameters for the train_keras script we optimize over:
+                          learning_rate, dropout_1.
             :return: The metric value evaluated on the validation data.
             """
             import mlflow.tracking
@@ -80,7 +78,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
                         "seed": seed,
                     },
                     experiment_id=experiment_id,
-                    synchronous=False,  # Allow the run to fail if a model is not properly created
+                    synchronous=False,  # Allow the run to fail if a model is not properly created.
                 )
                 succeeded = p.wait()
                 mlflow.log_params({"lr": lr, "momentum": momentum})
@@ -121,7 +119,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
 
     with mlflow.start_run() as run:
         experiment_id = run.info.experiment_id
-        # Evaluate null model first.
+        # Evaluate the null model first.
         train_null_loss, valid_null_loss, test_null_loss = new_eval(
             0, experiment_id, _inf, _inf, _inf, True
         )(params=[0, 0])
@@ -155,7 +153,6 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
                 f"test_{metric}": best_val_test,
             }
         )
-
 
 if __name__ == "__main__":
     train()
