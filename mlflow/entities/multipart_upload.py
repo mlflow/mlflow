@@ -1,4 +1,5 @@
 from mlflow.protos.mlflow_artifacts_pb2 import (
+    CreateMultipartUpload as ProtoCreateMultipartUpload,
     MultipartUploadCredential as ProtoMultipartUploadCredential,
 )
 
@@ -22,11 +23,17 @@ class MultipartUploadCredential:
         credential = ProtoMultipartUploadCredential()
         credential.url = self.url
         credential.part_number = self.part_number
-        credential.headers = self.headers
+        credential.headers.update(self.headers)
         return credential
 
 
 @dataclass
 class CreateMultipartUploadResponse:
-    credentials: List[MultipartUploadCredential]
     upload_id: Optional[str]
+    credentials: List[MultipartUploadCredential]
+
+    def to_proto(self):
+        response = ProtoCreateMultipartUpload.Response()
+        response.upload_id = self.upload_id
+        response.credentials.extend([credential.to_proto() for credential in self.credentials])
+        return response

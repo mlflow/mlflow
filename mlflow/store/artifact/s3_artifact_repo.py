@@ -18,8 +18,10 @@ from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
 )
-from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, \
-    MultipartUploadCredential
+from mlflow.entities.multipart_upload import (
+    CreateMultipartUploadResponse,
+    MultipartUploadCredential,
+)
 from mlflow.utils import data_utils
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 

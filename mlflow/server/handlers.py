@@ -1839,17 +1839,10 @@ def _create_multipart_upload_artifact(artifact_path):
         path,
         num_parts,
     )
-    # TODO:
-    return {
-        "upload_id": create_response.upload_id,
-        "credentials": [
-            {
-                "part_number": cred.part_number,
-                "header": cred.headers,
-            }
-            for cred in create_response.credentials
-        ],
-    }
+    response_message = create_response.to_proto()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
 
 
 def _get_rest_path(base_path):
@@ -1958,4 +1951,5 @@ HANDLERS = {
     UploadArtifact: _upload_artifact,
     ListArtifactsMlflowArtifacts: _list_artifacts_mlflow_artifacts,
     DeleteArtifact: _delete_artifact_mlflow_artifacts,
+    CreateMultipartUpload: _create_multipart_upload_artifact,
 }
