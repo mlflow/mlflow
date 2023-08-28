@@ -1205,7 +1205,6 @@ class DefaultEvaluator(ModelEvaluator):
         else:
             data = self.dataset.features_data.assign(outputs=self.y_pred)
 
-        # TODO: version should be after score or justification
         aggregates = {}
         for metric_name, metric in self.metrics_values.items():
             scores = metric.scores
