@@ -15,6 +15,7 @@ from mlflow.server import handlers
 from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
+    gateway_proxy_handler,
     get_artifact_handler,
     get_metric_history_bulk_handler,
     get_model_version_artifact_handler,
@@ -86,6 +87,11 @@ def serve_get_metric_history_bulk():
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"))
 def serve_search_datasets():
     return search_datasets_handler()
+
+
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/gateway-proxy"), methods=["POST", "GET"])
+def serve_gateway_proxy():
+    return gateway_proxy_handler()
 
 
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
