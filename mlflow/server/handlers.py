@@ -1156,7 +1156,7 @@ def gateway_proxy_handler():
         raise MlflowException(
             message=f"GatewayProxy request failed with error code {response.status_code}. "
             f"Error message: {response.text}",
-            error_code=INTERNAL_ERROR,
+            error_code=response.status_code,
         )
 
 
