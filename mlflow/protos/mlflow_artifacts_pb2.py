@@ -23,7 +23,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto2',
   serialized_options=b'\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001',
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x16mlflow_artifacts.proto\x12\x10mlflow.artifacts\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\x1e\n\x10\x44ownloadArtifact\x1a\n\n\x08Response\"\x1c\n\x0eUploadArtifact\x1a\n\n\x08Response\"T\n\rListArtifacts\x12\x0c\n\x04path\x18\x01 \x01(\t\x1a\x35\n\x08Response\x12)\n\x05\x66iles\x18\x01 \x03(\x0b\x32\x1a.mlflow.artifacts.FileInfo\"\x1c\n\x0e\x44\x65leteArtifact\x1a\n\n\x08Response\";\n\x08\x46ileInfo\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0e\n\x06is_dir\x18\x02 \x01(\x08\x12\x11\n\tfile_size\x18\x03 \x01(\x03\"\x99\x01\n\x15\x43reateMultipartUpload\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x11\n\tnum_parts\x18\x02 \x01(\x03\x1a_\n\x08Response\x12\x11\n\tupload_id\x18\x01 \x01(\t\x12@\n\x0b\x63redentials\x18\x02 \x03(\x0b\x32+.mlflow.artifacts.MultipartUploadCredential\"%\n\x17\x43ompleteMultipartUpload\x1a\n\n\x08Response\"\"\n\x14\x41\x62ortMultipartUpload\x1a\n\n\x08Response\"h\n\x19MultipartUploadCredential\x12\x0b\n\x03url\x18\x01 \x01(\t\x12\x13\n\x0bpart_number\x18\x02 \x01(\x03\x12)\n\x07headers\x18\x03 \x03(\x0b\x32\x18.mlflow.artifacts.Header\"$\n\x06Header\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t2\x99\x0b\n\x16MlflowArtifactsService\x12\xbd\x01\n\x10\x64ownloadArtifact\x12\".mlflow.artifacts.DownloadArtifact\x1a+.mlflow.artifacts.DownloadArtifact.Response\"X\xf2\x86\x19T\n=\n\x03GET\x12\x30/mlflow-artifacts/artifacts/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\x11\x44ownload Artifact\x12\xb5\x01\n\x0euploadArtifact\x12 .mlflow.artifacts.UploadArtifact\x1a).mlflow.artifacts.UploadArtifact.Response\"V\xf2\x86\x19R\n=\n\x03PUT\x12\x30/mlflow-artifacts/artifacts/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\x0fUpload Artifact\x12\x9c\x01\n\rlistArtifacts\x12\x1f.mlflow.artifacts.ListArtifacts\x1a(.mlflow.artifacts.ListArtifacts.Response\"@\xf2\x86\x19<\n(\n\x03GET\x12\x1b/mlflow-artifacts/artifacts\x1a\x04\x08\x02\x10\x00\x10\x01*\x0eList Artifacts\x12\xb9\x01\n\x0e\x64\x65leteArtifact\x12 .mlflow.artifacts.DeleteArtifact\x1a).mlflow.artifacts.DeleteArtifact.Response\"Z\xf2\x86\x19V\n@\n\x06\x44\x45LETE\x12\x30/mlflow-artifacts/artifacts/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\x10\x44\x65lete Artifacts\x12\xe0\x01\n\x15\x63reateMultipartUpload\x12\'.mlflow.artifacts.CreateMultipartUpload\x1a\x30.mlflow.artifacts.CreateMultipartUpload.Response\"l\xf2\x86\x19h\n?\n\x04POST\x12\x31/mlflow-artifacts/mpu/create/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*#Create an Artifact Multipart Upload\x12\xea\x01\n\x17\x63ompleteMultipartUpload\x12).mlflow.artifacts.CompleteMultipartUpload\x1a\x32.mlflow.artifacts.CompleteMultipartUpload.Response\"p\xf2\x86\x19l\nA\n\x04POST\x12\x33/mlflow-artifacts/mpu/complete/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*%Complete an Artifact Multipart Upload\x12\xdb\x01\n\x14\x61\x62ortMultipartUpload\x12&.mlflow.artifacts.AbortMultipartUpload\x1a/.mlflow.artifacts.AbortMultipartUpload.Response\"j\xf2\x86\x19\x66\n>\n\x04POST\x12\x30/mlflow-artifacts/mpu/abort/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\"Abort an Artifact Multipart UploadB\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01'
+  serialized_pb=b'\n\x16mlflow_artifacts.proto\x12\x10mlflow.artifacts\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\x1e\n\x10\x44ownloadArtifact\x1a\n\n\x08Response\"\x1c\n\x0eUploadArtifact\x1a\n\n\x08Response\"T\n\rListArtifacts\x12\x0c\n\x04path\x18\x01 \x01(\t\x1a\x35\n\x08Response\x12)\n\x05\x66iles\x18\x01 \x03(\x0b\x32\x1a.mlflow.artifacts.FileInfo\"\x1c\n\x0e\x44\x65leteArtifact\x1a\n\n\x08Response\";\n\x08\x46ileInfo\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0e\n\x06is_dir\x18\x02 \x01(\x08\x12\x11\n\tfile_size\x18\x03 \x01(\x03\"\x99\x01\n\x15\x43reateMultipartUpload\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x11\n\tnum_parts\x18\x02 \x01(\x03\x1a_\n\x08Response\x12\x11\n\tupload_id\x18\x01 \x01(\t\x12@\n\x0b\x63redentials\x18\x02 \x03(\x0b\x32+.mlflow.artifacts.MultipartUploadCredential\"%\n\x17\x43ompleteMultipartUpload\x1a\n\n\x08Response\"\"\n\x14\x41\x62ortMultipartUpload\x1a\n\n\x08Response\"\xb8\x01\n\x19MultipartUploadCredential\x12\x0b\n\x03url\x18\x01 \x01(\t\x12\x13\n\x0bpart_number\x18\x02 \x01(\x03\x12I\n\x07headers\x18\x03 \x03(\x0b\x32\x38.mlflow.artifacts.MultipartUploadCredential.HeadersEntry\x1a.\n\x0cHeadersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x32\x99\x0b\n\x16MlflowArtifactsService\x12\xbd\x01\n\x10\x64ownloadArtifact\x12\".mlflow.artifacts.DownloadArtifact\x1a+.mlflow.artifacts.DownloadArtifact.Response\"X\xf2\x86\x19T\n=\n\x03GET\x12\x30/mlflow-artifacts/artifacts/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\x11\x44ownload Artifact\x12\xb5\x01\n\x0euploadArtifact\x12 .mlflow.artifacts.UploadArtifact\x1a).mlflow.artifacts.UploadArtifact.Response\"V\xf2\x86\x19R\n=\n\x03PUT\x12\x30/mlflow-artifacts/artifacts/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\x0fUpload Artifact\x12\x9c\x01\n\rlistArtifacts\x12\x1f.mlflow.artifacts.ListArtifacts\x1a(.mlflow.artifacts.ListArtifacts.Response\"@\xf2\x86\x19<\n(\n\x03GET\x12\x1b/mlflow-artifacts/artifacts\x1a\x04\x08\x02\x10\x00\x10\x01*\x0eList Artifacts\x12\xb9\x01\n\x0e\x64\x65leteArtifact\x12 .mlflow.artifacts.DeleteArtifact\x1a).mlflow.artifacts.DeleteArtifact.Response\"Z\xf2\x86\x19V\n@\n\x06\x44\x45LETE\x12\x30/mlflow-artifacts/artifacts/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\x10\x44\x65lete Artifacts\x12\xe0\x01\n\x15\x63reateMultipartUpload\x12\'.mlflow.artifacts.CreateMultipartUpload\x1a\x30.mlflow.artifacts.CreateMultipartUpload.Response\"l\xf2\x86\x19h\n?\n\x04POST\x12\x31/mlflow-artifacts/mpu/create/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*#Create an Artifact Multipart Upload\x12\xea\x01\n\x17\x63ompleteMultipartUpload\x12).mlflow.artifacts.CompleteMultipartUpload\x1a\x32.mlflow.artifacts.CompleteMultipartUpload.Response\"p\xf2\x86\x19l\nA\n\x04POST\x12\x33/mlflow-artifacts/mpu/complete/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*%Complete an Artifact Multipart Upload\x12\xdb\x01\n\x14\x61\x62ortMultipartUpload\x12&.mlflow.artifacts.AbortMultipartUpload\x1a/.mlflow.artifacts.AbortMultipartUpload.Response\"j\xf2\x86\x19\x66\n>\n\x04POST\x12\x30/mlflow-artifacts/mpu/abort/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\"Abort an Artifact Multipart UploadB\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01'
   ,
   dependencies=[scalapb_dot_scalapb__pb2.DESCRIPTOR,databricks__pb2.DESCRIPTOR,])
 
@@ -461,6 +461,44 @@ _ABORTMULTIPARTUPLOAD = _descriptor.Descriptor(
 )
 
 
+_MULTIPARTUPLOADCREDENTIAL_HEADERSENTRY = _descriptor.Descriptor(
+  name='HeadersEntry',
+  full_name='mlflow.artifacts.MultipartUploadCredential.HeadersEntry',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='key', full_name='mlflow.artifacts.MultipartUploadCredential.HeadersEntry.key', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='value', full_name='mlflow.artifacts.MultipartUploadCredential.HeadersEntry.value', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=b'8\001',
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=694,
+  serialized_end=740,
+)
+
 _MULTIPARTUPLOADCREDENTIAL = _descriptor.Descriptor(
   name='MultipartUploadCredential',
   full_name='mlflow.artifacts.MultipartUploadCredential',
@@ -493,7 +531,7 @@ _MULTIPARTUPLOADCREDENTIAL = _descriptor.Descriptor(
   ],
   extensions=[
   ],
-  nested_types=[],
+  nested_types=[_MULTIPARTUPLOADCREDENTIAL_HEADERSENTRY, ],
   enum_types=[
   ],
   serialized_options=None,
@@ -502,47 +540,8 @@ _MULTIPARTUPLOADCREDENTIAL = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=555,
-  serialized_end=659,
-)
-
-
-_HEADER = _descriptor.Descriptor(
-  name='Header',
-  full_name='mlflow.artifacts.Header',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='key', full_name='mlflow.artifacts.Header.key', index=0,
-      number=1, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='value', full_name='mlflow.artifacts.Header.value', index=1,
-      number=2, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=661,
-  serialized_end=697,
+  serialized_start=556,
+  serialized_end=740,
 )
 
 _DOWNLOADARTIFACT_RESPONSE.containing_type = _DOWNLOADARTIFACT
@@ -554,7 +553,8 @@ _CREATEMULTIPARTUPLOAD_RESPONSE.fields_by_name['credentials'].message_type = _MU
 _CREATEMULTIPARTUPLOAD_RESPONSE.containing_type = _CREATEMULTIPARTUPLOAD
 _COMPLETEMULTIPARTUPLOAD_RESPONSE.containing_type = _COMPLETEMULTIPARTUPLOAD
 _ABORTMULTIPARTUPLOAD_RESPONSE.containing_type = _ABORTMULTIPARTUPLOAD
-_MULTIPARTUPLOADCREDENTIAL.fields_by_name['headers'].message_type = _HEADER
+_MULTIPARTUPLOADCREDENTIAL_HEADERSENTRY.containing_type = _MULTIPARTUPLOADCREDENTIAL
+_MULTIPARTUPLOADCREDENTIAL.fields_by_name['headers'].message_type = _MULTIPARTUPLOADCREDENTIAL_HEADERSENTRY
 DESCRIPTOR.message_types_by_name['DownloadArtifact'] = _DOWNLOADARTIFACT
 DESCRIPTOR.message_types_by_name['UploadArtifact'] = _UPLOADARTIFACT
 DESCRIPTOR.message_types_by_name['ListArtifacts'] = _LISTARTIFACTS
@@ -564,7 +564,6 @@ DESCRIPTOR.message_types_by_name['CreateMultipartUpload'] = _CREATEMULTIPARTUPLO
 DESCRIPTOR.message_types_by_name['CompleteMultipartUpload'] = _COMPLETEMULTIPARTUPLOAD
 DESCRIPTOR.message_types_by_name['AbortMultipartUpload'] = _ABORTMULTIPARTUPLOAD
 DESCRIPTOR.message_types_by_name['MultipartUploadCredential'] = _MULTIPARTUPLOADCREDENTIAL
-DESCRIPTOR.message_types_by_name['Header'] = _HEADER
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 DownloadArtifact = _reflection.GeneratedProtocolMessageType('DownloadArtifact', (_message.Message,), {
@@ -680,21 +679,23 @@ _sym_db.RegisterMessage(AbortMultipartUpload)
 _sym_db.RegisterMessage(AbortMultipartUpload.Response)
 
 MultipartUploadCredential = _reflection.GeneratedProtocolMessageType('MultipartUploadCredential', (_message.Message,), {
+
+  'HeadersEntry' : _reflection.GeneratedProtocolMessageType('HeadersEntry', (_message.Message,), {
+    'DESCRIPTOR' : _MULTIPARTUPLOADCREDENTIAL_HEADERSENTRY,
+    '__module__' : 'mlflow_artifacts_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.artifacts.MultipartUploadCredential.HeadersEntry)
+    })
+  ,
   'DESCRIPTOR' : _MULTIPARTUPLOADCREDENTIAL,
   '__module__' : 'mlflow_artifacts_pb2'
   # @@protoc_insertion_point(class_scope:mlflow.artifacts.MultipartUploadCredential)
   })
 _sym_db.RegisterMessage(MultipartUploadCredential)
-
-Header = _reflection.GeneratedProtocolMessageType('Header', (_message.Message,), {
-  'DESCRIPTOR' : _HEADER,
-  '__module__' : 'mlflow_artifacts_pb2'
-  # @@protoc_insertion_point(class_scope:mlflow.artifacts.Header)
-  })
-_sym_db.RegisterMessage(Header)
+_sym_db.RegisterMessage(MultipartUploadCredential.HeadersEntry)
 
 
 DESCRIPTOR._options = None
+_MULTIPARTUPLOADCREDENTIAL_HEADERSENTRY._options = None
 
 _MLFLOWARTIFACTSSERVICE = _descriptor.ServiceDescriptor(
   name='MlflowArtifactsService',
@@ -703,8 +704,8 @@ _MLFLOWARTIFACTSSERVICE = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=700,
-  serialized_end=2133,
+  serialized_start=743,
+  serialized_end=2176,
   methods=[
   _descriptor.MethodDescriptor(
     name='downloadArtifact',

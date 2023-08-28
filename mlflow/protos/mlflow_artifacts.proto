@@ -162,11 +162,6 @@ message MultipartUploadCredential {
 
   optional int64 part_number = 2;
 
-  repeated Header headers = 3;
+  map<string, string> headers = 3;
 }
 
-message Header {
-  optional string key = 1;
-
-  optional string value = 2;
-}

@@ -8388,28 +8388,38 @@ public final class MlflowArtifacts {
     long getPartNumber();
 
     /**
-     * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
-     */
-    java.util.List<org.mlflow.api.proto.MlflowArtifacts.Header> 
-        getHeadersList();
-    /**
-     * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
-     */
-    org.mlflow.api.proto.MlflowArtifacts.Header getHeaders(int index);
-    /**
-     * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
+     * <code>map&lt;string, string&gt; headers = 3;</code>
      */
     int getHeadersCount();
     /**
-     * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
+     * <code>map&lt;string, string&gt; headers = 3;</code>
      */
-    java.util.List<? extends org.mlflow.api.proto.MlflowArtifacts.HeaderOrBuilder> 
-        getHeadersOrBuilderList();
+    boolean containsHeaders(
+        java.lang.String key);
     /**
-     * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
+     * Use {@link #getHeadersMap()} instead.
      */
-    org.mlflow.api.proto.MlflowArtifacts.HeaderOrBuilder getHeadersOrBuilder(
-        int index);
+    @java.lang.Deprecated
+    java.util.Map<java.lang.String, java.lang.String>
+    getHeaders();
+    /**
+     * <code>map&lt;string, string&gt; headers = 3;</code>
+     */
+    java.util.Map<java.lang.String, java.lang.String>
+    getHeadersMap();
+    /**
+     * <code>map&lt;string, string&gt; headers = 3;</code>
+     */
+
+    java.lang.String getHeadersOrDefault(
+        java.lang.String key,
+        java.lang.String defaultValue);
+    /**
+     * <code>map&lt;string, string&gt; headers = 3;</code>
+     */
+
+    java.lang.String getHeadersOrThrow(
+        java.lang.String key);
   }
   /**
    * Protobuf type {@code mlflow.artifacts.MultipartUploadCredential}
@@ -8425,7 +8435,6 @@ public final class MlflowArtifacts {
     }
     private MultipartUploadCredential() {
       url_ = "";
-      headers_ = java.util.Collections.emptyList();
     }
 
     @java.lang.Override
@@ -8472,11 +8481,15 @@ public final class MlflowArtifacts {
             }
             case 26: {
               if (!((mutable_bitField0_ & 0x00000004) != 0)) {
-                headers_ = new java.util.ArrayList<org.mlflow.api.proto.MlflowArtifacts.Header>();
+                headers_ = com.google.protobuf.MapField.newMapField(
+                    HeadersDefaultEntryHolder.defaultEntry);
                 mutable_bitField0_ |= 0x00000004;
               }
-              headers_.add(
-                  input.readMessage(org.mlflow.api.proto.MlflowArtifacts.Header.PARSER, extensionRegistry));
+              com.google.protobuf.MapEntry<java.lang.String, java.lang.String>
+              headers__ = input.readMessage(
+                  HeadersDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
+              headers_.getMutableMap().put(
+                  headers__.getKey(), headers__.getValue());
               break;
             }
             default: {
@@ -8494,9 +8507,6 @@ public final class MlflowArtifacts {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
-        if (((mutable_bitField0_ & 0x00000004) != 0)) {
-          headers_ = java.util.Collections.unmodifiableList(headers_);
-        }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
       }
@@ -8506,6 +8516,18 @@ public final class MlflowArtifacts {
       return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_MultipartUploadCredential_descriptor;
     }
 
+    @SuppressWarnings({"rawtypes"})
+    @java.lang.Override
+    protected com.google.protobuf.MapField internalGetMapField(
+        int number) {
+      switch (number) {
+        case 3:
+          return internalGetHeaders();
+        default:
+          throw new RuntimeException(
+              "Invalid map field number: " + number);
+      }
+    }
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
@@ -8583,43 +8605,84 @@ public final class MlflowArtifacts {
     }
 
     public static final int HEADERS_FIELD_NUMBER = 3;
-    private java.util.List<org.mlflow.api.proto.MlflowArtifacts.Header> headers_;
-    /**
-     * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
-     */
-    @java.lang.Override
-    public java.util.List<org.mlflow.api.proto.MlflowArtifacts.Header> getHeadersList() {
+    private static final class HeadersDefaultEntryHolder {
+      static final com.google.protobuf.MapEntry<
+          java.lang.String, java.lang.String> defaultEntry =
+              com.google.protobuf.MapEntry
+              .<java.lang.String, java.lang.String>newDefaultInstance(
+                  org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_MultipartUploadCredential_HeadersEntry_descriptor, 
+                  com.google.protobuf.WireFormat.FieldType.STRING,
+                  "",
+                  com.google.protobuf.WireFormat.FieldType.STRING,
+                  "");
+    }
+    private com.google.protobuf.MapField<
+        java.lang.String, java.lang.String> headers_;
+    private com.google.protobuf.MapField<java.lang.String, java.lang.String>
+    internalGetHeaders() {
+      if (headers_ == null) {
+        return com.google.protobuf.MapField.emptyMapField(
+            HeadersDefaultEntryHolder.defaultEntry);
+      }
       return headers_;
     }
-    /**
-     * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
-     */
-    @java.lang.Override
-    public java.util.List<? extends org.mlflow.api.proto.MlflowArtifacts.HeaderOrBuilder> 
-        getHeadersOrBuilderList() {
-      return headers_;
-    }
-    /**
-     * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
-     */
-    @java.lang.Override
+
     public int getHeadersCount() {
-      return headers_.size();
+      return internalGetHeaders().getMap().size();
     }
     /**
-     * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
+     * <code>map&lt;string, string&gt; headers = 3;</code>
      */
+
     @java.lang.Override
-    public org.mlflow.api.proto.MlflowArtifacts.Header getHeaders(int index) {
-      return headers_.get(index);
+    public boolean containsHeaders(
+        java.lang.String key) {
+      if (key == null) { throw new java.lang.NullPointerException(); }
+      return internalGetHeaders().getMap().containsKey(key);
     }
     /**
-     * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
+     * Use {@link #getHeadersMap()} instead.
      */
     @java.lang.Override
-    public org.mlflow.api.proto.MlflowArtifacts.HeaderOrBuilder getHeadersOrBuilder(
-        int index) {
-      return headers_.get(index);
+    @java.lang.Deprecated
+    public java.util.Map<java.lang.String, java.lang.String> getHeaders() {
+      return getHeadersMap();
+    }
+    /**
+     * <code>map&lt;string, string&gt; headers = 3;</code>
+     */
+    @java.lang.Override
+
+    public java.util.Map<java.lang.String, java.lang.String> getHeadersMap() {
+      return internalGetHeaders().getMap();
+    }
+    /**
+     * <code>map&lt;string, string&gt; headers = 3;</code>
+     */
+    @java.lang.Override
+
+    public java.lang.String getHeadersOrDefault(
+        java.lang.String key,
+        java.lang.String defaultValue) {
+      if (key == null) { throw new java.lang.NullPointerException(); }
+      java.util.Map<java.lang.String, java.lang.String> map =
+          internalGetHeaders().getMap();
+      return map.containsKey(key) ? map.get(key) : defaultValue;
+    }
+    /**
+     * <code>map&lt;string, string&gt; headers = 3;</code>
+     */
+    @java.lang.Override
+
+    public java.lang.String getHeadersOrThrow(
+        java.lang.String key) {
+      if (key == null) { throw new java.lang.NullPointerException(); }
+      java.util.Map<java.lang.String, java.lang.String> map =
+          internalGetHeaders().getMap();
+      if (!map.containsKey(key)) {
+        throw new java.lang.IllegalArgumentException();
+      }
+      return map.get(key);
     }
 
     private byte memoizedIsInitialized = -1;
@@ -8642,9 +8705,12 @@ public final class MlflowArtifacts {
       if (((bitField0_ & 0x00000002) != 0)) {
         output.writeInt64(2, partNumber_);
       }
-      for (int i = 0; i < headers_.size(); i++) {
-        output.writeMessage(3, headers_.get(i));
-      }
+      com.google.protobuf.GeneratedMessageV3
+        .serializeStringMapTo(
+          output,
+          internalGetHeaders(),
+          HeadersDefaultEntryHolder.defaultEntry,
+          3);
       unknownFields.writeTo(output);
     }
 
@@ -8661,9 +8727,15 @@ public final class MlflowArtifacts {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(2, partNumber_);
       }
-      for (int i = 0; i < headers_.size(); i++) {
+      for (java.util.Map.Entry<java.lang.String, java.lang.String> entry
+           : internalGetHeaders().getMap().entrySet()) {
+        com.google.protobuf.MapEntry<java.lang.String, java.lang.String>
+        headers__ = HeadersDefaultEntryHolder.defaultEntry.newBuilderForType()
+            .setKey(entry.getKey())
+            .setValue(entry.getValue())
+            .build();
         size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(3, headers_.get(i));
+            .computeMessageSize(3, headers__);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -8690,8 +8762,8 @@ public final class MlflowArtifacts {
         if (getPartNumber()
             != other.getPartNumber()) return false;
       }
-      if (!getHeadersList()
-          .equals(other.getHeadersList())) return false;
+      if (!internalGetHeaders().equals(
+          other.internalGetHeaders())) return false;
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -8712,9 +8784,9 @@ public final class MlflowArtifacts {
         hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
             getPartNumber());
       }
-      if (getHeadersCount() > 0) {
+      if (!internalGetHeaders().getMap().isEmpty()) {
         hash = (37 * hash) + HEADERS_FIELD_NUMBER;
-        hash = (53 * hash) + getHeadersList().hashCode();
+        hash = (53 * hash) + internalGetHeaders().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -8823,6 +8895,28 @@ public final class MlflowArtifacts {
         return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_MultipartUploadCredential_descriptor;
       }
 
+      @SuppressWarnings({"rawtypes"})
+      protected com.google.protobuf.MapField internalGetMapField(
+          int number) {
+        switch (number) {
+          case 3:
+            return internalGetHeaders();
+          default:
+            throw new RuntimeException(
+                "Invalid map field number: " + number);
+        }
+      }
+      @SuppressWarnings({"rawtypes"})
+      protected com.google.protobuf.MapField internalGetMutableMapField(
+          int number) {
+        switch (number) {
+          case 3:
+            return internalGetMutableHeaders();
+          default:
+            throw new RuntimeException(
+                "Invalid map field number: " + number);
+        }
+      }
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
@@ -8844,7 +8938,6 @@ public final class MlflowArtifacts {
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
-          getHeadersFieldBuilder();
         }
       }
       @java.lang.Override
@@ -8854,12 +8947,7 @@ public final class MlflowArtifacts {
         bitField0_ = (bitField0_ & ~0x00000001);
         partNumber_ = 0L;
         bitField0_ = (bitField0_ & ~0x00000002);
-        if (headersBuilder_ == null) {
-          headers_ = java.util.Collections.emptyList();
-          bitField0_ = (bitField0_ & ~0x00000004);
-        } else {
-          headersBuilder_.clear();
-        }
+        internalGetMutableHeaders().clear();
         return this;
       }
 
@@ -8896,15 +8984,8 @@ public final class MlflowArtifacts {
           result.partNumber_ = partNumber_;
           to_bitField0_ |= 0x00000002;
         }
-        if (headersBuilder_ == null) {
-          if (((bitField0_ & 0x00000004) != 0)) {
-            headers_ = java.util.Collections.unmodifiableList(headers_);
-            bitField0_ = (bitField0_ & ~0x00000004);
-          }
-          result.headers_ = headers_;
-        } else {
-          result.headers_ = headersBuilder_.build();
-        }
+        result.headers_ = internalGetHeaders();
+        result.headers_.makeImmutable();
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -8962,32 +9043,8 @@ public final class MlflowArtifacts {
         if (other.hasPartNumber()) {
           setPartNumber(other.getPartNumber());
         }
-        if (headersBuilder_ == null) {
-          if (!other.headers_.isEmpty()) {
-            if (headers_.isEmpty()) {
-              headers_ = other.headers_;
-              bitField0_ = (bitField0_ & ~0x00000004);
-            } else {
-              ensureHeadersIsMutable();
-              headers_.addAll(other.headers_);
-            }
-            onChanged();
-          }
-        } else {
-          if (!other.headers_.isEmpty()) {
-            if (headersBuilder_.isEmpty()) {
-              headersBuilder_.dispose();
-              headersBuilder_ = null;
-              headers_ = other.headers_;
-              bitField0_ = (bitField0_ & ~0x00000004);
-              headersBuilder_ = 
-                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
-                   getHeadersFieldBuilder() : null;
-            } else {
-              headersBuilder_.addAllMessages(other.headers_);
-            }
-          }
-        }
+        internalGetMutableHeaders().mergeFrom(
+            other.internalGetHeaders());
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
         return this;
@@ -9141,244 +9198,132 @@ public final class MlflowArtifacts {
         return this;
       }
 
-      private java.util.List<org.mlflow.api.proto.MlflowArtifacts.Header> headers_ =
-        java.util.Collections.emptyList();
-      private void ensureHeadersIsMutable() {
-        if (!((bitField0_ & 0x00000004) != 0)) {
-          headers_ = new java.util.ArrayList<org.mlflow.api.proto.MlflowArtifacts.Header>(headers_);
-          bitField0_ |= 0x00000004;
-         }
-      }
-
-      private com.google.protobuf.RepeatedFieldBuilderV3<
-          org.mlflow.api.proto.MlflowArtifacts.Header, org.mlflow.api.proto.MlflowArtifacts.Header.Builder, org.mlflow.api.proto.MlflowArtifacts.HeaderOrBuilder> headersBuilder_;
-
-      /**
-       * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
-       */
-      public java.util.List<org.mlflow.api.proto.MlflowArtifacts.Header> getHeadersList() {
-        if (headersBuilder_ == null) {
-          return java.util.Collections.unmodifiableList(headers_);
-        } else {
-          return headersBuilder_.getMessageList();
+      private com.google.protobuf.MapField<
+          java.lang.String, java.lang.String> headers_;
+      private com.google.protobuf.MapField<java.lang.String, java.lang.String>
+      internalGetHeaders() {
+        if (headers_ == null) {
+          return com.google.protobuf.MapField.emptyMapField(
+              HeadersDefaultEntryHolder.defaultEntry);
         }
+        return headers_;
       }
-      /**
-       * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
-       */
+      private com.google.protobuf.MapField<java.lang.String, java.lang.String>
+      internalGetMutableHeaders() {
+        onChanged();;
+        if (headers_ == null) {
+          headers_ = com.google.protobuf.MapField.newMapField(
+              HeadersDefaultEntryHolder.defaultEntry);
+        }
+        if (!headers_.isMutable()) {
+          headers_ = headers_.copy();
+        }
+        return headers_;
+      }
+
       public int getHeadersCount() {
-        if (headersBuilder_ == null) {
-          return headers_.size();
-        } else {
-          return headersBuilder_.getCount();
-        }
+        return internalGetHeaders().getMap().size();
       }
       /**
-       * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
+       * <code>map&lt;string, string&gt; headers = 3;</code>
        */
-      public org.mlflow.api.proto.MlflowArtifacts.Header getHeaders(int index) {
-        if (headersBuilder_ == null) {
-          return headers_.get(index);
-        } else {
-          return headersBuilder_.getMessage(index);
-        }
+
+      @java.lang.Override
+      public boolean containsHeaders(
+          java.lang.String key) {
+        if (key == null) { throw new java.lang.NullPointerException(); }
+        return internalGetHeaders().getMap().containsKey(key);
       }
       /**
-       * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
+       * Use {@link #getHeadersMap()} instead.
        */
-      public Builder setHeaders(
-          int index, org.mlflow.api.proto.MlflowArtifacts.Header value) {
-        if (headersBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          ensureHeadersIsMutable();
-          headers_.set(index, value);
-          onChanged();
-        } else {
-          headersBuilder_.setMessage(index, value);
-        }
-        return this;
+      @java.lang.Override
+      @java.lang.Deprecated
+      public java.util.Map<java.lang.String, java.lang.String> getHeaders() {
+        return getHeadersMap();
       }
       /**
-       * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
+       * <code>map&lt;string, string&gt; headers = 3;</code>
        */
-      public Builder setHeaders(
-          int index, org.mlflow.api.proto.MlflowArtifacts.Header.Builder builderForValue) {
-        if (headersBuilder_ == null) {
-          ensureHeadersIsMutable();
-          headers_.set(index, builderForValue.build());
-          onChanged();
-        } else {
-          headersBuilder_.setMessage(index, builderForValue.build());
-        }
-        return this;
+      @java.lang.Override
+
+      public java.util.Map<java.lang.String, java.lang.String> getHeadersMap() {
+        return internalGetHeaders().getMap();
       }
       /**
-       * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
+       * <code>map&lt;string, string&gt; headers = 3;</code>
        */
-      public Builder addHeaders(org.mlflow.api.proto.MlflowArtifacts.Header value) {
-        if (headersBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          ensureHeadersIsMutable();
-          headers_.add(value);
-          onChanged();
-        } else {
-          headersBuilder_.addMessage(value);
-        }
-        return this;
+      @java.lang.Override
+
+      public java.lang.String getHeadersOrDefault(
+          java.lang.String key,
+          java.lang.String defaultValue) {
+        if (key == null) { throw new java.lang.NullPointerException(); }
+        java.util.Map<java.lang.String, java.lang.String> map =
+            internalGetHeaders().getMap();
+        return map.containsKey(key) ? map.get(key) : defaultValue;
       }
       /**
-       * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
+       * <code>map&lt;string, string&gt; headers = 3;</code>
        */
-      public Builder addHeaders(
-          int index, org.mlflow.api.proto.MlflowArtifacts.Header value) {
-        if (headersBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          ensureHeadersIsMutable();
-          headers_.add(index, value);
-          onChanged();
-        } else {
-          headersBuilder_.addMessage(index, value);
+      @java.lang.Override
+
+      public java.lang.String getHeadersOrThrow(
+          java.lang.String key) {
+        if (key == null) { throw new java.lang.NullPointerException(); }
+        java.util.Map<java.lang.String, java.lang.String> map =
+            internalGetHeaders().getMap();
+        if (!map.containsKey(key)) {
+          throw new java.lang.IllegalArgumentException();
         }
-        return this;
+        return map.get(key);
       }
-      /**
-       * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
-       */
-      public Builder addHeaders(
-          org.mlflow.api.proto.MlflowArtifacts.Header.Builder builderForValue) {
-        if (headersBuilder_ == null) {
-          ensureHeadersIsMutable();
-          headers_.add(builderForValue.build());
-          onChanged();
-        } else {
-          headersBuilder_.addMessage(builderForValue.build());
-        }
-        return this;
-      }
-      /**
-       * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
-       */
-      public Builder addHeaders(
-          int index, org.mlflow.api.proto.MlflowArtifacts.Header.Builder builderForValue) {
-        if (headersBuilder_ == null) {
-          ensureHeadersIsMutable();
-          headers_.add(index, builderForValue.build());
-          onChanged();
-        } else {
-          headersBuilder_.addMessage(index, builderForValue.build());
-        }
-        return this;
-      }
-      /**
-       * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
-       */
-      public Builder addAllHeaders(
-          java.lang.Iterable<? extends org.mlflow.api.proto.MlflowArtifacts.Header> values) {
-        if (headersBuilder_ == null) {
-          ensureHeadersIsMutable();
-          com.google.protobuf.AbstractMessageLite.Builder.addAll(
-              values, headers_);
-          onChanged();
-        } else {
-          headersBuilder_.addAllMessages(values);
-        }
-        return this;
-      }
-      /**
-       * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
-       */
+
       public Builder clearHeaders() {
-        if (headersBuilder_ == null) {
-          headers_ = java.util.Collections.emptyList();
-          bitField0_ = (bitField0_ & ~0x00000004);
-          onChanged();
-        } else {
-          headersBuilder_.clear();
-        }
+        internalGetMutableHeaders().getMutableMap()
+            .clear();
         return this;
       }
       /**
-       * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
+       * <code>map&lt;string, string&gt; headers = 3;</code>
        */
-      public Builder removeHeaders(int index) {
-        if (headersBuilder_ == null) {
-          ensureHeadersIsMutable();
-          headers_.remove(index);
-          onChanged();
-        } else {
-          headersBuilder_.remove(index);
-        }
+
+      public Builder removeHeaders(
+          java.lang.String key) {
+        if (key == null) { throw new java.lang.NullPointerException(); }
+        internalGetMutableHeaders().getMutableMap()
+            .remove(key);
         return this;
       }
       /**
-       * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
+       * Use alternate mutation accessors instead.
        */
-      public org.mlflow.api.proto.MlflowArtifacts.Header.Builder getHeadersBuilder(
-          int index) {
-        return getHeadersFieldBuilder().getBuilder(index);
+      @java.lang.Deprecated
+      public java.util.Map<java.lang.String, java.lang.String>
+      getMutableHeaders() {
+        return internalGetMutableHeaders().getMutableMap();
       }
       /**
-       * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
+       * <code>map&lt;string, string&gt; headers = 3;</code>
        */
-      public org.mlflow.api.proto.MlflowArtifacts.HeaderOrBuilder getHeadersOrBuilder(
-          int index) {
-        if (headersBuilder_ == null) {
-          return headers_.get(index);  } else {
-          return headersBuilder_.getMessageOrBuilder(index);
-        }
+      public Builder putHeaders(
+          java.lang.String key,
+          java.lang.String value) {
+        if (key == null) { throw new java.lang.NullPointerException(); }
+        if (value == null) { throw new java.lang.NullPointerException(); }
+        internalGetMutableHeaders().getMutableMap()
+            .put(key, value);
+        return this;
       }
       /**
-       * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
+       * <code>map&lt;string, string&gt; headers = 3;</code>
        */
-      public java.util.List<? extends org.mlflow.api.proto.MlflowArtifacts.HeaderOrBuilder> 
-           getHeadersOrBuilderList() {
-        if (headersBuilder_ != null) {
-          return headersBuilder_.getMessageOrBuilderList();
-        } else {
-          return java.util.Collections.unmodifiableList(headers_);
-        }
-      }
-      /**
-       * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
-       */
-      public org.mlflow.api.proto.MlflowArtifacts.Header.Builder addHeadersBuilder() {
-        return getHeadersFieldBuilder().addBuilder(
-            org.mlflow.api.proto.MlflowArtifacts.Header.getDefaultInstance());
-      }
-      /**
-       * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
-       */
-      public org.mlflow.api.proto.MlflowArtifacts.Header.Builder addHeadersBuilder(
-          int index) {
-        return getHeadersFieldBuilder().addBuilder(
-            index, org.mlflow.api.proto.MlflowArtifacts.Header.getDefaultInstance());
-      }
-      /**
-       * <code>repeated .mlflow.artifacts.Header headers = 3;</code>
-       */
-      public java.util.List<org.mlflow.api.proto.MlflowArtifacts.Header.Builder> 
-           getHeadersBuilderList() {
-        return getHeadersFieldBuilder().getBuilderList();
-      }
-      private com.google.protobuf.RepeatedFieldBuilderV3<
-          org.mlflow.api.proto.MlflowArtifacts.Header, org.mlflow.api.proto.MlflowArtifacts.Header.Builder, org.mlflow.api.proto.MlflowArtifacts.HeaderOrBuilder> 
-          getHeadersFieldBuilder() {
-        if (headersBuilder_ == null) {
-          headersBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
-              org.mlflow.api.proto.MlflowArtifacts.Header, org.mlflow.api.proto.MlflowArtifacts.Header.Builder, org.mlflow.api.proto.MlflowArtifacts.HeaderOrBuilder>(
-                  headers_,
-                  ((bitField0_ & 0x00000004) != 0),
-                  getParentForChildren(),
-                  isClean());
-          headers_ = null;
-        }
-        return headersBuilder_;
+
+      public Builder putAllHeaders(
+          java.util.Map<java.lang.String, java.lang.String> values) {
+        internalGetMutableHeaders().getMutableMap()
+            .putAll(values);
+        return this;
       }
       @java.lang.Override
       public final Builder setUnknownFields(
@@ -9428,794 +9373,6 @@ public final class MlflowArtifacts {
 
     @java.lang.Override
     public org.mlflow.api.proto.MlflowArtifacts.MultipartUploadCredential getDefaultInstanceForType() {
-      return DEFAULT_INSTANCE;
-    }
-
-  }
-
-  public interface HeaderOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.artifacts.Header)
-      com.google.protobuf.MessageOrBuilder {
-
-    /**
-     * <code>optional string key = 1;</code>
-     * @return Whether the key field is set.
-     */
-    boolean hasKey();
-    /**
-     * <code>optional string key = 1;</code>
-     * @return The key.
-     */
-    java.lang.String getKey();
-    /**
-     * <code>optional string key = 1;</code>
-     * @return The bytes for key.
-     */
-    com.google.protobuf.ByteString
-        getKeyBytes();
-
-    /**
-     * <code>optional string value = 2;</code>
-     * @return Whether the value field is set.
-     */
-    boolean hasValue();
-    /**
-     * <code>optional string value = 2;</code>
-     * @return The value.
-     */
-    java.lang.String getValue();
-    /**
-     * <code>optional string value = 2;</code>
-     * @return The bytes for value.
-     */
-    com.google.protobuf.ByteString
-        getValueBytes();
-  }
-  /**
-   * Protobuf type {@code mlflow.artifacts.Header}
-   */
-  public static final class Header extends
-      com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:mlflow.artifacts.Header)
-      HeaderOrBuilder {
-  private static final long serialVersionUID = 0L;
-    // Use Header.newBuilder() to construct.
-    private Header(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
-      super(builder);
-    }
-    private Header() {
-      key_ = "";
-      value_ = "";
-    }
-
-    @java.lang.Override
-    @SuppressWarnings({"unused"})
-    protected java.lang.Object newInstance(
-        UnusedPrivateParameter unused) {
-      return new Header();
-    }
-
-    @java.lang.Override
-    public final com.google.protobuf.UnknownFieldSet
-    getUnknownFields() {
-      return this.unknownFields;
-    }
-    private Header(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      this();
-      if (extensionRegistry == null) {
-        throw new java.lang.NullPointerException();
-      }
-      int mutable_bitField0_ = 0;
-      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
-          com.google.protobuf.UnknownFieldSet.newBuilder();
-      try {
-        boolean done = false;
-        while (!done) {
-          int tag = input.readTag();
-          switch (tag) {
-            case 0:
-              done = true;
-              break;
-            case 10: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
-              key_ = bs;
-              break;
-            }
-            case 18: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000002;
-              value_ = bs;
-              break;
-            }
-            default: {
-              if (!parseUnknownField(
-                  input, unknownFields, extensionRegistry, tag)) {
-                done = true;
-              }
-              break;
-            }
-          }
-        }
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(this);
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(
-            e).setUnfinishedMessage(this);
-      } finally {
-        this.unknownFields = unknownFields.build();
-        makeExtensionsImmutable();
-      }
-    }
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_Header_descriptor;
-    }
-
-    @java.lang.Override
-    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-        internalGetFieldAccessorTable() {
-      return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_Header_fieldAccessorTable
-          .ensureFieldAccessorsInitialized(
-              org.mlflow.api.proto.MlflowArtifacts.Header.class, org.mlflow.api.proto.MlflowArtifacts.Header.Builder.class);
-    }
-
-    private int bitField0_;
-    public static final int KEY_FIELD_NUMBER = 1;
-    private volatile java.lang.Object key_;
-    /**
-     * <code>optional string key = 1;</code>
-     * @return Whether the key field is set.
-     */
-    @java.lang.Override
-    public boolean hasKey() {
-      return ((bitField0_ & 0x00000001) != 0);
-    }
-    /**
-     * <code>optional string key = 1;</code>
-     * @return The key.
-     */
-    @java.lang.Override
-    public java.lang.String getKey() {
-      java.lang.Object ref = key_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          key_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <code>optional string key = 1;</code>
-     * @return The bytes for key.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getKeyBytes() {
-      java.lang.Object ref = key_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        key_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int VALUE_FIELD_NUMBER = 2;
-    private volatile java.lang.Object value_;
-    /**
-     * <code>optional string value = 2;</code>
-     * @return Whether the value field is set.
-     */
-    @java.lang.Override
-    public boolean hasValue() {
-      return ((bitField0_ & 0x00000002) != 0);
-    }
-    /**
-     * <code>optional string value = 2;</code>
-     * @return The value.
-     */
-    @java.lang.Override
-    public java.lang.String getValue() {
-      java.lang.Object ref = value_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          value_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <code>optional string value = 2;</code>
-     * @return The bytes for value.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getValueBytes() {
-      java.lang.Object ref = value_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        value_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    private byte memoizedIsInitialized = -1;
-    @java.lang.Override
-    public final boolean isInitialized() {
-      byte isInitialized = memoizedIsInitialized;
-      if (isInitialized == 1) return true;
-      if (isInitialized == 0) return false;
-
-      memoizedIsInitialized = 1;
-      return true;
-    }
-
-    @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output)
-                        throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, key_);
-      }
-      if (((bitField0_ & 0x00000002) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, value_);
-      }
-      unknownFields.writeTo(output);
-    }
-
-    @java.lang.Override
-    public int getSerializedSize() {
-      int size = memoizedSize;
-      if (size != -1) return size;
-
-      size = 0;
-      if (((bitField0_ & 0x00000001) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, key_);
-      }
-      if (((bitField0_ & 0x00000002) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, value_);
-      }
-      size += unknownFields.getSerializedSize();
-      memoizedSize = size;
-      return size;
-    }
-
-    @java.lang.Override
-    public boolean equals(final java.lang.Object obj) {
-      if (obj == this) {
-       return true;
-      }
-      if (!(obj instanceof org.mlflow.api.proto.MlflowArtifacts.Header)) {
-        return super.equals(obj);
-      }
-      org.mlflow.api.proto.MlflowArtifacts.Header other = (org.mlflow.api.proto.MlflowArtifacts.Header) obj;
-
-      if (hasKey() != other.hasKey()) return false;
-      if (hasKey()) {
-        if (!getKey()
-            .equals(other.getKey())) return false;
-      }
-      if (hasValue() != other.hasValue()) return false;
-      if (hasValue()) {
-        if (!getValue()
-            .equals(other.getValue())) return false;
-      }
-      if (!unknownFields.equals(other.unknownFields)) return false;
-      return true;
-    }
-
-    @java.lang.Override
-    public int hashCode() {
-      if (memoizedHashCode != 0) {
-        return memoizedHashCode;
-      }
-      int hash = 41;
-      hash = (19 * hash) + getDescriptor().hashCode();
-      if (hasKey()) {
-        hash = (37 * hash) + KEY_FIELD_NUMBER;
-        hash = (53 * hash) + getKey().hashCode();
-      }
-      if (hasValue()) {
-        hash = (37 * hash) + VALUE_FIELD_NUMBER;
-        hash = (53 * hash) + getValue().hashCode();
-      }
-      hash = (29 * hash) + unknownFields.hashCode();
-      memoizedHashCode = hash;
-      return hash;
-    }
-
-    public static org.mlflow.api.proto.MlflowArtifacts.Header parseFrom(
-        java.nio.ByteBuffer data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.MlflowArtifacts.Header parseFrom(
-        java.nio.ByteBuffer data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.MlflowArtifacts.Header parseFrom(
-        com.google.protobuf.ByteString data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.MlflowArtifacts.Header parseFrom(
-        com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.MlflowArtifacts.Header parseFrom(byte[] data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.MlflowArtifacts.Header parseFrom(
-        byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.MlflowArtifacts.Header parseFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.MlflowArtifacts.Header parseFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.MlflowArtifacts.Header parseDelimitedFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.MlflowArtifacts.Header parseDelimitedFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.MlflowArtifacts.Header parseFrom(
-        com.google.protobuf.CodedInputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.MlflowArtifacts.Header parseFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-
-    @java.lang.Override
-    public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder() {
-      return DEFAULT_INSTANCE.toBuilder();
-    }
-    public static Builder newBuilder(org.mlflow.api.proto.MlflowArtifacts.Header prototype) {
-      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-    }
-    @java.lang.Override
-    public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE
-          ? new Builder() : new Builder().mergeFrom(this);
-    }
-
-    @java.lang.Override
-    protected Builder newBuilderForType(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-      Builder builder = new Builder(parent);
-      return builder;
-    }
-    /**
-     * Protobuf type {@code mlflow.artifacts.Header}
-     */
-    public static final class Builder extends
-        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:mlflow.artifacts.Header)
-        org.mlflow.api.proto.MlflowArtifacts.HeaderOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor
-          getDescriptor() {
-        return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_Header_descriptor;
-      }
-
-      @java.lang.Override
-      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-          internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_Header_fieldAccessorTable
-            .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.MlflowArtifacts.Header.class, org.mlflow.api.proto.MlflowArtifacts.Header.Builder.class);
-      }
-
-      // Construct using org.mlflow.api.proto.MlflowArtifacts.Header.newBuilder()
-      private Builder() {
-        maybeForceBuilderInitialization();
-      }
-
-      private Builder(
-          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
-        maybeForceBuilderInitialization();
-      }
-      private void maybeForceBuilderInitialization() {
-        if (com.google.protobuf.GeneratedMessageV3
-                .alwaysUseFieldBuilders) {
-        }
-      }
-      @java.lang.Override
-      public Builder clear() {
-        super.clear();
-        key_ = "";
-        bitField0_ = (bitField0_ & ~0x00000001);
-        value_ = "";
-        bitField0_ = (bitField0_ & ~0x00000002);
-        return this;
-      }
-
-      @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor
-          getDescriptorForType() {
-        return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_Header_descriptor;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.MlflowArtifacts.Header getDefaultInstanceForType() {
-        return org.mlflow.api.proto.MlflowArtifacts.Header.getDefaultInstance();
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.MlflowArtifacts.Header build() {
-        org.mlflow.api.proto.MlflowArtifacts.Header result = buildPartial();
-        if (!result.isInitialized()) {
-          throw newUninitializedMessageException(result);
-        }
-        return result;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.MlflowArtifacts.Header buildPartial() {
-        org.mlflow.api.proto.MlflowArtifacts.Header result = new org.mlflow.api.proto.MlflowArtifacts.Header(this);
-        int from_bitField0_ = bitField0_;
-        int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) != 0)) {
-          to_bitField0_ |= 0x00000001;
-        }
-        result.key_ = key_;
-        if (((from_bitField0_ & 0x00000002) != 0)) {
-          to_bitField0_ |= 0x00000002;
-        }
-        result.value_ = value_;
-        result.bitField0_ = to_bitField0_;
-        onBuilt();
-        return result;
-      }
-
-      @java.lang.Override
-      public Builder clone() {
-        return super.clone();
-      }
-      @java.lang.Override
-      public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return super.setField(field, value);
-      }
-      @java.lang.Override
-      public Builder clearField(
-          com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return super.clearField(field);
-      }
-      @java.lang.Override
-      public Builder clearOneof(
-          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return super.clearOneof(oneof);
-      }
-      @java.lang.Override
-      public Builder setRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index, java.lang.Object value) {
-        return super.setRepeatedField(field, index, value);
-      }
-      @java.lang.Override
-      public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return super.addRepeatedField(field, value);
-      }
-      @java.lang.Override
-      public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof org.mlflow.api.proto.MlflowArtifacts.Header) {
-          return mergeFrom((org.mlflow.api.proto.MlflowArtifacts.Header)other);
-        } else {
-          super.mergeFrom(other);
-          return this;
-        }
-      }
-
-      public Builder mergeFrom(org.mlflow.api.proto.MlflowArtifacts.Header other) {
-        if (other == org.mlflow.api.proto.MlflowArtifacts.Header.getDefaultInstance()) return this;
-        if (other.hasKey()) {
-          bitField0_ |= 0x00000001;
-          key_ = other.key_;
-          onChanged();
-        }
-        if (other.hasValue()) {
-          bitField0_ |= 0x00000002;
-          value_ = other.value_;
-          onChanged();
-        }
-        this.mergeUnknownFields(other.unknownFields);
-        onChanged();
-        return this;
-      }
-
-      @java.lang.Override
-      public final boolean isInitialized() {
-        return true;
-      }
-
-      @java.lang.Override
-      public Builder mergeFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws java.io.IOException {
-        org.mlflow.api.proto.MlflowArtifacts.Header parsedMessage = null;
-        try {
-          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
-        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (org.mlflow.api.proto.MlflowArtifacts.Header) e.getUnfinishedMessage();
-          throw e.unwrapIOException();
-        } finally {
-          if (parsedMessage != null) {
-            mergeFrom(parsedMessage);
-          }
-        }
-        return this;
-      }
-      private int bitField0_;
-
-      private java.lang.Object key_ = "";
-      /**
-       * <code>optional string key = 1;</code>
-       * @return Whether the key field is set.
-       */
-      public boolean hasKey() {
-        return ((bitField0_ & 0x00000001) != 0);
-      }
-      /**
-       * <code>optional string key = 1;</code>
-       * @return The key.
-       */
-      public java.lang.String getKey() {
-        java.lang.Object ref = key_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            key_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <code>optional string key = 1;</code>
-       * @return The bytes for key.
-       */
-      public com.google.protobuf.ByteString
-          getKeyBytes() {
-        java.lang.Object ref = key_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          key_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <code>optional string key = 1;</code>
-       * @param value The key to set.
-       * @return This builder for chaining.
-       */
-      public Builder setKey(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        key_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string key = 1;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearKey() {
-        bitField0_ = (bitField0_ & ~0x00000001);
-        key_ = getDefaultInstance().getKey();
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string key = 1;</code>
-       * @param value The bytes for key to set.
-       * @return This builder for chaining.
-       */
-      public Builder setKeyBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        key_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object value_ = "";
-      /**
-       * <code>optional string value = 2;</code>
-       * @return Whether the value field is set.
-       */
-      public boolean hasValue() {
-        return ((bitField0_ & 0x00000002) != 0);
-      }
-      /**
-       * <code>optional string value = 2;</code>
-       * @return The value.
-       */
-      public java.lang.String getValue() {
-        java.lang.Object ref = value_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            value_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <code>optional string value = 2;</code>
-       * @return The bytes for value.
-       */
-      public com.google.protobuf.ByteString
-          getValueBytes() {
-        java.lang.Object ref = value_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          value_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <code>optional string value = 2;</code>
-       * @param value The value to set.
-       * @return This builder for chaining.
-       */
-      public Builder setValue(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        value_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string value = 2;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearValue() {
-        bitField0_ = (bitField0_ & ~0x00000002);
-        value_ = getDefaultInstance().getValue();
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string value = 2;</code>
-       * @param value The bytes for value to set.
-       * @return This builder for chaining.
-       */
-      public Builder setValueBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        value_ = value;
-        onChanged();
-        return this;
-      }
-      @java.lang.Override
-      public final Builder setUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.setUnknownFields(unknownFields);
-      }
-
-      @java.lang.Override
-      public final Builder mergeUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.mergeUnknownFields(unknownFields);
-      }
-
-
-      // @@protoc_insertion_point(builder_scope:mlflow.artifacts.Header)
-    }
-
-    // @@protoc_insertion_point(class_scope:mlflow.artifacts.Header)
-    private static final org.mlflow.api.proto.MlflowArtifacts.Header DEFAULT_INSTANCE;
-    static {
-      DEFAULT_INSTANCE = new org.mlflow.api.proto.MlflowArtifacts.Header();
-    }
-
-    public static org.mlflow.api.proto.MlflowArtifacts.Header getDefaultInstance() {
-      return DEFAULT_INSTANCE;
-    }
-
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<Header>
-        PARSER = new com.google.protobuf.AbstractParser<Header>() {
-      @java.lang.Override
-      public Header parsePartialFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return new Header(input, extensionRegistry);
-      }
-    };
-
-    public static com.google.protobuf.Parser<Header> parser() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public com.google.protobuf.Parser<Header> getParserForType() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public org.mlflow.api.proto.MlflowArtifacts.Header getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
 
@@ -10302,10 +9459,10 @@ public final class MlflowArtifacts {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_artifacts_MultipartUploadCredential_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_artifacts_Header_descriptor;
+    internal_static_mlflow_artifacts_MultipartUploadCredential_HeadersEntry_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_artifacts_Header_fieldAccessorTable;
+      internal_static_mlflow_artifacts_MultipartUploadCredential_HeadersEntry_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -10328,48 +9485,49 @@ public final class MlflowArtifacts {
       "oad_id\030\001 \001(\t\022@\n\013credentials\030\002 \003(\0132+.mlfl" +
       "ow.artifacts.MultipartUploadCredential\"%" +
       "\n\027CompleteMultipartUpload\032\n\n\010Response\"\"\n" +
-      "\024AbortMultipartUpload\032\n\n\010Response\"h\n\031Mul" +
-      "tipartUploadCredential\022\013\n\003url\030\001 \001(\t\022\023\n\013p" +
-      "art_number\030\002 \001(\003\022)\n\007headers\030\003 \003(\0132\030.mlfl" +
-      "ow.artifacts.Header\"$\n\006Header\022\013\n\003key\030\001 \001" +
-      "(\t\022\r\n\005value\030\002 \001(\t2\231\013\n\026MlflowArtifactsSer" +
-      "vice\022\275\001\n\020downloadArtifact\022\".mlflow.artif" +
-      "acts.DownloadArtifact\032+.mlflow.artifacts" +
-      ".DownloadArtifact.Response\"X\362\206\031T\n=\n\003GET\022" +
-      "0/mlflow-artifacts/artifacts/<path:artif" +
-      "act_path>\032\004\010\002\020\000\020\001*\021Download Artifact\022\265\001\n" +
-      "\016uploadArtifact\022 .mlflow.artifacts.Uploa" +
-      "dArtifact\032).mlflow.artifacts.UploadArtif" +
-      "act.Response\"V\362\206\031R\n=\n\003PUT\0220/mlflow-artif" +
-      "acts/artifacts/<path:artifact_path>\032\004\010\002\020" +
-      "\000\020\001*\017Upload Artifact\022\234\001\n\rlistArtifacts\022\037" +
-      ".mlflow.artifacts.ListArtifacts\032(.mlflow" +
-      ".artifacts.ListArtifacts.Response\"@\362\206\031<\n" +
-      "(\n\003GET\022\033/mlflow-artifacts/artifacts\032\004\010\002\020" +
-      "\000\020\001*\016List Artifacts\022\271\001\n\016deleteArtifact\022 " +
-      ".mlflow.artifacts.DeleteArtifact\032).mlflo" +
-      "w.artifacts.DeleteArtifact.Response\"Z\362\206\031" +
-      "V\n@\n\006DELETE\0220/mlflow-artifacts/artifacts" +
-      "/<path:artifact_path>\032\004\010\002\020\000\020\001*\020Delete Ar" +
-      "tifacts\022\340\001\n\025createMultipartUpload\022\'.mlfl" +
-      "ow.artifacts.CreateMultipartUpload\0320.mlf" +
-      "low.artifacts.CreateMultipartUpload.Resp" +
-      "onse\"l\362\206\031h\n?\n\004POST\0221/mlflow-artifacts/mp" +
-      "u/create/<path:artifact_path>\032\004\010\002\020\000\020\001*#C" +
-      "reate an Artifact Multipart Upload\022\352\001\n\027c" +
-      "ompleteMultipartUpload\022).mlflow.artifact" +
-      "s.CompleteMultipartUpload\0322.mlflow.artif" +
-      "acts.CompleteMultipartUpload.Response\"p\362" +
-      "\206\031l\nA\n\004POST\0223/mlflow-artifacts/mpu/compl" +
-      "ete/<path:artifact_path>\032\004\010\002\020\000\020\001*%Comple" +
-      "te an Artifact Multipart Upload\022\333\001\n\024abor" +
-      "tMultipartUpload\022&.mlflow.artifacts.Abor" +
-      "tMultipartUpload\032/.mlflow.artifacts.Abor" +
-      "tMultipartUpload.Response\"j\362\206\031f\n>\n\004POST\022" +
-      "0/mlflow-artifacts/mpu/abort/<path:artif" +
-      "act_path>\032\004\010\002\020\000\020\001*\"Abort an Artifact Mul" +
-      "tipart UploadB\036\n\024org.mlflow.api.proto\220\001\001" +
-      "\342?\002\020\001"
+      "\024AbortMultipartUpload\032\n\n\010Response\"\270\001\n\031Mu" +
+      "ltipartUploadCredential\022\013\n\003url\030\001 \001(\t\022\023\n\013" +
+      "part_number\030\002 \001(\003\022I\n\007headers\030\003 \003(\01328.mlf" +
+      "low.artifacts.MultipartUploadCredential." +
+      "HeadersEntry\032.\n\014HeadersEntry\022\013\n\003key\030\001 \001(" +
+      "\t\022\r\n\005value\030\002 \001(\t:\0028\0012\231\013\n\026MlflowArtifacts" +
+      "Service\022\275\001\n\020downloadArtifact\022\".mlflow.ar" +
+      "tifacts.DownloadArtifact\032+.mlflow.artifa" +
+      "cts.DownloadArtifact.Response\"X\362\206\031T\n=\n\003G" +
+      "ET\0220/mlflow-artifacts/artifacts/<path:ar" +
+      "tifact_path>\032\004\010\002\020\000\020\001*\021Download Artifact\022" +
+      "\265\001\n\016uploadArtifact\022 .mlflow.artifacts.Up" +
+      "loadArtifact\032).mlflow.artifacts.UploadAr" +
+      "tifact.Response\"V\362\206\031R\n=\n\003PUT\0220/mlflow-ar" +
+      "tifacts/artifacts/<path:artifact_path>\032\004" +
+      "\010\002\020\000\020\001*\017Upload Artifact\022\234\001\n\rlistArtifact" +
+      "s\022\037.mlflow.artifacts.ListArtifacts\032(.mlf" +
+      "low.artifacts.ListArtifacts.Response\"@\362\206" +
+      "\031<\n(\n\003GET\022\033/mlflow-artifacts/artifacts\032\004" +
+      "\010\002\020\000\020\001*\016List Artifacts\022\271\001\n\016deleteArtifac" +
+      "t\022 .mlflow.artifacts.DeleteArtifact\032).ml" +
+      "flow.artifacts.DeleteArtifact.Response\"Z" +
+      "\362\206\031V\n@\n\006DELETE\0220/mlflow-artifacts/artifa" +
+      "cts/<path:artifact_path>\032\004\010\002\020\000\020\001*\020Delete" +
+      " Artifacts\022\340\001\n\025createMultipartUpload\022\'.m" +
+      "lflow.artifacts.CreateMultipartUpload\0320." +
+      "mlflow.artifacts.CreateMultipartUpload.R" +
+      "esponse\"l\362\206\031h\n?\n\004POST\0221/mlflow-artifacts" +
+      "/mpu/create/<path:artifact_path>\032\004\010\002\020\000\020\001" +
+      "*#Create an Artifact Multipart Upload\022\352\001" +
+      "\n\027completeMultipartUpload\022).mlflow.artif" +
+      "acts.CompleteMultipartUpload\0322.mlflow.ar" +
+      "tifacts.CompleteMultipartUpload.Response" +
+      "\"p\362\206\031l\nA\n\004POST\0223/mlflow-artifacts/mpu/co" +
+      "mplete/<path:artifact_path>\032\004\010\002\020\000\020\001*%Com" +
+      "plete an Artifact Multipart Upload\022\333\001\n\024a" +
+      "bortMultipartUpload\022&.mlflow.artifacts.A" +
+      "bortMultipartUpload\032/.mlflow.artifacts.A" +
+      "bortMultipartUpload.Response\"j\362\206\031f\n>\n\004PO" +
+      "ST\0220/mlflow-artifacts/mpu/abort/<path:ar" +
+      "tifact_path>\032\004\010\002\020\000\020\001*\"Abort an Artifact " +
+      "Multipart UploadB\036\n\024org.mlflow.api.proto" +
+      "\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -10473,11 +9631,11 @@ public final class MlflowArtifacts {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_artifacts_MultipartUploadCredential_descriptor,
         new java.lang.String[] { "Url", "PartNumber", "Headers", });
-    internal_static_mlflow_artifacts_Header_descriptor =
-      getDescriptor().getMessageTypes().get(9);
-    internal_static_mlflow_artifacts_Header_fieldAccessorTable = new
+    internal_static_mlflow_artifacts_MultipartUploadCredential_HeadersEntry_descriptor =
+      internal_static_mlflow_artifacts_MultipartUploadCredential_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_artifacts_MultipartUploadCredential_HeadersEntry_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_artifacts_Header_descriptor,
+        internal_static_mlflow_artifacts_MultipartUploadCredential_HeadersEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
