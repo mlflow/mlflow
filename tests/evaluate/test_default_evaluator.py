@@ -1350,13 +1350,24 @@ def test_evaluate_custom_metric_incorrect_return_formats():
             metrics,
         )
 
+    def return_float(*_):
+        return 3.0
+
+    with pytest.raises(MlflowException, match="did not return a MetricValue"):
+        _evaluate_custom_metric(
+            _CustomMetric(return_float, return_float.__name__, 0),
+            eval_df,
+            metrics,
+        )
+
 
 @pytest.mark.parametrize(
     ("fn", "expectation"),
     [
         (
             lambda eval_df, _: MetricValue(
-                aggregate_results={"prediction_sum": sum(eval_df["prediction"])}
+                scores=eval_df["prediction"],
+                aggregate_results={"prediction_sum": sum(eval_df["prediction"])},
             ),
             does_not_raise(),
         ),

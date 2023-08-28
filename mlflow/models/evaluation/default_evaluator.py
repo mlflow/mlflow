@@ -9,7 +9,7 @@ import shutil
 import tempfile
 from collections import namedtuple
 from functools import partial
-from typing import Callable, NamedTuple
+from typing import Callable, Dict, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -468,7 +468,7 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
                                 ``custom_metrics`` parameter of ``mlflow.evaluate``
     :param eval_df: A Pandas dataframe object containing a prediction and a target column.
     :param builtin_metrics: A dictionary of metrics produced by the default evaluator.
-    :return: A scalar metric value.
+    :return: MetricValue
     """
     exception_header = (
         f"Custom metric '{custom_metric_tuple.name}' at index {custom_metric_tuple.index}"
@@ -480,11 +480,22 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
     if metric is None:
         raise MlflowException(f"{exception_header} returned None.")
 
-    # if _is_numeric(metric):
-    #     return MetricValue(aggregate_results={custom_metric_tuple.name: metric})
-
     if not isinstance(metric, MetricValue):
         raise MlflowException(f"{exception_header} did not return a MetricValue.")
+
+    if any(not _is_numeric(score) for score in metric.scores):
+        raise MlflowException(f"{exception_header} returned a MetricValue with non-numeric scores.")
+
+    if any(not isinstance(justification, str) for justification in metric.justifications):
+        raise MlflowException(
+            f"{exception_header} returned a MetricValue with non-string justifications."
+        )
+
+    if not isinstance(metric.aggregate_results, Dict[str, float]):
+        raise MlflowException(
+            f"""{exception_header} returned a MetricValue with aggregate_results not as a 
+            Dict[str, float]."""
+        )
 
     return metric
 
