@@ -112,6 +112,11 @@ from mlflow.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import evaluate
 from mlflow.projects import run
+from mlflow.system_metrics import (
+    disable_system_metrics_logging,
+    set_system_metrics_sampling_interval,
+    set_system_metrics_samples_before_logging,
+)
 from mlflow.tracking import (
     get_registry_uri,
     get_tracking_uri,
@@ -211,6 +216,9 @@ __all__ = [
     "doctor",
     "MlflowClient",
     "MlflowException",
+    "disable_system_metrics_logging",
+    "set_system_metrics_sampling_interval",
+    "set_system_metrics_samples_before_logging",
 ]
 
 
