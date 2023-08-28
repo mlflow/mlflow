@@ -74,7 +74,8 @@ from mlflow.protos.mlflow_artifacts_pb2 import (
     DownloadArtifact,
     UploadArtifact,
     ListArtifacts as ListArtifactsMlflowArtifacts,
-    DeleteArtifact, CreateMultipartUpload,
+    DeleteArtifact,
+    CreateMultipartUpload,
 )
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin

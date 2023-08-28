@@ -17,9 +17,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
-    MultipartUploadCredential,
-    CreateMultipartUploadResponse,
 )
+from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, \
+    MultipartUploadCredential
 from mlflow.utils import data_utils
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
@@ -264,7 +264,7 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             )
             credentials.append(
                 MultipartUploadCredential(
-                    presigned_url=url,
+                    url=url,
                     part_number=i,
                     headers={},
                 )

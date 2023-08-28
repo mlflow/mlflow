@@ -4,9 +4,9 @@ import posixpath
 import tempfile
 from abc import abstractmethod, ABCMeta, ABC
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
-from typing import Dict, Any, List, Optional
+from typing import List
 
+from mlflow.entities.multipart_upload import CreateMultipartUploadResponse
 from mlflow.exceptions import MlflowException
 from mlflow.entities.file_info import FileInfo
 from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
@@ -244,25 +244,6 @@ class ArtifactRepository:
         """Compute the number of workers to use for multi-threading."""
         num_cpus = os.cpu_count() or _NUM_DEFAULT_CPUS
         return min(num_cpus * _NUM_MAX_THREADS_PER_CPU, _NUM_MAX_THREADS)
-
-
-@dataclass
-class MultipartUploadCredential:
-    presigned_url: str
-    part_number: int
-    headers: Dict[str, Any]
-
-
-@dataclass
-class CreateMultipartUploadResponse:
-    credentials: List[MultipartUploadCredential]
-    upload_id: Optional[str]
-
-
-@dataclass
-class MultipartUploadPart:
-    part_number: int
-    etag: str
 
 
 class MultipartUploadMixin(ABC):
