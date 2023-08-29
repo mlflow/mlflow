@@ -337,6 +337,14 @@ class Schema:
     """
 
     def __init__(self, inputs: List[Union[ColSpec, TensorSpec]]):
+        if not isinstance(inputs, list):
+            raise MlflowException.invalid_parameter_value(
+                f"Inputs of Schema must be a list, got type {type(inputs).__name__}"
+            )
+        if not inputs:
+            raise MlflowException.invalid_parameter_value(
+                "Creating Schema with empty inputs is not allowed."
+            )
         if not (all(x.name is None for x in inputs) or all(x.name is not None for x in inputs)):
             raise MlflowException(
                 "Creating Schema with a combination of named and unnamed inputs "

@@ -143,6 +143,14 @@ def test_schema_creation():
         Schema([TensorSpec(np.dtype("double"), (-1,)), TensorSpec(np.dtype("double"), (-1,))])
 
 
+def test_schema_creation_errors():
+    with pytest.raises(MlflowException, match=r"Creating Schema with empty inputs is not allowed."):
+        Schema([])
+
+    with pytest.raises(MlflowException, match=r"Inputs of Schema must be a list, got type dict"):
+        Schema({"col1": ColSpec(DataType.string)})
+
+
 def test_get_schema_type(dict_of_ndarrays):
     schema = _infer_schema(dict_of_ndarrays)
     assert ["float64"] * 4 == schema.numpy_types()
