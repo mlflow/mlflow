@@ -9,7 +9,7 @@ import shutil
 import tempfile
 from collections import namedtuple
 from functools import partial
-from typing import Callable, Dict, NamedTuple
+from typing import Callable, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -483,18 +483,40 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
     if not isinstance(metric, MetricValue):
         raise MlflowException(f"{exception_header} did not return a MetricValue.")
 
-    if any(not _is_numeric(score) for score in metric.scores):
-        raise MlflowException(f"{exception_header} returned a MetricValue with non-numeric scores.")
+    scores, justifications, aggregates = (
+        metric.scores,
+        metric.justifications,
+        metric.aggregate_results,
+    )
 
-    if any(not isinstance(justification, str) for justification in metric.justifications):
+    if scores and not isinstance(scores, list):
+        raise MlflowException(f"{exception_header} returned MetricValue with scores not in a list.")
+
+    if scores and any(not _is_numeric(score) for score in scores):
+        raise MlflowException(f"{exception_header} returned MetricValue with non-numeric scores.")
+
+    if justifications and not isinstance(justifications, list):
         raise MlflowException(
-            f"{exception_header} returned a MetricValue with non-string justifications."
+            f"{exception_header} returned MetricValue with justifications not in a list."
         )
 
-    if not isinstance(metric.aggregate_results, Dict[str, float]):
+    if justifications and any(
+        not isinstance(justification, str) for justification in justifications
+    ):
         raise MlflowException(
-            f"""{exception_header} returned a MetricValue with aggregate_results not as a 
-            Dict[str, float]."""
+            f"{exception_header} returned MetricValue with non-string justifications."
+        )
+
+    if aggregates and not isinstance(aggregates, dict):
+        raise MlflowException(
+            f"{exception_header} returned MetricValue with aggregate_results not in a dict."
+        )
+
+    if aggregates or any(
+        not (isinstance(k, str) and _is_numeric(v)) for k, v in aggregates.items()
+    ):
+        raise MlflowException(
+            f"{exception_header} returned MetricValue with non-Dict[str,float] aggregate_results."
         )
 
     return metric

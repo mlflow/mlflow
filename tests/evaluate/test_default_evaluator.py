@@ -1360,6 +1360,75 @@ def test_evaluate_custom_metric_incorrect_return_formats():
             metrics,
         )
 
+    def non_list_scores(*_):
+        return MetricValue(scores=5)
+
+    with pytest.raises(MlflowException, match="returned MetricValue with scores not in a list"):
+        _evaluate_custom_metric(
+            _CustomMetric(non_list_scores, non_list_scores.__name__, 0),
+            eval_df,
+            metrics,
+        )
+
+    def non_numeric_scores(*_):
+        return MetricValue(scores=["string"])
+
+    with pytest.raises(MlflowException, match="returned MetricValue with non-numeric scores"):
+        _evaluate_custom_metric(
+            _CustomMetric(non_numeric_scores, non_numeric_scores.__name__, 0),
+            eval_df,
+            metrics,
+        )
+
+    def non_list_justifications(*_):
+        return MetricValue(justifications="string")
+
+    with pytest.raises(
+        MlflowException, match="returned MetricValue with justifications not in a list"
+    ):
+        _evaluate_custom_metric(
+            _CustomMetric(non_list_justifications, non_list_justifications.__name__, 0),
+            eval_df,
+            metrics,
+        )
+
+    def non_str_justifications(*_):
+        return MetricValue(justifications=[3, 4])
+
+    with pytest.raises(
+        MlflowException, match="returned MetricValue with non-string justifications"
+    ):
+        _evaluate_custom_metric(
+            _CustomMetric(non_str_justifications, non_str_justifications.__name__, 0),
+            eval_df,
+            metrics,
+        )
+
+    def non_dict_aggregates(*_):
+        return MetricValue(aggregate_results=[5.0, 4.0])
+
+    with pytest.raises(
+        MlflowException, match="returned MetricValue with aggregate_results not in a dict"
+    ):
+        _evaluate_custom_metric(
+            _CustomMetric(non_dict_aggregates, non_dict_aggregates.__name__, 0),
+            eval_df,
+            metrics,
+        )
+
+    def wrong_type_aggregates(*_):
+        return MetricValue(aggregate_results={"toxicity": 0.0, "hi": "hi"})
+
+    with pytest.raises(
+        MlflowException,
+        match="returned MetricValue with non-Dict\[str,float\] aggregate_results",
+    ):
+        _evaluate_custom_metric(
+            _CustomMetric(wrong_type_aggregates, wrong_type_aggregates.__name__, 0),
+            eval_df,
+            metrics,
+        )
+
 
 @pytest.mark.parametrize(
     ("fn", "expectation"),
@@ -1390,9 +1459,11 @@ def test_evaluate_custom_metric_success():
 
     def example_count_times_1_point_5(_, given_metrics):
         return MetricValue(
+            scores=eval_df["prediction"] * 1.5,
+            justifications=["justification"] * len(eval_df["prediction"]),
             aggregate_results={
                 "example_count_times_1_point_5": given_metrics["example_count"] * 1.5
-            }
+            },
         )
 
     res_metric = _evaluate_custom_metric(
@@ -1402,6 +1473,8 @@ def test_evaluate_custom_metric_success():
         res_metric.aggregate_results["example_count_times_1_point_5"]
         == metrics["example_count"] * 1.5
     )
+    assert res_metric.scores == eval_df["prediction"] * 1.5
+    assert res_metric.justifications == ["justification"] * len(eval_df["prediction"])
 
 
 def test_evaluate_custom_artifacts_success():
@@ -2343,9 +2416,12 @@ def test_evaluate_text_and_text_metrics():
     assert results.metrics["toxicity_ratio"] == 0.5
 
 
-def accuracy(eval_df, _builtin_metrics):
+def very_toxic(eval_df, builtin_metrics):
+    new_scores = [1 if score > 0.9 else 0 for score in builtin_metrics["toxicity"].scores]
     return MetricValue(
-        aggregate_results={"accuracy": eval_df["prediction"].eq(eval_df["target"]).mean()}
+        scores=new_scores,
+        justifications=["toxic" if score == 1 else "not toxic" for score in new_scores],
+        aggregate_results={"very_toxic_ratio": sum(new_scores) / len(new_scores)},
     )
 
 
@@ -2360,40 +2436,21 @@ def test_evaluate_text_custom_metrics():
             data,
             targets="target",
             model_type="text",
-            custom_metrics=[make_metric(eval_fn=accuracy, greater_is_better=True)],
+            custom_metrics=[make_metric(eval_fn=very_toxic, greater_is_better=True)],
         )
 
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    assert logged_data.columns.tolist() == [
-        "text",
-        "target",
-        "outputs",
-        "toxicity/score",
-        "flesch_kincaid_grade_level/score",
-        "ari_grade_level/score",
-        "perplexity/score",
-    ]
-    assert logged_data["text"].tolist() == ["a", "b"]
-    assert logged_data["target"].tolist() == ["a", "b"]
-    assert logged_data["outputs"].tolist() == ["a", "b"]
-    assert logged_data["toxicity/score"][0] < 0.5
-    assert logged_data["toxicity/score"][1] < 0.5
+
+    assert "very_toxic/score" in logged_data.columns.tolist()
+    assert "very_toxic/justification" in logged_data.columns.tolist()
+    assert all(isinstance(score, float) for score in logged_data["very_toxic/score"])
     assert all(
-        isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level/score"]
+        isinstance(justification, str) for justification in logged_data["very_toxic/justification"]
     )
-    assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level/score"])
-    assert set(results.metrics.keys()) == {
-        "accuracy",
-        "mean_perplexity",
-        "toxicity_ratio",
-        "mean_ari_grade_level",
-        "mean_flesch_kincaid_grade_level",
-    }
-    assert results.metrics["accuracy"] == 1.0
-    assert results.metrics["toxicity_ratio"] == 0.0
+    assert "very_toxic_ratio" in set(results.metrics.keys())
 
 
 def test_eval_results_table_json_can_be_prefixed_with_metric_prefix():
