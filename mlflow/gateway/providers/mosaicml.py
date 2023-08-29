@@ -27,7 +27,6 @@ class MosaicMLProvider(BaseProvider):
             payload=payload,
         )
 
-
     def _parse_chat_messages_to_prompt(self, messages: List[chat.RequestMessage]) -> str:
         """
         This parser is based on the format described in
@@ -39,7 +38,7 @@ class MosaicMLProvider(BaseProvider):
 
             {{ user_msg_1 }} [/INST] {{ model_answer_1 }} </s><s>[INST] {{ user_msg_2 }} [/INST]"
         """
-        if all(m1.role != m2.role for m1, m2 in zip(messages, messages[1:])):
+        if len(messages) > 1 and all(m1.role != m2.role for m1, m2 in zip(messages, messages[1:])):
             raise MlflowException.invalid_parameter_value(
                 "Consecutive messages cannot have the same 'role'.",
             )
