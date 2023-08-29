@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 try:
     import pynvml
 except ImportError:
-    logger.warning(
+    print(
         "`GPUMonitor` requires pynvml package. To install, run `pip install pynvml`. Skip "
         "logging GPU metrics."
     )
@@ -29,6 +29,7 @@ class GPUMonitor(BaseMetricsMonitor):
         return super().__new__(cls, *args, **kwargs)
 
     def __init__(self, name="cpu"):
+        super().__init__(name)
         self.num_gpus = pynvml.nvmlDeviceGetCount()
         self.gpu_handles = [pynvml.nvmlDeviceGetHandleByIndex(i) for i in range(self.num_gpus)]
 
