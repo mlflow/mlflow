@@ -6,7 +6,6 @@ import requests
 from unittest import mock
 from contextlib import contextmanager
 from typing import Dict, Any
-from mlflow.openai import _OpenAIEnvVar
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.models.signature import ParamSchema
 
@@ -147,7 +146,7 @@ class _OAITokenHolder:
             self.credential = DefaultAzureCredential()
             self.openai_token = None
         else:
-            self.api_key_in = openai.api_key or _OpenAIEnvVar.OPENAI_API_KEY.value in os.environ
+            self.api_key_in = openai.api_key or "OPENAI_API_KEY" in os.environ
 
     def validate(self, logger=None):
         """
@@ -174,6 +173,5 @@ class _OAITokenHolder:
         else:
             if not self.api_key_in:
                 raise mlflow.MlflowException(
-                    f"OpenAI API key must be set in the {_OpenAIEnvVar.OPENAI_API_KEY.value}"
-                    " environment variable."
+                    "OpenAI API key must be set in the ``OPENAI_API_KEY``" " environment variable."
                 )
