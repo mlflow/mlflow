@@ -42,7 +42,7 @@ def augmented_raise_for_status(response):
 
 def download_chunk(range_start, range_end, headers, download_path, http_uri):
     combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
-    timeout = DOWNLOAD_CHUNK_TIMEOUT_100M * ((range_end - range_start) // 100_000_000 + 1)
+    timeout = DOWNLOAD_CHUNK_TIMEOUT_100M * (range_end - range_start) / 100_000_000
 
     with cloud_storage_http_request(
         "get", http_uri, stream=False, headers=combined_headers, timeout=timeout
