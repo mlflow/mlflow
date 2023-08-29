@@ -11,6 +11,7 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from mlflow.data.dataset import Dataset
+from mlflow.system_metrics import SystemMetricsMonitor
 from mlflow.entities import (
     DatasetInput,
     Experiment,
@@ -191,6 +192,7 @@ def start_run(
     nested: bool = False,
     tags: Optional[Dict[str, Any]] = None,
     description: Optional[str] = None,
+    include_system_metrics: bool = True,
 ) -> ActiveRun:
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
@@ -207,27 +209,29 @@ def start_run(
     :ref:`MLflow system tags <system_tags>`.
 
     :param run_id: If specified, get the run with the specified UUID and log parameters
-                     and metrics under that run. The run's end time is unset and its status
-                     is set to running, but the run's other attributes (``source_version``,
-                     ``source_type``, etc.) are not changed.
+        and metrics under that run. The run's end time is unset and its status
+        is set to running, but the run's other attributes (``source_version``,
+        ``source_type``, etc.) are not changed.
     :param experiment_id: ID of the experiment under which to create the current run (applicable
-                          only when ``run_id`` is not specified). If ``experiment_id`` argument
-                          is unspecified, will look for valid experiment in the following order:
-                          activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_NAME``
-                          environment variable, ``MLFLOW_EXPERIMENT_ID`` environment variable,
-                          or the default experiment as defined by the tracking server.
-    :param run_name: Name of new run.
-                     Used only when ``run_id`` is unspecified. If a new run is created and
-                     ``run_name`` is not specified, a unique name will be generated for the run.
+        only when ``run_id`` is not specified). If ``experiment_id`` argument
+        is unspecified, will look for valid experiment in the following order:
+        activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_NAME``
+        environment variable, ``MLFLOW_EXPERIMENT_ID`` environment variable,
+        or the default experiment as defined by the tracking server.
+    :param run_name: Name of new run. Used only when ``run_id`` is unspecified. If a new run is
+        created and ``run_name`` is not specified, a unique name will be generated for the run.
     :param nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
     :param tags: An optional dictionary of string keys and values to set as tags on the run.
-                 If a run is being resumed, these tags are set on the resumed run. If a new run is
-                 being created, these tags are set on the new run.
+        If a run is being resumed, these tags are set on the resumed run. If a new run is
+        being created, these tags are set on the new run.
     :param description: An optional string that populates the description box of the run.
-                        If a run is being resumed, the description is set on the resumed run.
-                        If a new run is being created, the description is set on the new run.
-    :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
-             the run's state.
+        If a run is being resumed, the description is set on the resumed run.
+        If a new run is being created, the description is set on the new run.
+    :param include_system_metrics: bool, defaults to True. If True, system metrics will be logged
+        to MLflow, including cpu/gpu utilization, disk utilization and so on.
+
+    :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping the
+        run's state.
 
     .. test-code-block:: python
         :caption: Example
@@ -366,6 +370,10 @@ def start_run(
             experiment_id=exp_id_for_run, tags=resolved_tags, run_name=run_name
         )
 
+    if include_system_metrics:
+        system_monitor = SystemMetricsMonitor(active_run_obj)
+        system_monitor.start()
+
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
 
@@ -405,6 +413,8 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
         # Clear out the global existing run environment variable as well.
         MLFLOW_RUN_ID.unset()
         run = _active_run_stack.pop()
+        if run.system_metrics_monitor:
+            run.system_metrics_monitor.finish()
         MlflowClient().set_terminated(run.info.run_id, status)
         _last_active_run_id = run.info.run_id
 

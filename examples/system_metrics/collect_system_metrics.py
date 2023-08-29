@@ -1,14 +1,11 @@
-from mlflow.system_metrics import SystemMetricsMonitor
 import mlflow
 import time
 
 if __name__ == "__main__":
-    with mlflow.start_run() as run:
-        system_monitor = SystemMetricsMonitor(run, 1)
-
-    system_monitor.start()
+    run = mlflow.start_run()
     time.sleep(10)
-    system_monitor.finish()
+    mlflow.end_run()
 
     client = mlflow.MlflowClient()
     mlflow_run = client.get_run(run.info.run_id)
+    print(mlflow_run.data.metrics)

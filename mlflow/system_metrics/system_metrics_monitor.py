@@ -35,6 +35,10 @@ class SystemMetricsMonitor:
 
         self.mlflow_logger = BatchMetricsLogger(mlflow_run.info.run_id)
         self._shutdown_event = threading.Event()
+        self._process = None
+
+        # Attach `SystemMetricsMonitor` instance to the `mlflow_run` instance.
+        mlflow_run.system_metrics_monitor = self
 
     def start(self):
         """Start monitoring system metrics."""
@@ -57,7 +61,14 @@ class SystemMetricsMonitor:
             self._shutdown_event.wait(self.logging_interval)
             if self._shutdown_event.is_set():
                 break
-            self.log_metrics(metrics)
+            try:
+                self.log_metrics(metrics)
+            except Exception as e:
+                logger.warning(
+                    f"MLflow: failed to log system metrics: {e}, this is expected if the "
+                    "experiment/run is already terminated."
+                )
+                return
 
     def collect_metrics(self):
         """Collect system metrics."""
