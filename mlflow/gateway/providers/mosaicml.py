@@ -26,7 +26,7 @@ class MosaicMLProvider(BaseProvider):
             path=model + "/v1/predict",
             payload=payload,
         )
-    
+
     """
     This parser is based on the format described in
     https://huggingface.co/blog/llama2#how-to-prompt-llama-2 .
@@ -37,8 +37,9 @@ class MosaicMLProvider(BaseProvider):
 
         {{ user_msg_1 }} [/INST] {{ model_answer_1 }} </s><s>[INST] {{ user_msg_2 }} [/INST]"
     """
+
     async def _parseChatMessagesToPrompt(self, messages: List[chat.RequestMessage]) -> str:
-        if(all(m1 != m2 for m1, m2 in zip(messages, messages[1:]))):
+        if all(m1 != m2 for m1, m2 in zip(messages, messages[1:])):
             raise MlflowException.invalid_parameter_value(
                 "Consecutive messages cannot have the same 'role'.",
             )
@@ -59,7 +60,6 @@ class MosaicMLProvider(BaseProvider):
                     )
                 prompt += f" ${m.content} </s>"
         return prompt
-
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)

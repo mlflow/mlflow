@@ -105,7 +105,7 @@ async def test_chat():
                         "role": "assistant",
                         "content": "This is a test",
                     },
-                    "metadata": {},
+                    "metadata": {"finish_reason": None},
                 }
             ],
             "metadata": {

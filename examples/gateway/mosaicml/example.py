@@ -34,7 +34,7 @@ def main():
                     "role": "user",
                     "content": "Please recite the preamble to the US Constitution as if it were "
                     "written today by a rapper from Reykjavík",
-                }
+                },
             ]
         },
     )

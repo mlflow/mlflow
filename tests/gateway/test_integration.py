@@ -389,7 +389,7 @@ def test_mosaicml_chat(gateway):
                     "role": "assistant",
                     "content": "test",
                 },
-                "metadata": {},
+                "metadata": {"finish_reason": None},
             }
         ],
         "metadata": {
