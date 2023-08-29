@@ -2,7 +2,7 @@
 
 To see an example of specifying both the completions and the embeddings routes for MosaicML, see [the configuration](config.yaml) YAML file.
 
-This configuration file specifies two routes: 'completions' and 'embeddings', both using MosaicML's models 'mpt-7b-instruct' and 'instructor-xl', respectively.
+This configuration file specifies three routes: 'completions', 'embeddings', and 'chat', using MosaicML's models 'mpt-7b-instruct', 'instructor-xl', and 'llama2-70b-chat', respectively.
 
 ## Setting a MosaicML API Key
 

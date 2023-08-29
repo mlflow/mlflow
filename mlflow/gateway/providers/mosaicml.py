@@ -62,7 +62,8 @@ class MosaicMLProvider(BaseProvider):
                 prompt += f" {content} </s>"
             else:
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid role {role} inputted. Must be one of 'system', 'user', or 'assistant'.",
+                    f"Invalid role {role} inputted. Must be one of 'system', "
+                    "'user', or 'assistant'.",
                 )
         return prompt
 
