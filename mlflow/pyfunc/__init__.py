@@ -631,7 +631,7 @@ def load_model(
     if os.path.exists(os.path.join(local_path, FEATURE_SPEC_RELATIVE_FILE_PATH)):
         raise MlflowException(
             f"Unable to load Feature Store model directly. Use score_batch for offline predictions.",
-            BAD_REQUEST
+            BAD_REQUEST,
         )
     model_py_version = conf.get(PY_VERSION)
     if not suppress_warnings:
