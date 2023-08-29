@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.providers.mosaicml import MosaicMLProvider
-from mlflow.gateway.schemas import completions, embeddings
+from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import MockAsyncResponse
 
@@ -97,7 +97,7 @@ async def test_chat():
     ) as mock_post:
         provider = MosaicMLProvider(RouteConfig(**config))
         payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
-        response = await provider.completions(completions.RequestPayload(**payload))
+        response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
             "candidates": [
                 {

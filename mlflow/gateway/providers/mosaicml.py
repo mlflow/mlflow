@@ -54,7 +54,8 @@ class MosaicMLProvider(BaseProvider):
             elif m.role == "assistant":
                 if not prompt.endswith("[/INST]"):
                     raise MlflowException.invalid_parameter_value(
-                        "Messages with role 'assistant' must be preceeded by a message with role 'user'."
+                        "Messages with role 'assistant' must be preceeded by a message "
+                        "with role 'user'."
                     )
                 prompt += f" ${m.content} </s>"
         return prompt
