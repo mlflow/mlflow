@@ -2,8 +2,8 @@ from typing import Any, Dict, List
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-from mlflow.exceptions import MlflowException
 
+from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import MosaicMLConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request
@@ -27,18 +27,18 @@ class MosaicMLProvider(BaseProvider):
             payload=payload,
         )
 
-    """
-    This parser is based on the format described in
-    https://huggingface.co/blog/llama2#how-to-prompt-llama-2 .
-    The expected format is:
-        "<s>[INST] <<SYS>>
-        {{ system_prompt }}
-        <</SYS>>
 
-        {{ user_msg_1 }} [/INST] {{ model_answer_1 }} </s><s>[INST] {{ user_msg_2 }} [/INST]"
-    """
+    def _parseChatMessagesToPrompt(self, messages: List[chat.RequestMessage]) -> str:
+        """
+        This parser is based on the format described in
+        https://huggingface.co/blog/llama2#how-to-prompt-llama-2 .
+        The expected format is:
+            "<s>[INST] <<SYS>>
+            {{ system_prompt }}
+            <</SYS>>
 
-    async def _parseChatMessagesToPrompt(self, messages: List[chat.RequestMessage]) -> str:
+            {{ user_msg_1 }} [/INST] {{ model_answer_1 }} </s><s>[INST] {{ user_msg_2 }} [/INST]"
+        """
         if all(m1 != m2 for m1, m2 in zip(messages, messages[1:])):
             raise MlflowException.invalid_parameter_value(
                 "Consecutive messages cannot have the same 'role'.",
