@@ -36,7 +36,8 @@ class MosaicMLProvider(BaseProvider):
             {{ system_prompt }}
             <</SYS>>
 
-            {{ user_msg_1 }} [/INST] {{ model_answer_1 }} </s><s>[INST] {{ user_msg_2 }} [/INST]"
+            {{ user_msg_1 }} [/INST] {{ model_answer_1 }} </s>
+            <s>[INST] {{ user_msg_2 }} [/INST]</s>"
         """
         if any(m1.role == m2.role for m1, m2 in zip(messages, messages[1:])):
             raise MlflowException.invalid_parameter_value(
@@ -69,7 +70,7 @@ class MosaicMLProvider(BaseProvider):
             raise MlflowException.invalid_parameter_value(
                 "Messages must end with 'user' role for final prompt."
             )
-        return prompt
+        return f"{prompt}</s>"
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         # Extract the List[RequestMessage] from the RequestPayload
@@ -84,13 +85,17 @@ class MosaicMLProvider(BaseProvider):
         for k1, k2 in key_mapping.items():
             if k2 in payload:
                 raise HTTPException(
-                    status_code=400, detail=f"Invalid parameter {k2}. Use {k1} instead."
+                    status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         payload = rename_payload_keys(payload, key_mapping)
 
         # Handle 'prompt' field in payload
-        prompt = [self._parse_chat_messages_to_prompt(messages)]
-
+        try:
+            prompt = [self._parse_chat_messages_to_prompt(messages)]
+        except MlflowException as e:
+            raise HTTPException(
+                status_code=422, detail=f"An invalid request structure was submitted. {e.message}"
+            )
         # Construct final payload structure
         final_payload = {"inputs": prompt, "parameters": payload}
 

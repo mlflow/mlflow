@@ -243,20 +243,20 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
                 RequestMessage(role="user", content="Thanks!"),
             ],
             "<s>[INST] <<SYS>> Hello <</SYS>> Hi there [/INST] How can I help? </s>"
-            "<s>[INST] Thanks! [/INST]",
+            "<s>[INST] Thanks! [/INST]</s>",
         ),
         (
             [
                 RequestMessage(role="system", content="Hello"),
                 RequestMessage(role="user", content="Hi there"),
             ],
-            "<s>[INST] <<SYS>> Hello <</SYS>> Hi there [/INST]",
+            "<s>[INST] <<SYS>> Hello <</SYS>> Hi there [/INST]</s>",
         ),
         (
             [
                 RequestMessage(role="user", content="Hi there"),
             ],
-            "<s>[INST] Hi there [/INST]",
+            "<s>[INST] Hi there [/INST]</s>",
         ),
         (
             [
@@ -264,7 +264,7 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
                 RequestMessage(role="assistant", content="How can I help?"),
                 RequestMessage(role="user", content="Thanks!"),
             ],
-            "<s>[INST] Hi there [/INST] How can I help? </s><s>[INST] Thanks! [/INST]",
+            "<s>[INST] Hi there [/INST] How can I help? </s><s>[INST] Thanks! [/INST]</s>",
         ),
     ],
 )
