@@ -244,6 +244,14 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
             ],
             "<s>[INST] <<SYS>> Hello <</SYS>> Hi there [/INST] How can I help? </s><s>[INST] Thanks! [/INST]",
         ),
+        (
+            [
+                RequestMessage(role="user", content="Hi there"),
+                RequestMessage(role="assistant", content="How can I help?"),
+                RequestMessage(role="user", content="Thanks!"),
+            ],
+            "<s>[INST] Hi there [/INST] How can I help? </s><s>[INST] Thanks! [/INST]",
+        ),
     ],
 )
 def test_valid_parsing(messages, expected_output):
