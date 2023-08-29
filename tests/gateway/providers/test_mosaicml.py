@@ -109,8 +109,8 @@ def chat_response():
             "messages": [
                 {"role": "system", "content": "You're funny"},
                 {"role": "user", "content": "Tell me a joke"},
-                {"role": "assistant", "content": "Haha"},                
-                {"role": "user", "content": "That was a bad joke"},                
+                {"role": "assistant", "content": "Haha"},
+                {"role": "user", "content": "That was a bad joke"},
             ]
         },
     ],
@@ -242,7 +242,21 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
                 RequestMessage(role="assistant", content="How can I help?"),
                 RequestMessage(role="user", content="Thanks!"),
             ],
-            "<s>[INST] <<SYS>> Hello <</SYS>> Hi there [/INST] How can I help? </s><s>[INST] Thanks! [/INST]",
+            "<s>[INST] <<SYS>> Hello <</SYS>> Hi there [/INST] How can I help? </s>"
+            "<s>[INST] Thanks! [/INST]",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Hello"),
+                RequestMessage(role="user", content="Hi there"),
+            ],
+            "<s>[INST] <<SYS>> Hello <</SYS>> Hi there [/INST]",
+        ),
+        (
+            [
+                RequestMessage(role="user", content="Hi there"),
+            ],
+            "<s>[INST] Hi there [/INST]",
         ),
         (
             [
@@ -303,6 +317,27 @@ def test_assistant_without_user_raises(messages):
     with pytest.raises(
         MlflowException,
         match="Messages with role 'assistant' must be preceeded by a message with role 'user'.",
+    ):
+        MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages)
+
+
+@pytest.mark.parametrize(
+    "messages",
+    [
+        [RequestMessage(role="system", content="Test")],
+        [
+            RequestMessage(role="system", content="Test"),
+            RequestMessage(role="user", content="Test"),
+            RequestMessage(role="assistant", content="Test"),
+            RequestMessage(role="system", content="Test"),
+        ],
+    ],
+)
+def test_assistant_without_user_raises(messages):
+    route_config = RouteConfig(**chat_config())
+    with pytest.raises(
+        MlflowException,
+        match="Messages must end with 'user' role for final prompt.",
     ):
         MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages)
 

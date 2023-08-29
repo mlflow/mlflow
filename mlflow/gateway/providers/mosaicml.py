@@ -65,6 +65,10 @@ class MosaicMLProvider(BaseProvider):
                     f"Invalid role {role} inputted. Must be one of 'system', "
                     "'user', or 'assistant'.",
                 )
+        if not prompt.endswith("[/INST]"):
+            raise MlflowException.invalid_parameter_value(
+                "Messages must end with 'user' role for final prompt."
+            )
         return prompt
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
