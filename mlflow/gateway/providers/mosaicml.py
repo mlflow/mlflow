@@ -38,26 +38,32 @@ class MosaicMLProvider(BaseProvider):
 
             {{ user_msg_1 }} [/INST] {{ model_answer_1 }} </s><s>[INST] {{ user_msg_2 }} [/INST]"
         """
-        if len(messages) > 1 and all(m1.role != m2.role for m1, m2 in zip(messages, messages[1:])):
+        if any(m1["role"] == m2["role"] for m1, m2 in zip(messages, messages[1:])):
             raise MlflowException.invalid_parameter_value(
                 "Consecutive messages cannot have the same 'role'.",
             )
         prompt = ""
         for m in messages:
-            if m.role == "system":
-                prompt += f"<s>[INST] <<SYS>> {m.content} <</SYS>>"
-            elif m.role == "user":
-                inst = f" {m.content} [/INST]"
+            role = m.pop("role")
+            content = m.pop("content")
+            if role == "system":
+                prompt += f"<s>[INST] <<SYS>> {content} <</SYS>>"
+            elif role == "user":
+                inst = f" {content} [/INST]"
                 if prompt.endswith("<</SYS>>"):
-                    inst = "<s>[INST]" + inst
+                    inst = f"<s>[INST] {inst}"
                 prompt += inst
-            elif m.role == "assistant":
+            elif role == "assistant":
                 if not prompt.endswith("[/INST]"):
                     raise MlflowException.invalid_parameter_value(
                         "Messages with role 'assistant' must be preceeded by a message "
                         "with role 'user'."
                     )
-                prompt += f" {m.content} </s>"
+                prompt += f" {content} </s>"
+            else:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid role {role} inputted. Must be one of 'system', 'user', or 'assistant'.",
+                )
         return prompt
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
