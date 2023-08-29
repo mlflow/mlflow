@@ -27,7 +27,10 @@ class MosaicMLProvider(BaseProvider):
             payload=payload,
         )
 
-    def _parse_chat_messages_to_prompt(self, messages: List[chat.RequestMessage]) -> str:
+    # NB: as this parser performs no blocking operations, we are intentionally not defining it
+    # as async due to the overhead of spawning an additional thread if we did.
+    @staticmethod
+    def _parse_chat_messages_to_prompt(messages: List[chat.RequestMessage]) -> str:
         """
         This parser is based on the format described in
         https://huggingface.co/blog/llama2#how-to-prompt-llama-2 .
@@ -37,7 +40,7 @@ class MosaicMLProvider(BaseProvider):
             <</SYS>>
 
             {{ user_msg_1 }} [/INST] {{ model_answer_1 }} </s>
-            <s>[INST] {{ user_msg_2 }} [/INST]</s>"
+            <s>[INST] {{ user_msg_2 }} [/INST]"
         """
         if any(m1.role == m2.role for m1, m2 in zip(messages, messages[1:])):
             raise MlflowException.invalid_parameter_value(
@@ -70,7 +73,7 @@ class MosaicMLProvider(BaseProvider):
             raise MlflowException.invalid_parameter_value(
                 "Messages must end with 'user' role for final prompt."
             )
-        return f"{prompt}</s>"
+        return prompt
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         # Extract the List[RequestMessage] from the RequestPayload
