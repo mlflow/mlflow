@@ -3586,13 +3586,17 @@ been logged: 'baseline_model' and 'candidate_model' for comparison purposes in t
 
 .. note:: Limitations (when the default evaluator is used):
 
-    - Model validation results are not included in the active MLflow run. See below to see how to log validation results with
-      `Giskard <models.html#model-validation-with-giskard-s-plugin>`_ or
-      `Trubrics <models.html#model-validation-with-trubrics-plugin>`_.
+    - Model validation results are not included in the active MLflow run.
     - No metrics are logged nor artifacts produced for the baseline model in the active MLflow run.
 
 Additional information about model evaluation behaviors and outputs is available in the
 :py:func:`mlflow.evaluate()` API docs.
+
+.. note:: There are plugins that support in-depth model validation with features that are not supported
+    directly in MLflow. To learn more, see:
+
+    - :ref:`giskard_plugin`
+    - :ref:`trubrics_plugin`.
 
 .. note:: Differences in the computation of Area under Curve Precision Recall score (metric name
     ``precision_recall_auc``) between multi and binary classifiers:
@@ -3617,6 +3621,8 @@ Additional information about model evaluation behaviors and outputs is available
     For simplicity purposes, both methodologies evaluation metric results (whether for multi-class
     or binary classification) are unified in the single metric: ``precision_recall_auc``.
 
+.. _giskard_plugin:
+
 Model Validation with Giskard's plugin
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 To extend the validation capabilities of MLflow and anticipate issues before they go to production, a plugin has been built by `Giskard <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow.html>`__ allowing users to:
@@ -3639,6 +3645,8 @@ See the following plugin example notebooks for a demo:
     - `Text ML models (LLMs) <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow-llm-example.html>`__
 
 For more information on the plugin, see the `giskard-mlflow docs <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow.html>`__.
+
+.. _trubrics_plugin:
 
 Model Validation with Trubrics' plugin
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
