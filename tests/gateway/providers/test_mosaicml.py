@@ -65,6 +65,60 @@ async def test_completions():
         mock_post.assert_called_once()
 
 
+def chat_config():
+    return {
+        "name": "chat",
+        "route_type": "llm/v1/chat",
+        "model": {
+            "provider": "mosaicml",
+            "name": "llama2-70b-chat",
+            "config": {
+                "mosaicml_api_key": "key",
+            },
+        },
+    }
+
+
+def chat_response():
+    return {
+        "outputs": [
+            "This is a test",
+        ],
+        "headers": {"Content-Type": "application/json"},
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat():
+    resp = chat_response()
+    config = chat_config()
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = MosaicMLProvider(RouteConfig(**config))
+        payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
+        response = await provider.completions(completions.RequestPayload(**payload))
+        assert jsonable_encoder(response) == {
+            "candidates": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "This is a test",
+                    },
+                    "metadata": {},
+                }
+            ],
+            "metadata": {
+                "input_tokens": None,
+                "output_tokens": None,
+                "total_tokens": None,
+                "model": "llama2-70b-chat",
+                "route_type": "llm/v1/chat",
+            },
+        }
+        mock_post.assert_called_once()
+
+
 def embeddings_config():
     return {
         "name": "embeddings",

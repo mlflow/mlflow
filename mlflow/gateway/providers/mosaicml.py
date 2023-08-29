@@ -1,7 +1,8 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
+from mlflow.exceptions import MlflowException
 
 from mlflow.gateway.config import MosaicMLConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider
@@ -25,9 +26,99 @@ class MosaicMLProvider(BaseProvider):
             path=model + "/v1/predict",
             payload=payload,
         )
+    
+    """
+    This parser is based on the format described in
+    https://huggingface.co/blog/llama2#how-to-prompt-llama-2 .
+    The expected format is:
+        "<s>[INST] <<SYS>>
+        {{ system_prompt }}
+        <</SYS>>
+
+        {{ user_msg_1 }} [/INST] {{ model_answer_1 }} </s><s>[INST] {{ user_msg_2 }} [/INST]"
+    """
+    async def _parseChatMessagesToPrompt(self, messages: List[chat.RequestMessage]) -> str:
+        if(all(m1 != m2 for m1, m2 in zip(messages, messages[1:]))):
+            raise MlflowException.invalid_parameter_value(
+                "Consecutive messages cannot have the same 'role'.",
+            )
+        prompt = ""
+        for m in messages:
+            if m.role == "system":
+                prompt += f"<s>[INST] <<SYS>> ${m.content} <</SYS>>"
+            elif m.role == "user":
+                inst = f" ${m.content} [/INST]"
+                if prompt.endswith("<</SYS>>"):
+                    inst = "<s>[INST]" + inst
+                prompt += inst
+            elif m.role == "assistant":
+                if not prompt.endswith("[/INST]"):
+                    raise MlflowException.invalid_parameter_value(
+                        "Messages with role 'assistant' must be preceeded by a message with role 'user'."
+                    )
+                prompt += f" ${m.content} </s>"
+        return prompt
+
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        raise HTTPException(status_code=404, detail="The chat route is not available for MosaicML.")
+        payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
+        key_mapping = {
+            "max_tokens": "max_new_tokens",
+        }
+        for k1, k2 in key_mapping.items():
+            if k2 in payload:
+                raise HTTPException(
+                    status_code=400, detail=f"Invalid parameter {k2}. Use {k1} instead."
+                )
+        payload = rename_payload_keys(payload, key_mapping)
+
+        # Handle 'prompt' field in payload
+        prompt = [self._parseChatMessagesToPrompt(payload.pop("messages"))]
+
+        # Construct final payload structure
+        final_payload = {"inputs": prompt, "parameters": payload}
+
+        # Input data structure for Mosaic Text Completion endpoint
+        #
+        # {"inputs": [prompt],
+        #  {
+        #    "parameters": {
+        #      "temperature": 0.2
+        #    }
+        #   }
+        # }
+
+        resp = await self._request(
+            self.config.model.name,
+            final_payload,
+        )
+        # Response example (https://docs.mosaicml.com/en/latest/inference.html#text-completion-models)
+        # ```
+        # {
+        #   "outputs": [
+        #     "string",
+        #   ],
+        # }
+        # ```
+        return chat.ResponsePayload(
+            **{
+                "candidates": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": c,
+                        },
+                        "metadata": {},
+                    }
+                    for c in resp["outputs"]
+                ],
+                "metadata": {
+                    "model": self.config.model.name,
+                    "route_type": self.config.route_type,
+                },
+            }
+        )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)

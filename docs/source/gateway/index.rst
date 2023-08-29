@@ -247,7 +247,7 @@ below can be used as a helpful guide when configuring a given route for any newl
 |                    | - gpt-4                  | - mpt-30b-instruct | - claude-1.3-100k| - command-light-nightly     | - gpt-35-turbo           |                          |
 |                    |                          | - llama2-70b-chat† |                  |                             |                          |                          |
 +--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+--------------------------+
-| llm/v1/chat        | - gpt-3.5-turbo          | N/A                | N/A              | N/A                         | - gpt-35-turbo           | - MLflow served models*  |
+| llm/v1/chat        | - gpt-3.5-turbo          | - llama2-70b-chat† | N/A              | N/A                         | - gpt-35-turbo           | - MLflow served models*  |
 |                    | - gpt-4                  |                    |                  |                             | - gpt-4                  |                          |
 +--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+--------------------------+
 | llm/v1/embeddings  | - text-embedding-ada-002 | - instructor-large | N/A              | - embed-english-v2.0        | - text-embedding-ada-002 | - MLflow served models** |

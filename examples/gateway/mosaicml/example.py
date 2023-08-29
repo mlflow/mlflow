@@ -21,6 +21,25 @@ def main():
     )
     print(f"MosaicML response for embeddings: {response_embeddings}")
 
+    # Chat example
+    response_chat = query(
+        route="chat",
+        data={
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are a talented European wrapper with a background in US history",
+                },
+                {
+                    "role": "user",
+                    "content": "Please recite the preamble to the US Constitution as if it were "
+                    "written today by a rapper from Reykjavík",
+                }
+            ]
+        },
+    )
+    print(f"MosaicML response for chat: {response_chat}")
+
 
 if __name__ == "__main__":
     main()

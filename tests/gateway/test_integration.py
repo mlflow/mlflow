@@ -94,6 +94,17 @@ def basic_config_dict():
                 },
             },
             {
+                "name": "chat-mosaicml",
+                "route_type": "llm/v1/chat",
+                "model": {
+                    "provider": "mosaicml",
+                    "name": "llama2-70b-chat",
+                    "config": {
+                        "mosaicml_api_key": "$MOSAICML_API_KEY",
+                    },
+                },
+            },
+            {
                 "name": "embeddings-cohere",
                 "route_type": "llm/v1/embeddings",
                 "model": {
@@ -364,6 +375,38 @@ def test_mosaicml_completions(gateway):
         return expected_output
 
     with patch.object(MosaicMLProvider, "completions", mock_completions):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_mosaicml_chat(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("chat-mosaicml")
+    expected_output = {
+        "candidates": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "test",
+                },
+                "metadata": {},
+            }
+        ],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "mpt-7b-instruct",
+            "route_type": "llm/v1/chat",
+        },
+    }
+
+    data = {"messages": [{"role": "user", "content": "test"}]}
+
+    async def mock_chat(self, payload):
+        return expected_output
+
+    with patch.object(MosaicMLProvider, "chat", mock_chat):
         response = client.query(route=route.name, data=data)
     assert response == expected_output
 

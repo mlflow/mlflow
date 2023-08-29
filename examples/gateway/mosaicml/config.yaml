@@ -14,3 +14,11 @@ routes:
       name: instructor-xl
       config:
         mosaicml_api_key: $MOSAICML_API_KEY
+
+  - name: chat
+    route_type: llm/v1/chat
+    model:
+      provider: mosaicml
+      name: llama2-70b-chat
+      config:
+        mosaicml_api_key: $MOSAICML_API_KEY
