@@ -28,7 +28,7 @@ def main():
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are a talented European wrapper with a background in US history",
+                    "content": "You are a talented European rapper with a background in US history",
                 },
                 {
                     "role": "user",
