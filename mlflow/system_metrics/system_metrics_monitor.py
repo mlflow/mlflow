@@ -36,7 +36,6 @@ class SystemMetricsMonitor:
         self.mlflow_logger = BatchMetricsLogger(mlflow_run.info.run_id)
         self._shutdown_event = threading.Event()
         self._process = None
-
         # Attach `SystemMetricsMonitor` instance to the `mlflow_run` instance.
         mlflow_run.system_metrics_monitor = self
 

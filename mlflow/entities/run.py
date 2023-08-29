@@ -14,7 +14,10 @@ class Run(_MLflowObject):
     """
 
     def __init__(
-        self, run_info: RunInfo, run_data: RunData, run_inputs: Optional[RunInputs] = None
+        self,
+        run_info: RunInfo,
+        run_data: RunData,
+        run_inputs: Optional[RunInputs] = None,
     ) -> None:
         if run_info is None:
             raise MlflowException("run_info cannot be None")

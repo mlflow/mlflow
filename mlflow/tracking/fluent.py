@@ -175,6 +175,7 @@ class ActiveRun(Run):  # pylint: disable=abstract-method
 
     def __init__(self, run):
         Run.__init__(self, run.info, run.data)
+        self.system_metrics_monitor = run.system_metrics_monitor
 
     def __enter__(self):
         return self
