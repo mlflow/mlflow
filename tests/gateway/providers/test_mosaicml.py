@@ -105,6 +105,14 @@ def chat_response():
             "temperature": 0.5,
             "max_tokens": 1000,
         },
+        {
+            "messages": [
+                {"role": "system", "content": "You're funny"},
+                {"role": "user", "content": "Tell me a joke"},
+                {"role": "assistant", "content": "Haha"},                
+                {"role": "user", "content": "That was a bad joke"},                
+            ]
+        },
     ],
 )
 @pytest.mark.asyncio
@@ -232,8 +240,9 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
                 RequestMessage(role="system", content="Hello"),
                 RequestMessage(role="user", content="Hi there"),
                 RequestMessage(role="assistant", content="How can I help?"),
+                RequestMessage(role="user", content="Thanks!"),
             ],
-            "<s>[INST] <<SYS>> Hello <</SYS>><s>[INST] Hi there [/INST] How can I help? </s>",
+            "<s>[INST] <<SYS>> Hello <</SYS>> Hi there [/INST] How can I help? </s><s>[INST] Thanks! [/INST]",
         ),
     ],
 )

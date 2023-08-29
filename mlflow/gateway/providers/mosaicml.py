@@ -49,9 +49,9 @@ class MosaicMLProvider(BaseProvider):
             if role == "system":
                 prompt += f"<s>[INST] <<SYS>> {content} <</SYS>>"
             elif role == "user":
-                inst = f"{content} [/INST]"
-                if prompt.endswith("<</SYS>>"):
-                    inst = f"<s>[INST] {inst}"
+                inst = f" {content} [/INST]"
+                if not prompt.endswith("<</SYS>>"):
+                    inst = f"<s>[INST]{inst}"
                 prompt += inst
             elif role == "assistant":
                 if not prompt.endswith("[/INST]"):
