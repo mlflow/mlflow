@@ -38,18 +38,18 @@ class MosaicMLProvider(BaseProvider):
 
             {{ user_msg_1 }} [/INST] {{ model_answer_1 }} </s><s>[INST] {{ user_msg_2 }} [/INST]"
         """
-        if any(m1["role"] == m2["role"] for m1, m2 in zip(messages, messages[1:])):
+        if any(m1.role == m2.role for m1, m2 in zip(messages, messages[1:])):
             raise MlflowException.invalid_parameter_value(
                 "Consecutive messages cannot have the same 'role'.",
             )
         prompt = ""
         for m in messages:
-            role = m.pop("role")
-            content = m.pop("content")
+            role = m.role
+            content = m.content
             if role == "system":
                 prompt += f"<s>[INST] <<SYS>> {content} <</SYS>>"
             elif role == "user":
-                inst = f" {content} [/INST]"
+                inst = f"{content} [/INST]"
                 if prompt.endswith("<</SYS>>"):
                     inst = f"<s>[INST] {inst}"
                 prompt += inst
@@ -68,7 +68,11 @@ class MosaicMLProvider(BaseProvider):
         return prompt
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        # Extract the List[RequestMessage] from the RequestPayload
+        messages = payload.messages
         payload = jsonable_encoder(payload, exclude_none=True)
+        # remove the messages from the remaining configuration items
+        payload.pop("messages", None)
         self.check_for_model_field(payload)
         key_mapping = {
             "max_tokens": "max_new_tokens",
@@ -81,7 +85,7 @@ class MosaicMLProvider(BaseProvider):
         payload = rename_payload_keys(payload, key_mapping)
 
         # Handle 'prompt' field in payload
-        prompt = [self._parse_chat_messages_to_prompt(payload.pop("messages"))]
+        prompt = [self._parse_chat_messages_to_prompt(messages)]
 
         # Construct final payload structure
         final_payload = {"inputs": prompt, "parameters": payload}

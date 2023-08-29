@@ -5,9 +5,11 @@ from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
+from mlflow import MlflowException
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.providers.mosaicml import MosaicMLProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.schemas.chat import RequestMessage
 
 from tests.gateway.tools import MockAsyncResponse
 
@@ -88,15 +90,31 @@ def chat_response():
     }
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"messages": [{"role": "user", "content": "Tell me a joke"}]},
+        {
+            "messages": [
+                {"role": "system", "content": "You're funny"},
+                {"role": "user", "content": "Tell me a joke"},
+            ]
+        },
+        {
+            "messages": [{"role": "user", "content": "Tell me a joke"}],
+            "temperature": 0.5,
+            "max_tokens": 1000,
+        },
+    ],
+)
 @pytest.mark.asyncio
-async def test_chat():
+async def test_chat(payload):
     resp = chat_response()
     config = chat_config()
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         provider = MosaicMLProvider(RouteConfig(**config))
-        payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
             "candidates": [
@@ -204,3 +222,89 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
     payload = {"prompt": prompt}
     with pytest.raises(ValidationError, match=r"prompt"):
         await provider.completions(completions.RequestPayload(**payload))
+
+
+@pytest.mark.parametrize(
+    ("messages", "expected_output"),
+    [
+        (
+            [
+                RequestMessage(role="system", content="Hello"),
+                RequestMessage(role="user", content="Hi there"),
+                RequestMessage(role="assistant", content="How can I help?"),
+            ],
+            "<s>[INST] <<SYS>> Hello <</SYS>><s>[INST] Hi there [/INST] How can I help? </s>",
+        ),
+    ],
+)
+def test_valid_parsing(messages, expected_output):
+    route_config = RouteConfig(**chat_config())
+
+    assert (
+        MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages=messages)
+        == expected_output
+    )
+
+
+@pytest.mark.parametrize(
+    "messages",
+    [
+        [RequestMessage(role="user", content="Test"), RequestMessage(role="user", content="Test")],
+        [
+            RequestMessage(role="system", content="Test"),
+            RequestMessage(role="system", content="Test"),
+        ],
+        [
+            RequestMessage(role="system", content="Test"),
+            RequestMessage(role="user", content="Test"),
+            RequestMessage(role="user", content="Test"),
+        ],
+    ],
+)
+def test_consecutive_same_role_raises(messages):
+    route_config = RouteConfig(**chat_config())
+    with pytest.raises(MlflowException, match="Consecutive messages cannot have the same 'role'."):
+        MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages)
+
+
+@pytest.mark.parametrize(
+    "messages",
+    [
+        [RequestMessage(role="assistant", content="Test")],
+        [
+            RequestMessage(role="system", content="Test"),
+            RequestMessage(role="assistant", content="Test"),
+        ],
+        [
+            RequestMessage(role="assistant", content="Test"),
+            RequestMessage(role="system", content="Test"),
+        ],
+    ],
+)
+def test_assistant_without_user_raises(messages):
+    route_config = RouteConfig(**chat_config())
+    with pytest.raises(
+        MlflowException,
+        match="Messages with role 'assistant' must be preceeded by a message with role 'user'.",
+    ):
+        MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages)
+
+
+@pytest.mark.parametrize(
+    "messages",
+    [
+        [RequestMessage(role="invalid_role", content="Test")],
+        [RequestMessage(role="another_invalid_role", content="Test")],
+        [
+            RequestMessage(role="system", content="Test"),
+            RequestMessage(role="user", content="Test"),
+            RequestMessage(role="invalid_role", content="Test"),
+        ],
+    ],
+)
+def test_invalid_role_submitted_raises(messages):
+    route_config = RouteConfig(**chat_config())
+    with pytest.raises(
+        MlflowException, match=".*Must be one of 'system', 'user', or 'assistant'.*"
+    ):
+        MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages)
