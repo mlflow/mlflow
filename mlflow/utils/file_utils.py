@@ -669,8 +669,10 @@ def parallelized_download_file_using_http_uri(
             providers.
     Returns a dict of chunk index : exception, if one was thrown for that index.
     """
+    print(http_uri)  # noqa
 
-    def run_download(range_start, range_end):
+    def run_download(range_start, range_end, index):
+        print("Chunk", index)  # noqa
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_file = os.path.join(tmpdir, "error_messages.txt")
             download_proc = _exec_cmd(
@@ -738,7 +740,7 @@ def parallelized_download_file_using_http_uri(
     for i in range(starting_index, num_requests):
         range_start = i * chunk_size
         range_end = range_start + chunk_size - 1
-        futures[thread_pool_executor.submit(run_download, range_start, range_end)] = i
+        futures[thread_pool_executor.submit(run_download, range_start, range_end, i)] = i
 
     failed_downloads = {}
 
