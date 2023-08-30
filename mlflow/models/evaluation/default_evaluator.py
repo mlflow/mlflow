@@ -480,6 +480,9 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
     if metric is None:
         raise MlflowException(f"{exception_header} returned None.")
 
+    if _is_numeric(metric):
+        return MetricValue(aggregate_results={custom_metric_tuple.name: metric})
+
     if not isinstance(metric, MetricValue):
         raise MlflowException(f"{exception_header} did not return a MetricValue.")
 
