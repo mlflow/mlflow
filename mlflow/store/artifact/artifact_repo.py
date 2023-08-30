@@ -42,6 +42,7 @@ class ArtifactRepository:
         self.thread_pool = self._create_thread_pool()
 
     def _create_thread_pool(self):
+        print("self.max_workers", self.max_workers)  # noqa
         return ThreadPoolExecutor(max_workers=self.max_workers)
 
     @abstractmethod
@@ -188,6 +189,7 @@ class ArtifactRepository:
                     futures[fut] = file_info.path
         else:
             fut = _download_file(artifact_path, dst_path)
+            # fut.result()  # FOO
             futures[fut] = artifact_path
 
         # Wait for downloads to complete and collect failures

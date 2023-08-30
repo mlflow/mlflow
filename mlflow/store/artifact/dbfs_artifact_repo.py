@@ -71,7 +71,10 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         with open(output_path, "wb") as f:
             response = self._databricks_api_request(endpoint=endpoint, method="GET", stream=True)
             try:
-                for content in response.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
+                for idx, content in enumerate(
+                    response.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE)
+                ):
+                    print(idx, len(content))  # noqa
                     f.write(content)
             finally:
                 response.close()

@@ -692,7 +692,7 @@ def parallelized_download_file_using_http_uri(
                 ],
                 throw_on_error=True,
                 synchronous=False,
-                capture_output=True,
+                # capture_output=True,
                 stream_output=False,
                 env=env,
             )
