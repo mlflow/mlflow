@@ -14,3 +14,35 @@ class MetricValue:
     scores: List[float] = None
     justifications: List[float] = None
     aggregate_results: Dict[str, float] = None
+
+
+@dataclass
+class EvaluationExample:
+    """
+    Stores the sample example during few shot learning during LLM evaluation
+    """
+
+    input: str
+    output: str
+    score: float
+    justification: str = None
+    variables: Dict[str, str] = None
+
+    def toString(self) -> str:
+        variables = (
+            ""
+            if self.variables is None
+            else "\n".join([f"Provided {key}: {value}" for key, value in self.variables.items()])
+        )
+
+        justification = ""
+        if self.justification is not None:
+            justification = f"Justification: {self.justification}\n"
+
+        return f"""
+        Input: {self.input}
+        Provided output: {self.output}
+        {variables}
+        Score: {self.score}
+        {justification}
+        """

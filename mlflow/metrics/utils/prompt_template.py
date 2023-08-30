@@ -1,5 +1,5 @@
 import string
-from typing import Dict, List
+from typing import Any, List
 
 from mlflow.exceptions import MlflowException
 
@@ -44,14 +44,14 @@ class PromptTemplate:
             # Automatically parse variables from template string
             self.variables = extracted_variables
 
-    def format(self, **kwargs: Dict[str, any]) -> str:
+    def format(self, **kwargs: Any) -> str:
         # Only keep the kwargs that are in the variables
         kwargs = {k: v for k, v in kwargs.items() if k in self.variables}
 
         # Format the prompt with the provided values
         return self.template_str.format(**kwargs)
 
-    def partial_fill(self, **kwargs: Dict[str, any]) -> "PromptTemplate":
+    def partial_fill(self, **kwargs: Any) -> "PromptTemplate":
         # Create a safe dictionary that returns the key if it doesn't exist in the dictionary
         safe_dict = {k: kwargs.get(k, "{" + k + "}") for k in self.variables}
 
