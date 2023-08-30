@@ -22,12 +22,11 @@ class LazyLoader(types.ModuleType):
 
     def _load(self):
         """Load the module and insert it into the parent's globals."""
-        # if self._module:
-        #     # If already loaded, return the loaded module.
-        #     return self._module
+        if self._module:
+            # If already loaded, return the loaded module.
+            return self._module
 
         # Import the target module and insert it into the parent's namespace
-
         module = importlib.import_module(self.__name__)
         self._parent_module_globals[self._local_name] = module
         sys.modules[self._local_name] = module
