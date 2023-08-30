@@ -1,9 +1,11 @@
+from dataclasses import dataclass
 from typing import Dict, List
 
 from mlflow.models import EvaluationMetric as EvaluationMetric
 from mlflow.models import make_metric as make_metric
 
 
+@dataclass
 class MetricValue:
     """
     The value of a metric.
