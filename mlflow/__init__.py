@@ -36,6 +36,7 @@ import warnings
 
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 from mlflow.version import VERSION as __version__  # noqa: F401
+from mlflow.utils.lazy_load import LazyLoader
 
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
@@ -50,73 +51,39 @@ from mlflow import (
     tracking,  # noqa: F401
 )
 
-# model flavors
-_model_flavors_supported = []
-try:
-    from mlflow import (
-        catboost,  # noqa: F401
-        diviner,  # noqa: F401
-        fastai,  # noqa: F401
-        gluon,  # noqa: F401
-        h2o,  # noqa: F401
-        johnsnowlabs,  # noqa: F401
-        langchain,  # noqa: F401
-        lightgbm,  # noqa: F401
-        llm,  # noqa: F401
-        mleap,  # noqa: F401
-        onnx,  # noqa: F401
-        openai,  # noqa: F401
-        paddle,  # noqa: F401
-        pmdarima,  # noqa: F401
-        prophet,  # noqa: F401
-        pyfunc,  # noqa: F401
-        pyspark,  # noqa: F401
-        pytorch,  # noqa: F401
-        recipes,  # noqa: F401
-        sentence_transformers,  # noqa: F401
-        shap,  # noqa: F401
-        sklearn,  # noqa: F401
-        spacy,  # noqa: F401
-        spark,  # noqa: F401
-        statsmodels,  # noqa: F401
-        tensorflow,  # noqa: F401
-        transformers,  # noqa: F401
-        xgboost,  # noqa: F401
-    )
-
-    _model_flavors_supported = [
-        "catboost",
-        "fastai",
-        "gluon",
-        "h2o",
-        "lightgbm",
-        "mleap",
-        "onnx",
-        "pyfunc",
-        "pytorch",
-        "sklearn",
-        "spacy",
-        "spark",
-        "statsmodels",
-        "tensorflow",
-        "keras",
-        "xgboost",
-        "shap",
-        "paddle",
-        "prophet",
-        "pmdarima",
-        "diviner",
-        "transformers",
-        "langchain",
-        "llm",
-        "openai",
-        "sentence_transformers",
-        "johnsnowlabs",
-    ]
-except ImportError:
-    # We are conditional loading these commands since the skinny client does
-    # not support them due to the pandas and numpy dependencies of MLflow Models
-    pass
+# Lazily load mlflow flavors to avoid excessive dependencies.
+catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
+diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
+fastai = LazyLoader("mlflow.fastai", globals(), "mlflow.fastai")
+gluon = LazyLoader("mlflow.gluon", globals(), "mlflow.gluon")
+h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
+johnsnowlabs = LazyLoader("mlflow.johnsnowlabs", globals(), "mlflow.johnsnowlabs")
+langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
+lightgbm = LazyLoader("mlflow.lightgbm", globals(), "mlflow.lightgbm")
+llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
+mleap = LazyLoader("mlflow.mleap", globals(), "mlflow.mleap")
+onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
+openai = LazyLoader("mlflow.openai", globals(), "mlflow.openai")
+paddle = LazyLoader("mlflow.paddle", globals(), "mlflow.paddle")
+pmdarima = LazyLoader("mlflow.pmdarima", globals(), "mlflow.pmdarima")
+prophet = LazyLoader("mlflow.prophet", globals(), "mlflow.prophet")
+pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
+pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
+pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
+recipes = LazyLoader("mlflow.recipes", globals(), "mlflow.recipes")
+sentence_transformers = LazyLoader(
+    "mlflow.sentence_transformers",
+    globals(),
+    "mlflow.sentence_transformers",
+)
+shap = LazyLoader("mlflow.shap", globals(), "mlflow.shap")
+sklearn = LazyLoader("mlflow.sklearn", globals(), "mlflow.sklearn")
+spacy = LazyLoader("mlflow.spacy", globals(), "mlflow.spacy")
+spark = LazyLoader("mlflow.spark", globals(), "mlflow.spark")
+statsmodels = LazyLoader("mlflow.statsmodels", globals(), "mlflow.statsmodels")
+tensorflow = LazyLoader("mlflow.tensorflow", globals(), "mlflow.tensorflow")
+transformers = LazyLoader("mlflow.transformers", globals(), "mlflow.transformers")
+xgboost = LazyLoader("mlflow.xgboost", globals(), "mlflow.xgboost")
 
 _configure_mlflow_loggers(root_module_name=__name__)
 
@@ -244,7 +211,7 @@ __all__ = [
     "doctor",
     "MlflowClient",
     "MlflowException",
-] + _model_flavors_supported
+]
 
 
 # `mlflow.gateway` depends on optional dependencies such as pydantic and has version
