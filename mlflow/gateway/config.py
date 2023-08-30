@@ -30,6 +30,7 @@ class Provider(str, Enum):
     MOSAICML = "mosaicml"
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
+    DATABRICKS = "databricks"
 
     @classmethod
     def values(cls):

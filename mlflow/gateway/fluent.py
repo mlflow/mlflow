@@ -46,7 +46,7 @@ def search_routes() -> List[Route]:
 
 
 @experimental
-def create_route(name: str, route_type: str, model: Dict[str, Any]) -> Route:
+def create_route(name: str, model: Dict[str, Any], route_type: Optional[str] = None) -> Route:
     """
     Create a new route in the Gateway.
 
@@ -99,7 +99,7 @@ def create_route(name: str, route_type: str, model: Dict[str, Any]) -> Route:
         )
 
     """
-    return MlflowGatewayClient().create_route(name, route_type, model)
+    return MlflowGatewayClient().create_route(name, model, route_type)
 
 
 @experimental

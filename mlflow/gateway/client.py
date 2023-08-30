@@ -137,7 +137,9 @@ class MlflowGatewayClient:
         return PagedList(routes, next_page_token)
 
     @experimental
-    def create_route(self, name: str, route_type: str, model: Dict[str, Any]) -> Route:
+    def create_route(
+        self, name: str, model: Dict[str, Any], route_type: Optional[str] = None
+    ) -> Route:
         """
         Create a new route in the Gateway.
 
@@ -202,9 +204,16 @@ class MlflowGatewayClient:
             )
         payload = {
             "name": name,
-            "route_type": route_type,
             "model": model,
         }
+        if model["provider"].lower() != "databricks":
+            if route_type is None:
+                raise MlflowException(
+                    "Missing required field: route_type",
+                    error_code=BAD_REQUEST,
+                )
+            else:
+                payload["route_type"] = route_type
         response = self._call_endpoint(
             "POST", MLFLOW_GATEWAY_CRUD_ROUTE_BASE, json.dumps(payload)
         ).json()

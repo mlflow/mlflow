@@ -466,7 +466,6 @@ def test_client_create_route_raises(gateway):
     with pytest.raises(MlflowException, match="The create_route API is only available when"):
         gateway_client.create_route(
             "some-route",
-            "llm/v1/chat",
             {
                 "name": "a-route",
                 "provider": "openai",
@@ -475,6 +474,7 @@ def test_client_create_route_raises(gateway):
                     "openai_api_type": "openai",
                 },
             },
+            "llm/v1/chat",
         )
 
 
