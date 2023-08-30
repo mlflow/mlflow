@@ -477,50 +477,6 @@ def test_client_create_route_raises(gateway):
             },
         )
 
-    with mock.patch.object(gateway_client, "_is_databricks_host", return_value=True):
-        with pytest.raises(MlflowException, match="Missing required field: model"):
-            gateway_client.create_route(
-                "some-route",
-                "llm/v1/chat",
-            )
-
-        with pytest.raises(MlflowException, match="Missing required field: route_type"):
-            gateway_client.create_route(
-                "some-route",
-                {
-                    "name": "a-route",
-                    "provider": "openai",
-                    "config": {
-                        "openai_api_key": "mykey",
-                        "openai_api_type": "openai",
-                    },
-                },
-            )
-
-
-def test_client_create_route_works(gateway):
-    gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
-    with mock.patch.object(gateway_client, "_is_databricks_host", return_value=True):
-        gateway_client.create_route(
-            "some-route",
-            "llm/v1/chat",
-            {
-                "name": "a-route",
-                "provider": "openai",
-                "config": {
-                    "openai_api_key": "mykey",
-                    "openai_api_type": "openai",
-                },
-            },
-        )
-
-        gateway_client.create_route(
-            "some-managed-route",
-            {
-                "name": "a-route",
-                "provider": "databricks",
-            },
-        )
 
 
 def test_client_delete_route_raises(gateway):

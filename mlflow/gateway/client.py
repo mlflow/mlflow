@@ -203,23 +203,11 @@ class MlflowGatewayClient:
                 "running Gateway server.",
                 error_code=BAD_REQUEST,
             )
-        if model is None:
-            raise MlflowException(
-                "Missing required field: model",
-                error_code=BAD_REQUEST,
-            )
         payload = {
             "name": name,
+            "route_type": route_type,
             "model": model,
         }
-        if model["provider"].lower() != Provider.DATABRICKS:
-            if route_type is None:
-                raise MlflowException(
-                    "Missing required field: route_type",
-                    error_code=BAD_REQUEST,
-                )
-            else:
-                payload["route_type"] = route_type
         response = self._call_endpoint(
             "POST", MLFLOW_GATEWAY_CRUD_ROUTE_BASE, json.dumps(payload)
         ).json()
