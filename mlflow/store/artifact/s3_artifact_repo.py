@@ -292,7 +292,7 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         s3_client = self._get_s3_client()
-        return s3_client.abort_multipart_upload(
+        s3_client.abort_multipart_upload(
             Bucket=bucket,
             Key=dest_path,
             UploadId=upload_id,

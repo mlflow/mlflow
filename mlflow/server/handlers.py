@@ -1823,7 +1823,6 @@ def _create_multipart_upload_artifact(artifact_path):
             "num_parts": [_assert_intlike],
         },
     )
-    validate_path_is_safe(request_message.path)
     path = request_message.path
     num_parts = request_message.num_parts
 
