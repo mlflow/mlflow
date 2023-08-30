@@ -3,22 +3,19 @@ from typing import List, Dict
 from string import Template
 import pandas as pd
 import mlflow.gateway
+from mlflow.pyfunc.model import PythonModel
 
 mlflow.gateway.set_gateway_uri("databricks")
 
 
-class GatewayModel:
+class PromptlabModel(PythonModel):
     def __init__(self):
-        # read this from json files
         self.santized_prompt_template = ""
-        self.prompt_parameters = ""
+        self.prompt_parameters = {}
         self.python_parameters = {}
-        self.model_routes = ""
-        self.prompt_template = Template(
-            """
-__sanitized_python_template__
-"""
-        )
+        self.model_route = ""
+
+        self.prompt_template = Template(self.santized_prompt_template)
 
     def predict(self, inputs: pd.DataFrame) -> List[str]:
         results = []
@@ -37,7 +34,3 @@ __sanitized_python_template__
             )
             results.append(result["candidates"][0]["text"])
         return results
-
-
-def _load_pyfunc(model_path):
-    return GatewayModel(model_path)
