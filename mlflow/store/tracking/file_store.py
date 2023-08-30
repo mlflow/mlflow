@@ -1306,8 +1306,6 @@ class FileStore(AbstractStore):
         """
         Creates a run with the specified attributes.
         """
-        from mlflow import pyfunc
-        from mlflow._promptlab import PromptlabModel
 
         run = self.create_run(experiment_id, user_id, start_time, tags, run_name)
         run_id = run.info.run_id
@@ -1347,14 +1345,7 @@ class FileStore(AbstractStore):
         inputs_colspecs = [ColSpec(DataType.string, param.key) for param in prompt_parameters]
         outputs_colspecs = [ColSpec(DataType.string, "output")]
 
-        self.pyfunc.log_model(
-            artifact_path="model",
-            python_model=PromptlabModel(),
-            signature=ModelSignature(
-                inputs=Schema(inputs_colspecs),
-                outputs=Schema(outputs_colspecs),
-            ),
-        )
+        from mlflow._promptlab import save_model, _PromptlabModel
 
         # write artifact files
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -1362,6 +1353,14 @@ class FileStore(AbstractStore):
         artifact_repo = get_artifact_repository(artifact_dir)
 
         with tempfile.TemporaryDirectory() as local_dir:
+            save_model(
+                _PromptlabModel(),
+                path=local_dir,
+                signature=ModelSignature(
+                    inputs=Schema(inputs_colspecs),
+                    outputs=Schema(outputs_colspecs),
+                ),
+            )
             model_json = create_model_file(
                 run_id,
                 mlflow_version,
