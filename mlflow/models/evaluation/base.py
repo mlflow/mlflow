@@ -81,7 +81,6 @@ class EvaluationMetric:
 
             def eval_fn(
                 eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
-                builtin_metrics: Dict[str, float],
                 metrics: Dict[str, MetricValue],
             ) -> Union[float, MetricValue]:
                 """
@@ -142,7 +141,6 @@ def make_metric(
 
             def eval_fn(
                 eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
-                builtin_metrics: Dict[str, float],
                 metrics: Dict[str, MetricValue],
             ) -> Union[float, MetricValue]:
                 """
