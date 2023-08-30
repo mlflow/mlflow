@@ -95,7 +95,7 @@ def _resolve_tracking_uri(tracking_uri=None):
     return tracking_uri or get_tracking_uri()
 
 
-def get_tracking_uri(tracking_uri:str|None=None) -> str:
+def get_tracking_uri(tracking_uri:Union[str,None]=None) -> str:
     """
     Get the current tracking URI. This may not correspond to the tracking URI of
     the currently active run, since the tracking URI can be updated via ``set_tracking_uri``.
