@@ -21,9 +21,9 @@ def transform(stdout: str, is_maintainer: bool) -> str:
         if m := MESSAGE_REGEX.match(line):
             if m.group(2) is not None:
                 command = (
-                    "`ruff --fix .`"
+                    "`ruff --fix .` or comment `@mlflow-automation autoformat`"
                     if is_maintainer
-                    else "`ruff --fix .` or comment `@mlflow-automation autoformat`"
+                    else "`ruff --fix .`"
                 )
                 line = f"{line}. Run {command} to fix this error."
             else:
