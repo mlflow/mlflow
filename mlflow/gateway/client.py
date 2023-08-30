@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 import requests.exceptions
 
 from mlflow import MlflowException
-from mlflow.gateway.config import Route
+from mlflow.gateway.config import Provider, Route
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
     MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
@@ -138,7 +138,7 @@ class MlflowGatewayClient:
 
     @experimental
     def create_route(
-        self, name: str, model: Dict[str, Any], route_type: Optional[str] = None
+        self, name: str, route_type: str = None, model: Dict[str, Any] = None
     ) -> Route:
         """
         Create a new route in the Gateway.
@@ -149,11 +149,12 @@ class MlflowGatewayClient:
             route configuration is handled via updates to the route configuration YAML file that
             is specified during Gateway server start.
 
-        :param name: The name of the route.
+        :param name: The name of the route. This parameter is required for all routes.
         :param route_type: The type of the route (e.g., 'llm/v1/chat', 'llm/v1/completions',
-                           'llm/v1/embeddings').
+                           'llm/v1/embeddings'). This parameter is required for routes that are
+                           not managed by Databricks (the provider isn't 'databricks').
         :param model: A dictionary representing the model details to be associated with the route.
-                      This dictionary should define:
+                      This parameter is required for all routes. This dictionary should define:
 
                       - The model name (e.g., "gpt-3.5-turbo")
                       - The provider (e.g., "openai", "anthropic")
@@ -202,11 +203,16 @@ class MlflowGatewayClient:
                 "running Gateway server.",
                 error_code=BAD_REQUEST,
             )
+        if model is None:
+            raise MlflowException(
+                "Missing required field: model",
+                error_code=BAD_REQUEST,
+            )
         payload = {
             "name": name,
             "model": model,
         }
-        if model["provider"].lower() != "databricks":
+        if model["provider"].lower() != Provider.DATABRICKS:
             if route_type is None:
                 raise MlflowException(
                     "Missing required field: route_type",
