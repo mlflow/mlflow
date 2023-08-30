@@ -242,9 +242,9 @@ class CloudArtifactRepository(ArtifactRepository):
         file_info = [info for info in file_infos if info.path == remote_file_path]
         file_size = file_info[0].file_size if len(file_info) == 1 else None
         if (
-            not file_size
+            not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
+            or not file_size
             or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE
-            or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
         ):
             self._download_from_cloud(remote_file_path, local_path)
         else:
