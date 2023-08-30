@@ -809,3 +809,40 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
         )
 
     assert len(env_path_set) == 3
+
+
+@pytest.mark.parametrize(
+    ("input_schema", "output_schema", "params_schema"),
+    [(True, False, False), (False, True, False), (False, False, True)],
+)
+def test_signature_enforcement_with_model_serving(input_schema, output_schema, params_schema):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return ["test"]
+
+    input_data = ["test_input"] if input_schema else None
+    output_data = ["test_output"] if output_schema else None
+    params = {"test": "test"} if params_schema else None
+
+    signature = mlflow.models.infer_signature(
+        model_input=input_data, model_output=output_data, params=params
+    )
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="test_model", python_model=MyModel(), signature=signature
+        )
+
+    inference_payload = json.dumps({"inputs": ["test"]})
+
+    # Serve and score the model
+    scoring_result = pyfunc_serve_and_score_model(
+        model_uri=model_info.model_uri,
+        data=inference_payload,
+        content_type=CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    scoring_result.raise_for_status()
+
+    # Assert the prediction result
+    assert json.loads(scoring_result.content)["predictions"] == ["test"]

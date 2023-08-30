@@ -96,6 +96,7 @@ def save_yaml(path, conf):
 class MockAsyncResponse:
     def __init__(self, data: Dict[str, Any]):
         self.data = data
+        self.headers = data.get("headers", {})
 
     def raise_for_status(self) -> None:
         pass
