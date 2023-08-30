@@ -147,7 +147,17 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
       } else {
         const prefix = text.substring(0, entityBeingEdited.startIndex);
         const suffix = text.substring(entityBeingEdited.endIndex);
-        setText(prefix + value + ' ' + suffix);
+
+        const valueParts = value.split(' ');
+        const valueCategory = valueParts[0];
+        const valueName = valueParts.slice(1);
+
+        if (valueName.includes(' ')) {
+          setText(prefix + valueCategory + '"' + valueName + '"' + ' ' + suffix);
+        } else {
+          setText(prefix + value + ' ' + suffix);
+        }
+
         setLastSetBySelection(true);
         setAutocompleteEnabled(false);
       }
