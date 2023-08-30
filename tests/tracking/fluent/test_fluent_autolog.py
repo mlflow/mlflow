@@ -99,6 +99,10 @@ def disable_new_import_hook_firing_if_module_already_exists(request):
             yield
 
 
+# Reference the method so that the mock does not conflict with lazy loading.
+mlflow.tensorflow.autolog
+
+
 @pytest.mark.usefixtures(test_mode_off.__name__)
 @pytest.mark.parametrize(("library", "mlflow_module"), library_to_mlflow_module.items())
 def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard_mode(
@@ -111,7 +115,6 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard
             autolog_mock.assert_not_called()
 
         mlflow.utils.import_hooks.notify_module_loaded(library)
-
         autolog_mock.assert_called_once()
 
 

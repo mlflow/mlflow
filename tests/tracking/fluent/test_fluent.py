@@ -166,18 +166,6 @@ def search_runs_output_format(request):
     return request.param
 
 
-def test_all_fluent_apis_are_included_in_dunder_all():
-    def _is_function_or_class(obj):
-        return callable(obj) or inspect.isclass(obj)
-
-    apis = [
-        a
-        for a in dir(mlflow)
-        if _is_function_or_class(getattr(mlflow, a)) and not a.startswith("_")
-    ]
-    assert set(apis).issubset(set(mlflow.__all__))
-
-
 def test_get_experiment_id_from_env(monkeypatch):
     # When no env variables are set
     assert not MLFLOW_EXPERIMENT_NAME.defined
