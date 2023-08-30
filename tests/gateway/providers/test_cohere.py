@@ -36,6 +36,7 @@ def completions_response():
             }
         ],
         "prompt": "string",
+        "headers": {"Content-Type": "application/json"},
     }
 
 
@@ -122,6 +123,7 @@ def embeddings_response():
                 ]
             },
         ],
+        "headers": {"Content-Type": "application/json"},
     }
 
 

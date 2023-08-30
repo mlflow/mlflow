@@ -69,6 +69,7 @@ from mlflow.store._unity_catalog.registry.utils import (
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.types.schema import ColSpec, DataType
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_ID,
     MLFLOW_DATABRICKS_JOB_RUN_ID,
@@ -173,7 +174,9 @@ def test_create_registered_model(mock_http, store):
 
 @pytest.fixture
 def local_model_dir(tmp_path):
-    fake_signature = ModelSignature(inputs=Schema([]), outputs=Schema([]))
+    fake_signature = ModelSignature(
+        inputs=Schema([ColSpec(DataType.string)]), outputs=Schema([ColSpec(DataType.double)])
+    )
     fake_mlmodel_contents = {
         "artifact_path": "some-artifact-path",
         "run_id": "abc123",
@@ -226,7 +229,9 @@ def test_create_model_version_missing_python_deps(store, local_model_dir):
 
 @pytest.fixture
 def feature_store_local_model_dir(tmp_path):
-    fake_signature = ModelSignature(inputs=Schema([]), outputs=Schema([]))
+    fake_signature = ModelSignature(
+        inputs=Schema([ColSpec(DataType.double)]), outputs=Schema([ColSpec(DataType.double)])
+    )
     fake_mlmodel_contents = {
         "artifact_path": "some-artifact-path",
         "run_id": "abc123",
@@ -266,7 +271,7 @@ def test_create_model_version_missing_signature(store, tmp_path):
 
 
 def test_create_model_version_missing_output_signature(store, tmp_path):
-    fake_signature = ModelSignature(inputs=Schema([]))
+    fake_signature = ModelSignature(inputs=Schema([ColSpec(DataType.integer)]))
     fake_mlmodel_contents = {"signature": fake_signature.to_dict()}
     with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)

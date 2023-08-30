@@ -1829,3 +1829,27 @@ def test_create_promptlab_run_handler_returns_expected_results(mlflow_client):
     assert {"key": "mlflow.runSourceType", "value": "PROMPT_ENGINEERING"} in run_json["run"][
         "data"
     ]["tags"]
+
+
+def test_gateway_proxy_handler_rejects_invalid_requests(mlflow_client):
+    def assert_response(resp, message_part):
+        assert resp.status_code == 400
+        response_json = resp.json()
+        assert response_json.get("error_code") == "INVALID_PARAMETER_VALUE"
+        assert message_part in response_json.get("message", "")
+
+    with _init_server(
+        backend_uri=mlflow_client.tracking_uri,
+        root_artifact_uri=mlflow_client.tracking_uri,
+        extra_env={"MLFLOW_GATEWAY_URI": "http://localhost:5001"},
+    ) as url:
+        patched_client = MlflowClient(url)
+
+        response = requests.post(
+            f"{patched_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
+            json={},
+        )
+        assert_response(
+            response,
+            "GatewayProxy request must specify a gateway_path.",
+        )

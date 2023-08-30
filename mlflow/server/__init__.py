@@ -16,6 +16,7 @@ from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
     create_promptlab_run_handler,
+    gateway_proxy_handler,
     get_artifact_handler,
     get_metric_history_bulk_handler,
     get_model_version_artifact_handler,
@@ -93,6 +94,11 @@ def serve_search_datasets():
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/runs/create-promptlab-run"), methods=["POST"])
 def serve_create_promptlab_run():
     return create_promptlab_run_handler()
+
+
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/gateway-proxy"), methods=["POST", "GET"])
+def serve_gateway_proxy():
+    return gateway_proxy_handler()
 
 
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
