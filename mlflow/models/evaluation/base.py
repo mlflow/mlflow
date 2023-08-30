@@ -81,8 +81,9 @@ class EvaluationMetric:
 
             def eval_fn(
                 eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
-                builtin_metrics: Dict[str, MetricValue],
-            ) -> MetricValue:
+                builtin_metrics: Dict[str, float],
+                metrics: Dict[str, MetricValue],
+            ) -> Union[float, MetricValue]:
                 """
                 :param eval_df:
                     A Pandas or Spark DataFrame containing ``prediction`` and ``target`` column.
@@ -142,7 +143,8 @@ def make_metric(
             def eval_fn(
                 eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
                 builtin_metrics: Dict[str, float],
-            ) -> float:
+                metrics: Dict[str, MetricValue],
+            ) -> Union[float, MetricValue]:
                 """
                 :param eval_df:
                     A Pandas or Spark DataFrame containing ``prediction`` and ``target`` column.
@@ -155,7 +157,7 @@ def make_metric(
                     the metrics. Refer to the DefaultEvaluator behavior section for what metrics
                     will be returned based on the type of model (i.e. classifier or regressor).
                 :return:
-                    The metric value.
+                    MetricValue with per-row scores, per-row justifications, and aggregate results.
                 """
                 ...
 
