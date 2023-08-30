@@ -85,6 +85,8 @@ class EvaluationMetric:
                 :param builtin_metrics:
                     A dictionary containing the metrics calculated by the default evaluator.
                     The keys are the names of the metrics and the values are the metric values.
+                    To access the MetricValue for the metrics calculated by the system, make sure
+                    to specify the type hint for this parameter as Dict[str, MetricValue].
                     Refer to the DefaultEvaluator behavior section for what metrics
                     will be returned based on the type of model (i.e. classifier or regressor).
                 :return:
@@ -144,8 +146,10 @@ def make_metric(
                     on that row.
                 :param builtin_metrics:
                     A dictionary containing the metrics calculated by the default evaluator.
-                    The keys are the names of the metrics and the values are the scalar values of
-                    the metrics. Refer to the DefaultEvaluator behavior section for what metrics
+                    The keys are the names of the metrics and the values are the metric values.
+                    To access the MetricValue for the metrics calculated by the system, make sure
+                    to specify the type hint for this parameter as Dict[str, MetricValue].
+                    Refer to the DefaultEvaluator behavior section for what metrics
                     will be returned based on the type of model (i.e. classifier or regressor).
                 :return:
                     MetricValue with per-row scores, per-row justifications, and aggregate results.
