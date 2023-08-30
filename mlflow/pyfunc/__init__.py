@@ -235,7 +235,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.flavor_backend_registry import get_flavor_backend
-from mlflow.models.model import MLMODEL_FILE_NAME, FEATURE_SPEC_RELATIVE_FILE_PATH
+from mlflow.models.model import FEATURE_SPEC_RELATIVE_FILE_PATH, MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_type_hints
 from mlflow.models.utils import (
     PyFuncInput,
@@ -245,9 +245,9 @@ from mlflow.models.utils import (
     _save_example,
 )
 from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
-    BAD_REQUEST,
 )
 from mlflow.pyfunc.model import (
     PythonModel,
@@ -630,7 +630,8 @@ def load_model(
         )
     if os.path.exists(os.path.join(local_path, FEATURE_SPEC_RELATIVE_FILE_PATH)):
         raise MlflowException(
-            f"Unable to load Feature Store model directly. Use score_batch for offline predictions.",
+            "Unable to load Feature Store model directly. "
+            "Use score_batch for offline predictions.",
             BAD_REQUEST,
         )
     model_py_version = conf.get(PY_VERSION)
