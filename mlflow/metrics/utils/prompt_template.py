@@ -1,4 +1,7 @@
-import re
+import string
+from typing import Dict, List
+
+from mlflow.exceptions import MlflowException
 
 
 class PromptTemplate:
@@ -22,25 +25,33 @@ class PromptTemplate:
             prompt = PromptTemplate(template_str="Say {foo} {baz}").partial_fill(foo="bar")
 
             # Format the prompt
-            prompt.format_prompt(baz="qux")
+            prompt.format(baz="qux")
     """
 
-    def __init__(self, template_str: str, variables: list = None):
+    def __init__(self, template_str: str, variables: List[str] = None):
         self.template_str = template_str
+        extracted_variables = [
+            fname for _, fname, _, _ in string.Formatter().parse(template_str) if fname
+        ]
         if variables:
+            if not all(item in variables for item in extracted_variables):
+                raise MlflowException(
+                    f"The provided variables {variables} are not a subset of "
+                    f"the extracted variables {extracted_variables} from the template string"
+                )
             self.variables = variables
         else:
             # Automatically parse variables from template string
-            self.variables = re.findall(r"\{(\w+)\}", template_str)
+            self.variables = extracted_variables
 
-    def format_prompt(self, **kwargs: dict):
+    def format(self, **kwargs: Dict[str, any]) -> str:
         # Only keep the kwargs that are in the variables
         kwargs = {k: v for k, v in kwargs.items() if k in self.variables}
 
         # Format the prompt with the provided values
         return self.template_str.format(**kwargs)
 
-    def partial_fill(self, **kwargs: dict):
+    def partial_fill(self, **kwargs: Dict[str, any]) -> "PromptTemplate":
         # Create a safe dictionary that returns the key if it doesn't exist in the dictionary
         safe_dict = {k: kwargs.get(k, "{" + k + "}") for k in self.variables}
 
