@@ -7,6 +7,6 @@ jinja2==3.0.3
 flask<=2.2.5
 sphinx-autobuild
 sphinx-click
-tensorflow<2.13.0
+tensorflow<=2.12.0
 pyspark
 datasets
