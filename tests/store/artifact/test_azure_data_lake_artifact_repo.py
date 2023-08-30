@@ -142,10 +142,10 @@ def test_list_artifacts(mock_filesystem_client):
 
 
 @pytest.mark.parametrize(
-    "is_empty",
-    [True, False],
+    "contents",
+    ["", "B"],
 )
-def test_log_artifact(mock_filesystem_client, mock_directory_client, tmp_path, is_empty):
+def test_log_artifact(mock_filesystem_client, mock_directory_client, tmp_path, contents):
     file_name = "b.txt"
     repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
 
@@ -153,14 +153,14 @@ def test_log_artifact(mock_filesystem_client, mock_directory_client, tmp_path, i
     parentd.mkdir()
     subd = parentd.joinpath("subdir")
     subd.mkdir()
-    subd.joinpath("b.txt").write_text("" if is_empty else "B")
+    subd.joinpath("b.txt").write_text(contents)
 
     repo.log_artifact(subd.joinpath("b.txt"))
 
     mock_filesystem_client.get_directory_client.assert_called_once_with(TEST_ROOT_PATH)
     mock_directory_client.get_file_client.assert_called_once_with(file_name)
 
-    if is_empty:
+    if contents == "":
         mock_directory_client.get_file_client(file_name).create_file.assert_called()
     else:
         mock_directory_client.get_file_client(file_name).upload_data.assert_called()

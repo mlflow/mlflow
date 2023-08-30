@@ -112,6 +112,7 @@ class CloudArtifactRepository(ArtifactRepository):
         failed_uploads = {}
 
         # For each batch of files, upload them in parallel and wait for completion
+        # TODO: change to class method
         def upload_artifacts_iter():
             for staged_upload_chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
                 write_credential_infos = self._get_write_credential_infos(
@@ -194,13 +195,9 @@ class CloudArtifactRepository(ArtifactRepository):
         # the response.
         assert len(read_credentials) == 1
         cloud_credential_info = read_credentials[0]
-        # from mlflow.utils.databricks_utils import get_databricks_env_vars
 
         try:
             parallel_download_subproc_env = os.environ.copy()
-            # parallel_download_subproc_env.update(
-            #     get_databricks_env_vars(self.databricks_profile_uri)
-            # )
             failed_downloads = parallelized_download_file_using_http_uri(
                 thread_pool_executor=self.chunk_thread_pool,
                 http_uri=cloud_credential_info.signed_uri,
