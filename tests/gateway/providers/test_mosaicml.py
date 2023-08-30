@@ -376,12 +376,6 @@ def unsupported_mosaic_chat_model_config():
     }
 
 
-@pytest.mark.asyncio
-async def test_unsupported_model_name_raises_in_chat_parsing():
-    route_config = RouteConfig(**unsupported_mosaic_chat_model_config())
-    test_payload = {"messages": [{"role": "user", "content": "Failure"}]}
-    provider = MosaicMLProvider(route_config)
-    with pytest.raises(HTTPException, match=r".*") as e:
-        await provider.chat(chat.RequestPayload(**test_payload))
-    assert "The model 'unsupported' is not currently supported" in e.value.detail
-    assert e.value.status_code == 400
+def test_unsupported_model_name_raises_in_chat_parsing_route_configuration():
+    with pytest.raises(MlflowException, match="An invalid model has been specified"):
+        RouteConfig(**unsupported_mosaic_chat_model_config())

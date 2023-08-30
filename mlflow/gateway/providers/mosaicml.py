@@ -94,17 +94,7 @@ class MosaicMLProvider(BaseProvider):
 
         # Handle 'prompt' field in payload
         try:
-            # NB: Add a guard for prompt parsing
-            route_model = self.config.model.name
-            if route_model.lower().startswith("llama2"):
-                prompt = [self._parse_chat_messages_to_prompt(messages)]
-            else:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"The model '{route_model}' is not currently supported for a chat "
-                    "interface. Please check the route configuration and upgrade to "
-                    "the latest version of MLflow AI Gateway to ensure compatibility.",
-                )
+            prompt = [self._parse_chat_messages_to_prompt(messages)]
         except MlflowException as e:
             raise HTTPException(
                 status_code=422, detail=f"An invalid request structure was submitted. {e.message}"
@@ -126,7 +116,8 @@ class MosaicMLProvider(BaseProvider):
             self.config.model.name,
             final_payload,
         )
-        # Response example (https://docs.mosaicml.com/en/latest/inference.html#text-completion-models)
+        # Response example
+        # (https://docs.mosaicml.com/en/latest/inference.html#text-completion-models)
         # ```
         # {
         #   "outputs": [
@@ -188,7 +179,8 @@ class MosaicMLProvider(BaseProvider):
             self.config.model.name,
             final_payload,
         )
-        # Response example (https://docs.mosaicml.com/en/latest/inference.html#text-completion-models)
+        # Response example
+        # (https://docs.mosaicml.com/en/latest/inference.html#text-completion-models)
         # ```
         # {
         #   "outputs": [
@@ -231,7 +223,8 @@ class MosaicMLProvider(BaseProvider):
             self.config.model.name,
             payload,
         )
-        # Response example (https://docs.mosaicml.com/en/latest/inference.html#text-embedding-models):
+        # Response example
+        # (https://docs.mosaicml.com/en/latest/inference.html#text-embedding-models):
         # ```
         # {
         #   "outputs": [
