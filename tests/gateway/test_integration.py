@@ -12,6 +12,7 @@ from mlflow.gateway.config import Route
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
+from mlflow.gateway.providers.mosaicml import MosaicMLProvider
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.utils.request_utils import _cached_get_request_session
 
@@ -82,6 +83,28 @@ def basic_config_dict():
                 },
             },
             {
+                "name": "completions-mosaicml",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "mosaicml",
+                    "name": "mpt-7b-instruct",
+                    "config": {
+                        "mosaicml_api_key": "$MOSAICML_API_KEY",
+                    },
+                },
+            },
+            {
+                "name": "chat-mosaicml",
+                "route_type": "llm/v1/chat",
+                "model": {
+                    "provider": "mosaicml",
+                    "name": "llama2-70b-chat",
+                    "config": {
+                        "mosaicml_api_key": "$MOSAICML_API_KEY",
+                    },
+                },
+            },
+            {
                 "name": "embeddings-cohere",
                 "route_type": "llm/v1/embeddings",
                 "model": {
@@ -89,6 +112,17 @@ def basic_config_dict():
                     "name": "embed-english-v2.0",
                     "config": {
                         "cohere_api_key": "$COHERE_API_KEY",
+                    },
+                },
+            },
+            {
+                "name": "embeddings-mosaicml",
+                "route_type": "llm/v1/embeddings",
+                "model": {
+                    "provider": "mosaicml",
+                    "name": "instructor-large",
+                    "config": {
+                        "mosaicml_api_key": "$MOSAICML_API_KEY",
                     },
                 },
             },
@@ -141,6 +175,7 @@ def env_setup(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test_anthropic_key")
     monkeypatch.setenv("OPENAI_API_KEY", "test_openai_key")
     monkeypatch.setenv("COHERE_API_KEY", "test_cohere_key")
+    monkeypatch.setenv("MOSAICML_API_KEY", "test_mosaicml_key")
 
 
 @pytest.fixture
@@ -164,7 +199,7 @@ def test_create_gateway_client_with_declared_url(gateway):
     assert gateway_client.gateway_uri == gateway.url
     assert isinstance(gateway_client.get_route("chat-openai"), Route)
     routes = gateway_client.search_routes()
-    assert len(routes) == 9
+    assert len(routes) == 12
     assert all(isinstance(route, Route) for route in routes)
 
 
@@ -315,6 +350,67 @@ def test_cohere_completions(gateway):
     assert response == expected_output
 
 
+def test_mosaicml_completions(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("completions-mosaicml")
+    expected_output = {
+        "candidates": [
+            {
+                "text": "mock using MagicMock please",
+                "metadata": {},
+            }
+        ],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "mpt-7b-instruct",
+            "route_type": "llm/v1/completions",
+        },
+    }
+
+    data = {"prompt": "mock my test", "max_tokens": 50}
+
+    async def mock_completions(self, payload):
+        return expected_output
+
+    with patch.object(MosaicMLProvider, "completions", mock_completions):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_mosaicml_chat(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("chat-mosaicml")
+    expected_output = {
+        "candidates": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "test",
+                },
+                "metadata": {"finish_reason": None},
+            }
+        ],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "llama2-70b-chat",
+            "route_type": "llm/v1/chat",
+        },
+    }
+
+    data = {"messages": [{"role": "user", "content": "test"}]}
+
+    async def mock_chat(self, payload):
+        return expected_output
+
+    with patch.object(MosaicMLProvider, "chat", mock_chat):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
 def test_cohere_embeddings(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("embeddings-cohere")
@@ -335,6 +431,30 @@ def test_cohere_embeddings(gateway):
         return expected_output
 
     with patch.object(CohereProvider, "embeddings", mock_embeddings):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_mosaicml_embeddings(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("embeddings-mosaicml")
+    expected_output = {
+        "embeddings": [[0.1, 0.2, 0.3]],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "instructor-large",
+            "route_type": "llm/v1/embeddings",
+        },
+    }
+
+    data = {"text": "mock me and my test"}
+
+    async def mock_embeddings(self, payload):
+        return expected_output
+
+    with patch.object(MosaicMLProvider, "embeddings", mock_embeddings):
         response = client.query(route=route.name, data=data)
     assert response == expected_output
 

@@ -23,6 +23,7 @@ def completions_response():
         "stop": None,
         "log_id": "dee173f87ddf1357da639dee3c38d833",
         "exception": None,
+        "headers": {"Content-Type": "application/json"},
     }
 
 
