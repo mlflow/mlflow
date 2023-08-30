@@ -37,7 +37,7 @@ import warnings
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 from mlflow.version import VERSION as __version__  # noqa: F401
 
-warnings.filterwarnings("ignore", message="numpy.dtype size changed")
+warnings.filterwarnings(f"ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
 from mlflow import (
