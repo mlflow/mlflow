@@ -60,7 +60,7 @@ class MosaicMLProvider(BaseProvider):
             elif role == "assistant":
                 if not prompt.endswith("[/INST]"):
                     raise MlflowException.invalid_parameter_value(
-                        "Messages with role 'assistant' must be preceeded by a message "
+                        "Messages with role 'assistant' must be preceded by a message "
                         "with role 'user'."
                     )
                 prompt += f" {content} </s>"
@@ -116,7 +116,8 @@ class MosaicMLProvider(BaseProvider):
             self.config.model.name,
             final_payload,
         )
-        # Response example (https://docs.mosaicml.com/en/latest/inference.html#text-completion-models)
+        # Response example
+        # (https://docs.mosaicml.com/en/latest/inference.html#text-completion-models)
         # ```
         # {
         #   "outputs": [
@@ -178,7 +179,8 @@ class MosaicMLProvider(BaseProvider):
             self.config.model.name,
             final_payload,
         )
-        # Response example (https://docs.mosaicml.com/en/latest/inference.html#text-completion-models)
+        # Response example
+        # (https://docs.mosaicml.com/en/latest/inference.html#text-completion-models)
         # ```
         # {
         #   "outputs": [
@@ -221,7 +223,8 @@ class MosaicMLProvider(BaseProvider):
             self.config.model.name,
             payload,
         )
-        # Response example (https://docs.mosaicml.com/en/latest/inference.html#text-embedding-models):
+        # Response example
+        # (https://docs.mosaicml.com/en/latest/inference.html#text-embedding-models):
         # ```
         # {
         #   "outputs": [
