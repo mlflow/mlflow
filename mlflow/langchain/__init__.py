@@ -526,12 +526,9 @@ def log_model(
             ColSpec(type=DataType.string, name=input_key) for input_key in lc_model.input_keys
         ]
         input_schema = Schema(input_columns)
-        logger.warn("bbqiu")
-        logger.warn("output keys: %s", lc_model.output_keys)
         output_columns = [
             ColSpec(type=DataType.string, name=output_key) for output_key in lc_model.output_keys
         ]
-        logger.warn("output columns: %s", output_columns)
         output_schema = Schema(output_columns)
         signature = ModelSignature(input_schema, output_schema)
         logger.warn("signature: %s", signature)
@@ -711,6 +708,8 @@ class _LangChainModelWrapper:
             raise mlflow.MlflowException.invalid_parameter_value(
                 "Input must be a pandas DataFrame or a list of strings or a list of dictionaries",
             )
+        logger.warn("lc_model: %s", self.lc_model)
+        logger.warn("messages: %s", messages)
         return process_api_requests(lc_model=self.lc_model, requests=messages)
 
 
