@@ -17,7 +17,7 @@ from mlflow.types.utils import _infer_schema
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
-    import pyspark  # pylint: disable=unused-import
+    import pyspark
 
 _logger = logging.getLogger(__name__)
 
