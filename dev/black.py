@@ -8,6 +8,8 @@ MESSAGE_REGEX = re.compile(r"^reformatted (.+)$")
 
 
 def transform(stdout: str, is_maintainer: bool) -> str:
+    if not stdout:
+        return stdout
     transformed = []
     for line in stdout.splitlines():
         if m := MESSAGE_REGEX.match(line):
@@ -20,7 +22,7 @@ def transform(stdout: str, is_maintainer: bool) -> str:
             line = f"{path}: Unformatted file. Run {command} to format."
 
         transformed.append(line)
-    return "\n".join(transformed)
+    return "\n".join(transformed) + "\n"
 
 
 def main():
