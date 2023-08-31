@@ -32,7 +32,7 @@ pytorch:
       pip install --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 
   models:
-    minimum: "1.6.0"
+    minimum: "1.9.0"
     maximum: "2.0.1"
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
@@ -42,7 +42,7 @@ pytorch:
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
   autologging:
-    minimum: "1.6.0"
+    minimum: "1.9.0"
     maximum: "2.0.1"
     requirements:
       ">= 0.0.0": ["tensorboard"]
@@ -82,7 +82,7 @@ tensorflow:
       pip install tf-nightly
 
   models:
-    minimum: "2.3.0"
+    minimum: "2.6.0"
     maximum: "2.13.0"
     requirements:
       # Requirements to run tests for keras
@@ -106,7 +106,7 @@ tensorflow:
         tests/tensorflow/test_keras_pyfunc_model_works_with_all_input_types.py
 
   autologging:
-    minimum: "2.3.0"
+    minimum: "2.6.0"
     maximum: "2.13.0"
     requirements:
       "== dev": ["scikit-learn"]
@@ -129,7 +129,7 @@ xgboost:
       pip install git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
 
   models:
-    minimum: "1.1.1"
+    minimum: "1.4.2"
     maximum: "1.7.6"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
@@ -155,7 +155,7 @@ lightgbm:
       bash build-python.sh install
 
   models:
-    minimum: "2.3.1"
+    minimum: "3.1.1"
     maximum: "4.0.0"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
@@ -163,7 +163,7 @@ lightgbm:
       pytest tests/lightgbm/test_lightgbm_model_export.py
 
   autologging:
-    minimum: "2.3.1"
+    minimum: "3.1.1"
     maximum: "4.0.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
