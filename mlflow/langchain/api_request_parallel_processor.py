@@ -89,6 +89,7 @@ class APIRequest:
                 list_of_str_page_content = [doc.page_content for doc in docs]
                 response = json.dumps(list_of_str_page_content)
             else:
+                _logger.warn("self.request_json: %s", self.request_json)
                 response = self.lc_model.run(**self.request_json)
             _logger.debug(f"Request #{self.index} succeeded")
             status_tracker.complete_task(success=True)
@@ -124,6 +125,7 @@ def process_api_requests(
                     _logger.warning(f"Retrying request {next_request.index}: {next_request}")
                 elif req := next(requests_iter, None):
                     # get new request
+                    _logger.warn(f"Processing request {req[0]}: {req[1]}")
                     index, request_json = req
                     next_request = APIRequest(
                         index=index, lc_model=lc_model, request_json=request_json, results=results
