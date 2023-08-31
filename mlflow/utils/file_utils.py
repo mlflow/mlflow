@@ -750,7 +750,7 @@ def parallelized_download_file_using_http_uri(
     with ArtifactProgressBar.chunks(file_size, f"Downloading {download_path}", chunk_size) as pbar:
         for i, future in enumerate(as_completed(futures)):
             index = futures[future]
-            print(f"Remaining ({fname}): {num_requests - (i + 1)} / {num_requests}")  # noqa
+            # print(f"Remaining ({fname}): {num_requests - (i + 1)} / {num_requests}")  # noqa
             try:
                 result = future.result()
                 if result is not None:
