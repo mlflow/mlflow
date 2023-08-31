@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 import requests.exceptions
 
 from mlflow import MlflowException
-from mlflow.gateway.config import Provider, Route
+from mlflow.gateway.config import Route
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
     MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
@@ -138,7 +138,7 @@ class MlflowGatewayClient:
 
     @experimental
     def create_route(
-        self, name: str, route_type: str = None, model: Dict[str, Any] = None
+        self, name: str, route_type: Optional[str] = None, model: Optional[Dict[str, Any]] = None
     ) -> Route:
         """
         Create a new route in the Gateway.

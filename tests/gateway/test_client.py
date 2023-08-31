@@ -478,7 +478,6 @@ def test_client_create_route_raises(gateway):
         )
 
 
-
 def test_client_delete_route_raises(gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
 
