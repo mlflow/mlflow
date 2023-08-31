@@ -9,7 +9,8 @@ import shutil
 import tempfile
 from collections import namedtuple
 from functools import partial
-from typing import Callable, NamedTuple
+from typing import Callable, NamedTuple, Dict
+from inspect import signature
 
 import numpy as np
 import pandas as pd
@@ -458,7 +459,7 @@ def _is_numeric(value):
     return isinstance(value, (int, float, np.number))
 
 
-def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
+def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics, metrics):
     """
     This function calls the `custom_metric` function and performs validations on the returned
     result to ensure that they are in the expected format. It will raise a MlflowException if
@@ -475,7 +476,13 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
         " in the `custom_metrics` parameter"
     )
 
-    metric = custom_metric_tuple.function(eval_df, builtin_metrics)
+    func_signature = signature(custom_metric_tuple.function)
+    metrics_param = func_signature.parameters.get("metrics")
+    if metrics_param and metrics_param.annotation == Dict[str, MetricValue]:
+        metric = custom_metric_tuple.function(eval_df, metrics)
+    else:
+        # use old builtin_metrics: Dict[str, float]
+        metric = custom_metric_tuple.function(eval_df, builtin_metrics)
 
     if metric is None:
         raise MlflowException(f"{exception_header} returned None.")
@@ -1065,6 +1072,7 @@ class DefaultEvaluator(ModelEvaluator):
             metric_result = _evaluate_custom_metric(
                 custom_metric_tuple,
                 eval_df.copy(),
+                copy.deepcopy(self.metrics),
                 copy.deepcopy(self.metrics_values),
             )
             if custom_metric.version:
