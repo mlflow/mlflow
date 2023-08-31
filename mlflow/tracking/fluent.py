@@ -317,12 +317,12 @@ def start_run(
                 "or --experiment-id matches experiment set with "
                 "set_experiment(), or just use command-line arguments"
             )
-        # Check to see if current run isn't deleted
+        # Check if the current run has been deleted.
         if active_run_obj.info.lifecycle_stage == LifecycleStage.DELETED:
             raise MlflowException(
-                f"Cannot start run with ID {existing_run_id} because it is in the deleted state."
+                f"Cannot start run with ID {existing_run_id} because it is in the DELETED state."
             )
-        # Use previous end_time because a value is required for update_run_info
+        # Use previous `end_time` because a value is required for `update_run_info`.
         end_time = active_run_obj.info.end_time
         _get_store().update_run_info(
             existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time, run_name=None
@@ -368,13 +368,11 @@ def start_run(
         resolved_tags = context_registry.resolve_tags(user_specified_tags)
 
         active_run_obj = client.create_run(
-            experiment_id=exp_id_for_run, tags=resolved_tags, run_name=run_name
+            experiment_id=exp_id_for_run,
+            tags=resolved_tags,
+            run_name=run_name,
+            include_system_metrics=include_system_metrics,
         )
-
-    if include_system_metrics:
-        system_monitor = SystemMetricsMonitor(active_run_obj)
-        system_monitor.start()
-
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
 
@@ -414,8 +412,6 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
         # Clear out the global existing run environment variable as well.
         MLFLOW_RUN_ID.unset()
         run = _active_run_stack.pop()
-        if run.system_metrics_monitor:
-            run.system_metrics_monitor.finish()
         MlflowClient().set_terminated(run.info.run_id, status)
         _last_active_run_id = run.info.run_id
 

@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 import yaml
 
 import mlflow
+from mlflow.system_metrics import SystemMetricsMonitor
 from mlflow.entities import DatasetInput, Experiment, FileInfo, Metric, Param, Run, RunTag, ViewType
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -279,6 +280,7 @@ class MlflowClient:
         start_time: Optional[int] = None,
         tags: Optional[Dict[str, Any]] = None,
         run_name: Optional[str] = None,
+        include_system_metrics: bool = True,
     ) -> Run:
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
@@ -324,7 +326,11 @@ class MlflowClient:
             lifecycle_stage: active
             status: RUNNING
         """
-        return self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
+        run = self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
+        if include_system_metrics:
+            system_monitor = SystemMetricsMonitor(run)
+            system_monitor.start()
+        return run
 
     def search_experiments(
         self,
@@ -1854,6 +1860,9 @@ class MlflowClient:
             run_id: 575fb62af83f469e84806aee24945973
             status: KILLED
         """
+        run = self.get_run(run_id)
+        if run.system_metrics_monitor:
+            run.system_metrics_monitor.finish()
         self._tracking_client.set_terminated(run_id, status, end_time)
 
     def delete_run(self, run_id: str) -> None:

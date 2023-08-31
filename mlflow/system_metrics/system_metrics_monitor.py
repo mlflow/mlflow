@@ -8,8 +8,6 @@ from mlflow.system_metrics.metrics.disk_monitor import DiskMonitor
 from mlflow.system_metrics.metrics.network_monitor import NetworkMonitor
 from mlflow.system_metrics.metrics.gpu_monitor import GPUMonitor
 
-from mlflow.utils.autologging_utils import BatchMetricsLogger
-
 logger = logging.getLogger(__name__)
 
 
@@ -26,6 +24,8 @@ class SystemMetricsMonitor:
     """
 
     def __init__(self, mlflow_run, logging_interval=5.0):
+        from mlflow.utils.autologging_utils import BatchMetricsLogger
+
         # Instantiate default monitors.
         self.monitors = [CPUMonitor(), DiskMonitor(), NetworkMonitor()]
         gpu_monitor = GPUMonitor()
