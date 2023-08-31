@@ -1333,11 +1333,18 @@ class FileStore(AbstractStore):
         )
         self.record_logged_model(run_id, promptlab_model)
 
-        from mlflow.models.signature import ModelSignature
-        from mlflow.types.schema import ColSpec, DataType, Schema
+        try:
+            from mlflow.models.signature import ModelSignature
+            from mlflow.types.schema import ColSpec, DataType, Schema
 
-        inputs_colspecs = [ColSpec(DataType.string, param.key) for param in prompt_parameters]
-        outputs_colspecs = [ColSpec(DataType.string, "output")]
+            inputs_colspecs = [ColSpec(DataType.string, param.key) for param in prompt_parameters]
+            outputs_colspecs = [ColSpec(DataType.string, "output")]
+            signature = ModelSignature(
+                inputs=Schema(inputs_colspecs),
+                outputs=Schema(outputs_colspecs),
+            )
+        except ImportError:
+            signature = None
 
         from mlflow._promptlab import save_model
 
@@ -1349,10 +1356,7 @@ class FileStore(AbstractStore):
         with tempfile.TemporaryDirectory() as local_dir:
             save_model(
                 path=os.path.join(local_dir, "model"),
-                signature=ModelSignature(
-                    inputs=Schema(inputs_colspecs),
-                    outputs=Schema(outputs_colspecs),
-                ),
+                signature=signature,
                 input_example={"inputs": [param.value for param in prompt_parameters]},
                 prompt_template=prompt_template,
                 prompt_parameters=prompt_parameters,
