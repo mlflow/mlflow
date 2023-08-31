@@ -418,3 +418,7 @@ MLFLOW_SAGEMAKER_DEPLOY_IMG_URL = _EnvironmentVariable("MLFLOW_SAGEMAKER_DEPLOY_
 #: Specifies whether to disable creating a new conda environment for `mlflow models build-docker`.
 #: (default: ``False``)
 MLFLOW_DISABLE_ENV_CREATION = _BooleanEnvironmentVariable("MLFLOW_DISABLE_ENV_CREATION", False)
+
+#: Specifies the timeout value for mlflow.utils.request_utils.download_chunk
+#: (default: ``300``)
+MLFLOW_DOWNLOAD_CHUNK_TIMEOUT = _EnvironmentVariable("MLFLOW_DOWNLOAD_CHUNK_TIMEOUT", "300")

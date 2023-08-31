@@ -24,7 +24,6 @@ _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
         504,  # Gateway Timeout
     ]
 )
-DOWNLOAD_CHUNK_TIMEOUT_100M = 5 * 60
 
 
 def augmented_raise_for_status(response):
@@ -42,10 +41,13 @@ def augmented_raise_for_status(response):
 
 def download_chunk(range_start, range_end, headers, download_path, http_uri):
     combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
-    timeout = DOWNLOAD_CHUNK_TIMEOUT_100M * ((range_end - range_start) // 100_000_000 + 1)
 
     with cloud_storage_http_request(
-        "get", http_uri, stream=False, headers=combined_headers, timeout=timeout
+        "get",
+        http_uri,
+        stream=False,
+        headers=combined_headers,
+        timeout=int(os.getenv("MLFLOW_DOWNLOAD_CHUNK_TIMEOUT", "300")),
     ) as response:
         # File will have been created upstream. Use r+b to ensure chunks
         # don't overwrite the entire file.
