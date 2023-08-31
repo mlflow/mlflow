@@ -1354,7 +1354,7 @@ class FileStore(AbstractStore):
                     inputs=Schema(inputs_colspecs),
                     outputs=Schema(outputs_colspecs),
                 ),
-                input_example=[param.value for param in prompt_parameters],
+                input_example={"inputs": [param.value for param in prompt_parameters]},
             )
 
             eval_results_json = create_eval_results_file(
