@@ -2702,6 +2702,10 @@ def test_search_datasets_returns_no_more_than_max_results(store):
     assert len(results) == 1000
 
 
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny does not support the np or pandas dependencies",
+)
 def test_create_promptlab_run(store):
     exp_id = store.create_experiment("test_create_promptlab_run")
     run = store._create_promptlab_run(

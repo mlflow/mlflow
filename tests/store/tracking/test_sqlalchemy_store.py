@@ -2461,6 +2461,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         results = self.store._search_datasets([exp_id])
         assert len(results) == 1000
 
+    @pytest.mark.skipif(
+        "MLFLOW_SKINNY" in os.environ,
+        reason="Skinny does not support the np or pandas dependencies",
+    )
     def test_create_promptlab_run(self):
         exp_id = self.store.create_experiment("test_create_promptlab_run")
         run = self.store._create_promptlab_run(
