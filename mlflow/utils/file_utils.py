@@ -669,7 +669,7 @@ def parallelized_download_file_using_http_uri(
             providers.
     Returns a dict of chunk index : exception, if one was thrown for that index.
     """
-    print(http_uri.split("?", 1)[0].rsplit("/", 1)[-1])  # noqa
+    fname = http_uri.split("?", 1)[0].rsplit("/", 1)[-1]  # noqa
 
     def run_download(range_start, range_end, index):
         # print("Start downloading chunk", index)  # noqa
@@ -747,7 +747,7 @@ def parallelized_download_file_using_http_uri(
     with ArtifactProgressBar.chunks(file_size, f"Downloading {download_path}", chunk_size) as pbar:
         for i, future in enumerate(as_completed(futures)):
             index = futures[future]
-            print(f"Remaining: {num_requests - (i + 1)} / {num_requests}")  # noqa
+            print(f"Remaining ({fname}): {num_requests - (i + 1)} / {num_requests}")  # noqa
             try:
                 result = future.result()
                 if result is not None:
