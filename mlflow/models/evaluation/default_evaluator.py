@@ -9,8 +9,7 @@ import shutil
 import tempfile
 from collections import namedtuple
 from functools import partial
-from typing import Callable, NamedTuple, Dict
-from inspect import signature
+from typing import Callable, NamedTuple, Dict, get_type_hints
 
 import numpy as np
 import pandas as pd
@@ -476,9 +475,8 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics, metri
         " in the `custom_metrics` parameter"
     )
 
-    func_signature = signature(custom_metric_tuple.function)
-    metrics_param = func_signature.parameters.get("metrics")
-    if metrics_param and metrics_param.annotation == Dict[str, MetricValue]:
+    metrics_type = get_type_hints(custom_metric_tuple.function).get("metrics")
+    if metrics_type and metrics_type == Dict[str, MetricValue] :
         metric = custom_metric_tuple.function(eval_df, metrics)
     else:
         # use old builtin_metrics: Dict[str, float]
