@@ -1,12 +1,9 @@
-# loader/gateway_loader_module.py
 import os
 from string import Template
 from typing import List
 
-import pandas as pd
 import yaml
 
-import mlflow.gateway
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
@@ -21,6 +18,7 @@ from mlflow.utils.environment import (
     _process_pip_requirements,
     _PythonEnv,
     _validate_env_arguments,
+    infer_pip_requirements,
 )
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
@@ -31,6 +29,8 @@ from mlflow.utils.model_utils import (
 
 
 class _PromptlabModel(PythonModel):
+    import pandas as pd
+
     def __init__(self, prompt_template, prompt_parameters, model_parameters, model_route):
         self.prompt_parameters = prompt_parameters
         self.model_parameters = model_parameters
@@ -38,20 +38,17 @@ class _PromptlabModel(PythonModel):
         self.prompt_template = Template(prompt_template)
 
     def predict(self, inputs: pd.DataFrame) -> List[str]:
+        from mlflow.gateway import query
+
         results = []
         for idx in inputs.index:
             prompt_parameters_as_dict = {
-                param.key: inputs["{param.key}"][idx] for param in self.prompt_parameters
+                param.key: inputs[f"{param.key}"][idx] for param in self.prompt_parameters
             }
             prompt = self.prompt_template.substitute(prompt_parameters_as_dict)
             model_parameters_as_dict = {param.key: param.value for param in self.model_parameters}
-            result = mlflow.gateway.query(
-                route=self.model_route,
-                data={
-                    {
-                        "prompt": prompt,
-                    }.update(model_parameters_as_dict),
-                },
+            result = query(
+                route=self.model_route, data={"prompt": prompt, **model_parameters_as_dict}
             )
             results.append(result["candidates"][0]["text"])
         return results
@@ -131,9 +128,7 @@ def save_model(
 
     if conda_env is None:
         if pip_requirements is None:
-            inferred_reqs = mlflow.models.infer_pip_requirements(
-                path, "mlflow._promptlab", ["mlflow>=2.6.0"]
-            )
+            inferred_reqs = infer_pip_requirements(path, "mlflow._promptlab", ["mlflow>=2.6.0"])
             default_reqs = sorted(inferred_reqs)
         else:
             default_reqs = None

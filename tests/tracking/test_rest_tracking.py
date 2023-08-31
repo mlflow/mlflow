@@ -1770,23 +1770,6 @@ def test_create_promptlab_run_handler_rejects_invalid_requests(mlflow_client):
         "CreatePromptlabRun request must specify user_id.",
     )
 
-    response = requests.post(
-        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
-        json={
-            "experiment_id": "123",
-            "prompt_template": "my_prompt_template",
-            "prompt_parameters": [{"key": "my_key", "value": "my_value"}],
-            "model_route": "my_route",
-            "model_input": "my_input",
-            "mlflow_version": "1.0.0",
-            "user_id": "username",
-        },
-    )
-    assert_response(
-        response,
-        "CreatePromptlabRun request must specify start_time.",
-    )
-
 
 def test_create_promptlab_run_handler_returns_expected_results(mlflow_client):
     experiment_id = mlflow_client.create_experiment("log inputs test")

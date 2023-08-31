@@ -67,7 +67,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.promptlab_utils import (
-    create_eval_results_file,
+    create_eval_results_json,
 )
 from mlflow.utils.search_utils import SearchExperimentsUtils, SearchUtils
 from mlflow.utils.string_utils import is_string_type
@@ -1056,14 +1056,15 @@ class SqlAlchemyStore(AbstractStore):
             Param("prompt_template", prompt_template),
         ]
 
-        self.log_batch(run_id, [], parameters_to_log, [])
+        tags_to_log = [
+            RunTag(
+                MLFLOW_LOGGED_ARTIFACTS,
+                json.dumps([{"path": "eval_results_table.json", "type": "table"}]),
+            ),
+            RunTag(MLFLOW_RUN_SOURCE_TYPE, "PROMPT_ENGINEERING"),
+        ]
 
-        # set logged artifacts tag
-        tag_value = [{"path": "eval_results_table.json", "type": "table"}]
-        self.set_tag(run_id, RunTag(MLFLOW_LOGGED_ARTIFACTS, json.dumps(tag_value)))
-
-        # set the promptlab run tag
-        self.set_tag(run_id, RunTag(MLFLOW_RUN_SOURCE_TYPE, "PROMPT_ENGINEERING"))
+        self.log_batch(run_id, [], parameters_to_log, tags_to_log)
 
         artifact_dir = self._get_artifact_location(experiment_id)
         artifact_repo = get_artifact_repository(artifact_dir)
@@ -1106,7 +1107,7 @@ class SqlAlchemyStore(AbstractStore):
                 model_route=model_route,
             )
 
-            eval_results_json = create_eval_results_file(
+            eval_results_json = create_eval_results_json(
                 prompt_parameters, model_input, model_output_parameters, model_output
             )
             eval_results_json_file_path = os.path.join(local_dir, "eval_results_table.json")
@@ -1115,9 +1116,8 @@ class SqlAlchemyStore(AbstractStore):
 
             artifact_repo.log_artifacts(local_dir)
 
-        self.update_run_info(
-            run_id, RunStatus.FINISHED, int(datetime.now().strftime("%Y%m%d")), run_name
-        )
+        # end time is the current number of milliseconds since the UNIX epoch.
+        self.update_run_info(run_id, RunStatus.FINISHED, int(time.time() * 1000), run_name)
 
         return self.get_run(run_id=run_id)
 

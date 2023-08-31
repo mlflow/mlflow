@@ -1,7 +1,7 @@
 import json
 
 
-def create_eval_results_file(prompt_parameters, model_input, model_output_parameters, model_output):
+def create_eval_results_json(prompt_parameters, model_input, model_output_parameters, model_output):
     columns = [param.key for param in prompt_parameters] + ["prompt", "output"]
     data = [param.value for param in prompt_parameters] + [model_input, model_output]
 

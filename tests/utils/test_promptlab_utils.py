@@ -2,7 +2,7 @@ import json
 
 from mlflow.entities.param import Param
 from mlflow.utils.promptlab_utils import (
-    create_eval_results_file,
+    create_eval_results_json,
 )
 
 prompt_parameters = [
@@ -18,7 +18,7 @@ model_output_parameters = [
 
 
 def test_eval_results_file():
-    eval_results_file = create_eval_results_file(
+    eval_results_file = create_eval_results_json(
         prompt_parameters, model_input, model_output_parameters, model_output
     )
     expected_eval_results_json = {
