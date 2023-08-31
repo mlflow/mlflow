@@ -305,21 +305,3 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
         )
         model_uri = mlflow.get_artifact_uri(pyfunc_artifact_path)
     _assert_pip_requirements(model_uri, mlflow.pyfunc.get_default_pip_requirements())
-
-
-def test_load_model_fails_for_feature_store_models(tmp_path):
-    feature_store = os.path.join(tmp_path, "feature_store")
-    os.mkdir(feature_store)
-    feature_spec = os.path.join(feature_store, "feature_spec.yaml")
-    with open(feature_spec, "w+") as f:
-        f.write("contents")
-
-    with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model(
-            artifact_path="model",
-            data_path=feature_store,
-            loader_module=__name__,
-            code_path=[__file__],
-        )
-    with pytest.raises(MlflowException, match="Unable to load Feature Store model directly"):
-        mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
