@@ -7,8 +7,6 @@ import json
 import os
 import sys
 
-import requests
-
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -33,26 +31,26 @@ def main():
 
     args = parse_args()
 
-    try:
-        download_chunk(
-            range_start=args.range_start,
-            range_end=args.range_end,
-            headers=json.loads(args.headers),
-            download_path=args.download_path,
-            http_uri=args.http_uri,
-        )
-    except requests.HTTPError as e:
-        temp_file = args.temp_file
-        print(e)  # noqa
-        with open(temp_file, "w") as f:
-            json.dump(
-                {
-                    "error_status_code": e.response.status_code,
-                    "error_text": str(e),
-                },
-                f,
-            )
-        raise
+    # try:
+    download_chunk(
+        range_start=args.range_start,
+        range_end=args.range_end,
+        headers=json.loads(args.headers),
+        download_path=args.download_path,
+        http_uri=args.http_uri,
+    )
+    # except requests.HTTPError as e:
+    #     temp_file = args.temp_file
+    #     print(e)  # noqa
+    #     with open(temp_file, "w") as f:
+    #         json.dump(
+    #             {
+    #                 "error_status_code": e.response.status_code,
+    #                 "error_text": str(e),
+    #             },
+    #             f,
+    #         )
+    #     raise
 
 
 if __name__ == "__main__":

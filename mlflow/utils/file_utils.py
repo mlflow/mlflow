@@ -677,7 +677,7 @@ def parallelized_download_file_using_http_uri(
         # print("Start downloading chunk", index)  # noqa
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_file = os.path.join(tmpdir, "error_messages.txt")
-            prc = subprocess.run(
+            subprocess.run(
                 [
                     sys.executable,
                     download_cloud_file_chunk.__file__,
@@ -698,15 +698,15 @@ def parallelized_download_file_using_http_uri(
                 # synchronous=False,
                 # capture_output=True,
                 # stream_output=False,
-                stderr=subprocess.PIPE,
-                # check=True,
+                # stderr=subprocess.PIPE,
+                check=True,
                 env=env,
             )
             # _, stderr = download_proc.communicate()
-            if prc.returncode != 0:
-                if os.path.exists(temp_file):
-                    with open(temp_file) as f:
-                        return json.load(f)
+            # if prc.returncode != 0:
+            #     if os.path.exists(temp_file):
+            #         with open(temp_file) as f:
+            #             return json.load(f)
 
     num_requests = int(math.ceil(file_size / float(chunk_size)))
     # Create file if it doesn't exist or erase the contents if it does. We should do this here
@@ -741,16 +741,16 @@ def parallelized_download_file_using_http_uri(
 
     failed_downloads = {}
 
-    with ArtifactProgressBar.chunks(file_size, f"Downloading {download_path}", chunk_size) as pbar:
+    with ArtifactProgressBar.chunks(file_size, f"Downloading {download_path}", chunk_size):
         for i, future in enumerate(as_completed(futures)):
             index = futures[future]
             # print(f"Remaining ({fname}): {num_requests - (i + 1)} / {num_requests}")  # noqa
             try:
                 result = future.result()
-                if result is not None:
-                    failed_downloads[index] = result
-                else:
-                    pbar.update()
+                # if result is not None:
+                failed_downloads[index] = result
+                # else:
+                #     pbar.update()
             except Exception as e:
                 print(f"Error downloading chunk {index} of {fname}: {e}")  # noqa
                 failed_downloads[index] = {
