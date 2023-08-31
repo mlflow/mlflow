@@ -39,22 +39,22 @@ class _PromptlabModel(PythonModel):
         self.prompt_parameters = prompt_parameters
         self.model_parameters = model_parameters
         self.model_route = model_route
-        self.prompt_template = Template(self.prompt_template)
+        self.prompt_template = Template(prompt_template)
 
     def predict(self, inputs: pd.DataFrame) -> List[str]:
         results = []
         for idx in inputs.index:
-            prompt_parameters_as_params = {
+            prompt_parameters_as_dict = {
                 param.key: inputs["{param.key}"][idx] for param in self.prompt_parameters
             }
-            prompt = self.prompt_template.substitute(prompt_parameters_as_params)
-            model_parameters_as_params = {param.key: param.value for param in self.model_parameters}
+            prompt = self.prompt_template.substitute(prompt_parameters_as_dict)
+            model_parameters_as_dict = {param.key: param.value for param in self.model_parameters}
             result = mlflow.gateway.query(
                 route=self.model_route,
                 data={
                     {
                         "prompt": prompt,
-                    }.update(model_parameters_as_params),
+                    }.update(model_parameters_as_dict),
                 },
             )
             results.append(result["candidates"][0]["text"])
@@ -66,21 +66,22 @@ def _load_pyfunc(path):
 
     pyfunc_flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
     parameters_path = os.path.join(path, pyfunc_flavor_conf["parameters_path"])
-    parameters = yaml.safe_load(parameters_path)
+    with open(parameters_path) as f:
+        parameters = yaml.safe_load(f)
 
-    [
-        Param(key=key, value=value) for key, value in parameters["prompt_parameters"].items()
-    ]
-    [
-        Param(key=key, value=value) for key, value in parameters["model_parameters"].items()
-    ]
+        prompt_parameters_as_params = [
+            Param(key=key, value=value) for key, value in parameters["prompt_parameters"].items()
+        ]
+        model_parameters_as_params = [
+            Param(key=key, value=value) for key, value in parameters["model_parameters"].items()
+        ]
 
-    return _PromptlabModel(
-        prompt_template=parameters["prompt_template"],
-        prompt_parameters=parameters["prompt_parameters"],
-        model_parameters=parameters["model_parameters"],
-        model_route=parameters["model_route"],
-    )
+        return _PromptlabModel(
+            prompt_template=parameters["prompt_template"],
+            prompt_parameters=prompt_parameters_as_params,
+            model_parameters=model_parameters_as_params,
+            model_route=parameters["model_route"],
+        )
 
 
 def save_model(
@@ -123,7 +124,7 @@ def save_model(
 
     pyfunc.add_to_model(
         mlflow_model,
-        loader_module="_promptlab",
+        loader_module="mlflow._promptlab",
         parameters_path=parameters_sub_path,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
@@ -136,7 +137,7 @@ def save_model(
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements(True)
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                path, "_promptlab", fallback=default_reqs
+                path, "mlflow._promptlab", fallback=default_reqs
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:

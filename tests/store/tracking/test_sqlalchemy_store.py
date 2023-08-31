@@ -2508,6 +2508,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert "model/requirements.txt" in model_files
         assert "model/input_example.json" in model_files
 
+        # try to load the model
+        mlflow.pyfunc.load_model(os.path.join(artifact_location, "model"))
+
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")
         run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id

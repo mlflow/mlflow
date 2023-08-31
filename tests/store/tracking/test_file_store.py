@@ -2752,3 +2752,9 @@ def test_create_promptlab_run(store):
     assert "model/conda.yaml" in model_files
     assert "model/requirements.txt" in model_files
     assert "model/input_example.json" in model_files
+
+    # try to load the model
+    import mlflow.pyfunc
+
+    model_uri = os.path.join(artifact_location, run.info.run_id, "artifacts", "model")
+    mlflow.pyfunc.load_model(model_uri)
