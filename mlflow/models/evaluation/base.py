@@ -82,7 +82,7 @@ class EvaluationMetric:
             def eval_fn(
                 eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
                 metrics: Dict[str, MetricValue],
-            ) -> MetricValue:
+            ) -> Union[float, MetricValue]:
                 """
                 :param eval_df:
                     A Pandas or Spark DataFrame containing ``prediction`` and ``target`` column.
@@ -144,7 +144,7 @@ def make_metric(
             def eval_fn(
                 eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
                 metrics: Dict[str, MetricValue],
-            ) -> MetricValue:
+            ) -> Union[float, MetricValue]:
                 """
                 :param eval_df:
                     A Pandas or Spark DataFrame containing ``prediction`` and ``target`` column.
