@@ -1966,6 +1966,7 @@ def autolog(
 
     def setup_autologging(module):
         try:
+            autologging_params = None
             autolog_fn = eval(LIBRARY_TO_AUTOLOG_FN[module.__name__])
             # Only call integration's autolog function with `mlflow.autolog` configs
             # if the integration's autolog function has not already been called by the user.
@@ -1998,7 +1999,7 @@ def autolog(
                 # Raise unexpected exceptions in test mode in order to detect
                 # errors within dependent autologging integrations
                 raise
-            elif not autologging_params.get("silent", False):
+            elif autologging_params is None or not autologging_params.get("silent", False):
                 _logger.warning(
                     "Exception raised while enabling autologging for %s: %s",
                     module.__name__,
