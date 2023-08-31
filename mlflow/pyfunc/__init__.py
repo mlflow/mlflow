@@ -235,7 +235,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.flavor_backend_registry import get_flavor_backend
-from mlflow.models.model import FEATURE_SPEC_RELATIVE_FILE_PATH, MLMODEL_FILE_NAME
+from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE, MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_type_hints
 from mlflow.models.utils import (
     PyFuncInput,
@@ -245,7 +245,6 @@ from mlflow.models.utils import (
     _save_example,
 )
 from mlflow.protos.databricks_pb2 import (
-    BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
@@ -628,11 +627,15 @@ def load_model(
             f'Model does not have the "{FLAVOR_NAME}" flavor',
             RESOURCE_DOES_NOT_EXIST,
         )
-    if os.path.exists(os.path.join(local_path, FEATURE_SPEC_RELATIVE_FILE_PATH)):
-        raise MlflowException(
-            "Unable to load Feature Store model directly. "
-            "Use score_batch for offline predictions.",
-            BAD_REQUEST,
+    model_info = model_meta.get_model_info()
+    if (
+        model_info.flavors.get("python_function", {}).get("loader_module")
+        == _DATABRICKS_FS_LOADER_MODULE
+    ):
+        _logger.warning(
+            "mlflow.pyfunc.load_model is not supported for Feature Store models. "
+            "spark_udf() and predict() will not work as expected. Use"
+            "score_batch for offline predictions."
         )
     model_py_version = conf.get(PY_VERSION)
     if not suppress_warnings:
