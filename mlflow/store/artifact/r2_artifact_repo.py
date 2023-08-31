@@ -1,5 +1,6 @@
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 import urllib.parse
+
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 
 
 class R2ArtifactRepository(S3ArtifactRepository):

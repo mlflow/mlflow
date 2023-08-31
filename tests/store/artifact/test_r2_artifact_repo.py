@@ -1,5 +1,7 @@
 import posixpath
+
 import pytest
+
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.s3_artifact_repo import _cached_get_s3_client
 
