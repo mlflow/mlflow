@@ -10,7 +10,7 @@ import psutil
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_MOSAIC_CHAT_SUPPORTED_MODEL_PREFIXES
+from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import append_to_uri_path
 
@@ -172,5 +172,5 @@ class SearchRoutesToken:
 def is_valid_mosiacml_chat_model(model_name: str) -> bool:
     return any(
         model_name.lower().startswith(supported)
-        for supported in MLFLOW_AI_GATEWAY_MOSAIC_CHAT_SUPPORTED_MODEL_PREFIXES
+        for supported in MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES
     )

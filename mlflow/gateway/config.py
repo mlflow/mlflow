@@ -15,7 +15,7 @@ from pydantic.json import pydantic_encoder
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import ConfigModel, ResponseModel
 from mlflow.gateway.constants import (
-    MLFLOW_AI_GATEWAY_MOSAIC_CHAT_SUPPORTED_MODEL_PREFIXES,
+    MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES,
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
 )
@@ -295,7 +295,7 @@ class RouteConfig(ConfigModel):
             raise MlflowException.invalid_parameter_value(
                 f"An invalid model has been specified for the chat route. '{model.name}'. "
                 f"Ensure the model selected starts with one of: "
-                f"{MLFLOW_AI_GATEWAY_MOSAIC_CHAT_SUPPORTED_MODEL_PREFIXES}"
+                f"{MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES}"
             )
         return values
 
