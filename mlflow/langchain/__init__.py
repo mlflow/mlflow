@@ -527,13 +527,14 @@ def log_model(
         ]
         input_schema = Schema(input_columns)
         logger.warn("bbqiu")
-        logger.warn(str("output keys: ", lc_model.output_keys))
+        logger.warn("output keys: %s", lc_model.output_keys)
         output_columns = [
             ColSpec(type=DataType.string, name=output_key) for output_key in lc_model.output_keys
         ]
-        logger.warn(str("output columns: ", output_columns))
+        logger.warn("output columns: %s", output_columns)
         output_schema = Schema(output_columns)
         signature = ModelSignature(input_schema, output_schema)
+        logger.warn("signature: %s", signature)
 
     return Model.log(
         artifact_path=artifact_path,
