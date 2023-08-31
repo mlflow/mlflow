@@ -90,7 +90,8 @@ class APIRequest:
                 response = json.dumps(list_of_str_page_content)
             else:
                 _logger.warn("self.request_json: %s", self.request_json)
-                response = self.lc_model.run(**self.request_json)
+                # response = self.lc_model.run(**self.request_json)
+                response = self.lc_model(**self.request_json)
             _logger.debug(f"Request #{self.index} succeeded")
             status_tracker.complete_task(success=True)
             self.results.append((self.index, response))
