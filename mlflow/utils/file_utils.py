@@ -678,7 +678,7 @@ def parallelized_download_file_using_http_uri(
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_file = os.path.join(tmpdir, "error_messages.txt")
             subprocess.run(
-                cmd=[
+                [
                     sys.executable,
                     download_cloud_file_chunk.__file__,
                     "--range-start",

@@ -483,6 +483,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
                 )
         except Exception as err:
+            raise
             if os.path.exists(dst_local_file_path):
                 os.remove(dst_local_file_path)
             raise MlflowException(err)
