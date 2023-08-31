@@ -61,7 +61,7 @@ def create_route(
     :param name: The name of the route. This parameter is required for all routes.
     :param route_type: The type of the route (e.g., 'llm/v1/chat', 'llm/v1/completions',
                        'llm/v1/embeddings'). This parameter is required for routes that are
-                        not managed by Databricks (the provider isn't 'databricks').
+                       not managed by Databricks (the provider isn't 'databricks').
     :param model: A dictionary representing the model details to be associated with the route.
                   This parameter is required for all routes. This dictionary should define:
 
