@@ -16,7 +16,7 @@ from urllib3.util import Retry
 # (https://docs.microsoft.com/en-us/azure/architecture/best-practices/retry-service-specific#general-rest-and-retry-guidelines)
 _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
     [
-        408,  # Request Timeout
+        # 408,  # Request Timeout
         429,  # Too Many Requests
         500,  # Internal Server Error
         502,  # Bad Gateway
@@ -48,7 +48,7 @@ def download_chunk(range_start, range_end, headers, download_path, http_uri):
         stream=False,
         headers=combined_headers,
         timeout=30,
-        max_retries=0,
+        max_retries=3,
     ) as response:
         # File will have been created upstream. Use r+b to ensure chunks
         # don't overwrite the entire file.
