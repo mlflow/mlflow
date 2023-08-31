@@ -1,10 +1,9 @@
+from mlflow.metrics.base import (
+    MetricValue,
+)
 from mlflow.models import (
     EvaluationMetric,
     make_metric,
-)
-
-from mlflow.metrics.base import (
-    MetricValue,
 )
 
 __all__ = [
