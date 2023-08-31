@@ -104,6 +104,9 @@ def disable_new_import_hook_firing_if_module_already_exists(request):
 def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard_mode(
     library, mlflow_module
 ):
+    # In this file mock is conflicting with lazy loading. Call the module to avoid errors.
+    # TODO(chenmoneygithub): investigate why this is happening and remove the call.
+    mlflow_module.autolog
     with mock.patch(mlflow_module.__name__ + ".autolog") as autolog_mock:
         autolog_mock.side_effect = Exception("asdf")
         mlflow.autolog()
@@ -111,7 +114,6 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard
             autolog_mock.assert_not_called()
 
         mlflow.utils.import_hooks.notify_module_loaded(library)
-
         autolog_mock.assert_called_once()
 
 
