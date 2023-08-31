@@ -5,7 +5,7 @@
       "severity": "error",
       "pattern": [
         {
-          "regexp": "^([^:]+\\.py): (This file is unformatted\\. .+)",
+          "regexp": "^([^:]+): (Unformatted file\\. .+)$",
           "file": 1,
           "message": 2
         }

@@ -20,11 +20,10 @@ repos:
 
       - id: black
         name: black
-        entry: black
+        entry: python dev/black.py
         language: system
         types_or: [python, jupyter]
         stages: [commit]
-        log_file: .black.log
 
       - id: blacken-docs
         name: blacken-docs
