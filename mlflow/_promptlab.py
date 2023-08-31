@@ -4,28 +4,7 @@ from typing import List
 
 import yaml
 
-from mlflow import pyfunc
-from mlflow.models import Model
-from mlflow.models.model import MLMODEL_FILE_NAME, Model
-from mlflow.models.utils import _save_example
 from mlflow.pyfunc.model import PythonModel
-from mlflow.utils.environment import (
-    _CONDA_ENV_FILE_NAME,
-    _CONSTRAINTS_FILE_NAME,
-    _PYTHON_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
-    _process_conda_env,
-    _process_pip_requirements,
-    _PythonEnv,
-    _validate_env_arguments,
-    infer_pip_requirements,
-)
-from mlflow.utils.file_utils import write_to
-from mlflow.utils.model_utils import (
-    _get_flavor_configuration,
-    _validate_and_copy_code_paths,
-    _validate_and_prepare_target_save_path,
-)
 
 
 class _PromptlabModel(PythonModel):
@@ -55,7 +34,11 @@ class _PromptlabModel(PythonModel):
 
 
 def _load_pyfunc(path):
+    from mlflow import pyfunc
     from mlflow.entities.param import Param
+    from mlflow.utils.model_utils import (
+        _get_flavor_configuration,
+    )
 
     pyfunc_flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
     parameters_path = os.path.join(path, pyfunc_flavor_conf["parameters_path"])
@@ -90,6 +73,27 @@ def save_model(
     model_parameters=None,
     model_route=None,
 ):
+    from mlflow import pyfunc
+    from mlflow.models import Model
+    from mlflow.models.model import MLMODEL_FILE_NAME, Model
+    from mlflow.models.utils import _save_example
+    from mlflow.utils.environment import (
+        _CONDA_ENV_FILE_NAME,
+        _CONSTRAINTS_FILE_NAME,
+        _PYTHON_ENV_FILE_NAME,
+        _REQUIREMENTS_FILE_NAME,
+        _process_conda_env,
+        _process_pip_requirements,
+        _PythonEnv,
+        _validate_env_arguments,
+        infer_pip_requirements,
+    )
+    from mlflow.utils.file_utils import write_to
+    from mlflow.utils.model_utils import (
+        _validate_and_copy_code_paths,
+        _validate_and_prepare_target_save_path,
+    )
+
     _validate_env_arguments(conda_env, pip_requirements, None)
 
     _validate_and_prepare_target_save_path(path)
