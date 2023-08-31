@@ -6,8 +6,8 @@ from contextlib import nullcontext as does_not_raise
 from os.path import join as path_join
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest import mock
 from typing import Dict
+from unittest import mock
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -1334,7 +1334,9 @@ def test_gen_multiclass_roc_curve_with_sample_weights():
 
 def test_evaluate_custom_metric_backwards_compatible():
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
-    builtin_metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"], sample_weights=None)
+    builtin_metrics = _get_regressor_metrics(
+        eval_df["target"], eval_df["prediction"], sample_weights=None
+    )
     metrics = _get_metrics_values(builtin_metrics)
 
     def old_fn(eval_df, builtin_metrics):
@@ -1343,15 +1345,19 @@ def test_evaluate_custom_metric_backwards_compatible():
     res_metric = _evaluate_custom_metric(
         _CustomMetric(old_fn, "old_fn", 0), eval_df, builtin_metrics, metrics
     )
-    assert res_metric.scores == None
-    assert res_metric.justifications == None
+    assert res_metric.scores is None
+    assert res_metric.justifications is None
     assert res_metric.aggregate_results["old_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
 
     def new_fn_no_type_hint(eval_df, metrics):
         return metrics["mean_absolute_error"].aggregate_results["mean_absolute_error"] * 1.5
 
-    with pytest.raises(AttributeError):
-        _evaluate_custom_metric(_CustomMetric(new_fn_no_type_hint, "", 0), eval_df, builtin_metrics, metrics)
+    with pytest.raises(
+        AttributeError, match="'numpy.float64' object has no attribute 'aggregate_results'"
+    ):
+        _evaluate_custom_metric(
+            _CustomMetric(new_fn_no_type_hint, "", 0), eval_df, builtin_metrics, metrics
+        )
 
     def new_fn_with_type_hint(eval_df, metrics: Dict[str, MetricValue]):
         return metrics["mean_absolute_error"].aggregate_results["mean_absolute_error"] * 1.5
@@ -1359,21 +1365,25 @@ def test_evaluate_custom_metric_backwards_compatible():
     res_metric = _evaluate_custom_metric(
         _CustomMetric(new_fn_with_type_hint, "new_fn", 0), eval_df, builtin_metrics, metrics
     )
-    assert res_metric.scores == None
-    assert res_metric.justifications == None
+    assert res_metric.scores is None
+    assert res_metric.justifications is None
     assert res_metric.aggregate_results["new_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
 
 
 def test_evaluate_custom_metric_incorrect_return_formats():
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
-    builtin_metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"], sample_weights=None)
+    builtin_metrics = _get_regressor_metrics(
+        eval_df["target"], eval_df["prediction"], sample_weights=None
+    )
     metrics = _get_metrics_values(builtin_metrics)
 
     def dummy_fn(*_):
         pass
 
     with pytest.raises(MlflowException, match=f"'{dummy_fn.__name__}' (.*) returned None"):
-        _evaluate_custom_metric(_CustomMetric(dummy_fn, "dummy_fn", 0), eval_df, builtin_metrics, metrics)
+        _evaluate_custom_metric(
+            _CustomMetric(dummy_fn, "dummy_fn", 0), eval_df, builtin_metrics, metrics
+        )
 
     def incorrect_return_type(*_):
         return "stuff", 3
@@ -1480,14 +1490,20 @@ def test_evaluate_custom_metric_incorrect_return_formats():
 )
 def test_evaluate_custom_metric_lambda(fn, expectation):
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
-    metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"], sample_weights=None)
+    builtin_metrics = _get_regressor_metrics(
+        eval_df["target"], eval_df["prediction"], sample_weights=None
+    )
+    metrics = _get_metrics_values(builtin_metrics)
     with expectation:
-        _evaluate_custom_metric(_CustomMetric(fn, "<lambda>", 0), eval_df, metrics)
+        _evaluate_custom_metric(_CustomMetric(fn, "<lambda>", 0), eval_df, builtin_metrics, metrics)
 
 
 def test_evaluate_custom_metric_success():
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
-    metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"], sample_weights=None)
+    builtin_metrics = _get_regressor_metrics(
+        eval_df["target"], eval_df["prediction"], sample_weights=None
+    )
+    metrics = _get_metrics_values(builtin_metrics)
 
     def example_count_times_1_point_5(_, given_metrics):
         return MetricValue(
@@ -1499,7 +1515,7 @@ def test_evaluate_custom_metric_success():
         )
 
     res_metric = _evaluate_custom_metric(
-        _CustomMetric(example_count_times_1_point_5, "", 0), eval_df, metrics
+        _CustomMetric(example_count_times_1_point_5, "", 0), eval_df, builtin_metrics, metrics
     )
     assert (
         res_metric.aggregate_results["example_count_times_1_point_5"]
