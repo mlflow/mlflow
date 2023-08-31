@@ -1,10 +1,17 @@
 # loader/gateway_loader_module.py
-from typing import List, Dict
+import os
 from string import Template
+from typing import List
+
 import pandas as pd
-from mlflow import pyfunc
+import yaml
+
 import mlflow.gateway
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow import pyfunc
+from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME, Model
+from mlflow.models.utils import _save_example
+from mlflow.pyfunc.model import PythonModel
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
@@ -18,19 +25,15 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
-    _add_code_from_conf_to_system_path,
-    _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
 )
-import os
-from mlflow.models.utils import _save_example
-import yaml
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 mlflow.gateway.set_gateway_uri("databricks")
 
 
-class _PromptlabModel:
+class _PromptlabModel(PythonModel):
     def __init__(self):
         self.santized_prompt_template = ""
         self.prompt_parameters = {}
@@ -63,6 +66,7 @@ def save_model(
     path,
     conda_env=None,
     code_paths=None,
+    mlflow_model=None,
     signature=None,
     input_example=None,
     pip_requirements=None,
@@ -73,17 +77,19 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
+    if mlflow_model is None:
+        mlflow_model = Model()
     if signature is not None:
-        promptlab_model.signature = signature
+        mlflow_model.signature = signature
     if input_example is not None:
-        _save_example(promptlab_model, input_example, path)
+        _save_example(mlflow_model, input_example, path)
 
     model_data_subpath = "model.pkl"
     model_data_path = os.path.join(path, model_data_subpath)
     _save_model(promptlab_model, model_data_path)
 
     pyfunc.add_to_model(
-        promptlab_model,
+        mlflow_model,
         loader_module="_promptlab",
         model_path=model_data_subpath,
         conda_env=_CONDA_ENV_FILE_NAME,
@@ -91,10 +97,17 @@ def save_model(
         code=code_dir_subpath,
     )
 
-    promptlab_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
-        default_reqs = None
+        if pip_requirements is None:
+            default_reqs = get_default_pip_requirements(True)
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path, "_promptlab", fallback=default_reqs
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
             default_reqs, pip_requirements, extra_pip_requirements
         )
@@ -117,3 +130,15 @@ def _save_model(model, path):
         import cloudpickle
 
         cloudpickle.dump(model, out)
+
+
+def get_default_pip_requirements(include_cloudpickle=False):
+    pip_deps = [_get_pinned_requirement("sktime")]
+    if include_cloudpickle:
+        pip_deps += [_get_pinned_requirement("cloudpickle")]
+
+    return pip_deps
+
+
+def get_default_conda_env(include_cloudpickle=False):
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(include_cloudpickle))

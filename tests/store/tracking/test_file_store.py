@@ -2745,13 +2745,10 @@ def test_create_promptlab_run(store):
     artifact_files = [f.path for f in artifact_repo.list_artifacts()]
     assert "eval_results_table.json" in artifact_files
     assert "model" in artifact_files
-    assert "input_example.json" in artifact_files
 
     model_files = [f.path for f in artifact_repo.list_artifacts("model")]
     assert "model/MLmodel" in model_files
     assert "model/python_env.yaml" in model_files
     assert "model/conda.yaml" in model_files
     assert "model/requirements.txt" in model_files
-
-    loader_files = [f.path for f in artifact_repo.list_artifacts(os.path.join("model", "loader"))]
-    assert "model/loader/gateway_loader_module.py" in loader_files
+    assert "model/input_example.json" in model_files
