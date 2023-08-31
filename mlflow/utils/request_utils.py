@@ -55,7 +55,17 @@ def download_chunk(range_start, range_end, headers, download_path, http_uri):
         augmented_raise_for_status(response)
         with open(download_path, "r+b") as f:
             f.seek(range_start)
-            f.write(response.content)
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    f.write(chunk)
+        # for chunk in response.iter_content(chunk_size=1024 * 1024):
+        #     if chunk:
+        #         with open(download_path, "r+b") as f:
+        #             f.seek(range_start)
+        #             f.write(chunk)
+        # with open(download_path, "r+b") as f:
+        #     f.seek(range_start)
+        #     f.write(response.content)
 
 
 @lru_cache(maxsize=64)
