@@ -36,4 +36,4 @@ MLFLOW_SERVING_RESPONSE_KEY = "predictions"
 # These validated names are used for the MosaicML provider due to the need to perform prompt
 # translations prior to sending a request payload to their chat endpoints.
 # to reduce the need to case-match, supported model prefixes are lowercase.
-MLFLOW_AI_GATEWAY_MOSAIC_CHAT_SUPPORTED_MODEL_PREFIXES = ["llama2"]
+MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES = ["llama2"]
