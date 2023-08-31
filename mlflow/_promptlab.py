@@ -25,6 +25,7 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
 )
@@ -34,35 +35,55 @@ mlflow.gateway.set_gateway_uri("databricks")
 
 
 class _PromptlabModel(PythonModel):
-    def __init__(self):
-        self.santized_prompt_template = ""
-        self.prompt_parameters = {}
-        self.python_parameters = {}
-        self.model_route = ""
-
-        self.prompt_template = Template(self.santized_prompt_template)
+    def __init__(self, prompt_template, prompt_parameters, model_parameters, model_route):
+        self.prompt_parameters = prompt_parameters
+        self.model_parameters = model_parameters
+        self.model_route = model_route
+        self.prompt_template = Template(self.prompt_template)
 
     def predict(self, inputs: pd.DataFrame) -> List[str]:
         results = []
         for idx in inputs.index:
-            python_inputs = {
+            prompt_parameters_as_params = {
                 param.key: inputs["{param.key}"][idx] for param in self.prompt_parameters
             }
-            prompt = self.prompt_template.substitute(python_inputs)
+            prompt = self.prompt_template.substitute(prompt_parameters_as_params)
+            model_parameters_as_params = {param.key: param.value for param in self.model_parameters}
             result = mlflow.gateway.query(
                 route=self.model_route,
                 data={
                     {
                         "prompt": prompt,
-                    }.update(self.python_parameters),
+                    }.update(model_parameters_as_params),
                 },
             )
             results.append(result["candidates"][0]["text"])
         return results
 
 
+def _load_pyfunc(path):
+    from mlflow.entities.param import Param
+
+    pyfunc_flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
+    parameters_path = os.path.join(path, pyfunc_flavor_conf["parameters_path"])
+    parameters = yaml.safe_load(parameters_path)
+
+    [
+        Param(key=key, value=value) for key, value in parameters["prompt_parameters"].items()
+    ]
+    [
+        Param(key=key, value=value) for key, value in parameters["model_parameters"].items()
+    ]
+
+    return _PromptlabModel(
+        prompt_template=parameters["prompt_template"],
+        prompt_parameters=parameters["prompt_parameters"],
+        model_parameters=parameters["model_parameters"],
+        model_route=parameters["model_route"],
+    )
+
+
 def save_model(
-    promptlab_model,
     path,
     conda_env=None,
     code_paths=None,
@@ -70,9 +91,12 @@ def save_model(
     signature=None,
     input_example=None,
     pip_requirements=None,
-    extra_pip_requirements=None,
+    prompt_template=None,
+    prompt_parameters=None,
+    model_parameters=None,
+    model_route=None,
 ):
-    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    _validate_env_arguments(conda_env, pip_requirements, None)
 
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
@@ -84,14 +108,23 @@ def save_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
 
-    model_data_subpath = "model.pkl"
-    model_data_path = os.path.join(path, model_data_subpath)
-    _save_model(promptlab_model, model_data_path)
+    parameters_sub_path = "parameters.yaml"
+    parameters_path = os.path.join(path, parameters_sub_path)
+    # dump prompt_template, prompt_parameters, model_parameters, model_route to parameters_path
+
+    parameters = {
+        "prompt_template": prompt_template,
+        "prompt_parameters": {param.key: param.value for param in prompt_parameters},
+        "model_parameters": {param.key: param.value for param in model_parameters},
+        "model_route": model_route,
+    }
+    with open(parameters_path, "w") as f:
+        yaml.safe_dump(parameters, stream=f, default_flow_style=False)
 
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="_promptlab",
-        model_path=model_data_subpath,
+        parameters_path=parameters_sub_path,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
@@ -109,7 +142,7 @@ def save_model(
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs, pip_requirements, extra_pip_requirements
+            default_reqs, pip_requirements, None
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
@@ -123,13 +156,6 @@ def save_model(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
-
-
-def _save_model(model, path):
-    with open(path, "wb") as out:
-        import cloudpickle
-
-        cloudpickle.dump(model, out)
 
 
 def get_default_pip_requirements(include_cloudpickle=False):

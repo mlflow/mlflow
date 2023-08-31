@@ -1339,7 +1339,7 @@ class FileStore(AbstractStore):
         inputs_colspecs = [ColSpec(DataType.string, param.key) for param in prompt_parameters]
         outputs_colspecs = [ColSpec(DataType.string, "output")]
 
-        from mlflow._promptlab import _PromptlabModel, save_model
+        from mlflow._promptlab import save_model
 
         # write artifact files
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -1348,13 +1348,16 @@ class FileStore(AbstractStore):
 
         with tempfile.TemporaryDirectory() as local_dir:
             save_model(
-                _PromptlabModel(),
                 path=os.path.join(local_dir, "model"),
                 signature=ModelSignature(
                     inputs=Schema(inputs_colspecs),
                     outputs=Schema(outputs_colspecs),
                 ),
                 input_example={"inputs": [param.value for param in prompt_parameters]},
+                prompt_template=prompt_template,
+                prompt_parameters=prompt_parameters,
+                model_parameters=model_parameters,
+                model_route=model_route,
             )
 
             eval_results_json = create_eval_results_file(
