@@ -43,6 +43,7 @@ def main():
         )
     except requests.HTTPError as e:
         temp_file = args.temp_file
+        print(e)  # noqa
         with open(temp_file, "w") as f:
             json.dump(
                 {

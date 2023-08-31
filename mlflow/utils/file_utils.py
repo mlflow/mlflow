@@ -706,13 +706,7 @@ def parallelized_download_file_using_http_uri(
             if prc.returncode != 0:
                 if os.path.exists(temp_file):
                     with open(temp_file) as f:
-                        file_contents = f.read()
-                        if file_contents:
-                            return json.loads(file_contents)
-                        raise Exception(
-                            "Error from download_cloud_file_chunk not captured, "
-                            f"return code {prc.returncode}, stderr {prc.stderr}"
-                        )
+                        return json.load(f)
 
     num_requests = int(math.ceil(file_size / float(chunk_size)))
     # Create file if it doesn't exist or erase the contents if it does. We should do this here
