@@ -137,7 +137,9 @@ class MlflowGatewayClient:
         return PagedList(routes, next_page_token)
 
     @experimental
-    def create_route(self, name: str, route_type: str, model: Dict[str, Any]) -> Route:
+    def create_route(
+        self, name: str, route_type: Optional[str] = None, model: Optional[Dict[str, Any]] = None
+    ) -> Route:
         """
         Create a new route in the Gateway.
 
@@ -147,11 +149,12 @@ class MlflowGatewayClient:
             route configuration is handled via updates to the route configuration YAML file that
             is specified during Gateway server start.
 
-        :param name: The name of the route.
+        :param name: The name of the route. This parameter is required for all routes.
         :param route_type: The type of the route (e.g., 'llm/v1/chat', 'llm/v1/completions',
-                           'llm/v1/embeddings').
+                           'llm/v1/embeddings'). This parameter is required for routes that are
+                           not managed by Databricks (the provider isn't 'databricks').
         :param model: A dictionary representing the model details to be associated with the route.
-                      This dictionary should define:
+                      This parameter is required for all routes. This dictionary should define:
 
                       - The model name (e.g., "gpt-3.5-turbo")
                       - The provider (e.g., "openai", "anthropic")
