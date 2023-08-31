@@ -14,12 +14,6 @@ class MetricValue:
     :param aggregate_results: A dictionary mapping the name of the aggregation to its value
     """
 
-    def __init__(
-        self,
-        scores: List[float] = None,
-        justifications: List[float] = None,
-        aggregate_results: Dict[str, float] = None,
-    ):
-        self.scores = scores
-        self.justifications = justifications
-        self.aggregate_results = aggregate_results
+    scores: List[float] = None
+    justifications: List[float] = None
+    aggregate_results: Dict[str, float] = None
