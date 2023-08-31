@@ -1382,16 +1382,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         _evaluate_custom_metric(
             _CustomMetric(incorrect_return_type, incorrect_return_type.__name__, 0),
             eval_df,
-            metrics,
-        )
-
-    def return_float(*_):
-        return 3.0
-
-    with pytest.raises(MlflowException, match="did not return a MetricValue"):
-        _evaluate_custom_metric(
-            _CustomMetric(return_float, return_float.__name__, 0),
-            eval_df,
+            builtin_metrics,
             metrics,
         )
 
@@ -1402,6 +1393,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         _evaluate_custom_metric(
             _CustomMetric(non_list_scores, non_list_scores.__name__, 0),
             eval_df,
+            builtin_metrics,
             metrics,
         )
 
@@ -1412,6 +1404,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         _evaluate_custom_metric(
             _CustomMetric(non_numeric_scores, non_numeric_scores.__name__, 0),
             eval_df,
+            builtin_metrics,
             metrics,
         )
 
@@ -1424,6 +1417,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         _evaluate_custom_metric(
             _CustomMetric(non_list_justifications, non_list_justifications.__name__, 0),
             eval_df,
+            builtin_metrics,
             metrics,
         )
 
@@ -1436,6 +1430,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         _evaluate_custom_metric(
             _CustomMetric(non_str_justifications, non_str_justifications.__name__, 0),
             eval_df,
+            builtin_metrics,
             metrics,
         )
 
@@ -1448,6 +1443,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         _evaluate_custom_metric(
             _CustomMetric(non_dict_aggregates, non_dict_aggregates.__name__, 0),
             eval_df,
+            builtin_metrics,
             metrics,
         )
 
@@ -1461,6 +1457,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         _evaluate_custom_metric(
             _CustomMetric(wrong_type_aggregates, wrong_type_aggregates.__name__, 0),
             eval_df,
+            builtin_metrics,
             metrics,
         )
 
