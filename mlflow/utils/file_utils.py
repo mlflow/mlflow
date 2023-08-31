@@ -672,7 +672,7 @@ def parallelized_download_file_using_http_uri(
     print(http_uri)  # noqa
 
     def run_download(range_start, range_end, index):
-        print("Chunk", index)  # noqa
+        print("Start downloading chunk", index)  # noqa
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_file = os.path.join(tmpdir, "error_messages.txt")
             download_proc = _exec_cmd(
@@ -747,6 +747,7 @@ def parallelized_download_file_using_http_uri(
     with ArtifactProgressBar.chunks(file_size, f"Downloading {download_path}", chunk_size) as pbar:
         for future in as_completed(futures):
             index = futures[future]
+            print("Downloaded chunk", index)  # noqa
             try:
                 result = future.result()
                 if result is not None:
