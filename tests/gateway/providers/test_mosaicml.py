@@ -316,7 +316,7 @@ def test_assistant_without_user_raises(messages):
     route_config = RouteConfig(**chat_config())
     with pytest.raises(
         MlflowException,
-        match="Messages with role 'assistant' must be preceeded by a message with role 'user'.",
+        match="Messages with role 'assistant' must be preceded by a message with role 'user'.",
     ):
         MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages)
 
@@ -360,3 +360,22 @@ def test_invalid_role_submitted_raises(messages):
         MlflowException, match=".*Must be one of 'system', 'user', or 'assistant'.*"
     ):
         MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages)
+
+
+def unsupported_mosaic_chat_model_config():
+    return {
+        "name": "chat",
+        "route_type": "llm/v1/chat",
+        "model": {
+            "provider": "mosaicml",
+            "name": "unsupported",
+            "config": {
+                "mosaicml_api_key": "key",
+            },
+        },
+    }
+
+
+def test_unsupported_model_name_raises_in_chat_parsing_route_configuration():
+    with pytest.raises(MlflowException, match="An invalid model has been specified"):
+        RouteConfig(**unsupported_mosaic_chat_model_config())
