@@ -669,7 +669,7 @@ def parallelized_download_file_using_http_uri(
             providers.
     Returns a dict of chunk index : exception, if one was thrown for that index.
     """
-    print(http_uri)  # noqa
+    print(http_uri.split("?", 1)[0].rsplit("/", 1)[-1])  # noqa
 
     def run_download(range_start, range_end, index):
         # print("Start downloading chunk", index)  # noqa
