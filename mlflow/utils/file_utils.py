@@ -10,6 +10,7 @@ import pathlib
 import posixpath
 import shutil
 import stat
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -37,7 +38,7 @@ from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.utils import download_cloud_file_chunk, merge_dicts
 from mlflow.utils.databricks_utils import _get_dbutils
 from mlflow.utils.os import is_windows
-from mlflow.utils.process import _exec_cmd, cache_return_value_per_process
+from mlflow.utils.process import cache_return_value_per_process
 from mlflow.utils.request_utils import cloud_storage_http_request, download_chunk
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
@@ -669,13 +670,14 @@ def parallelized_download_file_using_http_uri(
             providers.
     Returns a dict of chunk index : exception, if one was thrown for that index.
     """
+
     fname = http_uri.split("?", 1)[0].rsplit("/", 1)[-1]  # noqa
 
     def run_download(range_start, range_end, index):
         # print("Start downloading chunk", index)  # noqa
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_file = os.path.join(tmpdir, "error_messages.txt")
-            download_proc = _exec_cmd(
+            subprocess.run(
                 cmd=[
                     sys.executable,
                     download_cloud_file_chunk.__file__,
@@ -692,24 +694,25 @@ def parallelized_download_file_using_http_uri(
                     "--temp-file",
                     temp_file,
                 ],
-                throw_on_error=True,
-                synchronous=False,
+                # throw_on_error=True,
+                # synchronous=False,
                 # capture_output=True,
-                stream_output=False,
+                # stream_output=False,
+                check=True,
                 env=env,
             )
-            _, stderr = download_proc.communicate()
-            if download_proc.returncode != 0:
-                if os.path.exists(temp_file):
-                    with open(temp_file) as f:
-                        file_contents = f.read()
-                        if file_contents:
-                            return json.loads(file_contents)
-                        else:
-                            raise Exception(
-                                "Error from download_cloud_file_chunk not captured, "
-                                f"return code {download_proc.returncode}, stderr {stderr}"
-                            )
+            # _, stderr = download_proc.communicate()
+            # if download_proc.returncode != 0:
+            #     if os.path.exists(temp_file):
+            #         with open(temp_file) as f:
+            #             file_contents = f.read()
+            #             if file_contents:
+            #                 return json.loads(file_contents)
+            #             else:
+            #                 raise Exception(
+            #                     "Error from download_cloud_file_chunk not captured, "
+            #                     f"return code {download_proc.returncode}, stderr {stderr}"
+            #                 )
 
     num_requests = int(math.ceil(file_size / float(chunk_size)))
     # Create file if it doesn't exist or erase the contents if it does. We should do this here
