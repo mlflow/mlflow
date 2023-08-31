@@ -755,6 +755,7 @@ def parallelized_download_file_using_http_uri(
                 else:
                     pbar.update()
             except Exception as e:
+                raise
                 failed_downloads[index] = {
                     "error_status_code": 500,
                     "error_text": repr(e),

@@ -204,6 +204,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 )
 
         except Exception as err:
+            raise
             raise MlflowException(err)
 
     def log_artifact(self, local_file, artifact_path=None):

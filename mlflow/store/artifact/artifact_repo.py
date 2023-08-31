@@ -205,6 +205,7 @@ class ArtifactRepository:
                     f.result()
                     pbar.update()
                 except Exception as e:
+                    raise
                     path = futures[f]
                     failed_downloads[path] = repr(e)
 
