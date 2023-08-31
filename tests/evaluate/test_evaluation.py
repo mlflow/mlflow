@@ -1,51 +1,54 @@
 import hashlib
-import os
 import io
 import json
-import uuid
+import os
 import signal
+import uuid
 from collections import namedtuple
 from unittest import mock
-import pytest
 
 import numpy as np
 import pandas as pd
-from PIL import ImageChops, Image
-
+import pytest
 import sklearn
 import sklearn.compose
 import sklearn.datasets
 import sklearn.impute
 import sklearn.linear_model
+import sklearn.pipeline
+import sklearn.preprocessing
+from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
+from PIL import Image, ImageChops
+from pyspark.ml.linalg import Vectors
+from pyspark.ml.regression import LinearRegression as SparkLinearRegression
+from pyspark.sql import SparkSession
 from sklearn.metrics import (
     accuracy_score,
     confusion_matrix,
     mean_absolute_error,
     mean_squared_error,
 )
-import sklearn.pipeline
-import sklearn.preprocessing
-
-from pyspark.sql import SparkSession
-from pyspark.ml.linalg import Vectors
-from pyspark.ml.regression import LinearRegression as SparkLinearRegression
 
 import mlflow
 from mlflow import MlflowClient
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import (
-    evaluate,
+    EvaluationArtifact,
     EvaluationResult,
     ModelEvaluator,
-    EvaluationArtifact,
+    evaluate,
 )
 from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact
 from mlflow.models.evaluation.base import (
-    _logger as _base_logger,
+    EvaluationDataset,
     _gen_md5_for_arraylike_obj,
     _start_run_or_reuse_active_run,
-    EvaluationDataset,
+)
+from mlflow.models.evaluation.base import (
+    _logger as _base_logger,
+)
+from mlflow.models.evaluation.base import (
     _normalize_evaluators_and_evaluator_config_args as _normalize_config,
 )
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
@@ -53,8 +56,6 @@ from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.utils.file_utils import TempDir
-
-from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 
 
 def get_iris():
@@ -549,16 +550,37 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset, baseli
     assert eval_result.metrics == expected_metrics
 
 
-def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
+def _load_diabetes_dataset_in_required_format(format):
     data = sklearn.datasets.load_diabetes()
-    df = pd.DataFrame(data.data, columns=data.feature_names)
-    df["y"] = data.target
+    if format == "numpy":
+        return data.data, data.target
+    elif format == "pandas":
+        df = pd.DataFrame(data.data, columns=data.feature_names)
+        df["label"] = data.target
+        return df, "label"
+    elif format == "spark":
+        spark = SparkSession.builder.master("local[*]").getOrCreate()
+        panda_df = pd.DataFrame(data.data, columns=data.feature_names)
+        panda_df["label"] = data.target
+        spark_df = spark.createDataFrame(panda_df)
+        return spark_df, "label"
+    elif format == "list":
+        return data.data.tolist(), data.target.tolist()
+    else:
+        raise TypeError(
+            f"`format` must be one of 'numpy', 'pandas', 'spark' or 'list', but received {format}."
+        )
+
+
+@pytest.mark.parametrize("data_format", ["list", "numpy", "pandas", "spark"])
+def test_regressor_evaluation(linear_regressor_model_uri, data_format):
+    data, target = _load_diabetes_dataset_in_required_format(data_format)
 
     with mlflow.start_run() as run:
         eval_result = evaluate(
             linear_regressor_model_uri,
-            data=df,
-            targets="y",
+            data=data,
+            targets=target,
             model_type="regressor",
             evaluators=["default"],
         )
@@ -566,6 +588,11 @@ def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
 
     for k, v in eval_result.metrics.items():
         assert v == saved_metrics[k]
+
+    datasets = get_run_datasets(run.info.run_id)
+    assert len(datasets) == 1
+    assert len(datasets[0].tags) == 0
+    assert datasets[0].dataset.source_type == "code"
 
 
 def test_pandas_df_regressor_evaluation_mlflow_dataset_with_metric_prefix(

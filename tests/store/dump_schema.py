@@ -1,10 +1,10 @@
 """Script that generates a dump of the MLflow tracking database schema"""
 import os
 import sys
+import tempfile
 
 import sqlalchemy
 from sqlalchemy.schema import CreateTable, MetaData
-import tempfile
 
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 

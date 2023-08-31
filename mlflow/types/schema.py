@@ -1,12 +1,12 @@
 import builtins
 import datetime as dt
-from enum import Enum
 import importlib.util
 import json
+import string
+from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 
 import numpy as np
-import string
-from typing import Dict, Any, List, Union, Optional, Tuple, TypedDict
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
@@ -337,6 +337,14 @@ class Schema:
     """
 
     def __init__(self, inputs: List[Union[ColSpec, TensorSpec]]):
+        if not isinstance(inputs, list):
+            raise MlflowException.invalid_parameter_value(
+                f"Inputs of Schema must be a list, got type {type(inputs).__name__}"
+            )
+        if not inputs:
+            raise MlflowException.invalid_parameter_value(
+                "Creating Schema with empty inputs is not allowed."
+            )
         if not (all(x.name is None for x in inputs) or all(x.name is not None for x in inputs)):
             raise MlflowException(
                 "Creating Schema with a combination of named and unnamed inputs "
@@ -430,7 +438,7 @@ class Schema:
             raise MlflowException("TensorSpec cannot be converted to spark dataframe")
         if len(self.inputs) == 1 and self.inputs[0].name is None:
             return self.inputs[0].type.to_spark()
-        from pyspark.sql.types import StructType, StructField
+        from pyspark.sql.types import StructField, StructType
 
         return StructType(
             [

@@ -1,29 +1,28 @@
-from pathlib import Path
-from packaging.version import Version
-import os
-import shutil
-import random
 import json
-import yaml
+import os
 import pickle
-
-import pytest
+import random
+import shutil
+from pathlib import Path
 from unittest import mock
 
+import numpy as np
+import pandas as pd
+import pytest
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Layer, Dense
-from tensorflow.keras import backend as K
-from tensorflow.keras.optimizers import SGD
+import yaml
+from packaging.version import Version
 
 # pylint: disable=no-name-in-module
 from sklearn import datasets
-import pandas as pd
-import numpy as np
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import Dense, Layer
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.optimizers import SGD
 
 import mlflow
-from mlflow import pyfunc
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+from mlflow import pyfunc
 from mlflow.deployments import PredictionsResponse
 from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example
@@ -35,21 +34,20 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
-from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import (
-    _compare_conda_env_requirements,
+    PROTOBUF_REQUIREMENT,
     _assert_pip_requirements,
+    _compare_conda_env_requirements,
+    _compare_logged_code_paths,
     _is_available_on_pypi,
     _is_importable,
-    _compare_logged_code_paths,
-    assert_array_almost_equal,
     _mlflow_major_version_string,
+    assert_array_almost_equal,
     assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
 )
-from tests.helper_functions import PROTOBUF_REQUIREMENT
 from tests.pyfunc.test_spark import score_model_as_udf
 from tests.tensorflow.test_load_saved_tensorflow_estimator import ModelDataInfo
-
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("tensorflow") else ["--env-manager", "local"]

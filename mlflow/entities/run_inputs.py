@@ -1,8 +1,8 @@
-from mlflow.entities._mlflow_object import _MLflowObject
-from mlflow.protos.service_pb2 import RunInputs as ProtoRunInputs
-from mlflow.entities.dataset_input import DatasetInput
+from typing import Any, Dict, List
 
-from typing import List, Dict, Any
+from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities.dataset_input import DatasetInput
+from mlflow.protos.service_pb2 import RunInputs as ProtoRunInputs
 
 
 class RunInputs(_MLflowObject):

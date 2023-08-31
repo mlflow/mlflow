@@ -1,83 +1,83 @@
-from itertools import combinations
-
 import base64
 import json
 import os
-import pytest
 import shutil
+from itertools import combinations
 from unittest import mock
 from unittest.mock import ANY
 
+import pytest
+import yaml
 from google.cloud.storage import Client
 from requests import Response
-import yaml
 
-from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature, Schema
+from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.run import Run
 from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
 from mlflow.entities.run_tag import RunTag
-from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
-from mlflow.protos.service_pb2 import GetRun
+from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import ModelSignature, Schema
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
-    CreateRegisteredModelRequest,
-    UpdateRegisteredModelRequest,
-    DeleteRegisteredModelRequest,
-    FinalizeModelVersionRequest,
-    FinalizeModelVersionResponse,
-    GetRegisteredModelRequest,
-    SearchRegisteredModelsRequest,
-    CreateModelVersionRequest,
-    CreateModelVersionResponse,
-    GetModelVersionRequest,
-    UpdateModelVersionRequest,
-    DeleteModelVersionRequest,
-    SearchModelVersionsRequest,
-    GetModelVersionDownloadUriRequest,
-    GenerateTemporaryModelVersionCredentialsRequest,
-    GenerateTemporaryModelVersionCredentialsResponse,
-    SetRegisteredModelAliasRequest,
-    DeleteRegisteredModelAliasRequest,
-    GetModelVersionByAliasRequest,
-    SetRegisteredModelTagRequest,
-    DeleteRegisteredModelTagRequest,
-    SetModelVersionTagRequest,
-    DeleteModelVersionTagRequest,
-    ModelVersion as ProtoModelVersion,
     MODEL_VERSION_OPERATION_READ_WRITE,
-    TemporaryCredentials,
     AwsCredentials,
     AzureUserDelegationSAS,
-    GcpOauthToken,
+    CreateModelVersionRequest,
+    CreateModelVersionResponse,
+    CreateRegisteredModelRequest,
+    DeleteModelVersionRequest,
+    DeleteModelVersionTagRequest,
+    DeleteRegisteredModelAliasRequest,
+    DeleteRegisteredModelRequest,
+    DeleteRegisteredModelTagRequest,
     Entity,
+    FinalizeModelVersionRequest,
+    FinalizeModelVersionResponse,
+    GcpOauthToken,
+    GenerateTemporaryModelVersionCredentialsRequest,
+    GenerateTemporaryModelVersionCredentialsResponse,
+    GetModelVersionByAliasRequest,
+    GetModelVersionDownloadUriRequest,
+    GetModelVersionRequest,
+    GetRegisteredModelRequest,
     Job,
-    Notebook,
     LineageHeaderInfo,
+    Notebook,
+    SearchModelVersionsRequest,
+    SearchRegisteredModelsRequest,
+    SetModelVersionTagRequest,
+    SetRegisteredModelAliasRequest,
+    SetRegisteredModelTagRequest,
+    TemporaryCredentials,
+    UpdateModelVersionRequest,
+    UpdateRegisteredModelRequest,
 )
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
-from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
+from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion as ProtoModelVersion
+from mlflow.protos.service_pb2 import GetRun
 from mlflow.store._unity_catalog.registry.rest_store import (
-    UcModelRegistryStore,
-    _DATABRICKS_ORG_ID_HEADER,
     _DATABRICKS_LINEAGE_ID_HEADER,
+    _DATABRICKS_ORG_ID_HEADER,
+    UcModelRegistryStore,
 )
 from mlflow.store._unity_catalog.registry.utils import (
     _ACTIVE_CATALOG_QUERY,
     _ACTIVE_SCHEMA_QUERY,
-    uc_registered_model_tag_from_mlflow_tags,
     uc_model_version_tag_from_mlflow_tags,
+    uc_registered_model_tag_from_mlflow_tags,
 )
+from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
+from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.types.schema import ColSpec, DataType
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_ID,
     MLFLOW_DATABRICKS_JOB_RUN_ID,
     MLFLOW_DATABRICKS_NOTEBOOK_ID,
 )
 from mlflow.utils.proto_json_utils import message_to_json
-from tests.helper_functions import mock_http_200
 
+from tests.helper_functions import mock_http_200
 from tests.store._unity_catalog.conftest import (
     _REGISTRY_HOST_CREDS,
     _TRACKING_HOST_CREDS,
@@ -174,7 +174,9 @@ def test_create_registered_model(mock_http, store):
 
 @pytest.fixture
 def local_model_dir(tmp_path):
-    fake_signature = ModelSignature(inputs=Schema([]), outputs=Schema([]))
+    fake_signature = ModelSignature(
+        inputs=Schema([ColSpec(DataType.string)]), outputs=Schema([ColSpec(DataType.double)])
+    )
     fake_mlmodel_contents = {
         "artifact_path": "some-artifact-path",
         "run_id": "abc123",
@@ -227,7 +229,9 @@ def test_create_model_version_missing_python_deps(store, local_model_dir):
 
 @pytest.fixture
 def feature_store_local_model_dir(tmp_path):
-    fake_signature = ModelSignature(inputs=Schema([]), outputs=Schema([]))
+    fake_signature = ModelSignature(
+        inputs=Schema([ColSpec(DataType.double)]), outputs=Schema([ColSpec(DataType.double)])
+    )
     fake_mlmodel_contents = {
         "artifact_path": "some-artifact-path",
         "run_id": "abc123",
@@ -267,7 +271,7 @@ def test_create_model_version_missing_signature(store, tmp_path):
 
 
 def test_create_model_version_missing_output_signature(store, tmp_path):
-    fake_signature = ModelSignature(inputs=Schema([]))
+    fake_signature = ModelSignature(inputs=Schema([ColSpec(DataType.integer)]))
     fake_mlmodel_contents = {"signature": fake_signature.to_dict()}
     with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)

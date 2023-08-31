@@ -1,69 +1,69 @@
 import base64
-from functools import wraps
 import gc
 import importlib.util
-import logging
 import json
+import logging
+import os
+import pathlib
+import textwrap
 import time
+from functools import wraps
+from unittest import mock
 
+import huggingface_hub
 import librosa
 import numpy as np
-import os
 import pandas as pd
-from packaging.version import Version
-import pathlib
 import pytest
-import textwrap
-from unittest import mock
-import yaml
-
+import torch
 import transformers
-import huggingface_hub
-from huggingface_hub import ModelCard, scan_cache_dir
+import yaml
 from datasets import load_dataset
+from huggingface_hub import ModelCard, scan_cache_dir
+from packaging.version import Version
 
 import mlflow
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.transformers import (
-    _build_pipeline_from_model_input,
-    get_default_pip_requirements,
-    get_default_conda_env,
-    _infer_transformers_task_type,
-    _validate_transformers_task_type,
-    _get_instance_type,
-    _generate_base_flavor_configuration,
-    _TASK_KEY,
-    _PIPELINE_MODEL_TYPE_KEY,
+    _CARD_DATA_FILE_NAME,
+    _CARD_TEXT_FILE_NAME,
+    _FRAMEWORK_KEY,
     _INSTANCE_TYPE_KEY,
     _MODEL_PATH_OR_NAME_KEY,
+    _PIPELINE_MODEL_TYPE_KEY,
+    _TASK_KEY,
+    _build_pipeline_from_model_input,
     _fetch_model_card,
+    _generate_base_flavor_configuration,
     _get_base_model_architecture,
+    _get_instance_type,
     _get_or_infer_task_type,
+    _infer_transformers_task_type,
     _record_pipeline_components,
     _should_add_pyfunc_to_model,
     _TransformersModel,
-    _FRAMEWORK_KEY,
+    _validate_transformers_task_type,
     _write_card_data,
-    _CARD_TEXT_FILE_NAME,
-    _CARD_DATA_FILE_NAME,
+    get_default_conda_env,
+    get_default_pip_requirements,
 )
 from mlflow.utils.environment import _mlflow_conda_env
-import torch
+
 from tests.helper_functions import (
-    _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _compare_conda_env_requirements,
     _compare_logged_code_paths,
-    _mlflow_major_version_string,
-    pyfunc_serve_and_score_model,
     _get_deps_from_requirement_file,
+    _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
 )
 
 pytestmark = pytest.mark.large
@@ -3653,3 +3653,91 @@ def test_whisper_model_supports_timestamps(raw_audio_file, whisper_pipeline):
     first_timestamp = prediction["chunks"][0]["timestamp"]
     assert isinstance(first_timestamp, tuple)
     assert prediction_inference["chunks"][0]["timestamp"][1] == first_timestamp[1]
+
+
+def test_pyfunc_model_log_load_with_artifacts_snapshot():
+    architecture = "prajjwal1/bert-tiny"
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+    model = transformers.BertForQuestionAnswering.from_pretrained(architecture)
+    bert_tiny_pipeline = transformers.pipeline(
+        task="question-answering", model=model, tokenizer=tokenizer
+    )
+
+    class QAModel(mlflow.pyfunc.PythonModel):
+        def load_context(self, context):
+            """
+            This method initializes the tokenizer and language model
+            using the specified snapshot location.
+            """
+            snapshot_location = context.artifacts["bert-tiny-model"]
+            # Initialize tokenizer and language model
+            tokenizer = transformers.AutoTokenizer.from_pretrained(snapshot_location)
+            model = transformers.BertForQuestionAnswering.from_pretrained(snapshot_location)
+            self.pipeline = transformers.pipeline(
+                task="question-answering", model=model, tokenizer=tokenizer
+            )
+
+        def predict(self, context, model_input, params=None):
+            question = model_input["question"][0]
+            if isinstance(question, np.ndarray):
+                question = question.item()
+            ctx = model_input["context"][0]
+            if isinstance(ctx, np.ndarray):
+                ctx = ctx.item()
+            return self.pipeline(question=question, context=ctx)
+
+    data = {"question": "Who's house?", "context": "The house is owned by Run."}
+    pyfunc_artifact_path = "question_answering_model"
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path=pyfunc_artifact_path,
+            python_model=QAModel(),
+            artifacts={"bert-tiny-model": "hf:/prajjwal1/bert-tiny"},
+            input_example=data,
+            signature=infer_signature(
+                data, mlflow.transformers.generate_signature_output(bert_tiny_pipeline, data)
+            ),
+            extra_pip_requirements=["transformers", "torch", "numpy"],
+        )
+
+        pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
+        assert model_info.model_uri == pyfunc_model_uri
+        pyfunc_model_path = _download_artifact_from_uri(
+            f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
+        )
+        assert len(os.listdir(os.path.join(pyfunc_model_path, "artifacts"))) != 0
+        model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_uri)
+    assert model_config.to_yaml() == loaded_pyfunc_model.metadata.to_yaml()
+    assert loaded_pyfunc_model.predict(data)["answer"] != ""
+
+    # Test model serving
+    inference_payload = json.dumps({"inputs": data})
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records")[0]["answer"] != ""
+
+
+def test_pyfunc_model_log_load_with_artifacts_snapshot_errors():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    with mlflow.start_run():
+        with pytest.raises(
+            MlflowException,
+            match=r"Failed to download snapshot from Hugging Face Hub "
+            r"with artifact_uri: hf:/invalid-repo-id.",
+        ):
+            mlflow.pyfunc.log_model(
+                artifact_path="pyfunc_artifact_path",
+                python_model=TestModel(),
+                artifacts={"some-model": "hf:/invalid-repo-id"},
+            )

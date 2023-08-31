@@ -5,8 +5,9 @@ import argparse
 import importlib.util
 import json
 import os
-import requests
 import sys
+
+import requests
 
 
 def parse_args():

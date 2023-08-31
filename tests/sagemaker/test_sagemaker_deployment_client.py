@@ -1,38 +1,38 @@
+import json
 import os
-import pytest
 import time
 from collections import namedtuple
+from functools import wraps
 from io import BytesIO
 from unittest import mock
-from functools import wraps
 
-import json
 import boto3
 import botocore
 import numpy as np
 import pandas as pd
+import pytest
 from click.testing import CliRunner
-from sklearn.linear_model import LogisticRegression
 from moto.core import DEFAULT_ACCOUNT_ID
+from sklearn.linear_model import LogisticRegression
 
 import mlflow
 import mlflow.pyfunc
-import mlflow.sklearn
 import mlflow.sagemaker as mfs
+import mlflow.sklearn
 from mlflow.deployments.cli import commands as cli_commands
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
-    RESOURCE_DOES_NOT_EXIST,
-    INVALID_PARAMETER_VALUE,
     INTERNAL_ERROR,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 
 from tests.helper_functions import set_boto_credentials  # noqa: F401
-from tests.sagemaker.mock import mock_sagemaker, Endpoint, EndpointOperation
+from tests.sagemaker.mock import Endpoint, EndpointOperation, mock_sagemaker
 
 TrainedModel = namedtuple("TrainedModel", ["model_path", "run_id", "model_uri"])
 
@@ -95,7 +95,7 @@ def get_sagemaker_backend(region_name):
 
 
 def mock_sagemaker_aws_services(fn):
-    from moto import mock_s3, mock_ecr, mock_sts, mock_iam
+    from moto import mock_ecr, mock_iam, mock_s3, mock_sts
 
     @mock_ecr
     @mock_iam
@@ -362,6 +362,67 @@ def test_update_deployment_without_async_config(
     if target_config is None:
         raise Exception("Endpoint config not found")
     assert "AsyncInferenceConfig" not in target_config
+
+
+@mock_sagemaker_aws_services
+def test_create_deployment_with_serverless_config(
+    pretrained_model, sagemaker_client, sagemaker_deployment_client
+):
+    app_name = "deploy_with_serverless_config"
+    expected_serverless_config = {
+        "MemorySizeInMB": 2048,
+        "MaxConcurrency": 2,
+    }
+    sagemaker_deployment_client.create_deployment(
+        name=app_name,
+        model_uri=pretrained_model.model_uri,
+        config={"serverless_config": expected_serverless_config},
+    )
+    configs = sagemaker_client.list_endpoint_configs()
+    target_config = None
+    for config in configs["EndpointConfigs"]:
+        if app_name in config["EndpointConfigName"]:
+            target_config = config
+    if target_config is None:
+        raise Exception("Endpoint config not found")
+    endpoint_config = sagemaker_client.describe_endpoint_config(
+        EndpointConfigName=target_config["EndpointConfigName"]
+    )
+
+    for variant in endpoint_config["ProductionVariants"]:
+        assert variant["ServerlessConfig"] == expected_serverless_config
+
+
+@mock_sagemaker_aws_services
+def test_update_deployment_with_serverless_config_when_endpoint_exists(
+    pretrained_model, sagemaker_client, sagemaker_deployment_client
+):
+    app_name = "update_deploy_with_serverless_config"
+    expected_serverless_config = {
+        "MemorySizeInMB": 2048,
+        "MaxConcurrency": 2,
+    }
+    sagemaker_deployment_client.create_deployment(
+        name=app_name, model_uri=pretrained_model.model_uri
+    )
+    sagemaker_deployment_client.update_deployment(
+        name=app_name,
+        model_uri=pretrained_model.model_uri,
+        config={"serverless_config": expected_serverless_config},
+    )
+    configs = sagemaker_client.list_endpoint_configs()
+    target_config = None
+    for config in configs["EndpointConfigs"]:
+        if app_name in config["EndpointConfigName"]:
+            target_config = config
+    if target_config is None:
+        raise Exception("Endpoint config not found")
+    endpoint_config = sagemaker_client.describe_endpoint_config(
+        EndpointConfigName=target_config["EndpointConfigName"]
+    )
+
+    for variant in endpoint_config["ProductionVariants"]:
+        assert variant["ServerlessConfig"] == expected_serverless_config
 
 
 def test_create_deployment_with_unsupported_flavor_raises_exception(

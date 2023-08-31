@@ -1,39 +1,40 @@
 """
 The ``mlflow.sagemaker`` module provides an API for deploying MLflow models to Amazon SageMaker.
 """
+import json
+import logging
 import os
-from subprocess import Popen
-import urllib.parse
+import platform
+import signal
 import sys
 import tarfile
-import logging
 import time
-import platform
-import json
-import signal
+import urllib.parse
+from subprocess import Popen
 from typing import Any, Dict, Optional
 
 import mlflow
 import mlflow.version
-from mlflow import pyfunc, mleap
-from mlflow.exceptions import MlflowException
-from mlflow.models import Model
-from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import get_unique_resource_id
-from mlflow.utils.file_utils import TempDir
-from mlflow.models.container import (
-    SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS,
-    SERVING_ENVIRONMENT,
-)
+from mlflow import mleap, pyfunc
 from mlflow.deployments import BaseDeploymentClient, PredictionsResponse
-from mlflow.utils.proto_json_utils import dump_input_data
 from mlflow.environment_variables import (
     MLFLOW_DEPLOYMENT_FLAVOR_NAME,
     MLFLOW_SAGEMAKER_DEPLOY_IMG_URL,
 )
-
+from mlflow.exceptions import MlflowException
+from mlflow.models import Model
+from mlflow.models.container import (
+    SERVING_ENVIRONMENT,
+)
+from mlflow.models.container import (
+    SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS,
+)
+from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import get_unique_resource_id
+from mlflow.utils.file_utils import TempDir
+from mlflow.utils.proto_json_utils import dump_input_data
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
 DEPLOYMENT_MODE_ADD = "add"
@@ -180,6 +181,7 @@ def _deploy(
     data_capture_config=None,
     variant_name=None,
     async_inference_config=None,
+    serverless_config=None,
     env=None,
     tags=None,
 ):
@@ -330,7 +332,13 @@ def _deploy(
                                                     "NotificationConfig": {},  # pylint: disable=line-too-long
                                                 },
                                             }
-
+    :param serverless_config: An optional dictionary specifying the serverless configuration
+                                    .. code-block:: python
+                                        :caption: Example
+                                            "ServerlessConfig": {
+                                                "MemorySizeInMB": 2048,
+                                                "MaxConcurrency": 20,
+                                            }
     :param env: An optional dictionary of environment variables to set for the model.
     :param tags: An optional dictionary of tags to apply to the endpoint.
     """
@@ -424,6 +432,7 @@ def _deploy(
             s3_client=s3_client,
             variant_name=variant_name,
             async_inference_config=async_inference_config,
+            serverless_config=serverless_config,
             data_capture_config=data_capture_config,
             env=env,
             tags=tags,
@@ -444,6 +453,7 @@ def _deploy(
             sage_client=sage_client,
             variant_name=variant_name,
             async_inference_config=async_inference_config,
+            serverless_config=serverless_config,
             env=env,
             tags=tags,
         )
@@ -1494,6 +1504,7 @@ def _create_sagemaker_endpoint(
     sage_client,
     variant_name=None,
     async_inference_config=None,
+    serverless_config=None,
     env=None,
     tags=None,
 ):
@@ -1539,10 +1550,15 @@ def _create_sagemaker_endpoint(
     production_variant = {
         "VariantName": variant_name,
         "ModelName": model_name,
-        "InitialInstanceCount": instance_count,
-        "InstanceType": instance_type,
         "InitialVariantWeight": 1,
     }
+
+    if serverless_config:
+        production_variant["ServerlessConfig"] = serverless_config
+    else:
+        production_variant["InstanceType"] = instance_type
+        production_variant["InitialInstanceCount"] = instance_count
+
     config_name = _get_sagemaker_config_name(endpoint_name)
     endpoint_config_kwargs = {
         "EndpointConfigName": config_name,
@@ -1611,6 +1627,7 @@ def _update_sagemaker_endpoint(
     s3_client,
     variant_name=None,
     async_inference_config=None,
+    serverless_config=None,
     data_capture_config=None,
     env=None,
     tags=None,
@@ -1684,10 +1701,15 @@ def _update_sagemaker_endpoint(
     new_production_variant = {
         "VariantName": variant_name,
         "ModelName": model_name,
-        "InitialInstanceCount": instance_count,
-        "InstanceType": instance_type,
         "InitialVariantWeight": new_model_weight,
     }
+
+    if serverless_config:
+        new_production_variant["ServerlessConfig"] = serverless_config
+    else:
+        new_production_variant["InstanceType"] = instance_type
+        new_production_variant["InitialInstanceCount"] = instance_count
+
     production_variants.append(new_production_variant)
 
     # Create the new endpoint configuration and update the endpoint
@@ -1994,6 +2016,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             "env": None,
             "tags": None,
             "async_inference_config": {},
+            "serverless_config": {},
         }
 
         if create_mode:
@@ -2006,7 +2029,14 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
     def _apply_custom_config(self, config, custom_config):
         int_fields = {"instance_count", "timeout_seconds"}
         bool_fields = {"synchronous", "archive"}
-        dict_fields = {"vpc_config", "data_capture_config", "tags", "env", "async_inference_config"}
+        dict_fields = {
+            "vpc_config",
+            "data_capture_config",
+            "tags",
+            "env",
+            "async_inference_config",
+            "serverless_config",
+        }
         for key, value in custom_config.items():
             if key not in config:
                 continue
@@ -2133,6 +2163,8 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                                            production variant.  Defaults to ``None``.
                        - ``async_inference_config``: A dictionary specifying the async_inference_configuration # pylint: disable=line-too-long
 
+                       - ``serverless_config``: A dictionary specifying the serverless_configuration
+
                        - ``env``: A dictionary specifying environment variables as key-value
                          pairs to be set for the deployed model. Defaults to ``None``.
 
@@ -2225,6 +2257,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             timeout_seconds=final_config["timeout_seconds"],
             variant_name=final_config["variant_name"],
             async_inference_config=final_config["async_inference_config"],
+            serverless_config=final_config["serverless_config"],
             env=final_config["env"],
             tags=final_config["tags"],
         )
@@ -2485,6 +2518,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             timeout_seconds=final_config["timeout_seconds"],
             variant_name=final_config["variant_name"],
             async_inference_config=final_config["async_inference_config"],
+            serverless_config=final_config["serverless_config"],
             env=final_config["env"],
             tags=final_config["tags"],
         )

@@ -2,27 +2,29 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures authentication is working.
 """
-import sys
-import pytest
 import subprocess
+import sys
 import time
-import requests
+
 import psutil
+import pytest
+import requests
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
     UNAUTHENTICATED,
+    ErrorCode,
 )
 from mlflow.utils.os import is_windows
-from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
-from tests.server.auth.auth_test_utils import create_user, User
+
+from tests.server.auth.auth_test_utils import User, create_user
 from tests.tracking.integration_test_utils import (
-    get_safe_port,
     _init_server,
     _send_rest_tracking_post_request,
+    get_safe_port,
 )
 
 

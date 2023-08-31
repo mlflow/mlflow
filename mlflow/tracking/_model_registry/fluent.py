@@ -1,17 +1,17 @@
-from mlflow.tracking.client import MlflowClient
+from typing import Any, Dict, List, Optional
+
+from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
-from mlflow.entities.model_registry import ModelVersion
-from mlflow.entities.model_registry import RegisteredModel
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ALREADY_EXISTS, ErrorCode
+from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
-from mlflow.utils.logging_utils import eprint
-from mlflow.utils import get_results_from_paginated_fn
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.store.model_registry import (
-    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
-from typing import Any, Dict, Optional, List
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.tracking.client import MlflowClient
+from mlflow.utils import get_results_from_paginated_fn
+from mlflow.utils.logging_utils import eprint
 
 
 def register_model(
@@ -59,10 +59,10 @@ def register_model(
             mlflow.log_params(params)
             mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
-        model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+        model_uri = f"runs:/{run.info.run_id}/sklearn-model"
         mv = mlflow.register_model(model_uri, "RandomForestRegressionModel")
-        print("Name: {}".format(mv.name))
-        print("Version: {}".format(mv.version))
+        print(f"Name: {mv.name}")
+        print(f"Version: {mv.version}")
 
     .. code-block:: text
         :caption: Output
@@ -178,7 +178,7 @@ def search_registered_models(
         print("-" * 80)
         for res in results:
             for mv in res.latest_versions:
-                print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
+                print(f"name={mv.name}; run_id={mv.run_id}; version={mv.version}")
 
         # Get search results filtered by the registered model name that matches
         # prefix pattern
@@ -187,14 +187,14 @@ def search_registered_models(
         print("-" * 80)
         for res in results:
             for mv in res.latest_versions:
-                print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
+                print(f"name={mv.name}; run_id={mv.run_id}; version={mv.version}")
 
         # Get all registered models and order them by ascending order of the names
         results = mlflow.search_registered_models(order_by=["name ASC"])
         print("-" * 80)
         for res in results:
             for mv in res.latest_versions:
-                print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
+                print(f"name={mv.name}; run_id={mv.run_id}; version={mv.version}")
 
     .. code-block:: text
         :caption: Output
@@ -280,14 +280,14 @@ def search_model_versions(
         results = mlflow.search_model_versions(filter_string=filter_string)
         print("-" * 80)
         for res in results:
-            print("name={}; run_id={}; version={}".format(res.name, res.run_id, res.version))
+            print(f"name={res.name}; run_id={res.run_id}; version={res.version}")
 
         # Get the version of the model filtered by run_id
         filter_string = "run_id = 'ae9a606a12834c04a8ef1006d0cff779'"
         results = mlflow.search_model_versions(filter_string=filter_string)
         print("-" * 80)
         for res in results:
-            print("name={}; run_id={}; version={}".format(res.name, res.run_id, res.version))
+            print(f"name={res.name}; run_id={res.run_id}; version={res.version}")
 
     .. code-block:: text
         :caption: Output

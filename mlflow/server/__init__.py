@@ -1,26 +1,28 @@
+import importlib
+import importlib.metadata
 import os
 import shlex
 import sys
 import textwrap
-import importlib.metadata
-import importlib
 import types
 
-from packaging.version import Version
+from flask import Flask, Response, send_from_directory
 from flask import __version__ as flask_version
-from flask import Flask, send_from_directory, Response
+from packaging.version import Version
+
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.handlers import (
-    get_artifact_handler,
-    get_metric_history_bulk_handler,
     STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
+    gateway_proxy_handler,
+    get_artifact_handler,
+    get_metric_history_bulk_handler,
     get_model_version_artifact_handler,
     search_datasets_handler,
 )
-from mlflow.utils.process import _exec_cmd
 from mlflow.utils.os import is_windows
+from mlflow.utils.process import _exec_cmd
 from mlflow.version import VERSION
 
 # NB: These are internal environment variables used for communication between
@@ -85,6 +87,11 @@ def serve_get_metric_history_bulk():
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"))
 def serve_search_datasets():
     return search_datasets_handler()
+
+
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/gateway-proxy"), methods=["POST", "GET"])
+def serve_gateway_proxy():
+    return gateway_proxy_handler()
 
 
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for

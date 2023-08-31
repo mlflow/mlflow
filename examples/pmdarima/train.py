@@ -1,11 +1,11 @@
+import json
+
+import numpy as np
+from pmdarima import auto_arima, model_selection
+from pmdarima.datasets import load_wineind
+
 import mlflow
 from mlflow.models import infer_signature
-import json
-import numpy as np
-from pmdarima import auto_arima
-from pmdarima.datasets import load_wineind
-from pmdarima import model_selection
-
 
 ARTIFACT_PATH = "model"
 

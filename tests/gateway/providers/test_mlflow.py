@@ -1,10 +1,10 @@
 from unittest import mock
 
+import pydantic
+import pytest
 from aiohttp import ClientTimeout
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-import pydantic
-import pytest
 
 from mlflow.gateway.config import MlflowModelServingConfig, RouteConfig
 from mlflow.gateway.constants import (
@@ -13,6 +13,7 @@ from mlflow.gateway.constants import (
 )
 from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
+
 from tests.gateway.tools import MockAsyncResponse, mock_http_client
 
 
@@ -32,7 +33,10 @@ def completions_config():
 
 @pytest.mark.asyncio
 async def test_completions():
-    resp = {"predictions": ["This is a test!"]}
+    resp = {
+        "predictions": ["This is a test!"],
+        "headers": {"Content-Type": "application/json"},
+    }
     config = completions_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
@@ -149,7 +153,10 @@ def embedding_config():
 
 @pytest.mark.asyncio
 async def test_embeddings():
-    resp = {"predictions": [[0.01, -0.1], [0.03, -0.03]]}
+    resp = {
+        "predictions": [[0.01, -0.1], [0.03, -0.03]],
+        "headers": {"Content-Type": "application/json"},
+    }
     config = embedding_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
@@ -215,7 +222,10 @@ def chat_config():
 
 @pytest.mark.asyncio
 async def test_chat():
-    resp = {"predictions": ["It is a test"]}
+    resp = {
+        "predictions": ["It is a test"],
+        "headers": {"Content-Type": "application/json"},
+    }
     config = chat_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 

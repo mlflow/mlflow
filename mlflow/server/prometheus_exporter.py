@@ -1,5 +1,5 @@
-from prometheus_flask_exporter.multiprocess import GunicornInternalPrometheusMetrics
 from flask import request
+from prometheus_flask_exporter.multiprocess import GunicornInternalPrometheusMetrics
 
 from mlflow.version import VERSION
 

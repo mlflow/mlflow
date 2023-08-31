@@ -1,32 +1,32 @@
-from click.testing import CliRunner
-from unittest import mock
 import json
 import os
-import pytest
 import shutil
+import subprocess
+import sys
 import tempfile
 import time
-import subprocess
-import requests
-import sys
-
+from unittest import mock
+from urllib.parse import unquote, urlparse
 from urllib.request import url2pathname
-from urllib.parse import urlparse, unquote
+
 import numpy as np
 import pandas as pd
+import pytest
+import requests
+from click.testing import CliRunner
 
 import mlflow
-from mlflow.cli import server, gc, doctor
 from mlflow import pyfunc
-from mlflow.server import handlers
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.store.tracking.file_store import FileStore
-from mlflow.exceptions import MlflowException
+from mlflow.cli import doctor, gc, server
 from mlflow.entities import ViewType
+from mlflow.exceptions import MlflowException
+from mlflow.server import handlers
+from mlflow.store.tracking.file_store import FileStore
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.rest_utils import augmented_raise_for_status
 from mlflow.utils.time_utils import get_current_time_millis
 
-from tests.helper_functions import pyfunc_serve_and_score_model, get_safe_port, PROTOBUF_REQUIREMENT
+from tests.helper_functions import PROTOBUF_REQUIREMENT, get_safe_port, pyfunc_serve_and_score_model
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
@@ -119,8 +119,8 @@ def test_registry_store_uri_different_from_tracking_store(command):
     handlers._model_registry_store = None
 
     from mlflow.server.handlers import (
-        TrackingStoreRegistryWrapper,
         ModelRegistryStoreRegistryWrapper,
+        TrackingStoreRegistryWrapper,
     )
 
     handlers._tracking_store_registry = TrackingStoreRegistryWrapper()

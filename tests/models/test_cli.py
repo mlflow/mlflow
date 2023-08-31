@@ -1,52 +1,48 @@
 import json
 import os
+import re
 import subprocess
 import sys
 import warnings
 from pathlib import Path
+from unittest import mock
 
-from click.testing import CliRunner
 import numpy as np
 import pandas as pd
 import pytest
-import re
 import sklearn
 import sklearn.datasets
 import sklearn.neighbors
-
-from unittest import mock
-
+from click.testing import CliRunner
 
 import mlflow
-import mlflow.sklearn
-from mlflow.models.flavor_backend_registry import get_flavor_backend
-
-from mlflow.utils.conda import _get_conda_env_name
-
 import mlflow.models.cli as models_cli
-
+import mlflow.sklearn
 from mlflow.environment_variables import MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
+from mlflow.models.flavor_backend_registry import get_flavor_backend
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc.backend import PyFuncBackend
 from mlflow.pyfunc.scoring_server import (
-    CONTENT_TYPE_JSON,
     CONTENT_TYPE_CSV,
+    CONTENT_TYPE_JSON,
 )
-from mlflow.utils.file_utils import TempDir
-from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils import PYTHON_VERSION
+from mlflow.utils import env_manager as _EnvManager
+from mlflow.utils.conda import _get_conda_env_name
+from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.process import ShellCommandException
+
 from tests.helper_functions import (
-    pyfunc_build_image,
-    pyfunc_serve_from_docker_image,
-    pyfunc_serve_from_docker_image_with_env_override,
+    PROTOBUF_REQUIREMENT,
     RestEndpoint,
     get_safe_port,
-    pyfunc_serve_and_score_model,
-    PROTOBUF_REQUIREMENT,
+    pyfunc_build_image,
     pyfunc_generate_dockerfile,
+    pyfunc_serve_and_score_model,
+    pyfunc_serve_from_docker_image,
+    pyfunc_serve_from_docker_image_with_env_override,
 )
 
 # NB: for now, windows tests do not have conda available.
@@ -813,3 +809,40 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
         )
 
     assert len(env_path_set) == 3
+
+
+@pytest.mark.parametrize(
+    ("input_schema", "output_schema", "params_schema"),
+    [(True, False, False), (False, True, False), (False, False, True)],
+)
+def test_signature_enforcement_with_model_serving(input_schema, output_schema, params_schema):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return ["test"]
+
+    input_data = ["test_input"] if input_schema else None
+    output_data = ["test_output"] if output_schema else None
+    params = {"test": "test"} if params_schema else None
+
+    signature = mlflow.models.infer_signature(
+        model_input=input_data, model_output=output_data, params=params
+    )
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="test_model", python_model=MyModel(), signature=signature
+        )
+
+    inference_payload = json.dumps({"inputs": ["test"]})
+
+    # Serve and score the model
+    scoring_result = pyfunc_serve_and_score_model(
+        model_uri=model_info.model_uri,
+        data=inference_payload,
+        content_type=CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    scoring_result.raise_for_status()
+
+    # Assert the prediction result
+    assert json.loads(scoring_result.content)["predictions"] == ["test"]

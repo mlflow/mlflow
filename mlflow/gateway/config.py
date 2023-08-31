@@ -1,20 +1,21 @@
-import pathlib
-from enum import Enum
 import json
 import logging
 import os
+import pathlib
+from enum import Enum
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+
 import pydantic
-from pydantic import validator, ValidationError
-from pydantic.json import pydantic_encoder
-from typing import Optional, Union, List, Dict, Any
 import yaml
+from packaging import version
+from pydantic import ValidationError, validator
+from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import ConfigModel, ResponseModel
-from mlflow.gateway.utils import is_valid_endpoint_name, check_configuration_route_name_collisions
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_BASE, MLFLOW_QUERY_SUFFIX
-from packaging import version
+from mlflow.gateway.utils import check_configuration_route_name_collisions, is_valid_endpoint_name
 
 _logger = logging.getLogger(__name__)
 
@@ -26,9 +27,9 @@ class Provider(str, Enum):
     ANTHROPIC = "anthropic"
     COHERE = "cohere"
     MLFLOW_MODEL_SERVING = "mlflow-model-serving"
+    MOSAICML = "mosaicml"
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
-    MOSAICLML = "mosaicml"
 
     @classmethod
     def values(cls):
@@ -47,6 +48,16 @@ class CohereConfig(ConfigModel):
     # pylint: disable=no-self-argument
     @validator("cohere_api_key", pre=True)
     def validate_cohere_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
+class MosaicMLConfig(ConfigModel):
+    mosaicml_api_key: str
+    mosaicml_api_base: Optional[str] = None
+
+    # pylint: disable=no-self-argument
+    @validator("mosaicml_api_key", pre=True)
+    def validate_mosaicml_api_key(cls, value):
         return _resolve_api_key_from_input(value)
 
 
@@ -144,6 +155,7 @@ config_types = {
     Provider.COHERE: CohereConfig,
     Provider.OPENAI: OpenAIConfig,
     Provider.ANTHROPIC: AnthropicConfig,
+    Provider.MOSAICML: MosaicMLConfig,
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
 }
 
@@ -198,6 +210,7 @@ class Model(ConfigModel):
             CohereConfig,
             OpenAIConfig,
             AnthropicConfig,
+            MosaicMLConfig,
             MlflowModelServingConfig,
         ]
     ] = None

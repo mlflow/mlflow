@@ -1,13 +1,13 @@
-import re
 import difflib
-from pathlib import Path
+import re
 from collections import namedtuple
+from pathlib import Path
 
 import pytest
-from packaging.version import Version
 import sqlalchemy
-from sqlalchemy.schema import MetaData, CreateTable
+from packaging.version import Version
 from sqlalchemy import create_engine
+from sqlalchemy.schema import CreateTable, MetaData
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_TRACKING_URI

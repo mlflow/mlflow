@@ -1,13 +1,14 @@
 from unittest import mock
 
+import pytest
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
-import pytest
 
+from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.schemas import completions, embeddings
-from mlflow.gateway.config import RouteConfig
+
 from tests.gateway.tools import MockAsyncResponse
 
 
@@ -35,6 +36,7 @@ def completions_response():
             }
         ],
         "prompt": "string",
+        "headers": {"Content-Type": "application/json"},
     }
 
 
@@ -121,6 +123,7 @@ def embeddings_response():
                 ]
             },
         ],
+        "headers": {"Content-Type": "application/json"},
     }
 
 

@@ -7,15 +7,21 @@ from mlflow.entities.model_registry import (
     RegisteredModelAlias,
     RegisteredModelTag,
 )
-from mlflow.protos.databricks_uc_registry_messages_pb2 import (
-    ModelVersion as ProtoModelVersion,
-    ModelVersionTag as ProtoModelVersionTag,
-    ModelVersionStatus as ProtoModelVersionStatus,
-    RegisteredModel as ProtoRegisteredModel,
-    RegisteredModelTag as ProtoRegisteredModelTag,
-    TemporaryCredentials,
-)
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion as ProtoModelVersion
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    ModelVersionStatus as ProtoModelVersionStatus,
+)
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    ModelVersionTag as ProtoModelVersionTag,
+)
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    RegisteredModel as ProtoRegisteredModel,
+)
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    RegisteredModelTag as ProtoRegisteredModelTag,
+)
+from mlflow.protos.databricks_uc_registry_messages_pb2 import TemporaryCredentials
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 
 _STRING_TO_STATUS = {k: ProtoModelVersionStatus.Value(k) for k in ProtoModelVersionStatus.keys()}
@@ -104,6 +110,7 @@ def _get_artifact_repo_from_storage_info(
     if credential_type == "aws_temp_credentials":
         # Verify upfront that boto3 is importable
         import boto3  # noqa: F401
+
         from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 
         aws_creds = scoped_token.aws_temp_credentials
@@ -114,10 +121,11 @@ def _get_artifact_repo_from_storage_info(
             session_token=aws_creds.session_token,
         )
     elif credential_type == "azure_user_delegation_sas":
+        from azure.core.credentials import AzureSasCredential
+
         from mlflow.store.artifact.azure_data_lake_artifact_repo import (
             AzureDataLakeArtifactRepository,
         )
-        from azure.core.credentials import AzureSasCredential
 
         sas_token = scoped_token.azure_user_delegation_sas.sas_token
         return AzureDataLakeArtifactRepository(
@@ -125,9 +133,10 @@ def _get_artifact_repo_from_storage_info(
         )
 
     elif credential_type == "gcp_oauth_token":
-        from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
         from google.cloud.storage import Client
         from google.oauth2.credentials import Credentials
+
+        from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 
         credentials = Credentials(scoped_token.gcp_oauth_token.oauth_token)
         client = Client(project="mlflow", credentials=credentials)

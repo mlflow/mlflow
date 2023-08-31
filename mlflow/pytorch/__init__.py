@@ -11,18 +11,18 @@ import atexit
 import importlib
 import logging
 import os
-import yaml
+import posixpath
+import shutil
 import warnings
+from functools import partial
 from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
-from functools import partial
+import yaml
 from packaging.version import Version
-import posixpath
 
 import mlflow
-import shutil
 from mlflow import pyfunc
 from mlflow.environment_variables import MLFLOW_DEFAULT_PREDICTION_DEVICE
 from mlflow.exceptions import MlflowException
@@ -33,32 +33,32 @@ from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _validate_env_arguments,
-    _process_pip_requirements,
-    _process_conda_env,
     _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _mlflow_conda_env,
+    _process_conda_env,
+    _process_pip_requirements,
     _PythonEnv,
+    _validate_env_arguments,
 )
-from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.file_utils import (
     TempDir,
     write_to,
 )
 from mlflow.utils.model_utils import (
+    _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
-    _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
 )
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "pytorch"
 
@@ -112,7 +112,7 @@ def get_default_conda_env():
 
         # Fetch the associated conda environment
         env = mlflow.pytorch.get_default_conda_env()
-        print("conda env: {}".format(env))
+        print(f"conda env: {env}")
 
     .. code-block:: text
         :caption: Output
@@ -270,12 +270,12 @@ def log_model(
             mlflow.pytorch.log_model(scripted_pytorch_model, "scripted_model")
 
         # Fetch the logged model artifacts
-        print("run_id: {}".format(run.info.run_id))
+        print(f"run_id: {run.info.run_id}")
         for artifact_path in ["model/data", "scripted_model/data"]:
             artifacts = [
                 f.path for f in MlflowClient().list_artifacts(run.info.run_id, artifact_path)
             ]
-            print("artifacts: {}".format(artifacts))
+            print(f"artifacts: {artifacts}")
 
     .. code-block:: text
         :caption: Output
@@ -422,13 +422,13 @@ def save_model(
 
         # Load each saved model for inference
         for model_path in ["model", "scripted_model"]:
-            model_uri = "{}/{}".format(os.getcwd(), model_path)
+            model_uri = f"{os.getcwd()}/{model_path}"
             loaded_model = mlflow.pytorch.load_model(model_uri)
-            print("Loaded {}:".format(model_path))
+            print(f"Loaded {model_path}:")
             for x in [6.0, 8.0, 12.0, 30.0]:
                 X = torch.Tensor([[x]])
                 y_pred = loaded_model(X)
-                print("predict X: {}, y_pred: {:.2f}".format(x, y_pred.data.item()))
+                print(f"predict X: {x}, y_pred: {y_pred.data.item():.2f}")
             print("--")
 
     .. code-block:: text
@@ -680,12 +680,12 @@ def load_model(model_uri, dst_path=None, **kwargs):
             mlflow.pytorch.log_model(model, "model", signature=signature)
 
         # Inference after loading the logged model
-        model_uri = "runs:/{}/model".format(run.info.run_id)
+        model_uri = f"runs:/{run.info.run_id}/model"
         loaded_model = mlflow.pytorch.load_model(model_uri)
         for x in [4.0, 6.0, 30.0]:
             X = torch.Tensor([[x]])
             y_pred = loaded_model(X)
-            print("predict X: {}, y_pred: {:.2f}".format(x, y_pred.data.item()))
+            print(f"predict X: {x}, y_pred: {y_pred.data.item():.2f}")
 
     .. code-block:: text
         :caption: Output
@@ -999,11 +999,11 @@ def autolog(
         def print_auto_logged_info(r):
             tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
             artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
-            print("run_id: {}".format(r.info.run_id))
-            print("artifacts: {}".format(artifacts))
-            print("params: {}".format(r.data.params))
-            print("metrics: {}".format(r.data.metrics))
-            print("tags: {}".format(tags))
+            print(f"run_id: {r.info.run_id}")
+            print(f"artifacts: {artifacts}")
+            print(f"params: {r.data.params}")
+            print(f"metrics: {r.data.metrics}")
+            print(f"tags: {tags}")
 
 
         # Initialize our model
@@ -1080,10 +1080,10 @@ def autolog(
         pass
     else:
         from mlflow.pytorch._pytorch_autolog import (
+            _flush_queue,
             patched_add_event,
             patched_add_hparams,
             patched_add_summary,
-            _flush_queue,
         )
 
         safe_patch(

@@ -1,15 +1,15 @@
-import numpy as np
+import logging
 import os
 import tempfile
 from functools import partial
+
 import matplotlib.pyplot as plt
-import logging
+import numpy as np
+from fastai.callback.core import Callback
 
 import mlflow.tracking
-from mlflow.utils.autologging_utils import ExceptionSafeClass, get_autologging_config
 from mlflow.fastai import log_model
-
-from fastai.callback.core import Callback
+from mlflow.utils.autologging_utils import ExceptionSafeClass, get_autologging_config
 
 _logger = logging.getLogger(__name__)
 
@@ -21,8 +21,8 @@ class __MlflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
     Records model structural information as params when training begins.
     """
 
-    from fastai.learner import Recorder
     from fastai.callback.all import TrackerCallback
+    from fastai.learner import Recorder
 
     remove_on_fetch, run_before, run_after = True, TrackerCallback, Recorder
 

@@ -1,7 +1,7 @@
 import time
 import uuid
+from typing import List, NamedTuple
 from unittest import mock
-from typing import NamedTuple, List
 
 import pytest
 
@@ -11,6 +11,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_
 from mlflow.store.model_registry.file_store import FileStore
 from mlflow.utils.file_utils import path_to_local_file_uri, write_yaml
 from mlflow.utils.time_utils import get_current_time_millis
+
 from tests.helper_functions import random_int, random_str
 
 

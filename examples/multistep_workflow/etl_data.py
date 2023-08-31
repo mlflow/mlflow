@@ -1,11 +1,13 @@
 """
 Converts the raw CSV form to a Parquet form with just the columns we want
 """
-import tempfile
 import os
-import pyspark
-import mlflow
+import tempfile
+
 import click
+import pyspark
+
+import mlflow
 
 
 @click.command(
@@ -17,11 +19,11 @@ import click
     "--max-row-limit", default=10000, help="Limit the data size to run comfortably on a laptop."
 )
 def etl_data(ratings_csv, max_row_limit):
-    with mlflow.start_run() as mlrun:
+    with mlflow.start_run():
         tmpdir = tempfile.mkdtemp()
         ratings_parquet_dir = os.path.join(tmpdir, "ratings-parquet")
         spark = pyspark.sql.SparkSession.builder.getOrCreate()
-        print("Converting ratings CSV {} to Parquet {}".format(ratings_csv, ratings_parquet_dir))
+        print(f"Converting ratings CSV {ratings_csv} to Parquet {ratings_parquet_dir}")
         ratings_df = (
             spark.read.option("header", "true")
             .option("inferSchema", "true")

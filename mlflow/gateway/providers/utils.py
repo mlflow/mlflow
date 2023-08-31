@@ -1,5 +1,6 @@
+from typing import Any, Dict
+
 import aiohttp
-from typing import Dict, Any
 from fastapi import HTTPException
 
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
@@ -21,7 +22,17 @@ async def send_request(headers: Dict[str, str], base_url: str, path: str, payloa
         url = append_to_uri_path(base_url, path)
         timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
         async with session.post(url, json=payload, timeout=timeout) as response:
-            js = await response.json()
+            content_type = response.headers.get("Content-Type")
+            if content_type and "application/json" in content_type:
+                js = await response.json()
+            elif content_type and "text/plain" in content_type:
+                js = {"message": await response.text()}
+            else:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"The returned data type from the route service is not supported. "
+                    f"Received content type: {content_type}",
+                )
             try:
                 response.raise_for_status()
             except aiohttp.ClientResponseError as e:

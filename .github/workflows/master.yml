@@ -53,6 +53,8 @@ jobs:
           pre-commit install -t pre-commit -t prepare-commit-msg
       - name: Run pre-commit
         id: pre-commit
+        env:
+          IS_MAINTAINER: ${{ contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
         run: |
           . ~/.venv/bin/activate
           pre-commit run --all-files

@@ -1,8 +1,8 @@
 import logging
 import os
-import posixpath
 import pathlib
-from typing import Dict, Any
+import posixpath
+from typing import Any, Dict
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE

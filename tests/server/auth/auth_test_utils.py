@@ -1,4 +1,4 @@
-from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
+from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
 
 from tests.helper_functions import random_str
 from tests.tracking.integration_test_utils import _send_rest_tracking_post_request

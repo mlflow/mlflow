@@ -1,48 +1,45 @@
+import atexit
 import codecs
 import errno
+import fnmatch
 import gzip
 import json
 import math
 import os
+import pathlib
 import posixpath
 import shutil
+import stat
 import sys
 import tarfile
 import tempfile
-import stat
-import pathlib
-from concurrent.futures import as_completed
-from contextlib import contextmanager
-import uuid
-import fnmatch
-
 import urllib.parse
 import urllib.request
+import uuid
+from concurrent.futures import as_completed
+from contextlib import contextmanager
 from urllib.parse import unquote
 from urllib.request import pathname2url
-
-
-import atexit
 
 import yaml
 
 try:
-    from yaml import CSafeLoader as YamlSafeLoader, CSafeDumper as YamlSafeDumper
+    from yaml import CSafeDumper as YamlSafeDumper
+    from yaml import CSafeLoader as YamlSafeLoader
 except ImportError:
-    from yaml import SafeLoader as YamlSafeLoader, SafeDumper as YamlSafeDumper
+    from yaml import SafeDumper as YamlSafeDumper
+    from yaml import SafeLoader as YamlSafeLoader
 
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
 from mlflow.exceptions import MissingConfigException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
-from mlflow.utils.rest_utils import augmented_raise_for_status
-from mlflow.utils.request_utils import cloud_storage_http_request
-from mlflow.utils.process import cache_return_value_per_process, _exec_cmd
-from mlflow.utils import merge_dicts
+from mlflow.utils import download_cloud_file_chunk, merge_dicts
 from mlflow.utils.databricks_utils import _get_dbutils
 from mlflow.utils.os import is_windows
-from mlflow.utils import download_cloud_file_chunk
-from mlflow.utils.request_utils import download_chunk
+from mlflow.utils.process import _exec_cmd, cache_return_value_per_process
+from mlflow.utils.request_utils import cloud_storage_http_request, download_chunk
+from mlflow.utils.rest_utils import augmented_raise_for_status
 
 ENCODING = "utf-8"
 MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
@@ -377,7 +374,7 @@ class TempDir:
         self._remove = remove_on_exit
 
     def __enter__(self):
-        self._path = os.path.abspath(tempfile.mkdtemp())
+        self._path = os.path.abspath(create_tmp_dir())
         assert os.path.exists(self._path)
         if self._chdr:
             self._dir = os.path.abspath(os.getcwd())
@@ -786,12 +783,26 @@ def _handle_readonly_on_windows(func, path, exc_info):
     func(path)
 
 
+def create_tmp_dir():
+    from mlflow.utils.databricks_utils import get_repl_id, is_in_databricks_runtime
+
+    if is_in_databricks_runtime() and get_repl_id() is not None:
+        try:
+            repl_local_tmp_dir = _get_dbutils().entry_point.getReplLocalTempDir()
+        except Exception:
+            repl_local_tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id())
+
+        return tempfile.mkdtemp(dir=repl_local_tmp_dir)
+    else:
+        return tempfile.mkdtemp()
+
+
 @cache_return_value_per_process
 def get_or_create_tmp_dir():
     """
     Get or create a temporary directory which will be removed once python process exit.
     """
-    from mlflow.utils.databricks_utils import is_in_databricks_runtime, get_repl_id
+    from mlflow.utils.databricks_utils import get_repl_id, is_in_databricks_runtime
 
     if is_in_databricks_runtime() and get_repl_id() is not None:
         # Note: For python process attached to databricks notebook, atexit does not work.
@@ -821,7 +832,7 @@ def get_or_create_nfs_tmp_dir():
     """
     Get or create a temporary NFS directory which will be removed once python process exit.
     """
-    from mlflow.utils.databricks_utils import is_in_databricks_runtime, get_repl_id
+    from mlflow.utils.databricks_utils import get_repl_id, is_in_databricks_runtime
     from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 
     nfs_root_dir = get_nfs_cache_root_dir()
