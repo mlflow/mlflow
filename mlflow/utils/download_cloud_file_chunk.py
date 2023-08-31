@@ -51,6 +51,7 @@ def main():
                 },
                 f,
             )
+        raise
 
 
 if __name__ == "__main__":
