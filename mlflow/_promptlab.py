@@ -4,10 +4,8 @@ from typing import List
 
 import yaml
 
-from mlflow.pyfunc.model import PythonModel
 
-
-class _PromptlabModel(PythonModel):
+class _PromptlabModel:
     import pandas as pd
 
     def __init__(self, prompt_template, prompt_parameters, model_parameters, model_route):
