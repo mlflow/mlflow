@@ -67,13 +67,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.promptlab_utils import (
-    create_conda_yaml_file,
     create_eval_results_file,
-    create_input_example_file,
-    create_loader_file,
-    create_model_file,
-    create_python_env_file,
-    create_requirements_txt_file,
 )
 from mlflow.utils.search_utils import SearchExperimentsUtils, SearchUtils
 from mlflow.utils.string_utils import is_string_type
@@ -1085,42 +1079,25 @@ class SqlAlchemyStore(AbstractStore):
         )
         self.record_logged_model(run_id, promptlab_model)
 
+        from mlflow.models.signature import ModelSignature
+        from mlflow.types.schema import ColSpec, DataType, Schema
+
+        inputs_colspecs = [ColSpec(DataType.string, param.key) for param in prompt_parameters]
+        outputs_colspecs = [ColSpec(DataType.string, "output")]
+
+        from mlflow._promptlab import _PromptlabModel, save_model
+
         # write artifact files
         with tempfile.TemporaryDirectory() as local_dir:
-            model_json = create_model_file(
-                run_id,
-                mlflow_version,
-                prompt_parameters,
-                promptlab_model.model_uuid,
-                utc_time_created,
+            save_model(
+                _PromptlabModel(),
+                path=os.path.join(local_dir, "model"),
+                signature=ModelSignature(
+                    inputs=Schema(inputs_colspecs),
+                    outputs=Schema(outputs_colspecs),
+                ),
+                input_example={"inputs": [param.value for param in prompt_parameters]},
             )
-            model_json_file_path = os.path.join(local_dir, "model", "MLmodel")
-            make_containing_dirs(model_json_file_path)
-            write_to(model_json_file_path, model_json)
-
-            conda_yaml = create_conda_yaml_file(mlflow_version)
-            conda_yaml_file_path = os.path.join(local_dir, "model", "conda.yaml")
-            make_containing_dirs(conda_yaml_file_path)
-            write_to(conda_yaml_file_path, conda_yaml)
-
-            python_yaml = create_python_env_file()
-            python_yaml_file_path = os.path.join(local_dir, "model", "python_env.yaml")
-            make_containing_dirs(python_yaml_file_path)
-            write_to(python_yaml_file_path, python_yaml)
-
-            requirements_txt = create_requirements_txt_file(mlflow_version)
-            requirements_txt_file_path = os.path.join(local_dir, "model", "requirements.txt")
-            make_containing_dirs(requirements_txt_file_path)
-            write_to(requirements_txt_file_path, requirements_txt)
-
-            loader_module = create_loader_file(
-                prompt_parameters, prompt_template, model_parameters, model_route
-            )
-            loader_module_file_path = os.path.join(
-                local_dir, "model", "loader", "gateway_loader_module.py"
-            )
-            make_containing_dirs(loader_module_file_path)
-            write_to(loader_module_file_path, loader_module)
 
             eval_results_json = create_eval_results_file(
                 prompt_parameters, model_input, model_output_parameters, model_output
@@ -1128,11 +1105,6 @@ class SqlAlchemyStore(AbstractStore):
             eval_results_json_file_path = os.path.join(local_dir, "eval_results_table.json")
             make_containing_dirs(eval_results_json_file_path)
             write_to(eval_results_json_file_path, eval_results_json)
-
-            input_example_json = create_input_example_file(prompt_parameters)
-            input_example_json_file_path = os.path.join(local_dir, "input_example.json")
-            make_containing_dirs(input_example_json_file_path)
-            write_to(input_example_json_file_path, input_example_json)
 
             artifact_repo.log_artifacts(local_dir)
 
