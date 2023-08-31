@@ -746,9 +746,9 @@ def parallelized_download_file_using_http_uri(
             index = futures[future]
             # print(f"Remaining ({fname}): {num_requests - (i + 1)} / {num_requests}")  # noqa
             try:
-                result = future.result()
+                future.result()
                 # if result is not None:
-                failed_downloads[index] = result
+                # failed_downloads[index] = result
                 # else:
                 #     pbar.update()
             except Exception as e:
