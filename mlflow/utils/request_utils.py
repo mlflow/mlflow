@@ -45,7 +45,7 @@ def download_chunk(range_start, range_end, headers, download_path, http_uri):
     with cloud_storage_http_request(
         "get",
         http_uri,
-        stream=False,
+        stream=True,
         headers=combined_headers,
         timeout=30,
         max_retries=3,
