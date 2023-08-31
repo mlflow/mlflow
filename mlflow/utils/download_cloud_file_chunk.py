@@ -42,7 +42,6 @@ def main():
             http_uri=args.http_uri,
         )
     except requests.HTTPError as e:
-        raise
         temp_file = args.temp_file
         with open(temp_file, "w") as f:
             json.dump(
