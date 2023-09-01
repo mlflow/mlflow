@@ -33,7 +33,7 @@ class _RetrieverChain(Chain):
     :param retriever: The retriever to wrap.
     """
 
-    input_key: str = "question"
+    input_key: str = "query"
     output_key: str = "source_documents"
     retriever: BaseRetriever = Field(exclude=True)
 
