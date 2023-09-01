@@ -1147,9 +1147,9 @@ def gateway_proxy_handler():
             message="GatewayProxy request must specify a gateway_path.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-
+    request_type = request.method
     json_data = args.get("json_data", None)
-    response = requests.request(request.method, f"{gateway_uri}/{gateway_path}", json=json_data)
+    response = requests.request(request_type, f"{gateway_uri}/{gateway_path}", json=json_data)
 
     if response.status_code == 200:
         return response.json()
