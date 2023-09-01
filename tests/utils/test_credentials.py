@@ -66,15 +66,10 @@ mlflow_tracking_password = password
         ("username", None),
         (None, "password"),
         (None, None),
-    ])
-@pytest.mark.parametrize(
-    ("user", "7<{=.=@&{8[.0_+$|`}16\%2"),
-    [
-        ("user", "7<{=.=@&{8[.0_+$|`}16\%2"),
-        ("user", None),
+        ("username", "7<{=.=@&{8[.0_+$|`}16\%2"),
         (None, "7<{=.=@&{8[.0_+$|`}16\%2"),
-        (None, None),
-    ])
+    ],
+)
 def test_read_mlflow_creds_env(username, password, monkeypatch):
     if username is None:
         monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
