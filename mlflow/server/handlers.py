@@ -95,6 +95,7 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
+from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import is_file_uri, is_local_uri
@@ -1206,29 +1207,27 @@ def create_promptlab_run_handler():
 
     store = _get_tracking_store()
 
-    if hasattr(store, "_create_promptlab_run"):
-        run = store._create_promptlab_run(
-            experiment_id=experiment_id,
-            run_name=run_name,
-            tags=tags,
-            prompt_template=prompt_template,
-            prompt_parameters=prompt_parameters,
-            model_route=model_route,
-            model_parameters=model_parameters,
-            model_input=model_input,
-            model_output=model_output,
-            model_output_parameters=model_output_parameters,
-            mlflow_version=mlflow_version,
-            user_id=user_id,
-            start_time=start_time,
-        )
-        response_message = CreateRun.Response()
-        response_message.run.MergeFrom(run.to_proto())
-        response = Response(mimetype="application/json")
-        response.set_data(message_to_json(response_message))
-        return response
-    else:
-        return _not_implemented()
+    run = _create_promptlab_run_impl(
+        store,
+        experiment_id=experiment_id,
+        run_name=run_name,
+        tags=tags,
+        prompt_template=prompt_template,
+        prompt_parameters=prompt_parameters,
+        model_route=model_route,
+        model_parameters=model_parameters,
+        model_input=model_input,
+        model_output=model_output,
+        model_output_parameters=model_output_parameters,
+        mlflow_version=mlflow_version,
+        user_id=user_id,
+        start_time=start_time,
+    )
+    response_message = CreateRun.Response()
+    response_message.run.MergeFrom(run.to_proto())
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
 
 
 @catch_mlflow_exception
