@@ -76,11 +76,6 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
         return lowercased in ["true", "1"]
 
 
-# define here to avoid circular import of databricks_utils
-def is_in_databricks_runtime():
-    return "DATABRICKS_RUNTIME_VERSION" in os.environ
-
-
 #: Specifies the tracking URI.
 #: (default: ``None``)
 MLFLOW_TRACKING_URI = _EnvironmentVariable("MLFLOW_TRACKING_URI", str, None)
@@ -428,7 +423,5 @@ MLFLOW_SAGEMAKER_DEPLOY_IMG_URL = _EnvironmentVariable("MLFLOW_SAGEMAKER_DEPLOY_
 MLFLOW_DISABLE_ENV_CREATION = _BooleanEnvironmentVariable("MLFLOW_DISABLE_ENV_CREATION", False)
 
 #: Specifies the timeout value for downloading chunks of mlflow artifacts.
-#: (default: ``300`` for OSS, ``60`` for Databricks)
-MLFLOW_DOWNLOAD_CHUNK_TIMEOUT = _EnvironmentVariable(
-    "MLFLOW_DOWNLOAD_CHUNK_TIMEOUT", int, 60 if is_in_databricks_runtime() else 300
-)
+#: (default: ``300``)
+MLFLOW_DOWNLOAD_CHUNK_TIMEOUT = _EnvironmentVariable(int, 300)
