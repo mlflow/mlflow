@@ -4,6 +4,8 @@ from typing import List
 
 import yaml
 
+from mlflow.version import VERSION as __version__  # noqa: F401
+
 
 class _PromptlabModel:
     import pandas as pd
@@ -130,7 +132,9 @@ def save_model(
 
     if conda_env is None:
         if pip_requirements is None:
-            inferred_reqs = infer_pip_requirements(path, "mlflow._promptlab", ["mlflow>=2.6.0"])
+            inferred_reqs = infer_pip_requirements(
+                path, "mlflow._promptlab", [f"mlflow>={__version__}"]
+            )
             default_reqs = sorted(inferred_reqs)
         else:
             default_reqs = None
