@@ -719,8 +719,7 @@ def parallelized_download_file_using_http_uri(
             #  HTTP error
             if os.path.exists(json_file):
                 with open(json_file) as f:
-                    data = json.load(f)
-                raise _ChunkDownloadError(data["retryable"], data["error"])
+                    raise _ChunkDownloadError(**json.load(f))
 
             # Unexpected error
             raise _ChunkDownloadError(False, repr(prc))
