@@ -84,7 +84,9 @@ def serve_get_metric_history_bulk():
 
 
 # Serve the "experiments/search-datasets" route.
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"))
+@app.route(
+    _add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"), methods=["POST", "GET"]
+)
 def serve_search_datasets():
     return search_datasets_handler()
 
