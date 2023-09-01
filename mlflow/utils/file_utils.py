@@ -31,7 +31,10 @@ except ImportError:
     from yaml import SafeLoader as YamlSafeLoader
 
 from mlflow.entities import FileInfo
-from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
+from mlflow.environment_variables import (
+    MLFLOW_DOWNLOAD_CHUNK_TIMEOUT,
+    MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
+)
 from mlflow.exceptions import MissingConfigException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.utils import download_cloud_file_chunk, merge_dicts
@@ -696,7 +699,7 @@ def parallelized_download_file_using_http_uri(
                 stream_output=False,
                 env=env,
             )
-            _, stderr = download_proc.communicate()
+            _, stderr = download_proc.communicate(timeout=MLFLOW_DOWNLOAD_CHUNK_TIMEOUT.get())
             if download_proc.returncode != 0:
                 if os.path.exists(temp_file):
                     with open(temp_file) as f:

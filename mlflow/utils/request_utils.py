@@ -47,7 +47,6 @@ def download_chunk(range_start, range_end, headers, download_path, http_uri):
         http_uri,
         stream=False,
         headers=combined_headers,
-        timeout=int(os.getenv("MLFLOW_DOWNLOAD_CHUNK_TIMEOUT", "300")),
     ) as response:
         # File will have been created upstream. Use r+b to ensure chunks
         # don't overwrite the entire file.

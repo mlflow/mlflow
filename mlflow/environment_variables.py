@@ -76,6 +76,11 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
         return lowercased in ["true", "1"]
 
 
+# define here to avoid circular import of databricks_utils
+def is_in_databricks_runtime():
+    return "DATABRICKS_RUNTIME_VERSION" in os.environ
+
+
 #: Specifies the tracking URI.
 #: (default: ``None``)
 MLFLOW_TRACKING_URI = _EnvironmentVariable("MLFLOW_TRACKING_URI", str, None)
@@ -424,4 +429,6 @@ MLFLOW_DISABLE_ENV_CREATION = _BooleanEnvironmentVariable("MLFLOW_DISABLE_ENV_CR
 
 #: Specifies the timeout value for mlflow.utils.request_utils.download_chunk
 #: (default: ``300``)
-MLFLOW_DOWNLOAD_CHUNK_TIMEOUT = _EnvironmentVariable("MLFLOW_DOWNLOAD_CHUNK_TIMEOUT", int, 300)
+MLFLOW_DOWNLOAD_CHUNK_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_DOWNLOAD_CHUNK_TIMEOUT", int, 60 if is_in_databricks_runtime() else 300
+)
