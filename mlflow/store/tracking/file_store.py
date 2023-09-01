@@ -1294,7 +1294,7 @@ class FileStore(AbstractStore):
         start_time: str,
     ):
         """
-        Creates a run with the specified attributes.
+        Creates a run for prompt engineering with the specified attributes.
         """
         return _create_promptlab_run_impl(
             self,
