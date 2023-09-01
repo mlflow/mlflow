@@ -755,10 +755,14 @@ def parallelized_download_file_using_http_uri(
                     failed_downloads[index] = result
                 else:
                     pbar.update()
-            except Exception as e:
-                status_code = 408 if isinstance(e, TimeoutExpired) else 500
+            except TimeoutExpired as e:
                 failed_downloads[index] = {
-                    "error_status_code": status_code,
+                    "error_status_code": 408,
+                    "error_text": repr(e),
+                }
+            except Exception as e:
+                failed_downloads[index] = {
+                    "error_status_code": 500,
                     "error_text": repr(e),
                 }
 
