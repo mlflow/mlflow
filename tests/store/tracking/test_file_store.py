@@ -2738,13 +2738,9 @@ def test_create_promptlab_run(store):
     assert run.data.tags["mlflow.runSourceType"] == "PROMPT_ENGINEERING"
     assert run.data.tags["mlflow.log-model.history"] is not None
 
-    artifact_location = store.get_experiment(exp_id).artifact_location
-
     # list the files in the model folder
-    artifact_location = store.get_experiment(exp_id).artifact_location
-    artifact_repo = get_artifact_repository(
-        os.path.join(artifact_location, run.info.run_id, "artifacts")
-    )
+    artifact_location = run.info.artifact_uri
+    artifact_repo = get_artifact_repository(artifact_location)
 
     artifact_files = [f.path for f in artifact_repo.list_artifacts()]
     assert "eval_results_table.json" in artifact_files
@@ -2760,5 +2756,4 @@ def test_create_promptlab_run(store):
     # try to load the model
     import mlflow.pyfunc
 
-    model_uri = os.path.join(artifact_location, run.info.run_id, "artifacts", "model")
-    mlflow.pyfunc.load_model(model_uri)
+    mlflow.pyfunc.load_model(os.path.join(artifact_location, "model"))

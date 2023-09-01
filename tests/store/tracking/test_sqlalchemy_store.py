@@ -2498,7 +2498,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert run.data.tags["mlflow.log-model.history"] is not None
 
         # list the files in the model folder
-        artifact_location = self.store.get_experiment(exp_id).artifact_location
+        artifact_location = run.info.artifact_uri
         artifact_repo = get_artifact_repository(artifact_location)
 
         artifact_files = [f.path for f in artifact_repo.list_artifacts()]
