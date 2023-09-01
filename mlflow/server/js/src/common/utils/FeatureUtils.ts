@@ -28,5 +28,5 @@ export const shouldUsePathRouting = () => false;
  * A flag determining if we should display "New model registry UI" toggle switch.
  */
 export const shouldUseToggleModelsNextUI = () => {
-  return true;
+  return false;
 };
