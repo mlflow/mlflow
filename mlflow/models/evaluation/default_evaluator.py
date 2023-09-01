@@ -53,13 +53,17 @@ MAX_RETRIES = 3  # You can adjust this number as needed
 BATCH_SIZE = 10  # You can adjust the batch size based on your resources and needs
 
 
-def _batch_process(func, data, max_retries=MAX_RETRIES):
+def _batch_process(func, data, max_retries=MAX_RETRIES, **kwargs):
     """
-    Utility function to process data in batches
+    Utility function to process data in batches.
+    Keyword arguments (**kwargs) are passed to func.
     """
     results = []
     with ThreadPoolExecutor() as executor:
-        future_to_item = {executor.submit(func, predictions=batch): batch for batch in data}
+        # Passing kwargs to func
+        future_to_item = {
+            executor.submit(func, predictions=batch, **kwargs): batch for batch in data
+        }
 
         for future in as_completed(future_to_item):
             # pylint: disable=unused-variable
@@ -1212,7 +1216,13 @@ class DefaultEvaluator(ModelEvaluator):
             return
 
         _logger.info("Computing perplexity metric:")
-        results = perplexity.compute(predictions=predictions, model_id="gpt2")
+
+        prediction_batches = [
+            predictions[i : i + BATCH_SIZE] for i in range(0, len(predictions), BATCH_SIZE)
+        ]
+
+        results_list = _batch_process(perplexity.compute, prediction_batches, model_id="gpt2")
+        results = perplexity.aggregate(results_list)
         self.metrics.update({"mean_perplexity": results["mean_perplexity"]})
         self.metrics_dict.update({"perplexity": results["perplexities"]})
 
@@ -1260,14 +1270,19 @@ class DefaultEvaluator(ModelEvaluator):
             )
             return
 
+        prediction_batches = [
+            predictions[i : i + BATCH_SIZE] for i in range(0, len(predictions), BATCH_SIZE)
+        ]
+
         _logger.info("Computing flesch kincaid metric:")
-        metrics = [textstat.flesch_kincaid_grade(prediction) for prediction in predictions]
+        metrics = _batch_process(textstat.flesch_kincaid_grade, prediction_batches)
         self.metrics_dict.update({"flesch_kincaid_grade_level": metrics})
         average_grade_level = {"mean_flesch_kincaid_grade_level": sum(metrics) / len(metrics)}
         self.metrics.update(average_grade_level)
 
         _logger.info("Computing automated readability index metric:")
-        metrics = [textstat.automated_readability_index(prediction) for prediction in predictions]
+
+        metrics = _batch_process(textstat.automated_readability_index, prediction_batches)
         self.metrics_dict.update({"ari_grade_level": metrics})
         average_grade_level = {"mean_ari_grade_level": sum(metrics) / len(metrics)}
         self.metrics.update(average_grade_level)
