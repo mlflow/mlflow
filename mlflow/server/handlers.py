@@ -6,6 +6,7 @@ import pathlib
 import posixpath
 import re
 import tempfile
+import time
 import urllib
 from functools import wraps
 
@@ -1158,6 +1159,76 @@ def gateway_proxy_handler():
             f"Error message: {response.text}",
             error_code=response.status_code,
         )
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def create_promptlab_run_handler():
+    def assert_arg_exists(arg_name, arg):
+        if not arg:
+            raise MlflowException(
+                message=f"CreatePromptlabRun request must specify {arg_name}.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    args = request.json
+    experiment_id = args.get("experiment_id")
+    assert_arg_exists("experiment_id", experiment_id)
+    run_name = args.get("run_name", None)
+    tags = args.get("tags", [])
+    prompt_template = args.get("prompt_template")
+    assert_arg_exists("prompt_template", prompt_template)
+    raw_prompt_parameters = args.get("prompt_parameters")
+    assert_arg_exists("prompt_parameters", raw_prompt_parameters)
+    prompt_parameters = [
+        Param(param.get("key"), param.get("value")) for param in args.get("prompt_parameters")
+    ]
+    model_route = args.get("model_route")
+    assert_arg_exists("model_route", model_route)
+    raw_model_parameters = args.get("model_parameters", [])
+    model_parameters = [
+        Param(param.get("key"), param.get("value")) for param in raw_model_parameters
+    ]
+    model_input = args.get("model_input")
+    assert_arg_exists("model_input", model_input)
+    model_output = args.get("model_output", None)
+    raw_model_output_parameters = args.get("model_output_parameters", [])
+    model_output_parameters = [
+        Param(param.get("key"), param.get("value")) for param in raw_model_output_parameters
+    ]
+    mlflow_version = args.get("mlflow_version")
+    assert_arg_exists("mlflow_version", mlflow_version)
+    user_id = args.get("user_id")
+    assert_arg_exists("user_id", user_id)
+
+    # use current time if not provided
+    start_time = args.get("start_time", int(time.time() * 1000))
+
+    store = _get_tracking_store()
+
+    if hasattr(store, "_create_promptlab_run"):
+        run = store._create_promptlab_run(
+            experiment_id=experiment_id,
+            run_name=run_name,
+            tags=tags,
+            prompt_template=prompt_template,
+            prompt_parameters=prompt_parameters,
+            model_route=model_route,
+            model_parameters=model_parameters,
+            model_input=model_input,
+            model_output=model_output,
+            model_output_parameters=model_output_parameters,
+            mlflow_version=mlflow_version,
+            user_id=user_id,
+            start_time=start_time,
+        )
+        response_message = CreateRun.Response()
+        response_message.run.MergeFrom(run.to_proto())
+        response = Response(mimetype="application/json")
+        response.set_data(message_to_json(response_message))
+        return response
+    else:
+        return _not_implemented()
 
 
 @catch_mlflow_exception
