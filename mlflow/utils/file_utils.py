@@ -705,8 +705,7 @@ def parallelized_download_file_using_http_uri(
                     ],
                     text=True,
                     check=False,
-                    stderr=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
+                    capture_output=True,
                     timeout=MLFLOW_DOWNLOAD_CHUNK_TIMEOUT.get(),
                     env=env,
                 )
