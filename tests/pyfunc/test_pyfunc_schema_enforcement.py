@@ -1,24 +1,24 @@
 import base64
-import cloudpickle
 import datetime
 import decimal
 import json
-import numpy as np
-from packaging.version import Version
-import pandas as pd
-import pytest
 import re
-import sklearn.linear_model
 from unittest import mock
 
-import mlflow
-from mlflow.exceptions import MlflowException
+import cloudpickle
+import numpy as np
+import pandas as pd
+import pytest
+import sklearn.linear_model
+from packaging.version import Version
 
-from mlflow.models import infer_signature, Model, ModelSignature
+import mlflow
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+from mlflow.exceptions import MlflowException
+from mlflow.models import Model, ModelSignature, infer_signature
 from mlflow.models.utils import _enforce_params_schema, _enforce_schema
 from mlflow.pyfunc import PyFuncModel
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow.types import Schema, ColSpec, TensorSpec, ParamSchema, ParamSpec, DataType
+from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.utils.proto_json_utils import dump_input_data
 
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -763,6 +763,18 @@ def test_schema_enforcement_for_inputs_style_orientation_of_dataframe(orient):
     pd_check = _enforce_schema(pd_data.to_dict(orient=orient), signature.inputs)
     pd.testing.assert_frame_equal(pd_check, pd_data)
 
+    # Test List[Dict[str, Union[str, List[str]]]]
+    test_signature = {
+        "inputs": '[{"name": "query", "type": "string"}, {"name": "inputs", "type": "string"}]',
+    }
+    signature = ModelSignature.from_dict(test_signature)
+    data = [{"query": ["test_query1", "test_query2"], "inputs": "test input"}]
+    pd_data = pd.DataFrame(data)
+    check = _enforce_schema(data, signature.inputs)
+    pd.testing.assert_frame_equal(check, pd_data)
+    pd_check = _enforce_schema(pd_data.to_dict(orient=orient), signature.inputs)
+    pd.testing.assert_frame_equal(pd_check, pd_data)
+
     # Test List[str]
     test_signature = {
         "inputs": '[{"type": "string"}]',
@@ -1281,7 +1293,7 @@ def test_enforce_params_schema_errors():
         )
 
 
-def test_enforce_params_schema_errors_with_model_without_params():
+def test_enforce_params_schema_warns_with_model_without_params():
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, ctx, model_input, params=None):
             return list(params.values()) if isinstance(params, dict) else None
@@ -1296,11 +1308,13 @@ def test_enforce_params_schema_errors_with_model_without_params():
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
-    with pytest.raises(
-        MlflowException,
-        match=r"`params` can only be specified at inference time if the model signature",
-    ):
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
         loaded_model.predict(["input"], params=params)
+    mock_warning.assert_called_with(
+        "`params` can only be specified at inference time if the model signature defines a params "
+        "schema. This model does not define a params schema. Ignoring provided params: "
+        "['str_param', 'int_array', '123']"
+    )
 
 
 def test_enforce_params_schema_errors_with_model_with_params():

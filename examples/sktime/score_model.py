@@ -1,6 +1,5 @@
 import pandas as pd
 import requests
-
 from sktime.datasets import load_longley
 from sktime.forecasting.model_selection import temporal_train_test_split
 

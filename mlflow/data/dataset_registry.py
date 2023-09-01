@@ -1,12 +1,13 @@
-from contextlib import suppress
 import inspect
-import entrypoints
 import warnings
+from contextlib import suppress
 from typing import Dict
 
+import entrypoints
+
 import mlflow.data
-from mlflow.exceptions import MlflowException
 from mlflow.data.dataset import Dataset
+from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
@@ -142,7 +143,7 @@ with suppress(ImportError):
 
     _dataset_registry.register_constructor(from_tensorflow)
 with suppress(ImportError):
-    from mlflow.data.spark_dataset import load_delta, from_spark
+    from mlflow.data.spark_dataset import from_spark, load_delta
 
     _dataset_registry.register_constructor(load_delta)
     _dataset_registry.register_constructor(from_spark)

@@ -1,4 +1,5 @@
 from abc import abstractmethod
+
 from mlflow.entities._mlflow_object import _MLflowObject
 
 

@@ -1,11 +1,10 @@
-from typing import Any, Optional, Dict
+from typing import Any, Dict, Optional
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.annotations import experimental
-
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 DATABRICKS_HIVE_METASTORE_NAME = "hive_metastore"
 # these two catalog names both points to the workspace local default HMS (hive metastore).

@@ -1,5 +1,37 @@
 # CHANGELOG
 
+## 2.6.0 (2023-08-15)
+
+MLflow 2.6.0 includes several major features and improvements
+
+Features:
+
+- [Models / Scoring] Add support for passing extra params during inference for PyFunc models (#9068, @serena-ruan)
+- [Gateway] Add support for MLflow serving to MLflow AI Gateway (#9199, @BenWilson2)
+- [Tracking] Support `save_kwargs` for `mlflow.log_figure` to specify extra options when saving a figure (#9179, @stroblme)
+- [Artifacts] Display progress bars when uploading/download artifacts (#9195, @serena-ruan)
+- [Models] Add support for logging LangChain's retriever models (#8808, @liangz1)
+- [Tracking] Add support to log customized tags to runs created by autologging (#9114, @thinkall)
+
+Bug fixes:
+
+- [Models] Fix `text_pair` functionality for transformers `TextClassification` pipelines (#9215, @BenWilson2)
+- [Models] Fix LangChain compatibility with SQLDatabase (#9192, @dbczumar)
+- [Tracking] Remove patching `sklearn.metrics.get_scorer_names` in `mlflow.sklearn.autolog` to avoid duplicate logging (#9095, @WeichenXu123)
+
+Documentation updates:
+
+- [Docs / Examples] Add examples and documentation for MLflow AI Gateway support for MLflow model serving (#9281, @BenWilson2)
+- [Docs / Examples] Add `sentence-transformers` doc & example (#9047, @es94129)
+
+Deprecation:
+
+- [Models] The `mlflow.mleap` module has been marked as deprecated and will be removed in a future release (#9311, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#9309, #9252, #9198, #9189, #9186, #9184, @BenWilson2; #9307, @AmirAflak; #9285, #9126, @dependabot[bot]; #9302, #9209, #9194, #9187, #9175, #9177, #9163, #9161, #9129, #9123, #9053, @serena-ruan; #9305, #9303, #9271, @KekmaTime; #9300, #9299, @itsajay1029; #9294, #9293, #9274, #9268, #9264, #9246, #9255, #9253, #9254, #9245, #9202, #9243, #9238, #9234, #9233, #9227, #9226, #9223, #9224, #9222, #9225, #9220, #9208, #9212, #9207, #9203, #9201, #9200, #9154, #9146, #9147, #9153, #9148, #9145, #9136, #9132, #9131, #9128, #9121, #9124, #9125, #9108, #9103, #9100, #9098, #9101, @harupy; #9292, @Aman123lug; #9290, #9164, #9157, #9086, @Bncer; #9291, @kunal642; #9284, @NavneetSinghArora; #9286, #9262, #9142, @smurching; #9267, @tungbq; #9258, #9250, @Kunj125; #9167, #9139, #9120, #9118, #9097, @viktoriussuwandi; #9244, #9240, #9239, @Sai-Suraj-27; #9221, #9168, #9130, @gabrielfu; #9218, @tjni; #9216, @Rukiyav; #9158, #9051, @EdAbati; #9211, @scarlettrobe; #9049, @annzhang-db; #9140, @kriscon-db; #9141, @xAIdrian; #9135, @liangz1; #9067, @jmmonteiro; #9112, @WeichenXu123; #9106, @shaikmoeed; #9105, @Ankit8848; #9104, @arnabrahman
+
 ## 2.5.0 (2023-07-17)
 
 MLflow 2.5.0 includes several major features and improvements:

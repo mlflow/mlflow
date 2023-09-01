@@ -1,21 +1,23 @@
 import copy
+
 import pytest
-from mlflow.exceptions import MlflowException
+
 from mlflow.entities import Metric, Param, RunTag
-from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.utils.validation import (
-    path_not_unique,
     _is_numeric,
-    _validate_metric_name,
-    _validate_param_name,
-    _validate_tag_name,
-    _validate_run_id,
     _validate_batch_log_data,
     _validate_batch_log_limits,
-    _validate_experiment_artifact_location,
     _validate_db_type_string,
+    _validate_experiment_artifact_location,
     _validate_experiment_name,
+    _validate_metric_name,
     _validate_model_alias_name,
+    _validate_param_name,
+    _validate_run_id,
+    _validate_tag_name,
+    path_not_unique,
 )
 
 GOOD_METRIC_OR_PARAM_NAMES = [

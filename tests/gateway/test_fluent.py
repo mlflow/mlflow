@@ -1,22 +1,24 @@
-import pytest
-from requests.exceptions import HTTPError
 from unittest import mock
 
+import pytest
+from requests.exceptions import HTTPError
+
+import mlflow.gateway.utils
+from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
 from mlflow.gateway import (
     create_route,
     delete_route,
-    set_gateway_uri,
     get_gateway_uri,
     get_route,
     query,
     search_routes,
+    set_gateway_uri,
 )
 from mlflow.gateway.config import Route
 from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
-from mlflow.environment_variables import MLFLOW_GATEWAY_URI
-import mlflow.gateway.utils
 from mlflow.gateway.utils import resolve_route_url
+
 from tests.gateway.tools import Gateway, save_yaml
 
 
@@ -248,3 +250,73 @@ def test_fluent_query_with_disallowed_param(gateway):
 
     with pytest.raises(HTTPError, match=".*The parameter 'model' is not permitted.*"):
         query(route=route.name, data=data)
+
+
+def test_get_route_accepts_unknown_provider():
+    set_gateway_uri("http://localhost:5000")
+    mock_resp = mock.Mock(status_code=200)
+    mock_resp.json.return_value = {
+        "name": "chat",
+        "route_type": "llm/v1/chat",
+        "model": {"name": "unknown-5", "provider": "unknown-ai"},
+        "route_url": "http://localhost:5000/gateway/chat/invocations",
+    }
+    with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
+        route = get_route("chat")
+        mock_request.assert_called_once()
+        assert route.dict() == mock_resp.json()
+
+
+def test_get_route_accepts_unknown_route_type():
+    set_gateway_uri("http://localhost:5000")
+    mock_resp = mock.Mock(status_code=200)
+    mock_resp.json.return_value = {
+        "name": "chat",
+        "route_type": "llm/v1/unknown",
+        "model": {"name": "gpt4", "provider": "openai"},
+        "route_url": "http://localhost:5000/gateway/chat/invocations",
+    }
+    with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
+        route = get_route("chat")
+        mock_request.assert_called_once()
+        assert route.dict() == mock_resp.json()
+
+
+def test_search_routes_accepts_unknown_provider():
+    set_gateway_uri("http://localhost:5000")
+    mock_resp = mock.Mock(status_code=200)
+    mock_resp.json.return_value = {
+        "routes": [
+            {
+                "name": "chat",
+                "route_type": "llm/v1/chat",
+                "model": {"name": "unknown-5", "provider": "unknown-ai"},
+                "route_url": "http://localhost:5000/gateway/chat/invocations",
+            },
+        ],
+        "next_page_token": None,
+    }
+    with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
+        routes = search_routes()
+        mock_request.assert_called_once()
+        assert [r.dict() for r in routes] == mock_resp.json()["routes"]
+
+
+def test_search_routes_accepts_unknown_route_type():
+    set_gateway_uri("http://localhost:5000")
+    mock_resp = mock.Mock(status_code=200)
+    mock_resp.json.return_value = {
+        "routes": [
+            {
+                "name": "chat",
+                "route_type": "llm/v1/unknown",
+                "model": {"name": "gpt4", "provider": "openai"},
+                "route_url": "http://localhost:5000/gateway/chat/invocations",
+            },
+        ],
+        "next_page_token": None,
+    }
+    with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
+        routes = search_routes()
+        mock_request.assert_called_once()
+        assert [r.dict() for r in routes] == mock_resp.json()["routes"]

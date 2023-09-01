@@ -4,19 +4,21 @@ This module provides a set of utilities for interpreting and creating requiremen
 """
 
 import json
-import sys
-import subprocess
-from threading import Timer
-import tempfile
-import os
-import pkg_resources
-import importlib_metadata
-from itertools import filterfalse, chain
-from collections import namedtuple
 import logging
+import os
 import re
-from typing import NamedTuple, Optional
+import subprocess
+import sys
+import tempfile
+from collections import namedtuple
+from itertools import chain, filterfalse
 from pathlib import Path
+from threading import Timer
+from typing import NamedTuple, Optional
+
+import importlib_metadata
+import pkg_resources
+from packaging.version import InvalidVersion, Version
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT
@@ -24,7 +26,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils.versioning import _strip_dev_version_suffix
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from packaging.version import Version, InvalidVersion
 
 _logger = logging.getLogger(__name__)
 

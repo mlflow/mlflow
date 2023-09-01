@@ -6,7 +6,7 @@ specification (e.g. requirements/core-requirements.yaml) to the maximum availabl
 import argparse
 
 import requests
-from packaging.version import Version, InvalidVersion
+from packaging.version import InvalidVersion, Version
 from ruamel.yaml import YAML
 
 
@@ -61,6 +61,8 @@ def main():
     for key, req_info in requirements.items():
         pip_release = req_info["pip_release"]
         max_major_version = req_info["max_major_version"]
+        if req_info.get("freeze", False):
+            continue
         latest_major_version = get_latest_major_version(pip_release)
         if latest_major_version > max_major_version:
             requirements[key]["max_major_version"] = latest_major_version

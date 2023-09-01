@@ -1,19 +1,18 @@
 import os
 import posixpath
 import tempfile
-from contextlib import contextmanager
 import urllib.parse
+from contextlib import contextmanager
 
 from mlflow.entities import FileInfo
-from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.utils.file_utils import mkdir, relative_path_to_artifact_path
-
 from mlflow.environment_variables import (
     MLFLOW_KERBEROS_TICKET_CACHE,
     MLFLOW_KERBEROS_USER,
     MLFLOW_PYARROW_EXTRA_CONF,
 )
+from mlflow.exceptions import MlflowException
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.utils.file_utils import mkdir, relative_path_to_artifact_path
 
 
 class HdfsArtifactRepository(ArtifactRepository):

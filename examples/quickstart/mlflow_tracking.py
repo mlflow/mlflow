@@ -1,7 +1,7 @@
 import os
-from random import random, randint
+from random import randint, random
 
-from mlflow import log_metric, log_param, log_artifacts
+from mlflow import log_artifacts, log_metric, log_param
 
 if __name__ == "__main__":
     print("Running mlflow_tracking.py")

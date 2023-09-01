@@ -5,18 +5,19 @@ import pytest
 
 import mlflow
 from mlflow import MlflowException
+from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
 from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
+    PERMISSION_DENIED,
     RESOURCE_DOES_NOT_EXIST,
     UNAUTHENTICATED,
-    PERMISSION_DENIED,
+    ErrorCode,
 )
 from mlflow.server.auth import auth_config
 from mlflow.server.auth.client import AuthServiceClient
 from mlflow.utils.os import is_windows
-from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
+
 from tests.helper_functions import random_str
-from tests.server.auth.auth_test_utils import create_user, User
+from tests.server.auth.auth_test_utils import User, create_user
 from tests.tracking.integration_test_utils import _init_server
 
 PERMISSION = "READ"

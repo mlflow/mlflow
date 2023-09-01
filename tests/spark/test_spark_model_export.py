@@ -1,57 +1,56 @@
+import inspect
+import json
 import logging
 import os
-import inspect
-
-import json
+from collections import namedtuple
 from pathlib import Path
 from unittest import mock
+
 import numpy as np
 import pandas as pd
 import pyspark
+import pytest
+import yaml
+from packaging.version import Version
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.pipeline import Pipeline
-import pytest
 from sklearn import datasets
-from collections import namedtuple
-import yaml
-from packaging.version import Version
 
 import mlflow
-from mlflow.entities.model_registry import ModelVersion
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
 import mlflow.utils.file_utils
 from mlflow import pyfunc
 from mlflow import spark as sparkm
+from mlflow.entities.model_registry import ModelVersion
 from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.spark import _add_code_from_conf_to_system_path
+from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.file_utils import TempDir
-from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.types import DataType
-from mlflow.types.schema import Schema, ColSpec
-
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
-from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
-from tests.store.artifact.constants import MODELS_ARTIFACT_REPOSITORY
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types import DataType
+from mlflow.types.schema import ColSpec, Schema
+from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.file_utils import TempDir
+from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import (
-    score_model_in_sagemaker_docker_container,
-    _compare_conda_env_requirements,
-    _get_pip_deps,
     _assert_pip_requirements,
+    _compare_conda_env_requirements,
     _compare_logged_code_paths,
+    _get_pip_deps,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    score_model_in_sagemaker_docker_container,
 )
-from tests.pyfunc.test_spark import score_model_as_udf, get_spark_session
+from tests.pyfunc.test_spark import get_spark_session, score_model_as_udf
+from tests.store.artifact.constants import MODELS_ARTIFACT_REPOSITORY
 
 _logger = logging.getLogger(__name__)
 

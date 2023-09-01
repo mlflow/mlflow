@@ -1,28 +1,28 @@
-import os
-from functools import partial
 import logging
+import os
+from contextlib import contextmanager
+from functools import partial
 from pathlib import Path
 from typing import Union
-from contextlib import contextmanager
 
 from mlflow.environment_variables import (
     MLFLOW_TRACKING_AWS_SIGV4,
-    MLFLOW_TRACKING_URI,
-    MLFLOW_TRACKING_TOKEN,
-    MLFLOW_TRACKING_INSECURE_TLS,
     MLFLOW_TRACKING_CLIENT_CERT_PATH,
+    MLFLOW_TRACKING_INSECURE_TLS,
     MLFLOW_TRACKING_SERVER_CERT_PATH,
+    MLFLOW_TRACKING_TOKEN,
+    MLFLOW_TRACKING_URI,
 )
-from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils import rest_utils
-from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 from mlflow.utils.credentials import read_mlflow_creds
+from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.file_utils import path_to_local_file_uri
+from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 
 _logger = logging.getLogger(__name__)
 _tracking_uri = None
@@ -58,7 +58,7 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
 
         mlflow.set_tracking_uri("file:///tmp/my_tracking")
         tracking_uri = mlflow.get_tracking_uri()
-        print("Current tracking uri: {}".format(tracking_uri))
+        print(f"Current tracking uri: {tracking_uri}")
 
     .. code-block:: text
         :caption: Output
@@ -109,7 +109,7 @@ def get_tracking_uri() -> str:
 
         # Get the current tracking uri
         tracking_uri = mlflow.get_tracking_uri()
-        print("Current tracking uri: {}".format(tracking_uri))
+        print(f"Current tracking uri: {tracking_uri}")
 
     .. code-block:: text
         :caption: Output
@@ -227,7 +227,7 @@ def _get_git_url_if_present(uri):
         # Already a URI in git repo format
         return uri
     try:
-        from git import Repo, InvalidGitRepositoryError, GitCommandNotFound, NoSuchPathError
+        from git import GitCommandNotFound, InvalidGitRepositoryError, NoSuchPathError, Repo
     except ImportError as e:
         _logger.warning(
             "Failed to import Git (the git executable is probably not on your PATH),"

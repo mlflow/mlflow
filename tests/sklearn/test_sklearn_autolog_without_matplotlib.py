@@ -1,16 +1,18 @@
+from unittest import mock
+
 import pytest
 from sklearn.datasets import load_breast_cancer
 from sklearn.ensemble import RandomForestClassifier
-from unittest import mock
 
 import mlflow
 from mlflow import MlflowClient
+
 from tests.helper_functions import AnyStringWith
 
 
 def is_matplotlib_installed():
     try:
-        import matplotlib  # pylint: disable=unused-import
+        import matplotlib  # noqa: F401
 
         return True
     except ImportError:

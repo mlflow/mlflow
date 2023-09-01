@@ -1,14 +1,15 @@
+import json
 import os
 import time
-import json
-import mlflow
-import requests
-from unittest import mock
 from contextlib import contextmanager
-from typing import Dict, Any
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.models.signature import ParamSchema
+from typing import Any, Dict
+from unittest import mock
 
+import requests
+
+import mlflow
+from mlflow.models.signature import ParamSchema
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 TEST_CONTENT = "test"
 

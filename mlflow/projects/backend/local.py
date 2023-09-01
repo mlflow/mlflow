@@ -7,36 +7,30 @@ import sys
 from pathlib import Path
 
 import mlflow
-from mlflow.exceptions import MlflowException
-
-from mlflow.projects.submitted_run import LocalSubmittedRun
-from mlflow.projects.backend.abstract_backend import AbstractBackend
-from mlflow.projects.utils import (
-    fetch_and_validate_project,
-    get_or_create_run,
-    load_project,
-    get_run_env_vars,
-    get_entry_point_command,
-    MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
-    MLFLOW_DOCKER_WORKDIR_PATH,
-    PROJECT_ENV_MANAGER,
-    PROJECT_SYNCHRONOUS,
-    PROJECT_DOCKER_ARGS,
-    PROJECT_STORAGE_DIR,
-    PROJECT_BUILD_IMAGE,
-    PROJECT_DOCKER_AUTH,
+from mlflow import tracking
+from mlflow.environment_variables import (
+    MLFLOW_KERBEROS_TICKET_CACHE,
+    MLFLOW_KERBEROS_USER,
+    MLFLOW_PYARROW_EXTRA_CONF,
 )
-from mlflow.utils.environment import _PythonEnv
-from mlflow.utils.conda import get_or_create_conda_env
-from mlflow.utils.databricks_utils import get_databricks_env_vars
-from mlflow.utils.virtualenv import (
-    _install_python,
-    _create_virtualenv,
-    _get_virtualenv_name,
-    _get_mlflow_virtualenv_root,
-    _get_virtualenv_extra_env_vars,
-    _VIRTUALENV_ENVS_DIR,
-    _PYENV_ROOT_DIR,
+from mlflow.exceptions import MlflowException
+from mlflow.projects import env_type
+from mlflow.projects.backend.abstract_backend import AbstractBackend
+from mlflow.projects.submitted_run import LocalSubmittedRun
+from mlflow.projects.utils import (
+    MLFLOW_DOCKER_WORKDIR_PATH,
+    MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
+    PROJECT_BUILD_IMAGE,
+    PROJECT_DOCKER_ARGS,
+    PROJECT_DOCKER_AUTH,
+    PROJECT_ENV_MANAGER,
+    PROJECT_STORAGE_DIR,
+    PROJECT_SYNCHRONOUS,
+    fetch_and_validate_project,
+    get_entry_point_command,
+    get_or_create_run,
+    get_run_env_vars,
+    load_project,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
@@ -45,16 +39,19 @@ from mlflow.store.artifact.hdfs_artifact_repo import HdfsArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils import env_manager as _EnvManager
-from mlflow import tracking
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
-from mlflow.projects import env_type
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.conda import get_or_create_conda_env
+from mlflow.utils.databricks_utils import get_databricks_env_vars, is_in_databricks_runtime
+from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.file_utils import get_or_create_nfs_tmp_dir
-
-from mlflow.environment_variables import (
-    MLFLOW_KERBEROS_TICKET_CACHE,
-    MLFLOW_KERBEROS_USER,
-    MLFLOW_PYARROW_EXTRA_CONF,
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
+from mlflow.utils.virtualenv import (
+    _PYENV_ROOT_DIR,
+    _VIRTUALENV_ENVS_DIR,
+    _create_virtualenv,
+    _get_mlflow_virtualenv_root,
+    _get_virtualenv_extra_env_vars,
+    _get_virtualenv_name,
+    _install_python,
 )
 
 _logger = logging.getLogger(__name__)
@@ -111,9 +108,9 @@ class LocalBackend(AbstractBackend):
         # environments, so the project will be executed inside a docker container.
         if project.docker_env:
             from mlflow.projects.docker import (
+                build_docker_image,
                 validate_docker_env,
                 validate_docker_installation,
-                build_docker_image,
             )
 
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")

@@ -1,8 +1,9 @@
-import pytest
+import os
 import uuid
 
+import pytest
+
 from mlflow.utils.process import cache_return_value_per_process
-import os
 
 
 @cache_return_value_per_process

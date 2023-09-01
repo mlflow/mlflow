@@ -21,19 +21,19 @@ Features:
 from __future__ import annotations
 
 import logging
-import time
-import threading
 import queue
-from dataclasses import dataclass
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 
-import tiktoken
 import openai
 import openai.error
+import tiktoken
 from openai.openai_object import OpenAIObject
-from mlflow.openai.utils import _OAITokenHolder
 
 import mlflow
+from mlflow.openai.utils import _OAITokenHolder
 
 _logger = logging.getLogger(__name__)
 
@@ -178,7 +178,7 @@ def num_tokens_consumed_from_request(request_json: dict, task: type, token_encod
             )
     # more logic needed to support other API calls (e.g., edits, inserts, DALL-E)
     else:
-        raise NotImplementedError(f'Task "{str(task)}" not implemented in this script')
+        raise NotImplementedError(f'Task "{task!s}" not implemented in this script')
 
 
 def process_api_requests(

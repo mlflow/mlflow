@@ -1,31 +1,31 @@
-import os
-import time
-import shutil
 import json
-import re
-
-import pytest
+import os
 import posixpath
-from requests.models import Response
+import re
+import shutil
+import time
 from unittest import mock
 from unittest.mock import ANY
+
+import pytest
+from requests.models import Response
 
 from mlflow.entities.file_info import FileInfo as FileInfoEntity
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import (
-    GetCredentialsForWrite,
-    GetCredentialsForRead,
-    ArtifactCredentialType,
     ArtifactCredentialInfo,
-    CreateMultipartUpload,
+    ArtifactCredentialType,
     CompleteMultipartUpload,
+    CreateMultipartUpload,
+    GetCredentialsForRead,
+    GetCredentialsForWrite,
     GetPresignedUploadPartUrl,
 )
-from mlflow.protos.service_pb2 import ListArtifacts, FileInfo
+from mlflow.protos.service_pb2 import FileInfo, ListArtifacts
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.databricks_artifact_repo import (
-    DatabricksArtifactRepository,
     _MAX_CREDENTIALS_REQUEST_SIZE,
+    DatabricksArtifactRepository,
 )
 
 DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.databricks_artifact_repo"
@@ -1155,11 +1155,7 @@ def test_download_artifacts_provides_failure_info(databricks_artifact_repo):
             MlflowException("MOCK ERROR 2"),
         ],
     ):
-        match = (
-            r"The following failures occurred while downloading one or more artifacts.+"
-            r"MOCK ERROR 1.+"
-            r"MOCK ERROR 2"
-        )
+        match = r"The following failures occurred while downloading one or more artifacts.+"
         with pytest.raises(MlflowException, match=match) as exc:
             databricks_artifact_repo.download_artifacts("test_path")
 
@@ -1228,7 +1224,7 @@ def large_file(tmp_path, mock_chunk_size):
     with path.open("a") as f:
         f.write("a" * mock_chunk_size)
         f.write("b" * mock_chunk_size)
-    yield path
+    return path
 
 
 def extract_part_number(url):

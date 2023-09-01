@@ -4,21 +4,20 @@ The :py:mod:`mlflow.models.signature` module provides an API for specification o
 Model signature defines schema of model input and output. See :py:class:`mlflow.types.schema.Schema`
 for more details on Schema and data types.
 """
-import re
-from copy import deepcopy
 import inspect
 import logging
-from typing import List, Dict, Any, Optional, Union, get_type_hints, TYPE_CHECKING
+import re
+from copy import deepcopy
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, get_type_hints
 
-
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from mlflow import environment_variables
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.utils import _Example, ModelInputExample
+from mlflow.models.utils import ModelInputExample, _Example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
@@ -26,7 +25,6 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_
 from mlflow.types.schema import ParamSchema, Schema
 from mlflow.types.utils import _infer_param_schema, _infer_schema, _infer_schema_from_type_hint
 from mlflow.utils.uri import append_to_uri_path
-
 
 # At runtime, we don't need  `pyspark.sql.dataframe`
 if TYPE_CHECKING:
@@ -65,12 +63,12 @@ class ModelSignature:
         if outputs is not None and not isinstance(outputs, Schema):
             raise TypeError(
                 "outputs must be either None or mlflow.models.signature.Schema, "
-                "got '{}'".format(type(inputs))
+                f"got '{type(inputs)}'"
             )
         if params and not isinstance(params, ParamSchema):
             raise TypeError(
                 "If params are provided, they must by of type mlflow.models.signature.ParamSchema. "
-                "Got '{}'".format(type(params))
+                f"Got '{type(params)}'"
             )
         self.inputs = inputs
         self.outputs = outputs
@@ -127,11 +125,11 @@ class ModelSignature:
     def __repr__(self) -> str:
         return (
             "inputs: \n"
-            "  {}\n"
+            f"  {self.inputs!r}\n"
             "outputs: \n"
-            "  {}\n"
+            f"  {self.outputs!r}\n"
             "params: \n"
-            "  {}\n".format(repr(self.inputs), repr(self.outputs), repr(self.params))
+            f"  {self.params!r}\n"
         )
 
 
@@ -397,7 +395,7 @@ def set_signature(
         # load model from run artifacts
         run_id = "96771d893a5e46159d9f3b49bf9013e2"
         artifact_path = "models"
-        model_uri = "runs:/{}/{}".format(run_id, artifact_path)
+        model_uri = f"runs:/{run_id}/{artifact_path}"
         model = mlflow.pyfunc.load_model(model_uri)
 
         # determine model signature

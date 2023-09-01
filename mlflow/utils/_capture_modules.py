@@ -10,11 +10,11 @@ import os
 import sys
 
 import mlflow
-from mlflow.utils.file_utils import write_to
-from mlflow.pyfunc import MAIN
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
-from mlflow.utils.requirements_utils import DATABRICKS_MODULES_TO_PACKAGES
+from mlflow.pyfunc import MAIN
 from mlflow.utils._spark_utils import _prepare_subprocess_environ_for_creating_local_spark_session
+from mlflow.utils.file_utils import write_to
+from mlflow.utils.requirements_utils import DATABRICKS_MODULES_TO_PACKAGES
 
 
 def _get_top_level_module(full_module_name):

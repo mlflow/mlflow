@@ -2,63 +2,61 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
-import pathlib
-
-import flask
 import json
-import os
-import sys
-import posixpath
 import logging
+import math
+import os
+import pathlib
+import posixpath
+import sys
 import time
 import urllib.parse
-import requests
-import pandas as pd
-import math
 from unittest import mock
 
+import flask
+import pandas as pd
 import pytest
+import requests
 
+import mlflow.experiments
+import mlflow.pyfunc
 from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
 from mlflow.data.pandas_dataset import from_pandas
-from mlflow.utils import mlflow_tags
-import mlflow.experiments
-from mlflow.exceptions import MlflowException
 from mlflow.entities import (
+    Dataset,
+    DatasetInput,
+    InputTag,
     Metric,
     Param,
+    RunInputs,
     RunTag,
     ViewType,
-    DatasetInput,
-    Dataset,
-    InputTag,
-    RunInputs,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-import mlflow.pyfunc
 from mlflow.server.handlers import validate_path_is_safe
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.utils.file_utils import TempDir
+from mlflow.utils import mlflow_tags
+from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_USER,
-    MLFLOW_PARENT_RUN_ID,
-    MLFLOW_SOURCE_TYPE,
-    MLFLOW_SOURCE_NAME,
-    MLFLOW_PROJECT_ENTRY_POINT,
-    MLFLOW_GIT_COMMIT,
     MLFLOW_DATASET_CONTEXT,
+    MLFLOW_GIT_COMMIT,
+    MLFLOW_PARENT_RUN_ID,
+    MLFLOW_PROJECT_ENTRY_POINT,
+    MLFLOW_SOURCE_NAME,
+    MLFLOW_SOURCE_TYPE,
+    MLFLOW_USER,
 )
-from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.time_utils import get_current_time_millis
+
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
     _init_server,
     _send_rest_tracking_post_request,
 )
-
 
 _logger = logging.getLogger(__name__)
 

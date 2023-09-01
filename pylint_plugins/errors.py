@@ -1,5 +1,5 @@
-from typing import NamedTuple, Dict, Tuple
 from functools import reduce
+from typing import Dict, NamedTuple, Tuple
 
 
 class Message(NamedTuple):
@@ -15,29 +15,6 @@ class Message(NamedTuple):
 def to_msgs(*messages: Message) -> Dict[str, Tuple[str, str, str]]:
     return reduce(lambda x, y: {**x, **y.to_dict()}, messages, {})
 
-
-PYTEST_RAISES_WITHOUT_MATCH = Message(
-    id="W0001",
-    name="pytest-raises-without-match",
-    message="`pytest.raises` must be called with `match` argument`.",
-    reason="`pytest.raises` without `match` argument can lead to false positives.",
-)
-
-
-UNITTEST_PYTEST_RAISES = Message(
-    id="W0003",
-    name="unittest-assert-raises",
-    message="Use `pytest.raises` instead of `unittest.TestCase.assertRaises`.",
-    reason="To enforce 'pytest-raises-multiple-statements' Message.",
-)
-
-
-USE_F_STRING = Message(
-    id="W0006",
-    name="use-f-string",
-    message="Use f-string instead of format",
-    reason='`f"{foo} bar"` is simpler and faster than `"{} bar".format(foo)`',
-)
 
 LAZY_BUILTIN_IMPORT = Message(
     id="W0007",
