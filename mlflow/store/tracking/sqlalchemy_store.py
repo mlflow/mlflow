@@ -1083,15 +1083,15 @@ class SqlAlchemyStore(AbstractStore):
         try:
             from mlflow.models.signature import ModelSignature
             from mlflow.types.schema import ColSpec, DataType, Schema
-
+        except ImportError:
+            signature = None
+        else:
             inputs_colspecs = [ColSpec(DataType.string, param.key) for param in prompt_parameters]
             outputs_colspecs = [ColSpec(DataType.string, "output")]
             signature = ModelSignature(
                 inputs=Schema(inputs_colspecs),
                 outputs=Schema(outputs_colspecs),
             )
-        except ImportError:
-            signature = None
 
         from mlflow._promptlab import save_model
 

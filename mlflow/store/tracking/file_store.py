@@ -1305,11 +1305,11 @@ class FileStore(AbstractStore):
         run_id = run.info.run_id
 
         # log model parameters
-        parameters_to_log = (
-            model_parameters
-            + [Param("model_route", model_route)]
-            + [Param("prompt_template", prompt_template)]
-        )
+        parameters_to_log = [
+            *model_parameters,
+            Param("model_route", model_route),
+            Param("prompt_template", prompt_template),
+        ]
 
         tags_to_log = [
             RunTag(
@@ -1337,15 +1337,15 @@ class FileStore(AbstractStore):
         try:
             from mlflow.models.signature import ModelSignature
             from mlflow.types.schema import ColSpec, DataType, Schema
-
+        except ImportError:
+            signature = None
+        else:
             inputs_colspecs = [ColSpec(DataType.string, param.key) for param in prompt_parameters]
             outputs_colspecs = [ColSpec(DataType.string, "output")]
             signature = ModelSignature(
                 inputs=Schema(inputs_colspecs),
                 outputs=Schema(outputs_colspecs),
             )
-        except ImportError:
-            signature = None
 
         from mlflow._promptlab import save_model
 

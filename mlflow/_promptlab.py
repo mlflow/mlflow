@@ -20,7 +20,7 @@ class _PromptlabModel:
         results = []
         for idx in inputs.index:
             prompt_parameters_as_dict = {
-                param.key: inputs[f"{param.key}"][idx] for param in self.prompt_parameters
+                param.key: inputs[param.key][idx] for param in self.prompt_parameters
             }
             prompt = self.prompt_template.substitute(prompt_parameters_as_dict)
             model_parameters_as_dict = {param.key: param.value for param in self.model_parameters}
