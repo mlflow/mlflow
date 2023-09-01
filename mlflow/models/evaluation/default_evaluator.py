@@ -47,6 +47,29 @@ _logger = logging.getLogger(__name__)
 _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 _EVAL_TABLE_FILE_NAME = "eval_results_table.json"
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import mlflow
+
+MAX_RETRIES = 3  # You can adjust this number as needed
+BATCH_SIZE = 10  # You can adjust the batch size based on your resources and needs
+
+
+def _batch_process(func, data, max_retries=MAX_RETRIES):
+    """
+    Utility function to process data in batches
+    """
+    results = []
+    with ThreadPoolExecutor() as executor:
+        future_to_item = {executor.submit(func, predictions=batch): batch for batch in data}
+
+        for future in as_completed(future_to_item):
+            # pylint: disable=unused-variable
+            future_to_item[future]
+            results.append(future.result())
+
+    return results
+
 
 def _is_categorical(values):
     """
@@ -1213,6 +1236,41 @@ class DefaultEvaluator(ModelEvaluator):
         results = toxicity.compute(predictions=predictions, aggregation="ratio")
         self.metrics.update({"toxicity_ratio": results["toxicity_ratio"]})
 
+    def _calculate_toxicity_in_batches(self, predictions):
+        try:
+            _logger.info("Loading toxicity metric:")
+            import evaluate
+
+            toxicity = evaluate.load("toxicity", module_type="measurement")
+        except Exception as e:
+            _logger.warning(
+                f"Failed to load 'toxicity' metric (error: {e!r}), skipping metric logging."
+            )
+            return
+
+        # Breaking down the predictions into smaller batches
+        prediction_batches = [
+            predictions[i : i + BATCH_SIZE] for i in range(0, len(predictions), BATCH_SIZE)
+        ]
+
+        _logger.info("Computing toxicity metric:")
+
+        # Process the batches in parallel
+        results_list = _batch_process(toxicity.compute, prediction_batches)
+
+        # Aggregate the results
+        aggregated_results = {}
+        for results in results_list:
+            for key, value in results.items():
+                if key in aggregated_results:
+                    aggregated_results[key].extend(value)
+                else:
+                    aggregated_results[key] = value
+
+        self.metrics_dict.update({"toxicity": aggregated_results["toxicity"]})
+        results = toxicity.compute(predictions=predictions, aggregation="ratio")
+        self.metrics.update({"toxicity_ratio": results["toxicity_ratio"]})
+
     def _calculate_reading_level(self, predictions):
         try:
             import textstat
@@ -1248,7 +1306,8 @@ class DefaultEvaluator(ModelEvaluator):
             )
             return
 
-        self._calculate_toxicity(predictions)
+        # self._calculate_toxicity(predictions)
+        self._calculate_toxicity_in_batches(predictions)
         self._calculate_reading_level(predictions)
         self._calculate_perplexity(predictions)
 
