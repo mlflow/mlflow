@@ -4,7 +4,7 @@ from typing import Dict, List
 
 import pandas as pd
 
-from mlflow.metrics import make_metric
+from mlflow.models import make_metric
 
 _logger = logging.getLogger(__name__)
 
@@ -141,6 +141,7 @@ toxicity = make_metric(
     long_name="toxicity/roberta-hate-speech-dynabench-r4",
     version="v1",
 )
+
 perplexity = make_metric(
     eval_fn=_perplexity_eval_fn,
     greater_is_better=False,
@@ -148,17 +149,19 @@ perplexity = make_metric(
     long_name="perplexity/gpt2",
     version="v1",
 )
-flesch_kincaid_reading_level = make_metric(
+
+flesch_kincaid_grade_level = make_metric(
     eval_fn=_flesch_kincaid_eval_fn,
     greater_is_better=False,
-    name="flesch_kincaid_reading_level",
+    name="flesch_kincaid_grade_level",
     version="v1",
 )
-ari_reading_level = make_metric(
+
+ari_grade_level = make_metric(
     eval_fn=_ari_eval_fn,
     greater_is_better=False,
-    name="ari_reading_level",
-    long_name="automated_readability_index_reading_level",
+    name="ari_grade_level",
+    long_name="automated_readability_index_grade_level",
     version="v1",
 )
 
