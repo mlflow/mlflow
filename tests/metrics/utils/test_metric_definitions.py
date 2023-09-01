@@ -35,7 +35,7 @@ def test_toxicity():
     result = toxicity.eval_fn(eval_df, metrics={})
     assert not _is_toxic(result.scores[0])
     assert _is_toxic(result.scores[1])
-    assert result.aggregate_results["ratio"]
+    assert "ratio" in result.aggregate_results
 
 
 def test_perplexity():
@@ -43,7 +43,7 @@ def test_perplexity():
     result = perplexity.eval_fn(eval_df, metrics={})
     # A properly structured sentence should have lower perplexity
     assert result.scores[0] > result.scores[1]
-    assert result.aggregate_results["mean"]
+    assert "mean" in result.aggregate_results
 
 
 def test_flesch_kincaid_grade_level():
@@ -60,6 +60,7 @@ def test_flesch_kincaid_grade_level():
     )
     result = flesch_kincaid_grade_level.eval_fn(eval_df, metrics={})
     assert result.scores[0] < result.scores[1]
+    assert "mean" in result.aggregate_results
 
 
 def test_ari_grade_level():
@@ -76,3 +77,4 @@ def test_ari_grade_level():
     )
     result = ari_grade_level.eval_fn(eval_df, metrics={})
     assert result.scores[0] < result.scores[1]
+    assert "mean" in result.aggregate_results
