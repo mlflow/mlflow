@@ -18,6 +18,7 @@ from mlflow.utils.file_utils import (
     download_chunk,
     parallelized_download_file_using_http_uri,
     relative_path_to_artifact_path,
+    remove_on_error,
 )
 
 _logger = logging.getLogger(__name__)
@@ -196,7 +197,7 @@ class CloudArtifactRepository(ArtifactRepository):
         assert len(read_credentials) == 1
         cloud_credential_info = read_credentials[0]
 
-        try:
+        with remove_on_error(local_path):
             parallel_download_subproc_env = os.environ.copy()
             failed_downloads = parallelized_download_file_using_http_uri(
                 thread_pool_executor=self.chunk_thread_pool,
@@ -220,12 +221,6 @@ class CloudArtifactRepository(ArtifactRepository):
 
                 for i in failed_downloads:
                     download_chunk(i, _DOWNLOAD_CHUNK_SIZE, new_headers, local_path, new_signed_uri)
-        except MlflowException:
-            raise
-        except Exception as err:
-            if os.path.exists(local_path):
-                os.remove(local_path)
-            raise MlflowException(err)
 
     def _download_file(self, remote_file_path, local_path):
         # list_artifacts API only returns a list of FileInfos at the specified path
