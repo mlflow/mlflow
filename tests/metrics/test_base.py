@@ -3,14 +3,16 @@ import re
 from mlflow.metrics.base import EvaluationExample
 
 
-def test_evaluation_example_toString():
-    example1 = EvaluationExample(
-        input="This is an input",
-        output="This is an output",
-        score=5,
-        justification="This is a justification",
-        variables={"foo": "bar"},
-    ).toString()
+def test_evaluation_example_str():
+    example1 = str(
+        EvaluationExample(
+            input="This is an input",
+            output="This is an output",
+            score=5,
+            justification="This is a justification",
+            variables={"foo": "bar"},
+        )
+    )
     example1_expected = """
         Input: This is an input
         Provided output: This is an output
@@ -20,9 +22,7 @@ def test_evaluation_example_toString():
         """
     assert re.sub(r"\s+", "", example1_expected) == re.sub(r"\s+", "", example1)
 
-    example2 = EvaluationExample(
-        input="This is an input", output="This is an output", score=5
-    ).toString()
+    example2 = str(EvaluationExample(input="This is an input", output="This is an output", score=5))
     example2_expected = """
         Input: This is an input
         Provided output: This is an output

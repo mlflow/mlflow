@@ -8,6 +8,7 @@ from mlflow.metrics.utils.prompt_template import (
     PromptTemplate,
 )
 
+# TODO: Update the default_mode and default_parameters to the correct values post experimentation
 default_model = "openai:/gpt4"
 default_parameters = {
     "temperature": 0.0,
@@ -18,7 +19,7 @@ grading_system_prompt_template = PromptTemplate(
     """
     Please act as an impartial judge and evaluate the quality of the provided output which
     attempts to produce output for the provided input based on a provided information.
-    You'll be given a function grading_function which you'll call for each provided information,
+    You'll be given a grading format below which you'll call for each provided information,
     input and provided output to submit your justification and score to compute the {name} of
     the output.
 
@@ -39,7 +40,7 @@ grading_system_prompt_template = PromptTemplate(
     {examples}
 
     And you'll need to submit your grading for the {name} of the output,
-    using the following format:
+    using the following in json format:
     Reasoning for {name}: [your step by step reasoning about the {name} of the output]
     Score for {name}: [your score number between 0 to 4 for the {name} of the output]
     """
@@ -70,25 +71,7 @@ class EvaluationModel:
                 examples=examples_str,
             ),
             "parameters": self.parameters,
-            "grading_function": self._get_openai_evaluator_function(),
         }
 
     def _format_examples(self):
-        return "\n".join([item.toString() for item in self.examples])
-
-    def _get_openai_evaluator_function(self):
-        return {
-            "name": "grading_function",
-            "description": "Call this function to submit the grading for the output",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    f"reasoning_for_{self.name}": {
-                        "type": "string",
-                        "description": f"Your reasoning for giving the grading for the {self.name} "
-                        "of the output. Provide 5 to 30 words explanation.",
-                    }
-                },
-                "required": [f"reasoning_for_{self.name}"],
-            },
-        }
+        return "\n".join([str(item) for item in self.examples])

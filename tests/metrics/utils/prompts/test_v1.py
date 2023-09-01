@@ -29,7 +29,14 @@ def test_evaluation_model_output():
                 score=4,
                 justification="This is a justification",
                 variables={"ground_truth": "This is an output"},
-            )
+            ),
+            EvaluationExample(
+                input="This is an example input 2",
+                output="This is an example output 2",
+                score=4,
+                justification="This is an example justification 2",
+                variables={"ground_truth": "This is an output"},
+            ),
         ],
         model="gateway:/gpt4",
         parameters={"temperature": 1.0},
@@ -45,8 +52,9 @@ def test_evaluation_model_output():
     expected_prompt1 = """
     Please act as an impartial judge and evaluate the quality of the provided output which
     attempts to produce output for the provided input based on a provided information.
-    You'll be given a function grading_function which you'll call for each provided information, input and provided output to
-    submit your justification and score to compute the correctness of the output.
+    You'll be given a grading format below which you'll call for each provided information,
+    input and provided output to submit your justification and score to compute the correctness of
+    the output.
 
     Input:
     This is an input
@@ -80,8 +88,14 @@ def test_evaluation_model_output():
         Score: 4
         Justification: This is a justification
 
-    And you'll need to submit your grading for the correctness of the output, using the
-    following format:
+        Input: This is an example input 2
+        Provided output: This is an example output 2
+        Provided ground_truth: This is an output
+        Score: 4
+        Justification: This is an example justification 2
+
+    And you'll need to submit your grading for the correctness of the output,
+    using the following in json format:
     Reasoning for correctness: [your step by step reasoning about the correctness of the output]
     Score for correctness: [your score number between 0 to 4 for the correctness of the output]
       """
@@ -89,21 +103,6 @@ def test_evaluation_model_output():
         input="This is an input", output="This is an output", variables=variables_string
     )
     assert re.sub(r"\s+", "", prompt1) == re.sub(r"\s+", "", expected_prompt1)
-    assert model1["grading_function"] == {
-        "name": "grading_function",
-        "description": "Call this function to submit the grading for the output",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "reasoning_for_correctness": {
-                    "type": "string",
-                    "description": "Your reasoning for giving the grading for the correctness of "
-                    "the output. Provide 5 to 30 words explanation.",
-                }
-            },
-            "required": ["reasoning_for_correctness"],
-        },
-    }
 
     model2 = EvaluationModel(
         name="correctness",
@@ -132,8 +131,11 @@ def test_evaluation_model_output():
     }
     variables_string = ""
     expected_prompt2 = """
-    Please act as an impartial judge and evaluate the quality of the provided output which attempts to produce output for the provided input based on a provided information.
-    You'll be given a function grading_function which you'll call for each provided information, input and provided output to submit your justification and score to compute the correctness of the output.
+    Please act as an impartial judge and evaluate the quality of the provided output which
+    attempts to produce output for the provided input based on a provided information.
+    You'll be given a grading format below which you'll call for each provided information,
+    input and provided output to submit your justification and score to compute the correctness of
+    the output.
 
     Input:
     This is an input
@@ -158,8 +160,8 @@ def test_evaluation_model_output():
         critical aspect.
         - Score 4: the answer correctly answer the question and not missing any major aspect
 
-    And you'll need to submit your grading for the correctness of the output, using the
-    following format:
+    And you'll need to submit your grading for the correctness of the output,
+    using the following in json format:
     Reasoning for correctness: [your step by step reasoning about the correctness of the output]
     Score for correctness: [your score number between 0 to 4 for the correctness of the output]
       """
@@ -167,18 +169,3 @@ def test_evaluation_model_output():
         input="This is an input", output="This is an output", variables=variables_string
     )
     assert re.sub(r"\s+", "", prompt2) == re.sub(r"\s+", "", expected_prompt2)
-    assert model2["grading_function"] == {
-        "name": "grading_function",
-        "description": "Call this function to submit the grading for the output",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "reasoning_for_correctness": {
-                    "type": "string",
-                    "description": "Your reasoning for giving the grading for the correctness of "
-                    "the output. Provide 5 to 30 words explanation.",
-                }
-            },
-            "required": ["reasoning_for_correctness"],
-        },
-    }
