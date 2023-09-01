@@ -658,7 +658,7 @@ class _ChunkDownloadError(Exception):
     def __init__(self, retriable: bool, error: str) -> None:
         self.retriable = retriable
         self.error = error
-        super().__init__(f"Download failed with status code: {error}")
+        super().__init__(f"Chunk download failed: {error}")
 
 
 def parallelized_download_file_using_http_uri(
