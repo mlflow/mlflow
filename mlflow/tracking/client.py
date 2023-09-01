@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 import yaml
 
 import mlflow
-from mlflow.system_metrics import SystemMetricsMonitor
+from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
 from mlflow.entities import DatasetInput, Experiment, FileInfo, Metric, Param, Run, RunTag, ViewType
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -1860,9 +1860,6 @@ class MlflowClient:
             run_id: 575fb62af83f469e84806aee24945973
             status: KILLED
         """
-        run = self.get_run(run_id)
-        if run.system_metrics_monitor:
-            run.system_metrics_monitor.finish()
         self._tracking_client.set_terminated(run_id, status, end_time)
 
     def delete_run(self, run_id: str) -> None:

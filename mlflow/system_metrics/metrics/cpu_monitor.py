@@ -14,7 +14,11 @@ class CPUMonitor(BaseMetricsMonitor):
     def collect_metrics(self):
         # Get CPU metrics.
         cpu_percent = psutil.cpu_percent()
-        self._metrics["cpu_percentage"] = cpu_percent
+        self._metrics["cpu_percentage"].append(cpu_percent)
 
         system_memory = psutil.virtual_memory()._asdict()
-        self._metrics["cpu_memory_used"] = int(system_memory["used"] / 1e6)
+        self._metrics["cpu_memory_used"].append(int(system_memory["used"] / 1e6))
+
+    def aggregate_metrics(self):
+        for name, values in self._metrics.items():
+            self._metrics[name] = sum(values) / len(values)

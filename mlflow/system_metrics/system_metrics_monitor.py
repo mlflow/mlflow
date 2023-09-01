@@ -14,15 +14,18 @@ class SystemMetricsMonitor:
 
     This class is used for pulling system metrics and logging them to MLflow. Calling `start()` will
     spawn a thread that logs system metrics periodically. Calling `finish()` will stop the thread.
+    Logging is done on a different frequency from pulling metrics, so that the metrics are
+    aggregated over the period.
 
     Args:
         mlflow_run: an 'mlflow.entities.run.Run' instance, which is used to bootstrap system metrics
             logging with the MLflow tracking server.
-        logging_interval: float, default to 15.0. The interval (in seconds) at which to log system
-            metrics to MLflow.
+        sampling_interval: float, default to 0.5. The interval (in seconds) at which to pull system
+            metrics.
+        samples_to_aggregate: int, default to 30. The number of samples to aggregate before logging.
     """
 
-    def __init__(self, mlflow_run, logging_interval=15.0):
+    def __init__(self, mlflow_run, sampling_interval=0.5, samples_before_logging=20):
         from mlflow.utils.autologging_utils import BatchMetricsLogger
 
         # Instantiate default monitors.
@@ -30,7 +33,8 @@ class SystemMetricsMonitor:
         gpu_monitor = GPUMonitor()
         if gpu_monitor:
             self.monitors.append(gpu_monitor)
-        self.logging_interval = logging_interval
+        self.sampling_interval = sampling_interval
+        self.samples_before_logging = samples_before_logging
 
         self._run_id = mlflow_run.info.run_id
         self.mlflow_logger = BatchMetricsLogger(self._run_id)
@@ -56,14 +60,16 @@ class SystemMetricsMonitor:
         from mlflow.tracking.fluent import get_run
 
         while not self._shutdown_event.is_set():
-            metrics = self.collect_metrics()
-            self._shutdown_event.wait(self.logging_interval)
+            for _ in range(self.samples_before_logging):
+                self.collect_metrics()
+                self._shutdown_event.wait(self.sampling_interval)
             run = get_run(self._run_id)
             if run.info.status == "FINISHED" or self._shutdown_event.is_set():
                 # If the mlflow run is terminated or receives the shutdown signal, stop monitoring.
                 break
+            self.aggregate_metrics()
             try:
-                self.log_metrics(metrics)
+                self.publish_metrics()
             except Exception as e:
                 logger.warning(
                     f"MLflow: failed to log system metrics: {e}, this is expected if the "
@@ -79,8 +85,17 @@ class SystemMetricsMonitor:
             metrics.update(monitor._metrics)
         return metrics
 
-    def log_metrics(self, metrics):
+    def aggregate_metrics(self):
+        """Aggregate collected metrics."""
+        for monitor in self.monitors:
+            monitor.aggregate_metrics()
+
+    def publish_metrics(self):
         """Log collected metrics to MLflow."""
+        metrics = {}
+        for monitor in self.monitors:
+            metrics.update(monitor.metrics)
+            monitor.clear_metrics()
         self.mlflow_logger.record_metrics(metrics)
 
     def finish(self):

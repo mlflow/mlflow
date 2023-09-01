@@ -21,3 +21,7 @@ class DiskMonitor(BaseMetricsMonitor):
             else:
                 # Convert bytes to MB.
                 self._metrics[f"disk_memory_{k}"] = int(v / 1e6)
+
+    def aggregate_metrics(self):
+        for name, values in self._metrics:
+            self._metrics[name] = sum(values) / len(values)
