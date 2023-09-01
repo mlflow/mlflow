@@ -72,7 +72,7 @@ class _ModelType:
 
 class EvaluationMetric:
     '''
-    A model evaluation metric.
+    An evaluation metric.
 
     :param eval_fn:
         A function that computes the metric with the following signature:
@@ -81,8 +81,8 @@ class EvaluationMetric:
 
             def eval_fn(
                 eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
-                builtin_metrics: Dict[str, float],
-            ) -> float:
+                metrics: Dict[str, MetricValue],
+            ) -> Union[float, MetricValue]:
                 """
                 :param eval_df:
                     A Pandas or Spark DataFrame containing ``prediction`` and ``target`` column.
@@ -91,11 +91,13 @@ class EvaluationMetric:
                     on that row.
                 :param builtin_metrics:
                     A dictionary containing the metrics calculated by the default evaluator.
-                    The keys are the names of the metrics and the values are the scalar values of
-                    the metrics. Refer to the DefaultEvaluator behavior section for what metrics
+                    The keys are the names of the metrics and the values are the metric values.
+                    To access the MetricValue for the metrics calculated by the system, make sure
+                    to specify the type hint for this parameter as Dict[str, MetricValue].
+                    Refer to the DefaultEvaluator behavior section for what metrics
                     will be returned based on the type of model (i.e. classifier or regressor).
                 :return:
-                    The metric value.
+                    MetricValue with per-row scores, per-row justifications, and aggregate results.
                 """
                 ...
 
@@ -103,13 +105,15 @@ class EvaluationMetric:
     :param greater_is_better: Whether a higher value of the metric is better.
     :param long_name: (Optional) The long name of the metric. For example,
         ``"root_mean_squared_error"`` for ``"mse"``.
+    :param version: (Optional) The metric version. For example ``v1``.
     '''
 
-    def __init__(self, eval_fn, name, greater_is_better, long_name=None):
+    def __init__(self, eval_fn, name, greater_is_better, long_name=None, version=None):
         self.eval_fn = eval_fn
         self.name = name
         self.greater_is_better = greater_is_better
         self.long_name = long_name or name
+        self.version = version
 
     def __str__(self):
         if self.long_name:
@@ -127,6 +131,7 @@ def make_metric(
     greater_is_better,
     name=None,
     long_name=None,
+    version=None,
 ):
     '''
     A factory function to create an :py:class:`EvaluationMetric` object.
@@ -138,8 +143,8 @@ def make_metric(
 
             def eval_fn(
                 eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
-                builtin_metrics: Dict[str, float],
-            ) -> float:
+                metrics: Dict[str, MetricValue],
+            ) -> Union[float, MetricValue]:
                 """
                 :param eval_df:
                     A Pandas or Spark DataFrame containing ``prediction`` and ``target`` column.
@@ -148,11 +153,13 @@ def make_metric(
                     on that row.
                 :param builtin_metrics:
                     A dictionary containing the metrics calculated by the default evaluator.
-                    The keys are the names of the metrics and the values are the scalar values of
-                    the metrics. Refer to the DefaultEvaluator behavior section for what metrics
+                    The keys are the names of the metrics and the values are the metric values.
+                    To access the MetricValue for the metrics calculated by the system, make sure
+                    to specify the type hint for this parameter as Dict[str, MetricValue].
+                    Refer to the DefaultEvaluator behavior section for what metrics
                     will be returned based on the type of model (i.e. classifier or regressor).
                 :return:
-                    The metric value.
+                    MetricValue with per-row scores, per-row justifications, and aggregate results.
                 """
                 ...
 
@@ -180,7 +187,7 @@ def make_metric(
             )
         name = eval_fn.__name__
 
-    return EvaluationMetric(eval_fn, name, greater_is_better, long_name)
+    return EvaluationMetric(eval_fn, name, greater_is_better, long_name, version)
 
 
 @developer_stable
