@@ -7,7 +7,7 @@ import mlflow.gateway.utils
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import InvalidUrlException, MlflowException
 from mlflow.gateway import MlflowGatewayClient, set_gateway_uri
-from mlflow.gateway.config import Route
+from mlflow.gateway.config import Route, LimitsConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
 from mlflow.gateway.utils import resolve_route_url
 
@@ -457,6 +457,41 @@ def test_client_query_embeddings(gateway):
     with mock.patch.object(gateway_client, "_call_endpoint", return_value=mock_response):
         response = gateway_client.query(route=routes[2].name, data=data)
         assert response == expected_output
+
+
+def test_client_create_route_raises(gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
+
+    # This API is available only in Databricks for route creation
+    with pytest.raises(MlflowException, match="The create_route API is only available when"):
+        gateway_client.create_route(
+            "some-route",
+            "llm/v1/chat",
+            {
+                "name": "a-route",
+                "provider": "openai",
+                "config": {
+                    "openai_api_key": "mykey",
+                    "openai_api_type": "openai",
+                },
+            },
+        )
+
+
+def test_client_set_limits_raises(gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
+
+    # This API is available only in Databricks for set limits
+    with pytest.raises(MlflowException, match="The set_limits API is only available when"):
+        gateway_client.set_limis("some-route", LimitsConfig([]))
+
+
+def test_client_get_limits_raises(gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
+
+    # This API is available only in Databricks for get limits
+    with pytest.raises(MlflowException, match="The get_limits API is only available when"):
+        gateway_client.get_limis("some-route")
 
 
 def test_client_create_route_raises(gateway):

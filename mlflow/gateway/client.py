@@ -5,11 +5,12 @@ from typing import Any, Dict, Optional
 import requests.exceptions
 
 from mlflow import MlflowException
-from mlflow.gateway.config import Route
+from mlflow.gateway.config import Route, LimitsConfig, Limit
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
     MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
     MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
+    MLFLOW_GATEWAY_LIMITS_BASE,
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
 )
@@ -337,3 +338,77 @@ class MlflowGatewayClient:
                 raise MlflowException(message=timeout_message, error_code=BAD_REQUEST)
             else:
                 raise e
+
+    @experimental
+    def set_limits(self, route_name: str, limits_config: LimitsConfig) -> LimitsConfig:
+        """
+        Set limits on an existing route in the Gateway.
+
+        .. warning::
+
+            This API is **only available** when running within Databricks.
+
+        :param route_name: The name of the route to set limits on.
+        :param limits_config: The limitsConfig to set on the route.
+
+        :raises mlflow.MlflowException: If the function is not running within Databricks.
+
+        Example usage from within Databricks:
+
+        .. code-block:: python
+
+            from mlflow.gateway import set_gateway_uri, set_limits
+
+            set_gateway_uri(gateway_uri="databricks")
+
+            set_limits("my-new-route", my_limits_config)
+
+        """
+
+        if not self._is_databricks_host():
+            raise MlflowException(
+                "The set_limits API is only available when running within Databricks.",
+                error_code=BAD_REQUEST,
+            )
+        payload = {
+            "route": route_name,
+            "limits": limits_config.limits,
+        }
+        route = assemble_uri_path([MLFLOW_GATEWAY_LIMITS_BASE, route_name])
+        response = self._call_endpoint(
+            "POST", MLFLOW_GATEWAY_CRUD_ROUTE_BASE, json.dumps(payload)
+        ).json()
+        LimitsConfig(**response)
+
+    @experimental
+    def get_limits(self, route_name: str) -> LimitsConfig:
+        """
+        Get limits of an existing route in the Gateway.
+
+        .. warning::
+
+            This API is **only available** when running within Databricks.
+
+        :param route_name: The name of the route to get limits of.
+
+        :raises mlflow.MlflowException: If the function is not running within Databricks.
+
+        Example usage from within Databricks:
+
+        .. code-block:: python
+
+            from mlflow.gateway import set_gateway_uri, get_limits
+
+            set_gateway_uri(gateway_uri="databricks")
+            get_limits("my-new-route")
+
+        """
+
+        if not self._is_databricks_host():
+            raise MlflowException(
+                "The get_limits API is only available when running within Databricks.",
+                error_code=BAD_REQUEST,
+            )
+        route = assemble_uri_path([MLFLOW_GATEWAY_CRUD_LIMITS_BASE, route_name])
+        response = self._call_endpoint("GET", route).json()
+        LimitsConfig(**response)

@@ -345,8 +345,18 @@ class Route(ResponseModel):
         }
 
 
+class Limit(ResponseModel):
+    calls: int
+    key: Optional[str] = None
+    renewal_period: str
+
+
 class GatewayConfig(ConfigModel):
     routes: List[RouteConfig]
+
+
+class LimitsConfig(ConfigModel):
+    limits: List[Limit]
 
 
 def _load_route_config(path: Union[str, Path]) -> GatewayConfig:
