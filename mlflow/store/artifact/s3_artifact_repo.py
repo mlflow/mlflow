@@ -276,7 +276,7 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             upload_id=upload_id,
         )
 
-    def complete_multipart_upload(self, local_file, upload_id=None, parts=None, artifact_path=None):
+    def complete_multipart_upload(self, local_file, upload_id, parts=None, artifact_path=None):
         (bucket, dest_path) = data_utils.parse_s3_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)

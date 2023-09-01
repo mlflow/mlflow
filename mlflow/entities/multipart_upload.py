@@ -12,6 +12,13 @@ class MultipartUploadPart:
     part_number: int
     etag: str
 
+    @classmethod
+    def from_proto(cls, proto):
+        return cls(
+            proto.part_number,
+            proto.etag or None,
+        )
+
 
 @dataclass
 class MultipartUploadCredential:

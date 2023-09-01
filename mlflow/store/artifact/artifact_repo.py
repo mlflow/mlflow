@@ -281,8 +281,20 @@ class MultipartUploadMixin(ABC):
         pass
 
     @abstractmethod
-    def abort_multipart_upload(self, *args, **kwargs):
-        """ """
+    def abort_multipart_upload(
+        self,
+        local_file: str,
+        upload_id: str,
+        artifact_path=None,
+    ) -> None:
+        """
+        Abort a multipart upload.
+
+        :param local_file: Path of artifact to upload
+        :param upload_id: The upload ID. Only required by S3 and GCS.
+        :param artifact_path: Directory within the run's artifact directory in which to upload the
+                              artifact.
+        """
         pass
 
 
