@@ -43,7 +43,10 @@ def download_chunk(range_start, range_end, headers, download_path, http_uri):
     combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
 
     with cloud_storage_http_request(
-        "get", http_uri, stream=False, headers=combined_headers
+        "get",
+        http_uri,
+        stream=False,
+        headers=combined_headers,
     ) as response:
         # File will have been created upstream. Use r+b to ensure chunks
         # don't overwrite the entire file.
