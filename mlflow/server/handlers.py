@@ -1857,7 +1857,7 @@ def _complete_multipart_upload_artifact(artifact_path):
     validate_path_is_safe(artifact_path)
 
     request_message = _get_request_message(
-        CreateMultipartUpload(),
+        CompleteMultipartUpload(),
         schema={
             "path": [_assert_required, _assert_string],
             "upload_id": [_assert_string],
@@ -1866,7 +1866,7 @@ def _complete_multipart_upload_artifact(artifact_path):
     )
     path = request_message.path
     upload_id = request_message.upload_id
-    parts = MultipartUploadPart.from_proto(request_message.parts)
+    parts = [MultipartUploadPart.from_proto(part) for part in request_message.parts]
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     if not isinstance(artifact_repo, MultipartUploadMixin):
@@ -1894,7 +1894,7 @@ def _abort_multipart_upload_artifact(artifact_path):
     validate_path_is_safe(artifact_path)
 
     request_message = _get_request_message(
-        CreateMultipartUpload(),
+        AbortMultipartUpload(),
         schema={
             "path": [_assert_required, _assert_string],
             "upload_id": [_assert_string],

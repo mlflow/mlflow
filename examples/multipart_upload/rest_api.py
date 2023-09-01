@@ -41,11 +41,11 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=5000)
     parser.add_argument("--artifact-path", type=str)
     parser.add_argument("--local-file", type=str)
-    parser.add_argument("--num-parts", type=int)
     args = parser.parse_args()
 
     file_size = os.path.getsize(args.local_file)
-    chunk_size = math.ceil(file_size / args.num_parts)
+    chunk_size = 5 * 1024 * 1024 + 1  # S3 requires part size >= 5 MiB
+    num_parts = math.ceil(file_size / chunk_size)
 
     api = MultipartUploadRestApi(
         args.host,
@@ -53,7 +53,7 @@ if __name__ == "__main__":
         args.artifact_path,
         args.local_file,
     )
-    upload_id, credentials = api.create_multipart_upload(args.num_parts)
+    upload_id, credentials = api.create_multipart_upload(num_parts)
     print(upload_id)
     print(credentials)
 
@@ -66,10 +66,8 @@ if __name__ == "__main__":
         response = requests.put(credential["url"], data=chunk)
         response.raise_for_status()
         parts.append({
-            "PartNumber": credential["part_number"],
-            "ETag": response.headers["ETag"],
+            "part_number": credential["part_number"],
+            "etag": response.headers["ETag"],
         })
     print(parts)
     api.complete_multipart_upload(upload_id, parts)
-
-
