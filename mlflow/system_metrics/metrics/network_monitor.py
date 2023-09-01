@@ -1,4 +1,4 @@
-"""Class for monitoring CPU stats."""
+"""Class for monitoring network stats."""
 
 import psutil
 import os

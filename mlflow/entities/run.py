@@ -52,14 +52,6 @@ class Run(_MLflowObject):
         """
         return self._inputs
 
-    @property
-    def system_metrics_monitor(self):
-        return getattr(self, "_system_metrics_monitor", None)
-
-    @system_metrics_monitor.setter
-    def system_metrics_monitor(self, system_metrics_monitor):
-        self._system_metrics_monitor = system_metrics_monitor
-
     def to_proto(self):
         run = ProtoRun()
         run.info.MergeFrom(self.info.to_proto())
