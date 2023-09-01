@@ -427,8 +427,8 @@ MLFLOW_SAGEMAKER_DEPLOY_IMG_URL = _EnvironmentVariable("MLFLOW_SAGEMAKER_DEPLOY_
 #: (default: ``False``)
 MLFLOW_DISABLE_ENV_CREATION = _BooleanEnvironmentVariable("MLFLOW_DISABLE_ENV_CREATION", False)
 
-#: Specifies the timeout value for mlflow.utils.request_utils.download_chunk
-#: (default: ``300``)
+#: Specifies the timeout value for downloading chunks of mlflow artifacts.
+#: (default: ``300`` for OSS, ``60`` for Databricks)
 MLFLOW_DOWNLOAD_CHUNK_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_DOWNLOAD_CHUNK_TIMEOUT", int, 60 if is_in_databricks_runtime() else 300
 )
