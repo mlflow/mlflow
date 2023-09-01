@@ -1228,24 +1228,6 @@ class DefaultEvaluator(ModelEvaluator):
             )
             return
 
-        _logger.info("Computing toxicity metric:")
-        results = toxicity.compute(predictions=predictions)
-        self.metrics_dict.update({"toxicity": results["toxicity"]})
-        results = toxicity.compute(predictions=predictions, aggregation="ratio")
-        self.metrics.update({"toxicity_ratio": results["toxicity_ratio"]})
-
-    def _calculate_toxicity_in_batches(self, predictions):
-        try:
-            _logger.info("Loading toxicity metric:")
-            import evaluate
-
-            toxicity = evaluate.load("toxicity", module_type="measurement")
-        except Exception as e:
-            _logger.warning(
-                f"Failed to load 'toxicity' metric (error: {e!r}), skipping metric logging."
-            )
-            return
-
         # Breaking down the predictions into smaller batches
         prediction_batches = [
             predictions[i : i + BATCH_SIZE] for i in range(0, len(predictions), BATCH_SIZE)
@@ -1304,8 +1286,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
             return
 
-        # self._calculate_toxicity(predictions)
-        self._calculate_toxicity_in_batches(predictions)
+        self._calculate_toxicity(predictions)
         self._calculate_reading_level(predictions)
         self._calculate_perplexity(predictions)
 
