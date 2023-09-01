@@ -16,10 +16,10 @@ class NetworkMonitor(BaseMetricsMonitor):
         for k, v in network_usage.items():
             if "bytes" in k:
                 # Convert bytes to MB.
-                self._metrics[f"network_{k}"] = int(v / 1e6)
+                self._metrics[f"network_{k}"].append(int(v / 1e6))
             else:
-                self._metrics[f"network_{k}"] = v
+                self._metrics[f"network_{k}"].append(v)
 
     def aggregate_metrics(self):
-        for name, values in self._metrics:
+        for name, values in self._metrics.items():
             self._metrics[name] = sum(values) / len(values)
