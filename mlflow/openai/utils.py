@@ -173,5 +173,5 @@ class _OAITokenHolder:
         else:
             if not self.api_key_in:
                 raise mlflow.MlflowException(
-                    "OpenAI API key must be set in the ``OPENAI_API_KEY``" " environment variable."
+                    "OpenAI API key must be set in the ``OPENAI_API_KEY`` environment variable."
                 )
