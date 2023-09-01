@@ -111,6 +111,9 @@ class BaseStep(metaclass=abc.ABCMeta):
         self.task = self.step_config.get("recipe", "regression/v1").rsplit("/", 1)[0]
         self.step_card = None
 
+    def __str__(self):
+        return f"Step:{self.name}"
+
     def run(self, output_directory: str):
         """
         Executes the step by running common setup operations and invoking

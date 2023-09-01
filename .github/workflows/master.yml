@@ -53,15 +53,11 @@ jobs:
           pre-commit install -t pre-commit -t prepare-commit-msg
       - name: Run pre-commit
         id: pre-commit
+        env:
+          IS_MAINTAINER: ${{ contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
         run: |
           . ~/.venv/bin/activate
           pre-commit run --all-files
-      - name: Update error messages
-        if: always() && steps.pre-commit.outcome == 'failure'
-        run: |
-          if [ -f ".black.log" ]; then
-            grep -o 'reformatted .*\.py' .black.log | sed 's/reformatted \(.*\.py\)/\1: This file is unformatted. Run `black .` or comment `@mlflow-automation autoformat` on the PR if you'\''re an MLflow maintainer./'
-          fi
 
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
