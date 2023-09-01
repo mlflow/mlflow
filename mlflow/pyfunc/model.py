@@ -249,7 +249,7 @@ def _save_model_with_class_artifacts_params(
                         snapshot_location = snapshot_download(
                             repo_id=repo_id,
                             local_dir=os.path.join(
-                                path, saved_artifacts_dir_subpath, artifact_folder
+                                path, saved_artifacts_dir_subpath, artifact_name
                             ),
                             local_dir_use_symlinks=False,
                         )
