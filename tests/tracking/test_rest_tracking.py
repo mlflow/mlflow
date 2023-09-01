@@ -1204,7 +1204,7 @@ def test_search_dataset_handler_rejects_invalid_requests(mlflow_client):
 
     response_empty_experiment_id_field = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/experiments/search-datasets",
-        params={"experiment_id": []},
+        params={"experiment_ids": []},
     )
     assert_response(
         response_empty_experiment_id_field,
@@ -1213,7 +1213,7 @@ def test_search_dataset_handler_rejects_invalid_requests(mlflow_client):
 
     response_too_many_experiment_ids = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/experiments/search-datasets",
-        params={"experiment_id": [f"id_{i}" for i in range(1000)]},
+        params={"experiment_ids": [f"id_{i}" for i in range(1000)]},
     )
     assert_response(
         response_too_many_experiment_ids,
@@ -1241,7 +1241,7 @@ def test_search_dataset_handler_returns_expected_results(mlflow_client):
 
     response = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/experiments/search-datasets",
-        params={"experiment_id": [experiment_id]},
+        params={"experiment_ids": [experiment_id]},
     )
     expected = {
         "experiment_id": experiment_id,
