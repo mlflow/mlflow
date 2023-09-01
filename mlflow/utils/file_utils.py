@@ -655,8 +655,8 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
 
 
 class _ChunkDownloadError(Exception):
-    def __init__(self, retriable: bool, error: str) -> None:
-        self.retriable = retriable
+    def __init__(self, retryable: bool, error: str) -> None:
+        self.retryable = retryable
         self.error = error
         super().__init__(f"Chunk download failed: {error}")
 
@@ -720,7 +720,7 @@ def parallelized_download_file_using_http_uri(
             if os.path.exists(json_file):
                 with open(json_file) as f:
                     data = json.load(f)
-                raise _ChunkDownloadError(data["retriable"], data["error"])
+                raise _ChunkDownloadError(data["retryable"], data["error"])
 
             # Unexpected error
             raise _ChunkDownloadError(False, repr(prc))

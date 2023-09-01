@@ -45,7 +45,7 @@ def main():
         with open(args.temp_file, "w") as f:
             json.dump(
                 {
-                    "retriable": True,
+                    "retryable": True,
                     "error": repr(e),
                 },
                 f,
@@ -55,7 +55,7 @@ def main():
         with open(args.temp_file, "w") as f:
             json.dump(
                 {
-                    "retriable": e.response.status_code in (401, 403, 408),
+                    "retryable": e.response.status_code in (401, 403, 408),
                     "error": repr(e),
                 },
                 f,

@@ -157,7 +157,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 env=parallel_download_subproc_env,
                 headers=headers,
             )
-            if any(not e.retriable for e in failed_downloads.values()):
+            if any(not e.retryable for e in failed_downloads.values()):
                 raise MlflowException(
                     f"Failed to download artifact {dst_run_relative_artifact_path}: "
                     f"{failed_downloads}"
