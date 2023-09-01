@@ -42,24 +42,39 @@ class MosaicMLProvider(BaseProvider):
             {{ user_msg_1 }} [/INST] {{ model_answer_1 }} </s>
             <s>[INST] {{ user_msg_2 }} [/INST]"
         """
-        prompt = ""
+        prompt = "<s>"  # Always start with an opening <s> tag
         for m in messages:
-            role = m.role
-            content = m.content
-            if role == "system":
-                prompt += f"<s>[INST] <<SYS>> {content} <</SYS>>"
-            elif role == "user":
-                inst = f" {content} [/INST]"
-                if not prompt.endswith("<</SYS>>"):
-                    inst = f"<s>[INST]{inst}"
+            if m.role == "system" or m.role == "user":
+                inst = m.content
+
+                # Wrap system messages in <<SYS>> tags
+                if m.role == "system":
+                    inst = f"<<SYS>> {inst} <</SYS>>"
+
+                # Close the [INST] tag
+                inst += " [/INST]"
+
+                # If the previous message was a system/user message,
+                # remove previous closing [/INST] tag
+                if prompt.endswith("[/INST]"):
+                    prompt = prompt[:-7]
+                # Otherwise, add an opening [INST] tag
+                else:
+                    inst = f"[INST] {inst}"
                 prompt += inst
-            elif role == "assistant":
-                prompt += f" {content} </s>"
+            elif m.role == "assistant":
+                # Add statement closing/opening tags by default
+                prompt += f" {m.content} </s><s>"
             else:
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid role {role} inputted. Must be one of 'system', "
+                    f"Invalid role {m.role} inputted. Must be one of 'system', "
                     "'user', or 'assistant'.",
                 )
+
+        # Remove the last </s><s> tags if they exist to allow for
+        # assistant completion prompts.
+        if prompt.endswith("</s><s>"):
+            prompt = prompt[:-7]
         return prompt
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:

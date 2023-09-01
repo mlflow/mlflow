@@ -266,6 +266,80 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
             ],
             "<s>[INST] Hi there [/INST] How can I help? </s><s>[INST] Thanks! [/INST]",
         ),
+        (
+            [
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="user", content="Test"),
+            ],
+            "<s>[INST] Test Test [/INST]",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Test"),
+                RequestMessage(role="system", content="Test"),
+            ],
+            "<s>[INST] <<SYS>> Test <</SYS>> <<SYS>> Test <</SYS>> [/INST]",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Test"),
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="user", content="Test"),
+            ],
+            "<s>[INST] <<SYS>> Test <</SYS>> Test Test [/INST]",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Test"),
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+            ],
+            "<s>[INST] <<SYS>> Test <</SYS>> Test [/INST] Test </s><s> Test ",
+        ),
+        (
+            [RequestMessage(role="assistant", content="Test")],
+            "<s> Test ",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+            ],
+            "<s>[INST] <<SYS>> Test <</SYS>> [/INST] Test ",
+        ),
+        (
+            [
+                RequestMessage(role="assistant", content="Test"),
+                RequestMessage(role="system", content="Test"),
+            ],
+            "<s> Test </s><s>[INST] <<SYS>> Test <</SYS>> [/INST]",
+        ),
+        (
+            [RequestMessage(role="system", content="Test")],
+            "<s>[INST] <<SYS>> Test <</SYS>> [/INST]",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Test"),
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+                RequestMessage(role="system", content="Test"),
+            ],
+            "<s>[INST] <<SYS>> Test <</SYS>> Test [/INST] Test </s><s>[INST] <<SYS>> Test <</SYS>> [/INST]",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Test"),
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+            ],
+            "<s>[INST] <<SYS>> Test <</SYS>> Test [/INST] Test </s><s>[INST] Test [/INST] Test </s><s>[INST] Test [/INST] Test ",
+        ),
     ],
 )
 def test_valid_parsing(messages, expected_output):
