@@ -32,7 +32,6 @@ def main():
     download_chunk = module.download_chunk
 
     args = parse_args()
-    temp_file = args.temp_file
 
     try:
         download_chunk(
@@ -43,7 +42,7 @@ def main():
             http_uri=args.http_uri,
         )
     except requests.exceptions.ChunkedEncodingError as e:
-        with open(temp_file, "w") as f:
+        with open(args.temp_file, "w") as f:
             json.dump(
                 {
                     "retriable": True,
@@ -53,7 +52,7 @@ def main():
             )
         raise
     except requests.HTTPError as e:
-        with open(temp_file, "w") as f:
+        with open(args.temp_file, "w") as f:
             json.dump(
                 {
                     "retriable": e.response.status_code in (401, 403, 408),
