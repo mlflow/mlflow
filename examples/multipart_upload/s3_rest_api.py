@@ -16,7 +16,7 @@ class MultipartUploadRestApi:
             json={
                 "path": self.local_file,
                 "num_parts": num_parts,
-            }
+            },
         )
         r.raise_for_status()
         create = r.json()
@@ -29,7 +29,7 @@ class MultipartUploadRestApi:
                 "path": self.local_file,
                 "upload_id": upload_id,
                 "parts": parts,
-            }
+            },
         )
         r.raise_for_status()
 
@@ -66,10 +66,12 @@ if __name__ == "__main__":
 
         response = requests.put(credential["url"], data=chunk)
         response.raise_for_status()
-        parts.append({
-            "part_number": credential["part_number"],
-            "etag": response.headers["ETag"],
-        })
+        parts.append(
+            {
+                "part_number": credential["part_number"],
+                "etag": response.headers["ETag"],
+            }
+        )
 
     print("Uploaded all parts:", parts)
 

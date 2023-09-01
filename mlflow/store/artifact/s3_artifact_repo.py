@@ -281,10 +281,7 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
-        parts = [
-            {"PartNumber": part.part_number, "ETag": part.etag}
-            for part in parts
-        ]
+        parts = [{"PartNumber": part.part_number, "ETag": part.etag} for part in parts]
         s3_client = self._get_s3_client()
         s3_client.complete_multipart_upload(
             Bucket=bucket, Key=dest_path, UploadId=upload_id, MultipartUpload={"Parts": parts}
