@@ -6,18 +6,15 @@ from mlflow.system_metrics.metrics.base_metrics_monitor import BaseMetricsMonito
 
 
 class CPUMonitor(BaseMetricsMonitor):
+    """Class for monitoring CPU stats."""
+
     def __init__(self, name="cpu"):
         super().__init__(name)
 
     def collect_metrics(self):
-        # Get metrics for the system.
+        # Get CPU metrics.
         cpu_percent = psutil.cpu_percent()
         self._metrics["cpu_percentage"] = cpu_percent
 
         system_memory = psutil.virtual_memory()._asdict()
-        for k, v in system_memory.items():
-            if "percent" in k:
-                self._metrics[f"cpu_memory_{k}"] = v
-            else:
-                # Convert bytes to MB.
-                self._metrics[f"cpu_memory_{k}"] = int(v / 1e6)
+        self._metrics["cpu_memory_used"] = int(system_memory["used"] / 1e6)

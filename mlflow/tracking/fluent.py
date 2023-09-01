@@ -11,7 +11,6 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from mlflow.data.dataset import Dataset
-from mlflow.system_metrics import SystemMetricsMonitor
 from mlflow.entities import (
     DatasetInput,
     Experiment,
@@ -175,7 +174,6 @@ class ActiveRun(Run):  # pylint: disable=abstract-method
 
     def __init__(self, run):
         Run.__init__(self, run.info, run.data)
-        self.system_metrics_monitor = run.system_metrics_monitor
 
     def __enter__(self):
         return self
@@ -229,7 +227,7 @@ def start_run(
         If a run is being resumed, the description is set on the resumed run.
         If a new run is being created, the description is set on the new run.
     :param include_system_metrics: bool, defaults to True. If True, system metrics will be logged
-        to MLflow, including cpu/gpu utilization, disk utilization and so on.
+        to MLflow, e.g., cpu/gpu utilization.
 
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping the
         run's state.

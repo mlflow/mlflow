@@ -7,7 +7,7 @@ from mlflow.system_metrics.metrics.base_metrics_monitor import BaseMetricsMonito
 
 
 class NetworkMonitor(BaseMetricsMonitor):
-    def __init__(self, name="cpu"):
+    def __init__(self, name="network"):
         super().__init__(name)
 
     def collect_metrics(self):

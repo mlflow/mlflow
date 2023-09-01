@@ -2,6 +2,12 @@
 
 
 class BaseMetricsMonitor:
+    """Base class of system metrics monitor.
+
+    Args:
+        name: string, name of the monitor.
+    """
+
     def __init__(self, name):
         self.name = name
 

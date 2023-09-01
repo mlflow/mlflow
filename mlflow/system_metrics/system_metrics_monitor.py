@@ -1,11 +1,9 @@
 """Class for monitoring system stats."""
 
-import threading
 import logging
+import threading
 
 from mlflow.system_metrics.metrics.cpu_monitor import CPUMonitor
-from mlflow.system_metrics.metrics.disk_monitor import DiskMonitor
-from mlflow.system_metrics.metrics.network_monitor import NetworkMonitor
 from mlflow.system_metrics.metrics.gpu_monitor import GPUMonitor
 
 logger = logging.getLogger(__name__)
@@ -20,14 +18,15 @@ class SystemMetricsMonitor:
     Args:
         mlflow_run: an 'mlflow.entities.run.Run' instance, which is used to bootstrap system metrics
             logging with the MLflow tracking server.
-        logging_interval: float, the interval (in seconds) at which to log system metrics to MLflow.
+        logging_interval: float, default to 15.0. The interval (in seconds) at which to log system
+            metrics to MLflow.
     """
 
-    def __init__(self, mlflow_run, logging_interval=5.0):
+    def __init__(self, mlflow_run, logging_interval=15.0):
         from mlflow.utils.autologging_utils import BatchMetricsLogger
 
         # Instantiate default monitors.
-        self.monitors = [CPUMonitor(), DiskMonitor(), NetworkMonitor()]
+        self.monitors = [CPUMonitor()]
         gpu_monitor = GPUMonitor()
         if gpu_monitor:
             self.monitors.append(gpu_monitor)
@@ -37,8 +36,6 @@ class SystemMetricsMonitor:
         self.mlflow_logger = BatchMetricsLogger(self._run_id)
         self._shutdown_event = threading.Event()
         self._process = None
-        # Attach `SystemMetricsMonitor` instance to the `mlflow_run` instance.
-        mlflow_run.system_metrics_monitor = self
 
     def start(self):
         """Start monitoring system metrics."""
@@ -49,13 +46,13 @@ class SystemMetricsMonitor:
                 name="SystemMetricsMonitor",
             )
             self._process.start()
-            logger.info(f"MLflow: started monitoring system metrics.")
+            logger.info("MLflow: started monitoring system metrics.")
         except Exception as e:
             logger.warning(f"MLflow: failed to start monitoring system metrics: {e}")
             self._process = None
 
     def monitor(self):
-        """Main loop for the thread, which consistently collect and log system metrics."""
+        """Main monitoring loop, which consistently collect and log system metrics."""
         from mlflow.tracking.fluent import get_run
 
         while not self._shutdown_event.is_set():
@@ -63,6 +60,7 @@ class SystemMetricsMonitor:
             self._shutdown_event.wait(self.logging_interval)
             run = get_run(self._run_id)
             if run.info.status == "FINISHED" or self._shutdown_event.is_set():
+                # If the mlflow run is terminated or receives the shutdown signal, stop monitoring.
                 break
             try:
                 self.log_metrics(metrics)

@@ -7,7 +7,9 @@ from mlflow.system_metrics.metrics.base_metrics_monitor import BaseMetricsMonito
 
 
 class DiskMonitor(BaseMetricsMonitor):
-    def __init__(self, name="cpu"):
+    """Class for monitoring disk stats."""
+
+    def __init__(self, name="disk"):
         super().__init__(name)
 
     def collect_metrics(self):
