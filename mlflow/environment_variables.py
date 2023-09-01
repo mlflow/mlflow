@@ -424,4 +424,4 @@ MLFLOW_DISABLE_ENV_CREATION = _BooleanEnvironmentVariable("MLFLOW_DISABLE_ENV_CR
 
 #: Specifies the timeout value for downloading chunks of mlflow artifacts.
 #: (default: ``300``)
-MLFLOW_DOWNLOAD_CHUNK_TIMEOUT = _EnvironmentVariable(int, 300)
+MLFLOW_DOWNLOAD_CHUNK_TIMEOUT = _EnvironmentVariable("MLFLOW_DOWNLOAD_CHUNK_TIMEOUT", int, 300)
