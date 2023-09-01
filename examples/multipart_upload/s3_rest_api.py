@@ -32,7 +32,6 @@ class MultipartUploadRestApi:
             }
         )
         r.raise_for_status()
-        print(r.text)
 
 
 if __name__ == "__main__":
@@ -54,11 +53,13 @@ if __name__ == "__main__":
         args.local_file,
     )
     upload_id, credentials = api.create_multipart_upload(num_parts)
-    print(upload_id)
-    print(credentials)
+    print("Created multipart upload")
+    print("upload_id:", upload_id)
+    print("credentials:", credentials)
 
     parts = []
     for i, credential in enumerate(credentials):
+        print(f"Uploading part #{i + 1}")
         with open(args.local_file, "rb") as f:
             f.seek(i * chunk_size)
             chunk = f.read(chunk_size)
@@ -69,5 +70,8 @@ if __name__ == "__main__":
             "part_number": credential["part_number"],
             "etag": response.headers["ETag"],
         })
-    print(parts)
+
+    print("Uploaded all parts:", parts)
+
     api.complete_multipart_upload(upload_id, parts)
+    print("Multipart upload completed")
