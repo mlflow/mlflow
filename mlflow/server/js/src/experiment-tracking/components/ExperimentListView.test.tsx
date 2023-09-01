@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { BrowserRouter } from 'react-router-dom-v5-compat';
+import { BrowserRouter } from '../../common/utils/RoutingUtils';
 import { Provider } from 'react-redux';
 import thunk from 'redux-thunk';
 import configureStore from 'redux-mock-store';

@@ -6,8 +6,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { getSrc } from './ShowArtifactPage';
-import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
+import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
 import { LegacyTable } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'papa... Remove this comment to see the full error message
@@ -50,7 +49,7 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact }: Props) => {
   }
 
   function fetchArtifacts(artifactData: any) {
-    const artifactLocation = getSrc(artifactData.path, artifactData.runUuid);
+    const artifactLocation = getArtifactLocationUrl(artifactData.path, artifactData.runUuid);
     artifactData
       .getArtifact(artifactLocation)
       .then((artifactText: any) => {
