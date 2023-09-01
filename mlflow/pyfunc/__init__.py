@@ -246,7 +246,7 @@ from mlflow.models.utils import (
 )
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
-    RESOURCE_DOES_NOT_EXIST,
+    RESOURCE_DOES_NOT_EXIST, BAD_REQUEST,
 )
 from mlflow.pyfunc.model import (
     PythonModel,
@@ -627,14 +627,23 @@ def load_model(
             f'Model does not have the "{FLAVOR_NAME}" flavor',
             RESOURCE_DOES_NOT_EXIST,
         )
-    model_info = model_meta.get_model_info()
     model_py_version = conf.get(PY_VERSION)
     if not suppress_warnings:
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
 
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
-    model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
+    try:
+        model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
+    except ImportError as e:
+        if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE:
+            raise MlflowException(
+                "mlflow.pyfunc.load_model is not supported for Feature Store models. "
+                "spark_udf() and predict() will not work as expected. Use "
+                "score_batch for offline predictions.",
+                BAD_REQUEST
+            )
+        raise e
     predict_fn = conf.get("predict_fn", "predict")
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl, predict_fn=predict_fn)
 
