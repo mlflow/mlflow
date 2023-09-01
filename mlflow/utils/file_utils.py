@@ -18,6 +18,7 @@ import urllib.request
 import uuid
 from concurrent.futures import as_completed
 from contextlib import contextmanager
+from subprocess import TimeoutExpired
 from urllib.parse import unquote
 from urllib.request import pathname2url
 
@@ -755,8 +756,9 @@ def parallelized_download_file_using_http_uri(
                 else:
                     pbar.update()
             except Exception as e:
+                status_code = 408 if isinstance(e, TimeoutExpired) else 500
                 failed_downloads[index] = {
-                    "error_status_code": 500,
+                    "error_status_code": status_code,
                     "error_text": repr(e),
                 }
 
