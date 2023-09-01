@@ -7,7 +7,7 @@ import json
 import os
 import sys
 
-import requests
+from requests.exceptions import ChunkedEncodingError, HTTPError, Timeout
 
 
 def parse_args():
@@ -41,7 +41,7 @@ def main():
             download_path=args.download_path,
             http_uri=args.http_uri,
         )
-    except requests.exceptions.ChunkedEncodingError as e:
+    except (Timeout, ChunkedEncodingError) as e:
         with open(args.temp_file, "w") as f:
             json.dump(
                 {
@@ -51,7 +51,7 @@ def main():
                 f,
             )
         raise
-    except requests.HTTPError as e:
+    except HTTPError as e:
         with open(args.temp_file, "w") as f:
             json.dump(
                 {
