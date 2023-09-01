@@ -49,8 +49,6 @@ _EVAL_TABLE_FILE_NAME = "eval_results_table.json"
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import mlflow
-
 MAX_RETRIES = 3  # You can adjust this number as needed
 BATCH_SIZE = 10  # You can adjust the batch size based on your resources and needs
 
