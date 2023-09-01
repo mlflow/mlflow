@@ -628,15 +628,6 @@ def load_model(
             RESOURCE_DOES_NOT_EXIST,
         )
     model_info = model_meta.get_model_info()
-    if (
-        model_info.flavors.get("python_function", {}).get("loader_module")
-        == _DATABRICKS_FS_LOADER_MODULE
-    ):
-        _logger.warning(
-            "mlflow.pyfunc.load_model is not supported for Feature Store models. "
-            "spark_udf() and predict() will not work as expected. Use"
-            "score_batch for offline predictions."
-        )
     model_py_version = conf.get(PY_VERSION)
     if not suppress_warnings:
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)

@@ -58,6 +58,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.protos.service_pb2 import GetRun, MlflowService
+from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE
 from mlflow.store._unity_catalog.registry.utils import (
     get_artifact_repo_from_storage_info,
     get_full_name_from_sc,
@@ -92,7 +93,6 @@ _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
     UcModelRegistryService, _REST_API_PATH_PREFIX
 )
-_DATABRICKS_FS_LOADER_MODULE = "databricks.feature_store.mlflow_model"
 
 _logger = logging.getLogger(__name__)
 
