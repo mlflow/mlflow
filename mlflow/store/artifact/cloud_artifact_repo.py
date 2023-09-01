@@ -208,7 +208,7 @@ class CloudArtifactRepository(ArtifactRepository):
                 env=parallel_download_subproc_env,
                 headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
-            if any(e.status_code not in (401, 403, 408) for e in failed_downloads.values()):
+            if any(not e.retriable for e in failed_downloads.values()):
                 raise MlflowException(
                     f"Failed to download artifact {remote_file_path}: {failed_downloads}"
                 )

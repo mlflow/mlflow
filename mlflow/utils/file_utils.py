@@ -655,10 +655,10 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
 
 
 class _ChunkDownloadError(Exception):
-    def __init__(self, status_code: int, error: str) -> None:
-        self.status_code = status_code
+    def __init__(self, retriable: bool, error: str) -> None:
+        self.retriable = retriable
         self.error = error
-        super().__init__(f"Download failed with status code {status_code}: {error}")
+        super().__init__(f"Download failed with status code: {error}")
 
 
 def parallelized_download_file_using_http_uri(
@@ -710,7 +710,7 @@ def parallelized_download_file_using_http_uri(
                     env=env,
                 )
             except TimeoutExpired as e:
-                raise _ChunkDownloadError(408, repr(e)) from e
+                raise _ChunkDownloadError(True, repr(e)) from e
 
             # Successfully downloaded chunk
             if prc.returncode == 0:
@@ -720,10 +720,10 @@ def parallelized_download_file_using_http_uri(
             if os.path.exists(json_file):
                 with open(json_file) as f:
                     data = json.load(f)
-                raise _ChunkDownloadError(data["status_code"], data["error"])
+                raise _ChunkDownloadError(data["retriable"], data["error"])
 
             # Unexpected error
-            raise _ChunkDownloadError(500, repr(prc))
+            raise _ChunkDownloadError(False, repr(prc))
 
     num_requests = int(math.ceil(file_size / float(chunk_size)))
     # Create file if it doesn't exist or erase the contents if it does. We should do this here
