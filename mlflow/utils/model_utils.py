@@ -13,7 +13,6 @@ from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_CONFIG_CODE = "code"
-_DATABRICKS_FS_LOADER_MODULE = "databricks.feature_store.mlflow_model"
 
 
 def _get_flavor_configuration(model_path, flavor_name):

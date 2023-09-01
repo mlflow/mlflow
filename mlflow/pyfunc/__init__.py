@@ -245,8 +245,9 @@ from mlflow.models.utils import (
     _save_example,
 )
 from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
-    RESOURCE_DOES_NOT_EXIST, BAD_REQUEST,
+    RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.pyfunc.model import (
     PythonModel,
@@ -641,7 +642,7 @@ def load_model(
                 "mlflow.pyfunc.load_model is not supported for Feature Store models. "
                 "spark_udf() and predict() will not work as expected. Use "
                 "score_batch for offline predictions.",
-                BAD_REQUEST
+                BAD_REQUEST,
             )
         raise e
     predict_fn = conf.get("predict_fn", "predict")
