@@ -353,6 +353,7 @@ nitpick_ignore = [
     ("py:class", "pydantic.main.BaseModel"),
     ("py:class", "ConfigDict"),
     ("py:class", "FieldInfo"),
+    ("py:class", "pyspark"),
 ]
 
 
