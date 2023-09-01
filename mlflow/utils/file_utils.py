@@ -18,6 +18,7 @@ import urllib.request
 import uuid
 from concurrent.futures import as_completed
 from contextlib import contextmanager
+from subprocess import TimeoutExpired
 from urllib.parse import unquote
 from urllib.request import pathname2url
 
@@ -31,7 +32,10 @@ except ImportError:
     from yaml import SafeLoader as YamlSafeLoader
 
 from mlflow.entities import FileInfo
-from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
+from mlflow.environment_variables import (
+    MLFLOW_DOWNLOAD_CHUNK_TIMEOUT,
+    MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
+)
 from mlflow.exceptions import MissingConfigException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.utils import download_cloud_file_chunk, merge_dicts
@@ -696,7 +700,7 @@ def parallelized_download_file_using_http_uri(
                 stream_output=False,
                 env=env,
             )
-            _, stderr = download_proc.communicate()
+            _, stderr = download_proc.communicate(timeout=MLFLOW_DOWNLOAD_CHUNK_TIMEOUT.get())
             if download_proc.returncode != 0:
                 if os.path.exists(temp_file):
                     with open(temp_file) as f:
@@ -751,6 +755,11 @@ def parallelized_download_file_using_http_uri(
                     failed_downloads[index] = result
                 else:
                     pbar.update()
+            except TimeoutExpired as e:
+                failed_downloads[index] = {
+                    "error_status_code": 408,
+                    "error_text": repr(e),
+                }
             except Exception as e:
                 failed_downloads[index] = {
                     "error_status_code": 500,
