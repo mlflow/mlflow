@@ -1840,6 +1840,7 @@ def _create_multipart_upload_artifact(artifact_path):
     create_response = artifact_repo.create_multipart_upload(
         path,
         num_parts,
+        artifact_path,
     )
     response_message = create_response.to_proto()
     response = Response(mimetype="application/json")
@@ -1880,6 +1881,7 @@ def _complete_multipart_upload_artifact(artifact_path):
         path,
         upload_id,
         parts,
+        artifact_path,
     )
     return _wrap_response(CompleteMultipartUpload.Response())
 
@@ -1914,6 +1916,7 @@ def _abort_multipart_upload_artifact(artifact_path):
     artifact_repo.abort_multipart_upload(
         path,
         upload_id,
+        artifact_path,
     )
     return _wrap_response(AbortMultipartUpload.Response())
 
