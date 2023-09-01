@@ -20,6 +20,7 @@ import uuid
 from concurrent.futures import as_completed
 from contextlib import contextmanager
 from subprocess import TimeoutExpired
+from typing import Optional
 from urllib.parse import unquote
 from urllib.request import pathname2url
 
@@ -655,10 +656,14 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
 
 
 class _ChunkDownloadError(Exception):
-    def __init__(self, retryable: bool, error: str) -> None:
+    def __init__(self, retryable: bool, error: str, status_code: Optional[int] = None) -> None:
         self.retryable = retryable
         self.error = error
-        super().__init__(f"Chunk download failed: {error}")
+        self.status_code = status_code
+        if status_code is not None:
+            super().__init__(f"Chunk download failed with status code {status_code}: {error}")
+        else:
+            super().__init__(f"Chunk download failed: {error}")
 
 
 def parallelized_download_file_using_http_uri(

@@ -7,7 +7,7 @@ import json
 import os
 import sys
 
-from requests.exceptions import ChunkedEncodingError, HTTPError, Timeout
+from requests.exceptions import ChunkedEncodingError, ConnectionError, HTTPError
 
 
 def parse_args():
@@ -41,7 +41,7 @@ def main():
             download_path=args.download_path,
             http_uri=args.http_uri,
         )
-    except (Timeout, ChunkedEncodingError) as e:
+    except (ConnectionError, ChunkedEncodingError) as e:
         with open(args.temp_file, "w") as f:
             json.dump(
                 {
@@ -57,6 +57,7 @@ def main():
                 {
                     "retryable": e.response.status_code in (401, 403, 408),
                     "error": repr(e),
+                    "status_code": e.response.status_code,
                 },
                 f,
             )
