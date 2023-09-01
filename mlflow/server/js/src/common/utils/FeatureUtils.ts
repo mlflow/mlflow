@@ -20,7 +20,7 @@ export const shouldEnableDatasetsDropdown = () => false;
 /**
  * UI feature preview: enables prompt lab
  */
-export const shouldEnablePromptLab = () => false;
+export const shouldEnablePromptLab = () => true;
 
 export const shouldUsePathRouting = () => false;
 

@@ -33,8 +33,7 @@ export interface GetModelGatewayRouteAction extends AsyncAction<ModelGatewayRout
 export const getModelGatewayRouteApi = (routeName: string): GetModelGatewayRouteAction => ({
   type: GET_MODEL_GATEWAY_ROUTE_API,
   payload: MlflowService.gatewayProxyGet({
-    gateway_path: `api/2.0/gateway/routes/${routeName}`,
-    json_data: {},
+    gateway_path: `api/2.0/gateway/routes/${routeName}`
   }) as Promise<ModelGatewayRoute>,
   meta: { id: getUUID() },
 });

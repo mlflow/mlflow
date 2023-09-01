@@ -1100,7 +1100,7 @@ def get_metric_history_bulk_handler():
 @_disable_if_artifacts_only
 def search_datasets_handler():
     MAX_EXPERIMENT_IDS_PER_REQUEST = 20
-    experiment_ids = request.args.to_dict(flat=False).get("experiment_id", [])
+    experiment_ids = request.args.to_dict(flat=False).get("experiment_ids", [])
     if not experiment_ids:
         raise MlflowException(
             message="SearchDatasets request must specify at least one experiment_id.",
