@@ -46,11 +46,12 @@ def main():
         with open(temp_file, "w") as f:
             json.dump(
                 {
-                    "error_status_code": e.response.status_code,
-                    "error_text": str(e),
+                    "status_code": e.response.status_code,
+                    "error": repr(e),
                 },
                 f,
             )
+        raise
 
 
 if __name__ == "__main__":

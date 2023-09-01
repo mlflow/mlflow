@@ -208,14 +208,9 @@ class CloudArtifactRepository(ArtifactRepository):
                 env=parallel_download_subproc_env,
                 headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
-            download_errors = [
-                e
-                for e in failed_downloads.values()
-                if e["error_status_code"] not in (401, 403, 408)
-            ]
-            if download_errors:
+            if any(e.status_code not in (401, 403, 408) for e in failed_downloads.values()):
                 raise MlflowException(
-                    f"Failed to download artifact {remote_file_path}: " f"{download_errors}"
+                    f"Failed to download artifact {remote_file_path}: {failed_downloads}"
                 )
 
             if failed_downloads:
@@ -225,6 +220,8 @@ class CloudArtifactRepository(ArtifactRepository):
 
                 for i in failed_downloads:
                     download_chunk(i, _DOWNLOAD_CHUNK_SIZE, new_headers, local_path, new_signed_uri)
+        except MlflowException:
+            raise
         except Exception as err:
             if os.path.exists(local_path):
                 os.remove(local_path)
