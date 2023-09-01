@@ -33,7 +33,8 @@ class SystemMetricsMonitor:
             self.monitors.append(gpu_monitor)
         self.logging_interval = logging_interval
 
-        self.mlflow_logger = BatchMetricsLogger(mlflow_run.info.run_id)
+        self._run_id = mlflow_run.info.run_id
+        self.mlflow_logger = BatchMetricsLogger(self._run_id)
         self._shutdown_event = threading.Event()
         self._process = None
         # Attach `SystemMetricsMonitor` instance to the `mlflow_run` instance.
@@ -55,10 +56,13 @@ class SystemMetricsMonitor:
 
     def monitor(self):
         """Main loop for the thread, which consistently collect and log system metrics."""
+        from mlflow.tracking.fluent import get_run
+
         while not self._shutdown_event.is_set():
             metrics = self.collect_metrics()
             self._shutdown_event.wait(self.logging_interval)
-            if self._shutdown_event.is_set():
+            run = get_run(self._run_id)
+            if run.info.status == "FINISHED" or self._shutdown_event.is_set():
                 break
             try:
                 self.log_metrics(metrics)
