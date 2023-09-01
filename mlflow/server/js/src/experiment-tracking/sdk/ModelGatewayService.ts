@@ -128,7 +128,7 @@ function isGatewayResponseOfType(
 }
 
 export class ModelGatewayService {
-  private static createEvaluationTextPayload(inputText: string, route: ModelGatewayRoute) {
+  static createEvaluationTextPayload(inputText: string, route: ModelGatewayRoute) {
     switch (route.route_type) {
       case ModelGatewayRouteType.LLM_V1_COMPLETIONS: {
         return { prompt: inputText };

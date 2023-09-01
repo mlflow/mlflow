@@ -1129,15 +1129,17 @@ def search_datasets_handler():
 
 @catch_mlflow_exception
 def gateway_proxy_handler():
-    args = request.json
-
     gateway_uri = MLFLOW_GATEWAY_URI.get()
-    _logger.info("gateway_uri: %s", gateway_uri)
     if not gateway_uri:
         raise MlflowException(
             message="MLFLOW_GATEWAY_URI environment variable must be set.",
             error_code=INTERNAL_ERROR,
         )
+
+    if request.method == "GET":
+        args = request.args
+    else:
+        args = request.json
 
     gateway_path = args.get("gateway_path")
     if not gateway_path:
@@ -1145,10 +1147,9 @@ def gateway_proxy_handler():
             message="GatewayProxy request must specify a gateway_path.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    request_type = request.method
-    json_data = args.get("json_data", None)
 
-    response = requests.request(request_type, f"{gateway_uri}/{gateway_path}", json=json_data)
+    json_data = args.get("json_data", None)
+    response = requests.request(request.method, f"{gateway_uri}/{gateway_path}", json=json_data)
 
     if response.status_code == 200:
         return response.json()
