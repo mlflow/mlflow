@@ -241,4 +241,5 @@ mlflow_set_experiment <- function(experiment_name = NULL, experiment_id = NULL, 
     experiment_id
   }
   invisible(mlflow_set_active_experiment_id(final_experiment_id))
+  return(final_experiment_id)
 }

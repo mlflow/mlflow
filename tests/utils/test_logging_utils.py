@@ -1,5 +1,6 @@
 import logging
 import sys
+
 import pytest
 
 import mlflow

@@ -1,13 +1,14 @@
 """
 A simple script to benchmark MLflow's artifact upload/download performance.
 """
-import tempfile
 import contextlib
-import pathlib
 import hashlib
 import os
-import psutil
+import pathlib
+import tempfile
 import time
+
+import psutil
 
 import mlflow
 

@@ -1,33 +1,33 @@
-import pytest
-import numpy as np
 import random
 
-import mlflow
-from mlflow import MlflowException
-
-from datasets import load_dataset
+import numpy as np
 import optuna
-from sentence_transformers.losses import CosineSimilarityLoss
-from setfit import SetFitModel, SetFitTrainer, sample_dataset
+import pytest
 import sklearn
 import sklearn.cluster
 import torch
+from datasets import load_dataset
+from sentence_transformers.losses import CosineSimilarityLoss
+from setfit import SetFitModel, SetFitTrainer, sample_dataset
 from transformers import (
-    Trainer,
-    DistilBertTokenizerFast,
     DistilBertForSequenceClassification,
+    DistilBertTokenizerFast,
+    Trainer,
     TrainingArguments,
     pipeline,
 )
 
+import mlflow
+from mlflow import MlflowException
 
-@pytest.fixture()
+
+@pytest.fixture
 def iris_data():
     iris = sklearn.datasets.load_iris()
     return iris.data[:, :2], iris.target
 
 
-@pytest.fixture()
+@pytest.fixture
 def setfit_trainer():
     dataset = load_dataset("sst2")
 
@@ -49,7 +49,7 @@ def setfit_trainer():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def transformers_trainer(tmp_path):
     random.seed(8675309)
     np.random.seed(8675309)
@@ -94,7 +94,7 @@ def transformers_trainer(tmp_path):
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def transformers_hyperparameter_trainer(tmp_path):
     random.seed(555)
     np.random.seed(555)
@@ -171,7 +171,7 @@ def transformers_hyperparameter_trainer(tmp_path):
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def transformers_hyperparameter_functional(tmp_path):
     random.seed(555)
     np.random.seed(555)

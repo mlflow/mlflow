@@ -1,29 +1,30 @@
 import json
-import numpy as np
 import os
-import pandas as pd
-from sentence_transformers import SentenceTransformer
-import pytest
 from unittest import mock
+
+import numpy as np
+import pandas as pd
+import pytest
 import yaml
+from pyspark.sql import SparkSession
+from pyspark.sql.types import ArrayType, DoubleType
+from sentence_transformers import SentenceTransformer
 
 import mlflow
-
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sentence_transformers
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.environment import _mlflow_conda_env
-from pyspark.sql import SparkSession
-from pyspark.sql.types import ArrayType, DoubleType
 
 from tests.helper_functions import (
     _assert_pip_requirements,
     _compare_logged_code_paths,
     _mlflow_major_version_string,
+    assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
 )
 
@@ -59,7 +60,7 @@ def test_model_save_and_load(model_path, basic_model):
     assert all(len(x) == 384 for x in encoded_multi)
 
 
-def test_dependency_mapping(model_path, basic_model):
+def test_dependency_mapping():
     pip_requirements = mlflow.sentence_transformers.get_default_pip_requirements()
 
     expected_requirements = {"sentence-transformers", "torch", "transformers"}
@@ -143,7 +144,7 @@ def test_load_from_remote_uri(model_path, basic_model, mock_s3_bucket):
 
 def test_log_model_calls_register_model(tmp_path, basic_model):
     artifact_path = "sentence_transformer"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(
@@ -156,16 +157,16 @@ def test_log_model_calls_register_model(tmp_path, basic_model):
             registered_model_name="My super cool encoder",
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        mlflow.register_model.assert_called_once_with(
-            model_uri,
-            "My super cool encoder",
-            await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        assert_register_model_called_with_local_model_path(
+            register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
+            model_uri=model_uri,
+            registered_model_name="My super cool encoder",
         )
 
 
 def test_log_model_with_no_registered_model_name(tmp_path, basic_model):
     artifact_path = "sentence_transformer"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(
@@ -176,7 +177,7 @@ def test_log_model_with_no_registered_model_name(tmp_path, basic_model):
             artifact_path=artifact_path,
             conda_env=str(conda_env),
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
 def test_log_with_pip_requirements(tmp_path, basic_model):
@@ -290,10 +291,11 @@ def test_log_model_with_code_paths(basic_model):
         add_mock.assert_called()
 
 
-def test_default_signature_assignment(model_path, basic_model):
+def test_default_signature_assignment():
     expected_signature = {
         "inputs": '[{"type": "string"}]',
-        "outputs": '[{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": ' "[-1]}}]",
+        "outputs": '[{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1]}}]',
+        "params": None,
     }
 
     default_signature = mlflow.sentence_transformers._get_default_signature()
@@ -323,15 +325,60 @@ def test_model_pyfunc_save_load(basic_model, model_path):
     np.testing.assert_array_equal(emb1, emb3)
 
 
-def test_spark_udf(basic_model, model_path, spark):
+def test_model_pyfunc_predict_with_params(basic_model, tmp_path):
+    sentence = "hello world and hello mlflow"
+    params = {"batch_size": 16}
+
+    model_path = tmp_path / "model1"
+    signature = infer_signature(sentence, params=params)
+    mlflow.sentence_transformers.save_model(basic_model, model_path, signature=signature)
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+    embedding_dim = basic_model.get_sentence_embedding_dimension()
+
+    emb0 = loaded_pyfunc.predict(sentence, params)
+    assert emb0.shape == (1, embedding_dim)
+
+    with pytest.raises(MlflowException, match=r"Incompatible types for param 'batch_size'"):
+        loaded_pyfunc.predict(sentence, {"batch_size": "16"})
+
+    model_path = tmp_path / "model2"
+    mlflow.sentence_transformers.save_model(
+        basic_model,
+        model_path,
+        signature=infer_signature(sentence, params={"invalid_param": "value"}),
+    )
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+    with pytest.raises(
+        MlflowException, match=r"Received invalid parameter value for `params` argument"
+    ):
+        loaded_pyfunc.predict(sentence, {"invalid_param": "random_value"})
+
+    model_path = tmp_path / "model3"
+    mlflow.sentence_transformers.save_model(basic_model, model_path)
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
+        loaded_pyfunc.predict(sentence, params)
+    mock_warning.assert_called_with(
+        "`params` can only be specified at inference time if the model signature defines a params "
+        "schema. This model does not define a params schema. Ignoring provided params: "
+        "['batch_size']"
+    )
+
+
+def test_spark_udf(basic_model, spark):
+    params = {"batch_size": 16}
     with mlflow.start_run():
-        model_info = mlflow.sentence_transformers.log_model(basic_model, "my_model")
+        signature = infer_signature(SENTENCES, basic_model.encode(SENTENCES), params)
+        model_info = mlflow.sentence_transformers.log_model(
+            basic_model, "my_model", signature=signature
+        )
 
     result_type = ArrayType(DoubleType())
     loaded_model = mlflow.pyfunc.spark_udf(
         spark,
         model_info.model_uri,
         result_type=result_type,
+        params=params,
     )
 
     df = spark.createDataFrame([("hello MLflow",), ("bye world",)], ["text"])
@@ -347,7 +394,7 @@ def test_spark_udf(basic_model, model_path, spark):
 
 
 @pytest.mark.parametrize(
-    "input1, input2",
+    ("input1", "input2"),
     [
         (["hello world"], ["goodbye world!"]),
         (["hello world", "i am mlflow"], ["goodbye world!", "i am mlflow"]),
@@ -387,13 +434,17 @@ SIGNATURE = infer_signature(
     model_input=SENTENCES,
     model_output=SentenceTransformer("all-MiniLM-L6-v2").encode(SENTENCES),
 )
+SIGNATURE_FROM_EXAMPLE = infer_signature(
+    model_input=pd.DataFrame([SENTENCES], columns=[0, 1]),
+    model_output=SentenceTransformer("all-MiniLM-L6-v2").encode(SENTENCES),
+)
 
 
 @pytest.mark.parametrize(
-    "example, signature, expected_signature",
+    ("example", "signature", "expected_signature"),
     [
         (None, None, mlflow.sentence_transformers._get_default_signature()),
-        (SENTENCES, None, SIGNATURE),
+        (SENTENCES, None, SIGNATURE_FROM_EXAMPLE),
         (None, SIGNATURE, SIGNATURE),
         (SENTENCES, SIGNATURE, SIGNATURE),
     ],
@@ -424,4 +475,4 @@ def test_model_log_with_signature_inference(basic_model):
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     model_info = Model.load(model_uri)
-    assert model_info.signature == SIGNATURE
+    assert model_info.signature == SIGNATURE_FROM_EXAMPLE

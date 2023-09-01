@@ -538,9 +538,7 @@ save, log, register, and load from the Model Registry and score.
         },
     ]
 
-    PYTHON_VERSION = "{major}.{minor}.{micro}".format(
-        major=version_info.major, minor=version_info.minor, micro=version_info.micro
-    )
+    PYTHON_VERSION = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
 
 
     def score_model(model):
@@ -564,7 +562,7 @@ save, log, register, and load from the Model Registry and score.
             prediction_scores = self._analyser.polarity_scores(txt)
             return prediction_scores
 
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             # Apply the preprocess function from the vader model to score
             model_output = model_input.apply(lambda col: self._score(col))
             return model_output
@@ -581,10 +579,10 @@ save, log, register, and load from the Model Registry and score.
     # Save the conda environment for this model.
     conda_env = {
         "channels": ["defaults", "conda-forge"],
-        "dependencies": ["python={}".format(PYTHON_VERSION), "pip"],
+        "dependencies": [f"python={PYTHON_VERSION}", "pip"],
         "pip": [
             "mlflow",
-            "cloudpickle=={}".format(cloudpickle.__version__),
+            f"cloudpickle=={cloudpickle.__version__}",
             "vaderSentiment==3.3.2",
         ],
         "name": "mlflow-env",

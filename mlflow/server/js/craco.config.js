@@ -51,7 +51,7 @@ function rewriteCookies(proxyRes) {
  * Since the base publicPath is configured to a relative path ("static-files/"),
  * the files referenced inside CSS files (e.g. fonts) can be incorrectly resolved
  * (e.g. /path/to/css/file/static-files/static/path/to/font.woff). We need to override
- * the CSS loader to make sure it will resolve to a proper absolute path. This is
+ * the CSS loader to make sure it will resolve to a proper relative path. This is
  * required for the production (bundled) builds only.
  */
 function configureIframeCSSPublicPaths(config, env) {
@@ -70,9 +70,9 @@ function configureIframeCSSPublicPaths(config, env) {
         .filter((oneOf) => oneOf.test?.toString() === /\.css$/.toString())
         .forEach((cssRule) => {
           cssRule.use
-            ?.filter((loaderConfig) => loaderConfig?.loader.match(/\/mini-css-extract-plugin\//))
+            ?.filter((loaderConfig) => loaderConfig?.loader.match(/[\/\\]mini-css-extract-plugin[\/\\]/))
             .forEach((loaderConfig) => {
-              loaderConfig.options = { publicPath: '/static-files/' };
+              loaderConfig.options = { publicPath: '../../' };
               cssRuleFixed = true;
             });
         });

@@ -8,42 +8,43 @@ ONNX (native) format
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
 import os
-import yaml
-import numpy as np
 from pathlib import Path
+from typing import Any, Dict, Optional
+
+import numpy as np
+import pandas as pd
+import yaml
 from packaging.version import Version
 
-import pandas as pd
-
+import mlflow.tracking
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
-import mlflow.tracking
-from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _save_example
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _validate_env_arguments,
-    _process_pip_requirements,
-    _process_conda_env,
     _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _mlflow_conda_env,
+    _process_conda_env,
+    _process_pip_requirements,
     _PythonEnv,
+    _validate_env_arguments,
 )
-from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import (
+    _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
-    _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
     _validate_onnx_session_options,
 )
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "onnx"
 ONNX_EXECUTION_PROVIDERS = ["CUDAExecutionProvider", "CPUExecutionProvider"]
@@ -256,7 +257,7 @@ class _OnnxModelWrapper:
             providers = ONNX_EXECUTION_PROVIDERS
 
         sess_options = onnxruntime.SessionOptions()
-        options = model_meta.flavors.get(FLAVOR_NAME)["onnx_session_options"]
+        options = model_meta.flavors.get(FLAVOR_NAME).get("onnx_session_options")
         if options:
             if inter_op_num_threads := options.get("inter_op_num_threads"):
                 sess_options.inter_op_num_threads = inter_op_num_threads
@@ -316,7 +317,9 @@ class _OnnxModelWrapper:
                     feeds[input_name] = feed.astype(np.float32)
         return feeds
 
-    def predict(self, data):
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None
+    ):  # pylint: disable=unused-argument
         """
         :param data: Either a pandas DataFrame, numpy.ndarray or a dictionary.
 
@@ -336,6 +339,10 @@ class _OnnxModelWrapper:
 
                       For more information about the ONNX Runtime, see
                       `<https://github.com/microsoft/onnxruntime>`_.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
         :return: Model predictions. If the input is a pandas.DataFrame, the predictions are returned
                  in a pandas.DataFrame. If the input is a numpy array or a dictionary the
                  predictions are returned in a dictionary.
@@ -353,9 +360,9 @@ class _OnnxModelWrapper:
                     "input. "
                     "Numpy arrays can only be used as input for MLflow ONNX "
                     "models that have a single input. This model requires "
-                    "{} inputs. Please pass in data as either a "
+                    f"{len(self.inputs)} inputs. Please pass in data as either a "
                     "dictionary or a DataFrame with the following tensors"
-                    ": {}.".format(len(self.inputs), inputs)
+                    f": {inputs}."
                 )
             feed_dict = {self.inputs[0][0]: data}
         elif isinstance(data, pd.DataFrame):
@@ -367,7 +374,7 @@ class _OnnxModelWrapper:
         else:
             raise TypeError(
                 "Input should be a dictionary or a numpy array or a pandas.DataFrame, "
-                "got '{}'".format(type(data))
+                f"got '{type(data)}'"
             )
 
         # ONNXRuntime throws the following exception for some operators when the input

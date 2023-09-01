@@ -9,15 +9,15 @@ from py4j.java_gateway import CallbackServerParameters
 import mlflow
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
+from mlflow.spark import FLAVOR_NAME
 from mlflow.tracking.context.abstract_context import RunContextProvider
 from mlflow.utils import _truncate_and_ellipsize
 from mlflow.utils.autologging_utils import (
-    autologging_is_disabled,
     ExceptionSafeClass,
+    autologging_is_disabled,
 )
-from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 from mlflow.utils.databricks_utils import get_repl_id as get_databricks_repl_id
-from mlflow.spark import FLAVOR_NAME
+from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 
 _JAVA_PACKAGE = "org.mlflow.spark.autologging"
 _SPARK_TABLE_INFO_TAG_NAME = "sparkDatasourceInfo"
@@ -172,7 +172,7 @@ def _get_repl_id():
     if repl_id:
         return repl_id
     main_file = sys.argv[0] if len(sys.argv) > 0 else "<console>"
-    return "PythonSubscriber[{filename}][{id}]".format(filename=main_file, id=uuid.uuid4().hex)
+    return f"PythonSubscriber[{main_file}][{uuid.uuid4().hex}]"
 
 
 class PythonSubscriber(metaclass=ExceptionSafeClass):
@@ -193,7 +193,7 @@ class PythonSubscriber(metaclass=ExceptionSafeClass):
 
     def toString(self):
         # For debugging
-        return "PythonSubscriber<replId=%s>" % self.replId()
+        return f"PythonSubscriber<replId={self.replId()}>"
 
     def ping(self):
         return None

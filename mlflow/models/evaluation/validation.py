@@ -59,10 +59,10 @@ class MetricThreshold:
         greater_is_better=None,
         higher_is_better=None,
     ):
-        if threshold is not None and not type(threshold) in {int, float}:
+        if threshold is not None and type(threshold) not in {int, float}:
             raise MetricThresholdClassException("`threshold` parameter must be a number.")
         if min_absolute_change is not None and (
-            not type(min_absolute_change) in {int, float} or min_absolute_change <= 0
+            type(min_absolute_change) not in {int, float} or min_absolute_change <= 0
         ):
             raise MetricThresholdClassException(
                 "`min_absolute_change` parameter must be a positive number."

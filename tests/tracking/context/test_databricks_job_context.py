@@ -1,17 +1,18 @@
 from unittest import mock
 
 from mlflow.entities import SourceType
+from mlflow.tracking.context.databricks_job_context import DatabricksJobRunContext
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_SOURCE_NAME,
-    MLFLOW_SOURCE_TYPE,
     MLFLOW_DATABRICKS_JOB_ID,
     MLFLOW_DATABRICKS_JOB_RUN_ID,
     MLFLOW_DATABRICKS_JOB_TYPE,
     MLFLOW_DATABRICKS_WEBAPP_URL,
-    MLFLOW_DATABRICKS_WORKSPACE_URL,
     MLFLOW_DATABRICKS_WORKSPACE_ID,
+    MLFLOW_DATABRICKS_WORKSPACE_URL,
+    MLFLOW_SOURCE_NAME,
+    MLFLOW_SOURCE_TYPE,
 )
-from mlflow.tracking.context.databricks_job_context import DatabricksJobRunContext
+
 from tests.helper_functions import multi_context
 
 
@@ -53,8 +54,8 @@ def test_databricks_job_run_context_tags():
         workspace_info_mock,
     ):
         assert DatabricksJobRunContext().tags() == {
-            MLFLOW_SOURCE_NAME: "jobs/{job_id}/run/{job_run_id}".format(
-                job_id=job_id_mock.return_value, job_run_id=job_run_id_mock.return_value
+            MLFLOW_SOURCE_NAME: (
+                f"jobs/{job_id_mock.return_value}/run/{job_run_id_mock.return_value}"
             ),
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.JOB),
             MLFLOW_DATABRICKS_JOB_ID: job_id_mock.return_value,
@@ -81,8 +82,8 @@ def test_databricks_job_run_context_tags():
         workspace_info_mock,
     ):
         assert DatabricksJobRunContext().tags() == {
-            MLFLOW_SOURCE_NAME: "jobs/{job_id}/run/{job_run_id}".format(
-                job_id=job_id_mock.return_value, job_run_id=job_run_id_mock.return_value
+            MLFLOW_SOURCE_NAME: (
+                f"jobs/{job_id_mock.return_value}/run/{job_run_id_mock.return_value}"
             ),
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.JOB),
             MLFLOW_DATABRICKS_JOB_ID: job_id_mock.return_value,

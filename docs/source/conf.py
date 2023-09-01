@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 #
 # MLflow documentation build configuration file, created by
 # cookiecutter pipproject
@@ -339,6 +338,8 @@ nitpick_ignore = [
     ("py:class", "mlflow.types.schema.ColSpec"),
     ("py:class", "mlflow.types.schema.TensorSpec"),
     ("py:class", "mlflow.types.schema.Schema"),
+    ("py:class", "mlflow.types.schema.ParamSchema"),
+    ("py:class", "mlflow.types.schema.ParamSpec"),
     ("py:class", "mlflow.models.model.Model"),
     ("py:class", "mlflow.models.signature.ModelSignature"),
     ("py:class", "MlflowInferableDataset"),
@@ -349,6 +350,7 @@ nitpick_ignore = [
     ("py:class", "scipy.sparse._csr.csr_matrix"),
     ("py:class", "scipy.sparse._csc.csc_matrix"),
     ("py:class", "pathlib.Path"),
+    ("py:class", "pydantic.main.BaseModel"),
 ]
 
 

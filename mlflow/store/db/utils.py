@@ -1,12 +1,11 @@
+import logging
 import os
 import time
-
 from contextlib import contextmanager
-import logging
 
+import sqlalchemy
 from alembic.migration import MigrationContext  # pylint: disable=import-error
 from alembic.script import ScriptDirectory
-import sqlalchemy
 from sqlalchemy import sql
 
 # We need to import sqlalchemy.pool to convert poolclass string to class object
@@ -20,33 +19,35 @@ from sqlalchemy.pool import (
     StaticPool,
 )
 
-
+from mlflow.environment_variables import (
+    MLFLOW_SQLALCHEMYSTORE_ECHO,
+    MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW,
+    MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE,
+    MLFLOW_SQLALCHEMYSTORE_POOL_SIZE,
+    MLFLOW_SQLALCHEMYSTORE_POOLCLASS,
+)
 from mlflow.exceptions import MlflowException
-from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
-from mlflow.store.tracking.dbmodels.models import (
-    SqlExperiment,
-    SqlRun,
-    SqlMetric,
-    SqlParam,
-    SqlTag,
-    SqlExperimentTag,
-    SqlLatestMetric,
-)
-from mlflow.store.model_registry.dbmodels.models import (
-    SqlRegisteredModel,
-    SqlModelVersion,
-    SqlRegisteredModelTag,
-    SqlModelVersionTag,
-    SqlRegisteredModelAlias,
-)
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, TEMPORARILY_UNAVAILABLE
 from mlflow.store.db.db_types import SQLITE
-from mlflow.environment_variables import (
-    MLFLOW_SQLALCHEMYSTORE_POOL_SIZE,
-    MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE,
-    MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW,
-    MLFLOW_SQLALCHEMYSTORE_ECHO,
-    MLFLOW_SQLALCHEMYSTORE_POOLCLASS,
+from mlflow.store.model_registry.dbmodels.models import (
+    SqlModelVersion,
+    SqlModelVersionTag,
+    SqlRegisteredModel,
+    SqlRegisteredModelAlias,
+    SqlRegisteredModelTag,
+)
+from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
+from mlflow.store.tracking.dbmodels.models import (
+    SqlDataset,
+    SqlExperiment,
+    SqlExperimentTag,
+    SqlInput,
+    SqlInputTag,
+    SqlLatestMetric,
+    SqlMetric,
+    SqlParam,
+    SqlRun,
+    SqlTag,
 )
 
 _logger = logging.getLogger(__name__)
@@ -61,12 +62,12 @@ def _get_package_dir():
 
 
 def _all_tables_exist(engine):
-    return set(
+    return {
         t
         for t in sqlalchemy.inspect(engine).get_table_names()
         # Filter out alembic tables
         if not t.startswith("alembic_")
-    ) == {
+    } == {
         SqlExperiment.__tablename__,
         SqlRun.__tablename__,
         SqlMetric.__tablename__,
@@ -79,6 +80,9 @@ def _all_tables_exist(engine):
         SqlRegisteredModelTag.__tablename__,
         SqlModelVersionTag.__tablename__,
         SqlRegisteredModelAlias.__tablename__,
+        SqlDataset.__tablename__,
+        SqlInput.__tablename__,
+        SqlInputTag.__tablename__,
     }
 
 
@@ -96,8 +100,8 @@ def _get_latest_schema_revision():
     heads = script.get_heads()
     if len(heads) != 1:
         raise MlflowException(
-            "Migration script directory was in unexpected state. Got %s head "
-            "database versions but expected only 1. Found versions: %s" % (len(heads), heads)
+            f"Migration script directory was in unexpected state. Got {len(heads)} head "
+            f"database versions but expected only 1. Found versions: {heads}"
         )
     return heads[0]
 
@@ -107,11 +111,12 @@ def _verify_schema(engine):
     current_rev = _get_schema_version(engine)
     if current_rev != head_revision:
         raise MlflowException(
-            "Detected out-of-date database schema (found version %s, but expected %s). "
-            "Take a backup of your database, then run 'mlflow db upgrade <database_uri>' "
+            f"Detected out-of-date database schema (found version {current_rev}, "
+            f"but expected {head_revision}). Take a backup of your database, then run "
+            "'mlflow db upgrade <database_uri>' "
             "to migrate your database to the latest schema. NOTE: schema migration may "
             "result in database downtime - please consult your database's documentation for "
-            "more detail." % (current_rev, head_revision)
+            "more detail."
         )
 
 

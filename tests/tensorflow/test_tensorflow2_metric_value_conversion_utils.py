@@ -1,12 +1,11 @@
 import pytest
+import tensorflow as tf
 
 import mlflow
 from mlflow import tracking
+from mlflow.exceptions import INVALID_PARAMETER_VALUE, ErrorCode, MlflowException
 from mlflow.tracking.fluent import start_run
-from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
-
-import tensorflow as tf
 
 
 def test_reraised_value_errors():

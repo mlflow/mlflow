@@ -1,19 +1,21 @@
 import json
 import os
-import pytest
+
 import pandas as pd
+import pytest
+
 import mlflow.data
 from mlflow.data.code_dataset_source import CodeDatasetSource
+from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.data.spark_dataset import SparkDataset
 from mlflow.data.spark_dataset_source import SparkDatasetSource
-from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
 
-@pytest.fixture()
+@pytest.fixture
 def spark_session(tmp_path):
     from pyspark.sql import SparkSession
 
@@ -214,7 +216,7 @@ def test_from_spark_delta_path(spark_session, tmp_path, df):
     _check_spark_dataset(mlflow_df, df, df_spark, DeltaDatasetSource)
 
 
-def test_from_spark_sql(spark_session, tmp_path, df):
+def test_from_spark_sql(spark_session, df):
     df_spark = spark_session.createDataFrame(df)
     df_spark.createOrReplaceTempView("table")
 
@@ -223,7 +225,7 @@ def test_from_spark_sql(spark_session, tmp_path, df):
     _check_spark_dataset(mlflow_df, df, df_spark, SparkDatasetSource)
 
 
-def test_from_spark_table_name(spark_session, tmp_path, df):
+def test_from_spark_table_name(spark_session, df):
     df_spark = spark_session.createDataFrame(df)
     df_spark.createOrReplaceTempView("my_spark_table")
 
@@ -232,7 +234,7 @@ def test_from_spark_table_name(spark_session, tmp_path, df):
     _check_spark_dataset(mlflow_df, df, df_spark, SparkDatasetSource)
 
 
-def test_from_spark_table_name_with_version(spark_session, tmp_path, df):
+def test_from_spark_table_name_with_version(spark_session, df):
     df_spark = spark_session.createDataFrame(df)
     df_spark.createOrReplaceTempView("my_spark_table")
 
@@ -244,7 +246,7 @@ def test_from_spark_table_name_with_version(spark_session, tmp_path, df):
         mlflow.data.from_spark(df_spark, table_name="my_spark_table", version=1)
 
 
-def test_from_spark_delta_table_name(spark_session, tmp_path, df):
+def test_from_spark_delta_table_name(spark_session, df):
     df_spark = spark_session.createDataFrame(df)
     # write to delta table
     df_spark.write.format("delta").mode("overwrite").saveAsTable("my_delta_table")
@@ -254,7 +256,7 @@ def test_from_spark_delta_table_name(spark_session, tmp_path, df):
     _check_spark_dataset(mlflow_df, df, df_spark, DeltaDatasetSource)
 
 
-def test_from_spark_delta_table_name_and_version(spark_session, tmp_path, df):
+def test_from_spark_delta_table_name_and_version(spark_session, df):
     df_spark = spark_session.createDataFrame(df)
     # write to delta table
     df_spark.write.format("delta").mode("overwrite").saveAsTable("my_delta_table")
@@ -264,7 +266,7 @@ def test_from_spark_delta_table_name_and_version(spark_session, tmp_path, df):
     _check_spark_dataset(mlflow_df, df, df_spark, DeltaDatasetSource)
 
 
-def test_load_delta_with_no_source_info(spark_session, tmp_path):
+def test_load_delta_with_no_source_info():
     with pytest.raises(
         MlflowException,
         match="Must specify exactly one of `table_name` or `path`.",
@@ -272,7 +274,7 @@ def test_load_delta_with_no_source_info(spark_session, tmp_path):
         mlflow.data.load_delta()
 
 
-def test_load_delta_with_both_table_name_and_path(spark_session, tmp_path):
+def test_load_delta_with_both_table_name_and_path():
     with pytest.raises(
         MlflowException,
         match="Must specify exactly one of `table_name` or `path`.",

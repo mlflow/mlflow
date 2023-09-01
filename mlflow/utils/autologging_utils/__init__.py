@@ -17,13 +17,27 @@ from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 _logger = logging.getLogger(__name__)
 
 # Import autologging utilities used by this module
+from mlflow.utils.autologging_utils.client import MlflowAutologgingQueueingClient  # noqa: F401
+from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
     set_mlflow_events_and_warnings_behavior_globally,
     set_non_mlflow_warnings_behavior_for_current_thread,
 )
-from mlflow.utils.autologging_utils.safety import (
-    update_wrapper_extended,
+
+# Wildcard import other autologging utilities (e.g. safety utilities, event logging utilities) used
+# in autologging integration implementations, which reference them via the
+# `mlflow.utils.autologging_utils` module
+from mlflow.utils.autologging_utils.safety import (  # noqa: F401
+    ExceptionSafeAbstractClass,
+    ExceptionSafeClass,
+    PatchFunction,
+    exception_safe_function_for_class,
+    is_testing,
+    picklable_exception_safe_function,
     revert_patches,
+    safe_patch,
+    update_wrapper_extended,
+    with_managed_run,
 )
 from mlflow.utils.autologging_utils.versioning import (
     FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
@@ -31,19 +45,10 @@ from mlflow.utils.autologging_utils.versioning import (
     is_flavor_supported_for_associated_package_versions,
 )
 
-# Wildcard import other autologging utilities (e.g. safety utilities, event logging utilities) used
-# in autologging integration implementations, which reference them via the
-# `mlflow.utils.autologging_utils` module
-from mlflow.utils.autologging_utils.safety import *
-from mlflow.utils.autologging_utils.events import *
-from mlflow.utils.autologging_utils.client import *
-
-
 INPUT_EXAMPLE_SAMPLE_ROWS = 5
 ENSURE_AUTOLOGGING_ENABLED_TEXT = (
     "please ensure that autologging is enabled before constructing the dataset."
 )
-_AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
 
 # Flag indicating whether autologging is globally disabled for all integrations.
 _AUTOLOGGING_GLOBALLY_DISABLED = False

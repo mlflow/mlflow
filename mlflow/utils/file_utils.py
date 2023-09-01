@@ -1,51 +1,103 @@
+import atexit
 import codecs
 import errno
+import fnmatch
 import gzip
 import json
 import math
 import os
+import pathlib
 import posixpath
 import shutil
+import stat
 import sys
 import tarfile
 import tempfile
-import stat
-import pathlib
-from concurrent.futures import as_completed
-from contextlib import contextmanager
-import uuid
-import fnmatch
-
 import urllib.parse
 import urllib.request
+import uuid
+from concurrent.futures import as_completed
+from contextlib import contextmanager
 from urllib.parse import unquote
 from urllib.request import pathname2url
-
-
-import atexit
 
 import yaml
 
 try:
-    from yaml import CSafeLoader as YamlSafeLoader, CSafeDumper as YamlSafeDumper
+    from yaml import CSafeDumper as YamlSafeDumper
+    from yaml import CSafeLoader as YamlSafeLoader
 except ImportError:
-    from yaml import SafeLoader as YamlSafeLoader, SafeDumper as YamlSafeDumper
+    from yaml import SafeDumper as YamlSafeDumper
+    from yaml import SafeLoader as YamlSafeLoader
 
 from mlflow.entities import FileInfo
+from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
 from mlflow.exceptions import MissingConfigException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
-from mlflow.utils.rest_utils import augmented_raise_for_status
-from mlflow.utils.request_utils import cloud_storage_http_request
-from mlflow.utils.process import cache_return_value_per_process, _exec_cmd
-from mlflow.utils import merge_dicts
+from mlflow.utils import download_cloud_file_chunk, merge_dicts
 from mlflow.utils.databricks_utils import _get_dbutils
 from mlflow.utils.os import is_windows
-from mlflow.utils import download_cloud_file_chunk
-from mlflow.utils.request_utils import download_chunk
-
+from mlflow.utils.process import _exec_cmd, cache_return_value_per_process
+from mlflow.utils.request_utils import cloud_storage_http_request, download_chunk
+from mlflow.utils.rest_utils import augmented_raise_for_status
 
 ENCODING = "utf-8"
 MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
+_PROGRESS_BAR_DISPLAY_THRESHOLD = 500_000_000  # 500 MB
+
+
+class ArtifactProgressBar:
+    def __init__(self, desc, total, step, **kwargs) -> None:
+        self.desc = desc
+        self.total = total
+        self.step = step
+        self.pbar = None
+        self.progress = 0
+        self.kwargs = kwargs
+
+    def set_pbar(self):
+        if MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR.get():
+            try:
+                from tqdm.auto import tqdm
+
+                self.pbar = tqdm(total=self.total, desc=self.desc, **self.kwargs)
+            except ImportError:
+                pass
+
+    @classmethod
+    def chunks(cls, file_size, desc, chunk_size):
+        bar = cls(
+            desc,
+            total=file_size,
+            step=chunk_size,
+            unit="iB",
+            unit_scale=True,
+            unit_divisor=1024,
+            miniters=1,
+        )
+        if file_size >= _PROGRESS_BAR_DISPLAY_THRESHOLD:
+            bar.set_pbar()
+        return bar
+
+    @classmethod
+    def files(cls, desc, total):
+        bar = cls(desc, total=total, step=1)
+        bar.set_pbar()
+        return bar
+
+    def update(self):
+        if self.pbar:
+            update_step = min(self.total - self.progress, self.step)
+            self.pbar.update(update_step)
+            self.pbar.refresh()
+            self.progress += update_step
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        if self.pbar:
+            self.pbar.close()
 
 
 def is_directory(name):
@@ -71,7 +123,7 @@ def list_all(root, filter_func=lambda x: True, full_path=False):
     :return: list of all files or directories that satisfy the criteria.
     """
     if not is_directory(root):
-        raise Exception("Invalid parent directory '%s'" % root)
+        raise Exception(f"Invalid parent directory '{root}'")
     matches = [x for x in os.listdir(root) if filter_func(os.path.join(root, x))]
     return [os.path.join(root, m) for m in matches] if full_path else matches
 
@@ -155,7 +207,7 @@ def write_yaml(root, file_name, data, overwrite=False, sort_keys=True):
     :param overwrite: If True, will overwrite existing files
     """
     if not exists(root):
-        raise MissingConfigException("Parent directory '%s' does not exist." % root)
+        raise MissingConfigException(f"Parent directory '{root}' does not exist.")
 
     file_path = os.path.join(root, file_name)
     yaml_file_name = file_path if file_path.endswith(".yaml") else file_path + ".yaml"
@@ -224,7 +276,7 @@ def read_yaml(root, file_name):
 
     file_path = os.path.join(root, file_name)
     if not exists(file_path):
-        raise MissingConfigException("Yaml file '%s' does not exist." % file_path)
+        raise MissingConfigException(f"Yaml file '{file_path}' does not exist.")
     try:
         with codecs.open(file_path, mode="r", encoding=ENCODING) as yaml_file:
             return yaml.load(yaml_file, Loader=YamlSafeLoader)
@@ -260,7 +312,7 @@ def render_and_merge_yaml(root, template_name, context_name):
 
     for path in (template_path, context_path):
         if not pathlib.Path(path).is_file():
-            raise MissingConfigException("Yaml file '%s' does not exist." % path)
+            raise MissingConfigException(f"Yaml file '{path}' does not exist.")
 
     j2_env = jinja2.Environment(
         loader=jinja2.FileSystemLoader(root, encoding=ENCODING),
@@ -322,7 +374,7 @@ class TempDir:
         self._remove = remove_on_exit
 
     def __enter__(self):
-        self._path = os.path.abspath(tempfile.mkdtemp())
+        self._path = os.path.abspath(create_tmp_dir())
         assert os.path.exists(self._path)
         if self._chdr:
             self._dir = os.path.abspath(os.getcwd())
@@ -647,7 +699,7 @@ def parallelized_download_file_using_http_uri(
             _, stderr = download_proc.communicate()
             if download_proc.returncode != 0:
                 if os.path.exists(temp_file):
-                    with open(temp_file, "r") as f:
+                    with open(temp_file) as f:
                         file_contents = f.read()
                         if file_contents:
                             return json.loads(file_contents)
@@ -689,18 +741,21 @@ def parallelized_download_file_using_http_uri(
         futures[thread_pool_executor.submit(run_download, range_start, range_end)] = i
 
     failed_downloads = {}
-    for future in as_completed(futures):
-        index = futures[future]
-        try:
-            result = future.result()
-            if result is not None:
-                failed_downloads[index] = result
 
-        except Exception as e:
-            failed_downloads[index] = {
-                "error_status_code": 500,
-                "error_text": repr(e),
-            }
+    with ArtifactProgressBar.chunks(file_size, f"Downloading {download_path}", chunk_size) as pbar:
+        for future in as_completed(futures):
+            index = futures[future]
+            try:
+                result = future.result()
+                if result is not None:
+                    failed_downloads[index] = result
+                else:
+                    pbar.update()
+            except Exception as e:
+                failed_downloads[index] = {
+                    "error_status_code": 500,
+                    "error_text": repr(e),
+                }
 
     return failed_downloads
 
@@ -728,12 +783,26 @@ def _handle_readonly_on_windows(func, path, exc_info):
     func(path)
 
 
+def create_tmp_dir():
+    from mlflow.utils.databricks_utils import get_repl_id, is_in_databricks_runtime
+
+    if is_in_databricks_runtime() and get_repl_id() is not None:
+        try:
+            repl_local_tmp_dir = _get_dbutils().entry_point.getReplLocalTempDir()
+        except Exception:
+            repl_local_tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id())
+
+        return tempfile.mkdtemp(dir=repl_local_tmp_dir)
+    else:
+        return tempfile.mkdtemp()
+
+
 @cache_return_value_per_process
 def get_or_create_tmp_dir():
     """
     Get or create a temporary directory which will be removed once python process exit.
     """
-    from mlflow.utils.databricks_utils import is_in_databricks_runtime, get_repl_id
+    from mlflow.utils.databricks_utils import get_repl_id, is_in_databricks_runtime
 
     if is_in_databricks_runtime() and get_repl_id() is not None:
         # Note: For python process attached to databricks notebook, atexit does not work.
@@ -763,7 +832,7 @@ def get_or_create_nfs_tmp_dir():
     """
     Get or create a temporary NFS directory which will be removed once python process exit.
     """
-    from mlflow.utils.databricks_utils import is_in_databricks_runtime, get_repl_id
+    from mlflow.utils.databricks_utils import get_repl_id, is_in_databricks_runtime
     from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 
     nfs_root_dir = get_nfs_cache_root_dir()
@@ -872,3 +941,18 @@ def remove_on_error(path: os.PathLike, onerror=None):
             elif os.path.isdir(path):
                 shutil.rmtree(path)
         raise
+
+
+@contextmanager
+def chdir(path: str) -> None:
+    """
+    Temporarily change the current working directory to the specified path.
+
+    :param path: The path to use as the temporary working directory.
+    """
+    cwd = os.getcwd()
+    try:
+        os.chdir(path)
+        yield
+    finally:
+        os.chdir(cwd)

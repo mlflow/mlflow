@@ -1,21 +1,16 @@
 import os
 import pathlib
-import yaml
 from unittest import mock
 
 import pytest
+import yaml
 
 import mlflow
 from mlflow.recipes.utils import get_recipe_config
 from mlflow.recipes.utils.tracking import get_recipe_tracking_config, log_code_snapshot
 from mlflow.utils.file_utils import path_to_local_file_uri, path_to_local_sqlite_uri
 
-# pylint: disable=unused-import
-from tests.recipes.helper_functions import (
-    enter_recipe_example_directory,
-    enter_test_recipe_directory,
-    list_all_artifacts,
-)  # pylint: enable=unused-import
+from tests.recipes.helper_functions import list_all_artifacts
 
 
 @pytest.mark.usefixtures("enter_test_recipe_directory")

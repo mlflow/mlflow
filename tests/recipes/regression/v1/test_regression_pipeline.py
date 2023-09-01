@@ -1,13 +1,9 @@
 import os
+
 import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.recipes.regression.v1.recipe import RegressionRecipe
-
-# pylint: disable=unused-import
-from tests.recipes.helper_functions import (
-    enter_recipe_example_directory,
-)  # pylint: enable=unused-import
 
 
 @pytest.fixture

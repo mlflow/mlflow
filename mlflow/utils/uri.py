@@ -2,12 +2,13 @@ import pathlib
 import posixpath
 import urllib.parse
 import uuid
+from typing import Any, Tuple
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.utils.validation import _validate_db_type_string
 from mlflow.utils.os import is_windows
+from mlflow.utils.validation import _validate_db_type_string
 
 _INVALID_DB_URI_MSG = (
     "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for "
@@ -87,18 +88,18 @@ def validate_db_scope_prefix_info(scope, prefix):
     for c in ["/", ":", " "]:
         if c in scope:
             raise MlflowException(
-                "Unsupported Databricks profile name: %s." % scope
-                + " Profile names cannot contain '%s'." % c
+                f"Unsupported Databricks profile name: {scope}."
+                f" Profile names cannot contain '{c}'."
             )
         if prefix and c in prefix:
             raise MlflowException(
-                "Unsupported Databricks profile key prefix: %s." % prefix
-                + " Key prefixes cannot contain '%s'." % c
+                f"Unsupported Databricks profile key prefix: {prefix}."
+                f" Key prefixes cannot contain '{c}'."
             )
     if prefix is not None and prefix.strip() == "":
         raise MlflowException(
-            "Unsupported Databricks profile key prefix: '%s'." % prefix
-            + " Key prefixes cannot be empty."
+            f"Unsupported Databricks profile key prefix: '{prefix}'."
+            " Key prefixes cannot be empty."
         )
 
 
@@ -112,8 +113,8 @@ def get_db_info_from_uri(uri):
         # netloc should not be an empty string unless URI is formatted incorrectly.
         if parsed_uri.netloc == "":
             raise MlflowException(
-                "URI is formatted incorrectly: no netloc in URI '%s'." % uri
-                + " This may be the case if there is only one slash in the URI."
+                f"URI is formatted incorrectly: no netloc in URI '{uri}'."
+                " This may be the case if there is only one slash in the URI."
             )
         profile_tokens = parsed_uri.netloc.split(":")
         parsed_scope = profile_tokens[0]
@@ -256,6 +257,22 @@ def append_to_uri_path(uri, *paths):
     return prefix + urllib.parse.urlunparse(new_parsed_uri)
 
 
+def append_to_uri_query_params(uri, *query_params: Tuple[str, Any]) -> str:
+    """
+    Appends the specified query parameters to an existing URI.
+
+    :param uri: The URI to which to append query parameters.
+    :param query_params: Query parameters to append. Each parameter should
+                         be a 2-element tuple. For example, ``("key", "value")``.
+    """
+    parsed_uri = urllib.parse.urlparse(uri)
+    parsed_query = urllib.parse.parse_qsl(parsed_uri.query)
+    new_parsed_query = parsed_query + list(query_params)
+    new_query = urllib.parse.urlencode(new_parsed_query)
+    new_parsed_uri = parsed_uri._replace(query=new_query)
+    return urllib.parse.urlunparse(new_parsed_uri)
+
+
 def _join_posixpaths_and_append_absolute_suffixes(prefix_path, suffix_path):
     """
     Joins the POSIX path `prefix_path` with the POSIX path `suffix_path`. Unlike posixpath.join(),
@@ -316,8 +333,8 @@ def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
         dbfs_uri = "dbfs:" + dbfs_uri
     if not dbfs_uri.startswith(_DBFS_HDFS_URI_PREFIX):
         raise MlflowException(
-            "Path '%s' did not start with expected DBFS URI prefix '%s'"
-            % (dbfs_uri, _DBFS_HDFS_URI_PREFIX),
+            f"Path '{dbfs_uri}' did not start with expected DBFS URI "
+            f"prefix '{_DBFS_HDFS_URI_PREFIX}'",
         )
 
     return _DBFS_FUSE_PREFIX + dbfs_uri[len(_DBFS_HDFS_URI_PREFIX) :]

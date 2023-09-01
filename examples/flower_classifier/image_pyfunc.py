@@ -3,21 +3,22 @@ Example of a custom python function implementing image classifier with image pre
 in the model.
 """
 import base64
+import os
 from io import BytesIO
+from typing import Any, Dict, Optional
+
 import keras
 import numpy as np
-import os
 import pandas as pd
 import PIL
-from PIL import Image
 import pip
-import yaml
 import tensorflow as tf
+import yaml
+from PIL import Image
 
 import mlflow
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.environment import _mlflow_conda_env
 
 
 def decode_and_resize_image(raw_bytes, size):
@@ -51,16 +52,22 @@ class KerasImageClassifierPyfunc:
         self._model = model
         self._image_dims = image_dims
         self._domain = domain
-        probs_names = ["p({})".format(x) for x in domain]
+        probs_names = [f"p({x})" for x in domain]
         self._column_names = ["predicted_label", "predicted_label_id"] + probs_names
 
-    def predict(self, input):
+    def predict(
+        self, input, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
         """
         Generate predictions for the data.
 
         :param input: pandas.DataFrame with one column containing images to be scored. The image
                      column must contain base64 encoded binary content of the image files. The image
                      format must be supported by PIL (e.g. jpeg or png).
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
 
         :return: pandas.DataFrame containing predictions with the following schema:
                      Predicted class: string,

@@ -2,9 +2,10 @@ name: Preview docs
 
 on:
   pull_request_target:
+
 jobs:
   main:
-    if: github.repository == 'mlflow/mlflow'
+    if: github.repository == 'mlflow/mlflow' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

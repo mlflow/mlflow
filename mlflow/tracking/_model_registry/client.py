@@ -3,20 +3,19 @@ Internal package providing a Python CRUD interface to MLflow models and versions
 This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and is
 exposed in the :py:mod:`mlflow.tracking` module.
 """
-from datetime import timedelta, datetime
+import logging
+from datetime import datetime, timedelta
 from time import sleep
 
-import logging
-
+from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
+from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
 from mlflow.store.model_registry import (
-    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
-from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
-from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
-from mlflow.tracking._model_registry import utils, DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, utils
+from mlflow.utils.arguments_utils import _get_arg_names
 
 _logger = logging.getLogger(__name__)
 
@@ -171,6 +170,7 @@ class ModelRegistryClient:
         run_link=None,
         description=None,
         await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        local_model_path=None,
     ):
         """
         Create a new model version from given source.
@@ -191,7 +191,22 @@ class ModelRegistryClient:
         """
         tags = tags if tags else {}
         tags = [ModelVersionTag(key, str(value)) for key, value in tags.items()]
-        mv = self.store.create_model_version(name, source, run_id, tags, run_link, description)
+        arg_names = _get_arg_names(self.store.create_model_version)
+        if "local_model_path" in arg_names:
+            mv = self.store.create_model_version(
+                name,
+                source,
+                run_id,
+                tags,
+                run_link,
+                description,
+                local_model_path=local_model_path,
+            )
+        else:
+            # Fall back to calling create_model_version without
+            # local_model_path since old model registry store implementations may not
+            # support the local_model_path argument.
+            mv = self.store.create_model_version(name, source, run_id, tags, run_link, description)
         if await_creation_for and await_creation_for > 0:
             _logger.info(
                 f"Waiting up to {await_creation_for} seconds for model version to finish creation. "

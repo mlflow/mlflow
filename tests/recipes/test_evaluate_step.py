@@ -1,27 +1,20 @@
-from unittest import mock
-from pathlib import Path
-
 import os
-import pytest
 import shutil
+from pathlib import Path
+from unittest import mock
+
+import pytest
 from sklearn.datasets import load_diabetes, load_iris
 
 import mlflow
-from mlflow.utils.file_utils import read_yaml
-from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
-from mlflow.recipes.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDATION_FILE_NAME
-from mlflow.recipes.steps.evaluate import EvaluateStep
-from mlflow.recipes.steps.train import TrainStep
 from mlflow.exceptions import MlflowException
+from mlflow.recipes.steps.evaluate import EvaluateStep
+from mlflow.recipes.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDATION_FILE_NAME
+from mlflow.recipes.steps.train import TrainStep
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
+from mlflow.utils.file_utils import read_yaml
 
-# pylint: disable=unused-import
-from tests.recipes.helper_functions import (
-    clear_custom_metrics_module_cache,
-    tmp_recipe_exec_path,
-    tmp_recipe_root_path,
-    train_and_log_model,
-    train_and_log_classification_model,
-)  # pylint: enable=unused-import
+from tests.recipes.helper_functions import train_and_log_classification_model, train_and_log_model
 
 
 @pytest.fixture(autouse=True)
@@ -62,11 +55,11 @@ def test_evaluate_step_run(
 
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
 recipe: "regression/v1"
 target_col: "y"
 experiment:
-  tracking_uri: {tracking_uri}
+  tracking_uri: {mlflow.get_tracking_uri()}
 steps:
   evaluate:
     validation_criteria:
@@ -80,10 +73,7 @@ custom_metrics:
   - name: weighted_mean_squared_error
     function: weighted_mean_squared_error_func
     greater_is_better: False
-""".format(
-            tracking_uri=mlflow.get_tracking_uri(),
-            mae_threshold=mae_threshold,
-        )
+"""
     )
     recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
     recipe_steps_dir.mkdir(parents=True)
@@ -123,21 +113,19 @@ def test_evaluate_produces_expected_step_card(
 
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
 recipe: "classification/v1"
 positive_class: "Iris-setosa"
 target_col: "y"
 primary_metric: "f1_score"
 experiment:
-  tracking_uri: {tracking_uri}
+  tracking_uri: {mlflow.get_tracking_uri()}
 steps:
   evaluate:
     validation_criteria:
       - metric: f1_score
         threshold: 10
-""".format(
-            tracking_uri=mlflow.get_tracking_uri(),
-        )
+"""
     )
     recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
     recipe_steps_dir.mkdir(parents=True)
@@ -161,16 +149,14 @@ def test_no_validation_criteria(tmp_recipe_root_path: Path, tmp_recipe_exec_path
 
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
 recipe: "regression/v1"
 target_col: "y"
 experiment:
-  tracking_uri: {tracking_uri}
+  tracking_uri: {mlflow.get_tracking_uri()}
 steps:
   evaluate:
-""".format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+"""
     )
     recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
     recipe_steps_dir.mkdir(parents=True)
@@ -192,11 +178,11 @@ steps:
 def test_validation_criteria_contain_undefined_metrics(tmp_recipe_root_path: Path):
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
 recipe: "regression/v1"
 target_col: "y"
 experiment:
-  tracking_uri: {tracking_uri}
+  tracking_uri: {mlflow.get_tracking_uri()}
 steps:
   evaluate:
     validation_criteria:
@@ -204,9 +190,7 @@ steps:
         threshold: 100
       - metric: undefined_metric
         threshold: 100
-""".format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+"""
     )
     recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
     recipe_steps_dir.mkdir(parents=True)
@@ -227,11 +211,11 @@ def test_custom_metric_function_does_not_exist(
 ):
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
 recipe: "regression/v1"
 target_col: "y"
 experiment:
-  tracking_uri: {tracking_uri}
+  tracking_uri: {mlflow.get_tracking_uri()}
 steps:
   evaluate:
     validation_criteria:
@@ -241,9 +225,7 @@ custom_metrics:
   - name: weighted_mean_squared_error
     function: weighted_mean_squared_error
     greater_is_better: False
-""".format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+"""
     )
     recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
     recipe_steps_dir.mkdir(parents=True)
@@ -269,11 +251,11 @@ def test_custom_metrics_module_does_not_exist(
 ):
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
 recipe: "regression/v1"
 target_col: "y"
 experiment:
-  tracking_uri: {tracking_uri}
+  tracking_uri: {mlflow.get_tracking_uri()}
 steps:
   evaluate:
     validation_criteria:
@@ -283,9 +265,7 @@ custom_metrics:
   - name: weighted_mean_squared_error
     function: weighted_mean_squared_error
     greater_is_better: False
-""".format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+"""
     )
     recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
     recipe_steps_dir.mkdir(parents=True)
@@ -309,11 +289,11 @@ def test_custom_metrics_override_builtin_metrics(
 
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
 recipe: "regression/v1"
 target_col: "y"
 experiment:
-  tracking_uri: {tracking_uri}
+  tracking_uri: {mlflow.get_tracking_uri()}
 steps:
   evaluate:
     validation_criteria:
@@ -328,9 +308,7 @@ custom_metrics:
   - name: root_mean_squared_error
     function: root_mean_squared_error
     greater_is_better: False
-""".format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+"""
     )
     recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
     recipe_steps_dir.mkdir(parents=True)
@@ -376,19 +354,17 @@ def test_evaluate_step_writes_card_with_model_and_run_links_on_databricks(
 
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
 recipe: "regression/v1"
 target_col: "y"
 experiment:
-  tracking_uri: {tracking_uri}
+  tracking_uri: {mlflow.get_tracking_uri()}
 steps:
   evaluate:
     validation_criteria:
       - metric: root_mean_squared_error
         threshold: 1_000_000
-""".format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+"""
     )
 
     evaluate_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "evaluate", "outputs")

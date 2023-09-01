@@ -3,48 +3,47 @@ import json
 import os
 import posixpath
 import random
+import re
 import shutil
 import time
 import uuid
 from pathlib import Path
-import re
 from typing import List
-
-import pytest
 from unittest import mock
 
+import pytest
+
 from mlflow.entities import (
-    Metric,
-    Param,
-    RunTag,
-    ViewType,
-    LifecycleStage,
-    RunStatus,
-    RunData,
-    ExperimentTag,
     Dataset,
     DatasetInput,
+    ExperimentTag,
     InputTag,
+    LifecycleStage,
+    Metric,
+    Param,
+    RunData,
+    RunStatus,
+    RunTag,
+    ViewType,
     _DatasetSummary,
 )
-from mlflow.store.entities.paged_list import PagedList
-from mlflow.exceptions import MlflowException, MissingConfigException
+from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.models import Model
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.tracking.file_store import FileStore
-from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
-from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_LOGGED_MODELS
-from mlflow.utils.os import is_windows
-from mlflow.utils.uri import append_to_uri_path
-from mlflow.utils.name_utils import _GENERATOR_PREDICATES, _EXPERIMENT_ID_FIXED_WIDTH
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
-from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
-    RESOURCE_DOES_NOT_EXIST,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking.file_store import FileStore
+from mlflow.utils.file_utils import TempDir, path_to_local_file_uri, read_yaml, write_yaml
+from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME
+from mlflow.utils.name_utils import _EXPERIMENT_ID_FIXED_WIDTH, _GENERATOR_PREDICATES
+from mlflow.utils.os import is_windows
+from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.uri import append_to_uri_path
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
 
@@ -417,7 +416,7 @@ def _create_root(store):
                     timestamp += random_int(10000, 2000000)
                     values.append((timestamp, metric_value))
                     with open(metric_file, "a") as f:
-                        f.write("%d %d\n" % (timestamp, metric_value))
+                        f.write(f"{timestamp} {metric_value}\n")
                 metrics[metric_name] = values
             run_data[run_id]["metrics"] = metrics
             # artifacts
@@ -713,7 +712,8 @@ def test_delete_restore_run(store):
     store.delete_run(run_id)
     assert store.get_run(run_id).info.lifecycle_stage == "deleted"
     meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
-    assert "deleted_time" in meta and meta["deleted_time"] is not None
+    assert "deleted_time" in meta
+    assert meta["deleted_time"] is not None
     # Verify that run restoration is idempotent by restoring twice
     store.restore_run(run_id)
     store.restore_run(run_id)
@@ -1391,91 +1391,91 @@ def test_search_runs_datasets(store):
         filter_string="dataset.name = 'name1'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id2, run_id1}
+    assert {r.info.run_id for r in result} == {run_id2, run_id1}
 
     result = store.search_runs(
         [exp_id],
         filter_string="dataset.digest = 'digest2'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id3, run_id1}
+    assert {r.info.run_id for r in result} == {run_id3, run_id1}
 
     result = store.search_runs(
         [exp_id],
         filter_string="dataset.name = 'name4'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == set()
+    assert {r.info.run_id for r in result} == set()
 
     result = store.search_runs(
         [exp_id],
         filter_string="dataset.context = 'train'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id2, run_id1}
+    assert {r.info.run_id for r in result} == {run_id2, run_id1}
 
     result = store.search_runs(
         [exp_id],
         filter_string="dataset.context = 'test'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id3}
+    assert {r.info.run_id for r in result} == {run_id3}
 
     result = store.search_runs(
         [exp_id],
         filter_string="dataset.context = 'test' and dataset.name = 'name2'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id3}
+    assert {r.info.run_id for r in result} == {run_id3}
 
     result = store.search_runs(
         [exp_id],
         filter_string="dataset.name = 'name2' and dataset.context = 'test'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id3}
+    assert {r.info.run_id for r in result} == {run_id3}
 
     result = store.search_runs(
         [exp_id],
         filter_string="datasets.name IN ('name1', 'name2')",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+    assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
 
     result = store.search_runs(
         [exp_id],
         filter_string="datasets.digest IN ('digest1', 'digest2')",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+    assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
 
     result = store.search_runs(
         [exp_id],
         filter_string="datasets.name LIKE 'Name%'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == set()
+    assert {r.info.run_id for r in result} == set()
 
     result = store.search_runs(
         [exp_id],
         filter_string="datasets.name ILIKE 'Name%'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+    assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
 
     result = store.search_runs(
         [exp_id],
         filter_string="datasets.context ILIKE 'test%'",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id3}
+    assert {r.info.run_id for r in result} == {run_id3}
 
     result = store.search_runs(
         [exp_id],
         filter_string="datasets.context IN ('test', 'train')",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
-    assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+    assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
 
 
 def test_weird_param_names(store):
@@ -2189,7 +2189,6 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}?param=value",
         ),
-        ("file:///path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
         (
             "file:///path/to/local/folder?param=value#fragment",
             "file:///{drive}path/to/local/folder/{e}?param=value#fragment",
@@ -2215,7 +2214,6 @@ def test_create_experiment_appends_to_artifact_local_path_file_uri_correctly_on_
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}?param=value",
         ),
-        ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
         (
             "file:///path/to/local/folder?param=value#fragment",
             "file:///path/to/local/folder/{e}?param=value#fragment",

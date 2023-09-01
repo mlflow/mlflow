@@ -1,6 +1,6 @@
 import sys
 
-from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
+from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 
 
 def _is_module_imported(module_name: str) -> bool:
@@ -85,7 +85,7 @@ def convert_metric_value_to_float_if_tensorflow_tensor(x):
             return float(x)
         except Exception as e:
             raise MlflowException(
-                f"Failed to convert metric value to float: {repr(e)}",
+                f"Failed to convert metric value to float: {e!r}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

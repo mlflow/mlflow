@@ -4,14 +4,13 @@ Utilities for validating user inputs such as metric names and parameter names.
 import numbers
 import posixpath
 import re
-
 from typing import List
 
+from mlflow.entities import Dataset, DatasetInput, InputTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.string_utils import is_string_type
-from mlflow.entities import DatasetInput, Dataset, InputTag
 
 # Regex for valid param and metric names: may only contain slashes, alphanumerics,
 # underscores, periods, dashes, and spaces.
@@ -121,7 +120,7 @@ def _validate_metric_name(name):
         )
     if path_not_unique(name):
         raise MlflowException(
-            "Invalid metric name: '{}'. {}".format(name, bad_path_message(name)),
+            f"Invalid metric name: '{name}'. {bad_path_message(name)}",
             INVALID_PARAMETER_VALUE,
         )
 
@@ -145,22 +144,22 @@ def _validate_metric(key, value, timestamp, step):
     # since bool is an instance of Number check for bool additionally
     if not _is_numeric(value):
         raise MlflowException(
-            "Got invalid value %s for metric '%s' (timestamp=%s). Please specify value as a valid "
-            "double (64-bit floating point)" % (value, key, timestamp),
+            f"Got invalid value {value} for metric '{key}' (timestamp={timestamp}). "
+            "Please specify value as a valid double (64-bit floating point)",
             INVALID_PARAMETER_VALUE,
         )
 
     if not isinstance(timestamp, numbers.Number) or timestamp < 0:
         raise MlflowException(
-            "Got invalid timestamp %s for metric '%s' (value=%s). Timestamp must be a nonnegative "
-            "long (64-bit integer) " % (timestamp, key, value),
+            f"Got invalid timestamp {timestamp} for metric '{key}' (value={value}). "
+            "Timestamp must be a nonnegative long (64-bit integer) ",
             INVALID_PARAMETER_VALUE,
         )
 
     if not isinstance(step, numbers.Number):
         raise MlflowException(
-            "Got invalid step %s for metric '%s' (value=%s). Step must be a valid long "
-            "(64-bit integer)." % (step, key, value),
+            f"Got invalid step {step} for metric '{key}' (value={value}). "
+            "Step must be a valid long (64-bit integer).",
             INVALID_PARAMETER_VALUE,
         )
 
@@ -244,7 +243,7 @@ def _validate_param_name(name):
         )
     if path_not_unique(name):
         raise MlflowException(
-            "Invalid parameter name: '{}'. {}".format(name, bad_path_message(name)),
+            f"Invalid parameter name: '{name}'. {bad_path_message(name)}",
             INVALID_PARAMETER_VALUE,
         )
 
@@ -264,7 +263,7 @@ def _validate_tag_name(name):
         )
     if path_not_unique(name):
         raise MlflowException(
-            "Invalid tag name: '{}'. {}".format(name, bad_path_message(name)),
+            f"Invalid tag name: '{name}'. {bad_path_message(name)}",
             INVALID_PARAMETER_VALUE,
         )
 
@@ -272,8 +271,8 @@ def _validate_tag_name(name):
 def _validate_length_limit(entity_name, limit, value):
     if value is not None and len(value) > limit:
         raise MlflowException(
-            "%s '%s' had length %s, which exceeded length limit of %s"
-            % (entity_name, value[:250], len(value), limit),
+            f"{entity_name} '{value[:250]}' had length {len(value)}, "
+            f"which exceeded length limit of {limit}",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -281,14 +280,14 @@ def _validate_length_limit(entity_name, limit, value):
 def _validate_run_id(run_id):
     """Check that `run_id` is a valid run ID and raise an exception if it isn't."""
     if _RUN_ID_REGEX.match(run_id) is None:
-        raise MlflowException("Invalid run ID: '%s'" % run_id, error_code=INVALID_PARAMETER_VALUE)
+        raise MlflowException(f"Invalid run ID: '{run_id}'", error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_experiment_id(exp_id):
     """Check that `experiment_id`is a valid string or None, raise an exception if it isn't."""
     if exp_id is not None and _EXPERIMENT_ID_REGEX.match(exp_id) is None:
         raise MlflowException(
-            "Invalid experiment ID: '%s'" % exp_id, error_code=INVALID_PARAMETER_VALUE
+            f"Invalid experiment ID: '{exp_id}'", error_code=INVALID_PARAMETER_VALUE
         )
 
 
@@ -341,12 +340,12 @@ def _validate_experiment_name(experiment_name):
     """Check that `experiment_name` is a valid string and raise an exception if it isn't."""
     if experiment_name == "" or experiment_name is None:
         raise MlflowException(
-            "Invalid experiment name: '%s'" % experiment_name, error_code=INVALID_PARAMETER_VALUE
+            f"Invalid experiment name: '{experiment_name}'", error_code=INVALID_PARAMETER_VALUE
         )
 
     if not is_string_type(experiment_name):
         raise MlflowException(
-            "Invalid experiment name: %s. Expects a string." % experiment_name,
+            f"Invalid experiment name: {experiment_name}. Expects a string.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -405,7 +404,7 @@ def _validate_model_alias_name(model_alias_name):
 def _validate_experiment_artifact_location(artifact_location):
     if artifact_location is not None and artifact_location.startswith("runs:"):
         raise MlflowException(
-            "Artifact location cannot be a runs:/ URI. Given: '%s'" % artifact_location,
+            f"Artifact location cannot be a runs:/ URI. Given: '{artifact_location}'",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

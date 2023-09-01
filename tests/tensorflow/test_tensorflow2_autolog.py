@@ -1,28 +1,28 @@
 # pep8: disable=E501
 
 import collections
+import functools
+import json
 import os
 import pickle
 import sys
-from unittest.mock import patch
-import json
-import functools
 from pathlib import Path
 from threading import Thread
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 import tensorflow as tf
-from packaging.version import Version
-from mlflow.types.utils import _infer_schema
-from tensorflow.keras import layers
 import yaml
+from packaging.version import Version
+from tensorflow.keras import layers
 
 import mlflow
 from mlflow import MlflowClient
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
-from mlflow.tensorflow._autolog import _TensorBoard, __MLflowTfKeras2Callback
+from mlflow.tensorflow._autolog import __MLflowTfKeras2Callback, _TensorBoard
+from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
     BatchMetricsLogger,
@@ -180,6 +180,20 @@ def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_ho
     model.fit(data, labels, epochs=10)
 
     assert mlflow.active_run() is None
+
+
+def test_extra_tags_tensorflow_autolog(random_train_data, random_one_hot_labels):
+    mlflow.tensorflow.autolog(extra_tags={"test_tag": "tf_autolog"})
+
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    model = create_tf_keras_model()
+    model.fit(data, labels, epochs=10)
+
+    run = mlflow.last_active_run()
+    assert run.data.tags["test_tag"] == "tf_autolog"
+    assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "tensorflow"
 
 
 @pytest.mark.parametrize("log_models", [True, False])
@@ -565,8 +579,8 @@ def test_tf_keras_autolog_implicit_batch_size_for_generator_dataset_without_side
     generator,
     batch_size,
 ):
-    from tensorflow.keras.models import Sequential
     from tensorflow.keras.layers import Dense
+    from tensorflow.keras.models import Sequential
 
     data = np.array([[1, 2, 3], [3, 2, 1], [2, 2, 2], [10, 20, 30], [30, 20, 10], [20, 20, 20]])
     target = np.array([[1], [3], [2], [11], [13], [12]])
@@ -1168,7 +1182,7 @@ def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
 def test_import_tensorflow_with_fluent_autolog_enables_tensorflow_autologging():
     mlflow.autolog()
 
-    import tensorflow  # pylint: disable=unused-import,reimported
+    import tensorflow  # pylint: disable=reimported  # noqa: F401
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
 

@@ -17,44 +17,45 @@ Diviner format
 """
 import logging
 import os
-import shutil
 import pathlib
-import yaml
+import shutil
+from typing import Any, Dict, List, Optional, Tuple
+
 import pandas as pd
-from typing import Tuple, List
+import yaml
+
 import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _validate_env_arguments,
-    _CONDA_ENV_FILE_NAME,
-    _process_pip_requirements,
-    _process_conda_env,
-    _CONSTRAINTS_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
-    _PYTHON_ENV_FILE_NAME,
-    _PythonEnv,
-)
-from mlflow.utils.file_utils import write_to, shutil_copytree_without_file_permissions
-from mlflow.utils.model_utils import (
-    _validate_and_copy_code_paths,
-    _get_flavor_configuration_from_uri,
-    _add_code_from_conf_to_system_path,
-    _validate_and_prepare_target_save_path,
-    _get_flavor_configuration,
-)
-from mlflow.utils.uri import dbfs_hdfs_uri_to_fuse_path, generate_tmp_dfs_path
 from mlflow.models.utils import _save_example
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
+from mlflow.utils.environment import (
+    _CONDA_ENV_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _mlflow_conda_env,
+    _process_conda_env,
+    _process_pip_requirements,
+    _PythonEnv,
+    _validate_env_arguments,
+)
+from mlflow.utils.file_utils import shutil_copytree_without_file_permissions, write_to
+from mlflow.utils.model_utils import (
+    _add_code_from_conf_to_system_path,
+    _get_flavor_configuration,
+    _get_flavor_configuration_from_uri,
+    _validate_and_copy_code_paths,
+    _validate_and_prepare_target_save_path,
+)
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-
+from mlflow.utils.uri import dbfs_hdfs_uri_to_fuse_path, generate_tmp_dfs_path
 
 FLAVOR_NAME = "diviner"
 _MODEL_BINARY_KEY = "data"
@@ -450,7 +451,9 @@ class _DivinerModelWrapper:
     def __init__(self, diviner_model):
         self.diviner_model = diviner_model
 
-    def predict(self, dataframe) -> pd.DataFrame:
+    def predict(
+        self, dataframe, params: Optional[Dict[str, Any]] = None
+    ) -> pd.DataFrame:  # pylint: disable=unused-argument
         """
         A method that allows a pyfunc implementation of this flavor to generate forecasted values
         from the end of a trained Diviner model's training series per group.
@@ -482,12 +485,17 @@ class _DivinerModelWrapper:
 
                           Will generate 30 days of forecasted values for each group that the model
                           was trained on.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
         :return: A Pandas DataFrame containing the forecasted values for each group key that was
                  either trained or declared as a subset with a ``groups`` entry in the ``dataframe``
                  configuration argument.
         """
 
-        from diviner import GroupedProphet, GroupedPmdarima
+        from diviner import GroupedPmdarima, GroupedProphet
 
         schema = dataframe.columns.values.tolist()
 

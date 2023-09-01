@@ -1,25 +1,20 @@
 import time
-
 from unittest import mock
 
 from pyspark.sql import Row
-from pyspark.sql.types import StructType, IntegerType, StructField
+from pyspark.sql.types import IntegerType, StructField, StructType
 
 import mlflow
 import mlflow.spark
-from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
+from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 
 from tests.spark.autologging.utils import _assert_spark_data_logged
-from tests.spark.autologging.utils import spark_session  # pylint: disable=unused-import
-from tests.spark.autologging.utils import format_to_file_path  # pylint: disable=unused-import
-from tests.spark.autologging.utils import data_format  # pylint: disable=unused-import
-from tests.spark.autologging.utils import file_path  # pylint: disable=unused-import
 from tests.tracking.integration_test_utils import _init_server
 
 
 def _get_expected_table_info_row(path, data_format, version=None):
-    expected_path = "file:%s" % path
+    expected_path = f"file:{path}"
     if version is None:
         return f"path={expected_path},format={data_format}"
     return f"path={expected_path},version={version},format={data_format}"

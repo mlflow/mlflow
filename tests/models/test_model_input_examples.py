@@ -1,25 +1,26 @@
 import json
 import math
+from unittest import mock
+
 import numpy as np
 import pandas as pd
 import pytest
+import sklearn.neighbors as knn
+from scipy.sparse import csc_matrix, csr_matrix
 from sklearn import datasets
 from sklearn.base import BaseEstimator, ClassifierMixin
-import sklearn.neighbors as knn
-from scipy.sparse import csr_matrix, csc_matrix
-from unittest import mock
 
 import mlflow
 from mlflow.models import Model
 from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import (
     _Example,
-    _read_tensor_input_from_json,
     _read_sparse_matrix_from_json,
+    _read_tensor_input_from_json,
 )
 from mlflow.types import DataType
+from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.types.utils import TensorsNotSupportedException
-from mlflow.types.schema import Schema, ColSpec, TensorSpec
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import dataframe_from_raw_json
 
@@ -223,7 +224,7 @@ class DummySklearnModel(BaseEstimator, ClassifierMixin):
     def __init__(self, output_shape=(1,)):
         self.output_shape = output_shape
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None):  # pylint: disable=unused-argument
         return self
 
     def predict(self, X):
@@ -293,9 +294,11 @@ def test_infer_signature_from_example_can_be_disabled():
     assert mlflow_model.signature is None
 
 
-def test_infer_signature_silently_fails():
+def test_infer_signature_silently_fails(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TESTING", "false")
+
     class ErrorModel(BaseEstimator, ClassifierMixin):
-        def fit(self, X, y=None):
+        def fit(self, X, y=None):  # pylint: disable=unused-argument
             return self
 
         def predict(self, X):
@@ -358,7 +361,7 @@ def test_infer_signature_on_multi_column_input_examples(input_example, iris_mode
 )
 def test_infer_signature_on_scalar_input_examples(input_example):
     class IdentitySklearnModel(BaseEstimator, ClassifierMixin):
-        def fit(self, X, y=None):
+        def fit(self, X, y=None):  # pylint: disable=unused-argument
             return self
 
         def predict(self, X):

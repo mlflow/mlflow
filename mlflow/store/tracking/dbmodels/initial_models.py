@@ -9,18 +9,18 @@
 # constraint names - we provided a one-time migration script for pre-1.0 users so that their
 # database schema matched the schema in this file.
 import time
-from sqlalchemy.orm import relationship, backref
+
 from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
     Column,
-    String,
     Float,
     ForeignKey,
     Integer,
-    CheckConstraint,
-    BigInteger,
     PrimaryKeyConstraint,
+    String,
 )
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import backref, declarative_base, relationship
 
 Base = declarative_base()
 
@@ -76,7 +76,7 @@ class SqlExperiment(Base):
     )
 
     def __repr__(self):
-        return "<SqlExperiment ({}, {})>".format(self.experiment_id, self.name)
+        return f"<SqlExperiment ({self.experiment_id}, {self.name})>"
 
 
 class SqlRun(Base):
@@ -181,7 +181,7 @@ class SqlTag(Base):
     __table_args__ = (PrimaryKeyConstraint("key", "run_uuid", name="tag_pk"),)
 
     def __repr__(self):
-        return "<SqlRunTag({}, {})>".format(self.key, self.value)
+        return f"<SqlRunTag({self.key}, {self.value})>"
 
 
 class SqlMetric(Base):
@@ -213,7 +213,7 @@ class SqlMetric(Base):
     __table_args__ = (PrimaryKeyConstraint("key", "timestamp", "run_uuid", name="metric_pk"),)
 
     def __repr__(self):
-        return "<SqlMetric({}, {}, {})>".format(self.key, self.value, self.timestamp)
+        return f"<SqlMetric({self.key}, {self.value}, {self.timestamp})>"
 
 
 class SqlParam(Base):
@@ -240,4 +240,4 @@ class SqlParam(Base):
     __table_args__ = (PrimaryKeyConstraint("key", "run_uuid", name="param_pk"),)
 
     def __repr__(self):
-        return "<SqlParam({}, {})>".format(self.key, self.value)
+        return f"<SqlParam({self.key}, {self.value})>"

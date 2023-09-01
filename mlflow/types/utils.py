@@ -1,6 +1,6 @@
-from typing import Any, Optional, List, Dict
-import warnings
 import logging
+import warnings
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -8,7 +8,7 @@ import pandas as pd
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import DataType
-from mlflow.types.schema import Schema, ColSpec, TensorSpec
+from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
 
 _logger = logging.getLogger(__name__)
 
@@ -31,10 +31,10 @@ def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple:
     :param variable_dimension: An optional integer representing a variable dimension.
     :return: tuple : Shape of the inputted data (including a variable dimension)
     """
-    from scipy.sparse import csr_matrix, csc_matrix
+    from scipy.sparse import csc_matrix, csr_matrix
 
     if not isinstance(data, (np.ndarray, csr_matrix, csc_matrix)):
-        raise TypeError("Expected numpy.ndarray or csc/csr matrix, got '{}'.".format(type(data)))
+        raise TypeError(f"Expected numpy.ndarray or csc/csr matrix, got '{type(data)}'.")
     variable_input_data_shape = data.shape
     if variable_dimension is not None:
         try:
@@ -42,10 +42,8 @@ def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple:
             variable_input_data_shape[variable_dimension] = -1
         except IndexError:
             raise MlflowException(
-                "The specified variable_dimension {} is out of bounds with "
-                "respect to the number of dimensions {} in the input dataset".format(
-                    variable_dimension, data.ndim
-                )
+                f"The specified variable_dimension {variable_dimension} is out of bounds with "
+                f"respect to the number of dimensions {data.ndim} in the input dataset"
             )
     return tuple(variable_input_data_shape)
 
@@ -60,9 +58,7 @@ def clean_tensor_type(dtype: np.dtype):
     """
     if not isinstance(dtype, np.dtype):
         raise TypeError(
-            "Expected `type` to be instance of `{}`, received `{}`".format(
-                np.dtype, dtype.__class__
-            )
+            f"Expected `type` to be instance of `{np.dtype}`, received `{dtype.__class__}`"
         )
 
     # Special casing for np.str_ and np.bytes_
@@ -108,7 +104,7 @@ def _infer_schema(data: Any) -> Schema:
 
     :return: Schema
     """
-    from scipy.sparse import csr_matrix, csc_matrix
+    from scipy.sparse import csc_matrix, csr_matrix
 
     if isinstance(data, dict) and all(isinstance(values, np.ndarray) for values in data.values()):
         res = []
@@ -157,7 +153,14 @@ def _infer_schema(data: Any) -> Schema:
         isinstance(data, list)
         and all(isinstance(element, dict) for element in data)
         and all(isinstance(key, str) for d in data for key in d)
-        and all(isinstance(value, str) for d in data for value in d.values())
+        # NB: We allow both str and List[str] as values in the dictionary
+        # e.g. [{'output': 'some sentence', 'ids': ['id1', 'id2']}]
+        and all(
+            isinstance(value, str)
+            or (isinstance(value, list) and all(isinstance(v, str) for v in value))
+            for d in data
+            for value in d.values()
+        )
     ):
         first_keys = data[0].keys()
         if all(d.keys() == first_keys for d in data):
@@ -184,7 +187,7 @@ def _infer_schema(data: Any) -> Schema:
             "- List[Dict[str, Union[str, List[str]]]]\n"
             "- Dict[str, Union[str, List[str]]]\n"
             "- bytes\n"
-            "but got '{}'".format(type(data)),
+            f"but got '{type(data)}'",
         )
     if not schema.is_tensor_spec() and any(
         t in (DataType.integer, DataType.long) for t in schema.input_types()
@@ -217,9 +220,7 @@ def _infer_numpy_dtype(dtype) -> DataType:
         # This version of pandas does not support extension types
         pass
     if not isinstance(dtype, supported_types):
-        raise TypeError(
-            "Expected numpy.dtype or pandas.ExtensionDtype, got '{}'.".format(type(dtype))
-        )
+        raise TypeError(f"Expected numpy.dtype or pandas.ExtensionDtype, got '{type(dtype)}'.")
 
     if dtype.kind == "b":
         return DataType.boolean
@@ -244,14 +245,14 @@ def _infer_numpy_dtype(dtype) -> DataType:
         )
     elif dtype.kind == "M":
         return DataType.datetime
-    raise MlflowException("Unsupported numpy data type '{}', kind '{}'".format(dtype, dtype.kind))
+    raise MlflowException(f"Unsupported numpy data type '{dtype}', kind '{dtype.kind}'")
 
 
 def _infer_pandas_column(col: pd.Series) -> DataType:
     if not isinstance(col, pd.Series):
-        raise TypeError("Expected pandas.Series, got '{}'.".format(type(col)))
+        raise TypeError(f"Expected pandas.Series, got '{type(col)}'.")
     if len(col.values.shape) > 1:
-        raise MlflowException("Expected 1d array, got array with shape {}".format(col.shape))
+        raise MlflowException(f"Expected 1d array, got array with shape {col.shape}")
 
     class IsInstanceOrNone:
         def __init__(self, *args):
@@ -312,8 +313,8 @@ def _infer_spark_type(x) -> DataType:
         return DataType.datetime
     else:
         raise Exception(
-            "Unsupported Spark Type '{}', MLflow schema is only supported for scalar "
-            "Spark types.".format(type(x))
+            f"Unsupported Spark Type '{type(x)}', MLflow schema is only supported for scalar "
+            "Spark types."
         )
 
 
@@ -387,9 +388,7 @@ def _validate_all_values_string(d):
 def _validate_keys_match(d, expected_keys):
     if d.keys() != expected_keys:
         raise MlflowException(
-            "Expected example to be dict with keys {}, got {}".format(
-                list(expected_keys), list(d.keys())
-            ),
+            f"Expected example to be dict with keys {list(expected_keys)}, got {list(d.keys())}",
             INVALID_PARAMETER_VALUE,
         )
 
@@ -478,3 +477,52 @@ def _infer_schema_from_type_hint(type_hint, examples=None):
     else:
         _logger.info("Unsupported type hint: %s, skipping schema inference", type_hint)
         return None
+
+
+def _infer_type_and_shape(value):
+    if isinstance(value, (list, np.ndarray, pd.Series)):
+        ndim = np.array(value).ndim
+        if ndim != 1:
+            raise MlflowException.invalid_parameter_value(
+                f"Expected parameters to be 1D array or scalar, got {ndim}D array",
+            )
+        if all(DataType.is_datetime(v) for v in value):
+            return DataType.datetime, (-1,)
+        value_type = _infer_numpy_dtype(np.array(value).dtype)
+        return value_type, (-1,)
+    elif DataType.is_datetime(value):
+        return DataType.datetime, None
+    elif np.isscalar(value):
+        try:
+            value_type = _infer_numpy_dtype(np.array(value).dtype)
+            return value_type, None
+        except (Exception, MlflowException) as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to infer schema for parameter {value}: {e!r}"
+            )
+    raise MlflowException.invalid_parameter_value(
+        f"Expected parameters to be 1D array or scalar, got {type(value).__name__}",
+    )
+
+
+def _infer_param_schema(parameters: Dict[str, Any]):
+    if not isinstance(parameters, dict):
+        raise MlflowException.invalid_parameter_value(
+            f"Expected parameters to be dict, got {type(parameters).__name__}",
+        )
+
+    param_specs = []
+    invalid_params = []
+    for name, value in parameters.items():
+        try:
+            value_type, shape = _infer_type_and_shape(value)
+            param_specs.append(ParamSpec(name=name, dtype=value_type, default=value, shape=shape))
+        except Exception as e:
+            invalid_params.append((name, value, e))
+
+    if invalid_params:
+        raise MlflowException.invalid_parameter_value(
+            f"Failed to infer schema for parameters: {invalid_params}",
+        )
+
+    return ParamSchema(param_specs)

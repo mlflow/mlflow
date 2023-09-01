@@ -4,11 +4,10 @@ import re
 import urllib.parse
 
 from mlflow.entities import FileInfo
+from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
-
-from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 
 
 class AzureBlobArtifactRepository(ArtifactRepository):
@@ -70,7 +69,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         """Parse a wasbs:// URI, returning (container, storage_account, path, api_uri_suffix)."""
         parsed = urllib.parse.urlparse(uri)
         if parsed.scheme != "wasbs":
-            raise Exception("Not a WASBS URI: %s" % uri)
+            raise Exception(f"Not a WASBS URI: {uri}")
 
         match = re.match(
             r"([^@]+)@([^.]+)\.(blob\.core\.(windows\.net|chinacloudapi\.cn))", parsed.netloc
@@ -151,8 +150,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             if not result.name.startswith(artifact_path):
                 raise MlflowException(
                     "The name of the listed Azure blob does not begin with the specified"
-                    " artifact path. Artifact path: {artifact_path}. Blob name:"
-                    " {blob_name}".format(artifact_path=artifact_path, blob_name=result.name)
+                    f" artifact path. Artifact path: {artifact_path}. Blob name: {result.name}"
                 )
 
             if is_dir(result):

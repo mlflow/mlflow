@@ -1,34 +1,34 @@
 import logging
 import os
+import pathlib
 import re
+import shutil
 import tempfile
 import urllib.parse
-import pathlib
-import shutil
 import zipfile
 from io import BytesIO
 
-from mlflow.utils.git_utils import get_git_repo_url, get_git_commit
-from mlflow.entities import SourceType, Param
+from mlflow import tracking
+from mlflow.entities import Param, SourceType
+from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_RUN_ID, MLFLOW_TRACKING_URI
 from mlflow.exceptions import ExecutionException
 from mlflow.projects import _project_spec
-from mlflow import tracking
 from mlflow.tracking import fluent
 from mlflow.tracking.context.default_context import _get_user
+from mlflow.utils.git_utils import get_git_commit, get_git_repo_url
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_USER,
-    MLFLOW_SOURCE_NAME,
-    MLFLOW_SOURCE_TYPE,
+    LEGACY_MLFLOW_GIT_BRANCH_NAME,
+    LEGACY_MLFLOW_GIT_REPO_URL,
+    MLFLOW_GIT_BRANCH,
     MLFLOW_GIT_COMMIT,
     MLFLOW_GIT_REPO_URL,
-    MLFLOW_GIT_BRANCH,
-    LEGACY_MLFLOW_GIT_REPO_URL,
-    LEGACY_MLFLOW_GIT_BRANCH_NAME,
-    MLFLOW_PROJECT_ENTRY_POINT,
     MLFLOW_PARENT_RUN_ID,
+    MLFLOW_PROJECT_ENTRY_POINT,
+    MLFLOW_SOURCE_NAME,
+    MLFLOW_SOURCE_TYPE,
+    MLFLOW_USER,
 )
 from mlflow.utils.rest_utils import augmented_raise_for_status
-from mlflow.environment_variables import MLFLOW_TRACKING_URI, MLFLOW_RUN_ID, MLFLOW_EXPERIMENT_ID
 
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")
@@ -127,7 +127,7 @@ def _is_valid_branch_name(work_dir, version):
 
         repo = Repo(work_dir, search_parent_directories=True)
         try:
-            return repo.git.rev_parse("--verify", "refs/heads/%s" % version) != ""
+            return repo.git.rev_parse("--verify", f"refs/heads/{version}") != ""
         except GitCommandError:
             return False
     return False
@@ -212,9 +212,9 @@ def _fetch_git_repo(uri, version, dst_dir):
             repo.git.checkout(version)
         except git.exc.GitCommandError as e:
             raise ExecutionException(
-                "Unable to checkout version '%s' of git repo %s"
+                f"Unable to checkout version '{version}' of git repo {uri}"
                 "- please ensure that the version exists in the repo. "
-                "Error: %s" % (version, uri, e)
+                f"Error: {e}"
             )
     else:
         g = git.cmd.Git(dst_dir)
@@ -246,7 +246,7 @@ def _fetch_zip_repo(uri):
     try:
         augmented_raise_for_status(response)
     except requests.HTTPError as error:
-        raise ExecutionException("Unable to retrieve ZIP file. Reason: %s" % str(error))
+        raise ExecutionException(f"Unable to retrieve ZIP file. Reason: {error!s}")
     return BytesIO(response.content)
 
 

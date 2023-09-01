@@ -2,10 +2,7 @@
 
 ## Related Issues/PRs
 
-<!--
-Please reference any related feature requests, issues, or PRs here. For example, `#123`. To automatically close the referenced issues when this PR is merged, please use a closing keyword (close, fix, or resolve). For example, `Resolve #123`. See https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue for more information.
--->
-
+<!-- Can this PR close the linked issue? If yes, uncomment "Resolve". -->
 <!-- Resolve --> #xxx
 
 ## What changes are proposed in this pull request?
@@ -26,10 +23,13 @@ If you're unsure about what to test, where to add tests, or how to run tests, pl
 Please describe how you confirmed the proposed feature/bug-fix/change works here. For example, if you fixed an MLflow client API, you could attach the code that didn't work prior to the fix but works now, or if you added a new feature on MLflow UI, you could attach a video that demonstrates the feature.
 -->
 
-## Does this PR change the documentation?
+## Does this PR require documentation update?
 
 - [ ] No. You can skip the rest of this section.
-- [ ] Yes. Make sure the changed pages / sections render correctly in the documentation preview.
+- [ ] Yes. I've updated:
+  - [ ] Examples
+  - [ ] API references
+  - [ ] Instructions
 
 ## Release Notes
 
@@ -48,6 +48,7 @@ Components
 - [ ] `area/build`: Build and test infrastructure for MLflow
 - [ ] `area/docs`: MLflow documentation pages
 - [ ] `area/examples`: Example code
+- [ ] `area/gateway`: AI Gateway service, Gateway client APIs, third-party Gateway integrations
 - [ ] `area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry
 - [ ] `area/models`: MLmodel format, model serialization/deserialization, flavors
 - [ ] `area/recipes`: Recipes, Recipe APIs, Recipe configs, Recipe Templates

@@ -1,16 +1,16 @@
 """Internal utilities for parsing MLproject YAML files."""
 
 import os
+
 import yaml
 
 from mlflow.exceptions import ExecutionException
+from mlflow.projects import env_type
 from mlflow.tracking import artifact_utils
 from mlflow.utils import data_utils
-from mlflow.utils.file_utils import get_local_path_or_none
-from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.environment import _PYTHON_ENV_FILE_NAME
-from mlflow.utils.string_utils import quote
-from mlflow.projects import env_type
+from mlflow.utils.file_utils import get_local_path_or_none
+from mlflow.utils.string_utils import is_string_type, quote
 
 MLPROJECT_FILE_NAME = "mlproject"
 DEFAULT_CONDA_FILE_NAME = "conda.yaml"
@@ -164,12 +164,12 @@ class Project:
         _, file_extension = os.path.splitext(entry_point)
         ext_to_cmd = {".py": "python", ".sh": os.environ.get("SHELL", "bash")}
         if file_extension in ext_to_cmd:
-            command = "{} {}".format(ext_to_cmd[file_extension], quote(entry_point))
+            command = f"{ext_to_cmd[file_extension]} {quote(entry_point)}"
             if not is_string_type(command):
                 command = command.encode("utf-8")
             return EntryPoint(name=entry_point, parameters={}, command=command)
         elif file_extension == ".R":
-            command = "Rscript -e \"mlflow::mlflow_source('%s')\" --args" % quote(entry_point)
+            command = f"Rscript -e \"mlflow::mlflow_source('{quote(entry_point)}')\" --args"
             return EntryPoint(name=entry_point, parameters={}, command=command)
         raise ExecutionException(
             "Could not find {0} among entry points {1} or interpret {0} as a "
@@ -194,7 +194,7 @@ class EntryPoint:
         if missing_params:
             raise ExecutionException(
                 "No value given for missing parameters: %s"
-                % ", ".join(["'%s'" % name for name in missing_params])
+                % ", ".join([f"'{name}'" for name in missing_params])
             )
 
     def compute_parameters(self, user_parameters, storage_dir):
@@ -256,7 +256,7 @@ class Parameter:
     def _compute_uri_value(self, user_param_value):
         if not data_utils.is_uri(user_param_value):
             raise ExecutionException(
-                "Expected URI for parameter {} but got {}".format(self.name, user_param_value)
+                f"Expected URI for parameter {self.name} but got {user_param_value}"
             )
         return user_param_value
 
@@ -265,8 +265,8 @@ class Parameter:
         if local_path:
             if not os.path.exists(local_path):
                 raise ExecutionException(
-                    "Got value %s for parameter %s, but no such file or "
-                    "directory was found." % (user_param_value, self.name)
+                    f"Got value {user_param_value} for parameter {self.name}, but no such file or "
+                    "directory was found."
                 )
             return os.path.abspath(local_path)
         target_sub_dir = f"param_{key_position}"

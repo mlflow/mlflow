@@ -3,29 +3,33 @@ Simple unit tests to confirm that ModelRegistryClient properly calls the registr
 and returns values when required.
 """
 
-import pytest
 from unittest import mock
 from unittest.mock import ANY, patch
 
+import pytest
+
 from mlflow.entities.model_registry import (
     ModelVersion,
+    ModelVersionTag,
     RegisteredModel,
     RegisteredModelTag,
-    ModelVersionTag,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
-    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 
 
 @pytest.fixture
 def mock_store():
-    with mock.patch("mlflow.tracking._model_registry.utils._get_store") as mock_get_store:
-        yield mock_get_store.return_value
+    mock_store = mock.MagicMock()
+    mock_store.create_model_version = mock.create_autospec(SqlAlchemyStore.create_model_version)
+    with mock.patch("mlflow.tracking._model_registry.utils._get_store", return_value=mock_store):
+        yield mock_store
 
 
 def newModelRegistryClient():
@@ -254,7 +258,7 @@ def test_create_model_version(mock_store):
         name, "uri:/for/source", "run123", tags_dict, None, description
     )
     mock_store.create_model_version.assert_called_once_with(
-        name, "uri:/for/source", "run123", tags, None, description
+        name, "uri:/for/source", "run123", tags, None, description, local_model_path=None
     )
 
     assert result.name == name
@@ -281,7 +285,7 @@ def test_create_model_version_no_run_id(mock_store):
         name, "uri:/for/source", tags=tags_dict, run_link=None, description=description
     )
     mock_store.create_model_version.assert_called_once_with(
-        name, "uri:/for/source", None, tags, None, description
+        name, "uri:/for/source", None, tags, None, description, local_model_path=None
     )
 
     assert result.name == name

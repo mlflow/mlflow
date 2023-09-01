@@ -1,13 +1,11 @@
-import time
 import json
+import time
 from collections import namedtuple
 from datetime import datetime
 
-from moto.core import DEFAULT_ACCOUNT_ID
-from moto.core import BaseBackend, BaseModel
-from moto.core.responses import BaseResponse
+from moto.core import DEFAULT_ACCOUNT_ID, BackendDict, BaseBackend, BaseModel
 from moto.core.models import base_decorator
-from moto.core import BackendDict
+from moto.core.responses import BaseResponse
 
 SageMakerResourceWithArn = namedtuple("SageMakerResourceWithArn", ["resource", "arn"])
 
@@ -514,7 +512,7 @@ class SageMakerBackend(BaseBackend):
             summaries.append(summary)
         return summaries
 
-    def list_tags(self, resource_arn, region_name):
+    def list_tags(self, resource_arn, region_name):  # pylint: disable=unused-argument
         """
         Modifies backend state during calls to the SageMaker "ListTags" API
         https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListTags.html
@@ -704,7 +702,7 @@ class Endpoint(TimestampedResource):
 
     @property
     def arn_descriptor(self):
-        return ":endpoint/{endpoint_name}".format(endpoint_name=self.endpoint_name)
+        return f":endpoint/{self.endpoint_name}"
 
     @property
     def status(self):
@@ -760,7 +758,7 @@ class TransformJob(TimestampedResource):
 
     @property
     def arn_descriptor(self):
-        return ":transform-job/{job_name}".format(job_name=self.job_name)
+        return f":transform-job/{self.job_name}"
 
     @property
     def status(self):
@@ -943,7 +941,7 @@ class EndpointConfig(TimestampedResource):
 
     @property
     def arn_descriptor(self):
-        return ":endpoint-config/{config_name}".format(config_name=self.config_name)
+        return f":endpoint-config/{self.config_name}"
 
 
 class EndpointConfigSummary:
@@ -1003,7 +1001,7 @@ class Model(TimestampedResource):
 
     @property
     def arn_descriptor(self):
-        return ":model/{model_name}".format(model_name=self.model_name)
+        return f":model/{self.model_name}"
 
 
 class ModelSummary:

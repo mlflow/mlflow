@@ -2,25 +2,20 @@ import json
 import os
 import pathlib
 import shutil
+from unittest import mock
 
 import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.recipes.utils import (
-    get_recipe_root_path,
-    get_recipe_name,
-    get_recipe_config,
     get_default_profile,
+    get_recipe_config,
+    get_recipe_name,
+    get_recipe_root_path,
 )
 from mlflow.utils.file_utils import write_yaml
 
-# pylint: disable=unused-import
-from tests.recipes.helper_functions import (
-    enter_recipe_example_directory,
-    enter_test_recipe_directory,
-)  # pylint: enable=unused-import
 from tests.recipes.helper_functions import chdir
-from unittest import mock
 
 
 def test_get_recipe_root_path_returns_correctly_when_inside_recipe_directory(

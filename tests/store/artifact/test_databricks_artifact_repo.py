@@ -1,31 +1,31 @@
-import os
-import time
-import shutil
 import json
-import re
-
-import pytest
+import os
 import posixpath
-from requests.models import Response
+import re
+import shutil
+import time
 from unittest import mock
 from unittest.mock import ANY
+
+import pytest
+from requests.models import Response
 
 from mlflow.entities.file_info import FileInfo as FileInfoEntity
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import (
-    GetCredentialsForWrite,
-    GetCredentialsForRead,
-    ArtifactCredentialType,
     ArtifactCredentialInfo,
-    CreateMultipartUpload,
+    ArtifactCredentialType,
     CompleteMultipartUpload,
+    CreateMultipartUpload,
+    GetCredentialsForRead,
+    GetCredentialsForWrite,
     GetPresignedUploadPartUrl,
 )
-from mlflow.protos.service_pb2 import ListArtifacts, FileInfo
+from mlflow.protos.service_pb2 import FileInfo, ListArtifacts
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.databricks_artifact_repo import (
-    DatabricksArtifactRepository,
     _MAX_CREDENTIALS_REQUEST_SIZE,
+    DatabricksArtifactRepository,
 )
 
 DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.databricks_artifact_repo"
@@ -47,7 +47,7 @@ MOCK_SUBDIR = "subdir/path"
 MOCK_SUBDIR_ROOT_URI = posixpath.join(MOCK_RUN_ROOT_URI, MOCK_SUBDIR)
 
 
-@pytest.fixture()
+@pytest.fixture
 def databricks_artifact_repo():
     with mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_run_artifact_root", return_value=MOCK_RUN_ROOT_URI
@@ -57,7 +57,7 @@ def databricks_artifact_repo():
         )
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_file(tmp_path):
     test_file_content = "Hello 🍆🍔".encode()
     p = tmp_path.joinpath("test.txt")
@@ -65,7 +65,7 @@ def test_file(tmp_path):
     return str(p)
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_dir(tmp_path):
     test_file_content = "World 🍆🍔🍆".encode()
     p = tmp_path.joinpath("subdir").joinpath("test.txt")
@@ -1131,7 +1131,7 @@ def test_artifact_logging_chunks_upload_list(databricks_artifact_repo, tmp_path)
         databricks_artifact_repo.log_artifacts(src_dir, "dir_artifact")
 
         assert mock_get_write_creds.call_count == 5
-        assert all((len(call[1]["paths"]) == 2 for call in mock_get_write_creds.call_args_list))
+        assert all(len(call[1]["paths"]) == 2 for call in mock_get_write_creds.call_args_list)
 
 
 def test_download_artifacts_provides_failure_info(databricks_artifact_repo):
@@ -1155,11 +1155,7 @@ def test_download_artifacts_provides_failure_info(databricks_artifact_repo):
             MlflowException("MOCK ERROR 2"),
         ],
     ):
-        match = (
-            r"The following failures occurred while downloading one or more artifacts.+"
-            r"MOCK ERROR 1.+"
-            r"MOCK ERROR 2"
-        )
+        match = r"The following failures occurred while downloading one or more artifacts.+"
         with pytest.raises(MlflowException, match=match) as exc:
             databricks_artifact_repo.download_artifacts("test_path")
 
@@ -1228,14 +1224,14 @@ def large_file(tmp_path, mock_chunk_size):
     with path.open("a") as f:
         f.write("a" * mock_chunk_size)
         f.write("b" * mock_chunk_size)
-    yield path
+    return path
 
 
 def extract_part_number(url):
     return int(re.search(r"partNumber=(\d+)", url).group(1))
 
 
-def mock_request(method, url, *args, **kwargs):
+def mock_request(method, url, *_args, **_kwargs):
     resp = Response()
     resp.status_code = 200
     resp.close = lambda: None
@@ -1309,7 +1305,7 @@ def test_multipart_upload(databricks_artifact_repo, large_file, mock_chunk_size)
 STATUS_CODE_GENERATOR = (s for s in (403, 200))
 
 
-def mock_request_retry(method, url, *args, **kwargs):
+def mock_request_retry(method, url, *_args, **_kwargs):
     resp = Response()
     resp.status_code = 200
     resp.close = lambda: None

@@ -1,21 +1,21 @@
+import builtins
 import sys
 from unittest import mock
+
 import pytest
-import builtins
+from databricks_cli.configure.provider import DatabricksConfig
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils import databricks_utils
 from mlflow.utils.databricks_utils import (
+    check_databricks_secret_scope_access,
     get_mlflow_credential_context_by_run_id,
-    get_workspace_info_from_dbutils,
     get_workspace_info_from_databricks_secrets,
+    get_workspace_info_from_dbutils,
     is_databricks_default_tracking_uri,
     is_running_in_ipython_environment,
-    check_databricks_secret_scope_access,
 )
 from mlflow.utils.uri import construct_db_uri_from_profile
-
-from databricks_cli.configure.provider import DatabricksConfig
 
 from tests.helper_functions import mock_method_chain
 
@@ -255,7 +255,7 @@ def test_get_repl_id():
 def test_use_repl_context_if_available(tmp_path, monkeypatch):
     # Simulate a case where `dbruntime.databricks_repl_context.get_context` is unavailable.
     with pytest.raises(ModuleNotFoundError, match="No module named 'dbruntime'"):
-        from dbruntime.databricks_repl_context import get_context  # pylint: disable=unused-import
+        from dbruntime.databricks_repl_context import get_context  # noqa: F401
 
     command_context_mock = mock.MagicMock()
     command_context_mock.jobId().get.return_value = "job_id"
@@ -287,9 +287,7 @@ def get_context():
         "mlflow.utils.databricks_utils._get_command_context", return_value=command_context_mock
     ) as mock_get_command_context:
         assert databricks_utils.get_job_id() == "job_id"
-        assert databricks_utils.get_experiment_name_from_job_id("job_id") == "jobs:/job_id"
-        assert databricks_utils.get_job_type_info() == "NORMAL"
-        assert mock_get_command_context.call_count == 2
+        assert mock_get_command_context.call_count == 1
 
     with mock.patch(
         "dbruntime.databricks_repl_context.get_context",

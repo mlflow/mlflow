@@ -1,9 +1,9 @@
 import astroid
-from pylint.interfaces import IAstroidChecker
 from pylint.checkers import BaseChecker
+from pylint.interfaces import IAstroidChecker
 from pylint.lint import PyLinter
 
-from .errors import LAZY_BUILTIN_IMPORT, to_msgs
+from pylint_plugins.errors import LAZY_BUILTIN_IMPORT, to_msgs
 
 # https://github.com/PyCQA/isort/blob/b818cec889657cb786beafe94a6641f8fc0f0e64/isort/stdlibs/py311.py
 BUILTIN_MODULES = {
@@ -243,7 +243,7 @@ class ImportChecker(BaseChecker):
     def visit_functiondef(self, node: astroid.FunctionDef):
         self.stack.append(node)
 
-    def leave_functiondef(self, node: astroid.FunctionDef):
+    def leave_functiondef(self, node: astroid.FunctionDef):  # pylint: disable=unused-argument
         self.stack.pop()
 
     def visit_importfrom(self, node: astroid.ImportFrom):

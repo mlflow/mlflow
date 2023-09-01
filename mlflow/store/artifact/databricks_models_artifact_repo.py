@@ -1,26 +1,29 @@
-import logging
 import json
+import logging
 import os
 import posixpath
 
 import mlflow.tracking
 from mlflow.entities import FileInfo
+from mlflow.environment_variables import MLFLOW_ENABLE_MULTIPART_DOWNLOAD
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.file_utils import (
-    download_file_using_http_uri,
-    parallelized_download_file_using_http_uri,
-)
-from mlflow.utils.rest_utils import http_request
-from mlflow.utils.request_utils import download_chunk
-from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
     is_using_databricks_registry,
 )
-from mlflow.environment_variables import MLFLOW_ENABLE_MULTIPART_DOWNLOAD
+from mlflow.utils.databricks_utils import (
+    get_databricks_host_creds,
+    warn_on_deprecated_cross_workspace_registry_uri,
+)
+from mlflow.utils.file_utils import (
+    download_file_using_http_uri,
+    parallelized_download_file_using_http_uri,
+)
+from mlflow.utils.request_utils import download_chunk
+from mlflow.utils.rest_utils import http_request
+from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 
 _logger = logging.getLogger(__name__)
 _DOWNLOAD_CHUNK_SIZE = 500_000_000  # 500 MB
@@ -59,6 +62,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
         self.databricks_profile_uri = (
             get_databricks_profile_uri_from_artifact_uri(artifact_uri) or mlflow.get_registry_uri()
         )
+        warn_on_deprecated_cross_workspace_registry_uri(self.databricks_profile_uri)
         client = MlflowClient(registry_uri=self.databricks_profile_uri)
         self.model_name, self.model_version = get_model_name_and_version(client, artifact_uri)
         # Use an isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
@@ -90,8 +94,8 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 json_response = json.loads(response.text)
             except Exception:
                 raise MlflowException(
-                    "API request to list files under path `%s` failed with status code %s. "
-                    "Response body: %s" % (path, response.status_code, response.text)
+                    f"API request to list files under path `{path}` failed with status code "
+                    f"{response.status_code}. Response body: {response.text}"
                 )
             artifact_list = json_response.get("files", [])
             next_page_token = json_response.get("next_page_token", None)
@@ -122,8 +126,8 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             json_response = json.loads(response.text)
         except ValueError:
             raise MlflowException(
-                "API request to get presigned uri to for file under path `%s` failed with"
-                " status code %s. Response body: %s" % (path, response.status_code, response.text)
+                f"API request to get presigned uri to for file under path `{path}` failed with"
+                f" status code {response.status_code}. Response body: {response.text}"
             )
         return json_response.get("signed_uri", None), json_response.get("headers", None)
 

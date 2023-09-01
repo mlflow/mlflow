@@ -8,96 +8,99 @@ Usage
 """
 
 import logging
+import re
 import uuid
-from typing import Callable
+from typing import Any, Callable, Dict, Optional
 
-from flask import Flask, request, make_response, Response, flash, render_template_string
+import sqlalchemy
+from flask import Flask, Response, flash, make_response, render_template_string, request
 
 from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.model_registry import RegisteredModel
+from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
+)
+from mlflow.protos.model_registry_pb2 import (
+    CreateModelVersion,
+    CreateRegisteredModel,
+    DeleteModelVersion,
+    DeleteModelVersionTag,
+    DeleteRegisteredModel,
+    DeleteRegisteredModelAlias,
+    DeleteRegisteredModelTag,
+    GetLatestVersions,
+    GetModelVersion,
+    GetModelVersionByAlias,
+    GetModelVersionDownloadUri,
+    GetRegisteredModel,
+    RenameRegisteredModel,
+    SearchRegisteredModels,
+    SetModelVersionTag,
+    SetRegisteredModelAlias,
+    SetRegisteredModelTag,
+    TransitionModelVersionStage,
+    UpdateModelVersion,
+    UpdateRegisteredModel,
+)
+from mlflow.protos.service_pb2 import (
+    CreateExperiment,
+    CreateRun,
+    DeleteExperiment,
+    DeleteRun,
+    DeleteTag,
+    GetExperiment,
+    GetExperimentByName,
+    GetMetricHistory,
+    GetRun,
+    ListArtifacts,
+    LogBatch,
+    LogMetric,
+    LogModel,
+    LogParam,
+    RestoreExperiment,
+    RestoreRun,
+    SearchExperiments,
+    SetExperimentTag,
+    SetTag,
+    UpdateExperiment,
+    UpdateRun,
+)
 from mlflow.server import app
 from mlflow.server.auth.config import read_auth_config
 from mlflow.server.auth.logo import MLFLOW_LOGO
-from mlflow.server.auth.permissions import get_permission, Permission, MANAGE
+from mlflow.server.auth.permissions import MANAGE, Permission, get_permission
 from mlflow.server.auth.routes import (
+    CREATE_EXPERIMENT_PERMISSION,
+    CREATE_REGISTERED_MODEL_PERMISSION,
+    CREATE_USER,
+    DELETE_EXPERIMENT_PERMISSION,
+    DELETE_REGISTERED_MODEL_PERMISSION,
+    DELETE_USER,
+    GET_EXPERIMENT_PERMISSION,
+    GET_REGISTERED_MODEL_PERMISSION,
+    GET_USER,
     HOME,
     SIGNUP,
-    CREATE_USER,
-    GET_USER,
-    UPDATE_USER_PASSWORD,
-    UPDATE_USER_ADMIN,
-    DELETE_USER,
-    CREATE_EXPERIMENT_PERMISSION,
-    GET_EXPERIMENT_PERMISSION,
     UPDATE_EXPERIMENT_PERMISSION,
-    DELETE_EXPERIMENT_PERMISSION,
-    CREATE_REGISTERED_MODEL_PERMISSION,
-    GET_REGISTERED_MODEL_PERMISSION,
     UPDATE_REGISTERED_MODEL_PERMISSION,
-    DELETE_REGISTERED_MODEL_PERMISSION,
+    UPDATE_USER_ADMIN,
+    UPDATE_USER_PASSWORD,
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.handlers import (
+    _get_model_registry_store,
     _get_request_message,
     _get_tracking_store,
-    _get_model_registry_store,
     catch_mlflow_exception,
     get_endpoints,
 )
 from mlflow.store.entities import PagedList
-from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
-    BAD_REQUEST,
-    INVALID_PARAMETER_VALUE,
-    RESOURCE_DOES_NOT_EXIST,
-)
-from mlflow.protos.service_pb2 import (
-    GetExperiment,
-    GetRun,
-    ListArtifacts,
-    GetMetricHistory,
-    CreateRun,
-    UpdateRun,
-    LogMetric,
-    LogParam,
-    SetTag,
-    DeleteExperiment,
-    RestoreExperiment,
-    RestoreRun,
-    DeleteRun,
-    UpdateExperiment,
-    LogBatch,
-    DeleteTag,
-    SetExperimentTag,
-    GetExperimentByName,
-    LogModel,
-    CreateExperiment,
-    SearchExperiments,
-)
-from mlflow.protos.model_registry_pb2 import (
-    GetRegisteredModel,
-    DeleteRegisteredModel,
-    UpdateRegisteredModel,
-    RenameRegisteredModel,
-    GetLatestVersions,
-    CreateModelVersion,
-    GetModelVersion,
-    DeleteModelVersion,
-    UpdateModelVersion,
-    TransitionModelVersionStage,
-    GetModelVersionDownloadUri,
-    SetRegisteredModelTag,
-    DeleteRegisteredModelTag,
-    SetModelVersionTag,
-    DeleteModelVersionTag,
-    SetRegisteredModelAlias,
-    DeleteRegisteredModelAlias,
-    GetModelVersionByAlias,
-    CreateRegisteredModel,
-    SearchRegisteredModels,
-)
-from mlflow.utils.proto_json_utils import parse_dict, message_to_json
+from mlflow.utils.proto_json_utils import message_to_json, parse_dict
+from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import SearchUtils
 
 _logger = logging.getLogger(__name__)
@@ -110,7 +113,7 @@ UNPROTECTED_ROUTES = [CREATE_USER, SIGNUP]
 
 
 def is_unprotected_route(path: str) -> bool:
-    if path.startswith(("/static", "/favicon.ico")):
+    if path.startswith(("/static", "/favicon.ico", "/health")):
         return True
     return path in UNPROTECTED_ROUTES
 
@@ -178,6 +181,25 @@ def _get_permission_from_experiment_id() -> Permission:
     )
 
 
+_EXPERIMENT_ID_PATTERN = re.compile(r"^(\d+)/")
+
+
+def _get_experiment_id_from_view_args():
+    if artifact_path := request.view_args.get("artifact_path"):
+        if m := _EXPERIMENT_ID_PATTERN.match(artifact_path):
+            return m.group(1)
+    return None
+
+
+def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
+    if experiment_id := _get_experiment_id_from_view_args():
+        username = request.authorization.username
+        return _get_permission_from_store_or_default(
+            lambda: store.get_experiment_permission(experiment_id, username).permission
+        )
+    return get_permission(auth_config.default_permission)
+
+
 def _get_permission_from_experiment_name() -> Permission:
     experiment_name = _get_request_param("experiment_name")
     store_exp = _get_tracking_store().get_experiment_by_name(experiment_name)
@@ -230,6 +252,14 @@ def validate_can_delete_experiment():
 
 def validate_can_manage_experiment():
     return _get_permission_from_experiment_id().can_manage
+
+
+def validate_can_read_experiment_artifact_proxy():
+    return _get_permission_from_experiment_id_artifact_proxy().can_read
+
+
+def validate_can_update_experiment_artifact_proxy():
+    return _get_permission_from_experiment_id_artifact_proxy().can_update
 
 
 def validate_can_read_run():
@@ -367,13 +397,27 @@ BEFORE_REQUEST_VALIDATORS.update(
 )
 
 
+def _is_proxy_artifact_path(path: str) -> bool:
+    return path.startswith(f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/")
+
+
+def _get_proxy_artifact_validator(
+    method: str, view_args: Optional[Dict[str, Any]]
+) -> Optional[Callable[[], bool]]:
+    if view_args is None:
+        return validate_can_read_experiment_artifact_proxy  # List
+
+    return {
+        "GET": validate_can_read_experiment_artifact_proxy,  # Download
+        "PUT": validate_can_update_experiment_artifact_proxy,  # Upload
+        "DELETE": validate_can_update_experiment_artifact_proxy,  # Delete
+    }.get(method)
+
+
 @catch_mlflow_exception
 def _before_request():
     if is_unprotected_route(request.path):
         return
-
-    _user = request.authorization.username if request.authorization else None
-    _logger.debug(f"before_request: {request.method} {request.path} (user: {_user})")
 
     if request.authorization is None:
         return make_basic_auth_response()
@@ -386,16 +430,16 @@ def _before_request():
 
     # admins don't need to be authorized
     if sender_is_admin():
-        _logger.debug(f"Admin (username={username}) authorization not required")
         return
 
     # authorization
     if validator := BEFORE_REQUEST_VALIDATORS.get((request.path, request.method)):
-        _logger.debug(f"Calling validator: {validator.__name__}")
         if not validator():
             return make_forbidden_response()
-    else:
-        _logger.debug(f"No validator found for {(request.path, request.method)}")
+    elif _is_proxy_artifact_path(request.path):
+        if validator := _get_proxy_artifact_validator(request.method, request.view_args):
+            if not validator():
+                return make_forbidden_response()
 
 
 def set_can_manage_experiment_permission(resp: Response):
@@ -540,24 +584,30 @@ AFTER_REQUEST_HANDLERS = {
 
 @catch_mlflow_exception
 def _after_request(resp: Response):
-    _logger.debug(f"after_request: {request.method} {request.path}")
     if 400 <= resp.status_code < 600:
         return resp
 
     if handler := AFTER_REQUEST_HANDLERS.get((request.path, request.method)):
-        _logger.debug(f"Calling after request handler: {handler.__name__}")
         handler(resp)
     return resp
 
 
 def create_admin_user(username, password):
     if not store.has_user(username):
-        store.create_user(username, password, is_admin=True)
-        _logger.info(
-            f"Created admin user '{username}'. "
-            "It is recommended that you set a new password as soon as possible "
-            f"on {UPDATE_USER_PASSWORD}."
-        )
+        try:
+            store.create_user(username, password, is_admin=True)
+            _logger.info(
+                f"Created admin user '{username}'. "
+                "It is recommended that you set a new password as soon as possible "
+                f"on {UPDATE_USER_PASSWORD}."
+            )
+        except MlflowException as e:
+            if isinstance(e.__cause__, sqlalchemy.exc.IntegrityError):
+                # When multiple workers are starting up at the same time, it's possible
+                # that they try to create the admin user at the same time and one of them
+                # will succeed while the others will fail with an IntegrityError.
+                return
+            raise
 
 
 def alert(href: str):
@@ -789,7 +839,6 @@ def create_app(app: Flask = app):
     if not app.secret_key:
         app.secret_key = str(uuid.uuid4())
 
-    _logger.debug("Database URI: %s", auth_config.database_uri)
     store.init_db(auth_config.database_uri)
     create_admin_user(auth_config.admin_username, auth_config.admin_password)
 

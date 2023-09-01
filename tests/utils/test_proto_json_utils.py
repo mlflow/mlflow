@@ -1,30 +1,30 @@
 import base64
-import json
 import datetime
-
-import pytest
+import json
 
 import numpy as np
 import pandas as pd
+import pytest
 from google.protobuf.text_format import Parse as ParseTextIntoProto
 
 from mlflow.entities import Experiment, Metric
-from mlflow.entities.model_registry import RegisteredModel, ModelVersion
+from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
+from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
-from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
-from mlflow.types import Schema, TensorSpec, ColSpec
+from mlflow.types import ColSpec, Schema, TensorSpec
 from mlflow.utils.proto_json_utils import (
+    MlflowFailedTypeConversion,
+    _CustomJsonEncoder,
+    _stringify_all_experiment_ids,
     cast_df_types_according_to_schema,
+    dataframe_from_raw_json,
     message_to_json,
     parse_dict,
-    _stringify_all_experiment_ids,
     parse_tf_serving_input,
-    dataframe_from_raw_json,
-    _CustomJsonEncoder,
-    MlflowFailedTypeConversion,
 )
+
 from tests.protos.test_message_pb2 import TestMessage
 
 # Prevent pytest from trying to collect TestMessage as a test class:
@@ -396,12 +396,14 @@ def test_parse_tf_serving_single_array():
     schema = Schema([TensorSpec(np.dtype("float32"), [-1], "a")])
     instance_result = parse_tf_serving_input(tfserving_instances, schema)
     assert isinstance(instance_result, dict)
-    assert len(instance_result.keys()) == 1 and "a" in instance_result
+    assert len(instance_result.keys()) == 1
+    assert "a" in instance_result
     assert_result(instance_result["a"], np.array(arr, dtype="float32"))
 
     input_result = parse_tf_serving_input(tfserving_inputs, schema)
     assert isinstance(input_result, dict)
-    assert len(input_result.keys()) == 1 and "a" in input_result
+    assert len(input_result.keys()) == 1
+    assert "a" in input_result
     assert_result(input_result["a"], np.array(arr, dtype="float32"))
 
 

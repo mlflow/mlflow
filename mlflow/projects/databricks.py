@@ -1,31 +1,30 @@
 import hashlib
 import json
+import logging
 import os
+import posixpath
+import re
 import tempfile
 import textwrap
 import time
-import logging
-import posixpath
-import re
 
 from mlflow import tracking
 from mlflow.entities import RunStatus
-from mlflow.exceptions import MlflowException
+from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_TRACKING_URI
+from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.projects.utils import MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils import rest_utils, file_utils, databricks_utils
-from mlflow.exceptions import ExecutionException
+from mlflow.utils import databricks_utils, file_utils, rest_utils
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_RUN_URL,
     MLFLOW_DATABRICKS_SHELL_JOB_ID,
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID,
     MLFLOW_DATABRICKS_WEBAPP_URL,
 )
-from mlflow.utils.uri import is_databricks_uri, is_http_uri
 from mlflow.utils.string_utils import quote
-from mlflow.version import is_release_version, VERSION
-from mlflow.environment_variables import MLFLOW_TRACKING_URI, MLFLOW_EXPERIMENT_ID
+from mlflow.utils.uri import is_databricks_uri, is_http_uri
+from mlflow.version import VERSION, is_release_version
 
 # Base directory within driver container for storing files related to MLflow
 DB_CONTAINER_BASE = "/databricks/mlflow"
@@ -132,14 +131,14 @@ class DatabricksJobRunner:
             host_creds=host_creds,
             endpoint="/api/2.0/dbfs/get-status",
             method="GET",
-            json={"path": "/%s" % dbfs_path},
+            json={"path": f"/{dbfs_path}"},
         )
         try:
             json_response_obj = json.loads(response.text)
         except Exception:
             raise MlflowException(
-                "API request to check existence of file at DBFS path %s failed with status code "
-                "%s. Response body: %s" % (dbfs_path, response.status_code, response.text)
+                f"API request to check existence of file at DBFS path {dbfs_path} failed with "
+                f"status code {response.status_code}. Response body: {response.text}"
             )
         # If request fails with a RESOURCE_DOES_NOT_EXIST error, the file does not exist on DBFS
         error_code_field = "error_code"
@@ -147,8 +146,8 @@ class DatabricksJobRunner:
             if json_response_obj[error_code_field] == "RESOURCE_DOES_NOT_EXIST":
                 return False
             raise ExecutionException(
-                "Got unexpected error response when checking whether file %s "
-                "exists in DBFS: %s" % (dbfs_path, json_response_obj)
+                f"Got unexpected error response when checking whether file {dbfs_path} "
+                f"exists in DBFS: {json_response_obj}"
             )
         return True
 
@@ -181,7 +180,7 @@ class DatabricksJobRunner:
                 DBFS_EXPERIMENT_DIR_BASE,
                 str(experiment_id),
                 "projects-code",
-                "%s.tar.gz" % tarfile_hash,
+                f"{tarfile_hash}.tar.gz",
             )
             tar_size = file_utils._get_local_file_size(temp_tar_filename)
             dbfs_fuse_uri = posixpath.join("/dbfs", dbfs_path)
@@ -214,7 +213,7 @@ class DatabricksJobRunner:
                  `Runs Get <https://docs.databricks.com/api/latest/jobs.html#runs-get>`_ API.
         """
         if is_release_version():
-            mlflow_lib = {"pypi": {"package": "mlflow==%s" % VERSION}}
+            mlflow_lib = {"pypi": {"package": f"mlflow=={VERSION}"}}
         else:
             # When running a non-release version as the client the same version will not be
             # available within Databricks.
@@ -224,7 +223,7 @@ class DatabricksJobRunner:
                 "MLFlow will fallback the MLFlow version provided by the runtime. "
                 "This might lead to unforeseen issues. "
             )
-            mlflow_lib = {"pypi": {"package": "'mlflow<=%s'" % VERSION}}
+            mlflow_lib = {"pypi": {"package": f"'mlflow<={VERSION}'"}}
 
         # Check syntax of JSON - if it contains libraries and new_cluster, pull those out
         if "new_cluster" in cluster_spec:
@@ -244,7 +243,7 @@ class DatabricksJobRunner:
 
         # Make jobs API request to launch run.
         req_body_json = {
-            "run_name": "MLflow Run for %s" % project_uri,
+            "run_name": f"MLflow Run for {project_uri}",
             "new_cluster": cluster_spec,
             "shell_command_task": {"command": command, "env_vars": env_vars},
             "libraries": libraries,

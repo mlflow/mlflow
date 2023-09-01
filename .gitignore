@@ -104,9 +104,13 @@ travis_wait*.log
 lightning_logs
 
 a.py
+a.md
 
 # Log file created by pre-commit hook for black
 .black.log
 
 # Pytest-monitor load testing DB file
 *.pymon
+
+# Ignore a gunicorn config file
+gunicorn.conf.py

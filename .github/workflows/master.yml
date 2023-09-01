@@ -6,21 +6,6 @@ on:
     branches:
       - master
       - branch-[0-9]+.[0-9]+
-  workflow_dispatch:
-    inputs:
-      repository:
-        description: >
-          [Optional] Repository name with owner. For example, mlflow/mlflow.
-           Defaults to the repository that triggered a workflow.
-        required: false
-        default: ""
-      ref:
-        description: >
-          [Optional] The branch, tag or SHA to checkout. When checking out the repository that
-           triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
-           uses the default branch.
-        required: false
-        default: ""
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
@@ -37,53 +22,42 @@ env:
   # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
+  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
 
 jobs:
   lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    if: github.event_name == 'pull_request'
+    timeout-minutes: 30
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v3
-        with:
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/cache-pip
+        id: setup-python
       - name: Add problem matchers
         run: |
           echo "::add-matcher::.github/workflows/matchers/pylint.json"
           echo "::add-matcher::.github/workflows/matchers/black.json"
+          echo "::add-matcher::.github/workflows/matchers/ruff.json"
+      - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
+          python -m venv ~/.venv
+          . ~/.venv/bin/activate
           source ./dev/install-common-deps.sh --ml
           pip install -r requirements/lint-requirements.txt
-      - name: Test custom pylint-plugins
-        run: |
-          pytest pylint_plugins/tests
+      - uses: ./.github/actions/pipdeptree
       - name: Install pre-commit hooks
         run: |
+          . ~/.venv/bin/activate
           pre-commit install -t pre-commit -t prepare-commit-msg
-      - name: Run pre-commit (only changed files)
-        id: run-pre-commit
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run pre-commit
+        id: pre-commit
         run: |
-          # pylint is ridiculously slow. It takes ~15 minutes to run on all files.
-          # To fail fast for faster iteration, first run pylint only on changed files,
-          # then run it on all files in the next step.
-          changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
-          pre-commit run --color=always --files $changed_files
-      - name: Run pre-commit (pylint)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
-          if echo "$changed_files" | grep -q '\.py$'; then
-            pre-commit run --color=always --all-files pylint
-          fi
+          . ~/.venv/bin/activate
+          pre-commit run --all-files
       - name: Update error messages
-        if: always() && steps.run-pre-commit.outcome == 'failure'
+        if: always() && steps.pre-commit.outcome == 'failure'
         run: |
           if [ -f ".black.log" ]; then
             grep -o 'reformatted .*\.py' .black.log | sed 's/reformatted \(.*\.py\)/\1: This file is unformatted. Run `black .` or comment `@mlflow-automation autoformat` on the PR if you'\''re an MLflow maintainer./'
@@ -94,14 +68,14 @@ jobs:
   # The python skinny tests cover the subset of mlflow functionality
   # while also verifying certain dependencies are omitted.
   python-skinny:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
@@ -109,47 +83,46 @@ jobs:
       - name: Run tests
         run: |
           ./dev/run-python-skinny-tests.sh
-      - uses: ./.github/actions/untracked
 
   python:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    env:
-      JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
           submodules: recursive
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
-        with:
-          java-version: 11
-          distribution: "adopt"
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
+          python -m venv ~/.venv
+          . ~/.venv/bin/activate
           source ./dev/install-common-deps.sh --ml
+      - uses: ./.github/actions/pipdeptree
       - name: Import check
         run: |
+          . ~/.venv/bin/activate
           python tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
         run: |
+          . ~/.venv/bin/activate
           source dev/setup-ssh.sh
           ./dev/run-python-tests.sh
-      - uses: ./.github/actions/untracked
 
   database:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - name: Build
         run: |
           ./tests/db/compose.sh pull -q postgresql mysql mssql
@@ -210,58 +183,62 @@ jobs:
       - name: Clean up
         run: |
           ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
-      - uses: ./.github/actions/untracked
 
   java:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
+      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           cd mlflow/java
           mvn clean package -q
 
   flavors:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
+          python -m venv ~/.venv
+          . ~/.venv/bin/activate
           source ./dev/install-common-deps.sh --ml
+      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
+          . ~/.venv/bin/activate
           ./dev/run-python-flavor-tests.sh;
 
   # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
   # run these tests in a separate job.
   models:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -269,47 +246,47 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install pyspark
+      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/models
-      - uses: ./.github/actions/untracked
 
   # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
   # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
   # When the shap cross version tests are passing in a new release version of shap, this pin should
   # be removed.
   evaluate:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark "numpy<1.24.0"
+          pip install pyspark "numpy<1.24.0" torch transformers
+      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/evaluate
-      - uses: ./.github/actions/untracked
 
   pyfunc:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
           submodules: recursive
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -317,40 +294,40 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install tensorflow pyspark
+      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest --durations=30 tests/pyfunc
-      - uses: ./.github/actions/untracked
 
   sagemaker:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --ml
+      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           ./dev/run-python-sagemaker-tests.sh;
-      - uses: ./.github/actions/untracked
 
   windows:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: windows-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -365,6 +342,7 @@ jobs:
           pip install datasets
           # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
           pip install tensorflow
+      - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils /tmp/winutils
@@ -384,4 +362,3 @@ jobs:
           # MLeap is incompatible on Windows with PySpark3.4 release. 
           # Reinstate tests when MLeap has released a fix. [ML-30491]
           # pytest tests/mleap
-      - uses: ./.github/actions/untracked

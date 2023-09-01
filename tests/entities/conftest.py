@@ -1,16 +1,27 @@
-import pytest
 import random
 import uuid
 
-from tests.helper_functions import random_str, random_int
+import pytest
 
-from mlflow.entities import RunInfo, LifecycleStage, RunStatus
-from mlflow.entities import Metric, RunData, Param, RunTag
-from mlflow.entities import RunInputs, DatasetInput, InputTag, Dataset
+from mlflow.entities import (
+    Dataset,
+    DatasetInput,
+    InputTag,
+    LifecycleStage,
+    Metric,
+    Param,
+    RunData,
+    RunInfo,
+    RunInputs,
+    RunStatus,
+    RunTag,
+)
 from mlflow.utils.time_utils import get_current_time_millis
 
+from tests.helper_functions import random_int, random_str
 
-@pytest.fixture()
+
+@pytest.fixture
 def run_data():
     metrics = [
         Metric(
@@ -28,7 +39,7 @@ def run_data():
     return rd, metrics, params, tags
 
 
-@pytest.fixture()
+@pytest.fixture
 def run_info():
     run_id = str(uuid.uuid4())
     experiment_id = str(random_int(10, 2000))
@@ -65,7 +76,7 @@ def run_info():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def run_inputs():
     datasets = [
         DatasetInput(

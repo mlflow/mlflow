@@ -33726,7 +33726,6 @@ public final class ModelRegistry {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -33736,7 +33735,6 @@ public final class ModelRegistry {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -33746,7 +33744,6 @@ public final class ModelRegistry {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -34404,7 +34401,6 @@ public final class ModelRegistry {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -34417,7 +34413,6 @@ public final class ModelRegistry {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -34441,7 +34436,6 @@ public final class ModelRegistry {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -35061,7 +35055,6 @@ public final class ModelRegistry {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -35073,7 +35066,6 @@ public final class ModelRegistry {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -35096,7 +35088,6 @@ public final class ModelRegistry {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -35118,7 +35109,6 @@ public final class ModelRegistry {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -35138,7 +35128,6 @@ public final class ModelRegistry {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -35153,7 +35142,6 @@ public final class ModelRegistry {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -35323,7 +35311,6 @@ public final class ModelRegistry {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 4 [(.mlflow.validate_required) = true];</code>
@@ -35333,7 +35320,6 @@ public final class ModelRegistry {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 4 [(.mlflow.validate_required) = true];</code>
@@ -35343,7 +35329,6 @@ public final class ModelRegistry {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 4 [(.mlflow.validate_required) = true];</code>
@@ -36068,7 +36053,6 @@ public final class ModelRegistry {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 4 [(.mlflow.validate_required) = true];</code>
@@ -36081,7 +36065,6 @@ public final class ModelRegistry {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 4 [(.mlflow.validate_required) = true];</code>
@@ -36105,7 +36088,6 @@ public final class ModelRegistry {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 4 [(.mlflow.validate_required) = true];</code>
@@ -36859,7 +36841,6 @@ public final class ModelRegistry {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 4 [(.mlflow.validate_required) = true];</code>
@@ -36871,7 +36852,6 @@ public final class ModelRegistry {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 4 [(.mlflow.validate_required) = true];</code>
@@ -36894,7 +36874,6 @@ public final class ModelRegistry {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 4 [(.mlflow.validate_required) = true];</code>
@@ -36916,7 +36895,6 @@ public final class ModelRegistry {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 4 [(.mlflow.validate_required) = true];</code>
@@ -36936,7 +36914,6 @@ public final class ModelRegistry {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 4 [(.mlflow.validate_required) = true];</code>
@@ -36951,7 +36928,6 @@ public final class ModelRegistry {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 4 [(.mlflow.validate_required) = true];</code>

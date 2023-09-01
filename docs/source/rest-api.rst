@@ -2174,7 +2174,6 @@ Request Structure
 |            |            |                                                                                                          |
 +------------+------------+----------------------------------------------------------------------------------------------------------+
 | value      | ``STRING`` | String value of the tag being logged. Maximum size depends on storage backend.                           |
-|            |            | All storage backends are guaranteed to support key values up to 5000 bytes in size.                      |
 |            |            | This field is required.                                                                                  |
 |            |            |                                                                                                          |
 +------------+------------+----------------------------------------------------------------------------------------------------------+
@@ -2228,7 +2227,6 @@ Request Structure
 |            |            |                                                                                                          |
 +------------+------------+----------------------------------------------------------------------------------------------------------+
 | value      | ``STRING`` | String value of the tag being logged. Maximum size depends on storage backend.                           |
-|            |            | All storage backends are guaranteed to support key values up to 5000 bytes in size.                      |
 |            |            | This field is required.                                                                                  |
 |            |            |                                                                                                          |
 +------------+------------+----------------------------------------------------------------------------------------------------------+

@@ -1,32 +1,40 @@
 """
 The ``mlflow.sagemaker`` module provides an API for deploying MLflow models to Amazon SageMaker.
 """
+import json
+import logging
 import os
-from subprocess import Popen
-import urllib.parse
+import platform
+import signal
 import sys
 import tarfile
-import logging
 import time
-import platform
-import json
-import signal
+import urllib.parse
+from subprocess import Popen
+from typing import Any, Dict, Optional
 
 import mlflow
 import mlflow.version
-from mlflow import pyfunc, mleap
+from mlflow import mleap, pyfunc
+from mlflow.deployments import BaseDeploymentClient, PredictionsResponse
+from mlflow.environment_variables import (
+    MLFLOW_DEPLOYMENT_FLAVOR_NAME,
+    MLFLOW_SAGEMAKER_DEPLOY_IMG_URL,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.container import (
+    SERVING_ENVIRONMENT,
+)
+from mlflow.models.container import (
+    SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS,
+)
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_unique_resource_id
 from mlflow.utils.file_utils import TempDir
-from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
-from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME, SERVING_ENVIRONMENT
-from mlflow.deployments import BaseDeploymentClient, PredictionsResponse
 from mlflow.utils.proto_json_utils import dump_input_data
-
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
 DEPLOYMENT_MODE_ADD = "add"
@@ -34,8 +42,6 @@ DEPLOYMENT_MODE_REPLACE = "replace"
 DEPLOYMENT_MODE_CREATE = "create"
 
 DEPLOYMENT_MODES = [DEPLOYMENT_MODE_CREATE, DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE]
-
-IMAGE_NAME_ENV_VAR = "MLFLOW_SAGEMAKER_DEPLOY_IMG_URL"
 
 DEFAULT_BUCKET_NAME_PREFIX = "mlflow-sagemaker"
 
@@ -98,10 +104,8 @@ def _validate_deployment_flavor(model_config, flavor):
         raise MlflowException(
             message=(
                 "The specified model does not contain the specified deployment flavor:"
-                " `{flavor_name}`. Please use one of the following deployment flavors"
-                " that the model contains: {model_flavors}".format(
-                    flavor_name=flavor, model_flavors=model_config.flavors.keys()
-                )
+                f" `{flavor}`. Please use one of the following deployment flavors"
+                f" that the model contains: {model_config.flavors.keys()}"
             ),
             error_code=RESOURCE_DOES_NOT_EXIST,
         )
@@ -456,7 +460,7 @@ def _deploy(
         else:
             raise MlflowException(
                 "The deployment operation failed with the following error message:"
-                ' "{error_message}"'.format(error_message=operation_status.message)
+                f' "{operation_status.message}"'
             )
         if not archive:
             deployment_operation.clean_up()
@@ -558,7 +562,7 @@ def _delete(
         else:
             raise MlflowException(
                 "The deletion operation failed with the following error message:"
-                ' "{error_message}"'.format(error_message=operation_status.message)
+                f' "{operation_status.message}"'
             )
         if not archive:
             delete_operation.clean_up()
@@ -796,7 +800,7 @@ def deploy_transform_job(
         else:
             raise MlflowException(
                 "The batch transform job failed with the following error message:"
-                ' "{error_message}"'.format(error_message=operation_status.message)
+                f' "{operation_status.message}"'
             )
         if not archive:
             deployment_operation.clean_up()
@@ -893,7 +897,7 @@ def terminate_transform_job(
         else:
             raise MlflowException(
                 "The termination operation failed with the following error message:"
-                ' "{error_message}"'.format(error_message=operation_status.message)
+                f' "{operation_status.message}"'
             )
         if not archive:
             stop_operation.clean_up()
@@ -1124,7 +1128,7 @@ def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unu
     deployment_config = _get_deployment_config(flavor_name=flavor)
 
     _logger.info("launching docker image with path %s", model_path)
-    cmd = ["docker", "run", "-v", f"{model_path}:/opt/ml/model/", "-p", "%d:8080" % port]
+    cmd = ["docker", "run", "-v", f"{model_path}:/opt/ml/model/", "-p", f"{port}:8080"]
     for key, value in deployment_config.items():
         cmd += ["-e", f"{key}={value}"]
     cmd += ["--rm", image, "serve"]
@@ -1167,8 +1171,7 @@ def target_help():
 def _get_default_image_url(region_name):
     import boto3
 
-    env_img = os.environ.get(IMAGE_NAME_ENV_VAR)
-    if env_img:
+    if env_img := MLFLOW_SAGEMAKER_DEPLOY_IMG_URL.get():
         return env_img
 
     ecr_client = boto3.client("ecr", region_name=region_name)
@@ -1305,7 +1308,7 @@ def _get_deployment_config(flavor_name, env_override=None):
     :return: The deployment configuration as a dictionary
     """
     deployment_config = {
-        DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME: flavor_name,
+        MLFLOW_DEPLOYMENT_FLAVOR_NAME.name: flavor_name,
         SERVING_ENVIRONMENT: SAGEMAKER_SERVING_ENVIRONMENT,
     }
     if env_override:
@@ -1324,15 +1327,15 @@ def _get_deployment_config(flavor_name, env_override=None):
 
 
 def _get_sagemaker_model_name(endpoint_name):
-    return "{en}-model-{uid}".format(en=endpoint_name, uid=get_unique_resource_id())
+    return f"{endpoint_name}-model-{get_unique_resource_id()}"
 
 
 def _get_sagemaker_transform_model_name(job_name):
-    return "{bn}-model-{uid}".format(bn=job_name, uid=get_unique_resource_id())
+    return f"{job_name}-model-{get_unique_resource_id()}"
 
 
 def _get_sagemaker_config_name(endpoint_name):
-    return "{en}-config-{uid}".format(en=endpoint_name, uid=get_unique_resource_id())
+    return f"{endpoint_name}-config-{get_unique_resource_id()}"
 
 
 def _create_sagemaker_transform_job(
@@ -2659,7 +2662,13 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 message=f"There was an error while retrieving the deployment: {exc}\n"
             )
 
-    def predict(self, deployment_name=None, inputs=None, endpoint=None):
+    def predict(
+        self,
+        deployment_name=None,
+        inputs=None,
+        endpoint=None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
+    ):
         """
         Compute predictions from the specified deployment using the provided PyFunc input.
 
@@ -2715,7 +2724,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             )
             response = sage_client.invoke_endpoint(
                 EndpointName=deployment_name,
-                Body=dump_input_data(inputs, inputs_key="instances"),
+                Body=dump_input_data(inputs, inputs_key="instances", params=params),
                 ContentType="application/json",
             )
             response_body = response["Body"].read().decode("utf-8")
@@ -2833,7 +2842,7 @@ class _SageMakerOperation:
         if self.status.state != _SageMakerOperationStatus.STATE_SUCCEEDED:
             raise ValueError(
                 "Cannot clean up an operation that has not succeeded! Current operation state:"
-                " {operation_state}".format(operation_state=self.status.state)
+                f" {self.status.state}"
             )
 
         if not self.cleaned_up:

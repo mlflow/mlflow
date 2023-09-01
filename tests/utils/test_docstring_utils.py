@@ -25,7 +25,7 @@ def test_get_minimum_indentation():
 
 def test_format_docstring():
     @format_docstring({"p": "param doc"})
-    def single_param(p):
+    def single_param(_p):
         """
         :param p:{{ p }}
         """
@@ -38,7 +38,7 @@ def test_format_docstring():
     assert single_param.__name__ == "single_param"
 
     @format_docstring({"p1": "param1 doc", "p2": "param2 doc"})
-    def multiple_params(p1, p2):
+    def multiple_params(_p1, _p2):
         """
         :param p1:{{ p1 }}
         :param p2:{{ p2 }}

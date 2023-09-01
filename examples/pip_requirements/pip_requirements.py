@@ -4,11 +4,11 @@ This example demonstrates how to specify pip requirements using `pip_requirement
 """
 
 import tempfile
-from packaging.version import Version
 
 import sklearn
-from sklearn.datasets import load_iris
 import xgboost as xgb
+from sklearn.datasets import load_iris
+
 import mlflow
 from mlflow.artifacts import download_artifacts
 from mlflow.models.signature import infer_signature

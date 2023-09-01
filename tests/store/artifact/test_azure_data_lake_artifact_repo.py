@@ -1,21 +1,21 @@
 import os
 import posixpath
-import pytest
 from unittest import mock
 
+import pytest
 from azure.storage.filedatalake import (
-    DataLakeServiceClient,
-    FileSystemClient,
     DataLakeDirectoryClient,
     DataLakeFileClient,
+    DataLakeServiceClient,
+    FileSystemClient,
+    PathProperties,
 )
-from azure.storage.filedatalake import PathProperties
+
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.azure_data_lake_artifact_repo import (
     AzureDataLakeArtifactRepository,
     _parse_abfss_uri,
 )
-
 
 TEST_ROOT_PATH = "some/path"
 TEST_DATA_LAKE_URI_BASE = "abfss://filesystem@account.dfs.core.windows.net"
@@ -45,25 +45,25 @@ def mock_data_lake_client():
 def mock_filesystem_client(mock_data_lake_client):
     mock_fs_client = mock.MagicMock(autospec=FileSystemClient)
     mock_data_lake_client.get_file_system_client.return_value = mock_fs_client
-    yield mock_fs_client
+    return mock_fs_client
 
 
 @pytest.fixture
 def mock_directory_client(mock_filesystem_client):
     mock_directory_client = mock.MagicMock(autospec=DataLakeDirectoryClient)
     mock_filesystem_client.get_directory_client.return_value = mock_directory_client
-    yield mock_directory_client
+    return mock_directory_client
 
 
 @pytest.fixture
 def mock_file_client(mock_directory_client):
     mock_file_client = mock.MagicMock(autospec=DataLakeFileClient)
     mock_directory_client.get_file_client.return_value = mock_file_client
-    yield mock_file_client
+    return mock_file_client
 
 
 @pytest.mark.parametrize(
-    "uri, filesystem, account, path",
+    ("uri", "filesystem", "account", "path"),
     [
         ("abfss://filesystem@acct.dfs.core.windows.net/path", "filesystem", "acct", "path"),
         ("abfss://filesystem@acct.dfs.core.windows.net", "filesystem", "acct", ""),
@@ -110,7 +110,7 @@ def test_list_artifacts_single_file(mock_data_lake_client):
     assert repo.list_artifacts("file") == []
 
 
-def test_list_artifacts(mock_data_lake_client, mock_filesystem_client):
+def test_list_artifacts(mock_filesystem_client):
     repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
 
     # Create some files to return
@@ -134,9 +134,7 @@ def test_list_artifacts(mock_data_lake_client, mock_filesystem_client):
     )
 
 
-def test_log_artifacts(
-    mock_data_lake_client, mock_filesystem_client, mock_directory_client, mock_file_client, tmp_path
-):
+def test_log_artifacts(mock_filesystem_client, mock_directory_client, tmp_path):
     repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
 
     parentd = tmp_path.joinpath("data")
@@ -163,9 +161,7 @@ def test_log_artifacts(
     mock_directory_client.get_file_client("subdir/empty-file.txt").create_file.assert_called()
 
 
-def test_download_file_artifact(
-    mock_data_lake_client, mock_filesystem_client, mock_directory_client, mock_file_client, tmp_path
-):
+def test_download_file_artifact(mock_directory_client, mock_file_client, tmp_path):
     repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
 
     def create_file(file):

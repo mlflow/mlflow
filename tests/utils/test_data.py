@@ -1,7 +1,7 @@
 import os
 
-from mlflow.utils.data_utils import is_uri
 from mlflow.projects import _project_spec
+from mlflow.utils.data_utils import is_uri
 
 TEST_DIR = "tests"
 TEST_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project")

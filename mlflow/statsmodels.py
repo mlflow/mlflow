@@ -12,50 +12,50 @@ statsmodels (native) format
     https://www.statsmodels.org/stable/_modules/statsmodels/base/model.html#Results
 
 """
+import inspect
+import itertools
 import logging
 import os
+from typing import Any, Dict, Optional
+
 import yaml
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    get_autologging_config,
+    log_fn_args_as_params,
+    safe_patch,
+)
+from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _validate_env_arguments,
-    _process_pip_requirements,
-    _process_conda_env,
     _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _mlflow_conda_env,
+    _process_conda_env,
+    _process_pip_requirements,
     _PythonEnv,
+    _validate_env_arguments,
 )
-from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import (
+    _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
-    _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
 )
-from mlflow.exceptions import MlflowException
-from mlflow.utils.autologging_utils import (
-    log_fn_args_as_params,
-    autologging_integration,
-    safe_patch,
-    get_autologging_config,
-)
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.validation import _is_numeric
-
-import itertools
-import inspect
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-
 
 FLAVOR_NAME = "statsmodels"
 STATSMODELS_DATA_SUBPATH = "model.statsmodels"
@@ -327,7 +327,18 @@ class _StatsmodelsModelWrapper:
     def __init__(self, statsmodels_model):
         self.statsmodels_model = statsmodels_model
 
-    def predict(self, dataframe):
+    def predict(
+        self, dataframe, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param dataframe: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         from statsmodels.tsa.base.tsa_model import TimeSeriesModel
 
         model = self.statsmodels_model.model
@@ -408,6 +419,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
+    extra_tags=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures automatic logging from statsmodels to MLflow.
@@ -439,13 +451,14 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
     import statsmodels
 
     # Autologging depends on the exploration of the models class tree within the
     # `statsmodels.base.models` module. In order to load / access this module, the
     # `statsmodels.api` module must be imported
-    import statsmodels.api  # pylint: disable=unused-import
+    import statsmodels.api
 
     def find_subclasses(klass):
         """
@@ -503,7 +516,9 @@ def autolog(
         ]
 
         for clazz, method_name, patch_impl in patches_list:
-            safe_patch(FLAVOR_NAME, clazz, method_name, patch_impl, manage_run=True)
+            safe_patch(
+                FLAVOR_NAME, clazz, method_name, patch_impl, manage_run=True, extra_tags=extra_tags
+            )
 
     def wrapper_fit(original, self, *args, **kwargs):
         should_autolog = False

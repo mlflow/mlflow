@@ -146,7 +146,7 @@ class Settings:
 
     def __repr__(self):
         values = ", ".join([f"{key}={value!r}" for key, value in sorted(_iteritems(self.__dict__))])
-        return "{}({})".format(type(self).__name__, values)
+        return f"{type(self).__name__}({values})"
 
     def __eq__(self, other):
         if isinstance(other, type(self)):
@@ -312,7 +312,7 @@ def apply(patch):
     else:
         if not settings.allow_hit:
             raise RuntimeError(
-                "An attribute named '%s' already exists at the destination "
+                "An attribute named '%s' already exists at the destination "  # noqa: UP031
                 "'%s'. Set a different name through the patch object to avoid "
                 "a name clash or set the setting 'allow_hit' to True to "
                 "overwrite the attribute. In the latter case, it is "
@@ -359,7 +359,7 @@ def revert(patch):
         # try to get attribute from parent classes if attribute not found in destination class.
         if original_name not in patch.destination.__dict__:
             raise RuntimeError(
-                "Cannot revert the attribute named '%s' since the setting "
+                "Cannot revert the attribute named '%s' since the setting "  # noqa: UP031
                 "'store_hit' was not set to True when applying the patch."
                 % (patch.destination.__name__,)
             )
@@ -630,7 +630,7 @@ def get_original_attribute(obj, name, bypass_descriptor_protocol=False):
             else:
                 # go on checking parent classes
                 continue
-        raise AttributeError("'{}' object has no attribute '{}'".format(type(obj), name))
+        raise AttributeError(f"'{type(obj)}' object has no attribute '{name}'")
     else:
         try:
             return _get_attr(obj, original_name)
@@ -780,7 +780,7 @@ def _module_iterator(root, recursive=True):
         for path in paths:
             modules = pkgutil.iter_modules([path])
             for finder, name, is_package in modules:
-                module_name = "{}.{}".format(package.__name__, name)
+                module_name = f"{package.__name__}.{name}"
                 module = sys.modules.get(module_name, None)
                 if module is None:
                     # Import the module through the finder to support package

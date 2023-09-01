@@ -1,19 +1,20 @@
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.server.auth.entities import User, ExperimentPermission, RegisteredModelPermission
-from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
-from mlflow.server.auth.permissions import (
-    READ,
-    EDIT,
-    ALL_PERMISSIONS,
-)
 from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
+from mlflow.server.auth.entities import ExperimentPermission, RegisteredModelPermission, User
+from mlflow.server.auth.permissions import (
+    ALL_PERMISSIONS,
+    EDIT,
+    READ,
+)
+from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+
 from tests.helper_functions import random_str
 
 pytestmark = pytest.mark.notrackingurimock
@@ -23,7 +24,7 @@ pytestmark = pytest.mark.notrackingurimock
 def store(tmp_sqlite_uri):
     store = SqlAlchemyStore()
     store.init_db(tmp_sqlite_uri)
-    yield store
+    return store
 
 
 def _user_maker(store, username, password, is_admin=False):

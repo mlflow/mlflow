@@ -2,6 +2,7 @@
 This module defines environment variables used in MLflow.
 """
 import os
+from pathlib import Path
 
 
 class _EnvironmentVariable:
@@ -15,7 +16,7 @@ class _EnvironmentVariable:
         self.default = default
 
     @property
-    def is_defined(self):
+    def defined(self):
         return self.name in os.environ
 
     def get_raw(self):
@@ -45,6 +46,9 @@ class _EnvironmentVariable:
     def __repr__(self):
         return repr(self.name)
 
+    def __format__(self, format_spec: str) -> str:
+        return self.name.__format__(format_spec)
+
 
 class _BooleanEnvironmentVariable(_EnvironmentVariable):
     """
@@ -59,7 +63,7 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
         super().__init__(name, bool, default)
 
     def get(self):
-        if not self.is_defined:
+        if not self.defined:
             return self.default
 
         val = os.getenv(self.name)
@@ -338,3 +342,79 @@ MLFLOW_EXPERIMENT_NAME = _EnvironmentVariable("MLFLOW_EXPERIMENT_NAME", str, Non
 #: Specified the path to the configuration file for MLflow Authentication.
 #: (default: ``None``)
 MLFLOW_AUTH_CONFIG_PATH = _EnvironmentVariable("MLFLOW_AUTH_CONFIG_PATH", str, None)
+
+#: Specifies the root directory to create Python virtual environments in.
+#: (default: ``~/.mlflow/envs``)
+MLFLOW_ENV_ROOT = _EnvironmentVariable(
+    "MLFLOW_ENV_ROOT", str, str(Path.home().joinpath(".mlflow", "envs"))
+)
+
+#: Specifies whether or not to use DBFS FUSE mount to store artifacts on Databricks
+#: (default: ``False``)
+MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO", True
+)
+
+#: Private environment variable that should be set to ``True`` when running autologging tests.
+#: (default: ``False``)
+_MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TESTING", False)
+
+#: (Experimental, may be changed or removed)
+#: Specifies the uri of a Mlflow Gateway Server instance to be used with the Gateway Client APIs
+#: (default: ``None``)
+MLFLOW_GATEWAY_URI = _EnvironmentVariable("MLFLOW_GATEWAY_URI", str, None)
+
+
+#: Specifies the path of the config file for MLflow AI Gateway.
+#: (default: ``None``)
+MLFLOW_GATEWAY_CONFIG = _EnvironmentVariable("MLFLOW_GATEWAY_CONFIG", str, None)
+
+#: Specifies whether to display the progress bar when uploading/downloading artifacts.
+#: (default: ``True``)
+MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR", True
+)
+
+#: Specifies the conda home directory to use.
+#: (default: ``conda``)
+MLFLOW_CONDA_HOME = _EnvironmentVariable("MLFLOW_CONDA_HOME", str, None)
+
+#: Specifies the name of the command to use when creating the environments.
+#: For example, let's say we want to use mamba (https://github.com/mamba-org/mamba)
+#: instead of conda to create environments.
+#: Then: > conda install mamba -n base -c conda-forge
+#: If not set, use the same as conda_path
+#: (default: ``conda``)
+MLFLOW_CONDA_CREATE_ENV_CMD = _EnvironmentVariable("MLFLOW_CONDA_CREATE_ENV_CMD", str, "conda")
+
+#: Specifies the execution directory for recipes.
+#: (default: ``None``)
+MLFLOW_RECIPES_EXECUTION_DIRECTORY = _EnvironmentVariable(
+    "MLFLOW_RECIPES_EXECUTION_DIRECTORY", str, None
+)
+
+#: Specifies the target step to execute for recipes.
+#: (default: ``None``)
+MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME = _EnvironmentVariable(
+    "MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME", str, None
+)
+
+#: Specifies the flavor to serve in the scoring server.
+#: (default ``None``)
+MLFLOW_DEPLOYMENT_FLAVOR_NAME = _EnvironmentVariable("MLFLOW_DEPLOYMENT_FLAVOR_NAME", str, None)
+
+#: Specifies the profile to use for recipes.
+#: (default: ``None``)
+MLFLOW_RECIPES_PROFILE = _EnvironmentVariable("MLFLOW_RECIPES_PROFILE", str, None)
+
+#: Specifies the MLflow Run context
+#: (default: ``None``)
+MLFLOW_RUN_CONTEXT = _EnvironmentVariable("MLFLOW_RUN_CONTEXT", str, None)
+
+#: Specifies the URL of the ECR-hosted Docker image a model is deployed into for SageMaker.
+# (default: ``None``)
+MLFLOW_SAGEMAKER_DEPLOY_IMG_URL = _EnvironmentVariable("MLFLOW_SAGEMAKER_DEPLOY_IMG_URL", str, None)
+
+#: Specifies whether to disable creating a new conda environment for `mlflow models build-docker`.
+#: (default: ``False``)
+MLFLOW_DISABLE_ENV_CREATION = _BooleanEnvironmentVariable("MLFLOW_DISABLE_ENV_CREATION", False)

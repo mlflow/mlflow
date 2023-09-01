@@ -1,15 +1,14 @@
 """Simple example integrating cuML with MLFlow"""
 
 import argparse
-from functools import partial
 
-import mlflow
-from mlflow.models import infer_signature
-import mlflow.sklearn
-
+from cuml.ensemble import RandomForestClassifier
 from cuml.metrics.accuracy import accuracy_score
 from cuml.preprocessing.model_selection import train_test_split
-from cuml.ensemble import RandomForestClassifier
+
+import mlflow
+import mlflow.sklearn
+from mlflow.models import infer_signature
 
 
 def load_data(fpath):
@@ -95,4 +94,4 @@ if __name__ == "__main__":
         )
         artifact_uri = mlflow.get_artifact_uri(artifact_path=artifact_path)
 
-    print("Model uri: %s" % artifact_uri)
+    print(f"Model uri: {artifact_uri}")

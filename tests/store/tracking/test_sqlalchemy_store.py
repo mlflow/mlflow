@@ -1,72 +1,73 @@
+import json
+import math
 import os
 import pathlib
+import re
 import shutil
 import tempfile
-import unittest
-import re
-from pathlib import Path
-
-import math
-import pytest
-import sqlalchemy
 import time
-import mlflow
+import unittest
 import uuid
-import json
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from unittest import mock
 
+import pytest
+import sqlalchemy
+
+import mlflow
 import mlflow.db
 import mlflow.store.db.base_sql_model
+from mlflow import entities
 from mlflow.entities import (
-    ViewType,
-    RunTag,
-    SourceType,
-    RunStatus,
     Experiment,
+    ExperimentTag,
     Metric,
     Param,
-    ExperimentTag,
+    RunStatus,
+    RunTag,
+    SourceType,
+    ViewType,
     _DatasetSummary,
 )
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
     BAD_REQUEST,
-    RESOURCE_DOES_NOT_EXIST,
     INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
     TEMPORARILY_UNAVAILABLE,
+    ErrorCode,
+)
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
+from mlflow.store.db.utils import (
+    _get_latest_schema_revision,
+    _get_schema_version,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.db.utils import (
-    _get_schema_version,
-    _get_latest_schema_revision,
-)
 from mlflow.store.tracking.dbmodels import models
-from mlflow.store.db.db_types import SQLITE, POSTGRES, MYSQL, MSSQL
-from mlflow import entities
-from mlflow.exceptions import MlflowException
+from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
+from mlflow.store.tracking.dbmodels.models import (
+    SqlDataset,
+    SqlExperiment,
+    SqlExperimentTag,
+    SqlInput,
+    SqlInputTag,
+    SqlLatestMetric,
+    SqlMetric,
+    SqlParam,
+    SqlRun,
+    SqlTag,
+)
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_RUN_NAME
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES
-from mlflow.utils.uri import extract_db_type_from_uri
-from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.os import is_windows
-from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
-from mlflow.store.tracking.dbmodels.models import (
-    SqlParam,
-    SqlTag,
-    SqlMetric,
-    SqlLatestMetric,
-    SqlRun,
-    SqlExperimentTag,
-    SqlExperiment,
-    SqlInputTag,
-    SqlInput,
-    SqlDataset,
-)
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.uri import extract_db_type_from_uri
+
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
 from tests.store.tracking.test_file_store import assert_dataset_inputs_equal
@@ -77,60 +78,68 @@ ARTIFACT_URI = "artifact_folder"
 pytestmark = pytest.mark.notrackingurimock
 
 
-class TestParseDbUri(unittest.TestCase):
-    def test_correct_db_type_from_uri(self):
-        # try each the main drivers per supported database type
-        target_db_type_uris = {
-            "sqlite": ("pysqlite", "pysqlcipher"),
-            "postgresql": (
-                "psycopg2",
-                "pg8000",
-                "psycopg2cffi",
-                "pypostgresql",
-                "pygresql",
-                "zxjdbc",
-            ),
-            "mysql": (
-                "mysqldb",
-                "pymysql",
-                "mysqlconnector",
-                "cymysql",
-                "oursql",
-                "gaerdbms",
-                "pyodbc",
-                "zxjdbc",
-            ),
-            "mssql": ("pyodbc", "mxodbc", "pymssql", "zxjdbc", "adodbapi"),
-        }
-        for target_db_type, drivers in target_db_type_uris.items():
-            # try the driver-less version, which will revert SQLAlchemy to the default driver
-            uri = "%s://..." % target_db_type
-            parsed_db_type = extract_db_type_from_uri(uri)
-            assert target_db_type == parsed_db_type
-            # try each of the popular drivers (per SQLAlchemy's dialect pages)
-            for driver in drivers:
-                uri = f"{target_db_type}+{driver}://..."
-                parsed_db_type = extract_db_type_from_uri(uri)
-                assert target_db_type == parsed_db_type
+def db_types_and_drivers():
+    d = {
+        "sqlite": [
+            "pysqlite",
+            "pysqlcipher",
+        ],
+        "postgresql": [
+            "psycopg2",
+            "pg8000",
+            "psycopg2cffi",
+            "pypostgresql",
+            "pygresql",
+            "zxjdbc",
+        ],
+        "mysql": [
+            "mysqldb",
+            "pymysql",
+            "mysqlconnector",
+            "cymysql",
+            "oursql",
+            "gaerdbms",
+            "pyodbc",
+            "zxjdbc",
+        ],
+        "mssql": [
+            "pyodbc",
+            "mxodbc",
+            "pymssql",
+            "zxjdbc",
+            "adodbapi",
+        ],
+    }
+    for db_type, drivers in d.items():
+        for driver in drivers:
+            yield db_type, driver
 
-    def _db_uri_error(self, db_uris, expected_message_regex):
-        for db_uri in db_uris:
-            with pytest.raises(MlflowException, match=expected_message_regex):
-                extract_db_type_from_uri(db_uri)
 
-    def test_fail_on_unsupported_db_type(self):
-        bad_db_uri_strings = [
-            "oracle://...",
-            "oracle+cx_oracle://...",
-            "snowflake://...",
-            "://...",
-            "abcdefg",
-        ]
-        self._db_uri_error(bad_db_uri_strings, r"Invalid database engine")
+@pytest.mark.parametrize(("db_type", "driver"), db_types_and_drivers())
+def test_correct_db_type_from_uri(db_type, driver):
+    assert extract_db_type_from_uri(f"{db_type}+{driver}://...") == db_type
+    # try the driver-less version, which will revert SQLAlchemy to the default driver
+    assert extract_db_type_from_uri(f"{db_type}://...") == db_type
 
-    def test_fail_on_multiple_drivers(self):
-        bad_db_uri_strings = ["mysql+pymsql+pyodbc://..."]
-        self._db_uri_error(bad_db_uri_strings, r"Invalid database URI")
+
+@pytest.mark.parametrize(
+    "db_uri",
+    [
+        "oracle://...",
+        "oracle+cx_oracle://...",
+        "snowflake://...",
+        "://...",
+        "abcdefg",
+    ],
+)
+def test_fail_on_unsupported_db_type(db_uri):
+    with pytest.raises(MlflowException, match=r"Invalid database engine"):
+        extract_db_type_from_uri(db_uri)
+
+
+def test_fail_on_multiple_drivers():
+    with pytest.raises(MlflowException, match=r"Invalid database URI"):
+        extract_db_type_from_uri("mysql+pymsql+pyodbc://...")
 
 
 class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
@@ -148,7 +157,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             fd, self.temp_dbfile = tempfile.mkstemp()
             # Close handle immediately so that we can remove the file later on in Windows
             os.close(fd)
-            self.db_url = "{}{}".format(DB_URI, self.temp_dbfile)
+            self.db_url = f"{DB_URI}{self.temp_dbfile}"
 
     def setUp(self):
         self._setup_db_uri()
@@ -660,8 +669,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # Therefore, we check for the more generic 'SQLAlchemyError'
         with pytest.raises(MlflowException, match=regex) as exception_context:
             with self.store.ManagedSessionMaker() as session:
-                run = models.SqlRun()
-                session.add(run)
+                session.add(models.SqlRun())
         assert exception_context.value.error_code == ErrorCode.Name(BAD_REQUEST)
 
     def test_run_data_model(self):
@@ -900,7 +908,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.log_metric(run.info.run_id, neg_inf_metric)
 
         run = self.store.get_run(run.info.run_id)
-        assert tkey in run.data.metrics and run.data.metrics[tkey] == tval
+        assert tkey in run.data.metrics
+        assert run.data.metrics[tkey] == tval
 
         # SQL store _get_run method returns full history of recorded metrics.
         # Should return duplicates as well
@@ -1038,7 +1047,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         run = self.store.get_run(run.info.run_id)
         assert len(run.data.params) == 2
-        assert tkey in run.data.params and run.data.params[tkey] == tval
+        assert tkey in run.data.params
+        assert run.data.params[tkey] == tval
 
     def test_log_param_uniqueness(self):
         run = self._run_factory()
@@ -1064,7 +1074,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         run = self.store.get_run(run.info.run_id)
         assert len(run.data.params) == 2
-        assert tkey in run.data.params and run.data.params[tkey] == tval
+        assert tkey in run.data.params
+        assert run.data.params[tkey] == tval
 
     def test_log_null_param(self):
         run = self._run_factory()
@@ -1162,7 +1173,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # test can set tags that are somewhat long
         self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 4999))
         run = self.store.get_run(run.info.run_id)
-        assert tkey in run.data.tags and run.data.tags[tkey] == new_val
+        assert tkey in run.data.tags
+        assert run.data.tags[tkey] == new_val
 
     def test_delete_tag(self):
         run = self._run_factory()
@@ -1176,7 +1188,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.delete_tag(run.info.run_id, k0)
         run = self.store.get_run(run.info.run_id)
         assert k0 not in run.data.tags
-        assert k1 in run.data.tags and run.data.tags[k1] == v1
+        assert k1 in run.data.tags
+        assert run.data.tags[k1] == v1
 
         # test that deleting a tag works correctly with multiple runs having the same tag.
         run2 = self._run_factory(config=self._get_run_configs(run.info.experiment_id))
@@ -1693,7 +1706,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         ) == [r2]
         assert self._search(
             experiment_id,
-            filter_string="tags.generic_2 ILIKE '%Other%' and " "tags.generic_tag ILIKE 'p_val'",
+            filter_string="tags.generic_2 ILIKE '%Other%' and tags.generic_tag ILIKE 'p_val'",
         ) == [r2]
 
     def test_search_metrics(self):
@@ -1807,7 +1820,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             [r1, r2],
         ) == sorted(self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.status = '{}'".format(RunStatus.to_string(RunStatus.RUNNING))
+        filter_string = f"attribute.status = '{RunStatus.to_string(RunStatus.RUNNING)}'"
         assert sorted(
             [r1, r2],
         ) == sorted(self._search([e1, e2], filter_string))
@@ -1844,14 +1857,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             filter_string = f"attr.artifact_uri = '{expected_artifact_uri}'"
         assert self._search([e1, e2], filter_string) == [r1]
 
-        filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(
-            ARTIFACT_URI, e1.upper(), r1.upper()
-        )
+        filter_string = f"attr.artifact_uri = '{ARTIFACT_URI}/{e1.upper()}/{r1.upper()}/artifacts'"
         assert self._search([e1, e2], filter_string) == []
 
-        filter_string = "attr.artifact_uri != '{}/{}/{}/artifacts'".format(
-            ARTIFACT_URI, e1.upper(), r1.upper()
-        )
+        filter_string = f"attr.artifact_uri != '{ARTIFACT_URI}/{e1.upper()}/{r1.upper()}/artifacts'"
         assert sorted(
             [r1, r2],
         ) == sorted(self._search([e1, e2], filter_string))
@@ -1870,22 +1879,22 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = f"attribute.artifact_uri LIKE '%{r1}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[:16])
+        filter_string = f"attribute.artifact_uri LIKE '%{r1[:16]}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[-16:])
+        filter_string = f"attribute.artifact_uri LIKE '%{r1[-16:]}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1.upper())
+        filter_string = f"attribute.artifact_uri LIKE '%{r1.upper()}%'"
         assert self._search([e1, e2], filter_string) == []
 
-        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1.upper())
+        filter_string = f"attribute.artifact_uri ILIKE '%{r1.upper()}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
-        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[:16].upper())
+        filter_string = f"attribute.artifact_uri ILIKE '%{r1[:16].upper()}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
-        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[-16:].upper())
+        filter_string = f"attribute.artifact_uri ILIKE '%{r1[-16:].upper()}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
         for k, v in {"experiment_id": e1, "lifecycle_stage": "ACTIVE"}.items():
@@ -2253,14 +2262,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             filter_string="dataset.name = 'name1'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id2, run_id1}
+        assert {r.info.run_id for r in result} == {run_id2, run_id1}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="dataset.digest = 'digest2'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id3, run_id1}
+        assert {r.info.run_id for r in result} == {run_id3, run_id1}
 
         result = self.store.search_runs(
             [exp_id],
@@ -2274,70 +2283,70 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             filter_string="dataset.context = 'train'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id2, run_id1}
+        assert {r.info.run_id for r in result} == {run_id2, run_id1}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="dataset.context = 'test'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id3}
+        assert {r.info.run_id for r in result} == {run_id3}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="dataset.context = 'test' and dataset.name = 'name2'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id3}
+        assert {r.info.run_id for r in result} == {run_id3}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="dataset.name = 'name2' and dataset.context = 'test'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id3}
+        assert {r.info.run_id for r in result} == {run_id3}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="datasets.name IN ('name1', 'name2')",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+        assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="datasets.digest IN ('digest1', 'digest2')",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+        assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="datasets.name LIKE 'Name%'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == set()
+        assert {r.info.run_id for r in result} == set()
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="datasets.name ILIKE 'Name%'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+        assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="datasets.context ILIKE 'test%'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id3}
+        assert {r.info.run_id for r in result} == {run_id3}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="datasets.context IN ('test', 'train')",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+        assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
 
     def test_search_datasets(self):
         exp_id1 = self._experiment_factory("test_search_datasets_1")
@@ -2478,7 +2487,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # SQL limitations, etc)
         experiment_id = self._experiment_factory("log_batch_limits")
         run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
-        metric_tuples = [("m%s" % i, i, 12345, i * 2) for i in range(1000)]
+        metric_tuples = [(f"m{i}", i, 12345, i * 2) for i in range(1000)]
         metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
         self.store.log_batch(run_id=run_id, metrics=metric_entities, params=[], tags=[])
         run = self.store.get_run(run_id)
@@ -2643,7 +2652,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store._log_metrics(run.info.run_id, metrics)
 
         run = self.store.get_run(run.info.run_id)
-        assert tkey in run.data.metrics and run.data.metrics[tkey] == tval
+        assert tkey in run.data.metrics
+        assert run.data.metrics[tkey] == tval
 
         # SQL store _get_run method returns full history of recorded metrics.
         # Should return duplicates as well
@@ -2817,7 +2827,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
             for i in range(100):
                 metric = {
-                    "key": "mkey_%s" % i,
+                    "key": f"mkey_{i}",
                     "value": i,
                     "timestamp": i * 2,
                     "step": i * 3,
@@ -2826,13 +2836,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 }
                 metrics_list.append(metric)
                 tag = {
-                    "key": "tkey_%s" % i,
+                    "key": f"tkey_{i}",
                     "value": "tval_%s" % (current_run % 10),
                     "run_uuid": run_id,
                 }
                 tags_list.append(tag)
                 param = {
-                    "key": "pkey_%s" % i,
+                    "key": f"pkey_{i}",
                     "value": "pval_%s" % ((current_run + 1) % 11),
                     "run_uuid": run_id,
                 }
@@ -3464,40 +3474,41 @@ class TextClauseMatcher:
 
 
 @mock.patch("sqlalchemy.orm.session.Session", spec=True)
-class TestZeroValueInsertion(unittest.TestCase):
-    def test_set_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MYSQL
-        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-        mock_session.execute.assert_called_with(
-            TextClauseMatcher("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
-        )
+def test_set_zero_value_insertion_for_autoincrement_column_MYSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MYSQL
+    SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(
+        TextClauseMatcher("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
+    )
 
-    def test_set_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MSSQL
-        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-        mock_session.execute.assert_called_with(
-            TextClauseMatcher("SET IDENTITY_INSERT experiments ON;")
-        )
 
-    def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MYSQL
-        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
-            mock_store, mock_session
-        )
-        mock_session.execute.assert_called_with(TextClauseMatcher("SET @@SESSION.sql_mode='';"))
+@mock.patch("sqlalchemy.orm.session.Session", spec=True)
+def test_set_zero_value_insertion_for_autoincrement_column_MSSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MSSQL
+    SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(
+        TextClauseMatcher("SET IDENTITY_INSERT experiments ON;")
+    )
 
-    def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MSSQL
-        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
-            mock_store, mock_session
-        )
-        mock_session.execute.assert_called_with(
-            TextClauseMatcher("SET IDENTITY_INSERT experiments OFF;")
-        )
+
+@mock.patch("sqlalchemy.orm.session.Session", spec=True)
+def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MYSQL
+    SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(TextClauseMatcher("SET @@SESSION.sql_mode='';"))
+
+
+@mock.patch("sqlalchemy.orm.session.Session", spec=True)
+def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MSSQL
+    SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(
+        TextClauseMatcher("SET IDENTITY_INSERT experiments OFF;")
+    )
 
 
 def test_get_attribute_name():
@@ -3591,7 +3602,6 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}?param=value",
         ),
-        ("file:///path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
         (
             "file:///path/to/local/folder?param=value#fragment",
             "file:///{drive}path/to/local/folder/{e}?param=value#fragment",
@@ -3617,7 +3627,6 @@ def test_create_experiment_appends_to_artifact_local_path_file_uri_correctly_on_
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}?param=value",
         ),
-        ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
         (
             "file:///path/to/local/folder?param=value#fragment",
             "file:///path/to/local/folder/{e}?param=value#fragment",
@@ -3702,10 +3711,6 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
             "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts?param=value",
         ),
         (
-            "file:///path/to/local/folder",
-            "file:///{drive}path/to/local/folder/{e}/{r}/artifacts",
-        ),
-        (
             "file:///path/to/local/folder?param=value#fragment",
             "file:///{drive}path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
         ),
@@ -3732,10 +3737,6 @@ def test_create_run_appends_to_artifact_local_path_file_uri_correctly_on_windows
         (
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts?param=value",
-        ),
-        (
-            "file:///path/to/local/folder",
-            "file:///path/to/local/folder/{e}/{r}/artifacts",
         ),
         (
             "file:///path/to/local/folder?param=value#fragment",

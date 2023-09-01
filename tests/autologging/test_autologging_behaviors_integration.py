@@ -2,7 +2,6 @@
 
 import importlib
 import logging
-import pytest
 import sys
 import warnings
 from concurrent.futures import ThreadPoolExecutor
@@ -10,25 +9,27 @@ from io import StringIO
 from itertools import permutations
 from unittest import mock
 
+import pytest
+
 import mlflow
 from mlflow import MlflowClient
 from mlflow.utils import gorilla
 from mlflow.utils.autologging_utils import (
-    safe_patch,
-    get_autologging_config,
     autologging_is_disabled,
+    get_autologging_config,
+    safe_patch,
 )
 
-from tests.autologging.fixtures import test_mode_off
-from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
-
+from tests.autologging.fixtures import (
+    reset_stderr,  # noqa: F401
+    test_mode_off,
+)
 
 AUTOLOGGING_INTEGRATIONS_TO_TEST = {
     mlflow.sklearn: "sklearn",
     mlflow.xgboost: "xgboost",
     mlflow.lightgbm: "lightgbm",
     mlflow.pytorch: "torch",
-    mlflow.gluon: "mxnet.gluon",
     mlflow.fastai: "fastai",
     mlflow.statsmodels: "statsmodels",
     mlflow.spark: "pyspark",
@@ -52,7 +53,7 @@ def disable_autologging_at_test_end():
         integration.autolog(disable=True)
 
 
-@pytest.fixture()
+@pytest.fixture
 def setup_sklearn_model():
     from sklearn.datasets import load_iris
     from sklearn.linear_model import LogisticRegression
@@ -207,7 +208,7 @@ def test_autolog_reverts_patched_code_when_disabled():
 
 def test_autolog_respects_disable_flag_across_import_orders():
     def test():
-        from sklearn import svm, datasets
+        from sklearn import datasets, svm
 
         iris = datasets.load_iris()
         svc = svm.SVC(C=2.0, degree=5, kernel="rbf")
@@ -221,7 +222,7 @@ def test_autolog_respects_disable_flag_across_import_orders():
         assert all("mlflow." in key for key in tags)
 
     def import_sklearn():
-        import sklearn  # pylint: disable=unused-import
+        import sklearn  # noqa: F401
 
     def disable_autolog():
         mlflow.sklearn.autolog(disable=True)
@@ -313,9 +314,9 @@ def test_autolog_globally_configured_flag_set_correctly():
     from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
     AUTOLOGGING_INTEGRATIONS.clear()
-    import sklearn  # pylint: disable=unused-import
-    import pyspark  # pylint: disable=unused-import
-    import pyspark.ml  # pylint: disable=unused-import
+    import pyspark
+    import pyspark.ml  # noqa: F401
+    import sklearn  # noqa: F401
 
     integrations_to_test = ["sklearn", "spark", "pyspark.ml"]
     mlflow.autolog()

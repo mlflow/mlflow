@@ -2,7 +2,11 @@
 The ``mlflow.mleap`` module provides an API for saving Spark MLLib models using the
 `MLeap <https://github.com/combust/mleap>`_ persistence mechanism.
 
-NOTE:
+.. warning:
+
+    The mleap flavor is deprecated and will be removed in a future release of MLflow.
+
+.. note:
 
     You cannot load the MLeap model flavor in Python; you must download it using the
     Java API method ``downloadArtifacts(String runId)`` and load the model
@@ -15,19 +19,20 @@ import sys
 import traceback
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _save_example
 from mlflow.utils import reraise
+from mlflow.utils.annotations import deprecated, keyword_only
 from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.annotations import keyword_only
 
 FLAVOR_NAME = "mleap"
 
 _logger = logging.getLogger(__name__)
 
 
+@deprecated(alternative="mlflow.onnx", since="2.6.0")
 @keyword_only
 def log_model(
     spark_model,
@@ -136,6 +141,7 @@ def log_model(
     )
 
 
+@deprecated(alternative="mlflow.onnx", since="2.6.0")
 @keyword_only
 def save_model(
     spark_model,
@@ -221,6 +227,7 @@ def save_model(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
+@deprecated(alternative="mlflow.onnx", since="2.6.0")
 @keyword_only
 def add_to_model(mlflow_model, path, spark_model, sample_input):
     """
@@ -233,14 +240,14 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     :param sample_input: Sample PySpark DataFrame input that the model can evaluate. This is
                          required by MLeap for data schema inference.
     """
-    from pyspark.ml.pipeline import PipelineModel
-    from pyspark.sql import DataFrame
     import mleap.version
 
     # This import statement adds `serializeToBundle` and `deserializeFromBundle` to `Transformer`:
     # https://github.com/combust/mleap/blob/37f6f61634798118e2c2eb820ceeccf9d234b810/python/mleap/pyspark/spark_support.py#L32-L33
-    from mleap.pyspark.spark_support import SimpleSparkSerializer  # pylint: disable=unused-import
+    from mleap.pyspark.spark_support import SimpleSparkSerializer  # noqa: F401
     from py4j.protocol import Py4JError
+    from pyspark.ml.pipeline import PipelineModel
+    from pyspark.sql import DataFrame
 
     if not isinstance(spark_model, PipelineModel):
         raise Exception("Not a PipelineModel. MLeap can save only PipelineModels.")
@@ -248,9 +255,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
         raise Exception("A sample input must be specified in order to add the MLeap flavor.")
     if not isinstance(sample_input, DataFrame):
         raise Exception(
-            "The sample input must be a PySpark dataframe of type `{df_type}`".format(
-                df_type=DataFrame.__module__
-            )
+            f"The sample input must be a PySpark dataframe of type `{DataFrame.__module__}`"
         )
 
     # MLeap's model serialization routine requires an absolute output path

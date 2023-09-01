@@ -1,16 +1,16 @@
 import io
 import pickle
-import pytest
 from unittest import mock
 
-from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
-from mlflow.store.model_registry.rest_store import RestStore
+import pytest
+
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.store.model_registry.rest_store import RestStore
+from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking._model_registry.utils import _get_store, get_registry_uri, set_registry_uri
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
-
 
 # Disable mocking tracking URI here, as we want to test setting the tracking URI via
 # environment variable. See
@@ -20,7 +20,7 @@ from mlflow.environment_variables import MLFLOW_TRACKING_URI
 pytestmark = pytest.mark.notrackingurimock
 
 
-@pytest.fixture()
+@pytest.fixture
 def reset_registry_uri():
     yield
     set_registry_uri(None)
@@ -125,7 +125,7 @@ def test_get_store_caches_on_store_uri(tmp_path):
 
 
 @pytest.mark.parametrize("store_uri", ["databricks-uc", "databricks-uc://profile"])
-def test_get_store_uc_registry_uri(store_uri, reset_registry_uri):
+def test_get_store_uc_registry_uri(store_uri):
     assert isinstance(_get_store(store_uri), UcModelRegistryStore)
 
 

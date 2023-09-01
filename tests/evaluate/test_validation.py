@@ -1,23 +1,24 @@
-from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation import (
-    evaluate,
-    EvaluationResult,
-    ModelEvaluator,
-    MetricThreshold,
-)
-from mlflow.models.evaluation.validation import (
-    _MetricValidationResult,
-    ModelValidationFailedException,
-    MetricThresholdClassException,
-)
-from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 from unittest import mock
+
 import pytest
 
-# pylint: disable=unused-import
+from mlflow.exceptions import MlflowException
+from mlflow.models.evaluation import (
+    EvaluationResult,
+    MetricThreshold,
+    ModelEvaluator,
+    evaluate,
+)
+from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
+from mlflow.models.evaluation.validation import (
+    MetricThresholdClassException,
+    ModelValidationFailedException,
+    _MetricValidationResult,
+)
+
 from tests.evaluate.test_evaluation import (
-    multiclass_logistic_regressor_model_uri,
-    iris_dataset,
+    iris_dataset,  # noqa: F401
+    multiclass_logistic_regressor_model_uri,  # noqa: F401
 )
 
 message_separator = "\n"
@@ -344,11 +345,9 @@ def test_validation_value_threshold_should_fail(
         expected_failure_message = message_separator.join(
             map(str, list(expected_validation_results.values()))
         )
-        with mock.patch.object(
-            MockEvaluator, "can_evaluate", return_value=True
-        ) as _, mock.patch.object(
+        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
             MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ) as _:
+        ):
             with pytest.raises(
                 ModelValidationFailedException,
                 match=expected_failure_message,
@@ -388,11 +387,9 @@ def test_validation_value_threshold_should_pass(
         evaluator1_return_value = EvaluationResult(
             metrics=metrics, artifacts={}, baseline_model_metrics=None
         )
-        with mock.patch.object(
-            MockEvaluator, "can_evaluate", return_value=True
-        ) as _, mock.patch.object(
+        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
             MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ) as _:
+        ):
             evaluate(
                 multiclass_logistic_regressor_model_uri,
                 data=iris_dataset._constructor_args["data"],
@@ -553,11 +550,9 @@ def test_validation_model_comparison_absolute_threshold_should_fail(
         expected_failure_message = message_separator.join(
             map(str, list(expected_validation_results.values()))
         )
-        with mock.patch.object(
-            MockEvaluator, "can_evaluate", return_value=True
-        ) as _, mock.patch.object(
+        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
             MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ) as _:
+        ):
             with pytest.raises(
                 ModelValidationFailedException,
                 match=expected_failure_message,
@@ -602,11 +597,9 @@ def test_validation_model_comparison_absolute_threshold_should_pass(
         evaluator1_return_value = EvaluationResult(
             metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
         )
-        with mock.patch.object(
-            MockEvaluator, "can_evaluate", return_value=True
-        ) as _, mock.patch.object(
+        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
             MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ) as _:
+        ):
             evaluate(
                 multiclass_logistic_regressor_model_uri,
                 data=iris_dataset._constructor_args["data"],
@@ -788,11 +781,9 @@ def test_validation_model_comparison_relative_threshold_should_fail(
         expected_failure_message = message_separator.join(
             map(str, list(expected_validation_results.values()))
         )
-        with mock.patch.object(
-            MockEvaluator, "can_evaluate", return_value=True
-        ) as _, mock.patch.object(
+        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
             MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ) as _:
+        ):
             with pytest.raises(
                 ModelValidationFailedException,
                 match=expected_failure_message,
@@ -838,11 +829,9 @@ def test_validation_model_comparison_relative_threshold_should_pass(
         evaluator1_return_value = EvaluationResult(
             metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
         )
-        with mock.patch.object(
-            MockEvaluator, "can_evaluate", return_value=True
-        ) as _, mock.patch.object(
+        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
             MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ) as _:
+        ):
             evaluate(
                 multiclass_logistic_regressor_model_uri,
                 data=iris_dataset._constructor_args["data"],

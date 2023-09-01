@@ -1,28 +1,30 @@
 import os
-
-import docker
-import pytest
 from unittest import mock
 
+import pytest
 from databricks_cli.configure.provider import DatabricksConfig
 
+import docker
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import ViewType
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 from mlflow.projects import ExecutionException, _project_spec
-from mlflow.projects.docker import _get_docker_image_uri
 from mlflow.projects.backend.local import _get_docker_command
+from mlflow.projects.docker import _get_docker_image_uri
 from mlflow.store.tracking import file_store
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_PROJECT_ENV,
-    MLFLOW_PROJECT_BACKEND,
-    MLFLOW_DOCKER_IMAGE_URI,
     MLFLOW_DOCKER_IMAGE_ID,
+    MLFLOW_DOCKER_IMAGE_URI,
+    MLFLOW_PROJECT_BACKEND,
+    MLFLOW_PROJECT_ENV,
 )
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
-from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
-from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
+
+from tests.projects.utils import (
+    TEST_DOCKER_PROJECT_DIR,
+    docker_example_base_image,  # noqa: F401
+)
 
 
 def _build_uri(base_uri, subdirectory):
@@ -246,7 +248,7 @@ def test_docker_databricks_tracking_cmd_and_envs(ProfileConfigProvider):
         ),
     ],
 )
-def test_docker_user_specified_env_vars(volumes, environment, expected, os_environ):
+def test_docker_user_specified_env_vars(volumes, environment, expected, os_environ, monkeypatch):
     active_run = mock.MagicMock()
     run_info = mock.MagicMock()
     run_info.run_id = "fake_run_id"
@@ -256,14 +258,13 @@ def test_docker_user_specified_env_vars(volumes, environment, expected, os_envir
     image = mock.MagicMock()
     image.tags = ["image:tag"]
 
+    monkeypatch.setenvs(os_environ)
     if "should_crash" in expected:
         expected.remove("should_crash")
         with pytest.raises(MlflowException, match="This project expects"):
-            with mock.patch.dict("os.environ", os_environ):
-                _get_docker_command(image, active_run, None, volumes, environment)
+            _get_docker_command(image, active_run, None, volumes, environment)
     else:
-        with mock.patch.dict("os.environ", os_environ):
-            docker_command = _get_docker_command(image, active_run, None, volumes, environment)
+        docker_command = _get_docker_command(image, active_run, None, volumes, environment)
         for exp_type, expected in expected:
             assert expected in docker_command
             assert docker_command[docker_command.index(expected) - 1] == exp_type

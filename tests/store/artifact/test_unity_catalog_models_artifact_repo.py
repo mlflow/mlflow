@@ -2,22 +2,21 @@ import json
 from unittest import mock
 from unittest.mock import ANY
 
-from google.cloud.storage import Client
 import pytest
+from google.cloud.storage import Client
 from requests import Response
 
 from mlflow import MlflowClient
 from mlflow.entities.file_info import FileInfo
 from mlflow.exceptions import MlflowException
-from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
-
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.store._unity_catalog.registry.utils import _ACTIVE_CATALOG_QUERY, _ACTIVE_SCHEMA_QUERY
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
-from mlflow.store._unity_catalog.registry.utils import _ACTIVE_CATALOG_QUERY, _ACTIVE_SCHEMA_QUERY
+from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 
 MODELS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.unity_catalog_models_artifact_repo"
 MODELS_ARTIFACT_REPOSITORY = (
@@ -56,10 +55,9 @@ def test_uc_models_artifact_repo_init_not_using_databricks_registry_raises():
         UnityCatalogModelsArtifactRepository(model_uri, non_databricks_uri)
 
 
-@mock.patch("databricks_cli.configure.provider.get_config")
-def test_uc_models_artifact_repo_with_stage_uri_raises(get_config):
+def test_uc_models_artifact_repo_with_stage_uri_raises():
     model_uri = "models:/MyModel/Staging"
-    with pytest.raises(
+    with mock.patch("databricks_cli.configure.provider.get_config"), pytest.raises(
         MlflowException,
         match="If seeing this error while attempting to load a model version by stage, note that "
         "setting stages and loading model versions by stage is unsupported in Unity Catalog",
@@ -87,8 +85,7 @@ def _mock_temporary_creds_response(temporary_creds):
     return mock_response
 
 
-@mock.patch("databricks_cli.configure.provider.get_config")
-def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(get_config):
+def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws():
     artifact_location = "s3://blah_bucket/"
     fake_key_id = "fake_key_id"
     fake_secret_access_key = "fake_secret_access_key"
@@ -101,7 +98,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(get
         }
     }
     fake_local_path = "/tmp/fake_path"
-    with mock.patch.object(
+    with mock.patch("databricks_cli.configure.provider.get_config"), mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
         "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository"
@@ -129,8 +126,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(get
         )
 
 
-@mock.patch("databricks_cli.configure.provider.get_config")
-def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(get_config):
+def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure():
     artifact_location = "abfss://filesystem@account.dfs.core.windows.net"
     fake_sas_token = "fake_session_token"
     temporary_creds = {
@@ -139,7 +135,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(g
         },
     }
     fake_local_path = "/tmp/fake_path"
-    with mock.patch.object(
+    with mock.patch("databricks_cli.configure.provider.get_config"), mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
         "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
@@ -167,8 +163,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(g
         )
 
 
-@mock.patch("databricks_cli.configure.provider.get_config")
-def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(get_config):
+def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp():
     artifact_location = "gs://test_bucket/some/path"
     fake_oauth_token = "fake_session_token"
     temporary_creds = {
@@ -177,7 +172,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(get
         },
     }
     fake_local_path = "/tmp/fake_path"
-    with mock.patch.object(
+    with mock.patch("databricks_cli.configure.provider.get_config"), mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
         "google.cloud.storage.Client"
@@ -229,8 +224,7 @@ def test_uc_models_artifact_repo_uses_active_catalog_and_schema():
         assert models_repo.model_name == "main.default.MyModel"
 
 
-@mock.patch("databricks_cli.configure.provider.get_config")
-def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds(get_config):
+def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds():
     artifact_location = "abfss://filesystem@account.dfs.core.windows.net"
     fake_sas_token = "fake_session_token"
     temporary_creds = {
@@ -239,7 +233,7 @@ def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds(get_config)
         },
     }
     fake_local_path = "/tmp/fake_path"
-    with mock.patch.object(
+    with mock.patch("databricks_cli.configure.provider.get_config"), mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
         "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"

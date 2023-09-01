@@ -1,28 +1,29 @@
-import os
-from unittest import mock
 import re
+from unittest import mock
+
 import numpy
 import pytest
 import requests
 
 from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
-from mlflow.exceptions import MlflowException, RestException, InvalidUrlException
+from mlflow.exceptions import InvalidUrlException, MlflowException, RestException
+from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
+from mlflow.protos.service_pb2 import GetRun
 from mlflow.pyfunc.scoring_server import NumpyEncoder
+from mlflow.tracking.request_header.default_request_header_provider import (
+    _USER_AGENT,
+    DefaultRequestHeaderProvider,
+)
 from mlflow.utils.rest_utils import (
-    http_request,
-    http_request_safe,
     MlflowHostCreds,
+    _can_parse_as_json_object,
+    augmented_raise_for_status,
     call_endpoint,
     call_endpoints,
-    augmented_raise_for_status,
-    _can_parse_as_json_object,
+    http_request,
+    http_request_safe,
 )
-from mlflow.tracking.request_header.default_request_header_provider import (
-    DefaultRequestHeaderProvider,
-    _USER_AGENT,
-)
-from mlflow.protos.service_pb2 import GetRun
-from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
+
 from tests import helper_functions
 
 
@@ -157,19 +158,18 @@ def test_http_request_with_basic_auth(request):
 
 
 @mock.patch("requests.Session.request")
-@mock.patch.dict(
-    os.environ,
-    {
-        "AWS_ACCESS_KEY_ID": "access-key",
-        "AWS_SECRET_ACCESS_KEY": "secret-key",
-        "AWS_DEFAULT_REGION": "eu-west-1",
-    },
-)
-def test_http_request_with_aws_sigv4(request):
+def test_http_request_with_aws_sigv4(request, monkeypatch):
     """This test requires the "requests_auth_aws_sigv4" package to be installed"""
 
     from requests_auth_aws_sigv4 import AWSSigV4
 
+    monkeypatch.setenvs(
+        {
+            "AWS_ACCESS_KEY_ID": "access-key",
+            "AWS_SECRET_ACCESS_KEY": "secret-key",
+            "AWS_DEFAULT_REGION": "eu-west-1",
+        }
+    )
     aws_sigv4 = MlflowHostCreds("http://my-host", aws_sigv4=True)
     response = mock.MagicMock()
     response.status_code = 200
@@ -375,22 +375,22 @@ def test_http_request_request_headers_user_agent_and_extra_header(request):
         )
 
 
-@mock.patch("requests.Session.request", side_effect=requests.exceptions.InvalidURL)
-def test_http_request_with_invalid_url_raise_invalid_url_exception(request):
+def test_http_request_with_invalid_url_raise_invalid_url_exception():
     """InvalidURL exception can be caught by a custom InvalidUrlException"""
     host_only = MlflowHostCreds("http://my-host")
 
     with pytest.raises(InvalidUrlException, match="Invalid url: http://my-host/invalid_url"):
-        http_request(host_only, "/invalid_url", "GET")
+        with mock.patch("requests.Session.request", side_effect=requests.exceptions.InvalidURL):
+            http_request(host_only, "/invalid_url", "GET")
 
 
-@mock.patch("requests.Session.request", side_effect=requests.exceptions.InvalidURL)
-def test_http_request_with_invalid_url_raise_mlflow_exception(request):
+def test_http_request_with_invalid_url_raise_mlflow_exception():
     """The InvalidUrlException can be caught by the MlflowException"""
     host_only = MlflowHostCreds("http://my-host")
 
     with pytest.raises(MlflowException, match="Invalid url: http://my-host/invalid_url"):
-        http_request(host_only, "/invalid_url", "GET")
+        with mock.patch("requests.Session.request", side_effect=requests.exceptions.InvalidURL):
+            http_request(host_only, "/invalid_url", "GET")
 
 
 def test_ignore_tls_verification_not_server_cert_path():

@@ -16,13 +16,15 @@ XGBoost (native) format
 .. _scikit-learn API:
     https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 """
-import os
-import json
-import yaml
-import tempfile
-import logging
 import functools
+import json
+import logging
+import os
+import tempfile
 from copy import deepcopy
+from typing import Any, Dict, Optional
+
+import yaml
 from packaging.version import Version
 
 import mlflow
@@ -36,50 +38,49 @@ from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signat
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
+from mlflow.sklearn import _SklearnTrainingSession
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import _get_fully_qualified_class_name
-from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _validate_env_arguments,
-    _process_pip_requirements,
-    _process_conda_env,
-    _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
-    _CONSTRAINTS_FILE_NAME,
-    _PYTHON_ENV_FILE_NAME,
-    _PythonEnv,
+from mlflow.utils.arguments_utils import _get_arg_names
+from mlflow.utils.autologging_utils import (
+    ENSURE_AUTOLOGGING_ENABLED_TEXT,
+    INPUT_EXAMPLE_SAMPLE_ROWS,
+    InputExampleInfo,
+    MlflowAutologgingQueueingClient,
+    autologging_integration,
+    batch_metrics_logger,
+    get_autologging_config,
+    get_mlflow_run_params_for_fn_args,
+    picklable_exception_safe_function,
+    resolve_input_example_and_signature,
+    safe_patch,
 )
 from mlflow.utils.class_utils import _get_class_from_string
+from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
+from mlflow.utils.environment import (
+    _CONDA_ENV_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _mlflow_conda_env,
+    _process_conda_env,
+    _process_pip_requirements,
+    _PythonEnv,
+    _validate_env_arguments,
+)
+from mlflow.utils.file_utils import write_to
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
 )
-from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
+    _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
-    _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
 )
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.arguments_utils import _get_arg_names
-from mlflow.utils.autologging_utils import (
-    autologging_integration,
-    safe_patch,
-    picklable_exception_safe_function,
-    get_mlflow_run_params_for_fn_args,
-    INPUT_EXAMPLE_SAMPLE_ROWS,
-    resolve_input_example_and_signature,
-    InputExampleInfo,
-    ENSURE_AUTOLOGGING_ENABLED_TEXT,
-    batch_metrics_logger,
-    MlflowAutologgingQueueingClient,
-    get_autologging_config,
-)
-
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.tracking.context import registry as context_registry
-from mlflow.sklearn import _SklearnTrainingSession
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "xgboost"
 
@@ -345,7 +346,18 @@ class _XGBModelWrapper:
     def __init__(self, xgb_model):
         self.xgb_model = xgb_model
 
-    def predict(self, dataframe):
+    def predict(
+        self, dataframe, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param dataframe: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         import xgboost as xgb
 
         if isinstance(self.xgb_model, xgb.Booster):
@@ -367,6 +379,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     model_format="xgb",
+    extra_tags=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from XGBoost to MLflow. Logs the following:
@@ -415,9 +428,10 @@ def autolog(
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
     :param model_format: File format in which the model is to be saved.
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
-    import xgboost
     import numpy as np
+    import xgboost
 
     if importance_types is None:
         importance_types = ["weight"]
@@ -735,6 +749,7 @@ def autolog(
         "train",
         functools.partial(train, log_models, log_datasets),
         manage_run=True,
+        extra_tags=extra_tags,
     )
     # The `train()` method logs XGBoost models as Booster objects. When using XGBoost
     # scikit-learn models, we want to save / log models as their model classes. So we turn
@@ -747,6 +762,7 @@ def autolog(
         "train",
         functools.partial(train, False, log_datasets),
         manage_run=True,
+        extra_tags=extra_tags,
     )
     safe_patch(FLAVOR_NAME, xgboost.DMatrix, "__init__", __init__)
 
@@ -765,6 +781,7 @@ def autolog(
         silent=silent,
         max_tuning_runs=None,
         log_post_training_metrics=True,
+        extra_tags=extra_tags,
     )
 
 

@@ -1,7 +1,7 @@
 import os
 import pathlib
-import time
 import tempfile
+import time
 from datetime import datetime
 from unittest import mock
 from unittest.mock import Mock
@@ -12,16 +12,9 @@ from pyspark.sql import SparkSession
 
 from mlflow.exceptions import MlflowException
 from mlflow.recipes.steps.ingest import IngestStep
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.file_utils import read_yaml
-from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
-
-# pylint: disable=unused-import
-from tests.recipes.helper_functions import (
-    tmp_recipe_root_path,
-    enter_recipe_example_directory,
-    enter_test_recipe_directory,
-)
 
 
 @pytest.fixture
@@ -53,7 +46,7 @@ def spark_session():
             yield session
 
 
-@pytest.fixture()
+@pytest.fixture
 def spark_df(spark_session):
     return spark_session.createDataFrame(
         [
@@ -869,13 +862,11 @@ def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
 def test_ingests_spark_sql_datetime_successfully(spark_session, tmp_path):
     from pyspark.sql.functions import (
         col,
-        rand,
-        lit,
-        date_sub,
-        unix_timestamp,
-        to_timestamp,
         current_date,
         current_timestamp,
+        rand,
+        to_timestamp,
+        unix_timestamp,
     )
 
     spark = spark_session.builder.getOrCreate()

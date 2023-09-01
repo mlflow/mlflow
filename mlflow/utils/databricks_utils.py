@@ -5,12 +5,13 @@ import subprocess
 from typing import Optional, TypeVar
 
 from databricks_cli.configure import provider
-from mlflow.exceptions import MlflowException
+
 import mlflow.utils
-from mlflow.utils.rest_utils import MlflowHostCreds
-from mlflow.utils._spark_utils import _get_active_spark_session
-from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.exceptions import MlflowException
+from mlflow.utils._spark_utils import _get_active_spark_session
+from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -311,10 +312,6 @@ def get_job_type_info():
         return None
 
 
-def get_experiment_name_from_job_id(job_id):
-    return "jobs:/" + job_id
-
-
 @_use_repl_context_if_available("commandRunId")
 def get_command_run_id():
     try:
@@ -373,6 +370,22 @@ def get_workspace_url():
             return "https://" + spark_session.conf.get("spark.databricks.workspaceUrl")
     except Exception:
         return None
+
+
+def warn_on_deprecated_cross_workspace_registry_uri(registry_uri):
+    workspace_host, workspace_id = get_workspace_info_from_databricks_secrets(
+        tracking_uri=registry_uri
+    )
+    if workspace_host is not None or workspace_id is not None:
+        _logger.warning(
+            "Accessing remote workspace model registries using registry URIs of the form "
+            "'databricks://scope:prefix', or by loading models via URIs of the form "
+            "'models://scope:prefix@databricks/model-name/stage-or-version', is deprecated. "
+            "Use Models in Unity Catalog instead for easy cross-workspace model access, with "
+            "granular per-user audit logging and no extra setup required. See "
+            "https://docs.databricks.com/machine-learning/manage-model-lifecycle/index.html "
+            "for more details."
+        )
 
 
 def get_workspace_info_from_databricks_secrets(tracking_uri):
@@ -644,7 +657,7 @@ def check_databricks_secret_scope_access(scope_name):
                 "Please verify that the current Databricks user has 'READ' permission for "
                 "this scope. For more information, see "
                 "https://mlflow.org/docs/latest/python_api/openai/index.html#credential-management-for-openai-on-databricks. "  # pylint: disable=line-too-long
-                f"Error: {str(e)}"
+                f"Error: {e}"
             )
 
 

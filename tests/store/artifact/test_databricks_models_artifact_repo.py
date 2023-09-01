@@ -1,18 +1,18 @@
 import json
 import re
-
-import pytest
 from unittest import mock
 from unittest.mock import ANY
 
+import pytest
+
+from mlflow import MlflowClient
 from mlflow.entities import FileInfo
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.databricks_models_artifact_repo import (
-    DatabricksModelsArtifactRepository,
     _DOWNLOAD_CHUNK_SIZE,
+    DatabricksModelsArtifactRepository,
 )
-from mlflow import MlflowClient
 
 DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE = (
     "mlflow.store.artifact.databricks_models_artifact_repo"
@@ -30,7 +30,7 @@ REGISTRY_LIST_ARTIFACTS_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifact
 REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT = "/api/2.0/mlflow/model-versions/get-signed-download-uri"
 
 
-@pytest.fixture()
+@pytest.fixture
 def databricks_model_artifact_repo():
     return DatabricksModelsArtifactRepository(MOCK_MODEL_ROOT_URI_WITH_PROFILE)
 
@@ -225,7 +225,6 @@ def test_list_artifacts_for_single_file(databricks_model_artifact_repo):
         ("test_file.txt", ""),
         ("test_file.txt", None),
         ("output/test_file", None),
-        ("test_file.txt", ""),
     ],
 )
 def test_download_file(databricks_model_artifact_repo, remote_file_path, local_path):

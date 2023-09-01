@@ -1,17 +1,16 @@
-from datetime import datetime
-from functools import lru_cache
-import os
 import json
-from mimetypes import guess_type
-
+import os
 import posixpath
 import urllib.parse
+from datetime import datetime
+from functools import lru_cache
+from mimetypes import guess_type
 
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
-    MLFLOW_S3_UPLOAD_EXTRA_ARGS,
     MLFLOW_S3_ENDPOINT_URL,
     MLFLOW_S3_IGNORE_TLS,
+    MLFLOW_S3_UPLOAD_EXTRA_ARGS,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -119,7 +118,7 @@ class S3ArtifactRepository(ArtifactRepository):
         """Parse an S3 URI, returning (bucket, path)"""
         parsed = urllib.parse.urlparse(uri)
         if parsed.scheme != "s3":
-            raise Exception("Not an S3 URI: %s" % uri)
+            raise Exception(f"Not an S3 URI: {uri}")
         path = parsed.path
         if path.startswith("/"):
             path = path[1:]

@@ -1,83 +1,89 @@
 import base64
 import functools
 import logging
-import tempfile
+import os
+import shutil
+from contextlib import contextmanager
 
+import mlflow
 from mlflow.entities import Run
-from mlflow.protos.service_pb2 import GetRun, MlflowService
+from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
-    CreateRegisteredModelRequest,
-    CreateRegisteredModelResponse,
-    UpdateRegisteredModelRequest,
-    UpdateRegisteredModelResponse,
-    DeleteRegisteredModelRequest,
-    DeleteRegisteredModelResponse,
+    MODEL_VERSION_OPERATION_READ_WRITE,
     CreateModelVersionRequest,
     CreateModelVersionResponse,
-    Entity,
-    Notebook,
-    LineageHeaderInfo,
-    FinalizeModelVersionRequest,
-    FinalizeModelVersionResponse,
-    UpdateModelVersionRequest,
-    UpdateModelVersionResponse,
+    CreateRegisteredModelRequest,
+    CreateRegisteredModelResponse,
     DeleteModelVersionRequest,
     DeleteModelVersionResponse,
-    GetModelVersionDownloadUriRequest,
-    GetModelVersionDownloadUriResponse,
-    SearchModelVersionsRequest,
-    SearchModelVersionsResponse,
-    GetRegisteredModelRequest,
-    GetRegisteredModelResponse,
-    GetModelVersionRequest,
-    GetModelVersionResponse,
-    SearchRegisteredModelsRequest,
-    SearchRegisteredModelsResponse,
-    GenerateTemporaryModelVersionCredentialsRequest,
-    GenerateTemporaryModelVersionCredentialsResponse,
-    SetRegisteredModelAliasRequest,
-    SetRegisteredModelAliasResponse,
-    DeleteRegisteredModelAliasRequest,
-    DeleteRegisteredModelAliasResponse,
-    GetModelVersionByAliasRequest,
-    GetModelVersionByAliasResponse,
-    SetRegisteredModelTagRequest,
-    SetRegisteredModelTagResponse,
-    DeleteRegisteredModelTagRequest,
-    DeleteRegisteredModelTagResponse,
-    SetModelVersionTagRequest,
-    SetModelVersionTagResponse,
     DeleteModelVersionTagRequest,
     DeleteModelVersionTagResponse,
+    DeleteRegisteredModelAliasRequest,
+    DeleteRegisteredModelAliasResponse,
+    DeleteRegisteredModelRequest,
+    DeleteRegisteredModelResponse,
+    DeleteRegisteredModelTagRequest,
+    DeleteRegisteredModelTagResponse,
+    Entity,
+    FinalizeModelVersionRequest,
+    FinalizeModelVersionResponse,
+    GenerateTemporaryModelVersionCredentialsRequest,
+    GenerateTemporaryModelVersionCredentialsResponse,
+    GetModelVersionByAliasRequest,
+    GetModelVersionByAliasResponse,
+    GetModelVersionDownloadUriRequest,
+    GetModelVersionDownloadUriResponse,
+    GetModelVersionRequest,
+    GetModelVersionResponse,
+    GetRegisteredModelRequest,
+    GetRegisteredModelResponse,
+    Job,
+    LineageHeaderInfo,
+    Notebook,
+    SearchModelVersionsRequest,
+    SearchModelVersionsResponse,
+    SearchRegisteredModelsRequest,
+    SearchRegisteredModelsResponse,
+    SetModelVersionTagRequest,
+    SetModelVersionTagResponse,
+    SetRegisteredModelAliasRequest,
+    SetRegisteredModelAliasResponse,
+    SetRegisteredModelTagRequest,
+    SetRegisteredModelTagResponse,
     TemporaryCredentials,
-    MODEL_VERSION_OPERATION_READ_WRITE,
+    UpdateModelVersionRequest,
+    UpdateModelVersionResponse,
+    UpdateRegisteredModelRequest,
+    UpdateRegisteredModelResponse,
 )
-import mlflow
-from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
-from mlflow.store.entities.paged_list import PagedList
-from mlflow.utils.proto_json_utils import message_to_json, parse_dict
-from mlflow.utils.rest_utils import (
-    extract_api_info_for_service,
-    extract_all_api_info_for_service,
-    _REST_API_PATH_PREFIX,
-    verify_rest_response,
-    http_request,
-)
-from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_ID
-from mlflow.store._unity_catalog.registry.utils import get_artifact_repo_from_storage_info
-from mlflow.store.model_registry.rest_store import BaseRestStore
+from mlflow.protos.service_pb2 import GetRun, MlflowService
 from mlflow.store._unity_catalog.registry.utils import (
+    get_artifact_repo_from_storage_info,
+    get_full_name_from_sc,
     model_version_from_uc_proto,
     registered_model_from_uc_proto,
     uc_model_version_tag_from_mlflow_tags,
     uc_registered_model_tag_from_mlflow_tags,
-    get_full_name_from_sc,
 )
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.model_registry.rest_store import BaseRestStore
+from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds, is_databricks_uri
-from mlflow.utils._spark_utils import _get_active_spark_session
-
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATABRICKS_JOB_ID,
+    MLFLOW_DATABRICKS_JOB_RUN_ID,
+    MLFLOW_DATABRICKS_NOTEBOOK_ID,
+)
+from mlflow.utils.proto_json_utils import message_to_json, parse_dict
+from mlflow.utils.rest_utils import (
+    _REST_API_PATH_PREFIX,
+    extract_all_api_info_for_service,
+    extract_api_info_for_service,
+    http_request,
+    verify_rest_response,
+)
 
 _DATABRICKS_ORG_ID_HEADER = "x-databricks-org-id"
 _DATABRICKS_LINEAGE_ID_HEADER = "X-Databricks-Lineage-Identifier"
@@ -86,6 +92,7 @@ _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
     UcModelRegistryService, _REST_API_PATH_PREFIX
 )
+_DATABRICKS_FS_LOADER_MODULE = "databricks.feature_store.mlflow_model"
 
 _logger = logging.getLogger(__name__)
 
@@ -102,7 +109,6 @@ def _raise_unsupported_arg(arg_name, message=None):
     ]
     if message is not None:
         messages.append(message)
-    messages.append("See the user guide for more information")
     raise MlflowException(" ".join(messages))
 
 
@@ -112,8 +118,43 @@ def _raise_unsupported_method(method, message=None):
     ]
     if message is not None:
         messages.append(message)
-    messages.append("See the user guide for more information")
     raise MlflowException(" ".join(messages))
+
+
+def _load_model(local_model_dir):
+    # Import Model here instead of in the top level, to avoid circular import; the
+    # mlflow.models.model module imports from MLflow tracking, which triggers an import of
+    # this file during store registry initialization
+    from mlflow.models.model import Model
+
+    try:
+        return Model.load(local_model_dir)
+    except Exception as e:
+        raise MlflowException(
+            "Unable to load model metadata. Ensure the source path of the model "
+            "being registered points to a valid MLflow model directory "
+            "(see https://mlflow.org/docs/latest/models.html#storage-format) containing a "
+            "model signature (https://mlflow.org/docs/latest/models.html#model-signature) "
+            "specifying both input and output type specifications."
+        ) from e
+
+
+def get_feature_dependencies(model_dir):
+    """
+    Gets the features which a model depends on. This functionality is only implemented on
+    Databricks. In OSS mlflow, the dependencies are always empty ("").
+    """
+    model = _load_model(model_dir)
+    model_info = model.get_model_info()
+    if (
+        model_info.flavors.get("python_function", {}).get("loader_module")
+        == _DATABRICKS_FS_LOADER_MODULE
+    ):
+        raise MlflowException(
+            "This model was packaged by Databricks Feature Store and can only be registered on a "
+            "Databricks cluster."
+        )
+    return ""
 
 
 @experimental
@@ -390,14 +431,24 @@ class UcModelRegistryStore(BaseRestStore):
             return None
         return run.data.tags.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
 
-    def _validate_model_signature(self, local_model_dir):
+    def _get_job_id(self, run):
+        if run is None:
+            return None
+        return run.data.tags.get(MLFLOW_DATABRICKS_JOB_ID, None)
+
+    def _get_job_run_id(self, run):
+        if run is None:
+            return None
+        return run.data.tags.get(MLFLOW_DATABRICKS_JOB_RUN_ID, None)
+
+    def _validate_model_signature(self, local_model_path):
         # Import Model here instead of in the top level, to avoid circular import; the
         # mlflow.models.model module imports from MLflow tracking, which triggers an import of
         # this file during store registry initialization
         from mlflow.models.model import Model
 
         try:
-            model = Model.load(local_model_dir)
+            model = Model.load(local_model_path)
         except Exception as e:
             raise MlflowException(
                 "Unable to load model metadata. Ensure the source path of the model "
@@ -424,8 +475,38 @@ class UcModelRegistryStore(BaseRestStore):
                 f"{signature_required_explanation}"
             )
 
+    @contextmanager
+    def _local_model_dir(self, source, local_model_path):
+        if local_model_path is not None:
+            yield local_model_path
+        else:
+            try:
+                local_model_dir = mlflow.artifacts.download_artifacts(
+                    artifact_uri=source, tracking_uri=self.tracking_uri
+                )
+            except Exception as e:
+                raise MlflowException(
+                    f"Unable to download model artifacts from source artifact location "
+                    f"'{source}' in order to upload them to Unity Catalog. Please ensure "
+                    f"the source artifact location exists and that you can download from "
+                    f"it via mlflow.artifacts.download_artifacts()"
+                ) from e
+            # Clean up temporary model directory at end of block. We assume a temporary
+            # model directory was created if the `source` is not a local path (must be downloaded
+            # from remote to a temporary directory)
+            yield local_model_dir
+            if not os.path.exists(source):
+                shutil.rmtree(local_model_dir)
+
     def create_model_version(
-        self, name, source, run_id=None, tags=None, run_link=None, description=None
+        self,
+        name,
+        source,
+        run_id=None,
+        tags=None,
+        run_link=None,
+        description=None,
+        local_model_path=None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -444,40 +525,38 @@ class UcModelRegistryStore(BaseRestStore):
         headers, run = self._get_run_and_headers(run_id)
         source_workspace_id = self._get_workspace_id(headers)
         notebook_id = self._get_notebook_id(run)
+        job_id = self._get_job_id(run)
+        job_run_id = self._get_job_run_id(run)
         extra_headers = None
-        if notebook_id is not None:
-            notebook_entity = Notebook(id=str(notebook_id))
-            entity = Entity(notebook=notebook_entity)
-            lineage_header_info = LineageHeaderInfo(entities=[entity])
+        if notebook_id is not None or job_id is not None:
+            entity_list = []
+            if notebook_id is not None:
+                notebook_entity = Notebook(id=str(notebook_id))
+                entity_list.append(Entity(notebook=notebook_entity))
+            if job_id is not None:
+                job_entity = Job(id=job_id, job_run_id=job_run_id)
+                entity_list.append(Entity(job=job_entity))
+            lineage_header_info = LineageHeaderInfo(entities=entity_list)
             # Base64-encode the header value to ensure it's valid ASCII,
             # similar to JWT (see https://stackoverflow.com/a/40347926)
             header_json = message_to_json(lineage_header_info)
             header_base64 = base64.b64encode(header_json.encode())
             extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: header_base64}
         full_name = get_full_name_from_sc(name, self.spark)
-        req_body = message_to_json(
-            CreateModelVersionRequest(
-                name=full_name,
-                source=source,
-                run_id=run_id,
-                description=description,
-                tags=uc_model_version_tag_from_mlflow_tags(tags),
-                run_tracking_server_id=source_workspace_id,
-            )
-        )
-        with tempfile.TemporaryDirectory() as tmpdir:
-            try:
-                local_model_dir = mlflow.artifacts.download_artifacts(
-                    artifact_uri=source, dst_path=tmpdir, tracking_uri=self.tracking_uri
-                )
-            except Exception as e:
-                raise MlflowException(
-                    f"Unable to download model artifacts from source artifact location "
-                    f"'{source}' in order to upload them to Unity Catalog. Please ensure "
-                    f"the source artifact location exists and that you can download from "
-                    f"it via mlflow.artifacts.download_artifacts()"
-                ) from e
+        with self._local_model_dir(source, local_model_path) as local_model_dir:
             self._validate_model_signature(local_model_dir)
+            feature_deps = get_feature_dependencies(local_model_dir)
+            req_body = message_to_json(
+                CreateModelVersionRequest(
+                    name=full_name,
+                    source=source,
+                    run_id=run_id,
+                    description=description,
+                    tags=uc_model_version_tag_from_mlflow_tags(tags),
+                    run_tracking_server_id=source_workspace_id,
+                    feature_deps=feature_deps,
+                )
+            )
             model_version = self._call_endpoint(
                 CreateModelVersionRequest, req_body, extra_headers=extra_headers
             ).model_version
@@ -489,8 +568,8 @@ class UcModelRegistryStore(BaseRestStore):
                 storage_location=model_version.storage_location, scoped_token=scoped_token
             )
             store.log_artifacts(local_dir=local_model_dir, artifact_path="")
-        finalized_mv = self._finalize_model_version(name=full_name, version=version_number)
-        return model_version_from_uc_proto(finalized_mv)
+            finalized_mv = self._finalize_model_version(name=full_name, version=version_number)
+            return model_version_from_uc_proto(finalized_mv)
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
         """

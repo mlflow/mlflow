@@ -1,6 +1,6 @@
 import json
 from abc import abstractmethod
-from typing import Optional, Any, Dict
+from typing import Any, Dict, Optional
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.entities import Dataset as DatasetEntity

@@ -1,13 +1,12 @@
 import os
+import posixpath
 import sys
 import threading
-
-import posixpath
 import urllib.parse
+from contextlib import contextmanager
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from contextlib import contextmanager
 
 
 # Based on: https://stackoverflow.com/a/58466685
@@ -50,8 +49,8 @@ class SFTPArtifactRepository(ArtifactRepository):
         }
         self.path = parsed.path or "/"
 
-        import pysftp
         import paramiko
+        import pysftp
 
         if self.config["host"] is None:
             self.config["host"] = "localhost"

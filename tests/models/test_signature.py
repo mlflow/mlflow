@@ -1,4 +1,5 @@
 import json
+
 import numpy as np
 import pandas as pd
 import pyspark
@@ -7,11 +8,10 @@ from sklearn.ensemble import RandomForestRegressor
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, ModelSignature, infer_signature, set_signature
 from mlflow.models.model import get_model_info
-from mlflow.models import ModelSignature, infer_signature, set_signature
 from mlflow.types import DataType
-from mlflow.types.schema import Schema, ColSpec, TensorSpec
+from mlflow.types.schema import ColSpec, Schema, TensorSpec
 
 
 def test_model_signature_with_colspec():
@@ -128,6 +128,27 @@ def test_signature_inference_infers_input_and_output_as_expected():
     sig1 = infer_signature(np.array([1]), np.array([1]))
     assert sig1.inputs == sig0.inputs
     assert sig1.outputs == sig0.inputs
+
+
+def test_infer_signature_on_list_of_dictionaries():
+    signature = infer_signature(
+        model_input=[{"query": "test query"}],
+        model_output=[
+            {
+                "output": "Output from the LLM",
+                "candidate_ids": ["412", "1233"],
+                "candidate_sources": ["file1.md", "file201.md"],
+            }
+        ],
+    )
+    assert signature.inputs == Schema([ColSpec(DataType.string, name="query")])
+    assert signature.outputs == Schema(
+        [
+            ColSpec(DataType.string, name="output"),
+            ColSpec(DataType.string, name="candidate_ids"),
+            ColSpec(DataType.string, name="candidate_sources"),
+        ]
+    )
 
 
 def test_signature_inference_infers_datime_types_as_expected():

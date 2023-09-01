@@ -1,9 +1,10 @@
-from packaging.version import Version
 import os
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
 import yaml
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -11,37 +12,39 @@ from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
-from mlflow.utils.model_utils import (
-    _get_flavor_configuration,
-    _validate_and_copy_code_paths,
-    _add_code_from_conf_to_system_path,
-    _validate_and_prepare_target_save_path,
-)
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _validate_env_arguments,
-    _process_pip_requirements,
-    _process_conda_env,
-    _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
-    _CONSTRAINTS_FILE_NAME,
-    _PYTHON_ENV_FILE_NAME,
-    _PythonEnv,
-)
-from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.autologging_utils import (
     autologging_integration,
-    safe_patch,
     batch_metrics_logger,
+    safe_patch,
 )
+from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
+from mlflow.utils.environment import (
+    _CONDA_ENV_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _mlflow_conda_env,
+    _process_conda_env,
+    _process_pip_requirements,
+    _PythonEnv,
+    _validate_env_arguments,
+)
+from mlflow.utils.file_utils import write_to
+from mlflow.utils.model_utils import (
+    _add_code_from_conf_to_system_path,
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _validate_and_prepare_target_save_path,
+)
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "gluon"
 _MODEL_SAVE_PATH = "net"
 
 
+@deprecated(since="2.5.0")
 def load_model(model_uri, ctx, dst_path=None):
     """
     Load a Gluon model from a local file or a run.
@@ -73,8 +76,7 @@ def load_model(model_uri, ctx, dst_path=None):
         model(nd.array(np.random.rand(1000, 1, 32)))
     """
     import mxnet as mx
-    from mxnet import gluon
-    from mxnet import sym
+    from mxnet import gluon, sym
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
@@ -99,11 +101,18 @@ class _GluonModelWrapper:
     def __init__(self, gluon_model):
         self.gluon_model = gluon_model
 
-    def predict(self, data):
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
         """
         :param data: Either a pandas DataFrame or a numpy array containing input array values.
                      If the input is a DataFrame, it will be converted to an array first by a
                      `ndarray = df.values`.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
         :return: Model predictions. If the input is a pandas.DataFrame, the predictions are returned
                  in a pandas.DataFrame. If the input is a numpy array, the predictions are returned
                  as either a numpy.ndarray or a plain list for hybrid models.
@@ -119,7 +128,10 @@ class _GluonModelWrapper:
                 preds = preds.asnumpy()
             return pd.DataFrame(preds)
         elif isinstance(data, np.ndarray):
-            ndarray = mx.nd.array(data)
+            if Version(mx.__version__) >= Version("2.0.0"):
+                ndarray = mx.np.array(data)
+            else:
+                ndarray = mx.nd.array(data)
             preds = self.gluon_model(ndarray)
             if isinstance(preds, mx.ndarray.ndarray.NDArray):
                 preds = preds.asnumpy()
@@ -140,6 +152,7 @@ def _load_pyfunc(path):
     return _GluonModelWrapper(m)
 
 
+@deprecated(since="2.5.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="mxnet"))
 def save_model(
     gluon_model,
@@ -286,6 +299,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+@deprecated(since="2.5.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="mxnet"))
 def log_model(
     gluon_model,
@@ -363,6 +377,7 @@ def log_model(
     )
 
 
+@deprecated(since="2.5.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_models=True,
@@ -400,6 +415,7 @@ def autolog(
     """
 
     from mxnet.gluon.contrib.estimator import Estimator
+
     from mlflow.gluon._autolog import __MLflowGluonCallback
 
     def getGluonCallback(metrics_logger):

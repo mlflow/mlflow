@@ -1,18 +1,18 @@
-import requests
-import time
 import json
-import tempfile
 import logging
+import tempfile
+import time
 import uuid
-from pathlib import Path
 from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any, Dict, Optional
 
+import requests
 
-from mlflow.pyfunc import scoring_server
-
-from mlflow.exceptions import MlflowException
-from mlflow.utils.proto_json_utils import dump_input_data
 from mlflow.deployments import PredictionsResponse
+from mlflow.exceptions import MlflowException
+from mlflow.pyfunc import scoring_server
+from mlflow.utils.proto_json_utils import dump_input_data
 
 _logger = logging.getLogger(__name__)
 
@@ -25,10 +25,16 @@ class BaseScoringServerClient(ABC):
         """
 
     @abstractmethod
-    def invoke(self, data):
+    def invoke(self, data, params: Optional[Dict[str, Any]] = None):
         """
         Invoke inference on input data. The input data must be pandas dataframe or numpy array or
         a dict of numpy arrays.
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+        :return: Prediction result.
         """
 
 
@@ -65,10 +71,18 @@ class ScoringServerClient(BaseScoringServerClient):
                     raise RuntimeError(f"Server process already exit with returncode {return_code}")
         raise RuntimeError("Wait scoring server ready timeout.")
 
-    def invoke(self, data):
+    def invoke(self, data, params: Optional[Dict[str, Any]] = None):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+        :return: :py:class:`PredictionsResponse <mlflow.deployments.PredictionsResponse>` result.
+        """
         response = requests.post(
             url=self.url_prefix + "/invocations",
-            data=dump_input_data(data),
+            data=dump_input_data(data, params=params),
             headers={"Content-Type": scoring_server.CONTENT_TYPE_JSON},
         )
         if response.status_code != 200:
@@ -80,6 +94,7 @@ class ScoringServerClient(BaseScoringServerClient):
 
 class StdinScoringServerClient(BaseScoringServerClient):
     def __init__(self, process):
+        super().__init__()
         self.process = process
         self.tmpdir = Path(tempfile.mkdtemp())
         self.output_json = self.tmpdir.joinpath("output.json")
@@ -89,10 +104,17 @@ class StdinScoringServerClient(BaseScoringServerClient):
         if return_code is not None:
             raise RuntimeError(f"Server process already exit with returncode {return_code}")
 
-    def invoke(self, data):
+    def invoke(self, data, params: Optional[Dict[str, Any]] = None):
         """
         Invoke inference on input data. The input data must be pandas dataframe or numpy array or
         a dict of numpy arrays.
+
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+        :return: :py:class:`PredictionsResponse <mlflow.deployments.PredictionsResponse>` result.
         """
         if not self.output_json.exists():
             self.output_json.touch()
@@ -100,7 +122,7 @@ class StdinScoringServerClient(BaseScoringServerClient):
         request_id = str(uuid.uuid4())
         request = {
             "id": request_id,
-            "data": dump_input_data(data),
+            "data": dump_input_data(data, params=params),
             "output_file": str(self.output_json),
         }
         self.process.stdin.write(json.dumps(request) + "\n")

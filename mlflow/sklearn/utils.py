@@ -1,20 +1,21 @@
 import collections
 import inspect
 import logging
-import numpy as np
-import warnings
 import pkgutil
 import platform
+import warnings
 from copy import deepcopy
-from numbers import Number
 from importlib import import_module
+from numbers import Number
 from operator import itemgetter
+
+import numpy as np
 from packaging.version import Version
 
 from mlflow import MlflowClient
+from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
-from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.time_utils import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
@@ -49,8 +50,9 @@ def _gen_xgboost_sklearn_estimators_to_patch():
 
 
 def _gen_lightgbm_sklearn_estimators_to_patch():
-    import mlflow.lightgbm
     import lightgbm as lgb
+
+    import mlflow.lightgbm
 
     all_classes = inspect.getmembers(lgb.sklearn, inspect.isclass)
     base_class = lgb.sklearn._LGBMModelBase
@@ -543,7 +545,7 @@ def _log_specialized_estimator_content(
             import matplotlib.pyplot as plt
         except ImportError as ie:
             _logger.warning(
-                f"Failed to import matplotlib (error: {repr(ie)}). Skipping artifact logging."
+                f"Failed to import matplotlib (error: {ie!r}). Skipping artifact logging."
             )
             return metrics
 
@@ -554,7 +556,7 @@ def _log_specialized_estimator_content(
                     with matplotlib.rc_context(_matplotlib_config):
                         display = artifact.function(**artifact.arguments)
                         display.ax_.set_title(artifact.title)
-                        artifact_path = "{}.png".format(artifact.name)
+                        artifact_path = f"{artifact.name}.png"
                         filepath = tmp_dir.path(artifact_path)
                         display.figure_.savefig(fname=filepath, format="png")
                         plt.close(display.figure_)
@@ -891,16 +893,16 @@ def _backported_all_estimators(type_filter=None):
     """
     # lazy import to avoid circular imports from sklearn.base
     import sklearn
-
-    # pylint: disable=no-name-in-module, import-error
-    from sklearn.utils.testing import ignore_warnings
     from sklearn.base import (
         BaseEstimator,
         ClassifierMixin,
+        ClusterMixin,
         RegressorMixin,
         TransformerMixin,
-        ClusterMixin,
     )
+
+    # pylint: disable=no-name-in-module, import-error
+    from sklearn.utils.testing import ignore_warnings
 
     IS_PYPY = platform.python_implementation() == "PyPy"
 

@@ -16,15 +16,17 @@ Features:
 """
 from __future__ import annotations
 
+import json
 import logging
-import threading
 import queue
+import threading
 import time
-from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from typing import Any, Dict, List, Union
 
 import langchain
+
 import mlflow
 
 _logger = logging.getLogger(__name__)
@@ -73,13 +75,21 @@ class APIRequest:
     request_json: dict
     results: list[tuple[int, str]]
 
-    def call_api(self, retry_queue: queue.Queue, status_tracker: StatusTracker):
+    def call_api(self, status_tracker: StatusTracker):
         """
         Calls the LangChain API and stores results.
         """
+        from langchain.schema import BaseRetriever
+
         _logger.debug(f"Request #{self.index} started")
         try:
-            response = self.lc_model.run(**self.request_json)
+            if isinstance(self.lc_model, BaseRetriever):
+                # Retrievers are invoked differently than Chains
+                docs = self.lc_model.get_relevant_documents(**self.request_json)
+                list_of_str_page_content = [doc.page_content for doc in docs]
+                response = json.dumps(list_of_str_page_content)
+            else:
+                response = self.lc_model.run(**self.request_json)
             _logger.debug(f"Request #{self.index} succeeded")
             status_tracker.complete_task(success=True)
             self.results.append((self.index, response))
@@ -125,7 +135,6 @@ def process_api_requests(
                 # call API
                 executor.submit(
                     next_request.call_api,
-                    retry_queue=retry_queue,
                     status_tracker=status_tracker,
                 )
                 next_request = None  # reset next_request to empty
