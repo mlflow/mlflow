@@ -37,14 +37,14 @@ class MlflowGatewayClient:
 
     def __init__(self, gateway_uri: Optional[str] = None):
         self._gateway_uri = gateway_uri or get_gateway_uri()
-        self._host_creds = self._resolve_host_creds()
 
     def _is_databricks_host(self) -> bool:
         return (
             self._gateway_uri == "databricks" or get_uri_scheme(self._gateway_uri) == "databricks"
         )
 
-    def _resolve_host_creds(self) -> MlflowHostCreds:
+    @property
+    def _host_creds(self):
         if self._is_databricks_host():
             return get_databricks_host_creds(self._gateway_uri)
         else:
