@@ -26,7 +26,7 @@ from mlflow.utils.rest_utils import http_request
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 
 _logger = logging.getLogger(__name__)
-_DOWNLOAD_CHUNK_SIZE = 500_000_000  # 500 MB
+_DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
 # The constant REGISTRY_LIST_ARTIFACT_ENDPOINT is defined as @developer_stable
 REGISTRY_LIST_ARTIFACTS_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifacts"
 # The constant REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT is defined as @developer_stable

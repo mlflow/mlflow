@@ -15,6 +15,7 @@ from mlflow.server import handlers
 from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
+    create_promptlab_run_handler,
     gateway_proxy_handler,
     get_artifact_handler,
     get_metric_history_bulk_handler,
@@ -87,6 +88,12 @@ def serve_get_metric_history_bulk():
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"), methods=["POST"])
 def serve_search_datasets():
     return search_datasets_handler()
+
+
+# Serve the "runs/create-promptlab-run" route.
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/runs/create-promptlab-run"), methods=["POST"])
+def serve_create_promptlab_run():
+    return create_promptlab_run_handler()
 
 
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/gateway-proxy"), methods=["POST", "GET"])
