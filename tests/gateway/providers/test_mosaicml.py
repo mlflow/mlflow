@@ -326,7 +326,8 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
                 RequestMessage(role="assistant", content="Test"),
                 RequestMessage(role="system", content="Test"),
             ],
-            "<s>[INST] <<SYS>> Test <</SYS>> Test [/INST] Test </s><s>[INST] <<SYS>> Test <</SYS>> [/INST]",
+            "<s>[INST] <<SYS>> Test <</SYS>> Test [/INST] Test </s><s>[INST] <<SYS>> "
+            "Test <</SYS>> [/INST]",
         ),
         (
             [
@@ -338,7 +339,8 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
                 RequestMessage(role="user", content="Test"),
                 RequestMessage(role="assistant", content="Test"),
             ],
-            "<s>[INST] <<SYS>> Test <</SYS>> Test [/INST] Test </s><s>[INST] Test [/INST] Test </s><s>[INST] Test [/INST] Test ",
+            "<s>[INST] <<SYS>> Test <</SYS>> Test [/INST] Test </s><s>[INST] Test [/INST] "
+            "Test </s><s>[INST] Test [/INST] Test ",
         ),
     ],
 )
