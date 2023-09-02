@@ -660,10 +660,11 @@ class _ChunkDownloadError(Exception):
         self.retryable = retryable
         self.error = error
         self.status_code = status_code
-        if status_code is not None:
-            super().__init__(f"Chunk download failed with status code {status_code}: {error}")
-        else:
-            super().__init__(f"Chunk download failed: {error}")
+        super().__init__(
+            f"Chunk download failed: {error}"
+            if status_code is None
+            else f"Chunk download failed with status code {status_code}: {error}"
+        )
 
 
 def parallelized_download_file_using_http_uri(
