@@ -1201,8 +1201,7 @@ def create_promptlab_run_handler():
     ]
     mlflow_version = args.get("mlflow_version")
     assert_arg_exists("mlflow_version", mlflow_version)
-    user_id = args.get("user_id")
-    assert_arg_exists("user_id", user_id)
+    user_id = args.get("user_id", "unknown")
 
     # use current time if not provided
     start_time = args.get("start_time", int(time.time() * 1000))

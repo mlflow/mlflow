@@ -45,6 +45,16 @@ def _create_promptlab_run_impl(
     run_id = run.info.run_id
 
     try:
+        prompt_parameters = [
+            Param(key=param.key, value=str(param.value)) for param in prompt_parameters
+        ]
+        model_parameters = [
+            Param(key=param.key, value=str(param.value)) for param in model_parameters
+        ]
+        model_output_parameters = [
+            Param(key=param.key, value=str(param.value)) for param in model_output_parameters
+        ]
+
         # log model parameters
         parameters_to_log = [
             *model_parameters,
