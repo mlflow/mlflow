@@ -18,7 +18,6 @@ from mlflow.entities import (
     DatasetInput,
     Experiment,
     Metric,
-    Param,
     Run,
     RunInputs,
     RunStatus,
@@ -60,9 +59,6 @@ from mlflow.utils.mlflow_tags import (
     _get_run_name_from_tags,
 )
 from mlflow.utils.name_utils import _generate_random_name
-from mlflow.utils.promptlab_utils import (
-    _create_promptlab_run_impl,
-)
 from mlflow.utils.search_utils import SearchExperimentsUtils, SearchUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time_utils import get_current_time_millis
@@ -1020,42 +1016,6 @@ class SqlAlchemyStore(AbstractStore):
                 )
                 for summary in summaries
             ]
-
-    def _create_promptlab_run(
-        self,
-        experiment_id: str,
-        run_name: str,
-        tags: List[RunTag],
-        prompt_template: str,
-        prompt_parameters: List[Param],
-        model_route: str,
-        model_parameters: List[Param],
-        model_input: str,
-        model_output_parameters: List[Param],
-        model_output: str,
-        mlflow_version: str,
-        user_id: str,
-        start_time: str,
-    ):
-        """
-        Creates a run for prompt engineering with the specified attributes.
-        """
-        return _create_promptlab_run_impl(
-            self,
-            experiment_id,
-            run_name,
-            tags,
-            prompt_template,
-            prompt_parameters,
-            model_route,
-            model_parameters,
-            model_input,
-            model_output_parameters,
-            model_output,
-            mlflow_version,
-            user_id,
-            start_time,
-        )
 
     def log_param(self, run_id, param):
         _validate_param(param.key, param.value)
