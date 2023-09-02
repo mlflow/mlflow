@@ -45,6 +45,13 @@ class MlflowGatewayClient:
 
     @property
     def _host_creds(self):
+        """
+        NB: When `MlflowGatewayClient` is used as an instance variable in a custom pyfunc model, it
+        is pickled in the environment where the custom pyfunc model is defined (e.g. a notebook).
+        When the model is moved to a different environment, e.g. model serving, new credentials
+        need to be resolved from within the new environment. Accordingly, we re-resolve host
+        credentials every time a request is made.
+        """
         if self._is_databricks_host():
             return get_databricks_host_creds(self._gateway_uri)
         else:
