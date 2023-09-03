@@ -444,8 +444,7 @@ class __ExampleSequence(tf.keras.utils.Sequence):
         if self.with_sample_weights:
             w = np.array([1] * self.batch_size)
             return x, y, w
-        else:
-            return x, y
+        return x, y
 
 
 def __generator(data, target, batch_size):
