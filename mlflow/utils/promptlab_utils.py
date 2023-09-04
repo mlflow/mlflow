@@ -109,6 +109,7 @@ def _create_promptlab_run_impl(
 
         with tempfile.TemporaryDirectory() as local_dir:
             save_model(
+                mlflow_model=promptlab_model,
                 path=os.path.join(local_dir, "model"),
                 signature=signature,
                 input_example={"inputs": [param.value for param in prompt_parameters]},
