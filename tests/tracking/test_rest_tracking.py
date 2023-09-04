@@ -1678,6 +1678,142 @@ def test_update_run_name_without_changing_status(mlflow_client):
     assert updated_run_info.status == "FINISHED"
 
 
+def test_create_promptlab_run_handler_rejects_invalid_requests(mlflow_client):
+    def assert_response(resp, message_part):
+        assert resp.status_code == 400
+        response_json = resp.json()
+        assert response_json.get("error_code") == "INVALID_PARAMETER_VALUE"
+        assert message_part in response_json.get("message", "")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        json={},
+    )
+    assert_response(
+        response,
+        "CreatePromptlabRun request must specify experiment_id.",
+    )
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        json={"experiment_id": "123"},
+    )
+    assert_response(
+        response,
+        "CreatePromptlabRun request must specify prompt_template.",
+    )
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        json={"experiment_id": "123", "prompt_template": "my_prompt_template"},
+    )
+    assert_response(
+        response,
+        "CreatePromptlabRun request must specify prompt_parameters.",
+    )
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        json={
+            "experiment_id": "123",
+            "prompt_template": "my_prompt_template",
+            "prompt_parameters": [{"key": "my_key", "value": "my_value"}],
+        },
+    )
+    assert_response(
+        response,
+        "CreatePromptlabRun request must specify model_route.",
+    )
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        json={
+            "experiment_id": "123",
+            "prompt_template": "my_prompt_template",
+            "prompt_parameters": [{"key": "my_key", "value": "my_value"}],
+            "model_route": "my_route",
+        },
+    )
+    assert_response(
+        response,
+        "CreatePromptlabRun request must specify model_input.",
+    )
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        json={
+            "experiment_id": "123",
+            "prompt_template": "my_prompt_template",
+            "prompt_parameters": [{"key": "my_key", "value": "my_value"}],
+            "model_route": "my_route",
+            "model_input": "my_input",
+        },
+    )
+    assert_response(
+        response,
+        "CreatePromptlabRun request must specify mlflow_version.",
+    )
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        json={
+            "experiment_id": "123",
+            "prompt_template": "my_prompt_template",
+            "prompt_parameters": [{"key": "my_key", "value": "my_value"}],
+            "model_route": "my_route",
+            "model_input": "my_input",
+            "mlflow_version": "1.0.0",
+        },
+    )
+    assert_response(
+        response,
+        "CreatePromptlabRun request must specify user_id.",
+    )
+
+
+def test_create_promptlab_run_handler_returns_expected_results(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("log inputs test")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        json={
+            "experiment_id": experiment_id,
+            "run_name": "my_run_name",
+            "prompt_template": "my_prompt_template",
+            "prompt_parameters": [{"key": "my_key", "value": "my_value"}],
+            "model_route": "my_route",
+            "model_parameters": [{"key": "temperature", "value": "0.1"}],
+            "model_input": "my_input",
+            "model_output": "my_output",
+            "model_output_parameters": [{"key": "latency", "value": "100"}],
+            "mlflow_version": "1.0.0",
+            "user_id": "username",
+            "start_time": 456,
+        },
+    )
+    assert response.status_code == 200
+    run_json = response.json()
+    assert run_json["run"]["info"]["run_name"] == "my_run_name"
+    assert run_json["run"]["info"]["experiment_id"] == experiment_id
+    assert run_json["run"]["info"]["user_id"] == "username"
+    assert run_json["run"]["info"]["status"] == "FINISHED"
+    assert run_json["run"]["info"]["start_time"] == 456
+
+    assert {"key": "model_route", "value": "my_route"} in run_json["run"]["data"]["params"]
+    assert {"key": "prompt_template", "value": "my_prompt_template"} in run_json["run"]["data"][
+        "params"
+    ]
+    assert {"key": "temperature", "value": "0.1"} in run_json["run"]["data"]["params"]
+
+    assert {
+        "key": "mlflow.loggedArtifacts",
+        "value": '[{"path": "eval_results_table.json", ' '"type": "table"}]',
+    } in run_json["run"]["data"]["tags"]
+    assert {"key": "mlflow.runSourceType", "value": "PROMPT_ENGINEERING"} in run_json["run"][
+        "data"
+    ]["tags"]
+
+
 def test_gateway_proxy_handler_rejects_invalid_requests(mlflow_client):
     def assert_response(resp, message_part):
         assert resp.status_code == 400

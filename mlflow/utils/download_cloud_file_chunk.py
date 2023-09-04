@@ -7,7 +7,7 @@ import json
 import os
 import sys
 
-import requests
+from requests.exceptions import ChunkedEncodingError, ConnectionError, HTTPError
 
 
 def parse_args():
@@ -41,16 +41,27 @@ def main():
             download_path=args.download_path,
             http_uri=args.http_uri,
         )
-    except requests.HTTPError as e:
-        temp_file = args.temp_file
-        with open(temp_file, "w") as f:
+    except (ConnectionError, ChunkedEncodingError) as e:
+        with open(args.temp_file, "w") as f:
             json.dump(
                 {
-                    "error_status_code": e.response.status_code,
-                    "error_text": str(e),
+                    "retryable": True,
+                    "error": repr(e),
                 },
                 f,
             )
+        raise
+    except HTTPError as e:
+        with open(args.temp_file, "w") as f:
+            json.dump(
+                {
+                    "retryable": e.response.status_code in (401, 403, 408),
+                    "error": repr(e),
+                    "status_code": e.response.status_code,
+                },
+                f,
+            )
+        raise
 
 
 if __name__ == "__main__":
