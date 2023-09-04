@@ -18,7 +18,7 @@ from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
 from . import databricks_pb2 as databricks__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16mlflow_artifacts.proto\x12\x10mlflow.artifacts\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\x1e\n\x10\x44ownloadArtifact\x1a\n\n\x08Response\"\x1c\n\x0eUploadArtifact\x1a\n\n\x08Response\"T\n\rListArtifacts\x12\x0c\n\x04path\x18\x01 \x01(\t\x1a\x35\n\x08Response\x12)\n\x05\x66iles\x18\x01 \x03(\x0b\x32\x1a.mlflow.artifacts.FileInfo\"\x1c\n\x0e\x44\x65leteArtifact\x1a\n\n\x08Response\";\n\x08\x46ileInfo\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0e\n\x06is_dir\x18\x02 \x01(\x08\x12\x11\n\tfile_size\x18\x03 \x01(\x03\x32\xeb\x05\n\x16MlflowArtifactsService\x12\xbd\x01\n\x10\x64ownloadArtifact\x12\".mlflow.artifacts.DownloadArtifact\x1a+.mlflow.artifacts.DownloadArtifact.Response\"X\xf2\x86\x19T\n=\n\x03GET\x12\x30/mlflow-artifacts/artifacts/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\x11\x44ownload Artifact\x12\xb5\x01\n\x0euploadArtifact\x12 .mlflow.artifacts.UploadArtifact\x1a).mlflow.artifacts.UploadArtifact.Response\"V\xf2\x86\x19R\n=\n\x03PUT\x12\x30/mlflow-artifacts/artifacts/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\x0fUpload Artifact\x12\x9c\x01\n\rlistArtifacts\x12\x1f.mlflow.artifacts.ListArtifacts\x1a(.mlflow.artifacts.ListArtifacts.Response\"@\xf2\x86\x19<\n(\n\x03GET\x12\x1b/mlflow-artifacts/artifacts\x1a\x04\x08\x02\x10\x00\x10\x01*\x0eList Artifacts\x12\xb9\x01\n\x0e\x64\x65leteArtifact\x12 .mlflow.artifacts.DeleteArtifact\x1a).mlflow.artifacts.DeleteArtifact.Response\"Z\xf2\x86\x19V\n@\n\x06\x44\x45LETE\x12\x30/mlflow-artifacts/artifacts/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\x10\x44\x65lete ArtifactsB\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16mlflow_artifacts.proto\x12\x10mlflow.artifacts\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\x1e\n\x10\x44ownloadArtifact\x1a\n\n\x08Response\"\x1c\n\x0eUploadArtifact\x1a\n\n\x08Response\"T\n\rListArtifacts\x12\x0c\n\x04path\x18\x01 \x01(\t\x1a\x35\n\x08Response\x12)\n\x05\x66iles\x18\x01 \x03(\x0b\x32\x1a.mlflow.artifacts.FileInfo\"\x1c\n\x0e\x44\x65leteArtifact\x1a\n\n\x08Response\";\n\x08\x46ileInfo\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0e\n\x06is_dir\x18\x02 \x01(\x08\x12\x11\n\tfile_size\x18\x03 \x01(\x03\"\x99\x01\n\x15\x43reateMultipartUpload\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x11\n\tnum_parts\x18\x02 \x01(\x03\x1a_\n\x08Response\x12\x11\n\tupload_id\x18\x01 \x01(\t\x12@\n\x0b\x63redentials\x18\x02 \x03(\x0b\x32+.mlflow.artifacts.MultipartUploadCredential\"|\n\x17\x43ompleteMultipartUpload\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x11\n\tupload_id\x18\x02 \x01(\t\x12\x34\n\x05parts\x18\x03 \x03(\x0b\x32%.mlflow.artifacts.MultipartUploadPart\x1a\n\n\x08Response\"C\n\x14\x41\x62ortMultipartUpload\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x11\n\tupload_id\x18\x02 \x01(\t\x1a\n\n\x08Response\"\xb8\x01\n\x19MultipartUploadCredential\x12\x0b\n\x03url\x18\x01 \x01(\t\x12\x13\n\x0bpart_number\x18\x02 \x01(\x03\x12I\n\x07headers\x18\x03 \x03(\x0b\x32\x38.mlflow.artifacts.MultipartUploadCredential.HeadersEntry\x1a.\n\x0cHeadersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"8\n\x13MultipartUploadPart\x12\x13\n\x0bpart_number\x18\x01 \x01(\x03\x12\x0c\n\x04\x65tag\x18\x02 \x01(\t2\x99\x0b\n\x16MlflowArtifactsService\x12\xbd\x01\n\x10\x64ownloadArtifact\x12\".mlflow.artifacts.DownloadArtifact\x1a+.mlflow.artifacts.DownloadArtifact.Response\"X\xf2\x86\x19T\n=\n\x03GET\x12\x30/mlflow-artifacts/artifacts/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\x11\x44ownload Artifact\x12\xb5\x01\n\x0euploadArtifact\x12 .mlflow.artifacts.UploadArtifact\x1a).mlflow.artifacts.UploadArtifact.Response\"V\xf2\x86\x19R\n=\n\x03PUT\x12\x30/mlflow-artifacts/artifacts/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\x0fUpload Artifact\x12\x9c\x01\n\rlistArtifacts\x12\x1f.mlflow.artifacts.ListArtifacts\x1a(.mlflow.artifacts.ListArtifacts.Response\"@\xf2\x86\x19<\n(\n\x03GET\x12\x1b/mlflow-artifacts/artifacts\x1a\x04\x08\x02\x10\x00\x10\x01*\x0eList Artifacts\x12\xb9\x01\n\x0e\x64\x65leteArtifact\x12 .mlflow.artifacts.DeleteArtifact\x1a).mlflow.artifacts.DeleteArtifact.Response\"Z\xf2\x86\x19V\n@\n\x06\x44\x45LETE\x12\x30/mlflow-artifacts/artifacts/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\x10\x44\x65lete Artifacts\x12\xe0\x01\n\x15\x63reateMultipartUpload\x12\'.mlflow.artifacts.CreateMultipartUpload\x1a\x30.mlflow.artifacts.CreateMultipartUpload.Response\"l\xf2\x86\x19h\n?\n\x04POST\x12\x31/mlflow-artifacts/mpu/create/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*#Create an Artifact Multipart Upload\x12\xea\x01\n\x17\x63ompleteMultipartUpload\x12).mlflow.artifacts.CompleteMultipartUpload\x1a\x32.mlflow.artifacts.CompleteMultipartUpload.Response\"p\xf2\x86\x19l\nA\n\x04POST\x12\x33/mlflow-artifacts/mpu/complete/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*%Complete an Artifact Multipart Upload\x12\xdb\x01\n\x14\x61\x62ortMultipartUpload\x12&.mlflow.artifacts.AbortMultipartUpload\x1a/.mlflow.artifacts.AbortMultipartUpload.Response\"j\xf2\x86\x19\x66\n>\n\x04POST\x12\x30/mlflow-artifacts/mpu/abort/<path:artifact_path>\x1a\x04\x08\x02\x10\x00\x10\x01*\"Abort an Artifact Multipart UploadB\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01')
 
 
 
@@ -31,6 +31,15 @@ _LISTARTIFACTS_RESPONSE = _LISTARTIFACTS.nested_types_by_name['Response']
 _DELETEARTIFACT = DESCRIPTOR.message_types_by_name['DeleteArtifact']
 _DELETEARTIFACT_RESPONSE = _DELETEARTIFACT.nested_types_by_name['Response']
 _FILEINFO = DESCRIPTOR.message_types_by_name['FileInfo']
+_CREATEMULTIPARTUPLOAD = DESCRIPTOR.message_types_by_name['CreateMultipartUpload']
+_CREATEMULTIPARTUPLOAD_RESPONSE = _CREATEMULTIPARTUPLOAD.nested_types_by_name['Response']
+_COMPLETEMULTIPARTUPLOAD = DESCRIPTOR.message_types_by_name['CompleteMultipartUpload']
+_COMPLETEMULTIPARTUPLOAD_RESPONSE = _COMPLETEMULTIPARTUPLOAD.nested_types_by_name['Response']
+_ABORTMULTIPARTUPLOAD = DESCRIPTOR.message_types_by_name['AbortMultipartUpload']
+_ABORTMULTIPARTUPLOAD_RESPONSE = _ABORTMULTIPARTUPLOAD.nested_types_by_name['Response']
+_MULTIPARTUPLOADCREDENTIAL = DESCRIPTOR.message_types_by_name['MultipartUploadCredential']
+_MULTIPARTUPLOADCREDENTIAL_HEADERSENTRY = _MULTIPARTUPLOADCREDENTIAL.nested_types_by_name['HeadersEntry']
+_MULTIPARTUPLOADPART = DESCRIPTOR.message_types_by_name['MultipartUploadPart']
 DownloadArtifact = _reflection.GeneratedProtocolMessageType('DownloadArtifact', (_message.Message,), {
 
   'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
@@ -98,11 +107,80 @@ FileInfo = _reflection.GeneratedProtocolMessageType('FileInfo', (_message.Messag
   })
 _sym_db.RegisterMessage(FileInfo)
 
+CreateMultipartUpload = _reflection.GeneratedProtocolMessageType('CreateMultipartUpload', (_message.Message,), {
+
+  'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+    'DESCRIPTOR' : _CREATEMULTIPARTUPLOAD_RESPONSE,
+    '__module__' : 'mlflow_artifacts_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.artifacts.CreateMultipartUpload.Response)
+    })
+  ,
+  'DESCRIPTOR' : _CREATEMULTIPARTUPLOAD,
+  '__module__' : 'mlflow_artifacts_pb2'
+  # @@protoc_insertion_point(class_scope:mlflow.artifacts.CreateMultipartUpload)
+  })
+_sym_db.RegisterMessage(CreateMultipartUpload)
+_sym_db.RegisterMessage(CreateMultipartUpload.Response)
+
+CompleteMultipartUpload = _reflection.GeneratedProtocolMessageType('CompleteMultipartUpload', (_message.Message,), {
+
+  'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+    'DESCRIPTOR' : _COMPLETEMULTIPARTUPLOAD_RESPONSE,
+    '__module__' : 'mlflow_artifacts_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.artifacts.CompleteMultipartUpload.Response)
+    })
+  ,
+  'DESCRIPTOR' : _COMPLETEMULTIPARTUPLOAD,
+  '__module__' : 'mlflow_artifacts_pb2'
+  # @@protoc_insertion_point(class_scope:mlflow.artifacts.CompleteMultipartUpload)
+  })
+_sym_db.RegisterMessage(CompleteMultipartUpload)
+_sym_db.RegisterMessage(CompleteMultipartUpload.Response)
+
+AbortMultipartUpload = _reflection.GeneratedProtocolMessageType('AbortMultipartUpload', (_message.Message,), {
+
+  'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+    'DESCRIPTOR' : _ABORTMULTIPARTUPLOAD_RESPONSE,
+    '__module__' : 'mlflow_artifacts_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.artifacts.AbortMultipartUpload.Response)
+    })
+  ,
+  'DESCRIPTOR' : _ABORTMULTIPARTUPLOAD,
+  '__module__' : 'mlflow_artifacts_pb2'
+  # @@protoc_insertion_point(class_scope:mlflow.artifacts.AbortMultipartUpload)
+  })
+_sym_db.RegisterMessage(AbortMultipartUpload)
+_sym_db.RegisterMessage(AbortMultipartUpload.Response)
+
+MultipartUploadCredential = _reflection.GeneratedProtocolMessageType('MultipartUploadCredential', (_message.Message,), {
+
+  'HeadersEntry' : _reflection.GeneratedProtocolMessageType('HeadersEntry', (_message.Message,), {
+    'DESCRIPTOR' : _MULTIPARTUPLOADCREDENTIAL_HEADERSENTRY,
+    '__module__' : 'mlflow_artifacts_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.artifacts.MultipartUploadCredential.HeadersEntry)
+    })
+  ,
+  'DESCRIPTOR' : _MULTIPARTUPLOADCREDENTIAL,
+  '__module__' : 'mlflow_artifacts_pb2'
+  # @@protoc_insertion_point(class_scope:mlflow.artifacts.MultipartUploadCredential)
+  })
+_sym_db.RegisterMessage(MultipartUploadCredential)
+_sym_db.RegisterMessage(MultipartUploadCredential.HeadersEntry)
+
+MultipartUploadPart = _reflection.GeneratedProtocolMessageType('MultipartUploadPart', (_message.Message,), {
+  'DESCRIPTOR' : _MULTIPARTUPLOADPART,
+  '__module__' : 'mlflow_artifacts_pb2'
+  # @@protoc_insertion_point(class_scope:mlflow.artifacts.MultipartUploadPart)
+  })
+_sym_db.RegisterMessage(MultipartUploadPart)
+
 _MLFLOWARTIFACTSSERVICE = DESCRIPTOR.services_by_name['MlflowArtifactsService']
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001'
+  _MULTIPARTUPLOADCREDENTIAL_HEADERSENTRY._options = None
+  _MULTIPARTUPLOADCREDENTIAL_HEADERSENTRY._serialized_options = b'8\001'
   _MLFLOWARTIFACTSSERVICE.methods_by_name['downloadArtifact']._options = None
   _MLFLOWARTIFACTSSERVICE.methods_by_name['downloadArtifact']._serialized_options = b'\362\206\031T\n=\n\003GET\0220/mlflow-artifacts/artifacts/<path:artifact_path>\032\004\010\002\020\000\020\001*\021Download Artifact'
   _MLFLOWARTIFACTSSERVICE.methods_by_name['uploadArtifact']._options = None
@@ -111,6 +189,12 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _MLFLOWARTIFACTSSERVICE.methods_by_name['listArtifacts']._serialized_options = b'\362\206\031<\n(\n\003GET\022\033/mlflow-artifacts/artifacts\032\004\010\002\020\000\020\001*\016List Artifacts'
   _MLFLOWARTIFACTSSERVICE.methods_by_name['deleteArtifact']._options = None
   _MLFLOWARTIFACTSSERVICE.methods_by_name['deleteArtifact']._serialized_options = b'\362\206\031V\n@\n\006DELETE\0220/mlflow-artifacts/artifacts/<path:artifact_path>\032\004\010\002\020\000\020\001*\020Delete Artifacts'
+  _MLFLOWARTIFACTSSERVICE.methods_by_name['createMultipartUpload']._options = None
+  _MLFLOWARTIFACTSSERVICE.methods_by_name['createMultipartUpload']._serialized_options = b'\362\206\031h\n?\n\004POST\0221/mlflow-artifacts/mpu/create/<path:artifact_path>\032\004\010\002\020\000\020\001*#Create an Artifact Multipart Upload'
+  _MLFLOWARTIFACTSSERVICE.methods_by_name['completeMultipartUpload']._options = None
+  _MLFLOWARTIFACTSSERVICE.methods_by_name['completeMultipartUpload']._serialized_options = b'\362\206\031l\nA\n\004POST\0223/mlflow-artifacts/mpu/complete/<path:artifact_path>\032\004\010\002\020\000\020\001*%Complete an Artifact Multipart Upload'
+  _MLFLOWARTIFACTSSERVICE.methods_by_name['abortMultipartUpload']._options = None
+  _MLFLOWARTIFACTSSERVICE.methods_by_name['abortMultipartUpload']._serialized_options = b'\362\206\031f\n>\n\004POST\0220/mlflow-artifacts/mpu/abort/<path:artifact_path>\032\004\010\002\020\000\020\001*\"Abort an Artifact Multipart Upload'
   _DOWNLOADARTIFACT._serialized_start=85
   _DOWNLOADARTIFACT._serialized_end=115
   _DOWNLOADARTIFACT_RESPONSE._serialized_start=105
@@ -129,8 +213,26 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _DELETEARTIFACT_RESPONSE._serialized_end=115
   _FILEINFO._serialized_start=263
   _FILEINFO._serialized_end=322
-  _MLFLOWARTIFACTSSERVICE._serialized_start=325
-  _MLFLOWARTIFACTSSERVICE._serialized_end=1072
+  _CREATEMULTIPARTUPLOAD._serialized_start=325
+  _CREATEMULTIPARTUPLOAD._serialized_end=478
+  _CREATEMULTIPARTUPLOAD_RESPONSE._serialized_start=383
+  _CREATEMULTIPARTUPLOAD_RESPONSE._serialized_end=478
+  _COMPLETEMULTIPARTUPLOAD._serialized_start=480
+  _COMPLETEMULTIPARTUPLOAD._serialized_end=604
+  _COMPLETEMULTIPARTUPLOAD_RESPONSE._serialized_start=105
+  _COMPLETEMULTIPARTUPLOAD_RESPONSE._serialized_end=115
+  _ABORTMULTIPARTUPLOAD._serialized_start=606
+  _ABORTMULTIPARTUPLOAD._serialized_end=673
+  _ABORTMULTIPARTUPLOAD_RESPONSE._serialized_start=105
+  _ABORTMULTIPARTUPLOAD_RESPONSE._serialized_end=115
+  _MULTIPARTUPLOADCREDENTIAL._serialized_start=676
+  _MULTIPARTUPLOADCREDENTIAL._serialized_end=860
+  _MULTIPARTUPLOADCREDENTIAL_HEADERSENTRY._serialized_start=814
+  _MULTIPARTUPLOADCREDENTIAL_HEADERSENTRY._serialized_end=860
+  _MULTIPARTUPLOADPART._serialized_start=862
+  _MULTIPARTUPLOADPART._serialized_end=918
+  _MLFLOWARTIFACTSSERVICE._serialized_start=921
+  _MLFLOWARTIFACTSSERVICE._serialized_end=2354
 MlflowArtifactsService = service_reflection.GeneratedServiceType('MlflowArtifactsService', (_service.Service,), dict(
   DESCRIPTOR = _MLFLOWARTIFACTSSERVICE,
   __module__ = 'mlflow_artifacts_pb2'
