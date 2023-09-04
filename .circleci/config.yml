@@ -40,19 +40,20 @@ jobs:
             pip install --progress-bar off -r requirements/doc-requirements.txt pytest pytest-cov plotly .[gateway]
       - run:
           name: Build documentation
-          working_directory: docs
-          environment:
-            JAVA_HOME: /usr/lib/jvm/default-java
+          # working_directory: docs
+          # environment:
+          #   JAVA_HOME: /usr/lib/jvm/default-java
           command: |
-            make rsthtml
-            make javadocs
-      - run:
-          name: Test examples
-          working_directory: docs
-          command: |
-            make test-examples
+            # make rsthtml
+            # make javadocs
+            mkdocs build
+      # - run:
+      #     name: Test examples
+      #     working_directory: docs
+      #     command: |
+      #       make test-examples
       - store_artifacts:
-          path: docs/build/html
+          path: site
 
   mlflow-recipes:
     docker:

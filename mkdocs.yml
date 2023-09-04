@@ -1,0 +1,55 @@
+site_name: MLflow
+site_url: https://example.com/
+docs_dir: docs-2.0
+site_dir: site
+repo_name: mlflow/mlflow
+repo_url: https://github.com/mlflow/mlflow
+theme:
+  name: "material"
+  custom_dir: "docs-2.0/theme"
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/lightbulb-outline
+        name: "Switch to dark mode"
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/lightbulb
+        name: "Switch to light mode"
+  features:
+    - content.tabs.link
+    - content.code.annotate
+    - content.code.copy
+    - announce.dismiss
+    - navigation.tabs
+  # logo: "logo-white.svg"
+  # favicon: "favicon.png"
+
+nav:
+  - Home: index.md
+  - API Reference:
+      - mlflow:
+          - api/mlflow.start_run.md
+      - mlflow.sklearn:
+          - api/mlflow.sklearn.log_model.md
+          - api/mlflow.sklearn.save_model.md
+  - Blog:
+      - blog/1.md
+      - blog/2.md
+  - News:
+      - news/1.md
+      - news/2.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: sphinx

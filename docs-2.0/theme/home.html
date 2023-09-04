@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+<!-- {% block css %}
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.16/dist/tailwind.min.css" rel="stylesheet">
+{% endblock %} -->
+
+{% block styles %} {{ super() }}
+<link rel="stylesheet" href="extra.css" />
+{% endblock %} {% block content %}
+<div>
+  <img
+    src="MLflow-header-pic@2x.png"
+    alt="MLflow logo"
+    class="w-full h-auto"
+    style="max-width: 100%; height: auto"
+  />
+  <header>
+    <h1>I'm MLflow.</h1>
+    <p>
+      This is a custom landing page for MLflow, showcasing the latest
+      developments and features.
+    </p>
+  </header>
+
+  <section>
+    <article>
+      <h2>Article 1</h2>
+      <p>Description or content of article 1.</p>
+    </article>
+  </section>
+</div>
+{% endblock %}

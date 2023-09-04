@@ -739,7 +739,8 @@ def log_params(params: Dict[str, Any]) -> None:
                    not)
     :returns: None
 
-    .. test-code-block:: python
+
+    .. code-block:: python
         :caption: Example
 
         import mlflow

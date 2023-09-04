@@ -1,0 +1,9 @@
+.md-sidebar.md-sidebar--primary,
+.md-sidebar.md-sidebar--secondary {
+  display: none;
+}
+
+.md-content,
+.md-main {
+  background-color: #092241;
+}
