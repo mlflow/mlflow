@@ -182,6 +182,7 @@ class S3ArtifactRepository(CloudArtifactRepository):
         dest_path = self.bucket_path
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         key = os.path.normpath(dest_path)
         self._upload_file(
             s3_client=self._get_s3_client(),
@@ -200,7 +201,10 @@ class S3ArtifactRepository(CloudArtifactRepository):
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
         dest_path = posixpath.join(self.bucket_path, artifact_file_path)
         key = os.path.normpath(dest_path)
-        if MLFLOW_ENABLE_MULTIPART_UPLOAD.get() and os.path.getsize(src_file_path) > 10_000_000:
+        if (
+            MLFLOW_ENABLE_MULTIPART_UPLOAD.get()
+            and os.path.getsize(src_file_path) > _MULTIPART_UPLOAD_CHUNK_SIZE
+        ):
             self._multipart_upload(cloud_credential_info, src_file_path, self.bucket, key)
         else:
             self._upload_file(cloud_credential_info, src_file_path, self.bucket, key)
