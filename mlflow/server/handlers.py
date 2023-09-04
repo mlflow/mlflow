@@ -17,6 +17,7 @@ from google.protobuf.json_format import ParseError
 
 from mlflow.entities import DatasetInput, ExperimentTag, FileInfo, Metric, Param, RunTag, ViewType
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
+from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.environment_variables import (
     MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE,
     MLFLOW_GATEWAY_URI,
@@ -34,6 +35,9 @@ from mlflow.protos.mlflow_artifacts_pb2 import (
     DownloadArtifact,
     MlflowArtifactsService,
     UploadArtifact,
+    CreateMultipartUpload,
+    CompleteMultipartUpload,
+    AbortMultipartUpload,
 )
 from mlflow.protos.mlflow_artifacts_pb2 import (
     ListArtifacts as ListArtifactsMlflowArtifacts,
@@ -1917,6 +1921,117 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     return response
 
 
+@catch_mlflow_exception
+@_disable_unless_serve_artifacts
+def _create_multipart_upload_artifact(artifact_path):
+    """
+    A request handler for `POST /mlflow-artifacts/mpu/create` to create a multipart upload
+    to `artifact_path` (a relative path from the root artifact directory).
+    """
+    validate_path_is_safe(artifact_path)
+
+    request_message = _get_request_message(
+        CreateMultipartUpload(),
+        schema={
+            "path": [_assert_required, _assert_string],
+            "num_parts": [_assert_intlike],
+        },
+    )
+    path = request_message.path
+    num_parts = request_message.num_parts
+
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    if not isinstance(artifact_repo, MultipartUploadMixin):
+        raise MlflowException(
+            "Multipart upload is not supported for artifact repository "
+            f"{artifact_repo.__class__.__name__}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    create_response = artifact_repo.create_multipart_upload(
+        path,
+        num_parts,
+        artifact_path,
+    )
+    response_message = create_response.to_proto()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_unless_serve_artifacts
+def _complete_multipart_upload_artifact(artifact_path):
+    """
+    A request handler for `POST /mlflow-artifacts/mpu/complete` to complete a multipart upload
+    to `artifact_path` (a relative path from the root artifact directory).
+    """
+    validate_path_is_safe(artifact_path)
+
+    request_message = _get_request_message(
+        CompleteMultipartUpload(),
+        schema={
+            "path": [_assert_required, _assert_string],
+            "upload_id": [_assert_string],
+            "parts": [_assert_required],
+        },
+    )
+    path = request_message.path
+    upload_id = request_message.upload_id
+    parts = [MultipartUploadPart.from_proto(part) for part in request_message.parts]
+
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    if not isinstance(artifact_repo, MultipartUploadMixin):
+        raise MlflowException(
+            "Multipart upload is not supported for artifact repository "
+            f"{artifact_repo.__class__.__name__}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    artifact_repo.complete_multipart_upload(
+        path,
+        upload_id,
+        parts,
+        artifact_path,
+    )
+    return _wrap_response(CompleteMultipartUpload.Response())
+
+
+@catch_mlflow_exception
+@_disable_unless_serve_artifacts
+def _abort_multipart_upload_artifact(artifact_path):
+    """
+    A request handler for `POST /mlflow-artifacts/mpu/abort` to abort a multipart upload
+    to `artifact_path` (a relative path from the root artifact directory).
+    """
+    validate_path_is_safe(artifact_path)
+
+    request_message = _get_request_message(
+        AbortMultipartUpload(),
+        schema={
+            "path": [_assert_required, _assert_string],
+            "upload_id": [_assert_string],
+        },
+    )
+    path = request_message.path
+    upload_id = request_message.upload_id
+
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    if not isinstance(artifact_repo, MultipartUploadMixin):
+        raise MlflowException(
+            "Multipart upload is not supported for artifact repository "
+            f"{artifact_repo.__class__.__name__}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    artifact_repo.abort_multipart_upload(
+        path,
+        upload_id,
+        artifact_path,
+    )
+    return _wrap_response(AbortMultipartUpload.Response())
+
+
 def _get_rest_path(base_path):
     return f"/api/2.0{base_path}"
 
@@ -2023,4 +2138,7 @@ HANDLERS = {
     UploadArtifact: _upload_artifact,
     ListArtifactsMlflowArtifacts: _list_artifacts_mlflow_artifacts,
     DeleteArtifact: _delete_artifact_mlflow_artifacts,
+    CreateMultipartUpload: _create_multipart_upload_artifact,
+    CompleteMultipartUpload: _complete_multipart_upload_artifact,
+    AbortMultipartUpload: _abort_multipart_upload_artifact,
 }
