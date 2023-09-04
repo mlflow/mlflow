@@ -272,7 +272,7 @@ def test_column_schema_enforcement():
     with pytest.raises(MlflowException, match=match_missing_inputs):
         pyfunc_model.predict(pdf.values)
 
-    # 14. dictionaries of str -> list/nparray work
+    # 14. dictionaries of str -> list/nparray work, including extraneous multi-dimensional arrays
     arr = np.array([1, 2, 3])
     d = {
         "a": arr.astype("int32"),
@@ -283,6 +283,7 @@ def test_column_schema_enforcement():
         "g": ["a", "b", "c"],
         "f": [bytes(0), bytes(1), bytes(1)],
         "h": np.array(["2020-01-01", "2020-02-02", "2020-03-03"], dtype=np.datetime64),
+        "i": np.array([[1, 2, 3]]),
     }
     res = pyfunc_model.predict(d)
     assert res.dtypes.to_dict() == expected_types
@@ -317,25 +318,6 @@ def test_column_schema_enforcement():
     #  data type.
     pdf["d"] = [decimal.Decimal(1.0)]
     res = pyfunc_model.predict(pdf)
-    assert res.dtypes.to_dict() == expected_types
-
-
-def test_column_schema_enforcement_supports_extraneous_multidimensional_ndarrays():
-    m = Model()
-    input_schema = Schema(
-        [
-            ColSpec("string", "a"),
-        ]
-    )
-    m.signature = ModelSignature(inputs=input_schema)
-    pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
-    expected_types = dict(zip(input_schema.input_names(), input_schema.pandas_types()))
-
-    d = {
-        "a": ["test"],
-        "b": np.array([[1,2,3]]),
-    }
-    res = pyfunc_model.predict(d)
     assert res.dtypes.to_dict() == expected_types
 
 

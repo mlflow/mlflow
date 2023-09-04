@@ -696,19 +696,23 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                 ):
                     pf_input = pd.DataFrame([pf_input])
                 elif isinstance(pf_input, dict) and any(
-                    isinstance(value, np.ndarray) and value.ndim > 1
-                    for value in pf_input.values()
+                    isinstance(value, np.ndarray) and value.ndim > 1 for value in pf_input.values()
                 ):
-                    # If the input is a dictionary containing one or more multi-dimensional
-                    # numpy array values, these multi-dimensional values must be it must be
-                    # converted to lists; otherwise, pandas will throw during dataframe creation
-                    pf_input = pd.DataFrame({
-                        key: (
-                            value.tolist()
-                            if isinstance(value, np.ndarray) and value.ndim > 1 else value
-                        )
-                        for key, value in pf_input.items()
-                    })
+                    # Pandas DataFrames can't be constructed with embedded multi-dimensional
+                    # numpy arrays. Accordingly, we filter out any multi-dimensional numpy arrays
+                    # before converting the input to a DataFrame. This is safe because ColSpec
+                    # model signatures do not support array columns. This is preferable to
+                    # throwing an exception because array columns are supported for models
+                    # that don't define a signature, and throwing an exception would be a
+                    # significant difference in behavior between models with signatures and
+                    # models without signatures
+                    pf_input = pd.DataFrame(
+                        {
+                            key: value
+                            for key, value in pf_input.items()
+                            if not (isinstance(value, np.ndarray) and value.ndim > 1)
+                        }
+                    )
                 else:
                     pf_input = pd.DataFrame(pf_input)
             except Exception as e:
