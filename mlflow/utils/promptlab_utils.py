@@ -107,11 +107,6 @@ def _create_promptlab_run_impl(
         # write artifact files
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
-        if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
-            artifact_repo = _get_artifact_repo_mlflow_artifacts()
-        else:
-            artifact_repo = get_artifact_repository(artifact_dir)
-
         with tempfile.TemporaryDirectory() as local_dir:
             save_model(
                 path=os.path.join(local_dir, "model"),
@@ -131,6 +126,7 @@ def _create_promptlab_run_impl(
             write_to(eval_results_json_file_path, eval_results_json)
 
             if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
+                artifact_repo = _get_artifact_repo_mlflow_artifacts()
                 artifact_repo.log_artifacts(
                     local_dir,
                     artifact_path=os.path.join(
@@ -138,6 +134,7 @@ def _create_promptlab_run_impl(
                     ),
                 )
             else:
+                artifact_repo = get_artifact_repository(artifact_dir)
                 artifact_repo.log_artifacts(local_dir)
 
     except Exception:
