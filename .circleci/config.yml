@@ -46,7 +46,7 @@ jobs:
           command: |
             # make rsthtml
             # make javadocs
-            mkdocs build
+            mkdocs build --no-directory-urls
       # - run:
       #     name: Test examples
       #     working_directory: docs
