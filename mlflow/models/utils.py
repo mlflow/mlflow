@@ -696,8 +696,7 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                 ):
                     pf_input = pd.DataFrame([pf_input])
                 elif isinstance(pf_input, dict) and any(
-                    isinstance(value, np.ndarray) and value.ndim > 1
-                    for value in pf_input.values()
+                    isinstance(value, np.ndarray) and value.ndim > 1 for value in pf_input.values()
                 ):
                     # Pandas DataFrames can't be constructed with embedded multi-dimensional
                     # numpy arrays. Accordingly, we convert any multi-dimensional numpy
@@ -705,13 +704,16 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                     # model signatures do not support array columns, so subsequent validation logic
                     # will result in a clear "incompatible input types" exception. This is
                     # preferable to a pandas DataFrame construction error
-                    pf_input = pd.DataFrame({
-                        key: (
-                            value.tolist() if (isinstance(value, np.ndarray) and value.ndim > 1)
-                            else value
-                        )
-                        for key, value in pf_input.items()
-                    })
+                    pf_input = pd.DataFrame(
+                        {
+                            key: (
+                                value.tolist()
+                                if (isinstance(value, np.ndarray) and value.ndim > 1)
+                                else value
+                            )
+                            for key, value in pf_input.items()
+                        }
+                    )
                 else:
                     pf_input = pd.DataFrame(pf_input)
             except Exception as e:
