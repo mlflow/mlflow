@@ -2,10 +2,12 @@ import logging
 import os
 import posixpath
 import tempfile
-from abc import ABCMeta, abstractmethod
+from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List
 
 from mlflow.entities.file_info import FileInfo
+from mlflow.entities.multipart_upload import CreateMultipartUploadResponse
 from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
@@ -242,6 +244,58 @@ class ArtifactRepository:
         """Compute the number of workers to use for multi-threading."""
         num_cpus = os.cpu_count() or _NUM_DEFAULT_CPUS
         return min(num_cpus * _NUM_MAX_THREADS_PER_CPU, _NUM_MAX_THREADS)
+
+
+class MultipartUploadMixin(ABC):
+    @abstractmethod
+    def create_multipart_upload(
+        self, local_file: str, num_parts: int, artifact_path=None
+    ) -> CreateMultipartUploadResponse:
+        """
+        Initiate a multipart upload and retrieve the pre-signed upload URLS and upload id.
+
+        :param local_file: Path of artifact to upload
+        :param num_parts: Number of parts to upload. Only required by S3 and GCS.
+        :param artifact_path: Directory within the run's artifact directory in which to upload the
+                              artifact.
+        """
+        pass
+
+    @abstractmethod
+    def complete_multipart_upload(
+        self,
+        local_file: str,
+        upload_id: str,
+        parts: List,
+        artifact_path=None,
+    ) -> None:
+        """
+        Complete a multipart upload.
+
+        :param local_file: Path of artifact to upload
+        :param upload_id: The upload ID. Only required by S3 and GCS.
+        :param parts: A list containing the metadata of each part that has been uploaded.
+        :param artifact_path: Directory within the run's artifact directory in which to upload the
+                              artifact.
+        """
+        pass
+
+    @abstractmethod
+    def abort_multipart_upload(
+        self,
+        local_file: str,
+        upload_id: str,
+        artifact_path=None,
+    ) -> None:
+        """
+        Abort a multipart upload.
+
+        :param local_file: Path of artifact to upload
+        :param upload_id: The upload ID. Only required by S3 and GCS.
+        :param artifact_path: Directory within the run's artifact directory in which to upload the
+                              artifact.
+        """
+        pass
 
 
 def verify_artifact_path(artifact_path):
