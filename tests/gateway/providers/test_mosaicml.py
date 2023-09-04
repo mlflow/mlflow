@@ -266,6 +266,82 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
             ],
             "<s>[INST] Hi there [/INST] How can I help? </s><s>[INST] Thanks! [/INST]",
         ),
+        (
+            [
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="user", content="Test"),
+            ],
+            "<s>[INST] Test Test [/INST]",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Test"),
+                RequestMessage(role="system", content="Test"),
+            ],
+            "<s>[INST] <<SYS>> Test <</SYS>> <<SYS>> Test <</SYS>> [/INST]",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Test"),
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="user", content="Test"),
+            ],
+            "<s>[INST] <<SYS>> Test <</SYS>> Test Test [/INST]",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Test"),
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+            ],
+            "<s>[INST] <<SYS>> Test <</SYS>> Test [/INST] Test </s><s> Test ",
+        ),
+        (
+            [RequestMessage(role="assistant", content="Test")],
+            "<s> Test ",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+            ],
+            "<s>[INST] <<SYS>> Test <</SYS>> [/INST] Test ",
+        ),
+        (
+            [
+                RequestMessage(role="assistant", content="Test"),
+                RequestMessage(role="system", content="Test"),
+            ],
+            "<s> Test </s><s>[INST] <<SYS>> Test <</SYS>> [/INST]",
+        ),
+        (
+            [RequestMessage(role="system", content="Test")],
+            "<s>[INST] <<SYS>> Test <</SYS>> [/INST]",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Test"),
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+                RequestMessage(role="system", content="Test"),
+            ],
+            "<s>[INST] <<SYS>> Test <</SYS>> Test [/INST] Test </s><s>[INST] <<SYS>> "
+            "Test <</SYS>> [/INST]",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Test"),
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+            ],
+            "<s>[INST] <<SYS>> Test <</SYS>> Test [/INST] Test </s><s>[INST] Test [/INST] "
+            "Test </s><s>[INST] Test [/INST] Test ",
+        ),
     ],
 )
 def test_valid_parsing(messages, expected_output):
@@ -275,71 +351,6 @@ def test_valid_parsing(messages, expected_output):
         MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages=messages)
         == expected_output
     )
-
-
-@pytest.mark.parametrize(
-    "messages",
-    [
-        [RequestMessage(role="user", content="Test"), RequestMessage(role="user", content="Test")],
-        [
-            RequestMessage(role="system", content="Test"),
-            RequestMessage(role="system", content="Test"),
-        ],
-        [
-            RequestMessage(role="system", content="Test"),
-            RequestMessage(role="user", content="Test"),
-            RequestMessage(role="user", content="Test"),
-        ],
-    ],
-)
-def test_consecutive_same_role_raises(messages):
-    route_config = RouteConfig(**chat_config())
-    with pytest.raises(MlflowException, match="Consecutive messages cannot have the same 'role'."):
-        MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages)
-
-
-@pytest.mark.parametrize(
-    "messages",
-    [
-        [RequestMessage(role="assistant", content="Test")],
-        [
-            RequestMessage(role="system", content="Test"),
-            RequestMessage(role="assistant", content="Test"),
-        ],
-        [
-            RequestMessage(role="assistant", content="Test"),
-            RequestMessage(role="system", content="Test"),
-        ],
-    ],
-)
-def test_assistant_without_user_raises(messages):
-    route_config = RouteConfig(**chat_config())
-    with pytest.raises(
-        MlflowException,
-        match="Messages with role 'assistant' must be preceded by a message with role 'user'.",
-    ):
-        MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages)
-
-
-@pytest.mark.parametrize(
-    "messages",
-    [
-        [RequestMessage(role="system", content="Test")],
-        [
-            RequestMessage(role="system", content="Test"),
-            RequestMessage(role="user", content="Test"),
-            RequestMessage(role="assistant", content="Test"),
-            RequestMessage(role="system", content="Test"),
-        ],
-    ],
-)
-def test_assistant_without_user_raises(messages):
-    route_config = RouteConfig(**chat_config())
-    with pytest.raises(
-        MlflowException,
-        match="Messages must end with 'user' role for final prompt.",
-    ):
-        MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages)
 
 
 @pytest.mark.parametrize(

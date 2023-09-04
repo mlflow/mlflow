@@ -19,7 +19,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.rest_utils import MlflowHostCreds, augmented_raise_for_status, http_request
+from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 from mlflow.utils.uri import get_uri_scheme
 
 _logger = logging.getLogger(__name__)
@@ -37,14 +37,21 @@ class MlflowGatewayClient:
 
     def __init__(self, gateway_uri: Optional[str] = None):
         self._gateway_uri = gateway_uri or get_gateway_uri()
-        self._host_creds = self._resolve_host_creds()
 
     def _is_databricks_host(self) -> bool:
         return (
             self._gateway_uri == "databricks" or get_uri_scheme(self._gateway_uri) == "databricks"
         )
 
-    def _resolve_host_creds(self) -> MlflowHostCreds:
+    @property
+    def _host_creds(self):
+        """
+        NB: When `MlflowGatewayClient` is used as an instance variable in a custom pyfunc model, it
+        is pickled in the environment where the custom pyfunc model is defined (e.g. a notebook).
+        When the model is moved to a different environment, e.g. model serving, new credentials
+        need to be resolved from within the new environment. Accordingly, we re-resolve host
+        credentials every time a request is made.
+        """
         if self._is_databricks_host():
             return get_databricks_host_creds(self._gateway_uri)
         else:
