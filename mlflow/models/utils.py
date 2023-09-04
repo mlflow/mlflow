@@ -695,6 +695,20 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                     for value in pf_input.values()
                 ):
                     pf_input = pd.DataFrame([pf_input])
+                elif isinstance(pf_input, dict) and any(
+                    isinstance(value, np.ndarray) and value.ndim > 1
+                    for value in pf_input.values()
+                ):
+                    # If the input is a dictionary containing one or more multi-dimensional
+                    # numpy array values, these multi-dimensional values must be it must be
+                    # converted to lists; otherwise, pandas will throw during dataframe creation
+                    pf_input = pd.DataFrame({
+                        key: (
+                            value.tolist()
+                            if isinstance(value, np.ndarray) and value.ndim > 1 else value
+                        )
+                        for key, value in pf_input.items()
+                    })
                 else:
                     pf_input = pd.DataFrame(pf_input)
             except Exception as e:

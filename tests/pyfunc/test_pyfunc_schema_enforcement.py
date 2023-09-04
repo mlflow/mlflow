@@ -320,6 +320,25 @@ def test_column_schema_enforcement():
     assert res.dtypes.to_dict() == expected_types
 
 
+def test_column_schema_enforcement_supports_extraneous_multidimensional_ndarrays():
+    m = Model()
+    input_schema = Schema(
+        [
+            ColSpec("string", "a"),
+        ]
+    )
+    m.signature = ModelSignature(inputs=input_schema)
+    pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
+    expected_types = dict(zip(input_schema.input_names(), input_schema.pandas_types()))
+
+    d = {
+        "a": ["test"],
+        "b": np.array([[1,2,3]]),
+    }
+    res = pyfunc_model.predict(d)
+    assert res.dtypes.to_dict() == expected_types
+
+
 def _compare_exact_tensor_dict_input(d1, d2):
     """Return whether two dicts of np arrays are exactly equal"""
     if d1.keys() != d2.keys():
