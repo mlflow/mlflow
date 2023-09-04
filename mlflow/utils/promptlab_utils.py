@@ -79,7 +79,7 @@ def _create_promptlab_run_impl(
 
         utc_time_created = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
         promptlab_model = Model(
-            artifact_path=artifact_dir,
+            artifact_path="model",
             run_id=run_id,
             utc_time_created=utc_time_created,
         )
@@ -99,11 +99,18 @@ def _create_promptlab_run_impl(
             )
 
         from mlflow._promptlab import save_model
+        from mlflow.server.handlers import (
+            _get_artifact_repo_mlflow_artifacts,
+            _is_servable_proxied_run_artifact_root,
+        )
 
         # write artifact files
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
-        artifact_repo = get_artifact_repository(artifact_dir)
+        if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
+            artifact_repo = _get_artifact_repo_mlflow_artifacts()
+        else:
+            artifact_repo = get_artifact_repository(artifact_dir)
 
         with tempfile.TemporaryDirectory() as local_dir:
             save_model(
@@ -123,7 +130,16 @@ def _create_promptlab_run_impl(
             make_containing_dirs(eval_results_json_file_path)
             write_to(eval_results_json_file_path, eval_results_json)
 
-            artifact_repo.log_artifacts(local_dir)
+            if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
+                artifact_repo.log_artifacts(
+                    local_dir,
+                    artifact_path=os.path.join(
+                        run.info.experiment_id, run.info.run_id, "artifacts"
+                    ),
+                )
+            else:
+                artifact_repo.log_artifacts(local_dir)
+
     except Exception:
         store.update_run_info(run_id, RunStatus.FAILED, int(time.time() * 1000), run_name)
     else:
