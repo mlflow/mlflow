@@ -3668,7 +3668,7 @@ Additional information about model evaluation behaviors and outputs is available
 
 Model Validation with Giskard's plugin
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-To extend the validation capabilities of MLflow and anticipate issues before they go to production, a plugin has been built by `Giskard <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow.html>`__ allowing users to:
+To extend the validation capabilities of MLflow and anticipate issues before they go to production, a plugin has been built by `Giskard <https://docs.giskard.ai/en/latest/integrations/mlflow/index.html>`__ allowing users to:
 
     - scan a model in order to detect hidden vulnerabilities such as
       `Performance bias <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/performance_bias/index.html>`_,
@@ -3684,10 +3684,11 @@ To extend the validation capabilities of MLflow and anticipate issues before the
     - compare the metrics across different models
 
 See the following plugin example notebooks for a demo:
+
     - `Tabular ML models <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow-tabular-example.html>`__
     - `Text ML models (LLMs) <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow-llm-example.html>`__
 
-For more information on the plugin, see the `giskard-mlflow docs <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow.html>`__.
+For more information on the plugin, see the `giskard-mlflow docs <https://docs.giskard.ai/en/latest/integrations/mlflow/index.html>`__.
 
 .. _trubrics_plugin:
 
