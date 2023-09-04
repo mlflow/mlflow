@@ -19,7 +19,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.rest_utils import MlflowHostCreds, augmented_raise_for_status, http_request
+from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 from mlflow.utils.uri import get_uri_scheme
 
 _logger = logging.getLogger(__name__)
