@@ -299,7 +299,7 @@ def test_column_schema_enforcement():
         "c": [arr.astype("float32")],
         "d": [arr.astype("float64")],
         "e": [[True, False, True]],
-        "g": [["a", "b", "c"]],
+        "g": np.array([["a", "b", "c"]]),
         "f": [[bytes(0), bytes(1), bytes(1)]],
         "h": [np.array(["2020-01-01", "2020-02-02", "2020-03-03"], dtype=np.datetime64)],
     }
