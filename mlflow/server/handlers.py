@@ -31,13 +31,13 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.protos.mlflow_artifacts_pb2 import (
+    AbortMultipartUpload,
+    CompleteMultipartUpload,
+    CreateMultipartUpload,
     DeleteArtifact,
     DownloadArtifact,
     MlflowArtifactsService,
     UploadArtifact,
-    CreateMultipartUpload,
-    CompleteMultipartUpload,
-    AbortMultipartUpload,
 )
 from mlflow.protos.mlflow_artifacts_pb2 import (
     ListArtifacts as ListArtifactsMlflowArtifacts,
