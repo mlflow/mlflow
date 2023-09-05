@@ -531,7 +531,6 @@ def log_model(
         ]
         output_schema = Schema(output_columns)
         signature = ModelSignature(input_schema, output_schema)
-        logger.warn("signature: %s", signature)
 
     return Model.log(
         artifact_path=artifact_path,
@@ -708,8 +707,6 @@ class _LangChainModelWrapper:
             raise mlflow.MlflowException.invalid_parameter_value(
                 "Input must be a pandas DataFrame or a list of strings or a list of dictionaries",
             )
-        logger.warn("lc_model: %s", self.lc_model)
-        logger.warn("messages: %s", messages)
         return process_api_requests(lc_model=self.lc_model, requests=messages)
 
 
