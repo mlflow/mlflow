@@ -3,6 +3,8 @@ from typing import Any, Dict, List, Optional
 
 from mlflow.protos.mlflow_artifacts_pb2 import (
     CreateMultipartUpload as ProtoCreateMultipartUpload,
+)
+from mlflow.protos.mlflow_artifacts_pb2 import (
     MultipartUploadCredential as ProtoMultipartUploadCredential,
 )
 
