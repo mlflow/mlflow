@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from mlflow.protos.mlflow_artifacts_pb2 import (
     CreateMultipartUpload as ProtoCreateMultipartUpload,
