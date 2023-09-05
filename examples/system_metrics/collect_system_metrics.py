@@ -1,5 +1,6 @@
-import mlflow
 import time
+
+import mlflow
 
 if __name__ == "__main__":
     run = mlflow.start_run()

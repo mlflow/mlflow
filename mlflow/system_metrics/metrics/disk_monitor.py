@@ -1,7 +1,8 @@
 """Class for monitoring disk stats."""
 
-import psutil
 import os
+
+import psutil
 
 from mlflow.system_metrics.metrics.base_metrics_monitor import BaseMetricsMonitor
 

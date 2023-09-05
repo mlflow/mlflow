@@ -1,7 +1,7 @@
 """Class for monitoring network stats."""
 
+
 import psutil
-import os
 
 from mlflow.system_metrics.metrics.base_metrics_monitor import BaseMetricsMonitor
 

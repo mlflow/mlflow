@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 import yaml
 
 import mlflow
-from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
 from mlflow.entities import DatasetInput, Experiment, FileInfo, Metric, Param, Run, RunTag, ViewType
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -328,8 +327,14 @@ class MlflowClient:
         """
         run = self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
         if include_system_metrics:
-            system_monitor = SystemMetricsMonitor(run)
-            system_monitor.start()
+            try:
+                from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
+
+                system_monitor = SystemMetricsMonitor(run)
+                system_monitor.start()
+            except Exception as e:
+                _logger.warning(f"Cannot start system metrics monitoring: {str(e)}.")
+
         return run
 
     def search_experiments(
