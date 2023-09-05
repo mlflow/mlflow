@@ -10,6 +10,7 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.entities.run_tag import RunTag
 from mlflow.utils.file_utils import make_containing_dirs, write_to
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_ARTIFACTS, MLFLOW_RUN_SOURCE_TYPE
+from mlflow.version import VERSION as __version__  # noqa: F401
 
 
 def create_eval_results_json(prompt_parameters, model_input, model_output_parameters, model_output):
@@ -117,6 +118,7 @@ def _create_promptlab_run_impl(
                 prompt_parameters=prompt_parameters,
                 model_parameters=model_parameters,
                 model_route=model_route,
+                pip_requirements=[f"mlflow[gateway]=={__version__}"],
             )
 
             eval_results_json = create_eval_results_json(
