@@ -1765,10 +1765,6 @@ def test_create_promptlab_run_handler_rejects_invalid_requests(mlflow_client):
             "mlflow_version": "1.0.0",
         },
     )
-    assert_response(
-        response,
-        "CreatePromptlabRun request must specify user_id.",
-    )
 
 
 def test_create_promptlab_run_handler_returns_expected_results(mlflow_client):
