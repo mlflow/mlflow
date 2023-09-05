@@ -44,7 +44,6 @@ import type { ExperimentStoreEntities, DatasetSummary } from '../../../../types'
 import { datasetSummariesEqual } from '../../../../utils/DatasetUtils';
 import { Data } from 'vega';
 import { CreateNotebookRunModal } from 'experiment-tracking/components/evaluation-artifacts-compare/CreateNotebookRunModal';
-import { PreviewIcon } from 'shared/building_blocks/PreviewIcon';
 import { useCreateNewRun } from '../../hooks/useCreateNewRun';
 
 export type ExperimentViewRunsControlsFiltersProps = {
@@ -353,7 +352,12 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                     defaultMessage='using Prompt Engineering'
                     description='String for creating a new run with prompt engineering modal'
                   />{' '}
-                  <PreviewIcon />
+                  <Tag style={{ marginLeft: '4px' }} color='turquoise'>
+                    <FormattedMessage
+                      defaultMessage='Experimental'
+                      description='Experimental badge shown for features which are experimental'
+                    />
+                  </Tag>
                 </DropdownMenu.Item>
                 <DropdownMenu.Item onSelect={() => setCreateRunWithNotebookModalOpenValue(true)}>
                   {' '}
