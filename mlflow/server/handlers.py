@@ -26,6 +26,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
@@ -1946,7 +1947,7 @@ def _create_multipart_upload_artifact(artifact_path):
         raise MlflowException(
             "Multipart upload is not supported for artifact repository "
             f"{artifact_repo.__class__.__name__}",
-            error_code=INVALID_PARAMETER_VALUE,
+            error_code=BAD_REQUEST,
         )
 
     create_response = artifact_repo.create_multipart_upload(
@@ -1986,7 +1987,7 @@ def _complete_multipart_upload_artifact(artifact_path):
         raise MlflowException(
             "Multipart upload is not supported for artifact repository "
             f"{artifact_repo.__class__.__name__}",
-            error_code=INVALID_PARAMETER_VALUE,
+            error_code=BAD_REQUEST,
         )
 
     artifact_repo.complete_multipart_upload(
@@ -2022,7 +2023,7 @@ def _abort_multipart_upload_artifact(artifact_path):
         raise MlflowException(
             "Multipart upload is not supported for artifact repository "
             f"{artifact_repo.__class__.__name__}",
-            error_code=INVALID_PARAMETER_VALUE,
+            error_code=BAD_REQUEST,
         )
 
     artifact_repo.abort_multipart_upload(

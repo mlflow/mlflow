@@ -4,10 +4,10 @@ import posixpath
 import tempfile
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List
+from typing import List, Optional
 
 from mlflow.entities.file_info import FileInfo
-from mlflow.entities.multipart_upload import CreateMultipartUploadResponse
+from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, MultipartUploadPart
 from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
@@ -249,7 +249,7 @@ class ArtifactRepository:
 class MultipartUploadMixin(ABC):
     @abstractmethod
     def create_multipart_upload(
-        self, local_file: str, num_parts: int, artifact_path=None
+        self, local_file: str, num_parts: int, artifact_path: Optional[str] = None
     ) -> CreateMultipartUploadResponse:
         """
         Initiate a multipart upload and retrieve the pre-signed upload URLS and upload id.
@@ -266,8 +266,8 @@ class MultipartUploadMixin(ABC):
         self,
         local_file: str,
         upload_id: str,
-        parts: List,
-        artifact_path=None,
+        parts: List[MultipartUploadPart],
+        artifact_path: Optional[str] = None,
     ) -> None:
         """
         Complete a multipart upload.
@@ -285,7 +285,7 @@ class MultipartUploadMixin(ABC):
         self,
         local_file: str,
         upload_id: str,
-        artifact_path=None,
+        artifact_path: Optional[str] = None,
     ) -> None:
         """
         Abort a multipart upload.
