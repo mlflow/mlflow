@@ -96,8 +96,8 @@ def test_evaluation_model_output():
 
     And you'll need to submit your grading for the correctness of the output,
     using the following in json format:
-    Reasoning for correctness: [your step by step reasoning about the correctness of the output]
-    Score for correctness: [your score number between 0 to 4 for the correctness of the output]
+    Score: [your score number between 0 to 4 for the correctness of the output]
+    Justification: [your step by step reasoning about the correctness of the output]
       """
     prompt1 = model1["eval_prompt"].format(
         input="This is an input", output="This is an output", variables=variables_string
@@ -162,8 +162,8 @@ def test_evaluation_model_output():
 
     And you'll need to submit your grading for the correctness of the output,
     using the following in json format:
-    Reasoning for correctness: [your step by step reasoning about the correctness of the output]
-    Score for correctness: [your score number between 0 to 4 for the correctness of the output]
+    Score: [your score number between 0 to 4 for the correctness of the output]
+    Justification: [your step by step reasoning about the correctness of the output]
       """
     prompt2 = model2["eval_prompt"].format(
         input="This is an input", output="This is an output", variables=variables_string

@@ -17,32 +17,32 @@ default_parameters = {
 }
 grading_system_prompt_template = PromptTemplate(
     """
-    Please act as an impartial judge and evaluate the quality of the provided output which
-    attempts to produce output for the provided input based on a provided information.
-    You'll be given a grading format below which you'll call for each provided information,
-    input and provided output to submit your justification and score to compute the {name} of
-    the output.
+Please act as an impartial judge and evaluate the quality of the provided output which
+attempts to produce output for the provided input based on a provided information.
+You'll be given a grading format below which you'll call for each provided information,
+input and provided output to submit your justification and score to compute the {name} of
+the output.
 
-    Input:
-    {input}
+Input:
+{input}
 
-    Provided output:
-    {output}
+Provided output:
+{output}
 
-    {variables}
+{variables}
 
-    Metric definition:
-    {definition}
+Metric definition:
+{definition}
 
-    Grading criteria:
-    {grading_prompt}
+Grading criteria:
+{grading_prompt}
 
-    {examples}
+{examples}
 
-    And you'll need to submit your grading for the {name} of the output,
-    using the following in json format:
-    Reasoning for {name}: [your step by step reasoning about the {name} of the output]
-    Score for {name}: [your score number between 0 to 4 for the {name} of the output]
+And you'll need to submit your grading for the {name} of the output,
+using the following in json format:
+Score: [your score number between 0 to 4 for the {name} of the output]
+Justification: [your step by step reasoning about the {name} of the output]
     """
 )
 
@@ -74,4 +74,4 @@ class EvaluationModel:
         }
 
     def _format_examples(self):
-        return "\n".join([str(item) for item in self.examples])
+        return "\n".join(map(str, self.examples))

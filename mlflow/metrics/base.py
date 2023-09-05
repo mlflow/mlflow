@@ -39,13 +39,19 @@ class EvaluationExample:
             score=4,
             justification="The definition effectively explains what MLflow is "
             "its purpose, and its developer. It could be more concise for a 5-score.",
-            variables={"ground_truth": "MLflow is an open-source platform for managing "
-            "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
-            "a company that specializes in big data and machine learning solutions. MLflow is "
-            "designed to address the challenges that data scientists and machine learning "
-            "engineers face when developing, training, and deploying machine learning models."},
+            variables={
+                "ground_truth": "MLflow is an open-source platform for managing "
+                "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
+                "a company that specializes in big data and machine learning solutions. MLflow is "
+                "designed to address the challenges that data scientists and machine learning "
+                "engineers face when developing, training, and deploying machine learning models."
+            },
         )
         print(str(example))
+
+    .. code-block:: text
+        :caption: Output
+
         Input: What is MLflow?
         Provided output: "MLflow is an open-source platform for managing machine "
             "learning workflows, including experiment tracking, model packaging, "
@@ -78,9 +84,9 @@ class EvaluationExample:
             justification = f"Justification: {self.justification}\n"
 
         return f"""
-        Input: {self.input}
-        Provided output: {self.output}
-        {variables}
-        Score: {self.score}
-        {justification}
+Input: {self.input}
+Provided output: {self.output}
+{variables}
+Score: {self.score}
+{justification}
         """
