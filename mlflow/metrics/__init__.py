@@ -1,5 +1,9 @@
 from mlflow.metrics.base import (
+    EvaluationExample,
     MetricValue,
+)
+from mlflow.metrics.utils import (
+    make_genai_metric,
 )
 from mlflow.models import (
     EvaluationMetric,
@@ -7,7 +11,9 @@ from mlflow.models import (
 )
 
 __all__ = [
+    "EvaluationExample",
     "EvaluationMetric",
     "MetricValue",
     "make_metric",
+    "make_genai_metric",
 ]
