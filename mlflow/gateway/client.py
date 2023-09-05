@@ -340,7 +340,7 @@ class MlflowGatewayClient:
                 raise e
 
     @experimental
-    def set_limits(self, route_name: str, limits_config: LimitsConfig) -> LimitsConfig:
+    def set_limits(self, route: str, limits_config: LimitsConfig) -> LimitsConfig:
         """
         Set limits on an existing route in the Gateway.
 
