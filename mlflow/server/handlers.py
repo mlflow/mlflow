@@ -1923,6 +1923,15 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     return response
 
 
+def _validate_support_multipart_upload(artifact_repo):
+    if not isinstance(artifact_repo, MultipartUploadMixin):
+        raise MlflowException(
+            "Multipart upload is not supported for artifact repository "
+            f"{artifact_repo.__class__.__name__}",
+            error_code=BAD_REQUEST,
+        )
+
+
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
 def _create_multipart_upload_artifact(artifact_path):
@@ -1943,12 +1952,7 @@ def _create_multipart_upload_artifact(artifact_path):
     num_parts = request_message.num_parts
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
-    if not isinstance(artifact_repo, MultipartUploadMixin):
-        raise MlflowException(
-            "Multipart upload is not supported for artifact repository "
-            f"{artifact_repo.__class__.__name__}",
-            error_code=BAD_REQUEST,
-        )
+    _validate_support_multipart_upload(artifact_repo)
 
     create_response = artifact_repo.create_multipart_upload(
         path,
@@ -1983,12 +1987,7 @@ def _complete_multipart_upload_artifact(artifact_path):
     parts = [MultipartUploadPart.from_proto(part) for part in request_message.parts]
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
-    if not isinstance(artifact_repo, MultipartUploadMixin):
-        raise MlflowException(
-            "Multipart upload is not supported for artifact repository "
-            f"{artifact_repo.__class__.__name__}",
-            error_code=BAD_REQUEST,
-        )
+    _validate_support_multipart_upload(artifact_repo)
 
     artifact_repo.complete_multipart_upload(
         path,
@@ -2019,12 +2018,7 @@ def _abort_multipart_upload_artifact(artifact_path):
     upload_id = request_message.upload_id
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
-    if not isinstance(artifact_repo, MultipartUploadMixin):
-        raise MlflowException(
-            "Multipart upload is not supported for artifact repository "
-            f"{artifact_repo.__class__.__name__}",
-            error_code=BAD_REQUEST,
-        )
+    _validate_support_multipart_upload(artifact_repo)
 
     artifact_repo.abort_multipart_upload(
         path,
