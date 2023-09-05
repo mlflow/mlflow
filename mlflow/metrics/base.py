@@ -126,11 +126,137 @@ def _ari_eval_fn(eval_df, metrics):
 
 
 def _accuracy_eval_fn(eval_df, metrics):
-    if eval_df["targets"]:
+    if "target" in eval_df:
         from sklearn.metrics import accuracy_score
 
         acc = accuracy_score(y_true=eval_df["target"], y_pred=eval_df["prediction"])
         return MetricValue(aggregate_results={"": acc})
+
+
+def _rouge1_eval_fn(eval_df, metrics):
+    if "target" in eval_df:
+        try:
+            import evaluate
+
+            rouge = evaluate.load("rouge")
+        except Exception as e:
+            _logger.warning(
+                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
+            )
+            return
+
+        y_pred = eval_df["prediction"]
+        predictions = y_pred.squeeze() if isinstance(y_pred, pd.DataFrame) else y_pred
+        references = eval_df["target"]
+
+        scores = rouge.compute(
+            predictions=predictions,
+            references=references,
+            rouge_types=["rouge1"],
+            use_aggregator=False,
+        )
+        aggregates = rouge.compute(
+            predictions=predictions,
+            references=references,
+            rouge_types=["rouge1"],
+            use_aggregator=True,
+        )
+        return MetricValue(scores=scores["rouge1"], aggregate_results={"": aggregates["rouge1"]})
+
+
+def _rouge2_eval_fn(eval_df, metrics):
+    if "target" in eval_df:
+        try:
+            import evaluate
+
+            rouge = evaluate.load("rouge")
+        except Exception as e:
+            _logger.warning(
+                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
+            )
+            return
+
+        y_pred = eval_df["prediction"]
+        predictions = y_pred.squeeze() if isinstance(y_pred, pd.DataFrame) else y_pred
+        references = eval_df["target"]
+
+        scores = rouge.compute(
+            predictions=predictions,
+            references=references,
+            rouge_types=["rouge2"],
+            use_aggregator=False,
+        )
+        aggregates = rouge.compute(
+            predictions=predictions,
+            references=references,
+            rouge_types=["rouge2"],
+            use_aggregator=True,
+        )
+        return MetricValue(scores=scores["rouge2"], aggregate_results={"": aggregates["rouge2"]})
+
+
+def _rougeL_eval_fn(eval_df, metrics):
+    if "target" in eval_df:
+        try:
+            import evaluate
+
+            rouge = evaluate.load("rouge")
+        except Exception as e:
+            _logger.warning(
+                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
+            )
+            return
+
+        y_pred = eval_df["prediction"]
+        predictions = y_pred.squeeze() if isinstance(y_pred, pd.DataFrame) else y_pred
+        references = eval_df["target"]
+
+        scores = rouge.compute(
+            predictions=predictions,
+            references=references,
+            rouge_types=["rougeL"],
+            use_aggregator=False,
+        )
+        aggregates = rouge.compute(
+            predictions=predictions,
+            references=references,
+            rouge_types=["rougeL"],
+            use_aggregator=True,
+        )
+        return MetricValue(scores=scores["rougeL"], aggregate_results={"": aggregates["rougeL"]})
+
+
+def _rougeLsum_eval_fn(eval_df, metrics):
+    if "target" in eval_df:
+        try:
+            import evaluate
+
+            rouge = evaluate.load("rouge")
+        except Exception as e:
+            _logger.warning(
+                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
+            )
+            return
+
+        y_pred = eval_df["prediction"]
+        predictions = y_pred.squeeze() if isinstance(y_pred, pd.DataFrame) else y_pred
+        references = eval_df["target"]
+
+        scores = rouge.compute(
+            predictions=predictions,
+            references=references,
+            rouge_types=["rougeLsum"],
+            use_aggregator=False,
+        )
+        aggregates = rouge.compute(
+            predictions=predictions,
+            references=references,
+            rouge_types=["rougeLsum"],
+            use_aggregator=True,
+        )
+        return MetricValue(
+            scores=scores["rougeLsum"], aggregate_results={"": aggregates["rougeLsum"]}
+        )
 
 
 # general text metrics
@@ -171,3 +297,30 @@ accuracy = make_metric(
 )
 
 # text summarization metrics
+rouge1 = make_metric(
+    eval_fn=_rouge1_eval_fn,
+    greater_is_better=True,
+    name="rouge1",
+    version="v1",
+)
+
+rouge2 = make_metric(
+    eval_fn=_rouge2_eval_fn,
+    greater_is_better=True,
+    name="rouge2",
+    version="v1",
+)
+
+rougeL = make_metric(
+    eval_fn=_rougeL_eval_fn,
+    greater_is_better=True,
+    name="rougeL",
+    version="v1",
+)
+
+rougeLsum = make_metric(
+    eval_fn=_rougeLsum_eval_fn,
+    greater_is_better=True,
+    name="rougeLsum",
+    version="v1",
+)

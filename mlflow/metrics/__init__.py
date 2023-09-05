@@ -1,8 +1,13 @@
 from mlflow.metrics.base import (
     MetricValue,
+    accuracy,
     ari_grade_level,
     flesch_kincaid_grade_level,
     perplexity,
+    rouge1,
+    rouge2,
+    rougeL,
+    rougeLsum,
     toxicity,
 )
 from mlflow.models import (
@@ -18,4 +23,9 @@ __all__ = [
     "perplexity",
     "flesch_kincaid_grade_level",
     "ari_grade_level",
+    "accuracy",
+    "rouge1",
+    "rouge2",
+    "rougeL",
+    "rougeLsum",
 ]
