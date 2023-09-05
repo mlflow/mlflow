@@ -1,4 +1,4 @@
-# Cross version tests sometimes fail due to transient errors. This workflow reruns them.
+# Cross version tests sometimes fail due to transient errors. This workflow reruns failed tests.
 name: Rerun
 
 on:
