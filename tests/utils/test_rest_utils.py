@@ -189,6 +189,28 @@ def test_http_request_with_aws_sigv4(request, monkeypatch):
         auth=AuthMatcher(),
     )
 
+@mock.patch("requests.Session.request")
+@mock.patch("mlflow.tracking.request_auth.registry.fetch_auth")
+def test_http_request_with_auth(fetch_auth, request):
+    mock_fetch_auth = {"test_name": "test_auth_value"}
+    fetch_auth.return_value = mock_fetch_auth
+    auth = "test_auth_name"
+    host_only = MlflowHostCreds("http://my-host", auth=auth)
+    response = mock.MagicMock()
+    response.status_code = 200
+    request.return_value = response
+    http_request(host_only, "/my/endpoint", "GET")
+
+    fetch_auth.assert_called_with(auth)
+    
+    request.assert_called_with(
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=mock.ANY,
+        headers=mock.ANY,
+        timeout=mock.ANY,
+        auth=mock_fetch_auth
+    )
 
 @mock.patch("requests.Session.request")
 def test_http_request_with_token(request):
