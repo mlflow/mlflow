@@ -231,7 +231,7 @@ class S3ArtifactRepository(CloudArtifactRepository):
 
         presigned_urls = [
             _get_presigned_upload_part_url(part_number)
-            for part_number in list(range(1, num_parts + 1))
+            for part_number in range(1, num_parts + 1)
         ]
 
         # define helper functions for uploading data
