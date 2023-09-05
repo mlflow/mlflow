@@ -18,7 +18,3 @@ class CPUMonitor(BaseMetricsMonitor):
 
         system_memory = psutil.virtual_memory()._asdict()
         self._metrics["cpu_memory_used"].append(int(system_memory["used"] / 1e6))
-
-    def aggregate_metrics(self):
-        for name, values in self._metrics.items():
-            self._metrics[name] = sum(values) / len(values)

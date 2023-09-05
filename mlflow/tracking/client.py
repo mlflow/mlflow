@@ -333,7 +333,7 @@ class MlflowClient:
                 system_monitor = SystemMetricsMonitor(run)
                 system_monitor.start()
             except Exception as e:
-                _logger.warning(f"Cannot start system metrics monitoring: {str(e)}.")
+                _logger.warning(f"Cannot start system metrics monitoring: {e!s}.")
 
         return run
 

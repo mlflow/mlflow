@@ -19,7 +19,3 @@ class NetworkMonitor(BaseMetricsMonitor):
                 self._metrics[f"network_{k}"].append(int(v / 1e6))
             else:
                 self._metrics[f"network_{k}"].append(v)
-
-    def aggregate_metrics(self):
-        for name, values in self._metrics.items():
-            self._metrics[name] = sum(values) / len(values)

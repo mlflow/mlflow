@@ -798,7 +798,7 @@ def test_start_run_existing_run_deleted(empty_active_run_stack):  # pylint: disa
 
     run_id = uuid.uuid4().hex
 
-    match = f"Cannot start run with ID {run_id} because it is in the deleted state"
+    match = f"Cannot start run with ID {run_id} because it is in the DELETED state"
     with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
         with pytest.raises(MlflowException, match=match):
             start_run(run_id)

@@ -18,7 +18,10 @@ class BaseMetricsMonitor:
         raise NotImplementedError
 
     def aggregate_metrics(self):
-        raise NotImplementedError
+        metrics = {}
+        for name, values in self._metrics.items():
+            metrics[name] = sum(values) / len(values)
+        return metrics
 
     @property
     def metrics(self):
