@@ -428,7 +428,10 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
     langchain_input = {"query": "What did the president say about Ketanji Brown Jackson"}
     langchain_output = [{**langchain_input, "result": TEST_CONTENT}]
     result = loaded_pyfunc_model.predict([langchain_input])
-    assert result == langchain_output
+    assert len(result) == 1
+    assert result[0]["query"] == langchain_output[0]["query"]
+    assert result[0]["result"] == langchain_output[0]["result"]
+    assert "source_documents" in result[0]
 
     # Serve the chain
     inference_payload = json.dumps({"inputs": langchain_input})
@@ -441,9 +444,10 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
         extra_args=["--env-manager", "local"],
     )
 
-    assert (
-        PredictionsResponse.from_json(response.content.decode("utf-8")) == langchain_output_serving
-    )
+    result = PredictionsResponse.from_json(response.content.decode("utf-8"))
+    assert result["predictions"][0]["query"] == langchain_output[0]["query"]
+    assert result["predictions"][0]["result"] == langchain_output[0]["result"]
+    assert "source_documents" in result["predictions"][0]
 
 
 # Define a special embedding for testing
