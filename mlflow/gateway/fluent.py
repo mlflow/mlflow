@@ -155,7 +155,7 @@ def set_limits(route_name: str, limits_config: LimitsConfig) -> LimitsConfig:
         set_limits("my-new-route", my_limits_config)
 
     """
-    MlflowGatewayClient().set_limits(route_name=route_name, limits_config=limits_config)
+    return MlflowGatewayClient().set_limits(route_name=route_name, limits_config=limits_config)
 
 
 @experimental
