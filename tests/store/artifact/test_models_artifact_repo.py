@@ -105,12 +105,12 @@ def test_models_artifact_repo_init_with_stage_uri_and_not_using_databricks_regis
         get_repo_mock.assert_called_once_with(artifact_location)
 
 
-def test_models_artifact_repo_uses_repo_download_artifacts():
+def test_models_artifact_repo_uses_repo_download_artifacts(mock_s3_bucket):
     """
     ``ModelsArtifactRepository`` should delegate `download_artifacts` to its
     ``self.repo.download_artifacts`` function.
     """
-    artifact_location = "s3://blah_bucket/"
+    artifact_location = f"s3://{mock_s3_bucket}/"
     with mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ):

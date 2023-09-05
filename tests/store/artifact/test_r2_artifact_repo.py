@@ -9,8 +9,8 @@ from tests.helper_functions import set_boto_credentials  # noqa: F401
 
 
 @pytest.fixture
-def r2_artifact_root():
-    return "r2://mock-r2-bucket@account.r2.cloudflarestorage.com"
+def r2_artifact_root(mock_s3_bucket):
+    return f"r2://{mock_s3_bucket}@account.r2.cloudflarestorage.com"
 
 
 @pytest.fixture(autouse=True)
@@ -18,11 +18,11 @@ def reset_cached_get_s3_client():
     _cached_get_s3_client.cache_clear()
 
 
-def test_parse_r2_uri(r2_artifact_root):
+def test_parse_r2_uri(r2_artifact_root, mock_s3_bucket):
     artifact_uri = posixpath.join(r2_artifact_root, "some/path")
     repo = get_artifact_repository(artifact_uri)
     parsed_bucket, parsed_path = repo.parse_s3_compliant_uri(artifact_uri)
-    assert parsed_bucket == "mock-r2-bucket"
+    assert parsed_bucket == mock_s3_bucket
     assert parsed_path == "some/path"
 
 
