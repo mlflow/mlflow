@@ -1,5 +1,5 @@
 # Cross version tests sometimes fail due to transient errors. This workflow reruns failed tests.
-name: Rerun
+name: rerun-cross-version-tests
 
 on:
   schedule:
@@ -22,4 +22,4 @@ jobs:
           github-token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
           script: |
             const rerun = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/rerun.js`);
-            awiat rerun({ context, github, workflow_id: "cross-version-tests.yml" });
+            await rerun({ context, github, workflow_id: "cross-version-tests.yml" });
