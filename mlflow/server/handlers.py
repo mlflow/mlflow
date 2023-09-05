@@ -25,7 +25,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
-    INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
@@ -1133,10 +1132,8 @@ def search_datasets_handler():
 def gateway_proxy_handler():
     gateway_uri = MLFLOW_GATEWAY_URI.get()
     if not gateway_uri:
-        raise MlflowException(
-            message="MLFLOW_GATEWAY_URI environment variable must be set.",
-            error_code=INTERNAL_ERROR,
-        )
+        # Pretend an empty gateway service is running
+        return {"routes": []}
 
     if request.method == "GET":
         args = request.args
