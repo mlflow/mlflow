@@ -732,7 +732,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         """
         import langchain
 
-        from mlflow.openai.utils import TEST_CONTENT
+        from mlflow.openai.utils import TEST_CONTENT, TEST_SOURCE_DOCUMENTS
 
         from tests.langchain.test_langchain_model_export import _mock_async_request
 
@@ -749,7 +749,12 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
             mockContent = f"Final Answer: {TEST_CONTENT}"
 
         with _mock_async_request(mockContent):
-            return super().predict(data)
+            result = super().predict(data)
+        if self.lc_model.return_source_documents == True:
+            for res in result:
+                res["source_documents"] = TEST_SOURCE_DOCUMENTS
+
+        return result
 
 
 def _load_pyfunc(path):

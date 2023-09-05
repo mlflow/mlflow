@@ -76,12 +76,14 @@ class APIRequest:
     results: list[tuple[int, str]]
 
     # https://github.com/langchain-ai/langchain/issues/2222
-    # convert documents to json
+    # add more formats here if other langchain objects don't serialize
     def _prepare_to_serialize(self, response: dict) -> dict:
         for key in response:
             value = response[key]
             if isinstance(value, list) and len(value) > 0 and isinstance(value[0], Document):
-                response[key] = [doc.to_json() for doc in value]
+                response[key] = [
+                    {"page_content": doc.page_content, "metadata": doc.metadata} for doc in value
+                ]
 
     def call_api(self, status_tracker: StatusTracker):
         """

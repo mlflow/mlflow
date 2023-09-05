@@ -7,6 +7,12 @@ import requests
 import mlflow
 
 TEST_CONTENT = "test"
+TEST_SOURCE_DOCUMENTS = [
+    {
+        "page_content": "We see the unity among leaders ...",
+        "metadata": {"source": "tests/langchain/state_of_the_union.txt"},
+    },
+]
 
 
 class _MockResponse:

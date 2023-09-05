@@ -44,6 +44,7 @@ from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.openai.utils import (
     TEST_CONTENT,
+    TEST_SOURCE_DOCUMENTS,
     _mock_chat_completion_response,
     _mock_request,
     _MockResponse,
@@ -426,12 +427,12 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     langchain_input = {"query": "What did the president say about Ketanji Brown Jackson"}
-    langchain_output = [{**langchain_input, "result": TEST_CONTENT}]
+    langchain_output = [
+        {**langchain_input, "result": TEST_CONTENT, "source_documents": TEST_SOURCE_DOCUMENTS}
+    ]
     result = loaded_pyfunc_model.predict([langchain_input])
-    assert len(result) == 1
-    assert result[0]["query"] == langchain_output[0]["query"]
-    assert result[0]["result"] == langchain_output[0]["result"]
-    assert "source_documents" in result[0]
+
+    assert result == langchain_output
 
     # Serve the chain
     inference_payload = json.dumps({"inputs": langchain_input})
@@ -444,10 +445,9 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
         extra_args=["--env-manager", "local"],
     )
 
-    result = PredictionsResponse.from_json(response.content.decode("utf-8"))
-    assert result["predictions"][0]["query"] == langchain_output[0]["query"]
-    assert result["predictions"][0]["result"] == langchain_output[0]["result"]
-    assert "source_documents" in result["predictions"][0]
+    assert (
+        PredictionsResponse.from_json(response.content.decode("utf-8")) == langchain_output_serving
+    )
 
 
 # Define a special embedding for testing
