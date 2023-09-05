@@ -14,6 +14,7 @@ class R2ArtifactRepository(S3ArtifactRepository):
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
             session_token=session_token,
+            addressing_style="virtual",
         )
 
     def parse_s3_compliant_uri(self, uri):
@@ -29,6 +30,3 @@ class R2ArtifactRepository(S3ArtifactRepository):
         if path.startswith("/"):
             path = path[1:]
         return bucket, path
-
-    def _get_s3_client(self, addressing_style="virtual"):
-        return super()._get_s3_client(addressing_style=addressing_style)

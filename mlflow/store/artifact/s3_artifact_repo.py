@@ -125,23 +125,30 @@ class S3ArtifactRepository(CloudArtifactRepository):
     """Stores artifacts on Amazon S3."""
 
     def __init__(
-        self, artifact_uri, access_key_id=None, secret_access_key=None, session_token=None
+        self,
+        artifact_uri,
+        access_key_id=None,
+        secret_access_key=None,
+        session_token=None,
+        addressing_style="path",
     ):
         super().__init__(artifact_uri)
         self._access_key_id = access_key_id
         self._secret_access_key = secret_access_key
         self._session_token = session_token
+        self._addressing_style = addressing_style
         self.bucket, self.bucket_path = self.parse_s3_compliant_uri(self.artifact_uri)
         temp_client = _get_s3_client(
+            addressing_style=self._addressing_style,
             access_key_id=self._access_key_id,
             secret_access_key=self._secret_access_key,
             session_token=self._session_token,
         )
         self.region_name = temp_client.get_bucket_location(Bucket=self.bucket)["LocationConstraint"]
 
-    def _get_s3_client(self, addressing_style="path"):
+    def _get_s3_client(self):
         return _get_s3_client(
-            addressing_style=addressing_style,
+            addressing_style=self._addressing_style,
             access_key_id=self._access_key_id,
             secret_access_key=self._secret_access_key,
             session_token=self._session_token,
@@ -230,8 +237,7 @@ class S3ArtifactRepository(CloudArtifactRepository):
             )
 
         presigned_urls = [
-            _get_presigned_upload_part_url(part_number)
-            for part_number in range(1, num_parts + 1)
+            _get_presigned_upload_part_url(part_number) for part_number in range(1, num_parts + 1)
         ]
 
         # define helper functions for uploading data
