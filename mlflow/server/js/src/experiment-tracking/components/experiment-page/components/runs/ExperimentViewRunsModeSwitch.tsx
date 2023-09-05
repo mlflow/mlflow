@@ -6,6 +6,7 @@ import {
   SegmentedControlButton,
   SegmentedControlGroup,
   Tabs,
+  Tag,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -15,7 +16,6 @@ import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRuns
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
 import { shouldEnableArtifactBasedEvaluation } from '../../../../../common/utils/FeatureUtils';
 import type { ExperimentViewRunsCompareMode } from '../../../../types';
-import { PreviewIcon } from 'shared/building_blocks/PreviewIcon';
 
 const COMPARE_RUNS_TOOLTIP_STORAGE_KEY = 'compareRunsTooltip';
 const COMPARE_RUNS_TOOLTIP_STORAGE_ITEM = 'seenBefore';
@@ -143,7 +143,12 @@ export const ExperimentViewRunsModeSwitch = ({
                 defaultMessage='Evaluation'
                 description='A button enabling compare runs (evaluation) mode on the experiment page'
               />{' '}
-              <PreviewIcon />
+              <Tag style={{ marginLeft: '4px' }} color='turquoise'>
+                <FormattedMessage
+                  defaultMessage='Experimental'
+                  description='Experimental badge shown for features which are experimental'
+                />
+              </Tag>
             </span>
           }
           key='ARTIFACT'
