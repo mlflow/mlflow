@@ -133,7 +133,7 @@ def delete_route(name: str) -> None:
 
 
 @experimental
-def set_limits(route_name: str, limits_config: LimitsConfig) -> LimitsConfig:
+def set_limits(route: str, limits_config: LimitsConfig) -> LimitsConfig:
     """
     Set limits on an existing route in the Gateway.
 
@@ -141,7 +141,7 @@ def set_limits(route_name: str, limits_config: LimitsConfig) -> LimitsConfig:
 
         This API is **only available** when running within Databricks.
 
-    :param route_name: The name of the route to set limits on.
+    :param route: The name of the route to set limits on.
     :param limits_config: The limitsConfig to set on the route.
 
     Example usage from within Databricks:
@@ -155,11 +155,11 @@ def set_limits(route_name: str, limits_config: LimitsConfig) -> LimitsConfig:
         set_limits("my-new-route", my_limits_config)
 
     """
-    return MlflowGatewayClient().set_limits(route_name=route_name, limits_config=limits_config)
+    return MlflowGatewayClient().set_limits(route=route, limits_config=limits_config)
 
 
 @experimental
-def get_limits(route_name: str) -> LimitsConfig:
+def get_limits(route: str) -> LimitsConfig:
     """
     Get limits of an existing route in the Gateway.
 
@@ -167,7 +167,7 @@ def get_limits(route_name: str) -> LimitsConfig:
 
         This API is **only available** when running within Databricks.
 
-    :param route_name: The name of the route to get limits of.
+    :param route: The name of the route to get limits of.
 
     Example usage from within Databricks:
 
@@ -180,7 +180,7 @@ def get_limits(route_name: str) -> LimitsConfig:
         get_limits("my-new-route")
 
     """
-    return MlflowGatewayClient().get_limits(route_name=route_name)
+    return MlflowGatewayClient().get_limits(route=route)
 
 
 @experimental
