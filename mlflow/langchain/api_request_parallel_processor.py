@@ -136,7 +136,6 @@ def process_api_requests(
                     _logger.warning(f"Retrying request {next_request.index}: {next_request}")
                 elif req := next(requests_iter, None):
                     # get new request
-                    _logger.warning(f"Processing request {req[0]}: {req[1]}")
                     index, request_json = req
                     next_request = APIRequest(
                         index=index, lc_model=lc_model, request_json=request_json, results=results
