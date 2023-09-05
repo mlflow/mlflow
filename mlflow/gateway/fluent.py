@@ -180,7 +180,7 @@ def get_limits(route_name: str) -> LimitsConfig:
         get_limits("my-new-route")
 
     """
-    MlflowGatewayClient().get_limits(route_name=route_name)
+    return MlflowGatewayClient().get_limits(route_name=route_name)
 
 
 @experimental
