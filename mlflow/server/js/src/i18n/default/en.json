@@ -403,6 +403,10 @@
     "defaultMessage": "Time (Wall)",
     "description": "Radio button option to choose the time wall control option for the X-axis for metric graph on the experiment runs"
   },
+  "8qJt7/": {
+    "defaultMessage": "Experimental",
+    "description": "Experimental badge shown for features which are experimental"
+  },
   "8xji5J": {
     "defaultMessage": "X-axis:",
     "description": "Label text for X-axis in box plot comparison in MLflow"
