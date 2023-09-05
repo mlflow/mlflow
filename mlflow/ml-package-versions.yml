@@ -82,12 +82,12 @@ tensorflow:
       pip install tf-nightly
 
   models:
-    minimum: "2.6.1"
+    minimum: "2.6.0"
     maximum: "2.13.0"
     requirements:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers"]
-      "== 2.6.1": ["keras==2.6.1", "tensorflow-estimator==2.6.1", "protobuf<4.0.0"]
+      "== 2.6.0": ["keras==2.6.0", "tensorflow-estimator==2.6.0", "protobuf<4.0.0"]
       "< 2.7.0": ["pandas==1.3.5"]
       ">= 2.7.0": ["pandas<2.0"]
       # TensorFlow <= 2.6.5 are incompatible with SQLAlchemy 2.x due to
