@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Union
 
 import langchain
-
+from langchain.docstore.document import Document
 import mlflow
 
 _logger = logging.getLogger(__name__)
@@ -75,6 +75,14 @@ class APIRequest:
     request_json: dict
     results: list[tuple[int, str]]
 
+    # https://github.com/langchain-ai/langchain/issues/2222
+    # convert documents to json
+    def _prepare_to_serialize(self, response: dict) -> dict:
+        for key in response:
+            value = response[key]
+            if isinstance(value, list) and len(value) > 0 and isinstance(value[0], Document):
+                response[key] = [doc.to_json() for doc in value]
+
     def call_api(self, status_tracker: StatusTracker):
         """
         Calls the LangChain API and stores results.
@@ -90,8 +98,9 @@ class APIRequest:
                 response = json.dumps(list_of_str_page_content)
             else:
                 _logger.warn("self.request_json: %s", self.request_json)
-                # response = self.lc_model.run(**self.request_json)
                 response = self.lc_model(self.request_json)
+                self._prepare_to_serialize(response)
+
             _logger.debug(f"Request #{self.index} succeeded")
             status_tracker.complete_task(success=True)
             self.results.append((self.index, response))
