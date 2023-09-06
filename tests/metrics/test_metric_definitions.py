@@ -18,7 +18,18 @@ from mlflow.metrics import (
 
 
 @pytest.mark.parametrize(
-    "metric", [toxicity, perplexity, flesch_kincaid_grade_level, ari_grade_level, accuracy]
+    "metric",
+    [
+        toxicity,
+        perplexity,
+        flesch_kincaid_grade_level,
+        ari_grade_level,
+        accuracy,
+        rouge1,
+        rouge2,
+        rougeL,
+        rougeLsum,
+    ],
 )
 def test_return_type_and_len(metric):
     eval_df = pd.DataFrame(
