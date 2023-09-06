@@ -1,5 +1,5 @@
 from mlflow.metrics.base import MetricValue
-from mlflow.metrics.metrics import (
+from mlflow.metrics.utils.metric_definitions import (
     accuracy,
     ari_grade_level,
     flesch_kincaid_grade_level,
