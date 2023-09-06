@@ -7,7 +7,7 @@ mlflow.metrics
     :show-inheritance:
 
 .. py:data:: mlflow.metrics.accuracy
-    :annotation: = <mlflow.metrics.EvaluationMetric object>
+    :type: mlflow.metrics.EvaluationMetric
 
     A metric for calculating `accuracy`_ using sklearn.
     
@@ -15,8 +15,8 @@ mlflow.metrics
     
     .. _accuracy: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
 
-.. autoattribute:: mlflow.metrics.ari_grade_level
-    :annotation: = <mlflow.metrics.EvaluationMetric object>
+.. py:data:: mlflow.metrics.ari_grade_level
+    :type: mlflow.metrics.EvaluationMetric
 
     A metric for calculating `automated readability index`_ using `textstat`_.
     
@@ -29,8 +29,8 @@ mlflow.metrics
     .. _automated readability index: https://en.wikipedia.org/wiki/Automated_readability_index
     .. _textstat: https://pypi.org/project/textstat/
 
-.. autoattribute:: mlflow.metrics.flesch_kincaid_grade_level
-    :annotation: = <mlflow.metrics.EvaluationMetric object>
+.. py:data:: mlflow.metrics.flesch_kincaid_grade_level
+    :type: mlflow.metrics.EvaluationMetric
 
     A metric for calculating `flesch kincaid grade level`_ using `textstat`_.
     
@@ -43,8 +43,8 @@ mlflow.metrics
     .. _flesch kincaid grade level: https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level
     .. _textstat: https://pypi.org/project/textstat/
 
-.. autoattribute:: mlflow.metrics.perplexity
-    :annotation: = <mlflow.metrics.EvaluationMetric object>
+.. py:data:: mlflow.metrics.perplexity
+    :type: mlflow.metrics.EvaluationMetric
 
     A metric for evaluating `perplexity`_ using the model gpt2.
     
@@ -56,8 +56,8 @@ mlflow.metrics
     
     .. _perplexity: https://huggingface.co/spaces/evaluate-metric/perplexity
 
-.. autoattribute:: mlflow.metrics.rouge1
-    :annotation: = <mlflow.metrics.EvaluationMetric object>
+.. py:data:: mlflow.metrics.rouge1
+    :type: mlflow.metrics.EvaluationMetric
 
     A metric for evaluating `rouge1`_.
     
@@ -69,8 +69,8 @@ mlflow.metrics
     
     .. _rouge1: https://huggingface.co/spaces/evaluate-metric/rouge
 
-.. autoattribute:: mlflow.metrics.rouge2
-    :annotation: = <mlflow.metrics.EvaluationMetric object>
+.. py:data:: mlflow.metrics.rouge2
+    :type: mlflow.metrics.EvaluationMetric
 
     A metric for evaluating `rouge2`_.
     
@@ -82,8 +82,8 @@ mlflow.metrics
     
     .. _rouge2: https://huggingface.co/spaces/evaluate-metric/rouge
 
-.. autoattribute:: mlflow.metrics.rougeL
-    :annotation: = <mlflow.metrics.EvaluationMetric object>
+.. py:data:: mlflow.metrics.rougeL
+    :type: mlflow.metrics.EvaluationMetric
 
     A metric for evaluating `rougeL`_.
     
@@ -95,8 +95,8 @@ mlflow.metrics
     
     .. _rougeL: https://huggingface.co/spaces/evaluate-metric/rouge
 
-.. autoattribute:: mlflow.metrics.rougeLsum
-    :annotation: = <mlflow.metrics.EvaluationMetric object>
+.. py:data:: mlflow.metrics.rougeLsum
+    :type: mlflow.metrics.EvaluationMetric
 
     A metric for evaluating `rougeLsum`_.
     
@@ -108,8 +108,8 @@ mlflow.metrics
     
     .. _rougeLsum: https://huggingface.co/spaces/evaluate-metric/rouge
 
-.. autoattribute:: mlflow.metrics.toxicity
-    :annotation: = <mlflow.metrics.EvaluationMetric object>
+.. py:data:: mlflow.metrics.toxicity
+    :type: mlflow.metrics.EvaluationMetric
 
     A metric for evaluating `toxicity`_ using the model `roberta-hate-speech-dynabench-r4`_, which defines
     hate as "abusive speech targeting specific group characteristics, such as ethnic origin, religion, gender, 
