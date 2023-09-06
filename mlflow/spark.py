@@ -533,7 +533,7 @@ def _save_model_metadata(
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
-        is_spark_connect_model=_get_fully_qualified_class_name(spark_model),
+        model_class=_get_fully_qualified_class_name(spark_model),
     )
     mlflow_model.save(os.path.join(dst_dir, MLMODEL_FILE_NAME))
 
