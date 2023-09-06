@@ -12,13 +12,12 @@ def score_model_on_payload(model_uri, payload):
         # TODO: raise an exception
         raise ValueError(f"Invalid model uri '{model_uri}'")
 
-    prefix, _ = parts
+    prefix, suffix = parts
 
     if prefix == "openai":
-        return _call_openai_api(model_uri, payload)
+        return _call_openai_api(suffix, payload)
     elif prefix == "gateway":
-        # TODO: replace with call_gateway_api
-        pass
+        return _call_gateway_api(suffix, payload)
     elif prefix == "model":
         # TODO: replace with call_pyfunc_model_api
         pass
@@ -51,3 +50,10 @@ def _call_openai_api(openai_uri, payload):
     openai_provider = OpenAIProvider(route_config)
 
     return openai_provider.completions(payload)
+
+
+def _call_gateway_api(gateway_uri, payload):
+    # call the gateway route with gateway.query
+    from mlflow.gateway import query
+
+    return query(gateway_uri, payload)
