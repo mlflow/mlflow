@@ -5,6 +5,8 @@ import re
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
+ROUTE_TYPE = "llm/v1/completions"
+
 
 # TODO: improve this name
 def score_model_on_payload(model_uri, payload):
@@ -27,7 +29,6 @@ def score_model_on_payload(model_uri, payload):
 
 
 def _parse_model_uri(model_uri):
-    # Use re.split to split by the first occurrence of ":/"
     parts = re.split(":/+", model_uri, maxsplit=1)
 
     if len(parts) != 2:
@@ -46,9 +47,6 @@ def _call_openai_api(openai_uri, payload):
 
     model_name = openai_uri
 
-    # TODO: extract the route type from the uri
-    route_type = "llm/v1/completions"
-
     if "OPENAI_API_KEY" not in os.environ:
         raise MlflowException(
             "OPENAI_API_KEY environment variable not set",
@@ -57,7 +55,7 @@ def _call_openai_api(openai_uri, payload):
 
     route_config = RouteConfig(
         name="openai",
-        route_type=route_type,
+        route_type=ROUTE_TYPE,
         model={
             "name": model_name,
             "provider": "openai",
@@ -70,7 +68,6 @@ def _call_openai_api(openai_uri, payload):
 
 
 def _call_gateway_api(gateway_uri, payload):
-    # call the gateway route with gateway.query
     from mlflow.gateway import query
 
     return query(gateway_uri, payload)
