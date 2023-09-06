@@ -1,5 +1,5 @@
-from mlflow.metrics.base import (
-    MetricValue,
+from mlflow.metrics.base import MetricValue
+from mlflow.metrics.metrics import (
     accuracy,
     ari_grade_level,
     flesch_kincaid_grade_level,
@@ -10,16 +10,12 @@ from mlflow.metrics.base import (
     rougeLsum,
     toxicity,
 )
-from mlflow.models import (
-    EvaluationMetric,
-    make_metric,
-)
+from mlflow.models import EvaluationMetric, make_metric
 
 __all__ = [
     "EvaluationMetric",
     "MetricValue",
     "make_metric",
-    "toxicity",
     "perplexity",
     "flesch_kincaid_grade_level",
     "ari_grade_level",
@@ -28,4 +24,5 @@ __all__ = [
     "rouge2",
     "rougeL",
     "rougeLsum",
+    "toxicity",
 ]

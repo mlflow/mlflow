@@ -16,8 +16,6 @@ from mlflow.metrics import (
     toxicity,
 )
 
-# test success and failure, logging issues and skipping metrics
-
 
 @pytest.mark.parametrize(
     "metric", [toxicity, perplexity, flesch_kincaid_grade_level, ari_grade_level, accuracy]
@@ -113,34 +111,34 @@ def test_accuracy():
 
 
 def test_rouge1():
-    eval_df = pd.DataFrame({"prediction": ["a", "b"], "target": ["a", "b"]})
+    eval_df = pd.DataFrame({"prediction": ["a", "d c"], "target": ["d", "b c"]})
     result = rouge1.eval_fn(eval_df, metrics={})
-    assert result.aggregate_results[""] == 1.0
+    assert result.aggregate_results["mean"] == 0.25
 
 
 def test_rouge2():
-    eval_df = pd.DataFrame({"prediction": ["a", "b"], "target": ["a", "b"]})
+    eval_df = pd.DataFrame({"prediction": ["a e", "b c e"], "target": ["a e", "b c d"]})
     result = rouge2.eval_fn(eval_df, metrics={})
-    assert result.aggregate_results[""] == 0.0
+    assert result.aggregate_results["mean"] == 0.75
 
 
 def test_rougeL():
-    eval_df = pd.DataFrame({"prediction": ["a", "b"], "target": ["a", "b"]})
+    eval_df = pd.DataFrame({"prediction": ["a", "b c"], "target": ["d", "b c"]})
     result = rougeL.eval_fn(eval_df, metrics={})
-    assert result.aggregate_results[""] == 1.0
+    assert result.aggregate_results["mean"] == 0.5
 
 
 def test_rougeLsum():
-    eval_df = pd.DataFrame({"prediction": ["a", "b"], "target": ["a", "b"]})
+    eval_df = pd.DataFrame({"prediction": ["a", "b c"], "target": ["d", "b c"]})
     result = rougeLsum.eval_fn(eval_df, metrics={})
-    assert result.aggregate_results[""] == 1.0
+    assert result.aggregate_results["mean"] == 0.5
 
 
 def test_fails_to_load_metric():
     eval_df = pd.DataFrame({"prediction": ["random text", "This is a sentence"]})
     e = ImportError("mocked error")
     with mock.patch("evaluate.load", side_effect=e) as mock_load:
-        with mock.patch("mlflow.metrics.base._logger.warning") as mock_warning:
+        with mock.patch("mlflow.metrics.metrics._logger.warning") as mock_warning:
             toxicity.eval_fn(eval_df, metrics={})
             mock_load.assert_called_once_with("toxicity", module_type="measurement")
             mock_warning.assert_called_once_with(
