@@ -1836,3 +1836,28 @@ def test_gateway_proxy_handler_rejects_invalid_requests(mlflow_client):
             response,
             "GatewayProxy request must specify a gateway_path.",
         )
+
+
+def test_upload_artifact_handler(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("upload_artifacts_test")
+    created_run = mlflow_client.create_run(experiment_id)
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
+        params={
+            "run_uuid": created_run.info.run_id,
+            "path": "test.txt",
+        },
+        data="hello world",
+    )
+    assert response.status_code == 200
+
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/get-artifact",
+        params={
+            "run_uuid": created_run.info.run_id,
+            "path": "test.txt",
+        },
+    )
+    assert response.status_code == 200
+    assert response.text == "hello world"

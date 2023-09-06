@@ -1232,6 +1232,7 @@ def create_promptlab_run_handler():
 
 @catch_mlflow_exception
 def upload_artifact_handler():
+    _logger.info("upload_artifact_handler")
     args = request.args
     run_uuid = args.get("run_uuid")
     if not run_uuid:
@@ -1245,16 +1246,14 @@ def upload_artifact_handler():
             message="Request must specify path.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    input_stream = request.input_stream
 
-    # check the size of the input stream
-    if input_stream.content_length > 10 * 1024 * 1024:
+    if request.content_length > 10 * 1024 * 1024:
         raise MlflowException(
             message="Artifact size is too large. Max size is 10MB.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    data = input_stream.read()
+    data = request.data
 
     run = _get_tracking_store().get_run(run_uuid)
     artifact_dir = run.info.artifact_uri
