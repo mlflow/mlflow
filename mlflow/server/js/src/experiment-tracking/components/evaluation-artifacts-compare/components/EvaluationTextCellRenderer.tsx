@@ -114,7 +114,7 @@ export const EvaluationTextCellRenderer = ({
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 '-webkit-box-orient': 'vertical',
-                '-webkit-line-clamp': '8',
+                '-webkit-line-clamp': '7',
               }}
             >
               {isGroupByColumn && context.highlightedText ? (
