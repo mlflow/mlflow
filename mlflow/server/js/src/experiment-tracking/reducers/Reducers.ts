@@ -19,6 +19,7 @@ import {
   SET_TAG_API,
   DELETE_TAG_API,
   SET_COMPARE_EXPERIMENTS,
+  SEARCH_DATASETS_API,
 } from '../actions';
 import { Experiment, Param, RunInfo, RunTag, ExperimentTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
@@ -29,7 +30,7 @@ import {
   maxMetricsByRunUuid,
 } from './MetricReducer';
 import modelRegistryReducers from '../../model-registry/reducers';
-import _, { isArray } from 'lodash';
+import _, { isArray, update } from 'lodash';
 import {
   fulfilled,
   isFulfilledApi,
@@ -41,6 +42,20 @@ import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
 import { getProtoField } from '../../model-registry/utils';
 import Utils from '../../common/utils/Utils';
 import { evaluationDataReducer as evaluationData } from './EvaluationDataReducer';
+import { modelGatewayReducer as modelGateway } from './/ModelGatewayReducer';
+import type { DatasetSummary, ModelVersionInfoEntity } from 'experiment-tracking/types';
+
+export type ApisReducerReduxState = Record<string, { active: boolean; id: string; data: any }>;
+export type ViewsReducerReduxState = {
+  errorModal: {
+    isOpen: boolean;
+    text: string;
+  };
+};
+export type ComparedExperimentsReducerReduxState = {
+  comparedExperimentIds: string[];
+  hasComparedExperimentsBefore: boolean;
+};
 
 export const getExperiments = (state: any) => {
   return Object.values(state.entities.experimentsById);
@@ -189,17 +204,16 @@ export const runInfosByUuid = (state = {}, action: any) => {
 export const modelVersionsByRunUuid = (state = {}, action: any) => {
   switch (action.type) {
     case fulfilled(SEARCH_MODEL_VERSIONS): {
-      let newState = { ...state };
-      const updatedState = {};
+      let newState: Record<string, ModelVersionInfoEntity[]> = { ...state };
+      const updatedState: Record<string, ModelVersionInfoEntity[]> = {};
       if (action.payload) {
-        const modelVersions = action.payload[getProtoField('model_versions')];
+        const modelVersions: ModelVersionInfoEntity[] =
+          action.payload[getProtoField('model_versions')];
         if (modelVersions) {
           modelVersions.forEach((model_version: any) => {
             if (model_version.run_id in updatedState) {
-              // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
               updatedState[model_version.run_id].push(model_version);
             } else {
-              // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
               updatedState[model_version.run_id] = [model_version];
             }
           });
@@ -458,6 +472,30 @@ export const artifactRootUriByRunUuid = (state = {}, action: any) => {
   }
 };
 
+export const getExperimentDatasets = (experiment_id: string, state: any) => {
+  return state.entities.datasetsByExperimentId[experiment_id];
+};
+
+export const datasetsByExperimentId = (state = {}, action: any) => {
+  switch (action.type) {
+    case fulfilled(SEARCH_DATASETS_API): {
+      let newState: Record<string, DatasetSummary[]> = Object.assign({}, state);
+      if (action.payload && action.payload.dataset_summaries) {
+        newState = {};
+        action.payload.dataset_summaries.forEach((dataset_summary: DatasetSummary) => {
+          newState[dataset_summary.experiment_id] = [
+            ...(newState[dataset_summary.experiment_id] || []),
+            dataset_summary,
+          ];
+        });
+      }
+      return newState;
+    }
+    default:
+      return state;
+  }
+};
+
 export const entities = combineReducers({
   experimentsById,
   runInfosByUuid,
@@ -473,6 +511,7 @@ export const entities = combineReducers({
   artifactsByRunUuid,
   artifactRootUriByRunUuid,
   modelVersionsByRunUuid,
+  datasetsByExperimentId,
   ...modelRegistryReducers,
 });
 
@@ -498,7 +537,7 @@ export const getApis = (requestIds: any, state: any) => {
   return requestIds.map((id: any) => state.apis[id] || {});
 };
 
-export const apis = (state = {}, action: any) => {
+export const apis = (state: ApisReducerReduxState = {}, action: any): ApisReducerReduxState => {
   if (isPendingApi(action)) {
     if (!action?.meta?.id) {
       return state;
@@ -533,14 +572,17 @@ export const apis = (state = {}, action: any) => {
 // - RunView
 // - CompareRunView
 // - MetricView
-const defaultCompareExperimentsState = {
+const defaultCompareExperimentsState: ComparedExperimentsReducerReduxState = {
   // Experiment IDs compared on `/compare-experiments`.
   comparedExperimentIds: [],
   // Indicates whether the user has navigated to `/compare-experiments` before
   // Should be set to false when the user navigates to `/experiments/<experiment_id>`
   hasComparedExperimentsBefore: false,
 };
-export const compareExperiments = (state = defaultCompareExperimentsState, action: any) => {
+export const compareExperiments = (
+  state: ComparedExperimentsReducerReduxState = defaultCompareExperimentsState,
+  action: any,
+): ComparedExperimentsReducerReduxState => {
   if (action.type === SET_COMPARE_EXPERIMENTS) {
     const { comparedExperimentIds, hasComparedExperimentsBefore } = action.payload;
     return {
@@ -595,6 +637,7 @@ export const rootReducer = combineReducers({
   apis,
   compareExperiments,
   evaluationData,
+  modelGateway,
 });
 
 export const getEntities = (state: any) => {

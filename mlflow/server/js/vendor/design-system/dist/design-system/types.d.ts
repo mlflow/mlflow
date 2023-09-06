@@ -1,4 +1,5 @@
-import type { CSSObject } from '@emotion/react';
+import type { Interpolation } from '@emotion/react';
+import type { Theme } from '../theme';
 import type { ColorVars } from './constants';
 export interface DangerouslySetAntdProps<P> {
     /** For components that wrap `antd` components, emergency access for properties we do not support. Ask in #dubois before using. */
@@ -6,7 +7,7 @@ export interface DangerouslySetAntdProps<P> {
 }
 export interface DangerousGeneralProps {
     /** Applies emotion styles to the top-level element in the component. Ask in #dubois before using. */
-    dangerouslyAppendEmotionCSS?: CSSObject;
+    dangerouslyAppendEmotionCSS?: Interpolation<Theme>;
 }
 /** Mapping for color variables can be found under constants.tsx */
 export type TypographyColor = keyof typeof ColorVars;

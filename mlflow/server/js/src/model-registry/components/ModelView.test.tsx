@@ -9,7 +9,7 @@ import React from 'react';
 import { ModelView, ModelViewImpl, StageFilters } from './ModelView';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
 import { ModelVersionStatus, Stages } from '../constants';
-import { MemoryRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
 import { getCompareModelVersionsPageRoute } from '../routes';
