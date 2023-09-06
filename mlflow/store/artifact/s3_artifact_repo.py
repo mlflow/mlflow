@@ -138,6 +138,9 @@ class S3ArtifactRepository(CloudArtifactRepository):
         self._session_token = session_token
         self._addressing_style = addressing_style
         self.bucket, self.bucket_path = self.parse_s3_compliant_uri(self.artifact_uri)
+        self._set_region_name()
+
+    def _set_region_name(self):
         temp_client = _get_s3_client(
             addressing_style=self._addressing_style,
             access_key_id=self._access_key_id,

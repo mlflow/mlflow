@@ -30,3 +30,6 @@ class R2ArtifactRepository(S3ArtifactRepository):
         if path.startswith("/"):
             path = path[1:]
         return bucket, path
+
+    def _set_region_name(self):
+        self.region_name = None
