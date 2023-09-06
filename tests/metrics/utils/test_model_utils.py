@@ -3,6 +3,7 @@ from unittest import mock
 import pytest
 from aiohttp import ClientTimeout
 
+from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.metrics.utils.model_utils import (
     _parse_model_uri,
@@ -16,9 +17,7 @@ from tests.gateway.tools import MockAsyncResponse, mock_http_client
 def set_envs(monkeypatch):
     monkeypatch.setenvs(
         {
-            "MLFLOW_TESTING": "true",
             "OPENAI_API_KEY": "test",
-            "SERPAPI_API_KEY": "test",
         }
     )
 
@@ -41,17 +40,17 @@ def test_parse_model_uri():
 
 
 def test_parse_model_uri_throws_for_malformed():
-    with pytest.raises(ValueError):
+    with pytest.raises(MlflowException, match="Malformed model uri"):
         _parse_model_uri("gpt-3.5-turbo")
 
 
 def test_score_model_on_payload_throws_for_invalid():
-    with pytest.raises(ValueError):
-        score_model_on_payload("gpt-3.5-turbo", {})
+    with pytest.raises(MlflowException, match="Unknown model uri prefix"):
+        score_model_on_payload("myprovider:/gpt-3.5-turbo", {})
 
 
 def test_score_model_openai_without_key():
-    with pytest.raises(ValueError):
+    with pytest.raises(MlflowException, match="OPENAI_API_KEY environment variable not set"):
         score_model_on_payload("openai:/gpt-3.5-turbo", {})
 
 
