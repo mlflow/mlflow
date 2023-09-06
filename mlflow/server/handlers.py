@@ -1232,7 +1232,6 @@ def create_promptlab_run_handler():
 
 @catch_mlflow_exception
 def upload_artifact_handler():
-    _logger.info("upload_artifact_handler")
     args = request.args
     run_uuid = args.get("run_uuid")
     if not run_uuid:
@@ -1246,8 +1245,9 @@ def upload_artifact_handler():
             message="Request must specify path.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+    validate_path_is_safe(path)
 
-    if request.content_length > 10 * 1024 * 1024:
+    if request.content_length and request.content_length > 10 * 1024 * 1024:
         raise MlflowException(
             message="Artifact size is too large. Max size is 10MB.",
             error_code=INVALID_PARAMETER_VALUE,
@@ -1261,7 +1261,7 @@ def upload_artifact_handler():
     basename = posixpath.basename(path)
     dirname = posixpath.dirname(path)
 
-    def _log_artifact_to_repo(f, run, dirname, artifact_dir):
+    def _log_artifact_to_repo(file, run, dirname, artifact_dir):
         if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
             artifact_repo = _get_artifact_repo_mlflow_artifacts()
             path_to_log = (
@@ -1273,22 +1273,18 @@ def upload_artifact_handler():
             artifact_repo = get_artifact_repository(artifact_dir)
             path_to_log = dirname
 
-        artifact_repo.log_artifact(f.name, path_to_log)
+        artifact_repo.log_artifact(file, path_to_log)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         dir_path = os.path.join(tmpdir, dirname) if dirname else tmpdir
         file_path = os.path.join(dir_path, basename)
 
-        # Ensure directory exists
-        if dirname:
-            os.makedirs(dir_path, exist_ok=True)
+        os.makedirs(dir_path, exist_ok=True)
 
         with open(file_path, "wb") as f:
             f.write(data)
-            f.flush()
-            f.seek(0)
 
-            _log_artifact_to_repo(f, run, dirname, artifact_dir)
+        _log_artifact_to_repo(file_path, run, dirname, artifact_dir)
 
     response = Response(mimetype="application/json")
     return response
