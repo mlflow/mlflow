@@ -1,3 +1,4 @@
+import asyncio
 import os
 import re
 
@@ -5,14 +6,8 @@ import re
 # TODO: improve this name
 def score_model_on_payload(model_uri, payload):
     """Call the model identified by the given uri with the given payload."""
-    # Use re.split to split by the first occurrence of ":/"
-    parts = re.split(":/+", model_uri, maxsplit=1)
 
-    if len(parts) != 2:
-        # TODO: raise an exception
-        raise ValueError(f"Invalid model uri '{model_uri}'")
-
-    prefix, suffix = parts
+    prefix, suffix = _parse_model_uri(model_uri)
 
     if prefix == "openai":
         return _call_openai_api(suffix, payload)
@@ -25,31 +20,42 @@ def score_model_on_payload(model_uri, payload):
         raise ValueError(f"Unknown model uri prefix '{prefix}'")
 
 
+def _parse_model_uri(model_uri):
+    # Use re.split to split by the first occurrence of ":/"
+    parts = re.split(":/+", model_uri, maxsplit=1)
+
+    if len(parts) != 2:
+        # TODO: raise an exception
+        raise ValueError(f"Invalid model uri '{model_uri}'")
+
+    return parts
+
+
 def _call_openai_api(openai_uri, payload):
     """Wrapper around the OpenAI API to make it compatible with the MLflow Gateway API."""
-    from mlflow.gateway.config import Model, OpenAIConfig, RouteConfig
+    from mlflow.gateway.config import RouteConfig
     from mlflow.gateway.providers.openai import OpenAIProvider
 
-    # TODO: extract the model name from the uri
-    model_name = "gpt-3.5-turbo"
+    model_name = openai_uri
 
     # TODO: extract the route type from the uri
     route_type = "llm/v1/completions"
 
+    if "OPENAI_API_KEY" not in os.environ:
+        raise ValueError("OPENAI_API_KEY environment variable is not set")
+
     route_config = RouteConfig(
         name="openai",
         route_type=route_type,
-        model=Model(
-            name=model_name,
-            provider="openai",
-            config=OpenAIConfig(
-                openai_api_key=os.environ["OPENAI_API_KEY"],
-            ),
-        ),
+        model={
+            "name": model_name,
+            "provider": "openai",
+            "config": {"openai_api_key": os.environ["OPENAI_API_KEY"]},
+        },
     )
     openai_provider = OpenAIProvider(route_config)
 
-    return openai_provider.completions(payload)
+    return asyncio.run(openai_provider.completions(payload))
 
 
 def _call_gateway_api(gateway_uri, payload):
