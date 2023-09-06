@@ -229,8 +229,7 @@ def test_langchain_model_predict():
         with mlflow.start_run():
             logged_model = mlflow.langchain.log_model(model, "langchain_model")
         loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-        langchain_input = {"product": "MLflow"}
-        result = loaded_model.predict([langchain_input])
+        result = loaded_model.predict([{"product": "MLflow"}])
         assert result == [{"text": TEST_CONTENT}]
 
 
