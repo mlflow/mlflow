@@ -87,19 +87,19 @@ that will be added to the http request.
 Once you have the implemented request auth provider class, register it in the ``entry_points`` and install the plugin.
 
 .. code-block:: python
+
   setup(
-      ...
       entry_points={
-          ...,
           "mlflow.request_auth_provider": "<dummy-backend>=<the_implemented_auth_request_provider>",
       },
   )
 
-Then set environment variable ``MLFLOW_TRACKING_AUTH`` in code to enable the injection of custom auth.
+Then set environment variable ``MLFLOW_TRACKING_AUTH`` to enable the injection of custom auth.
 The value of this environment variable should match the name of the auth provider.
 
-.. code-block:: python
-  os.environ["MLFLOW_TRACKING_AUTH"] = "<auth_provider_name>"
+.. code-block:: bash
+
+  MLFLOW_TRACKING_AUTH=AUTH_PROVIDER_NAME
 
 
 Writing Your Own MLflow Plugins
