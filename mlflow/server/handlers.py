@@ -1231,6 +1231,71 @@ def create_promptlab_run_handler():
 
 
 @catch_mlflow_exception
+def upload_artifact_handler():
+    args = request.args
+    run_uuid = args.get("run_uuid")
+    if not run_uuid:
+        raise MlflowException(
+            message="Request must specify run_uuid.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    path = args.get("path")
+    if not path:
+        raise MlflowException(
+            message="Request must specify path.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    validate_path_is_safe(path)
+
+    if request.content_length and request.content_length > 10 * 1024 * 1024:
+        raise MlflowException(
+            message="Artifact size is too large. Max size is 10MB.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    data = request.data
+    if not data:
+        raise MlflowException(
+            message="Request must specify data.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    run = _get_tracking_store().get_run(run_uuid)
+    artifact_dir = run.info.artifact_uri
+
+    basename = posixpath.basename(path)
+    dirname = posixpath.dirname(path)
+
+    def _log_artifact_to_repo(file, run, dirname, artifact_dir):
+        if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
+            artifact_repo = _get_artifact_repo_mlflow_artifacts()
+            path_to_log = (
+                os.path.join(run.info.experiment_id, run.info.run_id, "artifacts", dirname)
+                if dirname
+                else os.path.join(run.info.experiment_id, run.info.run_id, "artifacts")
+            )
+        else:
+            artifact_repo = get_artifact_repository(artifact_dir)
+            path_to_log = dirname
+
+        artifact_repo.log_artifact(file, path_to_log)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        dir_path = os.path.join(tmpdir, dirname) if dirname else tmpdir
+        file_path = os.path.join(dir_path, basename)
+
+        os.makedirs(dir_path, exist_ok=True)
+
+        with open(file_path, "wb") as f:
+            f.write(data)
+
+        _log_artifact_to_repo(file_path, run, dirname, artifact_dir)
+
+    response = Response(mimetype="application/json")
+    return response
+
+
+@catch_mlflow_exception
 @_disable_if_artifacts_only
 def _search_experiments():
     request_message = _get_request_message(
