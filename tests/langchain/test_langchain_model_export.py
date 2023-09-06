@@ -286,7 +286,7 @@ def test_langchain_agent_model_predict():
     }
     with _mock_request(return_value=_MockResponse(200, langchain_agent_output)):
         result = loaded_model.predict([langchain_input])
-        assert result == [TEST_CONTENT]
+        assert result == [{**langchain_input, "output": TEST_CONTENT}]
 
     inference_payload = json.dumps({"inputs": langchain_input})
     langchain_agent_output_serving = {"predictions": langchain_agent_output}
