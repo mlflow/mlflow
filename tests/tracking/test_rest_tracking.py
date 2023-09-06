@@ -1832,3 +1832,73 @@ def test_gateway_proxy_handler_rejects_invalid_requests(mlflow_client):
             response,
             "GatewayProxy request must specify a gateway_path.",
         )
+
+
+def test_upload_artifact_handler_rejects_invalid_requests(mlflow_client):
+    def assert_response(resp, message_part):
+        assert resp.status_code == 400
+        response_json = resp.json()
+        assert response_json.get("error_code") == "INVALID_PARAMETER_VALUE"
+        assert message_part in response_json.get("message", "")
+
+    experiment_id = mlflow_client.create_experiment("upload_artifacts_test")
+    created_run = mlflow_client.create_run(experiment_id)
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact", params={}
+    )
+    assert_response(response, "Request must specify run_uuid.")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
+        params={
+            "run_uuid": created_run.info.run_id,
+        },
+    )
+    assert_response(response, "Request must specify path.")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
+        params={"run_uuid": created_run.info.run_id, "path": ""},
+    )
+    assert_response(response, "Request must specify path.")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
+        params={"run_uuid": created_run.info.run_id, "path": "../test.txt"},
+    )
+    assert_response(response, "Invalid path")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
+        params={
+            "run_uuid": created_run.info.run_id,
+            "path": "test.txt",
+        },
+    )
+    assert_response(response, "Request must specify data.")
+
+
+def test_upload_artifact_handler(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("upload_artifacts_test")
+    created_run = mlflow_client.create_run(experiment_id)
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
+        params={
+            "run_uuid": created_run.info.run_id,
+            "path": "test.txt",
+        },
+        data="hello world",
+    )
+    assert response.status_code == 200
+
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/get-artifact",
+        params={
+            "run_uuid": created_run.info.run_id,
+            "path": "test.txt",
+        },
+    )
+    assert response.status_code == 200
+    assert response.text == "hello world"
