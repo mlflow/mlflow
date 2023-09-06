@@ -100,7 +100,7 @@ class APIRequest:
                 list_of_str_page_content = [doc.page_content for doc in docs]
                 response = json.dumps(list_of_str_page_content)
             else:
-                response = self.lc_model(self.request_json)
+                response = self.lc_model(self.request_json, return_only_outputs=True)
                 self._prepare_to_serialize(response)
 
             _logger.debug(f"Request #{self.index} succeeded")

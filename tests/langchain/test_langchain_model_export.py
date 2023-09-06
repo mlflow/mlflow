@@ -231,7 +231,7 @@ def test_langchain_model_predict():
         loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
         langchain_input = {"product": "MLflow"}
         result = loaded_model.predict([langchain_input])
-        assert result == [{**langchain_input, "text": TEST_CONTENT}]
+        assert result == [{"text": TEST_CONTENT}]
 
 
 def test_pyfunc_spark_udf_with_langchain_model(spark):
@@ -286,7 +286,7 @@ def test_langchain_agent_model_predict():
     }
     with _mock_request(return_value=_MockResponse(200, langchain_agent_output)):
         result = loaded_model.predict([langchain_input])
-        assert result == [{**langchain_input, "output": TEST_CONTENT}]
+        assert result == [{"output": TEST_CONTENT}]
 
     inference_payload = json.dumps({"inputs": langchain_input})
     langchain_agent_output_serving = {"predictions": langchain_agent_output}
@@ -365,7 +365,7 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     langchain_input = {"query": "What did the president say about Ketanji Brown Jackson"}
-    langchain_output = [{**langchain_input, "result": TEST_CONTENT}]
+    langchain_output = [{"result": TEST_CONTENT}]
     result = loaded_pyfunc_model.predict([langchain_input])
     assert result == langchain_output
 
@@ -428,9 +428,7 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     langchain_input = {"query": "What did the president say about Ketanji Brown Jackson"}
-    langchain_output = [
-        {**langchain_input, "result": TEST_CONTENT, "source_documents": TEST_SOURCE_DOCUMENTS}
-    ]
+    langchain_output = [{"result": TEST_CONTENT, "source_documents": TEST_SOURCE_DOCUMENTS}]
     result = loaded_pyfunc_model.predict([langchain_input])
 
     assert result == langchain_output
