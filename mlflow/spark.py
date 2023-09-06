@@ -533,7 +533,6 @@ def _save_model_metadata(
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
-        model_class=_get_fully_qualified_class_name(spark_model),
     )
     mlflow_model.save(os.path.join(dst_dir, MLMODEL_FILE_NAME))
 
@@ -880,8 +879,7 @@ def _load_pyfunc(path):
     model_meta_path = os.path.join(os.path.dirname(path), MLMODEL_FILE_NAME)
     model_meta = Model.load(model_meta_path)
 
-    print(model_meta.flavors)
-    model_class = model_meta.flavors.get("model_class")
+    model_class = model_meta.flavors["spark"].get("model_class")
     if model_class is not None and _is_spark_connect_model(model_class):
         # Note:
         # for spark connect ML model, it does not need a spark session when
