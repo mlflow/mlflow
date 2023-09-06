@@ -78,7 +78,7 @@ class APIRequest:
 
     # https://github.com/langchain-ai/langchain/issues/2222
     # add more formats here if other langchain objects don't serialize
-    def _prepare_to_serialize(self, response: dict) -> dict:
+    def _prepare_to_serialize(self, response: dict):
         for key in response:
             value = response[key]
             if isinstance(value, list) and len(value) > 0 and isinstance(value[0], Document):

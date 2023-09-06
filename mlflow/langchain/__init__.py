@@ -201,7 +201,7 @@ def save_model(
 
                         from mlflow.models import infer_signature
 
-                        chain = LLMChain(llm=llm, prompt=prompt)
+                        chain = LLMChain(llm=llm, prompt=prompt) # BBQIU
                         prediction = chain.run(input_str)
                         input_columns = [
                             {"type": "string", "name": input_key} for input_key in chain.input_keys
@@ -529,7 +529,11 @@ def log_model(
         output_columns = [
             ColSpec(type=DataType.string, name=output_key) for output_key in lc_model.output_keys
         ]
+        logger.warn("input_columns: %s", input_columns)
+        logger.warn("output_columns: %s", output_columns)
         output_schema = Schema(output_columns)
+        logger.warn("input_schema: %s", input_schema)
+        logger.warn("output_schema: %s", output_schema)
         signature = ModelSignature(input_schema, output_schema)
 
     return Model.log(
