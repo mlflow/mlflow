@@ -325,21 +325,9 @@ class MlflowClient:
             lifecycle_stage: active
             status: RUNNING
         """
-        run = self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
-        # include_system_metrics = (
-        #     not os.environ.get("MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING", "False") == "True"
-        #     and include_system_metrics
-        # )
-        # if include_system_metrics:
-        #     try:
-        #         from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
-
-        #         self.system_monitor = SystemMetricsMonitor(run)
-        #         self.system_monitor.start()
-        #     except Exception as e:
-        #         _logger.warning(f"Cannot start system metrics monitoring: {e}.")
-
-        return run
+        return self._tracking_client.create_run(
+            experiment_id, start_time, tags, run_name, include_system_metrics
+        )
 
     def search_experiments(
         self,

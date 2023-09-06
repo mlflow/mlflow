@@ -4,6 +4,7 @@ This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and 
 exposed in the :py:mod:`mlflow.tracking` module.
 """
 
+import logging
 import os
 from collections import OrderedDict
 from itertools import zip_longest
@@ -30,6 +31,9 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_run_id,
 )
+
+_logger = logging.getLogger(__name__)
+run_id_to_system_metrics_monitor = {}
 
 
 class TrackingServiceClient:
@@ -149,18 +153,23 @@ class TrackingServiceClient:
             tags=[RunTag(key, value) for (key, value) in tags.items()],
             run_name=run_name,
         )
+
         include_system_metrics = (
-            not os.environ.get("MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING", "False") == "True"
+            os.environ.get("MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING", "False") == "False"
             and include_system_metrics
         )
+
         if include_system_metrics:
             try:
                 from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
 
-                self.system_monitor = SystemMetricsMonitor(run)
-                self.system_monitor.start()
+                system_monitor = SystemMetricsMonitor(run)
+                global run_id_to_system_metrics_monitor
+
+                run_id_to_system_metrics_monitor[run.info.run_id] = system_monitor
+                system_monitor.start()
             except Exception as e:
-                print(f"Cannot start system metrics monitoring: {e}.")
+                _logger.error(f"Cannot start system metrics monitoring: {e}.")
         return run
 
     def search_experiments(
@@ -524,8 +533,10 @@ class TrackingServiceClient:
         :param end_time: If not provided, defaults to the current time."""
         end_time = end_time if end_time else get_current_time_millis()
         status = status if status else RunStatus.to_string(RunStatus.FINISHED)
-        if hasattr(self, "system_monitor"):
-            self.system_monitor.finish()
+
+        if run_id in run_id_to_system_metrics_monitor:
+            system_metrics_monitor = run_id_to_system_metrics_monitor.pop(run_id)
+            system_metrics_monitor.finish()
         self.store.update_run_info(
             run_id,
             run_status=RunStatus.from_string(status),
