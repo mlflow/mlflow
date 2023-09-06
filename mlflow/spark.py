@@ -880,7 +880,7 @@ def _load_pyfunc(path):
     model_meta_path = os.path.join(os.path.dirname(path), MLMODEL_FILE_NAME)
     model_meta = Model.load(model_meta_path)
 
-    model_class = model_meta.get("model_class")
+    model_class = model_meta.flavors.get("model_class")
     if model_class is not None and _is_spark_connect_model(model_class):
         # Note:
         # for spark connect ML model, it does not need a spark session when
