@@ -44,8 +44,9 @@ from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
     _get_root_uri_and_artifact_path,
 )
-from mlflow.utils import databricks_utils
+from mlflow.utils import databricks_utils, _get_fully_qualified_class_name
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -83,7 +84,7 @@ _MLFLOWDBFS_SCHEME = "mlflowdbfs"
 _logger = logging.getLogger(__name__)
 
 
-def get_default_pip_requirements():
+def get_default_pip_requirements(is_spark_connect_model=False):
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
@@ -98,10 +99,13 @@ def get_default_pip_requirements():
     if Version(pyspark.__version__) < Version("3.4"):
         # Versions of PySpark < 3.4 are incompatible with pandas >= 2
         reqs.append("pandas<2")
+
+    if is_spark_connect_model:
+        reqs.extend(["torch", "torcheval"])
     return reqs
 
 
-def get_default_conda_env():
+def get_default_conda_env(is_spark_connect_model=False):
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`. This Conda environment
@@ -111,7 +115,7 @@ def get_default_conda_env():
              ``2.4.5.dev0``, invoking this method produces a Conda environment with a
              dependency on PySpark version ``2.4.5``).
     """
-    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(is_spark_connect_model=is_spark_connect_model))
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyspark"))
@@ -208,6 +212,24 @@ def log_model(
 
     _validate_model(spark_model)
     from pyspark.ml import PipelineModel
+
+    if _is_spark_connect_model(spark_model):
+        return Model.log(
+            artifact_path=artifact_path,
+            flavor=mlflow.spark,
+            spark_model=spark_model,
+            conda_env=conda_env,
+            code_paths=code_paths,
+            dfs_tmpdir=dfs_tmpdir,
+            sample_input=sample_input,
+            registered_model_name=registered_model_name,
+            signature=signature,
+            input_example=input_example,
+            await_registration_for=await_registration_for,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
+            metadata=metadata,
+        )
 
     if not isinstance(spark_model, PipelineModel):
         spark_model = PipelineModel([spark_model])
@@ -484,7 +506,8 @@ def _save_model_metadata(
     """
     import pyspark
 
-    if sample_input is not None:
+    is_spark_connect_model = _is_spark_connect_model(spark_model)
+    if sample_input is not None and not is_spark_connect_model:
         mleap.add_to_model(
             mlflow_model=mlflow_model,
             path=dst_dir,
@@ -502,6 +525,7 @@ def _save_model_metadata(
         pyspark_version=pyspark.__version__,
         model_data=_SPARK_MODEL_PATH_SUB,
         code=code_dir_subpath,
+        model_class=_get_fully_qualified_class_name(spark_model),
     )
     pyfunc.add_to_model(
         mlflow_model,
@@ -510,12 +534,13 @@ def _save_model_metadata(
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
+        is_spark_connect_model=_get_fully_qualified_class_name(spark_model),
     )
     mlflow_model.save(os.path.join(dst_dir, MLMODEL_FILE_NAME))
 
     if conda_env is None:
         if pip_requirements is None:
-            default_reqs = get_default_pip_requirements()
+            default_reqs = get_default_pip_requirements(is_spark_connect_model)
             if remote_model_path:
                 _logger.info(
                     "Inferring pip requirements by reloading the logged model from the databricks "
@@ -571,6 +596,17 @@ def _validate_model(spark_model):
             "or pyspark.ml.Transformer that implement MLWritable and MLReadable.",
             INVALID_PARAMETER_VALUE,
         )
+
+
+def _is_spark_connect_model(spark_model):
+    """
+    Return whether the spark model is spark connect ML model,
+    the argument `spark_model` could be either model instance or model fully qualified class name.
+    """
+    from pyspark.ml.connect import Model
+    if isinstance(spark_model, str):
+        return spark_model.startswith("pyspark.ml.connect.")
+    return isinstance(spark_model, Model)
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyspark"))
@@ -649,10 +685,11 @@ def save_model(
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     from pyspark.ml import PipelineModel
-
     from mlflow.utils._spark_utils import _get_active_spark_session
 
-    if not isinstance(spark_model, PipelineModel):
+    is_spark_connect_model = _is_spark_connect_model(spark_model)
+
+    if not is_spark_connect_model and not isinstance(spark_model, PipelineModel):
         spark_model = PipelineModel([spark_model])
     if mlflow_model is None:
         mlflow_model = Model()
@@ -681,25 +718,29 @@ def save_model(
     elif signature is False:
         signature = None
 
-    # Spark ML stores the model on DFS if running on a cluster
-    # Save it to a DFS temp dir first and copy it to local path
-    if dfs_tmpdir is None:
-        dfs_tmpdir = MLFLOW_DFS_TMP.get()
-    tmp_path = generate_tmp_dfs_path(dfs_tmpdir)
-    spark_model.save(tmp_path)
     sparkml_data_path = os.path.abspath(os.path.join(path, _SPARK_MODEL_PATH_SUB))
-    # We're copying the Spark model from DBFS to the local filesystem if (a) the temporary DFS URI
-    # we saved the Spark model to is a DBFS URI ("dbfs:/my-directory"), or (b) if we're running
-    # on a Databricks cluster and the URI is schemeless (e.g. looks like a filesystem absolute path
-    # like "/my-directory")
-    copying_from_dbfs = is_valid_dbfs_uri(tmp_path) or (
-        databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
-    )
-    if copying_from_dbfs and databricks_utils.is_dbfs_fuse_available():
-        tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
-        shutil.move(src=tmp_path_fuse, dst=sparkml_data_path)
+    if not is_spark_connect_model:
+        # Spark ML stores the model on DFS if running on a cluster
+        # Save it to a DFS temp dir first and copy it to local path
+        if dfs_tmpdir is None:
+            dfs_tmpdir = MLFLOW_DFS_TMP.get()
+        tmp_path = generate_tmp_dfs_path(dfs_tmpdir)
+        spark_model.save(tmp_path)
+        # We're copying the Spark model from DBFS to the local filesystem if (a) the temporary DFS URI
+        # we saved the Spark model to is a DBFS URI ("dbfs:/my-directory"), or (b) if we're running
+        # on a Databricks cluster and the URI is schemeless (e.g. looks like a filesystem absolute path
+        # like "/my-directory")
+        copying_from_dbfs = is_valid_dbfs_uri(tmp_path) or (
+            databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
+        )
+        if copying_from_dbfs and databricks_utils.is_dbfs_fuse_available():
+            tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
+            shutil.move(src=tmp_path_fuse, dst=sparkml_data_path)
+        else:
+            _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
     else:
-        _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
+        spark_model.saveToLocal(sparkml_data_path)
+
     _save_model_metadata(
         dst_dir=path,
         spark_model=spark_model,
@@ -738,6 +779,10 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
         )
     model_uri = _HadoopFileSystem.maybe_copy_from_uri(model_uri, dfs_tmpdir, local_model_path)
     return PipelineModel.load(model_uri)
+
+
+def _load_spark_connect_model(model_class, local_path):
+    return _get_class_from_string(model_class).loadFromLocal(local_path)
 
 
 def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
@@ -788,6 +833,11 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
     )
     _add_code_from_conf_to_system_path(local_mlflow_model_path, flavor_conf)
 
+    model_class = flavor_conf.get("model_class")
+    if model_class is not None and _is_spark_connect_model(model_class):
+        spark_model_local_path = os.path.join(local_mlflow_model_path, flavor_conf["model_data"])
+        return _load_spark_connect_model(model_class, spark_model_local_path)
+
     if _should_use_mlflowdbfs(model_uri):
         from pyspark.ml.pipeline import PipelineModel
 
@@ -819,19 +869,34 @@ def _load_pyfunc(path):
         _get_active_spark_session,
     )
 
-    # NOTE: The `_create_local_spark_session_for_loading_spark_model()` call below may change
-    # settings of the active session which we do not intend to do here.
-    # In particular, setting master to local[1] can break distributed clusters.
-    # To avoid this problem, we explicitly check for an active session. This is not ideal but there
-    # is no good workaround at the moment.
-    spark = _get_active_spark_session()
-    if spark is None:
-        # NB: If there is no existing Spark context, create a new local one.
-        # NB: We're disabling caching on the new context since we do not need it and we want to
-        # avoid overwriting cache of underlying Spark cluster when executed on a Spark Worker
-        # (e.g. as part of spark_udf).
-        spark = _create_local_spark_session_for_loading_spark_model()
-    return _PyFuncModelWrapper(spark, _load_model(model_uri=path))
+    model_meta_path = os.path.join(os.path.dirname(path), MLMODEL_FILE_NAME)
+    model_meta = Model.load(model_meta_path)
+
+    model_class = model_meta.get("model_class")
+    if model_class is not None and _is_spark_connect_model(model_class):
+        # Note:
+        # for spark connect ML model, it does not need a spark session when
+        # running inference.
+        spark = None
+        spark_model = _load_spark_connect_model(model_class, path)
+
+    else:
+        # NOTE: The `_create_local_spark_session_for_loading_spark_model()` call below may change
+        # settings of the active session which we do not intend to do here.
+        # In particular, setting master to local[1] can break distributed clusters.
+        # To avoid this problem, we explicitly check for an active session. This is not ideal but there
+        # is no good workaround at the moment.
+        spark = _get_active_spark_session()
+        if spark is None:
+            # NB: If there is no existing Spark context, create a new local one.
+            # NB: We're disabling caching on the new context since we do not need it and we want to
+            # avoid overwriting cache of underlying Spark cluster when executed on a Spark Worker
+            # (e.g. as part of spark_udf).
+            spark = _create_local_spark_session_for_loading_spark_model()
+
+        spark_model = _load_model(model_uri=path)
+
+    return _PyFuncModelWrapper(spark, spark_model)
 
 
 def _find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):
@@ -908,6 +973,9 @@ class _PyFuncModelWrapper:
         :return: List with model predictions.
         """
         from pyspark.ml import PipelineModel
+
+        if _is_spark_connect_model(self.spark_model):
+            return self.spark_model.transform(pandas_df)["prediction"]
 
         spark_df = _find_and_set_features_col_as_vector_if_needed(
             self.spark.createDataFrame(pandas_df), self.spark_model
