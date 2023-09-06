@@ -10,7 +10,7 @@ import thunk from 'redux-thunk';
 import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
-import { BrowserRouter, MemoryRouter } from 'react-router-dom-v5-compat';
+import { BrowserRouter, MemoryRouter } from '../../common/utils/RoutingUtils';
 import Fixtures from '../utils/test-utils/Fixtures';
 import HomeView, { getFirstActiveExperiment } from './HomeView';
 import { mount } from 'enzyme';

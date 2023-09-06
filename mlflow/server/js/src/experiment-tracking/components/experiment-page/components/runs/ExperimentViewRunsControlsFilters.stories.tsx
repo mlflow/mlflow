@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { IntlProvider } from 'react-intl';
 import { Provider } from 'react-redux';
-import { MemoryRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
 import { applyMiddleware, compose, createStore } from 'redux';
 import promiseMiddleware from 'redux-promise-middleware';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
@@ -76,6 +76,7 @@ export const Default = () => {
               runsData={MOCK_RUNS_DATA}
               searchFacetsState={searchFacetsState}
               updateSearchFacets={updateSearchFacets}
+              experimentId={'123'}
               viewState={{} as any}
               updateViewState={() => {}}
               onDownloadCsv={() => {
