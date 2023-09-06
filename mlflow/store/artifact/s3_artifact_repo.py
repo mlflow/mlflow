@@ -244,24 +244,11 @@ class S3ArtifactRepository(CloudArtifactRepository):
         ]
 
         # define helper functions for uploading data
-        def _upload_part(presigned_url, data):
+        def _upload_part(presigned_url, local_file, start_byte, size):
+            data = read_chunk(local_file, size, start_byte)
             with cloud_storage_http_request("put", presigned_url, data=data) as response:
                 augmented_raise_for_status(response)
                 return response.headers["ETag"]
-
-        def _upload_part_retry(presigned_url, part_number, local_file, start_byte, size):
-            data = read_chunk(local_file, size, start_byte)
-            try:
-                return _upload_part(presigned_url, data)
-            except requests.HTTPError as e:
-                if e.response.status_code not in (401, 403):
-                    raise e
-                _logger.info(
-                    "Failed to authorize request, possibly due to credential expiration."
-                    " Refreshing credentials and trying again..."
-                )
-                presigned_url = _get_presigned_upload_part_url(part_number)
-                return _upload_part(presigned_url, data)
 
         try:
             # Upload each part with retries
@@ -270,9 +257,8 @@ class S3ArtifactRepository(CloudArtifactRepository):
                 part_number = index + 1
                 start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
                 future = self.chunk_thread_pool.submit(
-                    _upload_part_retry,
+                    _upload_part,
                     presigned_url=presigned_url,
-                    part_number=part_number,
                     local_file=local_file,
                     start_byte=start_byte,
                     size=_MULTIPART_UPLOAD_CHUNK_SIZE,
