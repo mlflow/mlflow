@@ -20,7 +20,9 @@ class AnthropicProvider(BaseProvider):
         self.headers = {"x-api-key": self.anthropic_config.anthropic_api_key}
         self.base_url = "https://api.anthropic.com/v1/"
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    def translate_payload_for_completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.RequestPayload:
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         if "top_p" in payload:
@@ -59,12 +61,15 @@ class AnthropicProvider(BaseProvider):
         )
 
         payload["prompt"] = f"\n\nHuman: {payload['prompt']}\n\nAssistant:"
+        return {"model": self.config.model.name, **payload}
 
+    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        payload = self.translate_payload_for_completions(payload)
         resp = await send_request(
             headers=self.headers,
             base_url=self.base_url,
             path="complete",
-            payload={"model": self.config.model.name, **payload},
+            payload=payload,
         )
 
         # Example response:

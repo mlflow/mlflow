@@ -28,7 +28,9 @@ class CohereProvider(BaseProvider):
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         raise HTTPException(status_code=404, detail="The chat route is not available for Cohere.")
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    def translate_payload_for_completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.RequestPayload:
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         key_mapping = {
@@ -43,9 +45,13 @@ class CohereProvider(BaseProvider):
         # The range of Cohere's temperature is 0-5, but ours is 0-1, so we scale it.
         payload["temperature"] = 5 * payload["temperature"]
         payload = rename_payload_keys(payload, key_mapping)
+        return {"model": self.config.model.name, **payload}
+
+    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        payload = self.translate_payload_for_completions(payload)
         resp = await self._request(
             "generate",
-            {"model": self.config.model.name, **payload},
+            payload,
         )
         # Response example (https://docs.cohere.com/reference/generate)
         # ```
@@ -76,7 +82,9 @@ class CohereProvider(BaseProvider):
             }
         )
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    def translate_payload_for_embeddings(
+        self, payload: embeddings.RequestPayload
+    ) -> embeddings.RequestPayload:
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         key_mapping = {"text": "texts"}
@@ -86,9 +94,13 @@ class CohereProvider(BaseProvider):
                     status_code=400, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         payload = rename_payload_keys(payload, key_mapping)
+        return {"model": self.config.model.name, **payload}
+
+    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+        payload = self.translate_payload_for_embeddings(payload)
         resp = await self._request(
             "embed",
-            {"model": self.config.model.name, **payload},
+            payload,
         )
         # Response example (https://docs.cohere.com/reference/embed):
         # ```
