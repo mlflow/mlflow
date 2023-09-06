@@ -209,7 +209,7 @@ def log_model(
         model = pipeline.fit(training)
         mlflow.spark.log_model(model, "spark-model")
     """
-
+    _validate_model(spark_model)
     from pyspark.ml import PipelineModel
 
     if _is_spark_connect_model(spark_model):
@@ -230,7 +230,6 @@ def log_model(
             metadata=metadata,
         )
 
-    _validate_model(spark_model)
     if not isinstance(spark_model, PipelineModel):
         spark_model = PipelineModel([spark_model])
     run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
@@ -583,6 +582,14 @@ def _validate_model(spark_model):
     from pyspark.ml import Transformer as PySparkTransformer
     from pyspark.ml.util import MLReadable, MLWritable
 
+    try:
+        from pyspark.ml.connect import Model as ConnectModel
+        if isinstance(spark_model, ConnectModel):
+            return
+    except ImportError:
+        # Spark does not support connect ML model.
+        pass
+
     if (
         (
             not isinstance(spark_model, PySparkModel)
@@ -603,10 +610,11 @@ def _is_spark_connect_model(spark_model):
     Return whether the spark model is spark connect ML model,
     the argument `spark_model` could be either model instance or model fully qualified class name.
     """
-    from pyspark.ml.connect import Model
-    if isinstance(spark_model, str):
-        return spark_model.startswith("pyspark.ml.connect.")
-    return isinstance(spark_model, Model)
+    if not isinstance(spark_model, str):
+        model_class = _get_fully_qualified_class_name(spark_model)
+    else:
+        model_class = spark_model
+    return model_class.startswith("pyspark.ml.connect.")
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyspark"))
