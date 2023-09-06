@@ -82,9 +82,9 @@ class APIRequest:
         for key in response:
             value = response[key]
             if isinstance(value, list) and len(value) > 0 and isinstance(value[0], Document):
-                response[key] = [
-                    {"page_content": doc.page_content, "metadata": doc.metadata} for doc in value
-                ]
+                response[key] = json.dumps(
+                    [{"page_content": doc.page_content, "metadata": doc.metadata} for doc in value]
+                )
 
     def call_api(self, status_tracker: StatusTracker):
         """
