@@ -36,6 +36,7 @@ nav:
   - API Reference:
       - mlflow:
           - api/mlflow.start_run.md
+          - api/mlflow.ActiveRun.md
       - mlflow.sklearn:
           - api/mlflow.sklearn.log_model.md
           - api/mlflow.sklearn.save_model.md
@@ -46,10 +47,32 @@ nav:
       - news/1.md
       - news/2.md
 
+  - "Bug Tracker": "/bugs/"
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - attr_list
+  - md_in_html
+
 plugins:
   - search
   - mkdocstrings:
       handlers:
         python:
           options:
-            docstring_style: sphinx
+            docstring_style: google
+            show_root_heading: true
+            show_root_full_path: true
+            show_source: false
+            heading_level: 2
+            merge_init_into_class: true
+            show_signature_annotations: true
+            separate_signature: true

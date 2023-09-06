@@ -193,63 +193,55 @@ def start_run(
     description: Optional[str] = None,
 ) -> ActiveRun:
     """
-    Start a new MLflow run, setting it as the active run under which metrics and parameters
-    will be logged. The return value can be used as a context manager within a ``with`` block;
-    otherwise, you must call ``end_run()`` to terminate the current run.
+    Starts a new MLflow run, logging metrics and parameters under it.
+    This function can initiate a new run or resume an existing run. The returned object can be used as a context
+    manager within a `with` block, or `end_run()` must be called to terminate the current run. It can also attempt
+    to resume a run with a specified run ID or an ID specified in the environment variable `MLFLOW_RUN_ID`, with
+    the `run_id` parameter taking precedence.
 
-    If you pass a ``run_id`` or the ``MLFLOW_RUN_ID`` environment variable is set,
-    ``start_run`` attempts to resume a run with the specified run ID and
-    other parameters are ignored. ``run_id`` takes precedence over ``MLFLOW_RUN_ID``.
+    MLflow sets various default tags on the run, which are detailed in the :ref:`MLflow system tags <system_tags>`.
 
-    If resuming an existing run, the run status is set to ``RunStatus.RUNNING``.
+    Args:
+        run_id (str, optional): The UUID of the run to retrieve and log parameters and metrics under. If specified,
+            the run's end time is unset and its status is set to running, but other attributes (like `source_version`,
+            `source_type`, etc.) remain unchanged. Defaults to None.
+        experiment_id (str, optional): The ID of the experiment under which to create the current run. This is only
+            applicable when `run_id` is not specified. If not specified, a valid experiment is searched in the following
+            order: activated using `set_experiment`, `MLFLOW_EXPERIMENT_NAME` environment variable,
+            `MLFLOW_EXPERIMENT_ID` environment variable, or the default experiment as defined by the tracking server.
+            Defaults to None.
+        run_name (str, optional): The name for the new run. This is used only when `run_id` is not specified. If a
+            new run is created and `run_name` is not specified, a unique name will be generated for the run.
+            Defaults to None.
+        nested (bool): Controls whether the run is nested within a parent run. Setting to True creates a nested run.
+            Defaults to False.
+        tags (dict, optional): An optional dictionary of string keys and string values to set as tags on the run.
+            These tags are applied to the resumed or newly created run, depending on the scenario. Defaults to None.
+        description (str, optional): An optional description for the run, which populates the run's description box.
+            The description is applied to the resumed or newly created run, depending on the scenario. Defaults to None.
 
-    MLflow sets a variety of default tags on the run, as defined in
-    :ref:`MLflow system tags <system_tags>`.
+    Returns:
+        [`mlflow.ActiveRun`][mlflow.sklearn.log_model]: An object that acts as a context manager wrapping the run's state.
 
-    :param run_id: If specified, get the run with the specified UUID and log parameters
-                     and metrics under that run. The run's end time is unset and its status
-                     is set to running, but the run's other attributes (``source_version``,
-                     ``source_type``, etc.) are not changed.
-    :param experiment_id: ID of the experiment under which to create the current run (applicable
-                          only when ``run_id`` is not specified). If ``experiment_id`` argument
-                          is unspecified, will look for valid experiment in the following order:
-                          activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_NAME``
-                          environment variable, ``MLFLOW_EXPERIMENT_ID`` environment variable,
-                          or the default experiment as defined by the tracking server.
-    :param run_name: Name of new run.
-                     Used only when ``run_id`` is unspecified. If a new run is created and
-                     ``run_name`` is not specified, a unique name will be generated for the run.
-    :param nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
-    :param tags: An optional dictionary of string keys and values to set as tags on the run.
-                 If a run is being resumed, these tags are set on the resumed run. If a new run is
-                 being created, these tags are set on the new run.
-    :param description: An optional string that populates the description box of the run.
-                        If a run is being resumed, the description is set on the resumed run.
-                        If a new run is being created, the description is set on the new run.
-    :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
-             the run's state.
+    ```python
+    import mlflow
 
-    .. test-code-block:: python
-        :caption: Example
-
-        import mlflow
-
-        # Create nested runs
-        experiment_id = mlflow.create_experiment("experiment1")
+    # Create nested runs
+    experiment_id = mlflow.create_experiment("experiment1")
+    with mlflow.start_run(
+        run_name="PARENT_RUN",
+        experiment_id=experiment_id,
+        tags={"version": "v1", "priority": "P1"},
+        description="parent",
+    ) as parent_run:
+        mlflow.log_param("parent", "yes")
         with mlflow.start_run(
-            run_name="PARENT_RUN",
+            run_name="CHILD_RUN",
             experiment_id=experiment_id,
-            tags={"version": "v1", "priority": "P1"},
-            description="parent",
-        ) as parent_run:
-            mlflow.log_param("parent", "yes")
-            with mlflow.start_run(
-                run_name="CHILD_RUN",
-                experiment_id=experiment_id,
-                description="child",
-                nested=True,
-            ) as child_run:
-                mlflow.log_param("child", "yes")
+            description="child",
+            nested=True,
+        ) as child_run:
+            mlflow.log_param("child", "yes")
 
         print("parent run:")
 
@@ -264,19 +256,19 @@ def start_run(
         results = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=query)
         print("child runs:")
         print(results[["run_id", "params.child", "tags.mlflow.runName"]])
+    ```
 
-    .. code-block:: text
-        :caption: Output
-
-        parent run:
-        run_id: 8979459433a24a52ab3be87a229a9cdf
-        description: starting a parent for experiment 7
-        version tag value: v1
-        priority tag value: P1
-        --
-        child runs:
-                                     run_id params.child tags.mlflow.runName
-        0  7d175204675e40328e46d9a6a5a7ee6a          yes           CHILD_RUN
+    ```text
+    parent run:
+    run_id: 8979459433a24a52ab3be87a229a9cdf
+    description: starting a parent for experiment 7
+    version tag value: v1
+    priority tag value: P1
+    --
+    child runs:
+                                    run_id params.child tags.mlflow.runName
+    0  7d175204675e40328e46d9a6a5a7ee6a          yes           CHILD_RUN
+    ```
     """
     global _active_run_stack
     _validate_experiment_id_type(experiment_id)
