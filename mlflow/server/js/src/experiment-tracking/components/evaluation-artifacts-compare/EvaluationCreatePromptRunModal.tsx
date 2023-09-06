@@ -92,7 +92,9 @@ export const EvaluationCreatePromptRunModal = ({
   const dispatch = useDispatch<ThunkDispatch>();
 
   useEffect(() => {
-    dispatch(searchModelGatewayRoutesApi());
+    dispatch(searchModelGatewayRoutesApi()).catch((e) => {
+      Utils.logErrorAndNotifyUser(e?.message || e);
+    });
   }, [dispatch]);
 
   const intl = useIntl();

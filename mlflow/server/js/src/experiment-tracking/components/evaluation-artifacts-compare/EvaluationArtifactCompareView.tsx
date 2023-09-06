@@ -95,7 +95,9 @@ export const EvaluationArtifactCompareView = ({
 
   useEffect(() => {
     if (shouldEnablePromptLab()) {
-      dispatch(searchModelGatewayRoutesApi());
+      dispatch(searchModelGatewayRoutesApi()).catch((e) => {
+        Utils.logErrorAndNotifyUser(e?.message || e);
+      });
     }
   }, [dispatch]);
 
