@@ -20,6 +20,7 @@ import {
   PROMPTLAB_METADATA_COLUMN_LATENCY,
   PROMPTLAB_METADATA_COLUMN_TOTAL_TOKENS,
 } from '../components/prompt-engineering/PromptEngineering.utils';
+import { MlflowService } from '../sdk/MlflowService';
 
 export const EVALUATE_PROMPT_TABLE_VALUE = 'EVALUATE_PROMPT_TABLE_VALUE';
 export interface EvaluatePromptTableValueAction
@@ -74,9 +75,19 @@ export const evaluatePromptTableValue =
       inputText: compiledPrompt,
       parameters,
     };
+    const { inputText } = modelGatewayRequestPayload;
+    const textPayload = ModelGatewayService.createEvaluationTextPayload(inputText, gatewayRoute);
+    const processed_data = {
+      ...textPayload,
+      ...modelGatewayRequestPayload.parameters,
+    };
+
     const action = {
       type: EVALUATE_PROMPT_TABLE_VALUE,
-      payload: ModelGatewayService.queryModelGatewayRoute(gatewayRoute, modelGatewayRequestPayload),
+      payload: MlflowService.gatewayProxyPost({
+        gateway_path: `gateway/${gatewayRoute.name}/invocations`,
+        json_data: processed_data,
+      }),
       meta: { inputValues, run, compiledPrompt, rowKey, startTime: performance.now() },
     };
     return dispatch(action);
