@@ -21,11 +21,30 @@ class BaseProvider(ABC):
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         raise NotImplementedError
 
+    from mlflow.gateway.schemas.chat import RequestPayload as ChatRequestPayload
+
+    def translate_payload_for_chat(self, payload: ChatRequestPayload) -> ChatRequestPayload:
+        return payload
+
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         raise NotImplementedError
 
+    from mlflow.gateway.schemas.completions import RequestPayload as CompletionsRequestPayload
+
+    def translate_payload_for_completions(
+        self, payload: CompletionsRequestPayload
+    ) -> CompletionsRequestPayload:
+        return payload
+
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         raise NotImplementedError
+
+    from mlflow.gateway.schemas.embeddings import RequestPayload as EmbeddingsRequestPayload
+
+    def translate_payload_for_embeddings(
+        self, payload: EmbeddingsRequestPayload
+    ) -> EmbeddingsRequestPayload:
+        return payload
 
     @staticmethod
     def check_for_model_field(payload):

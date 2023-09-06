@@ -76,7 +76,7 @@ class OpenAIProvider(BaseProvider):
         else:
             return payload
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    def translate_payload_for_chat(self, payload: chat.RequestPayload) -> chat.RequestPayload:
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         if "n" in payload:
@@ -90,6 +90,11 @@ class OpenAIProvider(BaseProvider):
         )
         # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
         payload["temperature"] = 2 * payload["temperature"]
+        payload = self._add_model_to_payload_if_necessary(payload)
+        return payload
+
+    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        payload = self.translate_payload_for_chat(payload)
 
         resp = await send_request(
             headers=self._request_headers,
@@ -145,7 +150,9 @@ class OpenAIProvider(BaseProvider):
             }
         )
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    def translate_payload_for_completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.RequestPayload:
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         if "n" in payload:
@@ -159,11 +166,16 @@ class OpenAIProvider(BaseProvider):
         # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
         payload["temperature"] = 2 * payload["temperature"]
         payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
+        payload = self._add_model_to_payload_if_necessary(payload)
+        return payload
+
+    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        payload = self.translate_payload_for_completions(payload)
         resp = await send_request(
             headers=self._request_headers,
             base_url=self._request_base_url,
             path="chat/completions",
-            payload=self._add_model_to_payload_if_necessary(payload),
+            payload=payload,
         )
         # Response example (https://platform.openai.com/docs/api-reference/completions/create)
         # ```
@@ -206,17 +218,23 @@ class OpenAIProvider(BaseProvider):
             }
         )
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    def translate_payload_for_embeddings(
+        self, payload: embeddings.RequestPayload
+    ) -> embeddings.RequestPayload:
         payload = rename_payload_keys(
             jsonable_encoder(payload, exclude_none=True),
             {"text": "input"},
         )
         self.check_for_model_field(payload)
+        payload = self._add_model_to_payload_if_necessary(payload)
+
+    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+        payload = self.translate_payload_for_embeddings(payload)
         resp = await send_request(
             headers=self._request_headers,
             base_url=self._request_base_url,
             path="embeddings",
-            payload=self._add_model_to_payload_if_necessary(payload),
+            payload=payload,
         )
         # Response example (https://platform.openai.com/docs/api-reference/embeddings/create):
         # ```
