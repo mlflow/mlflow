@@ -32,4 +32,4 @@ class R2ArtifactRepository(S3ArtifactRepository):
         return bucket, path
 
     def _set_region_name(self):
-        self.region_name = None
+        return None

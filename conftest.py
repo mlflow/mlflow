@@ -170,5 +170,8 @@ def disable_get_bucket_location(request):
     if module_name == "tests.store.artifact.test_s3_artifact_repo":
         yield
         return
-    with mock.patch("mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository._set_region_name"):
+    with mock.patch(
+        "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository._get_region_name",
+        return_value=None,
+    ):
         yield
