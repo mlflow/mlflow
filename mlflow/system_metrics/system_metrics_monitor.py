@@ -28,7 +28,7 @@ class SystemMetricsMonitor:
         samples_to_aggregate: int, default to 30. The number of samples to aggregate before logging.
     """
 
-    def __init__(self, mlflow_run, sampling_interval=0.5, samples_before_logging=20):
+    def __init__(self, mlflow_run, sampling_interval=10, samples_before_logging=1):
         from mlflow.utils.autologging_utils import BatchMetricsLogger
 
         # Instantiate default monitors.
@@ -73,16 +73,16 @@ class SystemMetricsMonitor:
         while not self._shutdown_event.is_set():
             for _ in range(self.samples_before_logging):
                 self.collect_metrics()
-            self._shutdown_event.wait(self.sampling_interval)
-            try:
-                # Get the MLflow run to check if the run is FINISHED.
-                run = get_run(self._run_id)
-            except Exception as e:
-                logger.warning(f"MLflow: failed to get mlflow run: {e}.")
-                return
-            if run.info.status != "RUNNING" or self._shutdown_event.is_set():
-                # If the mlflow run is terminated or receives the shutdown signal, stop monitoring.
-                break
+                self._shutdown_event.wait(self.sampling_interval)
+                try:
+                    # Get the MLflow run to check if the run is not RUNNING.
+                    run = get_run(self._run_id)
+                except Exception as e:
+                    logger.warning(f"MLflow: failed to get mlflow run: {e}.")
+                    return
+                if run.info.status != "RUNNING" or self._shutdown_event.is_set():
+                    # If the mlflow run is terminated or receives the shutdown signal, stop monitoring.
+                    return
             metrics = self.aggregate_metrics()
             try:
                 self.publish_metrics(metrics)

@@ -48,6 +48,13 @@ class TrackingServiceClient:
         # the tracking URI is valid and the store can be properly resolved. We define `store` as a
         # property method to ensure that the client is serializable, even if the store is not
         # self.store  # pylint: disable=pointless-statement
+        # try:
+        #     self.store
+        # except:
+        #     import time
+
+        #     time.sleep(10)
+        #     self.store
         self.store
 
     @property
@@ -105,7 +112,14 @@ class TrackingServiceClient:
             token = paged_history.token
         return history
 
-    def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
+    def create_run(
+        self,
+        experiment_id,
+        start_time=None,
+        tags=None,
+        run_name=None,
+        include_system_metrics=True,
+    ):
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -128,13 +142,26 @@ class TrackingServiceClient:
         # in a later release.
         user_id = tags.get(MLFLOW_USER, "unknown")
 
-        return self.store.create_run(
+        run = self.store.create_run(
             experiment_id=experiment_id,
             user_id=user_id,
             start_time=start_time or get_current_time_millis(),
             tags=[RunTag(key, value) for (key, value) in tags.items()],
             run_name=run_name,
         )
+        include_system_metrics = (
+            not os.environ.get("MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING", "False") == "True"
+            and include_system_metrics
+        )
+        if include_system_metrics:
+            try:
+                from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
+
+                self.system_monitor = SystemMetricsMonitor(run)
+                self.system_monitor.start()
+            except Exception as e:
+                print(f"Cannot start system metrics monitoring: {e}.")
+        return run
 
     def search_experiments(
         self,
@@ -497,6 +524,8 @@ class TrackingServiceClient:
         :param end_time: If not provided, defaults to the current time."""
         end_time = end_time if end_time else get_current_time_millis()
         status = status if status else RunStatus.to_string(RunStatus.FINISHED)
+        if hasattr(self, "system_monitor"):
+            self.system_monitor.finish()
         self.store.update_run_info(
             run_id,
             run_status=RunStatus.from_string(status),
