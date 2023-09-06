@@ -149,7 +149,7 @@ export const uploadArtifactApi = (runUuid: any, filePath: any, fileContent: any)
   const request = fetchEndpoint({
     relativeUrl: `ajax-api/2.0/mlflow/upload-artifact?${queryParams}`,
     method: 'POST',
-    body: fileContent,
+    body: JSON.stringify(fileContent),
     success: jsonBigIntResponseParser,
     // Retry the call every time an artifact upload fails
     errorCondition: (res: Response) => !res || !res.ok,
