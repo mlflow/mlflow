@@ -3,6 +3,7 @@ import os
 import posixpath
 import shutil
 import subprocess
+from unittest import mock
 
 import click
 import pytest
@@ -160,4 +161,14 @@ def clean_up_envs():
 def enable_mlflow_testing():
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv(_MLFLOW_TESTING.name, "TRUE")
+        yield
+
+
+@pytest.fixture(scope="module", autouse=True)
+def disable_get_bucket_location(request):
+    module_name = request.module.__name__
+    if module_name == "tests.store.artifact.test_s3_artifact_repo":
+        yield
+        return
+    with mock.patch("mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository._set_region_name"):
         yield

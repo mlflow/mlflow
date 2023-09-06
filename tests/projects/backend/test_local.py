@@ -12,7 +12,7 @@ def test_docker_s3_artifact_cmd_and_envs_from_env(monkeypatch):
         "MLFLOW_S3_IGNORE_TLS": "false",
     }
     monkeypatch.setenvs(mock_env)
-    with mock.patch("posixpath.exists", return_value=False), mock.patch("boto3.client"):
+    with mock.patch("posixpath.exists", return_value=False):
         cmds, envs = _get_docker_artifact_storage_cmd_and_envs("s3://mock_bucket")
         assert cmds == []
         assert envs == mock_env
@@ -30,7 +30,7 @@ def test_docker_s3_artifact_cmd_and_envs_from_home(monkeypatch):
     )
     with mock.patch("posixpath.exists", return_value=True), mock.patch(
         "posixpath.expanduser", return_value="mock_volume"
-    ), mock.patch("boto3.client"):
+    ):
         cmds, envs = _get_docker_artifact_storage_cmd_and_envs("s3://mock_bucket")
         assert cmds == ["-v", "mock_volume:/.aws"]
         assert envs == {}

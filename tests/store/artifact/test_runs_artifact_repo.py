@@ -77,8 +77,8 @@ def test_get_artifact_uri(uri, expected_tracking_uri, mock_uri, expected_result_
         assert result_uri == expected_result_uri
 
 
-def test_runs_artifact_repo_init_with_real_run(mock_s3_bucket):
-    artifact_location = f"s3://{mock_s3_bucket}/"
+def test_runs_artifact_repo_init_with_real_run():
+    artifact_location = "s3://blah_bucket/"
     experiment_id = mlflow.create_experiment("expr_abc", artifact_location)
     with mlflow.start_run(experiment_id=experiment_id):
         run_id = mlflow.active_run().info.run_id
@@ -91,12 +91,12 @@ def test_runs_artifact_repo_init_with_real_run(mock_s3_bucket):
     assert runs_repo.repo.artifact_uri == expected_absolute_uri
 
 
-def test_runs_artifact_repo_uses_repo_download_artifacts(mock_s3_bucket):
+def test_runs_artifact_repo_uses_repo_download_artifacts():
     """
     The RunsArtifactRepo should delegate `download_artifacts` to it's self.repo.download_artifacts
     function
     """
-    artifact_location = f"s3://{mock_s3_bucket}/"
+    artifact_location = "s3://blah_bucket/"
     experiment_id = mlflow.create_experiment("expr_abcd", artifact_location)
     with mlflow.start_run(experiment_id=experiment_id):
         run_id = mlflow.active_run().info.run_id
