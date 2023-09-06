@@ -229,8 +229,9 @@ def test_langchain_model_predict():
         with mlflow.start_run():
             logged_model = mlflow.langchain.log_model(model, "langchain_model")
         loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-        result = loaded_model.predict([{"product": "MLflow"}])
-        assert result == [TEST_CONTENT]
+        langchain_input = {"product": "MLflow"}
+        result = loaded_model.predict([langchain_input])
+        assert result == [{**langchain_input, "text": TEST_CONTENT}]
 
 
 def test_pyfunc_spark_udf_with_langchain_model(spark):

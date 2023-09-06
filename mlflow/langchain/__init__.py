@@ -747,7 +747,10 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
 
         with _mock_async_request(mockContent):
             result = super().predict(data)
-        if self.lc_model.return_source_documents:
+        if (
+            hasattr(self.lc_model, "return_source_documents")
+            and self.lc_model.return_source_documents
+        ):
             for res in result:
                 res["source_documents"] = TEST_SOURCE_DOCUMENTS
 
