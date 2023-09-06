@@ -7,6 +7,10 @@ from functools import lru_cache
 from mimetypes import guess_type
 
 from mlflow.entities import FileInfo
+from mlflow.entities.multipart_upload import (
+    CreateMultipartUploadResponse,
+    MultipartUploadCredential,
+)
 from mlflow.environment_variables import (
     MLFLOW_S3_ENDPOINT_URL,
     MLFLOW_S3_IGNORE_TLS,
@@ -16,10 +20,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
-)
-from mlflow.entities.multipart_upload import (
-    CreateMultipartUploadResponse,
-    MultipartUploadCredential,
 )
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
