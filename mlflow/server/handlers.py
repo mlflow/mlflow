@@ -1254,6 +1254,11 @@ def upload_artifact_handler():
         )
 
     data = request.data
+    if not data:
+        raise MlflowException(
+            message="Request must specify data.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     run = _get_tracking_store().get_run(run_uuid)
     artifact_dir = run.info.artifact_uri
