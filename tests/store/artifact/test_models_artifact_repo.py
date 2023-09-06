@@ -110,7 +110,7 @@ def test_models_artifact_repo_uses_repo_download_artifacts():
     ``ModelsArtifactRepository`` should delegate `download_artifacts` to its
     ``self.repo.download_artifacts`` function.
     """
-    artifact_location = f"s3://blah_bucket/"
+    artifact_location = "s3://blah_bucket/"
     with mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ):

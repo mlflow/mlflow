@@ -8,8 +8,6 @@ from datetime import datetime
 from functools import lru_cache
 from mimetypes import guess_type
 
-import requests
-
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_MULTIPART_UPLOAD,
