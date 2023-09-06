@@ -26,6 +26,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
+from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE
 from mlflow.models.utils import _read_example
 from mlflow.pyfunc.model import _load_pyfunc
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -1443,3 +1444,23 @@ def test_artifact_path_posix(sklearn_knn_model, main_scoped_model_class, tmp_pat
 
     artifacts = _load_pyfunc(pyfunc_model_path).context.artifacts
     assert all("\\" not in artifact_uri for artifact_uri in artifacts.values())
+
+
+def test_load_model_fails_for_feature_store_models(tmp_path):
+    feature_store = os.path.join(tmp_path, "feature_store")
+    os.mkdir(feature_store)
+    feature_spec = os.path.join(feature_store, "feature_spec.yaml")
+    with open(feature_spec, "w+") as f:
+        f.write("contents")
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            artifact_path="model",
+            data_path=feature_store,
+            loader_module=_DATABRICKS_FS_LOADER_MODULE,
+            code_path=[__file__],
+        )
+    with pytest.raises(
+        MlflowException, match="mlflow.pyfunc.load_model is not supported for Feature Store models"
+    ):
+        mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
