@@ -1099,3 +1099,31 @@ text-transform: capitalize;
 .plain-section ul.section-selector li.selected:hover {
     background-color: #333;
 }
+
+
+/**
+ * Display boxes
+ */
+
+.boxes-wrapper {
+    display: flex; /* This makes children flex items */
+    justify-content: space-between; /* Creates space between the boxes */
+}
+
+.left-box, .right-box {
+    flex: 1; /* This ensures that both boxes try to take up equal width */
+    padding: 10px;
+    border: 2px solid #ccc;
+    border-radius: 15px;
+    background-color: #f9f9f9;
+    margin: 0 5px; /* Gives some space between the boxes */
+    box-sizing: border-box; /* Ensures padding and border are included in the element's total width and height */
+    text-align: left;
+}
+
+.right-box {
+    margin-right: 0; /* Resetting any margin for the right-most box */
+}
+
+
+
