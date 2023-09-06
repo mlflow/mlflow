@@ -4,6 +4,7 @@ import re
 
 # TODO: improve this name
 def score_model_on_payload(model_uri, payload):
+    """Call the model identified by the given uri with the given payload."""
     # Use re.split to split by the first occurrence of ":/"
     parts = re.split(":/+", model_uri, maxsplit=1)
 
@@ -14,7 +15,7 @@ def score_model_on_payload(model_uri, payload):
     prefix, _ = parts
 
     if prefix == "openai":
-        return call_openai_api(model_uri, payload)
+        return _call_openai_api(model_uri, payload)
     elif prefix == "gateway":
         # TODO: replace with call_gateway_api
         pass
@@ -25,7 +26,7 @@ def score_model_on_payload(model_uri, payload):
         raise ValueError(f"Unknown model uri prefix '{prefix}'")
 
 
-def call_openai_api(openai_uri, payload):
+def _call_openai_api(openai_uri, payload):
     """Wrapper around the OpenAI API to make it compatible with the MLflow Gateway API."""
     from mlflow.gateway.config import Model, OpenAIConfig, RouteConfig
     from mlflow.gateway.providers.openai import OpenAIProvider
