@@ -1,6 +1,8 @@
 import os
-import mlflow
+
 import pytest
+
+import mlflow
 
 
 @pytest.fixture
