@@ -2513,11 +2513,21 @@ Example: Log a LangChain LLMChain
 .. literalinclude:: ../../examples/langchain/simple_chain.py
     :language: python
 
+.. code-block:: text
+    :caption: Output
+
+    [{'text': '\n\nSocktastic Rainbow Wear'}]
+
 Example: Log a LangChain Agent
 
 .. literalinclude:: ../../examples/langchain/simple_agent.py
     :language: python
 
+.. code-block:: text
+    :caption: Output
+    
+    [{'output': '1.1044000282035853'}]
+    
 
 Logging RetrievalQA Chains
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2538,6 +2548,11 @@ Example: Log a LangChain RetrievalQA Chain
 .. literalinclude:: ../../examples/langchain/retrieval_qa_chain.py
     :language: python
 
+.. code-block:: text
+    :caption: Output
+
+    [{'result': " The president said that Ketanji Brown Jackson is one of the nation's top legal minds, a circuit court of appeals judge, and will continue Justice Breyer's legacy of excellence."}]
+
 .. _log-retriever-chain:
 
 Logging a retriever and evaluate it individually
@@ -2556,6 +2571,13 @@ Example: Log a LangChain Retriever
 
 .. literalinclude:: ../../examples/langchain/retriever_chain.py
     :language: python
+
+.. code-block:: text
+    :caption: Output
+
+    NOTE: returned as a string because the langchain Document object is not serializable
+
+    ['["Tonight. I call on the Senate to: Pass the Freedom to Vote Act. Pass the John Lewis Voting Rights Act. And while you\\u2019re at it, pass the Disclose Act so Americans can know who is funding our elections. \\n\\nTonight, I\\u2019d like to honor someone who has dedicated his life to serve this country: Justice Stephen Breyer\\u2014an Army veteran, Constitutional scholar, and retiring Justice of the United States Supreme Court. Justice Breyer, thank you for your service. \\n\\nOne of the most serious constitutional responsibilities a President has is nominating someone to serve on the United States Supreme Court. \\n\\nAnd I did that 4 days ago, when I nominated Circuit Court of Appeals Judge Ketanji Brown Jackson. One of our nation\\u2019s top legal minds, who will continue Justice Breyer\\u2019s legacy of excellence."]']
 
 
 John Snow Labs (``johnsnowlabs``) (Experimental)
