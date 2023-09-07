@@ -6,14 +6,14 @@
  */
 
 import React from 'react';
-import { LegacySkeleton } from '@databricks/design-system';
+import { Skeleton } from '@databricks/design-system';
 import { SectionErrorBoundary } from '../../common/components/error-boundaries/SectionErrorBoundary';
 
 const Plot = React.lazy(() => import('react-plotly.js'));
 
 export const LazyPlot = (props: any) => (
   <SectionErrorBoundary>
-    <React.Suspense fallback={<LegacySkeleton active />}>
+    <React.Suspense fallback={<Skeleton active />}>
       <Plot {...props} />
     </React.Suspense>
   </SectionErrorBoundary>

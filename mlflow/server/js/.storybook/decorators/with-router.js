@@ -1,4 +1,4 @@
-import { StaticRouter } from 'react-router-dom-v5-compat';
+import { StaticRouter } from 'react-router';
 
 /**
  * Adds router capabilities to stories by wrapping the story

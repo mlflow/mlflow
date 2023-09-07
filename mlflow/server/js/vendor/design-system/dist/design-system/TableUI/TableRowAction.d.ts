@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import React from 'react';
 import type { HTMLDataAttributes } from '../types';
-export interface TableRowActionProps extends HTMLDataAttributes, React.HTMLAttributes<HTMLDivElement> {
+export interface TableRowActionProps extends HTMLDataAttributes {
     /** Style property */
     style?: CSSProperties;
     /** Child nodes for the table row. Should contain a single small-sized button. */

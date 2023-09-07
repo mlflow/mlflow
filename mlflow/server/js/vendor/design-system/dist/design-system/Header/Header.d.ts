@@ -1,4 +1,4 @@
-import React from 'react';
+/// <reference types="react" />
 import type { DangerousGeneralProps, HTMLDataAttributes } from '../types';
 export interface HeaderProps extends HTMLDataAttributes, DangerousGeneralProps {
     /** The title for this page */
@@ -8,7 +8,7 @@ export interface HeaderProps extends HTMLDataAttributes, DangerousGeneralProps {
     /** A single `<Breadcrumb />` component */
     breadcrumbs?: React.ReactNode;
     /** An array of Dubois `<Button />` components */
-    buttons?: React.ReactNode | React.ReactNode[];
+    buttons?: React.ReactNode[];
 }
 export declare const Header: React.FC<HeaderProps>;
 //# sourceMappingURL=Header.d.ts.map

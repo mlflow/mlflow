@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  Button,
-  CloseIcon,
-  CopyIcon,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { CopyIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { CopyButton } from '../../shared/building_blocks/CopyButton';
 
 const PREVIEW_SIDEBAR_WIDTH = 300;
@@ -19,13 +13,11 @@ export const PreviewSidebar = ({
   copyText,
   headerText,
   empty,
-  onClose,
 }: {
   content?: React.ReactNode;
   copyText?: string;
   headerText?: string;
   empty?: React.ReactNode;
-  onClose?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   return (
@@ -38,30 +30,22 @@ export const PreviewSidebar = ({
         overflow: 'auto',
         height: '100%',
       }}
-      data-testid='preview-sidebar-content'
     >
       {content ? (
         <>
           <div
             css={{
               display: 'grid',
-              gridTemplateColumns: '1fr auto auto',
+              gridTemplateColumns: '1fr auto',
               rowGap: theme.spacing.sm,
               alignItems: 'center',
             }}
           >
             {headerText && <Typography.Title level={4}>{headerText}</Typography.Title>}
             {copyText && <CopyButton copyText={copyText} showLabel={false} icon={<CopyIcon />} />}
-            {onClose && <Button type='primary' icon={<CloseIcon />} onClick={onClose} />}
           </div>
-          <div
-            css={{
-              // Preserve original line breaks
-              whiteSpace: 'pre-wrap',
-            }}
-          >
-            {content}
-          </div>
+
+          {content}
         </>
       ) : (
         <div css={{ marginTop: theme.spacing.md }}>{empty}</div>

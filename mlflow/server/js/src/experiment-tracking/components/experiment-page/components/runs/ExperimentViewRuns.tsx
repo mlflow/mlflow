@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { connect } from 'react-redux';
-import { LegacySkeleton, useLegacyNotification } from '@databricks/design-system';
+import { Skeleton, useLegacyNotification } from '@databricks/design-system';
 import {
-  DatasetSummary,
   ExperimentEntity,
   ExperimentStoreEntities,
   LIFECYCLE_FILTER,
@@ -38,16 +37,12 @@ import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalS
 import { useAutoExpandRunRows } from '../../hooks/useAutoExpandRunRows';
 import { EvaluationArtifactCompareView } from '../../../evaluation-artifacts-compare/EvaluationArtifactCompareView';
 import { shouldEnableArtifactBasedEvaluation } from '../../../../../common/utils/FeatureUtils';
-import { CreateNewRunContextProvider } from '../../hooks/useCreateNewRun';
-import { useChartViewByDefault } from '../../hooks/useChartViewByDefault';
 
 export interface ExperimentViewRunsOwnProps {
   isLoading: boolean;
   experiments: ExperimentEntity[];
   modelVersionFilter?: MODEL_VERSION_FILTER;
   lifecycleFilter?: LIFECYCLE_FILTER;
-  datasetsFilter?: DatasetSummary[];
-  onMaximizedChange?: (newIsMaximized: boolean) => void;
 }
 
 export interface ExperimentViewRunsProps extends ExperimentViewRunsOwnProps {
@@ -65,7 +60,7 @@ const createCurrentTime = () => {
 };
 
 export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps) => {
-  const { experiments, runsData, onMaximizedChange } = props;
+  const { experiments, runsData } = props;
 
   // Persistable sort/filter model state is taken from the context
   const {
@@ -91,7 +86,7 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
 
   useEffect(() => {
     expandRowsStore.setItem('expandRows', expandRows);
-  }, [expandRows, expandRowsStore]);
+  }, [expandRows]);
 
   const {
     paramKeyList,
@@ -120,20 +115,11 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     [datasetsList, metricsList, paramsList, runInfos, tagsList],
   );
 
-  const {
-    orderByKey,
-    searchFilter,
-    runsExpanded,
-    runsPinned,
-    runsHidden,
-    compareRunsMode,
-    datasetsFilter,
-  } = searchFacetsState;
+  const { orderByKey, searchFilter, runsExpanded, runsPinned, compareRunsMode, runsHidden } =
+    searchFacetsState;
 
   const isComparingRuns = compareRunsMode !== undefined;
 
-  // Default to chart view if metrics are available
-  useChartViewByDefault(isLoadingRuns, metricKeyList, updateSearchFacets);
   // Automatically expand parent runs if necessary
   useAutoExpandRunRows(runData, visibleRuns, isPristine, updateSearchFacets, runsExpanded);
 
@@ -217,24 +203,19 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     }
   }, [moreRunsAvailable, isLoadingRuns, loadMoreRuns, runInfos, showFetchedRunsNotifications]);
 
-  useEffect(() => {
-    onMaximizedChange?.(viewState.viewMaximized);
-  }, [viewState.viewMaximized, onMaximizedChange]);
-
   const datasetSelected = useCallback((dataset: RunDatasetWithTags, run: RunRowType) => {
     setSelectedDatasetWithRun({ datasetWithTags: dataset, runData: run });
     setIsDrawerOpen(true);
   }, []);
 
   return (
-    <CreateNewRunContextProvider visibleRuns={visibleRuns}>
+    <>
       <ExperimentViewRunsControls
         viewState={viewState}
         updateViewState={updateViewState}
         runsData={runsData}
         searchFacetsState={searchFacetsState}
         updateSearchFacets={updateSearchFacets}
-        experimentId={experiment_id}
         requestError={requestError}
         expandRows={expandRows}
         updateExpandRows={updateExpandRows}
@@ -268,7 +249,7 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
         )}
         {compareRunsMode === 'ARTIFACT' && shouldEnableArtifactBasedEvaluation() && (
           <EvaluationArtifactCompareView
-            comparedRuns={visibleRuns}
+            visibleRuns={visibleRuns.filter(({ hidden }) => !hidden)}
             viewState={viewState}
             updateViewState={updateViewState}
             updateSearchFacets={updateSearchFacets}
@@ -285,7 +266,7 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
           />
         )}
       </div>
-    </CreateNewRunContextProvider>
+    </>
   );
 });
 
@@ -359,14 +340,13 @@ export const ExperimentViewRunsConnect: React.ComponentType<ExperimentViewRunsOw
 export const ExperimentViewRunsInjectFilters = (props: ExperimentViewRunsOwnProps) => {
   const { searchFacetsState } = useFetchExperimentRuns();
   if (props.isLoading) {
-    return <LegacySkeleton active />;
+    return <Skeleton active />;
   }
   return (
     <ExperimentViewRunsConnect
       {...props}
       modelVersionFilter={searchFacetsState.modelVersionFilter as MODEL_VERSION_FILTER}
       lifecycleFilter={searchFacetsState.lifecycleFilter as LIFECYCLE_FILTER}
-      datasetsFilter={searchFacetsState.datasetsFilter as DatasetSummary[]}
     />
   );
 };
@@ -384,4 +364,4 @@ export const ExperimentViewRunsInjectContext = (props: ExperimentViewRunsOwnProp
 /**
  * Export context injection layer as a main entry point
  */
-export const ExperimentViewRuns = React.memo(ExperimentViewRunsInjectContext);
+export const ExperimentViewRuns = ExperimentViewRunsInjectContext;

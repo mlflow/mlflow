@@ -31,8 +31,7 @@ export const shouldRefetchRuns = (
   !isEqual(currentSearchFacetsState.orderByAsc, newSearchFacetsState.orderByAsc) ||
   !isEqual(currentSearchFacetsState.orderByKey, newSearchFacetsState.orderByKey) ||
   !isEqual(currentSearchFacetsState.lifecycleFilter, newSearchFacetsState.lifecycleFilter) ||
-  !isEqual(currentSearchFacetsState.startTime, newSearchFacetsState.startTime) ||
-  !isEqual(currentSearchFacetsState.datasetsFilter, newSearchFacetsState.datasetsFilter);
+  !isEqual(currentSearchFacetsState.startTime, newSearchFacetsState.startTime);
 
 /**
  * Creates "order by" SQL expression
@@ -61,33 +60,19 @@ const createStartTimeExpression = (
 };
 
 /**
- * Creates SQL expression for filtering by selected datasets
- */
-const createDatasetsFilterExpression = ({ datasetsFilter }: SearchExperimentRunsFacetsState) => {
-  if (datasetsFilter.length === 0) {
-    return null;
-  }
-  const datasetNames = datasetsFilter.map((dataset) => `'${dataset.name}'`).join(',');
-  const datasetDigests = datasetsFilter.map((dataset) => `'${dataset.digest}'`).join(',');
-
-  return `dataset.name IN (${datasetNames}) AND dataset.digest IN (${datasetDigests})`;
-};
-
-/**
  * Combines search filter and start time SQL expressions
  */
 const createFilterExpression = (
   { searchFilter }: SearchExperimentRunsFacetsState,
   startTimeExpression: string | null,
-  datasetsFilterExpression: string | null,
 ) => {
-  const activeFilters = [];
-  if (searchFilter) activeFilters.push(searchFilter);
-  if (startTimeExpression) activeFilters.push(startTimeExpression);
-  if (datasetsFilterExpression) activeFilters.push(datasetsFilterExpression);
-
-  if (activeFilters.length === 0) return undefined;
-  return activeFilters.join(' and ');
+  if (searchFilter && startTimeExpression) {
+    return `${searchFilter} and ${startTimeExpression}`;
+  } else if (!searchFilter && startTimeExpression) {
+    return startTimeExpression;
+  } else {
+    return searchFilter || undefined;
+  }
 };
 
 /**
@@ -125,12 +110,7 @@ export const createSearchRunsParams = (
 
   const orderBy = createOrderByExpression(searchFacetsState);
   const startTimeExpression = createStartTimeExpression(searchFacetsState, referenceTime);
-  const datasetsFilterExpression = createDatasetsFilterExpression(searchFacetsState);
-  const filter = createFilterExpression(
-    searchFacetsState,
-    startTimeExpression,
-    datasetsFilterExpression,
-  );
+  const filter = createFilterExpression(searchFacetsState, startTimeExpression);
   const shouldFetchParents = shouldNestChildrenAndFetchParents(searchFacetsState);
 
   return {
@@ -148,6 +128,7 @@ export const createSearchRunsParams = (
     runsPinned,
   };
 };
+
 /**
  * Function checks if given runs set contain info about log model history and if true,
  * fetches model versions for them

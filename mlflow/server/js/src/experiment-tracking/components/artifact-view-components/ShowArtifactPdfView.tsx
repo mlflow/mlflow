@@ -6,13 +6,11 @@
  */
 
 import React, { Component } from 'react';
+import { getSrc } from './ShowArtifactPage';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'reac... Remove this comment to see the full error message
 import { Document, Page, pdfjs } from 'react-pdf';
 import { Pagination, Spinner } from '@databricks/design-system';
-import {
-  getArtifactBytesContent,
-  getArtifactLocationUrl,
-} from '../../../common/utils/ArtifactUtils';
+import { getArtifactBytesContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactPdfView.css';
 import Utils from '../../../common/utils/Utils';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
@@ -46,7 +44,7 @@ class ShowArtifactPdfView extends Component<Props, State> {
 
   /** Fetches artifacts and updates component state with the result */
   fetchPdf() {
-    const artifactLocation = getArtifactLocationUrl(this.props.path, this.props.runUuid);
+    const artifactLocation = getSrc(this.props.path, this.props.runUuid);
     this.props
       .getArtifact(artifactLocation)
       .then((artifactPdfData: any) => {

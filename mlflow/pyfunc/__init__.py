@@ -235,7 +235,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.flavor_backend_registry import get_flavor_backend
-from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE, MLMODEL_FILE_NAME
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_type_hints
 from mlflow.models.utils import (
     PyFuncInput,
@@ -245,7 +245,6 @@ from mlflow.models.utils import (
     _save_example,
 )
 from mlflow.protos.databricks_pb2 import (
-    BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
@@ -634,17 +633,7 @@ def load_model(
 
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
-    try:
-        model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
-    except ModuleNotFoundError as e:
-        if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE:
-            raise MlflowException(
-                "mlflow.pyfunc.load_model is not supported for Feature Store models. "
-                "spark_udf() and predict() will not work as expected. Use "
-                "score_batch for offline predictions.",
-                BAD_REQUEST,
-            ) from None
-        raise e
+    model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     predict_fn = conf.get("predict_fn", "predict")
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl, predict_fn=predict_fn)
 

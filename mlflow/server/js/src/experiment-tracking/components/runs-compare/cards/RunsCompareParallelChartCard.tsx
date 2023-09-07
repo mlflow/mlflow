@@ -2,9 +2,7 @@ import { Button, Typography } from '@databricks/design-system';
 import { useMemo } from 'react';
 import { ReactComponent as ParallelChartSvg } from '../../../../common/static/parallel-chart-placeholder.svg';
 import type { CompareChartRunData } from '../charts/CompareRunsCharts.common';
-import LazyParallelCoordinatesPlot, {
-  processParallelCoordinateData,
-} from '../charts/LazyParallelCoordinatesPlot';
+import LazyParallelCoordinatesPlot, { processData } from '../charts/LazyParallelCoordinatesPlot';
 import { useCompareRunsTooltip } from '../hooks/useCompareRunsTooltip';
 import type { RunsCompareParallelCardConfig } from '../runs-compare.types';
 import { RunsCompareChartCardWrapper } from './ChartCard.common';
@@ -54,7 +52,7 @@ export const RunsCompareParallelChartCard = ({
 
     // Prepare the data in the parcoord-es format
     const data = configured
-      ? processParallelCoordinateData(chartRunData, config.selectedParams, config.selectedMetrics)
+      ? processData(chartRunData, config.selectedParams, config.selectedMetrics)
       : [];
 
     return [configured, data];
@@ -68,9 +66,8 @@ export const RunsCompareParallelChartCard = ({
       onEdit={onEdit}
       onDelete={onDelete}
       title={'Parallel Coordinates'}
-      subtitle={isConfigured ? <>Comparing {parallelCoordsData.length} runs</> : null}
+      subtitle={isConfigured ? <>Comparing {chartRunData.length} runs</> : null}
       fullWidth
-      tooltip='The Parallel Coordinates Chart now only shows runs with columns that are either numbers or strings. If a column has string entries, the runs corresponding to the 30 most recent unique values will be shown.'
     >
       {!isConfigured ? (
         <EmptyParallelCoordsPlaceholder onEdit={onEdit} />

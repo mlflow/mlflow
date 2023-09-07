@@ -25,11 +25,6 @@ export class SearchExperimentRunsViewState {
   previewPaneVisible = false;
 
   /**
-   * Determines if the experiment table is maximized
-   */
-  viewMaximized = false;
-
-  /**
    * Persists controls state in the evaluation artifact compare mode
    */
   artifactViewState: {

@@ -1,9 +1,4 @@
-import type {
-  ModelVersionInfoEntity,
-  RunInfoEntity,
-  RunDatasetWithTags,
-  KeyValueEntity,
-} from '../../../types';
+import type { ModelInfoEntity, RunInfoEntity, RunDatasetWithTags } from '../../../types';
 
 /**
  * Represents a single ag-grid compatible row used in Experiment View runs table.
@@ -21,7 +16,6 @@ export interface RunRowType {
   runName: string;
   color?: string;
   tags: Record<string, { key: string; value: string }>;
-  params: KeyValueEntity[];
   runDateAndNestInfo: RunRowDateAndNestInfo;
   models: RunRowModelsInfo;
   version: RunRowVersionInfo;
@@ -43,7 +37,7 @@ export interface RunRowVersionInfo {
  */
 export interface RunRowModelsInfo {
   // We use different data model for model info originating from the store...
-  registeredModels: ModelVersionInfoEntity[];
+  registeredModels: ModelInfoEntity[];
   // ...and a different one for the data originating from tags
   loggedModels: {
     artifactPath: string;

@@ -26,7 +26,6 @@ import { hydrateImmutableRecord } from './fixture.utils';
  */
 export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } = {
   entities: {
-    modelByName: {},
     runUuidsMatchingFilter: [],
     runDatasetsByUuid: {
       experiment123456789_run1: [
@@ -426,21 +425,5 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
       ],
     },
     modelVersionsByModel: {},
-    datasetsByExperimentId: {
-      123456789: [
-        {
-          experiment_id: '123456789',
-          name: 'dataset_train',
-          digest: 'abc',
-          context: 'training',
-        },
-        {
-          experiment_id: '123456789',
-          name: 'dataset_eval',
-          digest: '123',
-          context: 'eval',
-        },
-      ],
-    },
   },
 };

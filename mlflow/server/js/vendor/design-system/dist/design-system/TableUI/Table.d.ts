@@ -22,6 +22,8 @@ export interface TableProps extends HTMLDataAttributes {
     children?: React.ReactNode | React.ReactNode[];
     /** Is this `Table` scrollable? Only use if `Table` is placed within a container of determinate height. */
     scrollable?: boolean;
+    /** Removes drop shadow for use cases without header */
+    headerHeight?: number;
     /** Adds grid styling to the table (e.g. border around cells and no hover styles) */
     grid?: boolean;
 }

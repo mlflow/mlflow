@@ -16,8 +16,6 @@ import { getUUID } from '../../common/utils/ActionUtils';
 import { PageContainer } from '../../common/components/PageContainer';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
-import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
-import ErrorUtils from '../../common/utils/ErrorUtils';
 
 type MetricPageImplProps = {
   runUuids: string[];
@@ -101,9 +99,4 @@ const mapStateToProps = (state: any, ownProps: WithRouterNextProps<{ metricKey: 
   };
 };
 
-const MetricPageWithRouter = withRouterNext(connect(mapStateToProps)(MetricPageImpl));
-
-export const MetricPage = withErrorBoundary(
-  ErrorUtils.mlflowServices.EXPERIMENTS,
-  MetricPageWithRouter,
-);
+export const MetricPage = withRouterNext(connect(mapStateToProps)(MetricPageImpl));

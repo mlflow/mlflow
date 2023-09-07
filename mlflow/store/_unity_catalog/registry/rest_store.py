@@ -92,6 +92,7 @@ _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
     UcModelRegistryService, _REST_API_PATH_PREFIX
 )
+_DATABRICKS_FS_LOADER_MODULE = "databricks.feature_store.mlflow_model"
 
 _logger = logging.getLogger(__name__)
 
@@ -147,7 +148,7 @@ def get_feature_dependencies(model_dir):
     model_info = model.get_model_info()
     if (
         model_info.flavors.get("python_function", {}).get("loader_module")
-        == mlflow.models.model._DATABRICKS_FS_LOADER_MODULE
+        == _DATABRICKS_FS_LOADER_MODULE
     ):
         raise MlflowException(
             "This model was packaged by Databricks Feature Store and can only be registered on a "

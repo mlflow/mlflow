@@ -1,5 +1,2 @@
-export * from './GenericSkeleton';
-export * from './ParagraphSkeleton';
-export * from './TitleSkeleton';
-export * from './TableSkeleton';
+export * from './Skeleton';
 //# sourceMappingURL=index.d.ts.map

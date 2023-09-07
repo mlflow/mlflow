@@ -7,9 +7,8 @@
 
 import React from 'react';
 import { Collapse } from 'antd';
-import { useIntl } from 'react-intl';
 import { SectionErrorBoundary } from './error-boundaries/SectionErrorBoundary';
-import { ChevronRightIcon, importantify, useDesignSystemTheme } from '@databricks/design-system';
+import { ChevronRightIcon } from '@databricks/design-system';
 
 type OwnProps = {
   title: string | any;
@@ -29,9 +28,6 @@ export function CollapsibleSection(props: Props) {
   // affects rendering, i.e. passing `activeKey={undefined}` is different from not passing activeKey
   const activeKeyProp = forceOpen && { activeKey: ['1'] };
   const defaultActiveKey = defaultCollapsed ? null : ['1'];
-  const { formatMessage } = useIntl();
-  const { theme } = useDesignSystemTheme();
-
   return (
     <Collapse
       className='collapsible-section'
@@ -43,42 +39,11 @@ export function CollapsibleSection(props: Props) {
       defaultActiveKey={defaultActiveKey}
       expandIcon={({ isActive }) => (
         // Font-size !important because antd's css clobbers any sort of svg size here.
-        <ChevronRightIcon
-          aria-label={
-            isActive
-              ? formatMessage(
-                  {
-                    defaultMessage: 'collapse {title}',
-                    description:
-                      'Common component > collapsible section > alternative label when expand',
-                  },
-                  { title },
-                )
-              : formatMessage(
-                  {
-                    defaultMessage: 'expand {title}',
-                    description:
-                      'Common component > collapsible section > alternative label when collapsed',
-                  },
-                  { title },
-                )
-          }
-          css={{ fontSize: '20px!important' }}
-          rotate={isActive ? 90 : 0}
-        />
+        <ChevronRightIcon css={{ fontSize: '20px!important' }} rotate={isActive ? 90 : 0} />
       )}
       onChange={onChange}
     >
-      <Collapse.Panel
-        className='collapsible-panel'
-        header={title}
-        key='1'
-        css={{
-          '&, .ant-collapse-header, .ant-collapse-content': importantify({
-            color: theme.colors.textPrimary,
-          }),
-        }}
-      >
+      <Collapse.Panel className='collapsible-panel' header={title} key='1'>
         <SectionErrorBoundary showServerError={showServerError}>
           {props.children}
         </SectionErrorBoundary>

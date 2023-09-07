@@ -39,9 +39,7 @@ describe('ShowArtifactImageView', () => {
   test('should fetch image as an XHR', (done) => {
     const getArtifact = jest.fn().mockImplementation(() => Promise.resolve(new ArrayBuffer(8)));
     wrapper = mount(<ShowArtifactImageView {...minimalProps} getArtifact={getArtifact} />);
-    expect(getArtifact).toBeCalledWith(
-      expect.stringMatching(/get-artifact\?path=fakePath&run_uuid=fakeUuid/),
-    );
+    expect(getArtifact).toBeCalledWith('get-artifact?path=fakePath&run_uuid=fakeUuid');
 
     setImmediate(() => {
       wrapper.update();

@@ -1,8 +1,9 @@
-import { getArtifactChunkedText, getArtifactLocationUrl } from '../../common/utils/ArtifactUtils';
+import { getArtifactChunkedText } from '../../common/utils/ArtifactUtils';
 import { EvaluationArtifactTable, EvaluationArtifactTableEntry } from '../types';
+import { getSrc as getArtifactSrcPath } from '../components/artifact-view-components/ShowArtifactPage';
 
 // Reflects structure logged by mlflow.log_table()
-export interface RawEvaluationArtifact {
+interface RawEvaluationArtifact {
   columns: string[];
   data: string[][];
 }
@@ -14,7 +15,8 @@ export const fetchEvaluationTableArtifact = async (
   runUuid: string,
   artifactPath: string,
 ): Promise<EvaluationArtifactTable> => {
-  const fullArtifactSrcPath = getArtifactLocationUrl(artifactPath, runUuid);
+  // This will be improved after moving `/get-artifact` to the /ajax-api/ service prefix
+  const fullArtifactSrcPath = getArtifactSrcPath(artifactPath, runUuid);
 
   return getArtifactChunkedText(fullArtifactSrcPath)
     .then((artifactContent) => {
@@ -27,7 +29,7 @@ export const fetchEvaluationTableArtifact = async (
     .then((data) => parseEvaluationTableArtifact(artifactPath, data));
 };
 
-export const parseEvaluationTableArtifact = (
+const parseEvaluationTableArtifact = (
   path: string,
   rawEvaluationArtifact: RawEvaluationArtifact,
 ): EvaluationArtifactTable => {
@@ -58,6 +60,5 @@ export const parseEvaluationTableArtifact = (
     columns,
     path,
     entries,
-    rawArtifactFile: rawEvaluationArtifact,
   };
 };

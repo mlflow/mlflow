@@ -14,18 +14,16 @@ import { getUUID } from '../../common/utils/ActionUtils';
 import { getModelPageRoute } from '../routes';
 import { debounce } from 'lodash';
 import { modelNameValidator } from '../../common/forms/validations';
-import { IntlShape, injectIntl } from 'react-intl';
+import { injectIntl } from 'react-intl';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
-import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
-import ErrorUtils from '../../common/utils/ErrorUtils';
 
 type Props = WithRouterNextProps & {
   createRegisteredModelApi: (...args: any[]) => any;
   modalVisible: boolean;
   hideModal: (...args: any[]) => any;
   navigateBackOnCancel?: boolean;
-  intl: IntlShape;
+  intl?: any;
 };
 
 export class CreateModelModalImpl extends React.Component<Props> {
@@ -84,11 +82,7 @@ const mapDispatchToProps = {
   createRegisteredModelApi,
 };
 
-const CreateModelModalWithRouter = withRouterNext(
-  connect(undefined, mapDispatchToProps)(injectIntl<'intl', Props>(CreateModelModalImpl)),
-);
-
-export const CreateModelModal = withErrorBoundary(
-  ErrorUtils.mlflowServices.MODEL_REGISTRY,
-  CreateModelModalWithRouter,
+export const CreateModelModal: TODOBrokenReactRouterType = withRouterNext(
+  // @ts-expect-error TS(2345): Argument of type 'ConnectedComponent<FC<WithIntlPr... Remove this comment to see the full error message
+  connect(undefined, mapDispatchToProps)(injectIntl(CreateModelModalImpl)),
 );

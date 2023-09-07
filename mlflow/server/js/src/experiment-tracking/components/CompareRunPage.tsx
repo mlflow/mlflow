@@ -15,8 +15,6 @@ import { getUUID } from '../../common/utils/ActionUtils';
 import { PageContainer } from '../../common/components/PageContainer';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
-import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
-import ErrorUtils from '../../common/utils/ErrorUtils';
 
 type CompareRunPageProps = {
   experimentIds: string[];
@@ -24,7 +22,7 @@ type CompareRunPageProps = {
   dispatch: (...args: any[]) => any;
 };
 
-class CompareRunPageImpl extends Component<CompareRunPageProps> {
+class CompareRunPage extends Component<CompareRunPageProps> {
   requestIds: any;
 
   constructor(props: CompareRunPageProps) {
@@ -73,6 +71,4 @@ const mapStateToProps = (state: any, ownProps: WithRouterNextProps) => {
   return { experimentIds, runUuids };
 };
 
-const CompareRunPage = withRouterNext(connect(mapStateToProps)(CompareRunPageImpl));
-
-export default withErrorBoundary(ErrorUtils.mlflowServices.RUN_TRACKING, CompareRunPage);
+export default withRouterNext(connect(mapStateToProps)(CompareRunPage));
