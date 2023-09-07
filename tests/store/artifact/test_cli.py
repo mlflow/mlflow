@@ -1,8 +1,8 @@
 import json
 import pathlib
+from unittest import mock
 
 import pytest
-from unittest import mock
 from click.testing import CliRunner
 
 import mlflow
@@ -90,7 +90,7 @@ def _run_download_artifact_command(args) -> pathlib.Path:
     runner = CliRunner()
     resp = runner.invoke(download_artifacts, args=args, catch_exceptions=False)
     assert resp.exit_code == 0
-    download_output_path = resp.stdout.strip()
+    download_output_path = resp.stdout.rstrip().split("\n")[-1]
     return next(pathlib.Path(download_output_path).iterdir())
 
 

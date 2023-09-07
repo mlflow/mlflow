@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import cached_property
-from typing import Optional, Any, Dict, Union, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
@@ -12,7 +12,7 @@ from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFu
 from mlflow.data.schema import TensorDatasetSchema
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationDataset
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.annotations import experimental

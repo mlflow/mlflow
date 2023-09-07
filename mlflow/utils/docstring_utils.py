@@ -1,9 +1,10 @@
-from functools import wraps
-from packaging.version import Version
-from pkg_resources import get_distribution
 import re
 import textwrap
 import warnings
+from functools import wraps
+
+from packaging.version import Version
+from pkg_resources import get_distribution
 
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.utils.autologging_utils.versioning import (

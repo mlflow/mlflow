@@ -1,21 +1,22 @@
-import yaml
-import json
 import importlib
+import json
 from unittest import mock
 
-from pyspark.sql import SparkSession
 import openai
 import openai.error
-import pytest
 import pandas as pd
+import pytest
+import yaml
+from pyspark.sql import SparkSession
 
 import mlflow
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.openai.utils import (
-    _mock_request,
     _mock_chat_completion_response,
     _mock_models_retrieve_response,
+    _mock_request,
 )
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+
 from tests.helper_functions import pyfunc_serve_and_score_model
 
 

@@ -1,18 +1,16 @@
 import base64
 import datetime
-from typing import Any, Dict, Optional
-
-import os
 import json
-from json import JSONEncoder
-
-from google.protobuf.json_format import MessageToJson, ParseDict
-from google.protobuf.descriptor import FieldDescriptor
-
-from mlflow.exceptions import MlflowException
+import os
 from collections import defaultdict
 from functools import partial
+from json import JSONEncoder
+from typing import Any, Dict, Optional
 
+from google.protobuf.descriptor import FieldDescriptor
+from google.protobuf.json_format import MessageToJson, ParseDict
+
+from mlflow.exceptions import MlflowException
 
 _PROTOBUF_INT64_FIELDS = [
     FieldDescriptor.TYPE_INT64,
@@ -207,8 +205,9 @@ class MlflowFailedTypeConversion(MlflowException):
 
 
 def cast_df_types_according_to_schema(pdf, schema):
-    from mlflow.types.schema import DataType
     import numpy as np
+
+    from mlflow.types.schema import DataType
 
     actual_cols = set(pdf.columns)
     if schema.has_input_names():
@@ -376,9 +375,7 @@ def parse_tf_serving_input(inp_dict, schema=None):
                     raise MlflowException(
                         "Failed to parse input data. This model contains a tensor-based model"
                         " signature with input names, which suggests a dictionary input mapping"
-                        " input name to tensor, but an input of type {} was found.".format(
-                            type(input_data)
-                        )
+                        f" input name to tensor, but an input of type {type(input_data)} was found."
                     )
                 type_dict = dict(zip(schema.input_names(), schema.numpy_types()))
                 for col_name in input_data.keys():
@@ -390,7 +387,7 @@ def parse_tf_serving_input(inp_dict, schema=None):
                     raise MlflowException(
                         "Failed to parse input data. This model contains an un-named tensor-based"
                         " model signature which expects a single n-dimensional array as input,"
-                        " however, an input of type {} was found.".format(type(input_data))
+                        f" however, an input of type {type(input_data)} was found."
                     )
                 input_data = np.array(input_data, dtype=schema.numpy_types()[0])
         else:
@@ -455,8 +452,8 @@ def parse_tf_serving_input(inp_dict, schema=None):
 # Reference: https://stackoverflow.com/a/12126976
 class _CustomJsonEncoder(json.JSONEncoder):
     def default(self, o):
-        import pandas as pd
         import numpy as np
+        import pandas as pd
 
         if isinstance(o, (datetime.datetime, datetime.date, datetime.time, pd.Timestamp)):
             return o.isoformat()

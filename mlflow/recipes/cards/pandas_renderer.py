@@ -2,15 +2,16 @@
 Renders the statistics of logged data in a HTML format.
 """
 import base64
+import sys
+from typing import Iterable, Tuple, Union
+
 import numpy as np
 import pandas as pd
-import sys
 from packaging.version import Version
 
-from typing import Union, Iterable, Tuple
+from mlflow.exceptions import MlflowException
 from mlflow.protos import facet_feature_statistics_pb2
 from mlflow.recipes.cards import histogram_generator
-from mlflow.exceptions import MlflowException
 
 # Number of categorical strings values to be rendered as part of the histogram
 HISTOGRAM_CATEGORICAL_LEVELS_COUNT = 100

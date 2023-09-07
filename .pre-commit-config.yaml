@@ -7,11 +7,22 @@ repos:
         args: ["--no-config", "--print-width", "100"]
   - repo: local
     hooks:
+      - id: ruff
+        name: ruff
+        entry: python dev/ruff.py
+        language: system
+        types_or: [
+            python,
+            # TODO: Uncomment this once https://github.com/astral-sh/ruff/issues/6834 is fixed
+            # jupyter,
+          ]
+        stages: [commit]
+
       - id: black
         name: black
         entry: black
         language: system
-        types: [python]
+        types_or: [python, jupyter]
         stages: [commit]
         log_file: .black.log
 
@@ -28,13 +39,6 @@ repos:
         language: system
         types: [python]
         args: ["--rcfile=pylintrc"]
-        stages: [commit]
-
-      - id: ruff
-        name: ruff
-        entry: ruff
-        language: system
-        types: [python]
         stages: [commit]
 
       - id: disallow-rule-ids

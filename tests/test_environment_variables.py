@@ -1,6 +1,8 @@
-from mlflow.environment_variables import _BooleanEnvironmentVariable, _EnvironmentVariable
 import os
+
 import pytest
+
+from mlflow.environment_variables import _BooleanEnvironmentVariable, _EnvironmentVariable
 
 
 @pytest.mark.parametrize("value", [0, 1, "0", "1", "TRUE", "FALSE"])
@@ -67,7 +69,7 @@ def test_environment_variable_functionality(
     env_var = _EnvironmentVariable(var_name, var_type, default_value)
 
     # Test if variable is defined
-    assert env_var.is_defined == (var_value is not None)
+    assert env_var.defined == (var_value is not None)
 
     # Test getting raw value
     assert env_var.get_raw() == expected_raw

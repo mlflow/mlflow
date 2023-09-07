@@ -1,11 +1,10 @@
-import xgboost
 import shap
-from sklearn.model_selection import train_test_split
+import xgboost
 from sklearn.dummy import DummyClassifier
+from sklearn.model_selection import train_test_split
+
 import mlflow
-from mlflow.models import MetricThreshold, make_metric
-from mlflow.models import infer_signature
-from mlflow.models.evaluation.validation import ModelValidationFailedException
+from mlflow.models import MetricThreshold, infer_signature, make_metric
 
 # load UCI Adult Data Set; segment it into training and test sets
 X, y = shap.datasets.adult()

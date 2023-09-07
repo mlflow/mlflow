@@ -1,25 +1,26 @@
 import logging
 import os
-from os.path import join
 import shutil
 import sys
 import time
+from os.path import join
 
 from mlflow.entities.model_registry import (
-    RegisteredModel,
     ModelVersion,
+    ModelVersionTag,
+    RegisteredModel,
     RegisteredModelAlias,
     RegisteredModelTag,
-    ModelVersionTag,
 )
 from mlflow.entities.model_registry.model_version_stages import (
-    get_canonical_stage,
     ALL_STAGES,
     DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS,
     STAGE_ARCHIVED,
-    STAGE_NONE,
     STAGE_DELETED_INTERNAL,
+    STAGE_NONE,
+    get_canonical_stage,
 )
+from mlflow.environment_variables import MLFLOW_REGISTRY_DIR
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -27,40 +28,41 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.store.model_registry import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
-    SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
     SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
 )
-from mlflow.utils.search_utils import SearchUtils, SearchModelUtils, SearchModelVersionUtils
-from mlflow.utils.string_utils import is_string_type
-from mlflow.utils.validation import (
-    _validate_registered_model_tag,
-    _validate_model_version_tag,
-    _validate_model_name as _original_validate_model_name,
-    _validate_model_version,
-    _validate_tag_name,
-    _validate_model_alias_name,
-)
+from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.utils.file_utils import (
-    is_directory,
-    list_subdirs,
-    mkdir,
-    exists,
-    write_yaml,
-    overwrite_yaml,
-    read_yaml,
-    find,
-    read_file,
-    write_to,
-    make_containing_dirs,
-    list_all,
-    local_file_uri_to_path,
     contains_path_separator,
+    exists,
+    find,
+    is_directory,
+    list_all,
+    list_subdirs,
+    local_file_uri_to_path,
+    make_containing_dirs,
+    mkdir,
+    overwrite_yaml,
+    read_file,
+    read_yaml,
+    write_to,
+    write_yaml,
 )
+from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
+from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time_utils import get_current_time_millis
-from mlflow.environment_variables import MLFLOW_REGISTRY_DIR
+from mlflow.utils.validation import (
+    _validate_model_alias_name,
+    _validate_model_version,
+    _validate_model_version_tag,
+    _validate_registered_model_tag,
+    _validate_tag_name,
+)
+from mlflow.utils.validation import (
+    _validate_model_name as _original_validate_model_name,
+)
 
 
 def _default_root_dir():

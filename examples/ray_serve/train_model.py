@@ -1,10 +1,9 @@
-import mlflow
-
 from sklearn.datasets import load_iris
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import mean_squared_error
 from sklearn.utils import shuffle
 
+import mlflow
 
 if __name__ == "__main__":
     # Enable auto-logging
@@ -32,11 +31,11 @@ if __name__ == "__main__":
     run_id = mlflow.last_active_run().info.run_id
     print("MSE:", mean_squared_error(model.predict(val_x), val_y))
     print("Target names: ", target_names)
-    print("run_id: {}".format(run_id))
+    print(f"run_id: {run_id}")
 
     # Register the auto-logged model
-    model_uri = "runs:/{}/model".format(run_id)
+    model_uri = f"runs:/{run_id}/model"
     registered_model_name = "RayMLflowIntegration"
     mv = mlflow.register_model(model_uri, registered_model_name)
-    print("Name: {}".format(mv.name))
-    print("Version: {}".format(mv.version))
+    print(f"Name: {mv.name}")
+    print(f"Version: {mv.version}")

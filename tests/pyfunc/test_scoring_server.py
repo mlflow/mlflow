@@ -1,48 +1,46 @@
 import json
 import math
-import numpy as np
 import os
-import signal
-import pandas as pd
-from collections import namedtuple
-from packaging.version import Version
-
-import pytest
 import random
-from sklearn import datasets
-import sklearn.neighbors as knn
-
+import signal
+from collections import namedtuple
 from io import StringIO
+
+import keras
+import numpy as np
+import pandas as pd
+import pytest
+import sklearn.neighbors as knn
+from packaging.version import Version
+from sklearn import datasets
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.models import ModelSignature, infer_signature
-from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc import PythonModel
 from mlflow.pyfunc.scoring_server import get_cmd
-from mlflow.types import Schema, ColSpec, DataType, ParamSchema, ParamSpec
+from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema
+from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
-from mlflow.utils import env_manager as _EnvManager
 from mlflow.version import VERSION
 
 from tests.helper_functions import (
+    expect_status_code,
     pyfunc_serve_and_score_model,
     random_int,
     random_str,
-    expect_status_code,
 )
-
-import keras
 
 # pylint: disable=no-name-in-module,reimported
 if Version(keras.__version__) >= Version("2.6.0"):
+    from tensorflow.keras.layers import Concatenate, Dense, Input
     from tensorflow.keras.models import Model
-    from tensorflow.keras.layers import Dense, Input, Concatenate
     from tensorflow.keras.optimizers import SGD
 else:
+    from keras.layers import Concatenate, Dense, Input
     from keras.models import Model
-    from keras.layers import Dense, Input, Concatenate
     from keras.optimizers import SGD
 
 
@@ -667,9 +665,9 @@ def test_get_cmd(args: dict, expected: str):
 
 
 def test_scoring_server_client(sklearn_model, model_path):
+    from mlflow.models.flavor_backend_registry import get_flavor_backend
     from mlflow.pyfunc.scoring_server.client import ScoringServerClient
     from mlflow.utils import find_free_port
-    from mlflow.models.flavor_backend_registry import get_flavor_backend
 
     mlflow.sklearn.save_model(
         sk_model=sklearn_model.model, path=model_path, metadata={"metadata_key": "value"}

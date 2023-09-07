@@ -208,7 +208,9 @@ You may prefer the second, lower-level workflow for the following reasons:
 """
 
 import collections
+import functools
 import importlib
+import inspect
 import logging
 import os
 import signal
@@ -216,10 +218,8 @@ import subprocess
 import sys
 import tempfile
 import threading
-import inspect
-import functools
 from copy import deepcopy
-from typing import Any, Dict, Optional, Union, Iterator, Tuple
+from typing import Any, Dict, Iterator, Optional, Tuple, Union
 
 import numpy as np
 import pandas
@@ -227,12 +227,16 @@ import yaml
 
 import mlflow
 import mlflow.pyfunc.model
-from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
+from mlflow.environment_variables import (
+    _MLFLOW_TESTING,
+    MLFLOW_OPENAI_RETRIES_ENABLED,
+    MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT,
+)
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, ModelSignature, ModelInputExample
-from mlflow.models.signature import _infer_signature_from_type_hints
+from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import _infer_signature_from_type_hints
 from mlflow.models.utils import (
     PyFuncInput,
     PyFuncOutput,
@@ -244,54 +248,56 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
-from mlflow.pyfunc.model import (  # pylint: disable=unused-import
-    PythonModel,
-    PythonModelContext,
-    get_default_conda_env,
-)
 from mlflow.pyfunc.model import (
-    get_default_pip_requirements,
+    PythonModel,
+    PythonModelContext,  # noqa: F401
     _log_warning_if_params_not_in_predict_signature,
+    get_default_conda_env,  # noqa: F401
+    get_default_pip_requirements,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import (
     PYTHON_VERSION,
-    get_major_minor_py_version,
     _is_in_ipython_notebook,
+    check_port_connectivity,
+    find_free_port,
+    get_major_minor_py_version,
 )
 from mlflow.utils import env_manager as _EnvManager
-from mlflow.utils import find_free_port, check_port_connectivity
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
+from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
-    _validate_env_arguments,
-    _process_pip_requirements,
-    _process_conda_env,
     _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _process_conda_env,
+    _process_pip_requirements,
     _PythonEnv,
+    _validate_env_arguments,
 )
-from mlflow.utils.file_utils import _copy_file_or_tree, write_to
-from mlflow.utils.file_utils import get_or_create_tmp_dir, get_or_create_nfs_tmp_dir
+from mlflow.utils.file_utils import (
+    _copy_file_or_tree,
+    get_or_create_nfs_tmp_dir,
+    get_or_create_tmp_dir,
+    write_to,
+)
 from mlflow.utils.model_utils import (
-    _get_flavor_configuration,
-    _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
+    _get_flavor_configuration,
     _get_flavor_configuration_from_ml_model_file,
+    _get_overridden_pyfunc_model_config,
+    _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
     _validate_pyfunc_model_config,
-    _get_overridden_pyfunc_model_config,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 from mlflow.utils.requirements_utils import (
     _check_requirement_satisfied,
     _parse_requirements,
 )
-from mlflow.environment_variables import MLFLOW_OPENAI_RETRIES_ENABLED, _MLFLOW_TESTING
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -913,8 +919,9 @@ _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
 def _cast_output_spec_to_spark_type(spec):
-    from mlflow.types.schema import ColSpec, TensorSpec, DataType
     from pyspark.sql.types import ArrayType
+
+    from mlflow.types.schema import ColSpec, DataType, TensorSpec
 
     # TODO: handle optional output columns.
     if isinstance(spec, ColSpec):
@@ -944,7 +951,7 @@ def _cast_output_spec_to_spark_type(spec):
 
 
 def _infer_spark_udf_return_type(model_output_schema):
-    from pyspark.sql.types import StructType, StructField
+    from pyspark.sql.types import StructField, StructType
 
     if len(model_output_schema.inputs) == 1:
         return _cast_output_spec_to_spark_type(model_output_schema.inputs[0])
@@ -1185,18 +1192,20 @@ def spark_udf(
 
     # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
     # functionality.
-    from mlflow.pyfunc.spark_model_cache import SparkModelCache
-    from mlflow.utils._spark_utils import _SparkDirectoryDistributor
     from pyspark.sql.functions import pandas_udf
-    from pyspark.sql.types import ArrayType, StructType as SparkStructType
     from pyspark.sql.types import (
+        ArrayType,
+        BooleanType,
         DoubleType,
-        IntegerType,
         FloatType,
+        IntegerType,
         LongType,
         StringType,
-        BooleanType,
     )
+    from pyspark.sql.types import StructType as SparkStructType
+
+    from mlflow.pyfunc.spark_model_cache import SparkModelCache
+    from mlflow.utils._spark_utils import _SparkDirectoryDistributor
 
     # Used in test to force install local version of mlflow when starting a model server
     mlflow_home = os.environ.get("MLFLOW_HOME")
@@ -1410,8 +1419,8 @@ Compound types:
         if len(result.columns) == 0:
             raise MlflowException(
                 message="The model did not produce any values compatible with the requested "
-                "type '{}'. Consider requesting udf with StringType or "
-                "Arraytype(StringType).".format(str(elem_type)),
+                f"type '{elem_type}'. Consider requesting udf with StringType or "
+                "Arraytype(StringType).",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

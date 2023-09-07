@@ -1,55 +1,53 @@
-from packaging.version import Version
-from pathlib import Path
-import pickle
-from unittest import mock
-import os
-import pytest
-import yaml
 import json
-from collections import namedtuple
+import os
+import pickle
 import tempfile
+from collections import namedtuple
+from pathlib import Path
+from unittest import mock
 
 import numpy as np
 import pandas as pd
+import pytest
 import sklearn
-from sklearn import datasets
 import sklearn.linear_model as glm
 import sklearn.neighbors as knn
+import yaml
+from packaging.version import Version
+from sklearn import datasets
 from sklearn.pipeline import Pipeline as SKPipeline
 from sklearn.preprocessing import FunctionTransformer as SKFunctionTransformer
 
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 import mlflow.utils
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.entities.model_registry.model_version import ModelVersion, ModelVersionStatus
 from mlflow.exceptions import MlflowException
-from mlflow.models.utils import _read_example
-from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.models import Model, ModelSignature
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.models.utils import _read_example
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types import DataType
+from mlflow.types.schema import ColSpec, Schema
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.types import DataType
-from mlflow.types.schema import Schema, ColSpec
-
-# pylint: disable=unused-import
-from tests.store._unity_catalog.conftest import (
-    mock_databricks_uc_host_creds,
-    configure_client_for_uc,
-)
 
 from tests.helper_functions import (
-    pyfunc_serve_and_score_model,
-    _compare_conda_env_requirements,
     _assert_pip_requirements,
-    _is_available_on_pypi,
+    _compare_conda_env_requirements,
     _compare_logged_code_paths,
+    _is_available_on_pypi,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
+)
+from tests.store._unity_catalog.conftest import (
+    configure_client_for_uc,  # noqa: F401
+    mock_databricks_uc_host_creds,  # noqa: F401
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
@@ -747,28 +745,13 @@ scipy
     ).values.squeeze()
     np.testing.assert_array_almost_equal(scores, model_predict)
 
-    # Raise error if trying to pass params to model logged with mlflow < 2.5.0
-    with pytest.raises(
-        MlflowException,
-        match=r"`params` can only be specified at inference "
-        r"time if the model signature defines a params schema.",
-    ):
+    # Issues a warning if params are specified prior to MLflow support in 2.5.0
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
         pyfunc_loaded.predict(inference_dataframe, params={"top_k": 2})
-
-    # Raise error if trying to pass params to model logged with mlflow < 2.5.0 for model serving
-    response = pyfunc_serve_and_score_model(
-        model_uri,
-        data=json.dumps(
-            {"dataframe_split": inference_dataframe.to_dict(orient="split"), "params": {"top_k": 2}}
-        ),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 400
-    assert (
-        "`params` can only be specified at inference time if the model "
-        "signature defines a params schema."
-        in json.loads(response.content.decode("utf-8"))["message"]
+    mock_warning.assert_called_with(
+        "`params` can only be specified at inference time if the model signature defines a params "
+        "schema. This model does not define a params schema. Ignoring provided params: "
+        "['top_k']"
     )
 
 

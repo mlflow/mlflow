@@ -1,5 +1,5 @@
-from functools import lru_cache
 import inspect
+from functools import lru_cache
 
 from mlflow.tracking.registry import StoreRegistry
 

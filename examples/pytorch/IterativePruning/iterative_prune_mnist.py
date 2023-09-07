@@ -8,14 +8,11 @@ from pathlib import Path
 import lightning as L
 import torch
 from ax.service.ax_client import AxClient
+from mnist import LightningMNISTClassifier, MNISTDataModule
 from prettytable import PrettyTable
 from torch.nn.utils import prune
 
 import mlflow.pytorch
-from mnist import (
-    MNISTDataModule,
-    LightningMNISTClassifier,
-)
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 
 
@@ -59,7 +56,7 @@ class IterativePrune:
     @staticmethod
     def prune_and_save_model(model, amount):
         for _, module in model.named_modules():
-            if isinstance(module, torch.nn.Conv2d) or isinstance(module, torch.nn.Linear):
+            if isinstance(module, (torch.nn.Conv2d, torch.nn.Linear)):
                 prune.l1_unstructured(module, name="weight", amount=amount)
                 prune.remove(module, "weight")
 
@@ -117,7 +114,7 @@ class IterativePrune:
         for i in range(total_trials):
             parameters, trial_index = self.ax_client.get_next_trial()
             print("***************************************************************************")
-            print("Running Trial {}".format(i + 1))
+            print(f"Running Trial {i + 1}")
             print("***************************************************************************")
             with mlflow.start_run(nested=True, run_name="Iteration" + str(i)):
                 mlflow.set_tags({"AX_TRIAL": i})

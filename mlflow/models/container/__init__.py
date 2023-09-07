@@ -4,32 +4,29 @@ Initialize the environment and start model serving in a Docker container.
 To be executed only during the model deployment.
 
 """
+import logging
 import multiprocessing
 import os
-import signal
 import shutil
-from subprocess import check_call, Popen
+import signal
 import sys
-import logging
+from subprocess import Popen, check_call
 
 from pkg_resources import resource_filename
 
 import mlflow
 import mlflow.version
-
-from mlflow import pyfunc, mleap
+from mlflow import mleap, pyfunc
+from mlflow.environment_variables import MLFLOW_DEPLOYMENT_FLAVOR_NAME, MLFLOW_DISABLE_ENV_CREATION
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.docker_utils import DISABLE_ENV_CREATION
-from mlflow.pyfunc import scoring_server, mlserver, _extract_conda_env
-from mlflow.version import VERSION as MLFLOW_VERSION
+from mlflow.pyfunc import _extract_conda_env, mlserver, scoring_server
 from mlflow.utils import env_manager as em
 from mlflow.utils.virtualenv import _get_or_create_virtualenv
+from mlflow.version import VERSION as MLFLOW_VERSION
 
 MODEL_PATH = "/opt/ml/model"
 
-
-DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME = "MLFLOW_DEPLOYMENT_FLAVOR_NAME"
 
 DEFAULT_SAGEMAKER_SERVER_PORT = 8080
 DEFAULT_INFERENCE_SERVER_PORT = 8000
@@ -70,11 +67,8 @@ def _serve(env_manager):
     model_config_path = os.path.join(MODEL_PATH, MLMODEL_FILE_NAME)
     m = Model.load(model_config_path)
 
-    if DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME in os.environ:
-        serving_flavor = os.environ[DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME]
-    else:
-        # Older versions of mlflow may not specify a deployment configuration
-        serving_flavor = pyfunc.FLAVOR_NAME
+    # Older versions of mlflow may not specify a deployment configuration
+    serving_flavor = MLFLOW_DEPLOYMENT_FLAVOR_NAME.get() or pyfunc.FLAVOR_NAME
 
     if serving_flavor == mleap.FLAVOR_NAME:
         _serve_mleap()
@@ -145,7 +139,7 @@ def _serve_pyfunc(model, env_manager):
     # option to disable manually nginx. The default behavior is to enable nginx.
     disable_nginx = os.getenv(DISABLE_NGINX, "false").lower() == "true"
     enable_mlserver = os.getenv(ENABLE_MLSERVER, "false").lower() == "true"
-    disable_env_creation = os.environ.get(DISABLE_ENV_CREATION) == "true"
+    disable_env_creation = MLFLOW_DISABLE_ENV_CREATION.get()
 
     conf = model.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []

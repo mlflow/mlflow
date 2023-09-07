@@ -2,8 +2,8 @@ from unittest import mock
 
 import pytest
 
+from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
 from mlflow.utils.credentials import read_mlflow_creds
-from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
 
 
 def test_read_mlflow_creds_file(tmp_path, monkeypatch):

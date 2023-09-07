@@ -1,0 +1,25 @@
+name: Good First Issue
+description: "[Maintainer only] Use this template for issues that are good for first time contributors."
+labels: "good first issue"
+
+body:
+  - type: textarea
+    validations:
+      required: true
+    attributes:
+      label: Summary
+      description: |
+        A summary of the issue.
+  - type: textarea
+    attributes:
+      label: Notes
+      value: |
+        - Make sure to open a PR from a **non-master** branch.
+        - Sign off the commit using the `-s` flag when making a commit:
+
+          ```sh
+          git commit -s -m "..."
+                   # ^^ make sure to use this
+          ```
+
+        - Include `#{issue_number}` (e.g. `#123`) in the PR description when opening a PR.

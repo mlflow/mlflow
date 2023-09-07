@@ -1,4 +1,5 @@
 from click.testing import CliRunner
+
 from mlflow.server.auth import cli
 
 
