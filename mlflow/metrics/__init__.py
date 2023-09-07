@@ -1,4 +1,10 @@
-from mlflow.metrics.base import MetricValue
+from mlflow.metrics.base import (
+    EvaluationExample,
+    MetricValue,
+)
+from mlflow.metrics.utils import (
+    make_genai_metric,
+)
 from mlflow.metrics.utils.metric_definitions import (
     _accuracy_eval_fn,
     _ari_eval_fn,
@@ -10,7 +16,10 @@ from mlflow.metrics.utils.metric_definitions import (
     _rougeLsum_eval_fn,
     _toxicity_eval_fn,
 )
-from mlflow.models import EvaluationMetric, make_metric
+from mlflow.models import (
+    EvaluationMetric,
+    make_metric,
+)
 
 # general text metrics
 
@@ -183,6 +192,7 @@ Aggregations calculated for this metric:
 """
 
 __all__ = [
+    "EvaluationExample",
     "EvaluationMetric",
     "MetricValue",
     "make_metric",
@@ -195,4 +205,5 @@ __all__ = [
     "rougeL",
     "rougeLsum",
     "toxicity",
+    "make_genai_metric",
 ]
