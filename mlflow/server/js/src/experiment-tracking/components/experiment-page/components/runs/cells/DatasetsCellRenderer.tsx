@@ -57,7 +57,7 @@ const SingleDataset = ({
         {inPopover ? (
           <Popover.Close asChild>
             <Button type='link' onClick={onDatasetSelected}>
-              <span css={{ fontSize: 12 }}>
+              <span>
                 {dataset.name} ({dataset.digest})
               </span>
             </Button>
@@ -72,7 +72,7 @@ const SingleDataset = ({
       </span>
       {contextTag && (
         <Tag css={{ textTransform: 'capitalize', marginRight: theme.spacing.xs }}>
-          <span css={{ fontSize: 12 }}>{contextTag.value}</span>
+          {contextTag.value}
         </Tag>
       )}
       {appendComma && <>,</>}
@@ -173,7 +173,7 @@ export const DatasetsCellRenderer = React.memo(
                   <Typography.Text color='secondary'>+{moreItemsToShow}</Typography.Text>
                 </Button>
               </Popover.Trigger>
-              <Popover.Content align='start' css={{ maxHeight: '400px', overflow: 'auto' }}>
+              <Popover.Content align='start'>
                 {value.slice(value.length - moreItemsToShow).map((datasetWithTags) => (
                   <div
                     css={{ height: theme.general.heightSm, display: 'flex', alignItems: 'center' }}

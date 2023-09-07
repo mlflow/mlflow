@@ -5,13 +5,11 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import { Fulfilled, Pending, Rejected } from '../../redux-types';
-
 export const isPendingApi = (action: any) => {
   return action.type.endsWith('_PENDING');
 };
 
-export const pending = <T extends string>(apiActionType: T): Pending<T> => {
+export const pending = (apiActionType: any) => {
   return `${apiActionType}_PENDING`;
 };
 
@@ -19,7 +17,7 @@ export const isFulfilledApi = (action: any) => {
   return action.type.endsWith('_FULFILLED');
 };
 
-export const fulfilled = <T extends string>(apiActionType: T): Fulfilled<T> => {
+export const fulfilled = (apiActionType: any) => {
   return `${apiActionType}_FULFILLED`;
 };
 
@@ -27,7 +25,7 @@ export const isRejectedApi = (action: any) => {
   return action.type.endsWith('_REJECTED');
 };
 
-export const rejected = <T extends string>(apiActionType: any): Rejected<T> => {
+export const rejected = (apiActionType: any) => {
   return `${apiActionType}_REJECTED`;
 };
 

@@ -3,11 +3,9 @@
  */
 export declare const selectClasses: {
     clear: string;
-    item: string;
     list: string;
     open: string;
     option: string;
-    removeItem: string;
     selector: string;
 };
 export interface GetTableRowByCellTextOptions {

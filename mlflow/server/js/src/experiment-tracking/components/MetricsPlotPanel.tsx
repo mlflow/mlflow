@@ -28,7 +28,7 @@ import { getUUID } from '../../common/utils/ActionUtils';
 import { saveAs } from 'file-saver';
 import { Spinner } from '@databricks/design-system';
 import { normalizeMetricsHistoryEntry } from '../utils/MetricsUtils';
-import type { Location, NavigateFunction } from '../../common/utils/RoutingUtils';
+import type { Location, NavigateFunction } from 'react-router-dom-v5-compat';
 
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';

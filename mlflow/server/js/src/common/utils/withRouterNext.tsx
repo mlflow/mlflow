@@ -1,19 +1,20 @@
 import React from 'react';
-
 import {
-  type Location,
-  type Params as RouterDOMParams,
-  type NavigateOptions,
-  type To,
   useLocation,
   useNavigate,
   useParams,
-} from '../../common/utils/RoutingUtils';
+  useNavigationType,
+  Location,
+  NavigateFunction,
+  Params as RouterDOMParams,
+  NavigationType,
+} from 'react-router-dom-v5-compat';
 
 export interface WithRouterNextProps<Params extends RouterDOMParams = RouterDOMParams> {
-  navigate: ReturnType<typeof useNavigate>;
+  navigate: NavigateFunction;
   location: Location;
   params: Params;
+  navigationType: NavigationType;
 }
 
 /**
@@ -24,18 +25,10 @@ export const withRouterNext =
   <Props, Params extends RouterDOMParams>(
     Component: React.ComponentType<Props & WithRouterNextProps<Params>>,
   ) =>
-  (
-    props: Omit<
-      Props,
-      | 'location'
-      | 'navigate'
-      | 'params'
-      | 'navigationType'
-      /* prettier-ignore*/
-    >,
-  ) => {
+  (props: Omit<Props, 'location' | 'navigate' | 'params' | 'navigationType'>) => {
     const location = useLocation();
     const navigate = useNavigate();
+    const navigationType = useNavigationType();
     const params = useParams<Params>();
 
     return (
@@ -43,6 +36,7 @@ export const withRouterNext =
         params={params as Params}
         location={location}
         navigate={navigate}
+        navigationType={navigationType}
         {...(props as Props)}
       />
     );

@@ -22,8 +22,6 @@ import _ from 'lodash';
 import { PageContainer } from '../../common/components/PageContainer';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
-import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
-import ErrorUtils from '../../common/utils/ErrorUtils';
 
 type CompareModelVersionsPageImplProps = {
   modelName: string;
@@ -138,11 +136,6 @@ const mapDispatchToProps = {
   parseMlModelFile,
 };
 
-const CompareModelVersionsPageWithRouter = withRouterNext(
+export const CompareModelVersionsPage = withRouterNext(
   connect(mapStateToProps, mapDispatchToProps)(CompareModelVersionsPageImpl),
-);
-
-export const CompareModelVersionsPage = withErrorBoundary(
-  ErrorUtils.mlflowServices.MODEL_REGISTRY,
-  CompareModelVersionsPageWithRouter,
 );

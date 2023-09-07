@@ -1,6 +1,6 @@
 import { isFunction } from 'lodash';
 import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from '../../../../common/utils/RoutingUtils';
+import { useLocation, useNavigate } from 'react-router-dom-v5-compat';
 import RequestStateWrapper from '../../../../common/components/RequestStateWrapper';
 import { loadMoreRunsApi, searchRunsApi, searchRunsPayload } from '../../../actions';
 import { useExperimentIds } from '../hooks/useExperimentIds';
@@ -51,11 +51,6 @@ export interface GetExperimentRunsContextType {
    * are no sufficient changes to the model.
    */
   updateSearchFacets: UpdateExperimentSearchFacetsFn;
-
-  /**
-   * Function used to refresh the runs
-   */
-  refreshRuns: () => void;
 
   /**
    * Function used to load more runs (if available) using currently used filters
@@ -291,19 +286,6 @@ export const GetExperimentRunsContextProvider = ({
     [experimentIds, internalFetchExperimentRuns, persistState],
   );
 
-  // Refreshes the runs
-  const refreshRuns = useCallback(
-    () =>
-      updateSearchFacets(
-        {},
-        {
-          forceRefresh: true,
-          preservePristine: true,
-        },
-      ),
-    [updateSearchFacets],
-  );
-
   // Update/initialize internal filter/search state after the location has changed
   useEffect(() => {
     // If we are sure that the fingerprint of the search facets
@@ -326,7 +308,6 @@ export const GetExperimentRunsContextProvider = ({
       isLoadingRuns,
       moreRunsAvailable,
       isPristine,
-      refreshRuns,
     }),
     [
       actions,
@@ -338,7 +319,6 @@ export const GetExperimentRunsContextProvider = ({
       updateSearchFacets,
       moreRunsAvailable,
       isPristine,
-      refreshRuns,
     ],
   );
 

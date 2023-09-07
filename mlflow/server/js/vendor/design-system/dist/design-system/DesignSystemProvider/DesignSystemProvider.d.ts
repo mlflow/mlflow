@@ -24,8 +24,6 @@ export interface DesignSystemProviderProps {
     getPopupContainer?: () => HTMLElement;
     /** Set any of the `AvailableDesignSystemFlags` to `true` to enable that flag. */
     flags?: DesignSystemFlags;
-    /** Whether to disable virtualization of legacy AntD components. Defaults to true in tests. */
-    disableLegacyAntVirtualization?: boolean;
 }
 export interface DuboisThemeContextType {
     isDarkMode: boolean;
@@ -40,7 +38,10 @@ export declare const DesignSystemThemeContext: React.Context<DuboisThemeContextT
 export declare const DesignSystemContext: React.Context<DuboisContextType>;
 export declare const DU_BOIS_ENABLE_ANIMATION_CLASSNAME = "du-bois-enable-animation";
 export declare function getAnimationCss(enableAnimation: boolean): CSSObject;
-type AntDConfigProviderPropsProps = Pick<AntDConfigProviderProps, 'prefixCls' | 'getPopupContainer' | 'virtual'>;
+interface AntDConfigProviderPropsProps {
+    prefixCls: string;
+    getPopupContainer: AntDConfigProviderProps['getPopupContainer'];
+}
 /** Only to be accessed by SupportsDuBoisThemes, except for special exceptions like tests and storybook. Ask in #dubois first if you need to use it. */
 export declare const DesignSystemThemeProvider: React.FC<DesignSystemThemeProviderProps>;
 export declare const DesignSystemProvider: React.FC<DesignSystemProviderProps>;
@@ -52,7 +53,9 @@ export interface DesignSystemAntDConfigProviderProps {
     children: React.ReactNode;
 }
 export declare const DesignSystemAntDConfigProvider: ({ children }: DesignSystemAntDConfigProviderProps) => import("@emotion/react/jsx-runtime").JSX.Element;
-export declare const useAntDConfigProviderContext: () => AntDConfigProviderPropsProps;
+export declare const useAntDConfigProviderContext: () => AntDConfigProviderPropsProps | {
+    prefixCls: undefined;
+};
 /**
  * When using AntD components inside Design System wrapper components (e.g. Modal, Collapse etc),
  * we don't want Design System's prefix class to override them.

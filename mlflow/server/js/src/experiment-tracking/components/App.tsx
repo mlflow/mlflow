@@ -7,16 +7,14 @@
 
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-
+import { HashRouter as Router, Link, NavLink } from 'react-router-dom';
 import {
-  HashRouterV5,
+  // React router v5 API:
+  CompatRouter,
+  // React router v6 API:
   Route,
   Routes,
-  CompatRouter,
-  LinkV5,
-  NavLinkV5,
-} from '../../common/utils/RoutingUtils';
-
+} from 'react-router-dom-v5-compat';
 import AppErrorBoundary from '../../common/components/error-boundaries/AppErrorBoundary';
 import { HomePageDocsUrl, Version } from '../../common/constants';
 // @ts-expect-error TS(2307): Cannot find module '../../common/static/home-logo.... Remove this comment to see the full error message
@@ -39,7 +37,7 @@ import './App.css';
 import CompareRunPage from './CompareRunPage';
 import { HomePage } from './HomePage';
 import { MetricPage } from './MetricPage';
-import { PageNotFoundView } from '../../common/components/PageNotFoundView';
+import { PageNotFoundView } from './PageNotFoundView';
 import { RunPage } from './RunPage';
 import { DirectRunPage } from './DirectRunPage';
 
@@ -65,7 +63,7 @@ class App extends Component {
   render() {
     const marginRight = 24;
     return (
-      <HashRouterV5
+      <Router
         basename={mlflowHashRouting ? '/mlflow' : undefined}
         hashType={mlflowHashRouting ? 'noslash' : undefined}
       >
@@ -78,13 +76,13 @@ class App extends Component {
             {process.env.HIDE_HEADER === 'true' ? null : (
               <header className='App-header'>
                 <div className='mlflow-logo'>
-                  <LinkV5 to={RoutePaths.rootRoute} className='App-mlflow'>
+                  <Link to={RoutePaths.rootRoute} className='App-mlflow'>
                     <img className='mlflow-logo' alt='MLflow' src={logo} />
-                  </LinkV5>
+                  </Link>
                   <span className={'mlflow-version'}>{Version}</span>
                 </div>
                 <div className='header-route-links'>
-                  <NavLinkV5
+                  <NavLink
                     strict
                     to={RoutePaths.rootRoute}
                     css={{ marginRight }}
@@ -95,8 +93,8 @@ class App extends Component {
                     <div className='experiments'>
                       <span>Experiments</span>
                     </div>
-                  </NavLinkV5>
-                  <NavLinkV5
+                  </NavLink>
+                  <NavLink
                     strict
                     to={modelListPageRoute}
                     css={{ marginRight }}
@@ -106,7 +104,7 @@ class App extends Component {
                     <div className='models'>
                       <span>Models</span>
                     </div>
-                  </NavLinkV5>
+                  </NavLink>
                 </div>
                 <div className='header-links'>
                   <a href={'https://github.com/mlflow/mlflow'} css={{ marginRight }}>
@@ -122,6 +120,7 @@ class App extends Component {
                 </div>
               </header>
             )}
+            {/* @ts-expect-error TS(2322): Type '{ children: Element; service: string; }' is ... Remove this comment to see the full error message */}
             <AppErrorBoundary service='mlflow'>
               <InteractionTracker>
                 {/* The block below contains React Router v6 routes */}
@@ -156,7 +155,7 @@ class App extends Component {
             </AppErrorBoundary>
           </div>
         </CompatRouter>
-      </HashRouterV5>
+      </Router>
     );
   }
 }

@@ -13,6 +13,9 @@ export const useEvaluationArtifactViewState = (
   );
   const [groupByCols, setGroupByCols] = useState<string[]>(artifactViewState.groupByCols || []);
   const [outputColumn, setOutputColumn] = useState(artifactViewState.outputColumn || '');
+  const [intersectingOnly, setIntersectingOnly] = useState(
+    artifactViewState.intersectingOnly || false,
+  );
 
   useEffect(
     () =>
@@ -21,17 +24,20 @@ export const useEvaluationArtifactViewState = (
           selectedTables,
           groupByCols,
           outputColumn,
+          intersectingOnly,
         },
       }),
-    [updateViewState, selectedTables, groupByCols, outputColumn],
+    [updateViewState, selectedTables, groupByCols, outputColumn, intersectingOnly],
   );
 
   return {
     selectedTables,
     groupByCols,
     outputColumn,
+    intersectingOnly,
     setSelectedTables,
     setGroupByCols,
     setOutputColumn,
+    setIntersectingOnly,
   };
 };

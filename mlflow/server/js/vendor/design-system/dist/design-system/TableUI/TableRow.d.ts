@@ -4,7 +4,7 @@ import type { HTMLDataAttributes } from '../types';
 export declare const TableRowContext: React.Context<{
     isHeader: boolean;
 }>;
-export interface TableRowProps extends HTMLDataAttributes, React.HTMLAttributes<HTMLDivElement> {
+export interface TableRowProps extends HTMLDataAttributes {
     /** Style property */
     style?: CSSProperties;
     /** Class name property */

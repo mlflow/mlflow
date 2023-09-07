@@ -17,7 +17,7 @@ import { injectIntl } from 'react-intl';
 
 const MAX_RUN_NAME_DISPLAY_LENGTH = 24;
 
-export const EMA = (mArray: any, smoothingWeight: any) => {
+const EMA = (mArray: any, smoothingWeight: any) => {
   // If all elements in the set of metric values are constant, or if
   // the degree of smoothing is set to the minimum value, return the
   // original set of metric values

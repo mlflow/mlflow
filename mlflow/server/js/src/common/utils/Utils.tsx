@@ -13,7 +13,7 @@ import revisionSvg from '../static/revision.svg';
 import emptySvg from '../static/empty.svg';
 import laptopSvg from '../static/laptop.svg';
 import projectSvg from '../static/project.svg';
-import workflowsIconSvg from '../static/WorkflowsIcon.svg';
+import jobSvg from '../static/job.svg';
 import qs from 'qs';
 import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
 import _ from 'lodash';
@@ -615,7 +615,7 @@ class Utils {
     } else if (sourceType === 'PROJECT') {
       return <img alt='Project Icon' title='Project' style={imageStyle} src={projectSvg} />;
     } else if (sourceType === 'JOB') {
-      return <img alt='Job Icon' title='Job' style={imageStyle} src={workflowsIconSvg} />;
+      return <img alt='Job Icon' title='Job' style={imageStyle} src={jobSvg} />;
     }
     return <img alt='No icon' style={imageStyle} src={emptySvg} />;
   }
@@ -989,13 +989,12 @@ class Utils {
   static mergeLoggedAndRegisteredModels(loggedModels: any, registeredModels: any) {
     // use artifactPath for grouping while merging lists
     const registeredModelsWithNormalizedPath = registeredModels.map((model: any) => {
-      const registeredModel: { [key: string]: any } = {
+      return {
         registeredModelName: model.name,
         artifactPath: Utils.normalize(model.source).split('/artifacts/')[1],
         registeredModelVersion: model.version,
         registeredModelCreationTimestamp: model.creation_timestamp,
       };
-      return registeredModel;
     });
     const loggedModelsWithNormalizedPath = loggedModels.flatMap((model: any) => {
       return model.artifactPath

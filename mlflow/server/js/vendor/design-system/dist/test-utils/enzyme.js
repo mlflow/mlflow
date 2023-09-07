@@ -1,4 +1,4 @@
-import { s as selectClasses, c as createMarkdownTable } from '../common-5b60d682.js';
+import { s as selectClasses, c as createMarkdownTable } from '../common-31040b66.js';
 import { act } from 'react-dom/test-utils';
 
 // eslint-disable-next-line @databricks/no-restricted-imports-regexp
@@ -11,9 +11,7 @@ import { act } from 'react-dom/test-utils';
 function findByText(wrapper, text, queryOptions) {
   const newWrappers = findAllByText(wrapper, text, queryOptions);
   if (newWrappers.length !== 1) {
-    throw new Error(
-    // eslint-disable-next-line testing-library/no-debugging-utils
-    `Expected to find 1 node but found ${newWrappers.length} nodes for text "${text}".\n${wrapper.debug()}`);
+    throw new Error(`Expected to find 1 node but found ${newWrappers.length} nodes for text "${text}".\n${wrapper.debug()}`);
   }
   return newWrappers[0];
 }
@@ -36,15 +34,17 @@ function findAllByText(wrapper, text) {
     }
     return typeof text === 'string' ? nodeText === text : text.test(nodeText);
   });
-  const hostNodes = textNodes.map(n => {
-    // Traverse from the text node to the closest DOM node (aka host node)
-    let hostNode = n.parents().first();
-    while (typeof hostNode.type() !== 'string' && hostNode.parents().length > 0) {
-      hostNode = hostNode.parents().first();
+  const newWrappers = textNodes.map(n => {
+    if (n.name() === 'FormattedMessage') {
+      // Try not to return FormattedMessage since it breaks `simulate` due to a bug in `enzyme-adapter-react-17`
+      // Similar to https://github.com/wojtekmaj/enzyme-adapter-react-17/issues/45
+      const formattedMessageParents = n.parents();
+      return formattedMessageParents.length > 0 ? formattedMessageParents.first() : n;
+    } else {
+      return n;
     }
-    return hostNode;
   });
-  return hostNodes;
+  return newWrappers;
 }
 
 // We need to keep ref to original setTimeout to avoid SinonJS fake timers if enabled
@@ -177,14 +177,12 @@ function clearAll(getSelect) {
  */
 async function closeMenu(getSelect) {
   if (!getSelect().find(`.${selectClasses.open}`).exists()) {
-    // eslint-disable-next-line testing-library/no-debugging-utils
     throw new Error(`Select is already closed\n${getSelect().debug()}`);
   }
   getSelect().find(`.${selectClasses.selector}`).simulate('mousedown');
   await waitFor(() => {
     const select = getSelect();
     if (select.find(`.${selectClasses.open}`).exists()) {
-      // eslint-disable-next-line testing-library/no-debugging-utils
       throw new Error(`Select did not close\n${select.debug()}`);
     }
   });
@@ -198,17 +196,6 @@ function getLabelText(getSelect) {
   // For example, the input mirror is an empty span with some whitespace that is
   // nested under the selector but does not show up in the label text.
   return getSelect().find(`.${selectClasses.selector}`).text().trim();
-}
-
-/**
- * Removes the `option` by clicking its "X" button. Can only be used with a <Select/>
- * component with `mode="multiple"`. The provided strings must match the option label
- * exactly.
- */
-function removeMultiSelectOption(getSelect, option) {
-  const optionItem = findByText(getSelect().find(`.${selectClasses.selector}`), option).closest(`.${selectClasses.item}`);
-  const removeItem = optionItem.find(`.${selectClasses.removeItem}`).hostNodes();
-  removeItem.simulate('click');
 }
 
 /**
@@ -246,14 +233,12 @@ async function singleSelect(getSelect, option) {
  */
 async function openMenu(getSelect) {
   if (getSelect().find(`.${selectClasses.open}`).exists()) {
-    // eslint-disable-next-line testing-library/no-debugging-utils
     throw new Error(`Select is already open\n${getSelect().debug()}`);
   }
   getSelect().find(`.${selectClasses.selector}`).simulate('mousedown');
   await waitFor(() => {
     const select = getSelect();
     if (!select.find(`.${selectClasses.open}`).exists()) {
-      // eslint-disable-next-line testing-library/no-debugging-utils
       throw new Error(`Select did not open\n${select.debug()}`);
     }
   });
@@ -278,7 +263,6 @@ var selectEvent = /*#__PURE__*/Object.freeze({
   getLabelText: getLabelText,
   multiSelect: multiSelect,
   openMenu: openMenu,
-  removeMultiSelectOption: removeMultiSelectOption,
   singleSelect: singleSelect
 });
 
@@ -315,7 +299,6 @@ function getTableRowByCellText(tableWrapper, cellText) {
       }
     });
     if (columnHeaderIndex === -1) {
-      // eslint-disable-next-line testing-library/no-debugging-utils
       throw new Error(`Unable to find a column with name "${columnHeaderName}"\n${tableWrapper.debug()}`);
     }
   }
@@ -332,14 +315,10 @@ function getTableRowByCellText(tableWrapper, cellText) {
     }
   });
   if (matchingRows.length === 0) {
-    throw new Error(
-    // eslint-disable-next-line testing-library/no-debugging-utils
-    `Unable to find a table row with text "${cellText}" in the column "${columnHeaderName}"\n${tableWrapper.debug()}`);
+    throw new Error(`Unable to find a table row with text "${cellText}" in the column "${columnHeaderName}"\n${tableWrapper.debug()}`);
   }
   if (matchingRows.length > 1) {
-    throw new Error(
-    // eslint-disable-next-line testing-library/no-debugging-utils
-    `Found multiple table rows with text "${cellText}" in the column "${columnHeaderName}"\n${tableWrapper.debug()}`);
+    throw new Error(`Found multiple table rows with text "${cellText}" in the column "${columnHeaderName}"\n${tableWrapper.debug()}`);
   }
   return matchingRows[0].hostNodes();
 }

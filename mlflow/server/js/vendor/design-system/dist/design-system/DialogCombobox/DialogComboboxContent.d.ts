@@ -1,8 +1,7 @@
 /// <reference types="react" />
 import * as Popover from '@radix-ui/react-popover';
-import type { WithLoadingState } from '../LoadingState/LoadingState';
 import type { HTMLDataAttributes } from '../types';
-export interface DialogComboboxContentProps extends Popover.PopoverContentProps, HTMLDataAttributes, WithLoadingState {
+export interface DialogComboboxContentProps extends Popover.PopoverContentProps, HTMLDataAttributes {
     width?: number | string;
     loading?: boolean;
     maxHeight?: number;

@@ -1,7 +1,7 @@
-import { LegacySkeleton } from '@databricks/design-system';
+import { Skeleton } from '@databricks/design-system';
 import { useMemo } from 'react';
 import { connect } from 'react-redux';
-import { ReduxState } from '../../../../redux-types';
+import { StateWithEntities } from '../../../../redux-types';
 import { MetricHistoryByName } from '../../../types';
 import type { CompareChartRunData } from '../charts/CompareRunsCharts.common';
 import { CompareRunsMetricsLinePlot } from '../charts/CompareRunsMetricsLinePlot';
@@ -38,7 +38,7 @@ export const RunsCompareConfigureLineChartPreviewImpl = ({
   const { resetTooltip, setTooltip } = useCompareRunsTooltip(cardConfig);
 
   if (isLoading) {
-    return <LegacySkeleton />;
+    return <Skeleton />;
   }
 
   if (error) {
@@ -50,7 +50,6 @@ export const RunsCompareConfigureLineChartPreviewImpl = ({
       runsData={previewDataWithHistory}
       metricKey={cardConfig.metricKey}
       scaleType={cardConfig.scaleType}
-      lineSmoothness={cardConfig.lineSmoothness}
       xAxisKey={cardConfig.xAxisKey}
       useDefaultHoverBox={false}
       onHover={setTooltip}
@@ -59,7 +58,7 @@ export const RunsCompareConfigureLineChartPreviewImpl = ({
   );
 };
 
-const mapStateToProps = ({ entities: { metricsByRunUuid } }: ReduxState) => ({
+const mapStateToProps = ({ entities: { metricsByRunUuid } }: StateWithEntities) => ({
   metricsByRunUuid,
 });
 

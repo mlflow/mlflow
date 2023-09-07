@@ -13,7 +13,6 @@ from mlflow.store.artifact.databricks_models_artifact_repo import (
     _DOWNLOAD_CHUNK_SIZE,
     DatabricksModelsArtifactRepository,
 )
-from mlflow.utils.file_utils import _ChunkDownloadError
 
 DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE = (
     "mlflow.store.artifact.databricks_models_artifact_repo"
@@ -300,7 +299,12 @@ def test_parallelized_download_file_using_http_uri_with_error_downloads(
         "signed_uri": "https://my-amazing-signed-uri-to-rule-them-all.com/1234-numbers-yay-567",
         "headers": [{"name": "header_name", "value": "header_value"}],
     }
-    error_downloads = {1: _ChunkDownloadError(False, "Internal Server Error", 500)}
+    error_downloads = {
+        1: {
+            "error_status_code": 500,
+            "error_text": "Internal Server Error",
+        }
+    }
 
     with mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",
@@ -317,9 +321,8 @@ def test_parallelized_download_file_using_http_uri_with_error_downloads(
     ):
         with pytest.raises(
             MlflowException,
-            match=(
-                rf"Failed to download artifact {re.escape(remote_file_path)}: "
-                r".+Internal Server Error.+"
+            match=re.escape(
+                f"Failed to download artifact {remote_file_path}: [{error_downloads[1]}]"
             ),
         ):
             databricks_model_artifact_repo._download_file(remote_file_path, "")
@@ -339,7 +342,7 @@ def test_parallelized_download_file_using_http_uri_with_failed_downloads(
         "signed_uri": "https://my-amazing-signed-uri-to-rule-them-all.com/1234-numbers-yay-567",
         "headers": [{"name": "header_name", "value": "header_value"}],
     }
-    failed_downloads = {1: _ChunkDownloadError(True, "Unauthorized", 401)}
+    failed_downloads = {1: {"error_status_code": 401, "error_text": "Unauthorized"}}
 
     with mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",

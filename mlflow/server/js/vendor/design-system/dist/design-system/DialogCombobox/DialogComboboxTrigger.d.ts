@@ -17,7 +17,6 @@ export interface DialogComboboxTriggerProps extends Popover.PopoverTriggerProps,
     } & React.HTMLAttributes<HTMLDivElement>;
     withChevronIcon?: boolean;
     withInlineLabel?: boolean;
-    isBare?: boolean;
 }
 export declare const DialogComboboxTrigger: React.ForwardRefExoticComponent<DialogComboboxTriggerProps & React.RefAttributes<HTMLButtonElement>>;
 //# sourceMappingURL=DialogComboboxTrigger.d.ts.map

@@ -1,5 +1,5 @@
 import { FormattedMessage } from 'react-intl';
-import { Link } from '../../../common/utils/RoutingUtils';
+import { Link } from 'react-router-dom-v5-compat';
 import { useState } from 'react';
 import {
   Button,

@@ -3,20 +3,13 @@ import {
   ExperimentStoreEntities,
   KeyValueEntity,
   LIFECYCLE_FILTER,
-  ModelVersionInfoEntity,
+  ModelInfoEntity,
   MODEL_VERSION_FILTER,
-  DatasetSummary,
   RunInfoEntity,
   RunDatasetWithTags,
 } from '../../../types';
 import { getLatestMetrics } from '../../../reducers/MetricReducer';
-import {
-  getExperimentTags,
-  getParams,
-  getRunDatasets,
-  getRunInfo,
-  getRunTags,
-} from '../../../reducers/Reducers';
+import { getExperimentTags, getParams, getRunInfo, getRunTags } from '../../../reducers/Reducers';
 
 export type ExperimentRunsSelectorResult = {
   /**
@@ -63,7 +56,7 @@ export type ExperimentRunsSelectorResult = {
   /**
    * Dictionary containing model information objects indexed by run uuid
    */
-  modelVersionsByRunUuid: Record<string, ModelVersionInfoEntity[]>;
+  modelVersionsByRunUuid: Record<string, ModelInfoEntity[]>;
 
   /**
    * Dictionary containing all tags assigned to a experiment
@@ -83,7 +76,6 @@ export type ExperimentRunsSelectorParams = {
   experiments: ExperimentEntity[];
   lifecycleFilter?: LIFECYCLE_FILTER;
   modelVersionFilter?: MODEL_VERSION_FILTER;
-  datasetsFilter?: DatasetSummary[];
 };
 
 /**
@@ -95,7 +87,6 @@ const extractRunInfos = (
   {
     lifecycleFilter = LIFECYCLE_FILTER.ACTIVE,
     modelVersionFilter = MODEL_VERSION_FILTER.ALL_RUNS,
-    datasetsFilter = [],
   }: ExperimentRunsSelectorParams,
 ): RunInfoEntity[] => {
   const { modelVersionsByRunUuid } = state.entities;
@@ -103,9 +94,9 @@ const extractRunInfos = (
   return (
     runUuids
       // Get the basic run info
-      .map((run_id) => [getRunInfo(run_id, state), getRunDatasets(run_id, state)])
+      .map((run_id) => getRunInfo(run_id, state))
       // Filter out runs by given lifecycle filter
-      .filter(([rInfo, _]) => {
+      .filter((rInfo) => {
         if (lifecycleFilter === LIFECYCLE_FILTER.ACTIVE) {
           return rInfo.lifecycle_stage === 'active';
         } else {
@@ -113,7 +104,7 @@ const extractRunInfos = (
         }
       })
       // Filter out runs by given model version filter
-      .filter(([rInfo, _]) => {
+      .filter((rInfo) => {
         if (modelVersionFilter === MODEL_VERSION_FILTER.ALL_RUNS) {
           return true;
         } else if (modelVersionFilter === MODEL_VERSION_FILTER.WITH_MODEL_VERSIONS) {
@@ -125,26 +116,6 @@ const extractRunInfos = (
           return true;
         }
       })
-      .filter(([_, datasets]) => {
-        if (!datasetsFilter || datasetsFilter.length === 0) return true;
-        if (!datasets) return false;
-
-        // Returns true if there exists a dataset that is in datasetsFilter
-        return datasets.some((datasetWithTags: RunDatasetWithTags) => {
-          const datasetName = datasetWithTags.dataset.name;
-          const datasetDigest = datasetWithTags.dataset.digest;
-          const datasetTag = datasetWithTags.tags
-            ? datasetWithTags.tags.find((tag) => tag.key === 'mlflow.data.context')
-            : undefined;
-          return datasetsFilter.some(
-            ({ name, digest, context }) =>
-              name === datasetName &&
-              digest === datasetDigest &&
-              (datasetTag ? context === datasetTag.value : context === undefined),
-          );
-        });
-      })
-      .map(([rInfo, _]) => rInfo)
   );
 };
 

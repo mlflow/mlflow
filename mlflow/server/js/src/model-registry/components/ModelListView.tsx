@@ -21,24 +21,22 @@ import {
 import { CreateModelButton } from './CreateModelButton';
 import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
-import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
+import { FormattedMessage, injectIntl } from 'react-intl';
 import {
   Alert,
   CursorPagination,
+  InfoIcon,
+  LegacyPopover,
   Spacer as DuBoisSpacer,
-  Typography,
 } from '@databricks/design-system';
-import { shouldUseToggleModelsNextUI } from '../../common/utils/FeatureUtils';
 import { ModelListFilters } from './model-list/ModelListFilters';
 import { ModelListTable } from './model-list/ModelListTable';
 import { PageContainer } from '../../common/components/PageContainer';
-import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
-import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
 
 const NAME_COLUMN_INDEX = 'name';
 const LAST_MODIFIED_COLUMN_INDEX = 'last_updated_timestamp';
 
-type ModelListViewImplProps = {
+type OwnModelListViewImplProps = {
   models: any[];
   endpoints?: any;
   showEditPermissionModal: (...args: any[]) => any;
@@ -59,10 +57,12 @@ type ModelListViewImplProps = {
   onClickSortableColumn: (...args: any[]) => any;
   onSetMaxResult: (...args: any[]) => any;
   getMaxResultValue: (...args: any[]) => any;
-  intl: IntlShape;
+  intl?: any;
 };
 
 type ModelListViewImplState = any;
+
+type ModelListViewImplProps = OwnModelListViewImplProps & typeof ModelListViewImpl.defaultProps;
 
 export class ModelListViewImpl extends React.Component<
   ModelListViewImplProps,
@@ -75,6 +75,7 @@ export class ModelListViewImpl extends React.Component<
       loading: false,
       lastNavigationActionWasClickPrev: false,
       maxResultsSelection: REGISTERED_MODELS_PER_PAGE_COMPACT,
+      showOnboardingHelper: this.showOnboardingHelper(),
     };
   }
 
@@ -82,6 +83,11 @@ export class ModelListViewImpl extends React.Component<
     models: [],
     searchInput: '',
   };
+
+  showOnboardingHelper() {
+    const onboardingInformationStore = ModelListViewImpl.getLocalStore(onboarding);
+    return onboardingInformationStore.getItem('showRegistryHelper') === null;
+  }
 
   disableOnboardingHelper() {
     const onboardingInformationStore = ModelListViewImpl.getLocalStore(onboarding);
@@ -174,7 +180,7 @@ export class ModelListViewImpl extends React.Component<
       nextPageToken,
       searchInput,
     } = this.props;
-    const { loading } = this.state;
+    const { loading, showOnboardingHelper } = this.state;
 
     // Determine if we use any filters at the moment
     const isFiltered =
@@ -191,23 +197,39 @@ export class ModelListViewImpl extends React.Component<
       <PageContainer data-test-id='ModelListView-container' usesFullHeight>
         <div>
           <PageHeader
-            infoPopover={
-              <div>
-                {ModelListViewImpl.getLearnMoreDisplayString()}{' '}
-                <FormattedMessage
-                  defaultMessage='<link>Learn more</link>'
-                  description='Learn more link on the model list page with cloud-specific link'
-                  values={{
-                    link: (chunks) => (
-                      <Typography.Link href={ModelListViewImpl.getLearnMoreLinkUrl()} openInNewTab>
-                        {chunks}
-                      </Typography.Link>
-                    ),
-                  }}
-                />
-              </div>
+            title={
+              <>
+                {title}{' '}
+                <LegacyPopover
+                  content={
+                    // this showOnboardingHelper may not be necessary.
+                    showOnboardingHelper && (
+                      <>
+                        {ModelListViewImpl.getLearnMoreDisplayString()}{' '}
+                        <FormattedMessage
+                          defaultMessage='<link>Learn more</link>'
+                          description='Learn more link on the model list page with cloud-specific link'
+                          values={{
+                            link: (chunks: any) => (
+                              <a
+                                href={ModelListViewImpl.getLearnMoreLinkUrl()}
+                                target='_blank'
+                                rel='noopener noreferrer'
+                                className='LinkColor'
+                              >
+                                {chunks}
+                              </a>
+                            ),
+                          }}
+                        />
+                      </>
+                    )
+                  }
+                >
+                  <InfoIcon css={{ cursor: 'pointer' }} />
+                </LegacyPopover>
+              </>
             }
-            title={title}
           >
             <CreateModelButton />
           </PageHeader>
@@ -224,26 +246,18 @@ export class ModelListViewImpl extends React.Component<
           orderByAsc={this.props.orderByAsc}
           isLoading={loading}
           pagination={
-            <div
-              data-testid='model-list-view-pagination'
-              css={{ width: '100%', alignItems: 'center', display: 'flex' }}
-            >
-              <div css={{ flex: 1 }}>
-                {shouldUseToggleModelsNextUI() && <ModelsNextUIToggleSwitch />}
-              </div>
-              <div>
-                <CursorPagination
-                  hasNextPage={Boolean(nextPageToken)}
-                  hasPreviousPage={currentPage > 1}
-                  onNextPage={this.handleClickNext}
-                  onPreviousPage={this.handleClickPrev}
-                  pageSizeSelect={{
-                    onChange: (num) => this.handleSetMaxResult({ key: num }),
-                    default: this.props.getMaxResultValue(),
-                    options: [10, 25, 50, 100],
-                  }}
-                />
-              </div>
+            <div data-testid='model-list-view-pagination'>
+              <CursorPagination
+                hasNextPage={Boolean(nextPageToken)}
+                hasPreviousPage={currentPage > 1}
+                onNextPage={this.handleClickNext}
+                onPreviousPage={this.handleClickPrev}
+                pageSizeSelect={{
+                  onChange: (num) => this.handleSetMaxResult({ key: num }),
+                  default: this.props.getMaxResultValue(),
+                  options: [10, 25, 50, 100],
+                }}
+              />
             </div>
           }
           isFiltered={isFiltered}
@@ -253,9 +267,8 @@ export class ModelListViewImpl extends React.Component<
   }
 }
 
-export const ModelListView = withNextModelsUIContext(
-  injectIntl<'intl', ModelListViewImplProps>(ModelListViewImpl),
-);
+// @ts-expect-error TS(2769): No overload matches this call.
+export const ModelListView = injectIntl(ModelListViewImpl);
 
 const styles = {
   nameSearchBox: {

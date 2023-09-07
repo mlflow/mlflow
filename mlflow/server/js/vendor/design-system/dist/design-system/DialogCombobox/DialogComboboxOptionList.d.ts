@@ -1,7 +1,6 @@
 import React from 'react';
-import type { WithLoadingState } from '../LoadingState/LoadingState';
 import type { HTMLDataAttributes } from '../types';
-export interface DialogComboboxOptionListProps extends HTMLDataAttributes, React.HTMLAttributes<HTMLDivElement>, WithLoadingState {
+export interface DialogComboboxOptionListProps extends HTMLDataAttributes, React.HTMLAttributes<HTMLDivElement> {
     children: any;
     loading?: boolean;
     withProgressiveLoading?: boolean;

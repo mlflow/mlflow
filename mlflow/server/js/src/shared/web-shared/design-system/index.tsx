@@ -29,5 +29,3 @@ const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 export function systemPrefersDark(): boolean {
   return darkModeMediaQuery.matches;
 }
-
-export function setDarkModeSupported(value: boolean) {}

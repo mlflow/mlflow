@@ -21,7 +21,7 @@ import { decorators, Treebeard } from 'react-treebeard';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'byte... Remove this comment to see the full error message
 import bytes from 'bytes';
 import { RegisterModelButton } from '../../model-registry/components/RegisterModelButton';
-import ShowArtifactPage from './artifact-view-components/ShowArtifactPage';
+import ShowArtifactPage, { getSrc } from './artifact-view-components/ShowArtifactPage';
 import {
   ModelVersionStatus,
   ModelVersionStatusIcons,
@@ -39,7 +39,6 @@ import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
 import { getAllModelVersions } from '../../model-registry/reducers';
 import { listArtifactsApi } from '../actions';
 import { MLMODEL_FILE_NAME } from '../constants';
-import { getArtifactLocationUrl } from '../../common/utils/ArtifactUtils';
 
 const { Text } = Typography;
 
@@ -83,7 +82,6 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
         // @ts-expect-error TS(2322): Type '{ runUuid: string; modelPath: string; disabl... Remove this comment to see the full error message
         runUuid={runUuid}
         modelPath={activeNodeRealPath}
-        modelRelativePath={activeNodeId}
         disabled={activeNodeId === undefined}
       />
     );
@@ -129,7 +127,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
   }
 
   onDownloadClick(runUuid: any, artifactPath: any) {
-    window.location.href = getArtifactLocationUrl(artifactPath, runUuid);
+    window.location.href = getSrc(artifactPath, runUuid);
   }
 
   renderDownloadLink() {
@@ -353,13 +351,12 @@ const mapStateToProps = (state: any, ownProps: any) => {
   const { apis } = state;
   const artifactNode = getArtifacts(runUuid, state);
   const artifactRootUri = getArtifactRootUri(runUuid, state);
-  const modelVersions = getAllModelVersions(state);
-  const modelVersionsWithNormalizedSource = _.flatMap(modelVersions, (version) => {
+  const modelVersionsWithNormalizedSource = _.flatMap(getAllModelVersions(state), (version) => {
     // @ts-expect-error TS(2698): Spread types may only be created from object types... Remove this comment to see the full error message
     return { ...version, source: Utils.normalize((version as any).source) };
   });
   const modelVersionsBySource = _.groupBy(modelVersionsWithNormalizedSource, 'source');
-  return { artifactNode, artifactRootUri, modelVersions, modelVersionsBySource, apis };
+  return { artifactNode, artifactRootUri, modelVersionsBySource, apis };
 };
 
 const mapDispatchToProps = {
@@ -380,23 +377,26 @@ function ModelVersionInfoSection(props: ModelVersionInfoSectionProps) {
   const { modelVersion } = props;
   const { name, version, status, status_message } = modelVersion;
 
-  // eslint-disable-next-line prefer-const
-  let mvPageRoute = Utils.getIframeCorrectedRoute(getModelVersionPageRoute(name, version));
   const modelVersionLink = (
-    <Tooltip title={`${name} version ${version}`}>
-      <a href={mvPageRoute} className='model-version-link' target='_blank' rel='noreferrer'>
-        <span className='model-name'>{name}</span>
-        <span>,&nbsp;v{version}&nbsp;</span>
-        <i className='fas fa-external-link-o' />
-      </a>
-    </Tooltip>
+    // Reported during ESLint upgrade
+    // eslint-disable-next-line react/jsx-no-target-blank
+    <a
+      href={Utils.getIframeCorrectedRoute(getModelVersionPageRoute(name, version))}
+      className='model-version-link'
+      title={`${name}, v${version}`}
+      target='_blank'
+    >
+      <span className='model-name'>{name}</span>
+      <span>,&nbsp;v{version}&nbsp;</span>
+      <i className='fas fa-external-link-o' />
+    </a>
   );
 
   return (
     <div className='model-version-info'>
       <div className='model-version-link-section'>
         <Tooltip title={status_message || modelVersionStatusIconTooltips[status]}>
-          <div>{ModelVersionStatusIcons[status]}</div>
+          {ModelVersionStatusIcons[status]}
         </Tooltip>
         {modelVersionLink}
       </div>

@@ -42,13 +42,7 @@ export const CopyButton = ({ copyText, showLabel = true, icon }: Props) => {
         visible: showTooltip,
       }}
     >
-      <Button
-        type='primary'
-        onClick={handleClick}
-        onMouseLeave={handleMouseLeave}
-        icon={icon}
-        css={{ 'z-index': 1 }}
-      >
+      <Button type='primary' onClick={handleClick} onMouseLeave={handleMouseLeave} icon={icon}>
         {showLabel && (
           <FormattedMessage defaultMessage='Copy' description='Button text for copy button' />
         )}

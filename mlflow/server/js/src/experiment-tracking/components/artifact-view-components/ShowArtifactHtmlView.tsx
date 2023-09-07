@@ -6,7 +6,8 @@
  */
 
 import React, { Component } from 'react';
-import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
+import { getSrc } from './ShowArtifactPage';
+import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactHtmlView.css';
 import Iframe from 'react-iframe';
 
@@ -14,7 +15,6 @@ type ShowArtifactHtmlViewState = {
   loading: boolean;
   error?: any;
   html: string;
-  path: string;
 };
 
 type ShowArtifactHtmlViewProps = {
@@ -37,7 +37,6 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
     loading: true,
     error: undefined,
     html: '',
-    path: '',
   };
 
   componentDidMount() {
@@ -51,7 +50,7 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
   }
 
   render() {
-    if (this.state.loading || this.state.path !== this.props.path) {
+    if (this.state.loading) {
       return <div className='artifact-html-view-loading'>Loading...</div>;
     }
     if (this.state.error) {
@@ -87,14 +86,14 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
 
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
-    const artifactLocation = getArtifactLocationUrl(this.props.path, this.props.runUuid);
+    const artifactLocation = getSrc(this.props.path, this.props.runUuid);
     this.props
       .getArtifact(artifactLocation)
       .then((html: string) => {
-        this.setState({ html: html, loading: false, path: this.props.path });
+        this.setState({ html: html, loading: false });
       })
       .catch((error: Error) => {
-        this.setState({ error: error, loading: false, path: this.props.path });
+        this.setState({ error: error, loading: false });
       });
   }
 }

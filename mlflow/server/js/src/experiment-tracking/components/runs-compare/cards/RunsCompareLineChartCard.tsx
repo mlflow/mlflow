@@ -1,4 +1,4 @@
-import { LegacySkeleton } from '@databricks/design-system';
+import { Skeleton } from '@databricks/design-system';
 import { useMemo } from 'react';
 import { CompareChartRunData } from '../charts/CompareRunsCharts.common';
 import { CompareRunsMetricsLinePlot } from '../charts/CompareRunsMetricsLinePlot';
@@ -40,14 +40,13 @@ export const RunsCompareLineChartCard = ({
     >
       <div css={styles.lineChartCardWrapper}>
         {isMetricHistoryLoading ? (
-          <LegacySkeleton />
+          <Skeleton />
         ) : (
           <CompareRunsMetricsLinePlot
             runsData={slicedRuns}
             metricKey={config.metricKey}
             scaleType={config.scaleType}
             xAxisKey={config.xAxisKey}
-            lineSmoothness={config.lineSmoothness}
             useDefaultHoverBox={false}
             onHover={setTooltip}
             onUnhover={resetTooltip}

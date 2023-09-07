@@ -7,7 +7,7 @@
 
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { Link } from '../../common/utils/RoutingUtils';
+import { Link } from 'react-router-dom-v5-compat';
 import _ from 'lodash';
 import { FormattedMessage } from 'react-intl';
 import { Switch, Tabs, useDesignSystemTheme } from '@databricks/design-system';

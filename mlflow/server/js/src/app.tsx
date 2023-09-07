@@ -9,9 +9,7 @@ import store from './store';
 import { useI18nInit } from './i18n/I18nUtils';
 import { DesignSystemContainer } from './common/components/DesignSystemContainer';
 import { ConfigProvider } from 'antd';
-import { LegacySkeleton } from '@databricks/design-system';
-import { shouldUsePathRouting } from './common/utils/FeatureUtils';
-import { MlflowRouter } from './MlflowRouter';
+import { Skeleton } from '@databricks/design-system';
 
 export function MLFlowRoot() {
   const i18n = useI18nInit();
@@ -19,7 +17,7 @@ export function MLFlowRoot() {
   if (!i18n) {
     return (
       <DesignSystemContainer>
-        <LegacySkeleton />
+        <Skeleton />
       </DesignSystemContainer>
     );
   }
@@ -31,7 +29,7 @@ export function MLFlowRoot() {
       <Provider store={store}>
         <DesignSystemContainer>
           <ConfigProvider prefixCls='ant'>
-            {shouldUsePathRouting() ? <MlflowRouter /> : <App />}
+            <App />
           </ConfigProvider>
         </DesignSystemContainer>
       </Provider>
