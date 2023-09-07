@@ -6,8 +6,7 @@
  */
 
 import React, { Component } from 'react';
-import { getSrc } from './ShowArtifactPage';
-import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
+import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactMapView.css';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -137,7 +136,7 @@ class ShowArtifactMapView extends Component<Props, State> {
 
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
-    const artifactLocation = getSrc(this.props.path, this.props.runUuid);
+    const artifactLocation = getArtifactLocationUrl(this.props.path, this.props.runUuid);
     this.props
       .getArtifact(artifactLocation)
       .then((rawFeatures: any) => {

@@ -132,7 +132,9 @@ def save_model(
 
     if conda_env is None:
         if pip_requirements is None:
-            inferred_reqs = infer_pip_requirements(path, "mlflow._promptlab", [])
+            inferred_reqs = infer_pip_requirements(
+                path, "mlflow._promptlab", [f"mlflow[gateway]=={__version__}"]
+            )
             default_reqs = sorted(inferred_reqs)
         else:
             default_reqs = None
