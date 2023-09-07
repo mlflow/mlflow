@@ -26,7 +26,6 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Union
 
 import langchain
-from langchain.docstore.document import Document
 
 import mlflow
 
@@ -77,14 +76,28 @@ class APIRequest:
     results: list[tuple[int, str]]
 
     # https://github.com/langchain-ai/langchain/issues/2222
+    # https://github.com/langchain-ai/langchain/issues/8815
     # add more formats here if other langchain objects don't serialize
     def _prepare_to_serialize(self, response: dict):
-        for key in response:
-            value = response[key]
-            if isinstance(value, list) and len(value) > 0 and isinstance(value[0], Document):
-                response[key] = json.dumps(
-                    [{"page_content": doc.page_content, "metadata": doc.metadata} for doc in value]
-                )
+        if "intermediate_steps" in response:
+            response["intermediate_steps"] = json.dumps(
+                [
+                    {
+                        "tool": agent.tool,
+                        "tool_input": agent.tool_input,
+                        "log": agent.log,
+                        "result": result,
+                    }
+                    for agent, result in response["intermediate_steps"]
+                ]
+            )
+        if "source_documents" in response:
+            response["source_documents"] = json.dumps(
+                [
+                    {"page_content": doc.page_content, "metadata": doc.metadata}
+                    for doc in response["source_documents"]
+                ]
+            )
 
     def call_api(self, status_tracker: StatusTracker):
         """
