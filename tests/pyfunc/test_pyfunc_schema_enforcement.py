@@ -272,7 +272,8 @@ def test_column_schema_enforcement():
     with pytest.raises(MlflowException, match=match_missing_inputs):
         pyfunc_model.predict(pdf.values)
 
-    # 14. dictionaries of str -> list/nparray work
+    # 14. dictionaries of str -> list/nparray work,
+    # including extraneous multi-dimensional arrays and lists
     arr = np.array([1, 2, 3])
     d = {
         "a": arr.astype("int32"),
@@ -283,6 +284,10 @@ def test_column_schema_enforcement():
         "g": ["a", "b", "c"],
         "f": [bytes(0), bytes(1), bytes(1)],
         "h": np.array(["2020-01-01", "2020-02-02", "2020-03-03"], dtype=np.datetime64),
+        # Extraneous multi-dimensional numpy array should be silenty dropped
+        "i": np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]),
+        # Extraneous multi-dimensional list should be silently dropped
+        "j": [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
     }
     res = pyfunc_model.predict(d)
     assert res.dtypes.to_dict() == expected_types
@@ -294,7 +299,7 @@ def test_column_schema_enforcement():
         "c": [arr.astype("float32")],
         "d": [arr.astype("float64")],
         "e": [[True, False, True]],
-        "g": [["a", "b", "c"]],
+        "g": np.array([["a", "b", "c"]]),
         "f": [[bytes(0), bytes(1), bytes(1)]],
         "h": [np.array(["2020-01-01", "2020-02-02", "2020-03-03"], dtype=np.datetime64)],
     }

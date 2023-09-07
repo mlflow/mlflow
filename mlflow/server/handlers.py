@@ -6,6 +6,7 @@ import pathlib
 import posixpath
 import re
 import tempfile
+import time
 import urllib
 from functools import wraps
 
@@ -24,7 +25,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
-    INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
@@ -94,6 +94,7 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
+from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import is_file_uri, is_local_uri
@@ -1100,7 +1101,7 @@ def get_metric_history_bulk_handler():
 @_disable_if_artifacts_only
 def search_datasets_handler():
     MAX_EXPERIMENT_IDS_PER_REQUEST = 20
-    experiment_ids = request.args.to_dict(flat=False).get("experiment_id", [])
+    experiment_ids = request.json.get("experiment_ids", [])
     if not experiment_ids:
         raise MlflowException(
             message="SearchDatasets request must specify at least one experiment_id.",
@@ -1129,15 +1130,15 @@ def search_datasets_handler():
 
 @catch_mlflow_exception
 def gateway_proxy_handler():
-    args = request.json
-
     gateway_uri = MLFLOW_GATEWAY_URI.get()
-    _logger.info("gateway_uri: %s", gateway_uri)
     if not gateway_uri:
-        raise MlflowException(
-            message="MLFLOW_GATEWAY_URI environment variable must be set.",
-            error_code=INTERNAL_ERROR,
-        )
+        # Pretend an empty gateway service is running
+        return {"routes": []}
+
+    if request.method == "GET":
+        args = request.args
+    else:
+        args = request.json
 
     gateway_path = args.get("gateway_path")
     if not gateway_path:
@@ -1158,6 +1159,138 @@ def gateway_proxy_handler():
             f"Error message: {response.text}",
             error_code=response.status_code,
         )
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def create_promptlab_run_handler():
+    def assert_arg_exists(arg_name, arg):
+        if not arg:
+            raise MlflowException(
+                message=f"CreatePromptlabRun request must specify {arg_name}.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    args = request.json
+    experiment_id = args.get("experiment_id")
+    assert_arg_exists("experiment_id", experiment_id)
+    run_name = args.get("run_name", None)
+    tags = args.get("tags", [])
+    prompt_template = args.get("prompt_template")
+    assert_arg_exists("prompt_template", prompt_template)
+    raw_prompt_parameters = args.get("prompt_parameters")
+    assert_arg_exists("prompt_parameters", raw_prompt_parameters)
+    prompt_parameters = [
+        Param(param.get("key"), param.get("value")) for param in args.get("prompt_parameters")
+    ]
+    model_route = args.get("model_route")
+    assert_arg_exists("model_route", model_route)
+    raw_model_parameters = args.get("model_parameters", [])
+    model_parameters = [
+        Param(param.get("key"), param.get("value")) for param in raw_model_parameters
+    ]
+    model_input = args.get("model_input")
+    assert_arg_exists("model_input", model_input)
+    model_output = args.get("model_output", None)
+    raw_model_output_parameters = args.get("model_output_parameters", [])
+    model_output_parameters = [
+        Param(param.get("key"), param.get("value")) for param in raw_model_output_parameters
+    ]
+    mlflow_version = args.get("mlflow_version")
+    assert_arg_exists("mlflow_version", mlflow_version)
+    user_id = args.get("user_id", "unknown")
+
+    # use current time if not provided
+    start_time = args.get("start_time", int(time.time() * 1000))
+
+    store = _get_tracking_store()
+
+    run = _create_promptlab_run_impl(
+        store,
+        experiment_id=experiment_id,
+        run_name=run_name,
+        tags=tags,
+        prompt_template=prompt_template,
+        prompt_parameters=prompt_parameters,
+        model_route=model_route,
+        model_parameters=model_parameters,
+        model_input=model_input,
+        model_output=model_output,
+        model_output_parameters=model_output_parameters,
+        mlflow_version=mlflow_version,
+        user_id=user_id,
+        start_time=start_time,
+    )
+    response_message = CreateRun.Response()
+    response_message.run.MergeFrom(run.to_proto())
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+def upload_artifact_handler():
+    args = request.args
+    run_uuid = args.get("run_uuid")
+    if not run_uuid:
+        raise MlflowException(
+            message="Request must specify run_uuid.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    path = args.get("path")
+    if not path:
+        raise MlflowException(
+            message="Request must specify path.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    validate_path_is_safe(path)
+
+    if request.content_length and request.content_length > 10 * 1024 * 1024:
+        raise MlflowException(
+            message="Artifact size is too large. Max size is 10MB.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    data = request.data
+    if not data:
+        raise MlflowException(
+            message="Request must specify data.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    run = _get_tracking_store().get_run(run_uuid)
+    artifact_dir = run.info.artifact_uri
+
+    basename = posixpath.basename(path)
+    dirname = posixpath.dirname(path)
+
+    def _log_artifact_to_repo(file, run, dirname, artifact_dir):
+        if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
+            artifact_repo = _get_artifact_repo_mlflow_artifacts()
+            path_to_log = (
+                os.path.join(run.info.experiment_id, run.info.run_id, "artifacts", dirname)
+                if dirname
+                else os.path.join(run.info.experiment_id, run.info.run_id, "artifacts")
+            )
+        else:
+            artifact_repo = get_artifact_repository(artifact_dir)
+            path_to_log = dirname
+
+        artifact_repo.log_artifact(file, path_to_log)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        dir_path = os.path.join(tmpdir, dirname) if dirname else tmpdir
+        file_path = os.path.join(dir_path, basename)
+
+        os.makedirs(dir_path, exist_ok=True)
+
+        with open(file_path, "wb") as f:
+            f.write(data)
+
+        _log_artifact_to_repo(file_path, run, dirname, artifact_dir)
+
+    response = Response(mimetype="application/json")
+    return response
 
 
 @catch_mlflow_exception

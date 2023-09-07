@@ -1,3 +1,4 @@
+import type { Interpolation } from '@emotion/react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import type { CSSObject } from '@storybook/theming';
 import React from 'react';
@@ -5,6 +6,7 @@ import type { Theme } from '../../theme';
 export declare const Root: React.FC<DropdownMenu.DropdownMenuProps>;
 export interface DropdownMenuProps extends DropdownMenu.MenuContentProps {
     minWidth?: number;
+    isInsideModal?: boolean;
 }
 export interface DropdownMenuItemProps extends DropdownMenu.DropdownMenuItemProps {
     danger?: boolean;
@@ -20,7 +22,7 @@ export interface DropdownMenuRadioItemProps extends DropdownMenu.DropdownMenuRad
     disabledReason?: React.ReactNode;
 }
 export declare const Content: React.ForwardRefExoticComponent<DropdownMenuProps & React.RefAttributes<HTMLDivElement>>;
-export declare const SubContent: React.ForwardRefExoticComponent<DropdownMenuProps & React.RefAttributes<HTMLDivElement>>;
+export declare const SubContent: React.ForwardRefExoticComponent<Omit<DropdownMenuProps, "isInsideModal"> & React.RefAttributes<HTMLDivElement>>;
 export declare const Trigger: React.ForwardRefExoticComponent<DropdownMenu.DropdownMenuTriggerProps & React.RefAttributes<HTMLButtonElement>>;
 export declare const Item: React.ForwardRefExoticComponent<DropdownMenuItemProps & React.RefAttributes<HTMLDivElement>>;
 export declare const Label: React.ForwardRefExoticComponent<DropdownMenu.DropdownMenuLabelProps & React.RefAttributes<HTMLDivElement>>;
@@ -48,4 +50,10 @@ export declare const IconWrapper: React.ForwardRefExoticComponent<Pick<Pick<Reac
     ref?: ((instance: HTMLDivElement | null) => void) | React.RefObject<HTMLDivElement> | null | undefined;
 }, "key" | keyof React.HTMLAttributes<HTMLDivElement>> & React.RefAttributes<HTMLDivElement>>;
 export declare const dropdownContentStyles: (theme: Theme) => CSSObject;
+export declare const dropdownItemStyles: (theme: Theme) => Interpolation<Theme>;
+export declare const dropdownSeparatorStyles: (theme: Theme) => {
+    height: number;
+    margin: string;
+    backgroundColor: string;
+};
 //# sourceMappingURL=DropdownMenu.d.ts.map

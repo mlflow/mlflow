@@ -10,7 +10,7 @@ import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
-import { MemoryRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { CreateModelButton } from './CreateModelButton';
 import { GenericInputModal } from '../../experiment-tracking/components/modals/GenericInputModal';
 import { mountWithIntl } from '../../common/utils/TestUtils';
