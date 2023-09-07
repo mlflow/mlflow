@@ -989,6 +989,9 @@ class _PyFuncModelWrapper:
         from pyspark.ml import PipelineModel
 
         if _is_spark_connect_model(self.spark_model):
+            # Spark connect ML model directly append prediction result column to input pandas
+            # dataframe. To make input dataframe intact, make a copy first.
+            pandas_df = pandas_df.copy(deep=False)
             return self.spark_model.transform(pandas_df)["prediction"]
 
         spark_df = _find_and_set_features_col_as_vector_if_needed(
@@ -1109,3 +1112,4 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
             _stop_listen_for_spark_activity(sc)
         else:
             _listen_for_spark_activity(sc)
+
