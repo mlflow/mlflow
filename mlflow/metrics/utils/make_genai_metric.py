@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import EvaluationExample, MetricValue
@@ -8,33 +8,59 @@ from mlflow.pyfunc import PyFuncModel, _load_model_or_server
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.class_utils import _get_class_from_string
 
+if TYPE_CHECKING:
+    import pandas as pd
+    import pyspark
+
+
+def _format_variable_string(variables: Dict[str, Any], eval_df, indx) -> str:
+    variables_dict = {}
+    for variable in variables:
+        if variable in eval_df.columns:
+            variables_dict[variable] = eval_df[variable].tolist()[indx]
+        else:
+            raise MlflowException(
+                f"{variable} does not exist in the Eval DataFrame {eval_df.columns}."
+            )
+
+    variable_string = (
+        ""
+        if variables_dict is None
+        else "\n".join(
+            f"Provided {variable}: {variable_value}"
+            for variable, variable_value in variables_dict.items()
+        )
+    )
+
+    return variable_string
+
 
 def make_genai_metric(
     name: str,
-    version: str,
     definition: str,
     grading_prompt: str,
-    examples: List[EvaluationExample] = None,
-    model: str = "openai:/gpt4",
-    variables: List[str] = None,
-    parameters: Dict[str, Any] = None,
-    greater_is_better=True,
-    aggregate_options: List[str] = None,
+    examples: Optional[List[EvaluationExample]] = None,
+    version: Optional[str] = "v1",
+    model: Optional[str] = "openai:/gpt4",
+    variables: Optional[List[str]] = None,
+    parameters: Optional[Dict[str, Any]] = None,
+    aggregations: Optional[List[str]] = None,
+    greater_is_better: bool = True,
 ) -> EvaluationMetric:
     """
-    Create a genai metric used to evaluate LLm using LLM as a judge in MLflow.
+    Create a genai metric used to evaluate LLM using LLM as a judge in MLflow.
 
     :param name: Name of the metric.
-    :param version: Version of the metric. Currently supported versions are: v1.
-    :param model: Model uri of the metric.
-    :param variables: Variables required to compute the metric.
     :param definition: Definition of the metric.
     :param grading_prompt: Grading criteria of the metric.
-    :param examples: Examples of the metric.
-    :param parameters: Parameters for the llm used to compute the metric.
-    :param greater_is_better: Whether the metric is better when it is greater.
-    :param aggregate_options: The list of options to aggregate the scores. Currently supported
+    :param examples: (Optional) Examples of the metric.
+    :param version: (Optional) Version of the metric. Currently supported versions are: v1.
+    :param model: (Optional) Model uri of the metric.
+    :param variables: (Optional) Variables required to compute the metric.
+    :param parameters: (Optional) Parameters for the llm used to compute the metric.
+    :param aggregations: (Optional) The list of options to aggregate the scores. Currently supported
         options are: min, max, mean, median, variance, p90.
+    :param greater_is_better: (Optional) Whether the metric is better when it is greater.
 
     :return: A metric object.
 
@@ -45,50 +71,60 @@ def make_genai_metric(
 
         example = EvaluationExample(
             input="What is MLflow?",
-            output="MLflow is an open-source platform for managing machine "
-            "learning workflows, including experiment tracking, model packaging, "
-            "versioning, and deployment, simplifying the ML lifecycle.",
+            output=(
+                "MLflow is an open-source platform for managing machine "
+                "learning workflows, including experiment tracking, model packaging, "
+                "versioning, and deployment, simplifying the ML lifecycle."
+            ),
             score=4,
-            justification="The definition effectively explains what MLflow is "
-            "its purpose, and its developer. It could be more concise for a 5-score.",
+            justification=(
+                "The definition effectively explains what MLflow is "
+                "its purpose, and its developer. It could be more concise for a 5-score.",
+            ),
             variables={
-                "ground_truth": "MLflow is an open-source platform for managing "
-                "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
-                "a company that specializes in big data and machine learning solutions. MLflow is "
-                "designed to address the challenges that data scientists and machine learning "
-                "engineers face when developing, training, and deploying machine learning models."
+                "ground_truth": (
+                    "MLflow is an open-source platform for managing "
+                    "the end-to-end machine learning (ML) lifecycle. It was developed by "
+                    "Databricks, a company that specializes in big data and machine learning "
+                    "solutions. MLflow is designed to address the challenges that data "
+                    "scientists and machine learning engineers face when developing, training, "
+                    "and deploying machine learning models."
+                )
             },
         )
 
         metric = make_genai_metric(
             name="correctness",
-            version="v1",
-            definition="Correctness refers to how well the generated output matches "
-            "or aligns with the reference or ground truth text that is considered "
-            "accurate and appropriate for the given input. The ground truth serves as "
-            "a benchmark against which the provided output is compared to determine the "
-            "level of accuracy and fidelity.",
-            grading_prompt="Correctness: If the answer correctly answer the question, below are the "
-            "details for different scores: "
-            "- Score 0: the answer is completely incorrect, doesn’t mention anything about the question "
-            "or is completely contrary to the correct answer. "
-            "- Score 1: the answer provides some relevance to the question and answer one aspect "
-            "of the question correctly. "
-            "- Score 2: the answer mostly answer the question but is missing or hallucinating on one "
-            "critical aspect. "
-            "- Score 4: the answer correctly answer the question and not missing any major aspect",
+            definition=(
+                "Correctness refers to how well the generated output matches "
+                "or aligns with the reference or ground truth text that is considered "
+                "accurate and appropriate for the given input. The ground truth serves as "
+                "a benchmark against which the provided output is compared to determine the "
+                "level of accuracy and fidelity."
+            ),
+            grading_prompt=(
+                "Correctness: If the answer correctly answer the question, below "
+                "are the details for different scores: "
+                "- Score 0: the answer is completely incorrect, doesn’t mention anything about "
+                "the question or is completely contrary to the correct answer. "
+                "- Score 1: the answer provides some relevance to the question and answer "
+                "one aspect of the question correctly. "
+                "- Score 2: the answer mostly answer the question but is missing or hallucinating "
+                "on one critical aspect. "
+                "- Score 4: the answer correctly answer the question and not missing any "
+                "major aspect"
+            ),
             examples=[example],
+            version="v1",
             model="gateway:/gpt4",
             variables=["ground_truth"],
             parameters={"temperature": 1.0},
+            aggregations=["mean", "variance", "p90"],
             greater_is_better=True,
-            aggregate_options=["mean", "variance", "p90"],
         )
     """
-    import pandas as pd
-    import pyspark
 
-    def eval_fn(eval_df: Union[pd.DataFrame, pyspark.sql.DataFrame]) -> MetricValue:
+    def eval_fn(eval_df: Union["pd.DataFrame", "pyspark.sql.DataFrame"]) -> MetricValue:
         """
         This is the function that is called when the metric is evaluated.
         """
@@ -96,39 +132,17 @@ def make_genai_metric(
         class_name = f"mlflow.metrics.utils.prompts.{version}.EvaluationModel"
         try:
             evaluation_model_class_module = _get_class_from_string(class_name)
+        except ModuleNotFoundError:
+            raise MlflowException(
+                f"Failed to find evaluation model for version {version}."
+                f"Please check the correctness of the version",
+                error_code=INVALID_PARAMETER_VALUE,
+            ) from None
         except Exception as e:
-            if isinstance(e, ModuleNotFoundError):
-                raise MlflowException(
-                    f"Failed to find evaluation model for version {version}."
-                    f"Please check the correctness of the version",
-                    error_code=INVALID_PARAMETER_VALUE,
-                ) from None
-            else:
-                raise MlflowException(
-                    f"Failed to construct evaluation model {version}. Error: {e!r}",
-                    error_code=INTERNAL_ERROR,
-                ) from None
-
-        variables_dict = {}
-        for variable in variables:
-            if variable in eval_df.columns:
-                variable_value = eval_df[variable]
-                variables_dict[variable] = variable_value
-            else:
-                raise MlflowException(
-                    f"{variable} does not exist in the Eval DataFrame {eval_df.columns}."
-                )
-
-        variable_string = (
-            ""
-            if variables_dict is None
-            else "\n".join(
-                [
-                    f"Provided {variable}: {variable_value}"
-                    for variable, variable_value in variables_dict.items()
-                ]
-            )
-        )
+            raise MlflowException(
+                f"Failed to construct evaluation model {version}. Error: {e!r}",
+                error_code=INTERNAL_ERROR,
+            ) from None
 
         evaluation_context = evaluation_model_class_module(
             name,
@@ -139,19 +153,20 @@ def make_genai_metric(
             parameters,
         ).to_dict()
 
-        outputs = eval_df["prediction"]
-        inputs = eval_df["input"]
+        outputs = eval_df["prediction"].tolist()
+        inputs = eval_df["input"].tolist()
         eval_model = evaluation_context["model"]
         eval_parameters = evaluation_context["parameters"]
 
         # TODO: Save the metric definition in a yaml file for model monitoring
 
         messages = []
-        for indx, _ in inputs.items():
+        for indx, (input, output) in enumerate(zip(inputs, outputs)):
+            variable_string = _format_variable_string(variables, eval_df, indx)
             messages.append(
                 [
-                    evaluation_context["eval_prompt"].partial_fill(
-                        input=inputs[indx], output=outputs[indx], variables=variable_string
+                    evaluation_context["eval_prompt"].format(
+                        input=input, output=output, variables=variable_string
                     ),
                 ],
             )
@@ -173,8 +188,7 @@ def make_genai_metric(
         scores = eval_result["Score"]
         justification = eval_result["Justification"]
 
-        # loop over the aggregate_options and compute the aggregate results on the scores
-
+        # loop over the aggregations and compute the aggregate results on the scores
         def aggregate_function(aggregate_option, scores):
             import numpy as np
 
@@ -195,9 +209,7 @@ def make_genai_metric(
 
             return options[aggregate_option](scores)
 
-        aggregate_results = {
-            option: aggregate_function(option, scores) for option in aggregate_options
-        }
+        aggregate_results = {option: aggregate_function(option, scores) for option in aggregations}
 
         return MetricValue(scores.tolist(), justification.tolist(), aggregate_results)
 

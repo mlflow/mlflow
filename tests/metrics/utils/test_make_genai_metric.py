@@ -1,11 +1,12 @@
 import re
-import pytest
-import mlflow
-import pandas as pd
 
-from mlflow.metrics.base import EvaluationExample
+import pandas as pd
+import pytest
+
+import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.metrics.utils.make_genai_metric import make_genai_metric
+from mlflow.metrics.base import EvaluationExample
+from mlflow.metrics.utils.make_genai_metric import _format_variable_string, make_genai_metric
 
 
 # Create a custom mock class for MyModel
@@ -22,8 +23,8 @@ class FakeModel(mlflow.pyfunc.PythonModel):
         )
 
 
-def test_make_genai_metric_success():
-    with mlflow.start_run() as run:
+def test_make_genai_metric_pyfunc_success():
+    with mlflow.start_run():
         llm_model_info = mlflow.pyfunc.log_model(
             "model",
             python_model=FakeModel(),
@@ -56,8 +57,8 @@ def test_make_genai_metric_success():
         "level of accuracy and fidelity.",
         grading_prompt="Correctness: If the answer correctly answer the question, below are the "
         "details for different scores: "
-        "- Score 0: the answer is completely incorrect, doesn’t mention anything about the question "
-        "or is completely contrary to the correct answer. "
+        "- Score 0: the answer is completely incorrect, doesn’t mention anything about "
+        "the question or is completely contrary to the correct answer. "
         "- Score 1: the answer provides some relevance to the question and answer one aspect "
         "of the question correctly. "
         "- Score 2: the answer mostly answer the question but is missing or hallucinating on one "
@@ -68,7 +69,7 @@ def test_make_genai_metric_success():
         variables=["ground_truth"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
-        aggregate_options=["mean", "variance", "p90"],
+        aggregations=["mean", "variance", "p90"],
     )
 
     eval_df = pd.DataFrame(
@@ -133,7 +134,7 @@ def test_make_genai_metric_failure():
         variables=["ground_truth"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
-        aggregate_options=["mean"],
+        aggregations=["mean"],
     )
     with pytest.raises(
         MlflowException,
@@ -154,7 +155,7 @@ def test_make_genai_metric_failure():
         variables=["ground_truth-error"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
-        aggregate_options=["mean"],
+        aggregations=["mean"],
     )
     with pytest.raises(
         MlflowException,
@@ -165,7 +166,7 @@ def test_make_genai_metric_failure():
     ):
         custom_metric2.eval_fn(eval_df)
 
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         llm_model_info = mlflow.pyfunc.log_model(
             "model",
             python_model=FakeModel(),
@@ -180,10 +181,26 @@ def test_make_genai_metric_failure():
         variables=["ground_truth"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
-        aggregate_options=["random-fake"],
+        aggregations=["random-fake"],
     )
     with pytest.raises(
         MlflowException,
         match=re.escape("Invalid aggregate option random-fake"),
     ):
         custom_metric3.eval_fn(eval_df)
+
+
+def test_format_variable_string():
+    variable_string = _format_variable_string(
+        ["foo", "bar"], pd.DataFrame({"foo": ["foo"], "bar": ["bar"]}), 0
+    )
+
+    assert variable_string == "Provided foo: foo\nProvided bar: bar"
+
+    with pytest.raises(
+        MlflowException,
+        match=re.escape(
+            "bar does not exist in the Eval DataFrame " "Index(['foo'], dtype='object')."
+        ),
+    ):
+        variable_string = _format_variable_string(["foo", "bar"], pd.DataFrame({"foo": ["foo"]}), 0)
