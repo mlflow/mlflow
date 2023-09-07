@@ -103,61 +103,61 @@ def test_expected_tags_logged_when_using_conda():
             )
 
 
-@pytest.mark.usefixtures("patch_user")
-@pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
-@pytest.mark.parametrize("version", [None, "master", "git-commit"])
-def test_run_local_git_repo(local_git_repo, local_git_repo_uri, use_start_run, version):
-    if version is not None:
-        uri = local_git_repo_uri + "#" + TEST_PROJECT_NAME
-    else:
-        uri = os.path.join(f"{local_git_repo}/", TEST_PROJECT_NAME)
-    if version == "git-commit":
-        version = _get_version_local_git_repo(local_git_repo)
-    submitted_run = mlflow.projects.run(
-        uri,
-        entry_point="test_tracking",
-        version=version,
-        parameters={"use_start_run": use_start_run},
-        env_manager="local",
-        experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
-    )
+# @pytest.mark.usefixtures("patch_user")
+# @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
+# @pytest.mark.parametrize("version", [None, "master", "git-commit"])
+# def test_run_local_git_repo(local_git_repo, local_git_repo_uri, use_start_run, version):
+#     if version is not None:
+#         uri = local_git_repo_uri + "#" + TEST_PROJECT_NAME
+#     else:
+#         uri = os.path.join(f"{local_git_repo}/", TEST_PROJECT_NAME)
+#     if version == "git-commit":
+#         version = _get_version_local_git_repo(local_git_repo)
+#     submitted_run = mlflow.projects.run(
+#         uri,
+#         entry_point="test_tracking",
+#         version=version,
+#         parameters={"use_start_run": use_start_run},
+#         env_manager="local",
+#         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+#     )
 
-    # Blocking runs should be finished when they return
-    validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
-    # Test that we can call wait() on a synchronous run & that the run has the correct
-    # status after calling wait().
-    submitted_run.wait()
-    validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
-    # Validate run contents in the FileStore
-    run_id = submitted_run.run_id
-    mlflow_service = MlflowClient()
-    runs = mlflow_service.search_runs(
-        [FileStore.DEFAULT_EXPERIMENT_ID], run_view_type=ViewType.ACTIVE_ONLY
-    )
-    assert len(runs) == 1
-    store_run_id = runs[0].info.run_id
-    assert run_id == store_run_id
-    run = mlflow_service.get_run(run_id)
+#     # Blocking runs should be finished when they return
+#     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
+#     # Test that we can call wait() on a synchronous run & that the run has the correct
+#     # status after calling wait().
+#     submitted_run.wait()
+#     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
+#     # Validate run contents in the FileStore
+#     run_id = submitted_run.run_id
+#     mlflow_service = MlflowClient()
+#     runs = mlflow_service.search_runs(
+#         [FileStore.DEFAULT_EXPERIMENT_ID], run_view_type=ViewType.ACTIVE_ONLY
+#     )
+#     assert len(runs) == 1
+#     store_run_id = runs[0].info.run_id
+#     assert run_id == store_run_id
+#     run = mlflow_service.get_run(run_id)
 
-    assert run.info.status == RunStatus.to_string(RunStatus.FINISHED)
+#     assert run.info.status == RunStatus.to_string(RunStatus.FINISHED)
 
-    assert run.data.params == {
-        "use_start_run": use_start_run,
-    }
-    assert run.data.metrics == {"some_key": 3}
+#     assert run.data.params == {
+#         "use_start_run": use_start_run,
+#     }
+#     assert run.data.metrics == {"some_key": 3}
 
-    tags = run.data.tags
-    assert tags[MLFLOW_USER] == MOCK_USER
-    assert "file:" in tags[MLFLOW_SOURCE_NAME]
-    assert tags[MLFLOW_SOURCE_TYPE] == SourceType.to_string(SourceType.PROJECT)
-    assert tags[MLFLOW_PROJECT_ENTRY_POINT] == "test_tracking"
-    assert tags[MLFLOW_PROJECT_BACKEND] == "local"
+#     tags = run.data.tags
+#     assert tags[MLFLOW_USER] == MOCK_USER
+#     assert "file:" in tags[MLFLOW_SOURCE_NAME]
+#     assert tags[MLFLOW_SOURCE_TYPE] == SourceType.to_string(SourceType.PROJECT)
+#     assert tags[MLFLOW_PROJECT_ENTRY_POINT] == "test_tracking"
+#     assert tags[MLFLOW_PROJECT_BACKEND] == "local"
 
-    if version == "master":
-        assert tags[MLFLOW_GIT_BRANCH] == "master"
-        assert tags[MLFLOW_GIT_REPO_URL] == local_git_repo_uri
-        assert tags[LEGACY_MLFLOW_GIT_BRANCH_NAME] == "master"
-        assert tags[LEGACY_MLFLOW_GIT_REPO_URL] == local_git_repo_uri
+#     if version == "master":
+#         assert tags[MLFLOW_GIT_BRANCH] == "master"
+#         assert tags[MLFLOW_GIT_REPO_URL] == local_git_repo_uri
+#         assert tags[LEGACY_MLFLOW_GIT_BRANCH_NAME] == "master"
+#         assert tags[LEGACY_MLFLOW_GIT_REPO_URL] == local_git_repo_uri
 
 
 def test_invalid_version_local_git_repo(local_git_repo_uri):

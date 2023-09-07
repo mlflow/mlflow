@@ -373,7 +373,6 @@ def _wait_for(submitted_run_obj):
     except KeyboardInterrupt:
         _logger.error("=== Run (ID '%s') interrupted, cancelling run ===", run_id)
         submitted_run_obj.cancel()
-        _maybe_set_run_terminated(active_run, "FAILED")
         raise
 
 

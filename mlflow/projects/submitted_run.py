@@ -5,6 +5,7 @@ from abc import abstractmethod
 
 from mlflow.entities import RunStatus
 from mlflow.utils.annotations import developer_stable
+from mlflow.tracking import MlflowClient
 
 _logger = logging.getLogger(__name__)
 
@@ -86,6 +87,7 @@ class LocalSubmittedRun(SubmittedRun):
                     os.killpg(self.command_proc.pid, signal.SIGTERM)
                 else:
                     self.command_proc.terminate()
+                MlflowClient().set_terminated(self.run_id, "FAILED")
             except OSError:
                 # The child process may have exited before we attempted to terminate it, so we
                 # ignore OSErrors raised during child process termination
