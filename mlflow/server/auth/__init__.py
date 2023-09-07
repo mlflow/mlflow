@@ -13,7 +13,7 @@ import uuid
 from typing import Any, Callable, Dict, Optional
 
 import sqlalchemy
-from flask import Flask, Response, flash, make_response, render_template_string, request
+from flask import Flask, Response, make_response, render_template_string, request
 
 from mlflow import MlflowException
 from mlflow.entities import Experiment
@@ -375,10 +375,10 @@ BEFORE_REQUEST_VALIDATORS = {
 BEFORE_REQUEST_VALIDATORS.update(
     {
         (GET_USER, "GET"): validate_can_read_user,
-        (CREATE_USER, "POST"): validate_can_update_user_admin,
+        (CREATE_USER, "POST"): sender_is_admin,
         (UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
         (UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
-        (DELETE_USER, "DELETE"): validate_can_delete_user,
+        (DELETE_USER, "DELETE"): sender_is_admin,
         (GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
         (CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
         (UPDATE_EXPERIMENT_PERMISSION, "PATCH"): validate_can_manage_experiment,
@@ -633,7 +633,6 @@ def create_user():
             return make_response(f"User '{username}' already exists", 400)
 
         store.create_user(username, password)
-        flash(f"Successfully signed up user: {username}")
         return alert(href=HOME)
     elif content_type == "application/json":
         username = _get_request_param("username")
