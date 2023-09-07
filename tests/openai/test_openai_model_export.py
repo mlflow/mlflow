@@ -115,10 +115,7 @@ def test_prompt_single_variable(tmp_path):
             ]
         }
     )
-    expected_output = [
-        ["This is indeed a test"],
-        ["This is indeed another test"],
-    ]
+    expected_output = [["Say this is a test", "Say this is another test"]]
     assert list(map(json.loads, model.predict(data))) == expected_output
 
     data = [
@@ -205,10 +202,7 @@ def test_prompt_multiple_variables(tmp_path):
             ],
         }
     )
-    expected_output = [
-        ["a and c"],
-        ["b and d"],
-    ]
+    expected_output = [["Say a and c", "Say b and d"]]
     assert list(map(json.loads, model.predict(data))) == expected_output
 
     data = [
@@ -320,10 +314,7 @@ def test_prompt_no_variable(tmp_path):
             ]
         }
     )
-    expected_output = [
-        ["This is indeed a test"],
-        ["This is indeed another test"],
-    ]
+    expected_output = [["this is a test", "this is another test"]]
     assert list(map(json.loads, model.predict(data))) == expected_output
 
     data = [
