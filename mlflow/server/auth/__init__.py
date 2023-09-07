@@ -430,7 +430,7 @@ def get_auth_func(authorization_function: str) -> Callable[[], Union[Authorizati
 
     :param authorization_function: A string of the form "module.submodule:auth_func
     """
-    mod_name, fn_name = authorization_function.split(":")
+    mod_name, fn_name = authorization_function.split(":", 1)
     module = importlib.import_module(mod_name)
     return getattr(module, fn_name)
 

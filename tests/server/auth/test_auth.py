@@ -76,7 +76,7 @@ def _mlflow_search_experiments_rest(base_uri, headers):
     [
         {
             "MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/jwt_auth.ini",
-            "PYTHONPATH": str(Path(__file__).parent.parent.parent.parent / "examples" / "jwt_auth"),
+            "PYTHONPATH": str(Path.cwd() / "examples" / "jwt_auth"),
         }
     ],
     indirect=True,
