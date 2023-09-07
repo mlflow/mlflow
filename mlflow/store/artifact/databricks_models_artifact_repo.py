@@ -158,9 +158,16 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 headers=headers,
             )
             if any(not e.retryable for e in failed_downloads.values()):
+                template = """\
+===== Chunk {index} =====
+{error}
+"""
+                failure = "".join(
+                    template.format(index=index, error=error)
+                    for index, error in failed_downloads.items()
+                )
                 raise MlflowException(
-                    f"Failed to download artifact {dst_run_relative_artifact_path}: "
-                    f"{failed_downloads}"
+                    f"Failed to download artifact {dst_run_relative_artifact_path}: {failure}"
                 )
             if failed_downloads:
                 new_signed_uri, new_headers = self._get_signed_download_uri(

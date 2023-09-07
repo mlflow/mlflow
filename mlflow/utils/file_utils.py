@@ -19,7 +19,7 @@ import urllib.request
 import uuid
 from concurrent.futures import as_completed
 from contextlib import contextmanager
-from subprocess import TimeoutExpired
+from subprocess import CalledProcessError, TimeoutExpired
 from typing import Optional
 from urllib.parse import unquote
 from urllib.request import pathname2url
@@ -689,10 +689,17 @@ def parallelized_download_file_using_http_uri(
     """
 
     def run_download(range_start, range_end):
+        template = """
+----- stdout -----
+{stdout}
+
+----- stderr -----
+{stderr}
+"""
         with tempfile.TemporaryDirectory() as tmpdir:
             json_file = os.path.join(tmpdir, "http_error.json")
             try:
-                prc = subprocess.run(
+                subprocess.run(
                     [
                         sys.executable,
                         download_cloud_file_chunk.__file__,
@@ -710,25 +717,37 @@ def parallelized_download_file_using_http_uri(
                         json_file,
                     ],
                     text=True,
-                    check=False,
+                    check=True,
                     capture_output=True,
                     timeout=MLFLOW_DOWNLOAD_CHUNK_TIMEOUT.get(),
                     env=env,
                 )
             except TimeoutExpired as e:
-                raise _ChunkDownloadError(True, repr(e)) from e
-
-            # Successfully downloaded chunk
-            if prc.returncode == 0:
-                return
-
-            #  HTTP error
-            if os.path.exists(json_file):
-                with open(json_file) as f:
-                    raise _ChunkDownloadError(**json.load(f))
-
-            # Unexpected error
-            raise _ChunkDownloadError(False, repr(prc))
+                raise _ChunkDownloadError(
+                    True,
+                    template.format(
+                        stdout=e.stdout.strip() or "(no stdout)",
+                        stderr=e.stderr.strip() or "(no stderr)",
+                    ),
+                ) from e
+            except CalledProcessError as e:
+                retryable = False
+                status_code = None
+                if os.path.exists(json_file):
+                    with open(json_file) as f:
+                        data = json.load(f)
+                        retryable = data.get("retryable", False)
+                        status_code = data.get("status_code")
+                raise _ChunkDownloadError(
+                    retryable,
+                    template.format(
+                        stdout=e.stdout.strip() or "(no stdout)",
+                        stderr=e.stderr.strip() or "(no stderr)",
+                    ),
+                    status_code,
+                ) from e
+            except Exception as e:
+                raise _ChunkDownloadError(False, str(e)) from e
 
     num_requests = int(math.ceil(file_size / float(chunk_size)))
     # Create file if it doesn't exist or erase the contents if it does. We should do this here

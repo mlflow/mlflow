@@ -204,13 +204,16 @@ class ArtifactRepository:
                     pbar.update()
                 except Exception as e:
                     path = futures[f]
-                    failed_downloads[path] = repr(e)
+                    failed_downloads[path] = e
 
         if failed_downloads:
+            failure = "\n".join(map(str, failed_downloads.values()))
+            if len(failure) > 10_000:
+                failure = failure[:10_000] + "\n\n... (error message is too long, truncated)"
             raise MlflowException(
                 message=(
                     "The following failures occurred while downloading one or more"
-                    f" artifacts from {self.artifact_uri}: {failed_downloads}"
+                    f" artifacts from {self.artifact_uri}:\n{failure}"
                 )
             )
 
