@@ -4,8 +4,8 @@ import signal
 from abc import abstractmethod
 
 from mlflow.entities import RunStatus
-from mlflow.utils.annotations import developer_stable
 from mlflow.tracking import MlflowClient
+from mlflow.utils.annotations import developer_stable
 
 _logger = logging.getLogger(__name__)
 

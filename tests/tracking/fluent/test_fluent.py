@@ -757,35 +757,35 @@ def test_start_run_with_parent_non_nested():
             start_run()
 
 
-# def test_start_run_existing_run(empty_active_run_stack):  # pylint: disable=unused-argument
-#     mock_run = mock.Mock()
-#     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
+def test_start_run_existing_run(empty_active_run_stack):  # pylint: disable=unused-argument
+    mock_run = mock.Mock()
+    mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
 
-#     run_id = uuid.uuid4().hex
-#     mock_get_store = mock.patch("mlflow.tracking.fluent._get_store")
+    run_id = uuid.uuid4().hex
+    mock_get_store = mock.patch("mlflow.tracking.fluent._get_store")
 
-#     with mock_get_store, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
-#         active_run = start_run(run_id)
+    with mock_get_store, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+        active_run = start_run(run_id)
 
-#         assert is_from_run(active_run, mock_run)
-#         MlflowClient.get_run.assert_called_with(run_id)
+        assert is_from_run(active_run, mock_run)
+        MlflowClient.get_run.assert_called_with(run_id)
 
 
-# def test_start_run_existing_run_from_environment(
-#     empty_active_run_stack, monkeypatch
-# ):  # pylint: disable=unused-argument
-#     mock_run = mock.Mock()
-#     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
+def test_start_run_existing_run_from_environment(
+    empty_active_run_stack, monkeypatch
+):  # pylint: disable=unused-argument
+    mock_run = mock.Mock()
+    mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
 
-#     run_id = uuid.uuid4().hex
-#     monkeypatch.setenv(MLFLOW_RUN_ID.name, run_id)
-#     mock_get_store = mock.patch("mlflow.tracking.fluent._get_store")
+    run_id = uuid.uuid4().hex
+    monkeypatch.setenv(MLFLOW_RUN_ID.name, run_id)
+    mock_get_store = mock.patch("mlflow.tracking.fluent._get_store")
 
-#     with mock_get_store, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
-#         active_run = start_run()
+    with mock_get_store, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+        active_run = start_run()
 
-#         assert is_from_run(active_run, mock_run)
-#         MlflowClient.get_run.assert_called_with(run_id)
+        assert is_from_run(active_run, mock_run)
+        MlflowClient.get_run.assert_called_with(run_id)
 
 
 def test_start_run_existing_run_from_environment_with_set_environment(

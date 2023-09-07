@@ -1816,6 +1816,7 @@ def test_evaluation_metric_name_configs(prefix):
         assert f"{prefix}log_loss" in result.metrics.keys()
         assert f"{prefix}score" in result.metrics.keys()
 
+
 @pytest.mark.parametrize(
     "env_manager",
     ["virtualenv", "conda"],

@@ -52,13 +52,6 @@ class TrackingServiceClient:
         # the tracking URI is valid and the store can be properly resolved. We define `store` as a
         # property method to ensure that the client is serializable, even if the store is not
         # self.store  # pylint: disable=pointless-statement
-        # try:
-        #     self.store
-        # except:
-        #     import time
-
-        #     time.sleep(10)
-        #     self.store
         self.store
 
     @property

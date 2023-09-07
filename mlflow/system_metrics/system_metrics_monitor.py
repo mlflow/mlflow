@@ -28,7 +28,7 @@ class SystemMetricsMonitor:
         samples_to_aggregate: int, default to 30. The number of samples to aggregate before logging.
     """
 
-    def __init__(self, mlflow_run, sampling_interval=0.2, samples_before_logging=20):
+    def __init__(self, mlflow_run, sampling_interval=10, samples_before_logging=1):
         from mlflow.utils.autologging_utils import BatchMetricsLogger
 
         # Instantiate default monitors.
