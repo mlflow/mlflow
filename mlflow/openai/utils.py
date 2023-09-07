@@ -9,7 +9,6 @@ import requests
 
 import mlflow
 from mlflow.models.signature import ParamSchema
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 TEST_CONTENT = "test"
 
@@ -108,24 +107,21 @@ def _mock_openai_request():
 
 def _get_task_model_params(model: Dict[str, Any], params: Dict[str, Any] = None):
     model_dict = model.copy()
-    model_params = params.copy()
     task = model_dict.pop("task", None)
-    if model_params:
-        if any(param_key in model_dict.keys() for param_key in model_params.keys()):
-            raise mlflow.MlflowException(
-                f"Providing any of {','.join(model_dict.keys())} as parameters is not allowed.",
-                error_code=INVALID_PARAMETER_VALUE,
+    if params:
+        if any(params.keys() - model_dict.keys()):
+            raise mlflow.MlflowException.invalid_parameter_value(
+                f"Providing any of {list(model_dict.keys())} as parameters is not allowed.",
             )
 
-    return task, model_dict, model_params
+    return task, model_dict, params
 
 
 def _validate_task_model_params(model: Dict[str, Any], schema: ParamSchema = None):
     if schema:
         if any(param.name in model.keys() for param in schema.params):
-            raise mlflow.MlflowException(
+            raise mlflow.MlflowException.invalid_parameter_value(
                 f"Providing any of {','.join(model.keys())} as parameters is not allowed.",
-                error_code=INVALID_PARAMETER_VALUE,
             )
 
 
@@ -147,7 +143,7 @@ class _OAITokenHolder:
             self.credential = DefaultAzureCredential()
             self.openai_token = None
         else:
-            self.api_key_in = openai.api_key or "OPENAI_API_KEY" in os.environ
+            self.openai_key_available = openai.api_key or "OPENAI_API_KEY" in os.environ
 
     def validate(self, logger=None):
         """
@@ -159,20 +155,20 @@ class _OAITokenHolder:
 
                 if logger:
                     logger.debug(
-                        "Token for Azure AD is either expired or invalid. New token to adquire."
+                        "Token for Azure AD is either expired or invalid. New token to acquire."
                     )
                 self.api_token = self.credential.get_token(
                     "https://cognitiveservices.azure.com/.default"
                 )
                 if not self.api_token:
                     raise mlflow.MlflowException(
-                        "Unable to adquire a valid Azure AD token for the resource."
+                        "Unable to acquire a valid Azure AD token for the resource."
                     )
                 openai.api_key = self.api_token.token
             if logger:
                 logger.debug("Token or key validated correctly.")
         else:
-            if not self.api_key_in:
+            if not self.openai_key_available:
                 raise mlflow.MlflowException(
                     "OpenAI API key must be set in the ``OPENAI_API_KEY`` environment variable."
                 )
