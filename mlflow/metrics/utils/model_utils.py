@@ -1,6 +1,6 @@
 import asyncio
 import os
-import re
+import urllib.parse
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -18,9 +18,9 @@ def score_model_on_payload(model_uri, payload):
         return _call_openai_api(suffix, payload)
     elif prefix == "gateway":
         return _call_gateway_api(suffix, payload)
-    elif prefix == "model":
-        # TODO: replace with call_pyfunc_model_api
-        pass
+    elif prefix == "model" or prefix == "runs":
+        # TODO: call _load_model_or_server
+        raise NotImplementedError
     else:
         raise MlflowException(
             f"Unknown model uri prefix '{prefix}'",
@@ -29,15 +29,15 @@ def score_model_on_payload(model_uri, payload):
 
 
 def _parse_model_uri(model_uri):
-    parts = re.split(":/+", model_uri, maxsplit=1)
-
-    if len(parts) != 2:
+    parsed = urllib.parse.urlparse(model_uri, allow_fragments=False)
+    scheme = parsed.scheme
+    path = parsed.path
+    if not path.startswith("/") or len(path) <= 1:
         raise MlflowException(
-            f"Malformed model uri '{model_uri}'",
-            error_code=INVALID_PARAMETER_VALUE,
+            f"Malformed model uri '{model_uri}'", error_code=INVALID_PARAMETER_VALUE
         )
-
-    return parts
+    path = path.lstrip("/")
+    return scheme, path
 
 
 def _call_openai_api(openai_uri, payload):
