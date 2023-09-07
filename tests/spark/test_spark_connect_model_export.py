@@ -13,6 +13,7 @@ from pyspark.sql.types import LongType
 
 import os
 
+import mlflow
 from mlflow import pyfunc
 from mlflow import spark as sparkm
 from tests.pyfunc.test_spark import score_model_as_udf
@@ -97,9 +98,33 @@ def test_model_export(spark_model_iris, model_path):
 
     m = pyfunc.load_model(model_path)
     # 2. score and compare reloaded pyfunc
-    preds2_df = m.predict(spark_model_iris.pandas_df.copy(deep=False))
-    pd.testing.assert_series_equal(spark_model_iris.predictions["prediction"], preds2_df, check_dtype=False)
+    preds2 = m.predict(spark_model_iris.pandas_df.copy(deep=False))
+    pd.testing.assert_series_equal(spark_model_iris.predictions["prediction"], preds2, check_dtype=False)
 
     # 3. score and compare reloaded pyfunc Spark udf
-    preds3_df = score_model_as_udf(model_uri=model_path, pandas_df=spark_model_iris.pandas_df, result_type=LongType())
-    pd.testing.assert_series_equal(spark_model_iris.predictions["prediction"], preds3_df, check_dtype=False)
+    preds3 = score_model_as_udf(model_uri=model_path, pandas_df=spark_model_iris.pandas_df, result_type=LongType())
+    pd.testing.assert_series_equal(spark_model_iris.predictions["prediction"], preds3, check_dtype=False)
+
+
+@pytest.mark.parametrize("should_start_run", [False, True])
+def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run):
+    old_tracking_uri = mlflow.get_tracking_uri()
+
+    try:
+        tracking_dir = tmp_path.joinpath("mlruns")
+        mlflow.set_tracking_uri(f"file://{tracking_dir}")
+        if should_start_run:
+            mlflow.start_run()
+        artifact_path = "model"
+        sparkm.log_model(
+            artifact_path=artifact_path,
+            spark_model=spark_model_iris.model,
+        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
+
+        reloaded_model = sparkm.load_model(model_uri=model_uri)
+        preds_df = reloaded_model.transform(spark_model_iris.pandas_df.copy(deep=False))
+        pd.testing.assert_frame_equal(spark_model_iris.predictions, preds_df, check_dtype=False)
+    finally:
+        mlflow.end_run()
+        mlflow.set_tracking_uri(old_tracking_uri)

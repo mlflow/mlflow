@@ -173,6 +173,7 @@ def log_model(
                        necessary as Spark ML models read from and write to DFS if running on a
                        cluster. If this operation completes successfully, all temporary files
                        created on the DFS are removed. Defaults to ``/tmp/mlflow``.
+                       For models defined in `pyspark.ml.connect` module, this param is ignored.
     :param sample_input: A sample input used to add the MLeap flavor to the model.
                          This must be a PySpark DataFrame that the model can evaluate. If
                          ``sample_input`` is ``None``, the MLeap flavor is not added.
@@ -226,7 +227,6 @@ def log_model(
             spark_model=spark_model,
             conda_env=conda_env,
             code_paths=code_paths,
-            dfs_tmpdir=dfs_tmpdir,
             sample_input=sample_input,
             registered_model_name=registered_model_name,
             signature=signature,
