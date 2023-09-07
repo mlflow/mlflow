@@ -207,7 +207,10 @@ class ArtifactRepository:
                     failed_downloads[path] = e
 
         if failed_downloads:
-            failure = "\n".join(map(str, failed_downloads.values()))
+            template = "##### File {path} #####\n{error}"
+            failure = "\n".join(
+                template.format(path=path, error=error) for path, error in failed_downloads.items()
+            )
             if len(failure) > 10_000:
                 failure = failure[:10_000] + "\n\n... (error message is too long, truncated)"
             raise MlflowException(
