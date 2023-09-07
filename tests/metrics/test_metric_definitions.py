@@ -124,24 +124,32 @@ def test_accuracy():
 def test_rouge1():
     eval_df = pd.DataFrame({"prediction": ["a", "d c"], "target": ["d", "b c"]})
     result = rouge1.eval_fn(eval_df, metrics={})
+    assert result.scores[0] == 0.0
+    assert result.scores[1] == 0.5
     assert result.aggregate_results["mean"] == 0.25
 
 
 def test_rouge2():
     eval_df = pd.DataFrame({"prediction": ["a e", "b c e"], "target": ["a e", "b c d"]})
     result = rouge2.eval_fn(eval_df, metrics={})
+    assert result.scores[0] == 1.0
+    assert result.scores[1] == 0.5
     assert result.aggregate_results["mean"] == 0.75
 
 
 def test_rougeL():
     eval_df = pd.DataFrame({"prediction": ["a", "b c"], "target": ["d", "b c"]})
     result = rougeL.eval_fn(eval_df, metrics={})
+    assert result.scores[0] == 0.0
+    assert result.scores[1] == 1.0
     assert result.aggregate_results["mean"] == 0.5
 
 
 def test_rougeLsum():
     eval_df = pd.DataFrame({"prediction": ["a", "b c"], "target": ["d", "b c"]})
     result = rougeLsum.eval_fn(eval_df, metrics={})
+    assert result.scores[0] == 0.0
+    assert result.scores[1] == 1.0
     assert result.aggregate_results["mean"] == 0.5
 
 
