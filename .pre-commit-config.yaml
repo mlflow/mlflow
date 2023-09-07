@@ -11,20 +11,15 @@ repos:
         name: ruff
         entry: python dev/ruff.py
         language: system
-        types_or: [
-            python,
-            # TODO: Uncomment this once https://github.com/astral-sh/ruff/issues/6834 is fixed
-            # jupyter,
-          ]
+        types_or: [python, jupyter]
         stages: [commit]
 
       - id: black
         name: black
-        entry: black
+        entry: python dev/black.py
         language: system
         types_or: [python, jupyter]
         stages: [commit]
-        log_file: .black.log
 
       - id: blacken-docs
         name: blacken-docs

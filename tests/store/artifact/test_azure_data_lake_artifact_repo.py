@@ -1,8 +1,10 @@
 import os
 import posixpath
 from unittest import mock
+from unittest.mock import ANY
 
 import pytest
+from azure.core.credentials import AzureSasCredential
 from azure.storage.filedatalake import (
     DataLakeDirectoryClient,
     DataLakeFileClient,
@@ -12,6 +14,8 @@ from azure.storage.filedatalake import (
 )
 
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
+from mlflow.protos.service_pb2 import FileInfo
 from mlflow.store.artifact.azure_data_lake_artifact_repo import (
     AzureDataLakeArtifactRepository,
     _parse_abfss_uri,
@@ -20,6 +24,9 @@ from mlflow.store.artifact.azure_data_lake_artifact_repo import (
 TEST_ROOT_PATH = "some/path"
 TEST_DATA_LAKE_URI_BASE = "abfss://filesystem@account.dfs.core.windows.net"
 TEST_DATA_LAKE_URI = posixpath.join(TEST_DATA_LAKE_URI_BASE, TEST_ROOT_PATH)
+
+ADLS_REPOSITORY_PACKAGE = "mlflow.store.artifact.azure_data_lake_artifact_repo"
+ADLS_ARTIFACT_REPOSITORY = f"{ADLS_REPOSITORY_PACKAGE}.AzureDataLakeArtifactRepository"
 
 
 class MockPathList:
@@ -102,7 +109,7 @@ def test_list_artifacts_empty(mock_data_lake_client):
 
 
 def test_list_artifacts_single_file(mock_data_lake_client):
-    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, mock_data_lake_client)
+    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
 
     # Evaluate single file
     path_props = PathProperties(name=posixpath.join(TEST_DATA_LAKE_URI, "file"), content_length=42)
@@ -134,8 +141,34 @@ def test_list_artifacts(mock_filesystem_client):
     )
 
 
-def test_log_artifacts(mock_filesystem_client, mock_directory_client, tmp_path):
+@pytest.mark.parametrize(
+    "contents",
+    ["", "B"],
+)
+def test_log_artifact(mock_filesystem_client, mock_directory_client, tmp_path, contents):
+    file_name = "b.txt"
     repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
+
+    parentd = tmp_path.joinpath("data")
+    parentd.mkdir()
+    subd = parentd.joinpath("subdir")
+    subd.mkdir()
+    subd.joinpath("b.txt").write_text(contents)
+
+    repo.log_artifact(subd.joinpath("b.txt"))
+
+    mock_filesystem_client.get_directory_client.assert_called_once_with(TEST_ROOT_PATH)
+    mock_directory_client.get_file_client.assert_called_once_with(file_name)
+
+    if contents == "":
+        mock_directory_client.get_file_client(file_name).create_file.assert_called()
+    else:
+        mock_directory_client.get_file_client(file_name).upload_data.assert_called()
+
+
+def test_log_artifacts(mock_filesystem_client, mock_directory_client, tmp_path):
+    fake_sas_token = "fake_session_token"
+    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, AzureSasCredential(fake_sas_token))
 
     parentd = tmp_path.joinpath("data")
     parentd.mkdir()
@@ -147,18 +180,74 @@ def test_log_artifacts(mock_filesystem_client, mock_directory_client, tmp_path):
 
     repo.log_artifacts(parentd)
 
-    mock_filesystem_client.get_directory_client.assert_called_once_with(TEST_ROOT_PATH)
-    call_list = mock_directory_client.get_file_client.call_args_list
+    called_directories = [
+        call[0][0] for call in mock_filesystem_client.get_directory_client.call_args_list
+    ]
+    assert len(called_directories) == 3
+    assert sorted(called_directories) == [
+        posixpath.join(TEST_ROOT_PATH, "."),
+        posixpath.join(TEST_ROOT_PATH, "subdir"),
+        posixpath.join(TEST_ROOT_PATH, "subdir"),
+    ]
 
-    # Ensure that we uploaded all the expected files
-    uploaded_filenames = [call[0][0] for call in call_list]
-    nonempty_files = {"./a.txt", "subdir/b.txt"}
-    empty_files = {"subdir/empty-file.txt"}
-    assert set(uploaded_filenames) == nonempty_files.union(empty_files)
+    uploaded_filenames = [
+        call[0][0] for call in mock_directory_client.get_file_client.call_args_list
+    ]
+    assert len(uploaded_filenames) == 3
+    assert set(uploaded_filenames) == {"a.txt", "b.txt", "empty-file.txt"}
 
-    mock_directory_client.get_file_client("./a.txt").upload_data.assert_called()
-    mock_directory_client.get_file_client("subdir/b.txt").upload_data.assert_called()
+    mock_directory_client.get_file_client("a.txt").upload_data.assert_called()
+    mock_directory_client.get_file_client("b.txt").upload_data.assert_called()
     mock_directory_client.get_file_client("subdir/empty-file.txt").create_file.assert_called()
+
+
+def test_log_artifacts_in_parallel_when_necessary(tmp_path):
+    fake_sas_token = "fake_session_token"
+    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, AzureSasCredential(fake_sas_token))
+
+    parentd = tmp_path.joinpath("data")
+    parentd.mkdir()
+    parentd.joinpath("a.txt").write_text("ABCDE")
+
+    with mock.patch(f"{ADLS_REPOSITORY_PACKAGE}._MULTIPART_UPLOAD_CHUNK_SIZE", 0), mock.patch(
+        f"{ADLS_ARTIFACT_REPOSITORY}._multipart_upload", return_value=None
+    ) as multipart_upload_mock, mock.patch(
+        f"{ADLS_ARTIFACT_REPOSITORY}.log_artifact", return_value=None
+    ):
+        repo.log_artifacts(parentd)
+        multipart_upload_mock.assert_called_with(
+            ArtifactCredentialInfo(
+                signed_uri="https://account.dfs.core.windows.net/filesystem/some/path/"
+                + "./a.txt?fake_session_token"
+            ),
+            ANY,
+            "./a.txt",
+        )
+
+
+@pytest.mark.parametrize(
+    ("file_size", "is_parallel_download"),
+    [(None, False), (100, False), (499_999_999, False), (500_000_000, True)],
+)
+def test_download_file_in_parallel_when_necessary(file_size, is_parallel_download):
+    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
+    remote_file_path = "file_1.txt"
+    list_artifacts_result = (
+        [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)] if file_size else []
+    )
+    with mock.patch(
+        f"{ADLS_ARTIFACT_REPOSITORY}.list_artifacts",
+        return_value=list_artifacts_result,
+    ), mock.patch(
+        f"{ADLS_ARTIFACT_REPOSITORY}._download_from_cloud", return_value=None
+    ) as download_mock, mock.patch(
+        f"{ADLS_ARTIFACT_REPOSITORY}._parallelized_download_from_cloud", return_value=None
+    ) as parallel_download_mock:
+        repo.download_artifacts("")
+        if is_parallel_download:
+            parallel_download_mock.assert_called_with(file_size, remote_file_path, ANY)
+        else:
+            download_mock.assert_called()
 
 
 def test_download_file_artifact(mock_directory_client, mock_file_client, tmp_path):
@@ -175,10 +264,8 @@ def test_download_file_artifact(mock_directory_client, mock_file_client, tmp_pat
     mock_directory_client.get_file_client.assert_called_once_with("test.txt")
 
 
-def test_download_directory_artifact(
-    mock_data_lake_client, mock_filesystem_client, mock_file_client, tmp_path
-):
-    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, mock_data_lake_client)
+def test_download_directory_artifact(mock_filesystem_client, mock_file_client, tmp_path):
+    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
 
     file_path_1 = "file_1"
     file_path_2 = "file_2"

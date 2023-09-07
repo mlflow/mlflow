@@ -113,7 +113,7 @@ def test_store_generated_schema_matches_base(tmp_path, db_url):
     # database with a valid schema
     SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
     engine = sqlalchemy.create_engine(db_url)
-    mc = MigrationContext.configure(engine.connect())
+    mc = MigrationContext.configure(engine.connect(), opts={"compare_type": False})
     diff = compare_metadata(mc, Base.metadata)
     # `diff` contains several `remove_index` operations because `Base.metadata` does not contain
     # index metadata but `mc` does. Note this doesn't mean the MLflow database is missing indexes

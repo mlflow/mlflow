@@ -205,9 +205,11 @@ def test_recipes_run_throws_exception_and_produces_failure_card_when_step_fails(
 
     recipe = Recipe(profile="local")
     recipe.clean()
-    with pytest.raises(MlflowException, match="Failed to run.*test_recipe.*ingest"):
+    with pytest.raises(
+        MlflowException, match="Failed to run recipe.*test_recipe.*\n.*Step:ingest.*"
+    ):
         recipe.run()
-    with pytest.raises(MlflowException, match="Failed to run.*split.*test_recipe.*ingest"):
+    with pytest.raises(MlflowException, match="Failed to run step.*split.*\n.*Step:ingest.*"):
         recipe.run(step="split")
 
     step_card_path = get_step_output_path(

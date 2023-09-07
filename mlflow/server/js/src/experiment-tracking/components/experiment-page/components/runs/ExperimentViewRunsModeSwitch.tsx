@@ -5,7 +5,10 @@ import {
   Popover,
   SegmentedControlButton,
   SegmentedControlGroup,
+  Tabs,
+  Tag,
   Typography,
+  useDesignSystemTheme,
 } from '@databricks/design-system';
 import React, { useState, useEffect, useCallback } from 'react';
 import { FormattedMessage } from 'react-intl';
@@ -80,7 +83,7 @@ const ChartViewButtonTooltip: React.FC<{
 };
 
 /**
- * Allows switching between "list" and "compare runs" modes of experiment view
+ * Allows switching between "table", "chart" and "evaluation" modes of experiment view
  */
 export const ExperimentViewRunsModeSwitch = ({
   compareRunsMode,
@@ -88,37 +91,69 @@ export const ExperimentViewRunsModeSwitch = ({
   viewState,
 }: ExperimentViewRunsModeSwitchProps) => {
   const isComparingRuns = compareRunsMode !== undefined;
+  const { classNamePrefix } = useDesignSystemTheme();
+
+  const activeTab = compareRunsMode || 'TABLE';
+
   return (
-    <SegmentedControlGroup
-      value={compareRunsMode}
-      onChange={({ target: { value } }) => {
-        setCompareRunsMode(value);
+    <Tabs
+      dangerouslyAppendEmotionCSS={{
+        [`.${classNamePrefix}-tabs-nav`]: { marginBottom: 0, '::before': { border: 'none' } },
       }}
+      activeKey={activeTab}
+      onChange={(tabKey) =>
+        setCompareRunsMode(
+          (tabKey === 'TABLE' ? undefined : tabKey) as ExperimentViewRunsCompareMode,
+        )
+      }
     >
-      <SegmentedControlButton value={undefined} data-testid='experiment-runs-mode-switch-list'>
-        <FormattedMessage
-          defaultMessage='Table view'
-          description='A button enabling table mode on the experiment page'
-        />
-      </SegmentedControlButton>
-      <SegmentedControlButton value='CHART' data-testid='experiment-runs-mode-switch-compare'>
-        <FormattedMessage
-          defaultMessage='Chart view'
-          description='A button enabling compare runs (chart) mode on the experiment page'
-        />
-        <ChartViewButtonTooltip
-          isComparingRuns={isComparingRuns}
-          multipleRunsSelected={Object.keys(viewState.runsSelected).length > 1}
-        />
-      </SegmentedControlButton>
+      <Tabs.TabPane
+        tab={
+          <span data-testid='experiment-runs-mode-switch-list'>
+            <FormattedMessage
+              defaultMessage='Table'
+              description='A button enabling table mode on the experiment page'
+            />
+          </span>
+        }
+        key='TABLE'
+      />
+      <Tabs.TabPane
+        tab={
+          <>
+            <span data-testid='experiment-runs-mode-switch-compare'>
+              <FormattedMessage
+                defaultMessage='Chart'
+                description='A button enabling compare runs (chart) mode on the experiment page'
+              />
+            </span>
+            <ChartViewButtonTooltip
+              isComparingRuns={isComparingRuns}
+              multipleRunsSelected={Object.keys(viewState.runsSelected).length > 1}
+            />
+          </>
+        }
+        key='CHART'
+      />
       {shouldEnableArtifactBasedEvaluation() && (
-        <SegmentedControlButton value='ARTIFACT' data-testid='experiment-runs-mode-switch-compare'>
-          <FormattedMessage
-            defaultMessage='Artifact view'
-            description='A button enabling compare runs (artifact) mode on the experiment page'
-          />
-        </SegmentedControlButton>
+        <Tabs.TabPane
+          tab={
+            <span data-testid='experiment-runs-mode-switch-evaluation'>
+              <FormattedMessage
+                defaultMessage='Evaluation'
+                description='A button enabling compare runs (evaluation) mode on the experiment page'
+              />{' '}
+              <Tag style={{ marginLeft: '4px' }} color='turquoise'>
+                <FormattedMessage
+                  defaultMessage='Experimental'
+                  description='Experimental badge shown for features which are experimental'
+                />
+              </Tag>
+            </span>
+          }
+          key='ARTIFACT'
+        />
       )}
-    </SegmentedControlGroup>
+    </Tabs>
   );
 };

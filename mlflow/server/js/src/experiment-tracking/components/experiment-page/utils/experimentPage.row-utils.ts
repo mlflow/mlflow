@@ -3,7 +3,7 @@ import Utils from '../../../../common/utils/Utils';
 import type {
   ExperimentEntity,
   KeyValueEntity,
-  ModelInfoEntity,
+  ModelVersionInfoEntity,
   RunInfoEntity,
   RunDatasetWithTags,
 } from '../../../types';
@@ -376,6 +376,7 @@ export const prepareRunsGridData = ({
       runName,
       tags,
       models,
+      params,
       version,
       pinnable: isPinnable,
       color: getStableColorByStringHash(runUuid),
@@ -427,7 +428,7 @@ type PrepareRunsGridDataParams = Pick<
     /**
      * Registered model versions arrays per run uuid
      */
-    modelVersionsByRunUuid: Record<string, ModelInfoEntity[]>;
+    modelVersionsByRunUuid: Record<string, ModelVersionInfoEntity[]>;
 
     /**
      * Boolean flag indicating if hierarchical runs should be generated
@@ -455,3 +456,32 @@ type PrepareRunsGridDataParams = Pick<
      */
     runUuidsMatchingFilter: string[];
   };
+
+export const extractRunRowParamFloat = (
+  run: RunRowType,
+  paramName: string,
+  fallback = undefined,
+) => {
+  const paramEntity = extractRunRowParam(run, paramName);
+  if (!paramEntity) {
+    return fallback;
+  }
+  return parseFloat(paramEntity) || fallback;
+};
+
+export const extractRunRowParamInteger = (
+  run: RunRowType,
+  paramName: string,
+  fallback = undefined,
+) => {
+  const paramEntity = extractRunRowParam(run, paramName);
+  if (!paramEntity) {
+    return fallback;
+  }
+  return parseInt(paramEntity, 10) || fallback;
+};
+
+export const extractRunRowParam = (run: RunRowType, paramName: string, fallback = undefined) => {
+  const paramEntity = run.params.find(({ key }) => paramName === key);
+  return paramEntity?.value || fallback;
+};

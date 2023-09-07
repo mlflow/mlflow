@@ -94,18 +94,19 @@ class BaseRecipe:
             last_executed_step_output_directory
         )
         if last_executed_step_state.status != StepStatus.SUCCEEDED:
+            last_step_error_mesg = (
+                f"The following error occurred while running step '{last_executed_step}':\n"
+                f"{last_executed_step_state.stack_trace}\n"
+                f"Last step status: '{last_executed_step_state.status}'\n"
+            )
             if step is not None:
                 raise MlflowException(
-                    f"Failed to run step '{step}' of recipe '{self.name}'."
-                    f" An error was encountered while running step '{last_executed_step.name}':"
-                    f" {last_executed_step_state.stack_trace}",
+                    f"Failed to run step '{step}' of recipe '{self.name}':\n{last_step_error_mesg}",
                     error_code=BAD_REQUEST,
                 )
             else:
                 raise MlflowException(
-                    f"Failed to run recipe '{self.name}'."
-                    f" An error was encountered while running step '{last_executed_step.name}':"
-                    f" {last_executed_step_state.stack_trace}",
+                    f"Failed to run recipe '{self.name}':\n{last_step_error_mesg}",
                     error_code=BAD_REQUEST,
                 )
 
