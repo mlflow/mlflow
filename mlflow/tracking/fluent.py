@@ -10,7 +10,7 @@ import os
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-import mlflow
+import mlflow  # noqa: F401
 from mlflow.data.dataset import Dataset
 from mlflow.entities import (
     DatasetInput,
