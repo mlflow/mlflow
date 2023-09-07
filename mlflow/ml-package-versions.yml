@@ -316,7 +316,8 @@ spark:
       temp_dir=$(mktemp -d)
       git clone --depth 1 https://github.com/apache/spark.git $temp_dir
       cd $temp_dir
-      ./build/mvn -DskipTests --no-transfer-progress clean package
+      # -Pconnect -Phive is requried by spark connect 
+      ./build/mvn -Pconnect -Phive -DskipTests --no-transfer-progress clean package
       cd python
       python setup.py install
 

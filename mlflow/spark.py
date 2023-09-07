@@ -101,7 +101,14 @@ def get_default_pip_requirements(is_spark_connect_model=False):
         reqs.append("pandas<2")
 
     if is_spark_connect_model:
-        reqs.extend(["torch", "torcheval"])
+        reqs.extend([
+            # Spark connect Model uses spark torch distributor to train model
+            _get_pinned_requirement("torch"),
+            # Spark connect Model uses torcheval to evaluate metrics in parallel
+            _get_pinned_requirement("torcheval"),
+            # Spark connect Model save feature transformers as sklearn transformer format.
+            _get_pinned_requirement("scikit-learn", module="sklearn"),
+        ])
     return reqs
 
 
