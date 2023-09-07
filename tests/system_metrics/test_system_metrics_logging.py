@@ -25,7 +25,7 @@ def test_manual_system_metrics_monitor():
     mlflow_run = mlflow.get_run(run.info.run_id)
     metrics = mlflow_run.data.metrics
     assert "cpu_percentage" in metrics
-    assert "cpu_memory_used" in metrics
+    assert "system_memory_used" in metrics
 
 
 def test_automatic_system_metrics_monitor():
@@ -49,4 +49,4 @@ def test_automatic_system_metrics_monitor():
     mlflow_run = mlflow.get_run(run.info.run_id)
     metrics = mlflow_run.data.metrics
     assert "cpu_percentage" in metrics
-    assert "cpu_memory_used" in metrics
+    assert "system_memory_used" in metrics

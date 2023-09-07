@@ -20,6 +20,10 @@ from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.conda import CONDA_EXE, get_or_create_conda_env
 from mlflow.utils.mlflow_tags import (
+    LEGACY_MLFLOW_GIT_BRANCH_NAME,
+    LEGACY_MLFLOW_GIT_REPO_URL,
+    MLFLOW_GIT_BRANCH,
+    MLFLOW_GIT_REPO_URL,
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_PROJECT_BACKEND,
     MLFLOW_PROJECT_ENTRY_POINT,

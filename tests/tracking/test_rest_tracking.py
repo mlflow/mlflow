@@ -73,6 +73,7 @@ def mlflow_client(request, tmp_path):
         ]
 
     with _init_server(backend_uri, root_artifact_uri=tmp_path.as_uri()) as url:
+        mlflow.set_tracking_uri(url)
         yield MlflowClient(url)
 
 

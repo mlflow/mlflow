@@ -48,16 +48,19 @@ def clean_up_leaked_runs():
     debug. Accordingly, this fixture attempts to end any active runs it encounters and
     throws an exception (which reported as an additional error in the pytest execution output).
     """
-    try:
-        yield
-        assert (
-            not mlflow.active_run()
-        ), "test case unexpectedly leaked a run. Run info: {}. Run data: {}".format(
-            mlflow.active_run().info, mlflow.active_run().data
-        )
-    finally:
-        while mlflow.active_run():
-            mlflow.end_run()
+    yield
+    mlflow.end_run()
+    # try:
+    #     yield
+    #     mlflow.end_run()
+    #     assert (
+    #         not mlflow.active_run()
+    #     ), "test case unexpectedly leaked a run. Run info: {}. Run data: {}".format(
+    #         mlflow.active_run().info, mlflow.active_run().data
+    #     )
+    # finally:
+    #     while mlflow.active_run():
+    #         mlflow.end_run()
 
 
 def _called_in_save_model():

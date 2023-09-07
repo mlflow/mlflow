@@ -20,7 +20,8 @@ class BaseMetricsMonitor:
     def aggregate_metrics(self):
         metrics = {}
         for name, values in self._metrics.items():
-            metrics[name] = sum(values) / len(values)
+            if len(values) > 0:
+                metrics[name] = sum(values) / len(values)
         return metrics
 
     @property
