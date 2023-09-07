@@ -677,7 +677,7 @@ class _OpenAIWrapper:
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _, model_dict, model_params = _get_task_model_params(self.model, params)
-        messages_list = self.format_content(self.get_params_list(data))
+        messages_list = self.format_completions(self.get_params_list(data))
 
         requests = [
             {**model_dict, "messages": messages, **model_params} for messages in messages_list
