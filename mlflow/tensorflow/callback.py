@@ -4,14 +4,14 @@ from mlflow import log_param, log_text
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 
 
-class MLflowMetricsLoggingCallback(keras.callbacks.Callback):
+class MLflowLoggingCallback(keras.callbacks.Callback):
     """Callback for logging Tensorflow training metrics to MLflow.
 
     This callback logs training metrics every epoch or every n steps (defined by the user) to
     MLflow.
 
     Args:
-        run_id: string, the MLflow run ID.
+        run: an 'mlflow.entities.run.Run' instance, the MLflow run.
         log_every_epoch: bool, If True, log metrics every epoch. If False, log metrics every n
             steps.
         log_every_n_steps: int, log metrics every n steps. If None, log metrics every epoch.
@@ -46,13 +46,13 @@ class MLflowMetricsLoggingCallback(keras.callbacks.Callback):
                 label,
                 batch_size=4,
                 epochs=2,
-                callbacks=[MLflowMetricsLoggingCallback(run_id=run.info.run_id)],
+                callbacks=[MLflowMetricsLoggingCallback(run)],
             )
         ```
     """
 
-    def __init__(self, run_id, log_every_epoch=True, log_every_n_steps=None):
-        self.metrics_logger = BatchMetricsLogger(run_id)
+    def __init__(self, run, log_every_epoch=True, log_every_n_steps=None):
+        self.metrics_logger = BatchMetricsLogger(run.info.run_id)
         self.log_every_epoch = log_every_epoch
         self.log_every_n_steps = log_every_n_steps
 
