@@ -187,16 +187,13 @@ class S3ArtifactRepository(CloudArtifactRepository):
         s3_client.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
 
     def log_artifact(self, local_file, artifact_path=None):
-        dest_path = self.bucket_path
+        artifact_file_path = os.path.basename(local_file)
         if artifact_path:
-            dest_path = posixpath.join(dest_path, artifact_path)
-        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
-        key = posixpath.normpath(dest_path)
-        self._upload_file(
-            s3_client=self._get_s3_client(),
-            local_file=local_file,
-            bucket=self.bucket,
-            key=key,
+            artifact_file_path = posixpath.join(artifact_path, artifact_file_path)
+        self._upload_to_cloud(
+            cloud_credential_info=self._get_s3_client(),
+            src_file_path=local_file,
+            artifact_file_path=artifact_file_path,
         )
 
     def _get_write_credential_infos(self, remote_file_paths):
