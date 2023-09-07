@@ -228,18 +228,16 @@ def _get_overridden_pyfunc_model_config(
 
         return None
 
-    allowed_config = {key: value for key, value in overrides.items() if key in pyfunc_config.keys()}
-
-    if len(allowed_config) < len(overrides):
-        ignored_keys = set(overrides.keys()) - set(allowed_config.keys())
+    valid_keys = set(pyfunc_config.keys()) & set(overrides.keys())
+    ignored_keys = set(overrides.keys()) - valid_keys
+    allowed_config = {key: overrides[key] for key in valid_keys}
+    if ignored_keys:
         logger.warning(
             f"Argument(s) {', '.join(ignored_keys)} were ignored since they are not valid keys in"
             " the corresponding section of the ``pyfunc`` flavor. Use ``model_config`` when"
             " logging the model to include the keys you plan to indicate. Current allowed"
-            " configuration includes"
-            f" {', '.join(pyfunc_config.keys())}"
+            f" configuration includes {', '.join(pyfunc_config.keys())}"
         )
-
     pyfunc_config.update(allowed_config)
     return pyfunc_config
 
@@ -250,21 +248,19 @@ def _validate_pyfunc_model_config(model_config):
     restrictions but we require them being JSON-serializable.
     """
 
-    def is_jsonable(value):
-        try:
-            json.dumps(value)
-            return True
-        except (TypeError, OverflowError):
-            return False
+    if not model_config:
+        return
 
-    if model_config:
-        if isinstance(model_config, dict) and all(
-            isinstance(key, str) for key in model_config.keys()
-        ):
-            if not is_jsonable(model_config):
-                raise MlflowException(
-                    "Some of the values indicated in ``model_config`` are not "
-                    "supported. Only JSON-serializable data types can be indicated."
-                )
-        else:
-            raise MlflowException("``model_config`` has to be of type ``dict`` with string keys.")
+    if not isinstance(model_config, dict) or not all(isinstance(key, str) for key in model_config):
+        raise MlflowException(
+            "An invalid ``model_config`` structure was passed. ``model_config`` must be of type "
+            "``dict`` with string keys."
+        )
+
+    try:
+        json.dumps(model_config)
+    except (TypeError, OverflowError):
+        raise MlflowException(
+            "Values in the provided ``model_config`` are of an unsupported type. Only "
+            "JSON-serializable data types can be provided as values."
+        )
