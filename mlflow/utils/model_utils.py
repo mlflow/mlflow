@@ -249,21 +249,13 @@ def _validate_pyfunc_model_config(model_config):
     restrictions but we require them being JSON-serializable.
     """
 
-    def is_jsonable(value):
-        try:
-            json.dumps(value)
-            return True
-        except (TypeError, OverflowError):
-            return False
+    if not model_config:
+        return
 
-    if model_config:
-        if isinstance(model_config, dict) and all(
-            isinstance(key, str) for key in model_config.keys()
-        ):
-            if not is_jsonable(model_config):
-                raise MlflowException(
-                    "Some of the values indicated in ``model_config`` are not "
-                    "supported. Only JSON-serializable data types can be indicated."
-                )
-        else:
-            raise MlflowException("``model_config`` has to be of type ``dict`` with string keys.")
+    if not isinstance(model_config, dict) or not all(isinstance(key, str) for key in model_config):
+        raise MlflowException("An invalid ``model_config`` structure was passed. ``model_config`` must be of type ``dict`` with string keys.")
+    
+    try:
+        json.dumps(model_config)
+    except(TypeError, OverflowError):
+        raise MlflowException("Values in the provided ``model_config`` are of an unsupported type. Only JSON-serializable data types can be provided as values.")
