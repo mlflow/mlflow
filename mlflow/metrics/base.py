@@ -6,6 +6,7 @@ from typing import Dict, List
 class MetricValue:
     """
     The value of a metric.
+
     :param scores: The value of the metric per row
     :param justifications: The justification (if applicable) for the respective score
     :param aggregate_results: A dictionary mapping the name of the aggregation to its value
