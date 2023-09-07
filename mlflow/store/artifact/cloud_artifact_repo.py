@@ -20,6 +20,7 @@ from mlflow.utils.file_utils import (
     relative_path_to_artifact_path,
     remove_on_error,
 )
+from mlflow.utils.uri import is_fuse_uri
 
 _logger = logging.getLogger(__name__)
 _DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
@@ -232,10 +233,14 @@ class CloudArtifactRepository(ArtifactRepository):
         file_infos = self.list_artifacts(parent_dir)
         file_info = [info for info in file_infos if info.path == remote_file_path]
         file_size = file_info[0].file_size if len(file_info) == 1 else None
+        # NB: FUSE mounts do not support file write from a non-0th index seek position.
+        # Due to this limitation (writes must start at the beginning of a file),
+        # offset writes are disabled if FUSE is the local_path destination.
         if (
             not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
             or not file_size
             or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE
+            or is_fuse_uri(local_path)
         ):
             self._download_from_cloud(remote_file_path, local_path)
         else:
