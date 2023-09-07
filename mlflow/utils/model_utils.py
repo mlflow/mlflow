@@ -229,20 +229,18 @@ def _get_overridden_pyfunc_model_config(
 
         return None
 
-    allowed_config = {key: value for key, value in overrides.items() if key in pyfunc_config.keys()}
-
-    if len(allowed_config) < len(overrides):
-        ignored_keys = set(overrides.keys()) - set(allowed_config.keys())
-        logger.warning(
-            f"Argument(s) {', '.join(ignored_keys)} were ignored since they are not valid keys in"
-            " the corresponding section of the ``pyfunc`` flavor. Use ``model_config`` when"
-            " logging the model to include the keys you plan to indicate. Current allowed"
-            " configuration includes"
-            f" {', '.join(pyfunc_config.keys())}"
-        )
-
-    pyfunc_config.update(allowed_config)
-    return pyfunc_config
+  valid_keys = set(pyfunc_config.keys()) & set(overrides.keys())
+  ignored_keys = set(overrides.keys()) - valid_keys
+  allowed_config = {key: overrides[key] for key in valid_keys}
+  if ignored_keys:
+      logger.warning(
+          f"Argument(s) {', '.join(ignored_keys)} were ignored since they are not valid keys in"
+          " the corresponding section of the ``pyfunc`` flavor. Use ``model_config`` when"
+          " logging the model to include the keys you plan to indicate. Current allowed"
+          f" configuration includes {', '.join(pyfunc_config.keys())}"
+      )
+  pyfunc_config.update(allowed_config)
+  return pyfunc_config
 
 
 def _validate_pyfunc_model_config(model_config):
