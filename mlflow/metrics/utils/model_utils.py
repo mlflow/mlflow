@@ -1,4 +1,3 @@
-import asyncio
 import os
 import urllib.parse
 
@@ -62,7 +61,7 @@ def _call_openai_api(openai_uri, payload):
     )
     openai_provider = OpenAIProvider(route_config)
 
-    return asyncio.run(openai_provider.completions(payload))
+    return openai_provider.sync_completions(payload)
 
 
 def _call_gateway_api(gateway_uri, payload):

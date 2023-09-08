@@ -2,10 +2,9 @@ from typing import Any, Dict
 from unittest import mock
 
 import pytest
-from aiohttp import ClientTimeout
+from requests import Response
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.metrics.utils.model_utils import (
     _parse_model_uri,
     score_model_on_payload,
@@ -89,6 +88,16 @@ def test_score_model_openai_without_key():
 
 
 def test_score_model_openai(set_envs):
+    class MockResponse(Response):
+        def __init__(self, json_data, status_code):
+            super().__init__()
+            self.json_data = json_data
+            self.status_code = status_code
+            self.headers = {"Content-Type": "application/json"}
+
+        def json(self):
+            return self.json_data
+
     resp = {
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
@@ -111,18 +120,17 @@ def test_score_model_openai(set_envs):
         ],
         "headers": {"Content-Type": "application/json"},
     }
-    mock_client = mock_http_client(MockAsyncResponse(resp))
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+    with mock.patch("requests.post", return_value=MockResponse(resp, 200)) as mock_post:
         score_model_on_payload("openai:/gpt-3.5-turbo", {"prompt": "my prompt", "temperature": 0.1})
-        mock_client.post.assert_called_once_with(
-            "https://api.openai.com/v1/chat/completions",
+        mock_post.assert_called_once_with(
+            url="https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": "Bearer test"},
             json={
                 "model": "gpt-3.5-turbo",
                 "temperature": 0.2,
                 "messages": [{"role": "user", "content": "my prompt"}],
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
 
 
