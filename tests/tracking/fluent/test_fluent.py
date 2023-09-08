@@ -550,7 +550,7 @@ def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-a
         source_version_patch,
         create_run_patch,
     ):
-        active_run = start_run(run_name=run_name)
+        active_run = start_run(run_name=run_name, include_system_metrics=False)
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags, run_name="my name"
         )
@@ -623,7 +623,7 @@ def test_start_run_defaults_databricks_notebook(
         workspace_info_patch,
         create_run_patch,
     ):
-        active_run = start_run()
+        active_run = start_run(include_system_metrics=False)
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags, run_name=None
         )
@@ -683,7 +683,7 @@ def test_start_run_creates_new_run_with_user_specified_tags():
         source_version_patch,
         create_run_patch,
     ):
-        active_run = start_run(tags=user_specified_tags)
+        active_run = start_run(tags=user_specified_tags, include_system_metrics=False)
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags, run_name=None
         )
@@ -732,7 +732,11 @@ def test_start_run_with_parent():
         user_patch,
         source_name_patch,
     ):
-        active_run = start_run(experiment_id=mock_experiment_id, nested=True)
+        active_run = start_run(
+            experiment_id=mock_experiment_id,
+            nested=True,
+            include_system_metrics=False,
+        )
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags, run_name=None
         )
@@ -753,7 +757,7 @@ def test_start_run_existing_run(empty_active_run_stack):  # pylint: disable=unus
     mock_get_store = mock.patch("mlflow.tracking.fluent._get_store")
 
     with mock_get_store, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
-        active_run = start_run(run_id)
+        active_run = start_run(run_id, include_system_metrics=False)
 
         assert is_from_run(active_run, mock_run)
         MlflowClient.get_run.assert_called_with(run_id)
@@ -770,7 +774,7 @@ def test_start_run_existing_run_from_environment(
     mock_get_store = mock.patch("mlflow.tracking.fluent._get_store")
 
     with mock_get_store, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
-        active_run = start_run()
+        active_run = start_run(include_system_metrics=False)
 
         assert is_from_run(active_run, mock_run)
         MlflowClient.get_run.assert_called_with(run_id)
@@ -865,7 +869,7 @@ def test_start_run_with_description(empty_active_run_stack):  # pylint: disable=
         source_version_patch,
         create_run_patch,
     ):
-        active_run = start_run(description=description)
+        active_run = start_run(description=description, include_system_metrics=False)
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags, run_name=None
         )
@@ -881,7 +885,7 @@ def test_start_run_conflicting_description():
     )
 
     with pytest.raises(MlflowException, match=match):
-        start_run(tags=invalid_tags, description=description)
+        start_run(tags=invalid_tags, description=description, include_system_metrics=False)
 
 
 @pytest.mark.usefixtures(empty_active_run_stack.__name__)
