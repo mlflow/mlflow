@@ -17,4 +17,4 @@ class CPUMonitor(BaseMetricsMonitor):
         self._metrics["cpu_percentage"].append(cpu_percent)
 
         system_memory = psutil.virtual_memory()._asdict()
-        self._metrics["cpu_memory_used"].append(int(system_memory["used"] / 1e6))
+        self._metrics["system_memory_used"].append(int(system_memory["used"] / 1e6))

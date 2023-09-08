@@ -1,9 +1,12 @@
 """Class for monitoring system stats."""
 
 import logging
-import os
 import threading
 
+from mlflow.environment_variables import (
+    MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING,
+    MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL,
+)
 from mlflow.system_metrics.metrics.cpu_monitor import CPUMonitor
 from mlflow.system_metrics.metrics.gpu_monitor import GPUMonitor
 
@@ -23,9 +26,10 @@ class SystemMetricsMonitor:
     Args:
         mlflow_run: an 'mlflow.entities.run.Run' instance, which is used to bootstrap system metrics
             logging with the MLflow tracking server.
-        sampling_interval: float, default to 0.5. The interval (in seconds) at which to pull system
+        sampling_interval: float, default to 10. The interval (in seconds) at which to pull system
             metrics.
-        samples_to_aggregate: int, default to 30. The number of samples to aggregate before logging.
+        samples_before_logging: int, default to 1. The number of samples to aggregate before
+            logging.
     """
 
     def __init__(self, mlflow_run, sampling_interval=10, samples_before_logging=1):
@@ -36,12 +40,11 @@ class SystemMetricsMonitor:
         gpu_monitor = GPUMonitor()
         if gpu_monitor:
             self.monitors.append(gpu_monitor)
-        self.sampling_interval = os.environ.get(
-            "MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL", sampling_interval
+        self.sampling_interval = MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL.get() or sampling_interval
+        self.samples_before_logging = (
+            MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING.get() or samples_before_logging
         )
-        self.samples_before_logging = os.environ.get(
-            "MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING", samples_before_logging
-        )
+
         if isinstance(self.sampling_interval, str):
             self.sampling_interval = float(self.sampling_interval)
         if isinstance(self.samples_before_logging, str):

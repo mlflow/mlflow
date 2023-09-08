@@ -24,6 +24,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import (
+    MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_RUN_ID,
@@ -372,8 +373,7 @@ def start_run(
             run_name=run_name,
         )
         include_system_metrics = (
-            os.environ.get("MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING", "False") == "False"
-            and include_system_metrics
+            not MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING.get() and include_system_metrics
         )
         if include_system_metrics:
             try:
