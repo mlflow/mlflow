@@ -30,7 +30,7 @@ def _truncate_error(err: str, max_length: int = 10_000) -> str:
         return err
 
     half = max_length // 2
-    return err[:half] + "\n\n... (truncated)\n\n" + err[-half:]
+    return err[:half] + "\n\n*** Error message is too large, truncated ***\n\n" + err[-half:]
 
 
 @developer_stable
