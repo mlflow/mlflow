@@ -75,9 +75,7 @@ extend-exclude = [
 [tool.ruff.per-file-ignores]
 "dev/*" = ["T201", "PT018"]
 "examples/*" = ["T20"]
-"mlflow/*" = ["PT018"]
-"**/__init__.py" = ["F401"]
-    
+"mlflow/*" = ["PT018"]    
 
 [tool.ruff.flake8-pytest-style]
 mark-parentheses = false
