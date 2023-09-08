@@ -223,40 +223,41 @@ class S3ArtifactRepository(CloudArtifactRepository):
         # Create presigned URL for each part
         num_parts = math.ceil(os.path.getsize(local_file) / _MULTIPART_UPLOAD_CHUNK_SIZE)
 
-        def _get_presigned_upload_part_url(part_number):
-            return s3_client.generate_presigned_url(
-                "upload_part",
-                Params={
-                    "Bucket": bucket,
-                    "Key": key,
-                    "UploadId": upload_id,
-                    "PartNumber": part_number,
-                },
-            )
+        # def _get_presigned_upload_part_url(part_number):
+        #     return s3_client.generate_presigned_url(
+        #         "upload_part",
+        #         Params={
+        #             "Bucket": bucket,
+        #             "Key": key,
+        #             "UploadId": upload_id,
+        #             "PartNumber": part_number,
+        #         },
+        #     )
 
-        presigned_urls = [
-            _get_presigned_upload_part_url(part_number) for part_number in range(1, num_parts + 1)
-        ]
+        # presigned_urls = [
+        #     _get_presigned_upload_part_url(part_number) for part_number in range(1, num_parts + 1)
+        # ]
 
         # define helper functions for uploading data
-        def _upload_part(presigned_url, local_file, start_byte, size):
+        def _upload_part(local_file, start_byte, size, part_number):
             data = read_chunk(local_file, size, start_byte)
-            with cloud_storage_http_request("put", presigned_url, data=data) as response:
-                augmented_raise_for_status(response)
-                return response.headers["ETag"]
+            part = s3_client.upload_part(
+                Bucket=bucket, Key=key, PartNumber=part_number, UploadId=upload_id, Body=data
+            )
+            return part["ETag"]
 
         try:
             # Upload each part with retries
             futures = {}
-            for index, presigned_url in enumerate(presigned_urls):
+            for index in range(num_parts):
                 part_number = index + 1
                 start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
                 future = self.chunk_thread_pool.submit(
                     _upload_part,
-                    presigned_url=presigned_url,
                     local_file=local_file,
                     start_byte=start_byte,
                     size=_MULTIPART_UPLOAD_CHUNK_SIZE,
+                    part_number=part_number,
                 )
                 futures[future] = part_number
 
