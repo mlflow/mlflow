@@ -688,11 +688,10 @@ class ParamSpec:
         The dictionary is expected to contain `name`, `type` and `default` keys.
         """
         # For backward compatibility, we accept both `type` and `dtype` keys
-        if not {"name", "dtype", "default"} <= set(kwargs.keys()) and not {
-            "name",
-            "type",
-            "default",
-        } <= set(kwargs.keys()):
+        required_keys1 = {"name", "dtype", "default"}
+        required_keys2 = {"name", "type", "default"}
+
+        if not (required_keys1.issubset(kwargs) or required_keys2.issubset(kwargs)):
             raise MlflowException.invalid_parameter_value(
                 "Missing keys in ParamSpec JSON. Expected to find "
                 "keys `name`, `type`(or `dtype`) and `default`. "
