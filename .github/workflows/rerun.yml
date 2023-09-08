@@ -14,12 +14,12 @@ jobs:
   set-matrix:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.repository == 'mlflow/mlflow'
+    if: github.repository == 'mlflow-automation/mlflow'
     steps:
       - uses: actions/checkout@v3
       - uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const rerun = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/rerun.js`);
             await rerun({ context, github, workflow_id: "cross-version-tests.yml" });
