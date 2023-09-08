@@ -25,3 +25,8 @@ watchfiles:
 aiohttp:
   pip_release: aiohttp
   max_major_version: 3
+
+boto3:
+  pip_release: boto3
+  minimum: "1.28"
+  max_major_version: 2

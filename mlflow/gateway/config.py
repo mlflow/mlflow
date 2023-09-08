@@ -36,6 +36,7 @@ class Provider(str, Enum):
     COHERE = "cohere"
     MLFLOW_MODEL_SERVING = "mlflow-model-serving"
     MOSAICML = "mosaicml"
+    BEDROCK = "bedrock"
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     DATABRICKS = "databricks"
@@ -160,11 +161,31 @@ class MlflowModelServingConfig(ConfigModel):
     model_server_url: str
 
 
+class AWSBaseConfig(pydantic.BaseModel):
+    aws_region: Optional[str] = None
+
+
+class AWSRole(AWSBaseConfig):
+    aws_role_arn: str
+    session_length_seconds: int = 15 * 60
+
+
+class AWSIdAndKey(AWSBaseConfig):
+    aws_access_key_id: str
+    aws_secret_access_key: str
+    aws_session_token: Optional[str] = None
+
+
+class AWSBedrockConfig(ConfigModel):
+    aws_config: AWSBaseConfig | AWSRole | AWSIdAndKey
+
+
 config_types = {
     Provider.COHERE: CohereConfig,
     Provider.OPENAI: OpenAIConfig,
     Provider.ANTHROPIC: AnthropicConfig,
     Provider.MOSAICML: MosaicMLConfig,
+    Provider.BEDROCK: AWSBedrockConfig,
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
 }
 
@@ -219,6 +240,7 @@ class Model(ConfigModel):
             CohereConfig,
             OpenAIConfig,
             AnthropicConfig,
+            AWSBedrockConfig,
             MosaicMLConfig,
             MlflowModelServingConfig,
         ]

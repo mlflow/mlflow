@@ -10,12 +10,12 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway import MlflowGatewayClient, get_route, query, set_gateway_uri
 from mlflow.gateway.config import Route
 from mlflow.gateway.providers.anthropic import AnthropicProvider
+from mlflow.gateway.providers.bedrock import AWSBedrockProvider
 from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
 from mlflow.gateway.providers.mosaicml import MosaicMLProvider
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.utils.request_utils import _cached_get_request_session
-
 from tests.gateway.tools import (
     UvicornGateway,
     log_completions_transformers_model,
@@ -151,6 +151,26 @@ def basic_config_dict():
                     "provider": "mlflow-model-serving",
                     "name": "sentence-transformers",
                     "config": {"model_server_url": "http://127.0.0.1:5002"},
+                },
+            },
+            {
+                "name": "completions-bedrock",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "bedrock",
+                    "name": "amazon.titan-tg1-large",
+                    "config": {"aws_config": {"aws_region": "us-east-1"}},
+                },
+            },
+            {
+                "name": "completions-anthropic",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "anthropic",
+                    "name": "claude-instant-1.1",
+                    "config": {
+                        "anthropic_api_key": "$ANTHROPIC_API_KEY",
+                    },
                 },
             },
         ]
@@ -646,3 +666,36 @@ def test_gateway_query_mlflow_completions_model(serve_completions_model, gateway
     assert not metadata_response["output_tokens"]
     assert metadata_response["model"] == "completion-model"
     assert metadata_response["route_type"] == route.route_type
+
+
+def test_bedrock_completions(gateway):
+    set_gateway_uri(gateway_uri=gateway.url)
+    route = get_route("completions-bedrock")
+    expected_output = {
+        "candidates": [
+            {
+                "text": "test",
+                "metadata": {"finish_reason": "length"},
+            }
+        ],
+        "metadata": {
+            "model": "amazon.titan-tg1-large",
+            "route_type": "llm/v1/completions",
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+        },
+    }
+
+    data = {
+        "prompt": "test",
+        "max_tokens": 500,
+        "temperature": 0.3,
+    }
+
+    async def mock_completions(self, payload):
+        return expected_output
+
+    with patch.object(AWSBedrockProvider, "completions", mock_completions):
+        response = query(route=route.name, data=data)
+    assert response == expected_output
