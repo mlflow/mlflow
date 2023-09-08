@@ -84,11 +84,7 @@ def score_model_as_udf(model_uri, pandas_df, result_type):
     return new_df.toPandas()["prediction"]
 
 
-# Specify `autouse=True` to ensure that a context is created
-# before any tests are executed. This ensures that the Hadoop filesystem
-# does not create its own SparkContext without the MLeap libraries required by
-# other tests.
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def spark():
     spark = _get_spark_connect_session()
     yield spark

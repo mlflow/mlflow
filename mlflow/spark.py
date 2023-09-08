@@ -104,8 +104,6 @@ def get_default_pip_requirements(is_spark_connect_model=False):
         reqs.extend([
             # Spark connect Model uses spark torch distributor to train model
             _get_pinned_requirement("torch"),
-            # Spark connect Model uses torcheval to evaluate metrics in parallel
-            _get_pinned_requirement("torcheval"),
             # Spark connect Model save feature transformers as sklearn transformer format.
             _get_pinned_requirement("scikit-learn", module="sklearn"),
         ])
@@ -588,13 +586,8 @@ def _validate_model(spark_model):
     from pyspark.ml import Transformer as PySparkTransformer
     from pyspark.ml.util import MLReadable, MLWritable
 
-    try:
-        from pyspark.ml.connect import Model as ConnectModel
-        if isinstance(spark_model, ConnectModel):
-            return
-    except ImportError:
-        # Spark does not support connect ML model.
-        pass
+    if _is_spark_connect_model(spark_model):
+        return
 
     if (
         (
@@ -613,14 +606,14 @@ def _validate_model(spark_model):
 
 def _is_spark_connect_model(spark_model):
     """
-    Return whether the spark model is spark connect ML model,
-    the argument `spark_model` could be either model instance or model fully qualified class name.
+    Return whether the spark model is spark connect ML model
     """
-    if not isinstance(spark_model, str):
-        model_class = _get_fully_qualified_class_name(spark_model)
-    else:
-        model_class = spark_model
-    return model_class.startswith("pyspark.ml.connect.")
+    try:
+        from pyspark.ml.connect import Model as ConnectModel
+        return isinstance(spark_model, ConnectModel)
+    except ImportError:
+        # pyspark < 3.5 does not support connect ML model
+        return False
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyspark"))
@@ -733,7 +726,10 @@ def save_model(
         signature = None
 
     sparkml_data_path = os.path.abspath(os.path.join(path, _SPARK_MODEL_PATH_SUB))
-    if not is_spark_connect_model:
+
+    if is_spark_connect_model:
+        spark_model.saveToLocal(sparkml_data_path)
+    else:
         # Spark ML stores the model on DFS if running on a cluster
         # Save it to a DFS temp dir first and copy it to local path
         if dfs_tmpdir is None:
@@ -752,8 +748,6 @@ def save_model(
             shutil.move(src=tmp_path_fuse, dst=sparkml_data_path)
         else:
             _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
-    else:
-        spark_model.saveToLocal(sparkml_data_path)
 
     _save_model_metadata(
         dst_dir=path,
@@ -848,7 +842,7 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
     _add_code_from_conf_to_system_path(local_mlflow_model_path, flavor_conf)
 
     model_class = flavor_conf.get("model_class")
-    if model_class is not None and _is_spark_connect_model(model_class):
+    if model_class is not None and model_class.startswith("pyspark.ml.connect."):
         spark_model_local_path = os.path.join(local_mlflow_model_path, flavor_conf["model_data"])
         return _load_spark_connect_model(model_class, spark_model_local_path)
 
@@ -887,10 +881,9 @@ def _load_pyfunc(path):
     model_meta = Model.load(model_meta_path)
 
     model_class = model_meta.flavors["spark"].get("model_class")
-    if model_class is not None and _is_spark_connect_model(model_class):
+    if model_class is not None and model_class.startswith("pyspark.ml.connect."):
         # Note:
-        # for spark connect ML model, it does not need a spark session when
-        # running inference.
+        # Spark connect ML models don't require a spark session for running inference.
         spark = None
         spark_model = _load_spark_connect_model(model_class, path)
 
