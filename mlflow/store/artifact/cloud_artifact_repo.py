@@ -211,9 +211,12 @@ class CloudArtifactRepository(ArtifactRepository):
                 headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
             if any(not e.retryable for e in failed_downloads.values()):
-                raise MlflowException(
-                    f"Failed to download artifact {remote_file_path}: {failed_downloads}"
+                template = "===== Chunk {index} =====\n{error}"
+                failure = "\n".join(
+                    template.format(index=index, error=error)
+                    for index, error in failed_downloads.items()
                 )
+                raise MlflowException(f"Failed to download artifact {remote_file_path}:\n{failure}")
 
             if failed_downloads:
                 new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
