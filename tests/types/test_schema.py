@@ -967,3 +967,10 @@ def test_infer_param_schema():
             "to be 1D array or scalar, got dict'))"
         )
     )
+
+
+def test_infer_param_schema_with_errors():
+    with pytest.raises(
+        MlflowException, match=r"Expected parameters to be 1D array or scalar, got Series"
+    ):
+        _infer_param_schema({"a": pd.Series([1, 2, 3])})
