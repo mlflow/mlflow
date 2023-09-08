@@ -1,6 +1,8 @@
-import pytest
 import os
 from unittest import mock
+
+import pytest
+
 from mlflow import deployments
 from mlflow.deployments.plugin_manager import DeploymentPlugins
 from mlflow.exceptions import MlflowException

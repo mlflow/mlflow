@@ -1,4 +1,6 @@
 import os
+import uuid
+
 import mlflow.server
 
 
@@ -41,7 +43,7 @@ A = User("user_a", "password_a")
 B = User("user_b", "password_b")
 
 with A:
-    exp_a = mlflow.set_experiment("experiment_a")
+    exp_a = mlflow.set_experiment(uuid.uuid4().hex)
     with mlflow.start_run():
         mlflow.log_metric("a", 1)
 

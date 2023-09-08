@@ -1,44 +1,46 @@
+import copy
 import functools
+import json
+import logging
+import math
+import pathlib
+import pickle
+import shutil
+import tempfile
+from collections import namedtuple
+from functools import partial
+from typing import Callable, NamedTuple
+
+import numpy as np
+import pandas as pd
+from packaging.version import Version
+from sklearn import metrics as sk_metrics
+from sklearn.metrics import accuracy_score
+from sklearn.pipeline import Pipeline as sk_Pipeline
+
 import mlflow
 from mlflow import MlflowClient
-from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation.base import (
-    ModelEvaluator,
-    EvaluationResult,
-    _ModelType,
-)
 from mlflow.entities.metric import Metric
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils.file_utils import TempDir
-from mlflow.models.utils import plot_lines
+from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.artifacts import (
-    ImageEvaluationArtifact,
     CsvEvaluationArtifact,
+    ImageEvaluationArtifact,
+    JsonEvaluationArtifact,
     NumpyEvaluationArtifact,
     _infer_artifact_type_and_ext,
-    JsonEvaluationArtifact,
 )
+from mlflow.models.evaluation.base import (
+    EvaluationResult,
+    ModelEvaluator,
+    _ModelType,
+)
+from mlflow.models.utils import plot_lines
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc import _ServedPyFuncModel
+from mlflow.sklearn import _SklearnModelWrapper
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.utils.time_utils import get_current_time_millis
-
-from sklearn import metrics as sk_metrics
-from sklearn.pipeline import Pipeline as sk_Pipeline
-from sklearn.metrics import accuracy_score
-import math
-import json
-from collections import namedtuple
-from typing import NamedTuple, Callable
-import tempfile
-import pandas as pd
-import numpy as np
-import copy
-import shutil
-import pickle
-from functools import partial
-import logging
-from packaging.version import Version
-import pathlib
 
 _logger = logging.getLogger(__name__)
 
@@ -79,6 +81,10 @@ def _infer_model_type_by_labels(labels):
 def _extract_raw_model(model):
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
     if model_loader_module == "mlflow.sklearn" and not isinstance(model, _ServedPyFuncModel):
+        # If we load a sklearn model with mlflow.pyfunc.load_model, the model will be wrapped
+        # with _SklearnModelWrapper, we need to extract the raw model from it.
+        if isinstance(model._model_impl, _SklearnModelWrapper):
+            return model_loader_module, model._model_impl.sklearn_model
         return model_loader_module, model._model_impl
     else:
         return model_loader_module, None
@@ -695,7 +701,7 @@ class DefaultEvaluator(ModelEvaluator):
             if algorithm:
                 if algorithm == "kernel":
                     # We need to lazily import shap, so lazily import `_PatchedKernelExplainer`
-                    from ._shap_patch import _PatchedKernelExplainer
+                    from mlflow.models.evaluation._shap_patch import _PatchedKernelExplainer
 
                     kernel_link = self.evaluator_config.get(
                         "explainability_kernel_link", "identity"
@@ -1169,43 +1175,129 @@ class DefaultEvaluator(ModelEvaluator):
             )
         else:
             data = self.dataset.features_data.assign(outputs=self.y_pred)
+        data = data.assign(**self.metrics_dict)
         mlflow.log_table(data, artifact_file=f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}")
 
-    def _evaluate_question_answering(self):
-        self._log_eval_table()
-        name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
-        self.artifacts[name] = JsonEvaluationArtifact(
-            uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
-        )
+    def _calculate_perplexity(self, predictions):
+        try:
+            _logger.info("Loading perplexity metric:")
+            import evaluate
 
+            perplexity = evaluate.load("perplexity", module_type="metric")
+        except Exception as e:
+            _logger.warning(
+                f"Failed to load 'perplexity' metric (error: {e!r}), skipping metric logging."
+            )
+            return
+
+        _logger.info("Computing perplexity metric:")
+        results = perplexity.compute(predictions=predictions, model_id="gpt2")
+        self.metrics.update({"mean_perplexity": results["mean_perplexity"]})
+        self.metrics_dict.update({"perplexity": results["perplexities"]})
+
+    def _calculate_toxicity(self, predictions):
+        try:
+            _logger.info("Loading toxicity metric:")
+            import evaluate
+
+            toxicity = evaluate.load("toxicity", module_type="measurement")
+        except Exception as e:
+            _logger.warning(
+                f"Failed to load 'toxicity' metric (error: {e!r}), skipping metric logging."
+            )
+            return
+
+        _logger.info("Computing toxicity metric:")
+        results = toxicity.compute(predictions=predictions)
+        self.metrics_dict.update({"toxicity": results["toxicity"]})
+        results = toxicity.compute(predictions=predictions, aggregation="ratio")
+        self.metrics.update({"toxicity_ratio": results["toxicity_ratio"]})
+
+    def _calculate_reading_level(self, predictions):
+        try:
+            import textstat
+        except ImportError:
+            _logger.warning(
+                "Failed to import textstat (reading grade level metrics), skipping metric logging."
+            )
+            return
+
+        _logger.info("Computing flesch kincaid metric:")
+        metrics = [textstat.flesch_kincaid_grade(prediction) for prediction in predictions]
+        self.metrics_dict.update({"flesch_kincaid_grade_level": metrics})
+        average_grade_level = {"mean_flesch_kincaid_grade_level": sum(metrics) / len(metrics)}
+        self.metrics.update(average_grade_level)
+
+        _logger.info("Computing automated readability index metric:")
+        metrics = [textstat.automated_readability_index(prediction) for prediction in predictions]
+        self.metrics_dict.update({"ari_grade_level": metrics})
+        average_grade_level = {"mean_ari_grade_level": sum(metrics) / len(metrics)}
+        self.metrics.update(average_grade_level)
+
+    def _calculate_general_text_metrics(self):
+        predictions = (
+            self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
+        )
+        if len(predictions) == 0:
+            return
+
+        if any(not isinstance(prediction, str) for prediction in predictions):
+            _logger.warning(
+                "Cannot calculate perplexity, toxicity, and reading level metrics "
+                "for non-string inputs, skipping metric logging."
+            )
+            return
+
+        self._calculate_toxicity(predictions)
+        self._calculate_reading_level(predictions)
+        self._calculate_perplexity(predictions)
+
+    def _evaluate_question_answering(self):
         if self.dataset.has_targets:
             acc = accuracy_score(y_true=self.y, y_pred=self.y_pred)
             self.metrics.update({"exact_match": acc})
+        self._calculate_general_text_metrics()
 
-    def _evaluate_text_summarization(self):
         self._log_eval_table()
         name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
             uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
         )
-        if self.dataset.has_targets:
-            try:
-                import evaluate
 
-                rouge = evaluate.load("rouge")
-            except Exception as e:
-                _logger.warning(
-                    f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
-                )
-                return
+    def _calculate_rouge(self):
+        try:
+            import evaluate
 
-            predictions = (
-                self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
+            rouge = evaluate.load("rouge")
+        except Exception as e:
+            _logger.warning(
+                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
             )
-            metrics = rouge.compute(predictions=predictions, references=self.y)
-            self.metrics.update(metrics)
+            return
+
+        predictions = (
+            self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
+        )
+        metrics = rouge.compute(predictions=predictions, references=self.y, use_aggregator=False)
+        self.metrics_dict.update(metrics)
+        aggregate_metrics = rouge.compute(
+            predictions=predictions, references=self.y, use_aggregator=True
+        )
+        self.metrics.update(aggregate_metrics)
+
+    def _evaluate_text_summarization(self):
+        if self.dataset.has_targets:
+            self._calculate_rouge()
+        self._calculate_general_text_metrics()
+
+        self._log_eval_table()
+        name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
+        self.artifacts[name] = JsonEvaluationArtifact(
+            uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
+        )
 
     def _evaluate_text(self):
+        self._calculate_general_text_metrics()
         self._log_eval_table()
         name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
@@ -1230,6 +1322,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.predict_fn, self.predict_proba_fn = _extract_predict_fn(model, self.raw_model)
 
             self.metrics = {}
+            self.metrics_dict = {}
             self.artifacts = {}
 
             if self.model_type not in _ModelType.values():

@@ -24,20 +24,21 @@ python dev/set_matrix.py --flavors sklearn
 python dev/set_matrix.py --versions 1.1.1
 ```
 """
-import sys
 import argparse
+import functools
 import json
 import os
 import re
 import shutil
-import functools
+import sys
 import typing as t
 from collections import defaultdict
 
-import yaml
 import requests
+import yaml
 from packaging.specifiers import SpecifierSet
-from packaging.version import Version as OriginalVersion, InvalidVersion
+from packaging.version import InvalidVersion
+from packaging.version import Version as OriginalVersion
 from pydantic import BaseModel, validator
 
 VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
@@ -122,7 +123,7 @@ def read_yaml(location, if_error=None):
         raise
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def get_released_versions(package_name):
     url = f"https://pypi.org/pypi/{package_name}/json"
     response = requests.get(url)
@@ -450,6 +451,7 @@ def main(args):
     matrix = generate_matrix(args)
     is_matrix_empty = len(matrix) == 0
     matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
+    matrix = [x for x in matrix if x.flavor != "gluon"]
     matrix = {"include": matrix, "job_name": [x.job_name for x in matrix]}
 
     print(divider("Matrix"))

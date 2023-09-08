@@ -3,28 +3,21 @@ import os
 import sqlite3
 
 import pytest
-from alembic import command
-from alembic.script import ScriptDirectory
-from alembic.migration import MigrationContext  # pylint: disable=import-error
-from alembic.autogenerate import compare_metadata
 import sqlalchemy
+from alembic import command
+from alembic.autogenerate import compare_metadata
+from alembic.migration import MigrationContext  # pylint: disable=import-error
+from alembic.script import ScriptDirectory
 
 import mlflow.db
 from mlflow.exceptions import MlflowException
-from mlflow.store.db.utils import _get_alembic_config, _verify_schema
 from mlflow.store.db.base_sql_model import Base
-
-# pylint: disable=unused-import
-from mlflow.store.model_registry.dbmodels.models import (
-    SqlRegisteredModel,
-    SqlModelVersion,
-    SqlRegisteredModelTag,
-    SqlModelVersionTag,
-)
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.db.utils import _get_alembic_config, _verify_schema
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
-from tests.store.dump_schema import dump_db_schema
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
 from tests.integration.utils import invoke_cli_runner
+from tests.store.dump_schema import dump_db_schema
 
 
 def _assert_schema_files_equal(generated_schema_file, expected_schema_file):
@@ -55,15 +48,15 @@ def _assert_schema_files_equal(generated_schema_file, expected_schema_file):
         )
 
 
-@pytest.fixture()
+@pytest.fixture
 def expected_schema_file():
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    yield os.path.normpath(
+    return os.path.normpath(
         os.path.join(current_dir, os.pardir, os.pardir, "resources", "db", "latest_schema.sql")
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def db_url(tmp_path):
     db_file = tmp_path.joinpath("db_file")
     return f"sqlite:///{db_file}"
@@ -120,7 +113,7 @@ def test_store_generated_schema_matches_base(tmp_path, db_url):
     # database with a valid schema
     SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
     engine = sqlalchemy.create_engine(db_url)
-    mc = MigrationContext.configure(engine.connect())
+    mc = MigrationContext.configure(engine.connect(), opts={"compare_type": False})
     diff = compare_metadata(mc, Base.metadata)
     # `diff` contains several `remove_index` operations because `Base.metadata` does not contain
     # index metadata but `mc` does. Note this doesn't mean the MLflow database is missing indexes

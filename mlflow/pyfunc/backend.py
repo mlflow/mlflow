@@ -1,41 +1,47 @@
+import ctypes
 import logging
 import os
 import pathlib
-import subprocess
 import posixpath
+import shlex
+import signal
+import subprocess
 import sys
 import warnings
-import ctypes
-import signal
 from pathlib import Path
 
+from mlflow.environment_variables import MLFLOW_DISABLE_ENV_CREATION
 from mlflow.models import FlavorBackend
+from mlflow.models.container import ENABLE_MLSERVER
 from mlflow.models.docker_utils import (
-    _build_image,
-    _generate_dockerfile_content,
-    DISABLE_ENV_CREATION,
     SETUP_MINICONDA,
     SETUP_PYENV_AND_VIRTUALENV,
+    _build_image,
+    _generate_dockerfile_content,
     _get_mlflow_install_step,
 )
-from mlflow.models.container import ENABLE_MLSERVER
-from mlflow.pyfunc import ENV, scoring_server, mlserver, _extract_conda_env
-
-from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable
+from mlflow.pyfunc import (
+    ENV,
+    _extract_conda_env,
+    _mlflow_pyfunc_backend_predict,
+    mlserver,
+    scoring_server,
+)
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import env_manager as _EnvManager
-from mlflow.utils.file_utils import (
-    path_to_local_file_uri,
-    get_or_create_tmp_dir,
-    get_or_create_nfs_tmp_dir,
-)
+from mlflow.utils.conda import get_conda_bin_executable, get_or_create_conda_env
 from mlflow.utils.environment import Environment
+from mlflow.utils.file_utils import (
+    get_or_create_nfs_tmp_dir,
+    get_or_create_tmp_dir,
+    path_to_local_file_uri,
+)
+from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
+from mlflow.utils.process import cache_return_value_per_process
 from mlflow.utils.virtualenv import (
     _get_or_create_virtualenv,
     _get_pip_install_mlflow,
 )
-from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
-from mlflow.utils.process import cache_return_value_per_process
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -143,20 +149,19 @@ class PyFuncBackend(FlavorBackend):
         local_uri = path_to_local_file_uri(local_path)
 
         if self._env_manager != _EnvManager.LOCAL:
-            command = (
-                'python -c "from mlflow.pyfunc.scoring_server import _predict; _predict('
-                "model_uri={model_uri}, "
-                "input_path={input_path}, "
-                "output_path={output_path}, "
-                "content_type={content_type})"
-                '"'
-            ).format(
-                model_uri=repr(local_uri),
-                input_path=repr(input_path),
-                output_path=repr(output_path),
-                content_type=repr(content_type),
-            )
-            return self.prepare_env(local_path).execute(command)
+            predict_cmd = [
+                "python",
+                _mlflow_pyfunc_backend_predict.__file__,
+                "--model-uri",
+                str(local_uri),
+                "--content-type",
+                shlex.quote(str(content_type)),
+            ]
+            if input_path:
+                predict_cmd += ["--input-path", shlex.quote(str(input_path))]
+            if output_path:
+                predict_cmd += ["--output-path", shlex.quote(str(output_path))]
+            return self.prepare_env(local_path).execute(" ".join(predict_cmd))
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type)
 
@@ -371,7 +376,7 @@ class PyFuncBackend(FlavorBackend):
                     ENV {disable_env}="true"
                     ENV {ENABLE_MLSERVER}={enable_mlserver}
                     """.format(
-                    disable_env=DISABLE_ENV_CREATION,
+                    disable_env=MLFLOW_DISABLE_ENV_CREATION.name,
                     model_dir=str(posixpath.join("model_dir", os.path.basename(model_path))),
                     install_mlflow=repr(install_mlflow),
                     ENABLE_MLSERVER=ENABLE_MLSERVER,
@@ -379,14 +384,10 @@ class PyFuncBackend(FlavorBackend):
                     env_manager=self._env_manager,
                 )
             else:
-                return """
-                    ENV {disable_env}="true"
-                    ENV {ENABLE_MLSERVER}={enable_mlserver}
-                    """.format(
-                    disable_env=DISABLE_ENV_CREATION,
-                    ENABLE_MLSERVER=ENABLE_MLSERVER,
-                    enable_mlserver=repr(enable_mlserver),
-                )
+                return f"""
+                    ENV {MLFLOW_DISABLE_ENV_CREATION}="true"
+                    ENV {ENABLE_MLSERVER}={enable_mlserver!r}
+                    """
 
         return copy_model_into_container
 

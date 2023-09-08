@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import cached_property
-from typing import Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
@@ -11,10 +11,13 @@ from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFu
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationDataset
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.annotations import experimental
+
+if TYPE_CHECKING:
+    import pyspark
 
 _logger = logging.getLogger(__name__)
 
@@ -28,7 +31,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     def __init__(
         self,
-        df,
+        df: "pyspark.sql.DataFrame",
         source: DatasetSource,
         targets: Optional[str] = None,
         name: Optional[str] = None,
@@ -255,7 +258,7 @@ def load_delta(
 
 @experimental
 def from_spark(
-    df,
+    df: "pyspark.sql.DataFrame",
     path: Optional[str] = None,
     table_name: Optional[str] = None,
     version: Optional[str] = None,
@@ -305,13 +308,13 @@ def from_spark(
     :return: An instance of :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>`.
     """
     from mlflow.data.code_dataset_source import CodeDatasetSource
-    from mlflow.tracking.context import registry
     from mlflow.data.spark_delta_utils import (
         _is_delta_table,
         _is_delta_table_path,
         _try_get_delta_table_latest_version_from_path,
         _try_get_delta_table_latest_version_from_table_name,
     )
+    from mlflow.tracking.context import registry
 
     if (path, table_name, sql).count(None) < 2:
         raise MlflowException(

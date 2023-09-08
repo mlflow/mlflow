@@ -8,11 +8,12 @@ $ pip install packaging pyyaml
 $ python dev/update_ml_package_versions.py
 """
 import json
-from pathlib import Path
-from packaging.version import Version
 import re
 import urllib.request
+from pathlib import Path
+
 import yaml
+from packaging.version import Version
 
 
 def read_file(path):
@@ -75,7 +76,7 @@ def update_max_version(src, key, new_max_version, category):
         minimum: "1.1.1"
         maximum: "1.2.1"
     """
-    pattern = r"((^|\n){key}:.+?{category}:.+?maximum: )\".+?\"".format(
+    pattern = r"((^|\n){key}:.+?{category}:.+?maximum: )\".+?\"".format(  # noqa: UP032
         key=re.escape(key), category=category
     )
     # Matches the following pattern:

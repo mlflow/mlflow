@@ -1,10 +1,9 @@
 import os
+
+import openai
 import pandas as pd
 
 import mlflow
-
-import openai
-
 
 assert (
     "OPENAI_API_KEY" in os.environ

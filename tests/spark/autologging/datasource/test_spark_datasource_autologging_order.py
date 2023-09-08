@@ -1,17 +1,17 @@
-import pytest
-
-import mlflow
-import mlflow.spark
 import os
 import time
 
+import pytest
 from pyspark.sql import Row
-from pyspark.sql.types import StructType, IntegerType, StructField
+from pyspark.sql.types import IntegerType, StructField, StructType
 
-from tests.spark.autologging.utils import _get_or_create_spark_session
+import mlflow
+import mlflow.spark
+
 from tests.spark.autologging.utils import (
     _assert_spark_data_logged,
     _assert_spark_data_not_logged,
+    _get_or_create_spark_session,
 )
 
 

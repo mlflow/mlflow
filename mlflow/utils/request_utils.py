@@ -2,10 +2,10 @@
 # This file is imported by download_cloud_file_chunk.py.
 # Importing mlflow is time-consuming and we want to avoid that in artifact download subprocesses.
 import os
+from functools import lru_cache
+
 import requests
 import urllib3
-
-from functools import lru_cache
 from packaging.version import Version
 from requests.adapters import HTTPAdapter
 from requests.exceptions import HTTPError
@@ -43,7 +43,11 @@ def download_chunk(range_start, range_end, headers, download_path, http_uri):
     combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
 
     with cloud_storage_http_request(
-        "get", http_uri, stream=False, headers=combined_headers
+        "get",
+        http_uri,
+        stream=False,
+        headers=combined_headers,
+        timeout=10,
     ) as response:
         # File will have been created upstream. Use r+b to ensure chunks
         # don't overwrite the entire file.

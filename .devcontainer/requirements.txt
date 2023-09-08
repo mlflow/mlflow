@@ -117,7 +117,7 @@ future==0.18.2
     # via hyperopt
 gitdb==4.0.9
     # via gitpython
-gitpython==3.1.29
+gitpython==3.1.32
     # via -r skinny-requirements.txt
 greenlet==2.0.1
     # via sqlalchemy
@@ -291,7 +291,7 @@ pycparser==2.21
     # via cffi
 pydantic==1.10.2
     # via rstcheck-core
-pygments==2.13.0
+pygments==2.15.0
     # via
     #   ipython
     #   rich
@@ -451,7 +451,7 @@ tomli==2.0.1
     #   pytest
 tomlkit==0.11.6
     # via pylint
-tornado==6.2
+tornado==6.3.3
     # via livereload
 tqdm==4.64.1
     # via

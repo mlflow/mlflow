@@ -2,11 +2,11 @@ from unittest import mock
 
 import pytest
 
-from mlflow.exceptions import MlflowException
 from mlflow import server
+from mlflow.exceptions import MlflowException
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_exec_cmd():
     with mock.patch("mlflow.server._exec_cmd") as m:
         yield m

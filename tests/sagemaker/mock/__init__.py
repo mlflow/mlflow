@@ -1,13 +1,11 @@
-import time
 import json
+import time
 from collections import namedtuple
 from datetime import datetime
 
-from moto.core import DEFAULT_ACCOUNT_ID
-from moto.core import BaseBackend, BaseModel
-from moto.core.responses import BaseResponse
+from moto.core import DEFAULT_ACCOUNT_ID, BackendDict, BaseBackend, BaseModel
 from moto.core.models import base_decorator
-from moto.core import BackendDict
+from moto.core.responses import BaseResponse
 
 SageMakerResourceWithArn = namedtuple("SageMakerResourceWithArn", ["resource", "arn"])
 
@@ -514,7 +512,7 @@ class SageMakerBackend(BaseBackend):
             summaries.append(summary)
         return summaries
 
-    def list_tags(self, resource_arn, region_name):
+    def list_tags(self, resource_arn, region_name):  # pylint: disable=unused-argument
         """
         Modifies backend state during calls to the SageMaker "ListTags" API
         https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListTags.html

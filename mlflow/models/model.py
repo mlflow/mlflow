@@ -1,13 +1,12 @@
-from datetime import datetime
 import json
 import logging
-import warnings
-
-import yaml
 import os
 import uuid
+import warnings
+from datetime import datetime
+from typing import Any, Callable, Dict, Optional, Union
 
-from typing import Any, Dict, Optional, Union, Callable
+import yaml
 
 import mlflow
 from mlflow.artifacts import download_artifacts
@@ -15,14 +14,15 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.utils.annotations import experimental
-from mlflow.utils.file_utils import TempDir
 from mlflow.utils.databricks_utils import get_databricks_runtime
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import get_uri_scheme
 
 _logger = logging.getLogger(__name__)
 
 # NOTE: The MLMODEL_FILE_NAME constant is considered @developer_stable
 MLMODEL_FILE_NAME = "MLmodel"
+_DATABRICKS_FS_LOADER_MODULE = "databricks.feature_store.mlflow_model"
 _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "Logging model metadata to the tracking server has failed. The model artifacts "
     "have been logged successfully under %s. Set logging level to DEBUG via "
@@ -496,7 +496,7 @@ class Model:
     def from_dict(cls, model_dict):
         """Load a model from its YAML representation."""
 
-        from .signature import ModelSignature
+        from mlflow.models.signature import ModelSignature
 
         model_dict = model_dict.copy()
         if "signature" in model_dict and isinstance(model_dict["signature"], dict):
@@ -569,13 +569,15 @@ class Model:
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, metadata=metadata)
-            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
-            mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
             tracking_uri = _resolve_tracking_uri()
             if (
-                tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks"
-            ) and kwargs.get("signature") is None:
+                (tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks")
+                and kwargs.get("signature") is None
+                and kwargs.get("input_example") is None
+            ):
                 _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
+            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
+            mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model)
             except MlflowException:
@@ -585,10 +587,11 @@ class Model:
                 _logger.debug("", exc_info=True)
             if registered_model_name is not None:
                 run_id = mlflow.tracking.fluent.active_run().info.run_id
-                mlflow.register_model(
+                mlflow.tracking._model_registry.fluent._register_model(
                     f"runs:/{run_id}/{mlflow_model.artifact_path}",
                     registered_model_name,
                     await_registration_for=await_registration_for,
+                    local_model_path=local_path,
                 )
         return mlflow_model.get_model_info()
 
@@ -629,7 +632,7 @@ def get_model_info(model_uri: str) -> ModelInfo:
                 mlflow.log_params(params)
                 mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
-            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            model_uri = f"runs:/{run.info.run_id}/sklearn-model"
             # Get model info with model_uri
             model_info = mlflow.models.get_model_info(model_uri)
             # Get model signature directly

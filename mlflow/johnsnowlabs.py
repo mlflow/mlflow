@@ -51,6 +51,7 @@ import posixpath
 import shutil
 import sys
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 import yaml
 
@@ -75,6 +76,7 @@ from mlflow.tracking.artifact_utils import (
     _get_root_uri_and_artifact_path,
 )
 from mlflow.utils import databricks_utils
+from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -92,6 +94,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration_from_uri,
     _validate_and_copy_code_paths,
 )
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.uri import (
     append_to_uri_path,
     dbfs_hdfs_uri_to_fuse_path,
@@ -100,9 +103,6 @@ from mlflow.utils.uri import (
     is_local_uri,
     is_valid_dbfs_uri,
 )
-from mlflow.utils.annotations import experimental
-from mlflow.utils.requirements_utils import _get_pinned_requirement
-
 
 FLAVOR_NAME = "johnsnowlabs"
 _JOHNSNOWLABS_ENV_JSON_LICENSE_KEY = "JOHNSNOWLABS_LICENSE_JSON"
@@ -370,8 +370,8 @@ def _save_model_metadata(
     input_example=None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    remote_model_path=None,
-    store_license=False,
+    remote_model_path=None,  # pylint: disable=unused-argument
+    store_license=False,  # pylint: disable=unused-argument
 ):
     """
     Saves model metadata into the passed-in directory.
@@ -645,7 +645,9 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     return nlp.load(path=local_model_path)
 
 
-def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):
+def load_model(
+    model_uri, dfs_tmpdir=None, dst_path=None, **kwargs
+):  # pylint: disable=unused-argument
     """
     Load the Johnsnowlabs MlFlow model from the path.
 
@@ -750,6 +752,7 @@ def _get_or_create_sparksession(model_path=None):
     :return:
     """
     from johnsnowlabs import nlp
+
     from mlflow.utils._spark_utils import _get_active_spark_session
 
     _validate_env_vars()
@@ -836,12 +839,16 @@ class _PyFuncModelWrapper:
         self.spark = spark or _get_or_create_sparksession()
         self.spark_model = spark_model
 
-    def predict(self, text, output_level=""):
+    def predict(self, text, params: Optional[Dict[str, Any]] = None):
         """
         Generate predictions given input data in a pandas DataFrame.
 
-        :param output_level:
         :param text: pandas DataFrame containing input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
         :return: List with model predictions.
         """
+        output_level = params.get("output_level", "") if params else ""
         return self.spark_model.predict(text, output_level=output_level).reset_index().to_json()

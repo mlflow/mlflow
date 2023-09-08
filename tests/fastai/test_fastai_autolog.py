@@ -2,16 +2,16 @@ import pickle
 from functools import partial
 from unittest.mock import patch
 
-import pytest
+import matplotlib as mpl
 import numpy as np
 import pandas as pd
-import matplotlib as mpl
-from sklearn import datasets
-from torch import nn, optim
+import pytest
+from fastai.callback.all import EarlyStoppingCallback, SaveModelCallback
 from fastai.learner import Learner
 from fastai.optimizer import OptimWrapper
 from fastai.tabular.all import TabularDataLoaders
-from fastai.callback.all import EarlyStoppingCallback, SaveModelCallback
+from sklearn import datasets
+from torch import nn, optim
 
 import mlflow
 import mlflow.fastai
@@ -82,6 +82,16 @@ def test_fastai_autolog_ends_auto_created_run(iris_data, fit_variant):
     else:
         model.fit(1)
     assert mlflow.active_run() is None
+
+
+def test_extra_tags_fastai_autolog(iris_data):
+    mlflow.fastai.autolog(extra_tags={"test_tag": "fastai_autolog"})
+    model = fastai_tabular_model(iris_data)
+    model.fit_one_cycle(1)
+
+    run = mlflow.last_active_run()
+    assert run.data.tags["test_tag"] == "fastai_autolog"
+    assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "fastai"
 
 
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])

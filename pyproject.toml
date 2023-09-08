@@ -18,48 +18,51 @@ select = [
   "E",
   "F",
   "C4",
+  "I",
+  "PLR0402",
+  "PT001",
+  "PT002",
+  "PT003",
+  "PT006",
+  "PT007",
+  "PT009",
+  "PT010",
+  "PT011",
+  "PT012",
+  "PT013",
+  "PT014",
+  "PT018",
+  "PT022",
+  "PT023",
+  "PT026",
+  "PT027",
+  "RUF010",
+  "S307",
   "UP004",
   "UP008",
+  "UP011",
+  "UP012",
+  "UP015",
+  "UP030",
   "UP031",
+  "UP032",
   "UP034",
+  "SIM101",
+  "T20",
+  "TID252",
 ]
 force-exclude = true
 ignore = [
+  "E721",  # type-comparison
   "E402",  # module-import-not-at-top-of-file
   "E501",  # line-too-long
   "E741",  # ambiguous-variable-name
-  "F401",  # unused-import
-  "F402",  # import-shadowed-by-loop-var
-  "F403",  # undefined-local-with-import-star
   "F811",  # redefined-while-unused
 ]
-exclude = [
-  # Exclude a variety of commonly ignored directories.
-  ".bzr",
-  ".direnv",
-  ".eggs",
-  ".git",
-  ".git-rewrite",
-  ".hg",
-  ".mypy_cache",
-  ".nox",
-  ".pants.d",
-  ".pytype",
-  ".ruff_cache",
-  ".svn",
-  ".tox",
-  ".venv",
-  "__pypackages__",
-  "_build",
-  "buck-out",
-  "build",
-  "dist",
-  "node_modules",
-  "venv",
-  # Files/directories in mlflow repository
+extend-exclude = [
   "setup.py",
   "docs",
-  "examples",
+  "examples/recipes",
   "mlflow/protos",
   "mlflow/ml_package_versions.py",
   "mlflow/server/js",
@@ -67,3 +70,19 @@ exclude = [
   "mlflow/temporary_db_migrations_for_pre_1_users",
   "tests/protos",
 ]
+
+[tool.ruff.per-file-ignores]
+"dev/*" = ["T201", "PT018"]
+"examples/*" = ["T20"]
+"mlflow/*" = ["PT018"]
+
+[tool.ruff.flake8-pytest-style]
+mark-parentheses = false
+fixture-parentheses = false
+raises-require-match-for = ["*"]
+
+[tool.ruff.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.isort]
+forced-separate = ["tests"]

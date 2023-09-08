@@ -1,5 +1,6 @@
-import pytest
 import os
+
+import pytest
 
 
 @pytest.mark.skipif(
@@ -9,7 +10,7 @@ def test_autolog_without_scipy():
     import mlflow
 
     with pytest.raises(ImportError, match="scipy"):
-        import scipy  # pylint: disable=unused-import
+        import scipy  # noqa: F401
 
     assert not mlflow.models.utils.HAS_SCIPY
 

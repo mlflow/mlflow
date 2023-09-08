@@ -1,7 +1,7 @@
 import time
 import uuid
+from typing import List, NamedTuple
 from unittest import mock
-from typing import NamedTuple, List
 
 import pytest
 
@@ -11,6 +11,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_
 from mlflow.store.model_registry.file_store import FileStore
 from mlflow.utils.file_utils import path_to_local_file_uri, write_yaml
 from mlflow.utils.time_utils import get_current_time_millis
+
 from tests.helper_functions import random_int, random_str
 
 
@@ -673,7 +674,7 @@ def test_search_model_versions(store):
         return [mvd.version for mvd in _search_model_versions(store, filter_string)]
 
     # search using name should return all 4 versions
-    assert set(search_versions("name='%s'" % name)) == {1, 2, 3, 4}
+    assert set(search_versions(f"name='{name}'")) == {1, 2, 3, 4}
 
     # search using version
     assert set(search_versions("version_number=2")) == {2}
@@ -792,7 +793,7 @@ def test_search_model_versions(store):
         name=mv1.name, version=mv1.version, description="Online prediction model!"
     )
 
-    mvds = store.search_model_versions("run_id = '%s'" % run_id_1, max_results=10)
+    mvds = store.search_model_versions(f"run_id = '{run_id_1}'", max_results=10)
     assert len(mvds) == 1
     assert isinstance(mvds[0], ModelVersion)
     assert mvds[0].current_stage == "Production"
@@ -1509,4 +1510,5 @@ def test_pyfunc_model_registry_with_file_store(store):
         assert len(mv1) == 2
         assert mv1[0].name == "model1"
         mv2 = store.search_model_versions("name = 'model2'", max_results=10)
-        assert len(mv2) == 1 and mv2[0].name == "model2"
+        assert len(mv2) == 1
+        assert mv2[0].name == "model2"

@@ -1,5 +1,97 @@
 # CHANGELOG
 
+## 2.6.0 (2023-08-15)
+
+MLflow 2.6.0 includes several major features and improvements
+
+Features:
+
+- [Models / Scoring] Add support for passing extra params during inference for PyFunc models (#9068, @serena-ruan)
+- [Gateway] Add support for MLflow serving to MLflow AI Gateway (#9199, @BenWilson2)
+- [Tracking] Support `save_kwargs` for `mlflow.log_figure` to specify extra options when saving a figure (#9179, @stroblme)
+- [Artifacts] Display progress bars when uploading/download artifacts (#9195, @serena-ruan)
+- [Models] Add support for logging LangChain's retriever models (#8808, @liangz1)
+- [Tracking] Add support to log customized tags to runs created by autologging (#9114, @thinkall)
+
+Bug fixes:
+
+- [Models] Fix `text_pair` functionality for transformers `TextClassification` pipelines (#9215, @BenWilson2)
+- [Models] Fix LangChain compatibility with SQLDatabase (#9192, @dbczumar)
+- [Tracking] Remove patching `sklearn.metrics.get_scorer_names` in `mlflow.sklearn.autolog` to avoid duplicate logging (#9095, @WeichenXu123)
+
+Documentation updates:
+
+- [Docs / Examples] Add examples and documentation for MLflow AI Gateway support for MLflow model serving (#9281, @BenWilson2)
+- [Docs / Examples] Add `sentence-transformers` doc & example (#9047, @es94129)
+
+Deprecation:
+
+- [Models] The `mlflow.mleap` module has been marked as deprecated and will be removed in a future release (#9311, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#9309, #9252, #9198, #9189, #9186, #9184, @BenWilson2; #9307, @AmirAflak; #9285, #9126, @dependabot[bot]; #9302, #9209, #9194, #9187, #9175, #9177, #9163, #9161, #9129, #9123, #9053, @serena-ruan; #9305, #9303, #9271, @KekmaTime; #9300, #9299, @itsajay1029; #9294, #9293, #9274, #9268, #9264, #9246, #9255, #9253, #9254, #9245, #9202, #9243, #9238, #9234, #9233, #9227, #9226, #9223, #9224, #9222, #9225, #9220, #9208, #9212, #9207, #9203, #9201, #9200, #9154, #9146, #9147, #9153, #9148, #9145, #9136, #9132, #9131, #9128, #9121, #9124, #9125, #9108, #9103, #9100, #9098, #9101, @harupy; #9292, @Aman123lug; #9290, #9164, #9157, #9086, @Bncer; #9291, @kunal642; #9284, @NavneetSinghArora; #9286, #9262, #9142, @smurching; #9267, @tungbq; #9258, #9250, @Kunj125; #9167, #9139, #9120, #9118, #9097, @viktoriussuwandi; #9244, #9240, #9239, @Sai-Suraj-27; #9221, #9168, #9130, @gabrielfu; #9218, @tjni; #9216, @Rukiyav; #9158, #9051, @EdAbati; #9211, @scarlettrobe; #9049, @annzhang-db; #9140, @kriscon-db; #9141, @xAIdrian; #9135, @liangz1; #9067, @jmmonteiro; #9112, @WeichenXu123; #9106, @shaikmoeed; #9105, @Ankit8848; #9104, @arnabrahman
+
+## 2.5.0 (2023-07-17)
+
+MLflow 2.5.0 includes several major features and improvements:
+
+- [MLflow AI Gateway] We are excited to announce the release of MLflow AI Gateway, a powerful tool designed to streamline the usage and management of various large language model (LLM) providers, such as OpenAI and Anthropic, within an organization. It offers a standardized interface that simplifies the interaction with these services and delivers centralized, secure management of credentials. To get started with MLflow AI Gateway, check out the docs at https://mlflow.org/docs/latest/gateway/index.html. (#8694, @harupy, @BenWilson2, @dbczumar)
+- [Auth]: We are excited to announce the release of authentication and authorization support for MLflow Tracking and the MLflow Model Registry, providing integrated access control capabilities to both services. To get started, check out the docs at https://mlflow.org/docs/latest/auth/index.html. (#9000, #8975, #8626, #8837, #8841, @gabrielfu, @harupy)
+
+Features:
+
+- [Models] Add Support to the LangChain flavor for chains that contain unserializable components (#8736, @liangz1)
+- [Scoring] Infer spark udf return type from model output schema (#8934, @WeichenXu123)
+- [Models] Add support for automated signature inference (#8860, #8782 #8795, #8725, @jerrylian-db)
+
+Bug fixes:
+
+- [Security] Improve robustness to LFI attacks on Windows by enhancing path validation (#8999, @serena-ruan)
+  - If you are using `mlflow server` or `mlflow ui` on Windows, we recommend upgrading to MLflow 2.5.0 as soon as possible.
+- [Scoring] Support nullable array type values as spark_udf return values (#9014, @WeichenXu123)
+- [Models] Revert cache deletion of system modules when adding custom model code to the system path (#8722, @trungn1)
+- [Models] add micro version to mlflow version pinning (#8687, @C-K-Loan)
+- [Artifacts] Prevent manually deleted artifacts from causing artifact garbage collection to fail (#8498, @PenHsuanWang)
+
+Documentation updates:
+
+- [Docs] Update .push_model_to_sagemaker docs (#8851, @pdifranc)
+- [Docs] Fix invalid link for Azure ML documentation (#8800, @dunnkers)
+- [Artifacts / Docs / Models / Projects] Adds information on the OCI MLflow plugins for seamless integration with Oralce Cloud Infrastructure services. (#8707, @mrDzurb)
+
+Deprecation:
+
+- [Models] Deprecate the `gluon` model flavor. The `mlflow.gluon` module will be removed in a future release. (#8968, @harupy)
+
+Small bug fixes and documentation updates:
+
+#9069, #9056, #9055, #9054, #9048, #9043, #9035, #9034, #9037, #9038, #8993, #8966, #8985, @BenWilson2; #9039, #9036, #8902, #8924, #8866, #8861, #8810, #8761, #8544, @jerrylian-db; #8903, @smurching; #9080, #9079, #9078, #9076, #9075, #9074, #9071, #9063, #9062, #9032, #9031, #9027, #9023, #9022, #9020, #9005, #8994, #8979, #8983, #8984, #8982, #8970, #8962, #8969, #8968, #8959, #8960, #8958, #8956, #8955, #8954, #8949, #8950, #8952, #8948, #8946, #8947, #8943, #8944, #8916, #8917, #8933, #8929, #8932, #8927, #8930, #8925, #8921, #8873, #8915, #8909, #8908, #8911, #8910, #8907, #8906, #8898, #8893, #8889, #8892, #8891, #8887, #8875, #8876, #8882, #8874, #8868, #8872, #8869, #8828, #8852, #8857, #8853, #8854, #8848, #8850, #8840, #8835, #8832, #8831, #8830, #8829, #8839, #8833, #8838, #8819, #8814, #8825, #8818, #8787, #8775, #8749, #8766, #8756, #8753, #8751, #8748, #8744, #8731, #8717, #8730, #8691, #8720, #8723, #8719, #8688, #8721, #8715, #8716, #8718, #8696, #8698, #8692, #8693, #8690, @harupy; #9030, @AlimurtuzaCodes; #9029, #9025, #9021, #9013, @viktoriussuwandi; #9010, @Bncer; #9011, @Pecunia201; #9007, #9003, @EdAbati; #9002, @prithvikannan; #8991, #8867, @AveshCSingh; #8951, #8896, #8888, #8849, @gabrielfu; #8913, #8885, #8871, #8870, #8788, #8772, #8771, @serena-ruan; #8879, @maciejskorski; #7752, @arunkumarkota; #9083, #9081, #8765, #8742, #8685, #8682, #8683, @dbczumar; #8791, @mhattingpete; #8739, @yunpark93
+
+## 2.4.2 (2023-07-10)
+
+MLflow 2.4.2 is a patch release containing the following bug fixes and changes:
+
+Bug fixes:
+
+- [Models] Add compatibility for legacy transformers serialization (#8964, @BenWilson2)
+- [Models] Fix downloading MLmodel files from alias-based models:/ URIs (#8764, @smurching)
+- [Models] Fix reading model flavor config from URI for models in UC (#8728, @smurching)
+- [Models] Support `feature_deps` in ModelVersion creation for UC (#8867, #8815, @AveshCSingh)
+- [Models] Add support for listing artifacts in UC model registry artifact repo (#8803, @smurching)
+- [Core] Include resources for recipes in mlflow-skinny (#8895, @harupy)
+- [UI] Enable datasets tracking UI (#8886, @harupy)
+- [Artifacts] Use `MLFLOW_ENABLE_MULTIPART_DOWNLOAD` in `DatabricksArtifactRepository` (#8884, @harupy)
+
+Documentation updates:
+
+- [Examples / Docs] Add question-answering and summarization examples and docs with LLMs (#8695, @dbczumar)
+- [Examples / Docs] Add johnsnowlabs flavor example and doc (#8689, @C-K-Loan)
+
+Small bug fixes and documentation updates:
+
+#8966, @BenWilson2; #8881, @harupy; #8846, #8760, @smurching
+
 ## 2.4.1 (2023-06-09)
 
 MLflow 2.4.1 is a patch release containing the following features, bug fixes and changes:

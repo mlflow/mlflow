@@ -1,22 +1,22 @@
 import json
 import os
-
-import pytest
 from unittest import mock
 from unittest.mock import Mock
+
+import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.dbfs_artifact_repo import (
-    _get_host_creds_from_default_store,
     DbfsRestArtifactRepository,
+    _get_host_creds_from_default_store,
 )
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.utils.rest_utils import MlflowHostCreds
 
 
-@pytest.fixture()
+@pytest.fixture
 def dbfs_artifact_repo():
     with mock.patch(
         "mlflow.store.artifact.dbfs_artifact_repo._get_host_creds_from_default_store",
@@ -33,14 +33,14 @@ DBFS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.dbfs_artifact_repo"
 DBFS_ARTIFACT_REPOSITORY = DBFS_ARTIFACT_REPOSITORY_PACKAGE + ".DbfsRestArtifactRepository"
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_file(tmp_path):
     p = tmp_path.joinpath("test.txt")
     p.write_bytes(TEST_FILE_1_CONTENT)
     return str(p)
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_dir(tmp_path):
     subdir = tmp_path.joinpath("subdir")
     subdir.mkdir()

@@ -19,8 +19,7 @@ hyperopt
 # Required by recipes tests
 ipython
 # Required by automl tests
-# 1.1.0 contains this issue: https://github.com/microsoft/FLAML/issues/871
-flaml!=1.1.0
+flaml[automl]
 # Required by transformers tests
 # Note: other requirements for transformers are defined in cross-version-tests.yml
 # they are not installed here due to their size and stability implications for other test suites
@@ -34,3 +33,7 @@ shap
 evaluate
 nltk
 rouge_score
+textstat
+# Required by progress bar tests
+ipywidgets
+tqdm

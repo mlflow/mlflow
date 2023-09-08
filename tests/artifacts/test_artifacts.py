@@ -1,21 +1,20 @@
 import pathlib
 import uuid
-from unittest import mock
+from collections import namedtuple
 from typing import NamedTuple
+from unittest import mock
 
 import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.utils.file_utils import path_to_local_file_uri, mkdir, local_file_uri_to_path
-from collections import namedtuple
+from mlflow.utils.file_utils import local_file_uri_to_path, mkdir, path_to_local_file_uri
 from mlflow.utils.os import is_windows
-
 
 Artifact = namedtuple("Artifact", ["uri", "content"])
 
 
-@pytest.fixture()
+@pytest.fixture
 def run_with_artifact(tmp_path):
     artifact_path = "test"
     artifact_content = "content"
@@ -78,7 +77,7 @@ def test_download_artifacts_throws_for_invalid_arguments():
         mlflow.artifacts.download_artifacts(artifact_path="path", artifact_uri="uri")
 
 
-@pytest.fixture()
+@pytest.fixture
 def run_with_text_artifact():
     artifact_path = "test/file.txt"
     artifact_content = "This is a sentence"
@@ -89,7 +88,7 @@ def run_with_text_artifact():
     return Artifact(artifact_uri, artifact_content)
 
 
-@pytest.fixture()
+@pytest.fixture
 def run_with_json_artifact():
     artifact_path = "test/config.json"
     artifact_content = {"mlflow-version": "0.28", "n_cores": "10"}
@@ -100,7 +99,7 @@ def run_with_json_artifact():
     return Artifact(artifact_uri, artifact_content)
 
 
-@pytest.fixture()
+@pytest.fixture
 def run_with_image_artifact():
     from PIL import Image
 
@@ -150,7 +149,7 @@ class ArtifactReturnType(NamedTuple):
     artifact_name: str
 
 
-@pytest.fixture()
+@pytest.fixture
 def text_artifact(tmp_path):
     artifact_name = "test.txt"
     artifacts_root_tmp = mkdir(tmp_path.joinpath(str(uuid.uuid4())))

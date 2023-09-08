@@ -17,7 +17,8 @@
     ],
     "types": [
       "jest",
-      "node"
+      "node",
+      "@testing-library/jest-dom"
     ],
     "sourceMap": true,
     "declaration": true,

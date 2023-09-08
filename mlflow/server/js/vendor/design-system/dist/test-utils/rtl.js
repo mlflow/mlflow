@@ -1,11 +1,11 @@
 import userEvent from '@testing-library/user-event';
-import { waitFor, within, queryHelpers } from '@testing-library/react';
-import { s as selectClasses, c as createMarkdownTable } from '../common-31040b66.js';
+import { queryHelpers, waitFor, within } from '@testing-library/react';
+import { s as selectClasses, c as createMarkdownTable } from '../common-5b60d682.js';
 
 /**
  * Allows the helpers in this module to be used when the select element is
- * queried _semantically_ (as if it were a native <select> element) — i.e.
- * `ByRole('combobox', { name: '…' })`, rather than by test ID.
+ * queried _semantically_ (as if it were a native <select> element) - i.e.
+ * `ByRole('combobox', { name: '...' })`, rather than by test ID.
  *
  * Also checks if <DesignSystemProvider> was used, because many of the helpers
  * in this module query by class name starting with "du-bois-", which requires
@@ -25,15 +25,15 @@ function getOptionsList(select) {
   const input = within(select).getByRole('combobox');
   const listId = input.getAttribute('aria-owns') || input.getAttribute('aria-controls');
   if (!listId) {
-    throw new Error(`Options listid not found\n${body.innerHTML}`);
+    throw queryHelpers.getElementError('Options input does not control an options list', body);
   }
   const listbox = select.ownerDocument.getElementById(listId);
   if (!(listbox !== null && listbox !== void 0 && listbox.parentElement)) {
-    throw new Error(`Options list not found\n${body.innerHTML}`);
+    throw queryHelpers.getElementError('Options listbox does not have a parent', body);
   }
   const optionsList = listbox.parentElement.querySelector(`.${selectClasses.list}`);
   if (!optionsList) {
-    throw new Error(`Options list not found\n${body.innerHTML}`);
+    throw queryHelpers.getElementError('Options list not found', body);
   }
   return optionsList;
 }
@@ -45,18 +45,18 @@ function getOptionsList(select) {
 async function openMenu(select) {
   select = getRootElement(select);
   if (select.classList.contains(selectClasses.open)) {
-    throw new Error(`Select is already open\n${select.innerHTML}`);
+    throw queryHelpers.getElementError('Select is already open', select);
   }
   const selector = select.querySelector(`.${selectClasses.selector}`);
   if (!selector) {
-    throw new Error(`Selector not found\n${select.innerHTML}`);
+    throw queryHelpers.getElementError('Selector not found', select);
   }
   await userEvent.click(selector, {
     pointerEventsCheck: 0
   });
   await waitFor(() => {
     if (!select.classList.contains(selectClasses.open)) {
-      throw new Error(`Select did not open\n${select.innerHTML}`);
+      throw queryHelpers.getElementError('Select did not open', select);
     }
   });
 }
@@ -68,18 +68,18 @@ async function openMenu(select) {
 async function closeMenu(select) {
   select = getRootElement(select);
   if (!select.classList.contains(selectClasses.open)) {
-    throw new Error(`Select is already closed\n${select.innerHTML}`);
+    throw queryHelpers.getElementError('Select is already closed', select);
   }
   const selector = select.querySelector(`.${selectClasses.selector}`);
   if (!selector) {
-    throw new Error(`Selector not found\n${select.innerHTML}`);
+    throw queryHelpers.getElementError('Selector not found', select);
   }
   await userEvent.click(selector, {
     pointerEventsCheck: 0
   });
   await waitFor(() => {
     if (select.classList.contains(selectClasses.open)) {
-      throw new Error(`Select did not close\n${select.innerHTML}`);
+      throw queryHelpers.getElementError('Select did not close', select);
     }
   });
 }
@@ -92,12 +92,34 @@ function getLabelText(select) {
   select = getRootElement(select);
   const selector = select.querySelector(`.${selectClasses.selector}`);
   if (!selector) {
-    throw new Error(`Selector not found\n${select.innerHTML}`);
+    throw queryHelpers.getElementError('Selector not found', select);
   }
   // Trim the text to avoid weird whitespace issues non-label elements being added.
   // For example, the input mirror is an empty span with some whitespace that is
   // nested under the selector but does not show up in the label text.
   return (_selector$textContent = (_selector$textContent2 = selector.textContent) === null || _selector$textContent2 === void 0 ? void 0 : _selector$textContent2.trim()) !== null && _selector$textContent !== void 0 ? _selector$textContent : '';
+}
+
+/**
+ * Removes the `option` by clicking its "X" button. Can only be used with a <Select/>
+ * component with `mode="multiple"`. The provided strings must match the option label
+ * exactly.
+ */
+async function removeMultiSelectOption(select, option) {
+  select = getRootElement(select);
+  const selector = select.querySelector(`.${selectClasses.selector}`);
+  if (!selector) {
+    throw queryHelpers.getElementError('Selector not found', select);
+  }
+  const optionItem = within(selector).getByText(option).closest(`.${selectClasses.item}`);
+  if (optionItem === null) {
+    throw queryHelpers.getElementError(`Option "${option}" not found`, select);
+  }
+  const removeItem = optionItem.querySelector(`.${selectClasses.removeItem}`);
+  if (removeItem === null) {
+    throw queryHelpers.getElementError(`Remove button for option "${option}" not found`, optionItem);
+  }
+  await userEvent.click(removeItem);
 }
 
 /**
@@ -148,7 +170,7 @@ async function clearAll(select) {
   select = getRootElement(select);
   const clearBtn = select.querySelector(`.${selectClasses.clear}`);
   if (!clearBtn) {
-    throw new Error(`Select not clearable\n${select.innerHTML}`);
+    throw queryHelpers.getElementError('Select not clearable', select);
   }
   await userEvent.click(clearBtn);
 }
@@ -164,7 +186,7 @@ async function getAllOptions(select) {
   const options = [];
   optionsList.querySelectorAll(`.${selectClasses.option}`).forEach(option => {
     if (option.textContent === null) {
-      throw new Error(`Option had no text content\n${option.innerHTML}`);
+      throw queryHelpers.getElementError('Option had no text content', option);
     }
     options.push(option.textContent);
   });
@@ -180,6 +202,7 @@ var selectEvent = /*#__PURE__*/Object.freeze({
   getLabelText: getLabelText,
   multiSelect: multiSelect,
   openMenu: openMenu,
+  removeMultiSelectOption: removeMultiSelectOption,
   singleSelect: singleSelect
 });
 

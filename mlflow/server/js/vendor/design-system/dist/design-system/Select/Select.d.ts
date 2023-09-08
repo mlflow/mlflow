@@ -1,12 +1,13 @@
 import type { SelectProps as AntDSelectProps } from 'antd';
 import { Select as AntDSelect } from 'antd';
-import type { SelectValue as AntdSelectValue, RefSelectProps as AntdRefSelectProps } from 'antd/lib/select';
+import type { RefSelectProps as AntdRefSelectProps, SelectValue as AntdSelectValue } from 'antd/lib/select';
 import React from 'react';
-import type { DangerouslySetAntdProps, HTMLDataAttributes, FormElementValidationState } from '../types';
+import type { WithLoadingState } from '../LoadingState/LoadingState';
+import type { DangerouslySetAntdProps, FormElementValidationState, HTMLDataAttributes } from '../types';
 export type SelectValue = AntdSelectValue;
 type SelectRef = React.Ref<AntdRefSelectProps>;
 type OmittedProps = 'bordered' | 'autoClearSearchValue' | 'dropdownRender' | 'dropdownStyle' | 'size' | 'suffixIcon' | 'tagRender' | 'clearIcon' | 'removeIcon' | 'showArrow' | 'dropdownMatchSelectWidth' | 'menuItemSelectedIcon' | 'showSearch';
-export interface SelectProps<T = string> extends Omit<AntDSelectProps<T>, OmittedProps>, FormElementValidationState, HTMLDataAttributes, DangerouslySetAntdProps<Pick<AntDSelectProps<T>, OmittedProps>> {
+export interface SelectProps<T = string> extends Omit<AntDSelectProps<T>, OmittedProps>, FormElementValidationState, HTMLDataAttributes, DangerouslySetAntdProps<Pick<AntDSelectProps<T>, OmittedProps>>, Omit<WithLoadingState, 'loading'> {
 }
 export interface SelectOptionProps extends DangerouslySetAntdProps<typeof AntDSelect.Option> {
     value: string | number;

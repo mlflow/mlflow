@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { IntlProvider } from 'react-intl';
 import { Provider } from 'react-redux';
-import { MemoryRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
 import { applyMiddleware, compose, createStore } from 'redux';
 import promiseMiddleware from 'redux-promise-middleware';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
@@ -53,13 +53,8 @@ const createComponentWrapper = (viewState: SearchExperimentRunsViewState) => () 
             </div>
             <ExperimentViewRunsControlsActions
               runsData={MOCK_RUNS_DATA}
-              sortOptions={sortOptions}
               searchFacetsState={searchFacetsState}
               viewState={viewState}
-              updateSearchFacets={() => {}}
-              updateViewState={() => {}}
-              expandRows={false}
-              updateExpandRows={() => {}}
             />
           </IntlProvider>
         </GetExperimentRunsContextProvider>

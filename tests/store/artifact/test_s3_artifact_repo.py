@@ -1,22 +1,21 @@
+import json
 import os
 import posixpath
 import tarfile
-import json
 from datetime import datetime
+from unittest import mock
+from unittest.mock import ANY
 
 import pytest
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.s3_artifact_repo import (
+    _MAX_CACHE_SECONDS,
     S3ArtifactRepository,
     _cached_get_s3_client,
-    _MAX_CACHE_SECONDS,
 )
 
-from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-
-from unittest import mock
-from unittest.mock import ANY
+from tests.helper_functions import set_boto_credentials  # noqa: F401
 
 
 @pytest.fixture
@@ -59,14 +58,14 @@ def test_file_artifact_is_logged_with_content_metadata(s3_artifact_root, tmp_pat
     repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
     repo.log_artifact(file_path)
 
-    bucket, _ = repo.parse_s3_uri(s3_artifact_root)
+    bucket, _ = repo.parse_s3_compliant_uri(s3_artifact_root)
     s3_client = repo._get_s3_client()
     response = s3_client.head_object(Bucket=bucket, Key="some/path/test.txt")
     assert response.get("ContentType") == "text/plain"
     assert response.get("ContentEncoding") is None
 
 
-def test_get_s3_client_hits_cache(s3_artifact_root):
+def test_get_s3_client_hits_cache(s3_artifact_root, monkeypatch):
     # pylint: disable=no-value-for-parameter
     repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
     repo._get_s3_client()
@@ -81,12 +80,8 @@ def test_get_s3_client_hits_cache(s3_artifact_root):
     assert cache_info.misses == 1
     assert cache_info.currsize == 1
 
-    with mock.patch.dict(
-        "os.environ",
-        {"MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION": "s3v2"},
-        clear=True,
-    ):
-        repo._get_s3_client()
+    monkeypatch.setenv("MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION", "s3v2")
+    repo._get_s3_client()
     cache_info = _cached_get_s3_client.cache_info()
     assert cache_info.hits == 1
     assert cache_info.misses == 2
@@ -106,20 +101,28 @@ def test_get_s3_client_hits_cache(s3_artifact_root):
 @pytest.mark.parametrize(
     ("ignore_tls_env", "verify"), [("0", None), ("1", False), ("true", False), ("false", None)]
 )
-def test_get_s3_client_verify_param_set_correctly(s3_artifact_root, ignore_tls_env, verify):
-    with mock.patch.dict("os.environ", {"MLFLOW_S3_IGNORE_TLS": ignore_tls_env}, clear=True):
-        with mock.patch("boto3.client") as mock_get_s3_client:
-            repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
-            repo._get_s3_client()
-            mock_get_s3_client.assert_called_with(
-                "s3",
-                config=ANY,
-                endpoint_url=ANY,
-                verify=verify,
-                aws_access_key_id=None,
-                aws_secret_access_key=None,
-                aws_session_token=None,
-            )
+def test_get_s3_client_verify_param_set_correctly(
+    s3_artifact_root, ignore_tls_env, verify, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_S3_IGNORE_TLS", ignore_tls_env)
+    with mock.patch("boto3.client") as mock_get_s3_client:
+        repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+        repo._get_s3_client()
+        mock_get_s3_client.assert_called_with(
+            "s3",
+            config=ANY,
+            endpoint_url=ANY,
+            verify=verify,
+            aws_access_key_id=None,
+            aws_secret_access_key=None,
+            aws_session_token=None,
+        )
+
+
+def test_s3_client_config_set_correctly(s3_artifact_root):
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    s3_client = repo._get_s3_client()
+    assert s3_client.meta.config.s3.get("addressing_style") == "path"
 
 
 def test_s3_creds_passed_to_client(s3_artifact_root):
@@ -162,7 +165,7 @@ def test_file_artifacts_are_logged_with_content_metadata_in_batch(s3_artifact_ro
     repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
     repo.log_artifacts(subdir_path)
 
-    bucket, _ = repo.parse_s3_uri(s3_artifact_root)
+    bucket, _ = repo.parse_s3_compliant_uri(s3_artifact_root)
     s3_client = repo._get_s3_client()
 
     response_a = s3_client.head_object(Bucket=bucket, Key="some/path/a.txt")

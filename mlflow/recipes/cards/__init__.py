@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-import re
 import base64
 import html
+import logging
 import os
 import pathlib
-import logging
-import random
-import string
 import pickle
+import random
+import re
+import string
 from io import StringIO
 from typing import Union
 
 from packaging.version import Version
 
-from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
+from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 
 CARD_PICKLE_NAME = "card.pkl"
 CARD_HTML_NAME = "card.html"

@@ -1,26 +1,27 @@
-import os
-import json
 import functools
+import json
+import os
 import pickle
-import pytest
-import yaml
-import numpy as np
-import pandas as pd
+from unittest import mock
+from unittest.mock import patch
+
 import lightgbm as lgb
 import matplotlib as mpl
+import numpy as np
+import pandas as pd
+import pytest
+import yaml
 from packaging.version import Version
 from sklearn import datasets
-from unittest import mock
 
 import mlflow
 import mlflow.lightgbm
+from mlflow import MlflowClient
 from mlflow.lightgbm import _autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
-from mlflow import MlflowClient
 from mlflow.types.utils import _infer_schema
-from mlflow.utils.autologging_utils import picklable_exception_safe_function, BatchMetricsLogger
-from unittest.mock import patch
+from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
 
 mpl.use("Agg")
 
@@ -65,6 +66,15 @@ def test_lgb_autolog_ends_auto_created_run(bst_params, train_set):
     mlflow.lightgbm.autolog()
     lgb.train(bst_params, train_set, num_boost_round=1)
     assert mlflow.active_run() is None
+
+
+def test_extra_tags_lightgbm_autolog(bst_params, train_set):
+    mlflow.lightgbm.autolog(extra_tags={"test_tag": "lgb_autolog"})
+    lgb.train(bst_params, train_set, num_boost_round=1)
+
+    run = mlflow.last_active_run()
+    assert run.data.tags["test_tag"] == "lgb_autolog"
+    assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "lightgbm"
 
 
 def test_lgb_autolog_persists_manually_created_run(bst_params, train_set):

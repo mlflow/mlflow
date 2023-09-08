@@ -452,6 +452,7 @@ export const ExperimentViewRunsTable = React.memo(
             content={sidebarPreviewData?.value}
             copyText={sidebarPreviewData?.value}
             headerText={sidebarPreviewData?.header}
+            onClose={() => updateViewState({ previewPaneVisible: false })}
             empty={
               <Empty
                 description={

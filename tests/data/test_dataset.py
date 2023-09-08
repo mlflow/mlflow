@@ -2,8 +2,8 @@ import json
 
 from mlflow.types.schema import Schema
 
-from tests.resources.data.dataset_source import TestDatasetSource
 from tests.resources.data.dataset import TestDataset
+from tests.resources.data.dataset_source import TestDatasetSource
 
 
 def test_conversion_to_json():

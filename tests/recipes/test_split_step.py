@@ -1,30 +1,27 @@
-import os
-import pytest
+from pathlib import Path
+from unittest import mock
+from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
+import pytest
 
 import mlflow
+from mlflow.environment_variables import MLFLOW_RECIPES_EXECUTION_DIRECTORY
 from mlflow.exceptions import MlflowException
-from mlflow.recipes.utils.execution import _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR
-from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
-from mlflow.utils.file_utils import read_yaml
 from mlflow.recipes.steps.split import (
+    _OUTPUT_TEST_FILE_NAME,
     _OUTPUT_TRAIN_FILE_NAME,
     _OUTPUT_VALIDATION_FILE_NAME,
-    _OUTPUT_TEST_FILE_NAME,
+    SplitStep,
     SplitValues,
-)
-from mlflow.recipes.steps.split import (
     _get_split_df,
     _hash_pandas_dataframe,
     _make_elem_hashable,
     _validate_user_code_output,
-    SplitStep,
 )
-from unittest import mock
-from unittest.mock import Mock
-from pathlib import Path
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
+from mlflow.utils.file_utils import read_yaml
 
 
 def set_up_dataset(tmp_path, num_classes=2):
@@ -50,7 +47,7 @@ def test_split_step_run(tmp_path, monkeypatch):
 
     split_ratios = [0.6, 0.3, 0.1]
 
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_path))
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_DIRECTORY.name, str(tmp_path))
     with mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
         split_step = SplitStep(
             {"split_ratios": split_ratios, "target_col": "y", "recipe": "classification/v1"},
@@ -88,7 +85,7 @@ def test_split_step_run_with_multiple_classes(tmp_path, monkeypatch):
 
     split_ratios = [0.6, 0.3, 0.1]
 
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_path))
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_DIRECTORY.name, str(tmp_path))
     with mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
         split_step = SplitStep(
             {"split_ratios": split_ratios, "target_col": "y", "recipe": "classification/v1"},
@@ -158,17 +155,16 @@ def test_get_split_df():
 
 
 def test_from_recipe_config_fails_without_target_col(tmp_path, monkeypatch):
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_path))
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_DIRECTORY.name, str(tmp_path))
     with mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
         split_step = SplitStep.from_recipe_config({}, "fake_root")
         with pytest.raises(MlflowException, match="Missing target_col config"):
             split_step._validate_and_apply_step_config()
 
 
-def test_from_recipe_config_works_with_target_col(tmp_path):
-    with mock.patch.dict(
-        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
-    ), mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
+def test_from_recipe_config_works_with_target_col(tmp_path, monkeypatch):
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_DIRECTORY.name, str(tmp_path))
+    with mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
         assert SplitStep.from_recipe_config({"target_col": "fake_col"}, "fake_root") is not None
 
 
@@ -189,7 +185,7 @@ def test_split_step_skips_profiling_when_specified(tmp_path, monkeypatch):
     )
     input_dataframe.to_parquet(str(ingest_output_dir / "dataset.parquet"))
 
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_path))
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_DIRECTORY.name, str(tmp_path))
     with mock.patch(
         "mlflow.recipes.utils.step.get_pandas_data_profiles"
     ) as mock_profiling, mock.patch(
@@ -270,7 +266,7 @@ def test_custom_split_method(tmp_recipe_root_path: Path, tmp_recipe_exec_path: P
 
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
         recipe: "regression/v1"
         target_col: "y"
         primary_metric: "f1_score"
@@ -279,14 +275,12 @@ def test_custom_split_method(tmp_recipe_root_path: Path, tmp_recipe_exec_path: P
             step: "split"
         experiment:
             name: "demo"
-            tracking_uri: {tracking_uri}
+            tracking_uri: {mlflow.get_tracking_uri()}
         steps:
             split:
                 using: custom
                 split_method: split_method
-        """.format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+        """
     )
 
     m_split = Mock()
@@ -334,7 +328,7 @@ def test_custom_error_split_method(tmp_recipe_root_path: Path, tmp_recipe_exec_p
 
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
         recipe: "regression/v1"
         target_col: "y"
         primary_metric: "f1_score"
@@ -343,14 +337,12 @@ def test_custom_error_split_method(tmp_recipe_root_path: Path, tmp_recipe_exec_p
             step: "split"
         experiment:
             name: "demo"
-            tracking_uri: {tracking_uri}
+            tracking_uri: {mlflow.get_tracking_uri()}
         steps:
             split:
                 using: custom
                 split_method: split_method
-        """.format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+        """
     )
 
     m_split = Mock()

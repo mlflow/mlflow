@@ -1,15 +1,16 @@
-import pytest
 from pathlib import Path
 
+import pytest
+
 import mlflow
-from mlflow.utils.file_utils import read_yaml
-from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
-from mlflow.recipes.steps.evaluate import EvaluateStep
-from mlflow.recipes.steps.register import RegisterStep, _REGISTERED_MV_INFO_FILE
 from mlflow.exceptions import MlflowException
+from mlflow.recipes.steps.evaluate import EvaluateStep
+from mlflow.recipes.steps.register import _REGISTERED_MV_INFO_FILE, RegisterStep
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
+from mlflow.utils.file_utils import read_yaml
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_SOURCE_TYPE,
     MLFLOW_RECIPE_TEMPLATE_NAME,
+    MLFLOW_SOURCE_TYPE,
 )
 
 from tests.recipes.helper_functions import setup_model_and_evaluate
@@ -36,11 +37,11 @@ def test_register_step_run(
     )
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
 recipe: "regression/v1"
 target_col: "y"
 experiment:
-  tracking_uri: {tracking_uri}
+  tracking_uri: {mlflow.get_tracking_uri()}
 model_registry:
   model_name: "demo_model"
 steps:
@@ -53,16 +54,12 @@ steps:
       - metric: weighted_mean_squared_error
         threshold: 1_000_000
   register:
-    {allow_non_validated_model}
+    {register_flag}
 custom_metrics:
   - name: weighted_mean_squared_error
     function: weighted_mean_squared_error
     greater_is_better: False
-""".format(
-            tracking_uri=mlflow.get_tracking_uri(),
-            mae_threshold=mae_threshold,
-            allow_non_validated_model=register_flag,
-        )
+"""
     )
     recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
     recipe_steps_dir.mkdir(parents=True)
@@ -106,21 +103,18 @@ def test_register_with_no_validation_criteria(
     )
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
 recipe: "regression/v1"
 target_col: "y"
 experiment:
-  tracking_uri: {tracking_uri}
+  tracking_uri: {mlflow.get_tracking_uri()}
 model_registry:
   model_name: "demo_model"
 steps:
   evaluate:
   register:
-    {allow_non_validated_model}
-""".format(
-            tracking_uri=mlflow.get_tracking_uri(),
-            allow_non_validated_model=register_flag,
-        )
+    {register_flag}
+"""
     )
     recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
     recipe_steps_dir.mkdir(parents=True)
@@ -151,13 +145,13 @@ def test_usage_tracking_correctly_added(
     )
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
 recipe: "regression/v1"
 target_col: "y"
 model_registry:
   model_name: "demo_model"
 experiment:
-  tracking_uri: {tracking_uri}
+  tracking_uri: {mlflow.get_tracking_uri()}
 steps:
   evaluate:
     validation_criteria:
@@ -171,9 +165,7 @@ custom_metrics:
   - name: weighted_mean_squared_error
     function: weighted_mean_squared_error
     greater_is_better: False
-""".format(
-            tracking_uri=mlflow.get_tracking_uri(),
-        )
+"""
     )
     recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
     recipe_steps_dir.mkdir(parents=True)
@@ -211,11 +203,11 @@ def test_register_uri(
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     registry_uri = registry_uri_path
     recipe_yaml.write_text(
-        """
+        f"""
 recipe: "regression/v1"
 target_col: "y"
 experiment:
-  tracking_uri: {tracking_uri}
+  tracking_uri: {mlflow.get_tracking_uri()}
 model_registry:
   registry_uri: {registry_uri}
   model_name: "demo_model"
@@ -232,10 +224,7 @@ custom_metrics:
   - name: weighted_mean_squared_error
     function: weighted_mean_squared_error
     greater_is_better: False
-""".format(
-            tracking_uri=mlflow.get_tracking_uri(),
-            registry_uri=registry_uri,
-        )
+"""
     )
     recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
     recipe_steps_dir.mkdir(parents=True)
@@ -271,11 +260,11 @@ def test_register_step_writes_card_with_model_link_and_version_link_on_databrick
 
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
 recipe: "regression/v1"
 target_col: "y"
 experiment:
-  tracking_uri: {tracking_uri}
+  tracking_uri: {mlflow.get_tracking_uri()}
 model_registry:
   model_name: "demo_model"
 steps:
@@ -283,9 +272,7 @@ steps:
     validation_criteria:
       - metric: root_mean_squared_error
         threshold: 1_000_000
-""".format(
-            tracking_uri=mlflow.get_tracking_uri()
-        )
+"""
     )
 
     evaluate_step_output_dir, register_step_output_dir = setup_model_and_evaluate(

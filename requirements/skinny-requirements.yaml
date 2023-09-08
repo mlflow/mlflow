@@ -1,7 +1,8 @@
 # Minimal requirements for the skinny MLflow client which provides a limited
 # subset of functionality such as: RESTful client functionality for Tracking and
 # Model Registry, as well as support for Project execution against local backends
-# and Databricks.
+# and Databricks. When we release a new major/minor version, this file is automatically
+# updated as a part of the release process.
 
 click:
   pip_release: click

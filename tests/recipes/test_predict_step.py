@@ -1,18 +1,19 @@
 import os
 import tempfile
-import pandas as pd
 from pathlib import Path
+from unittest import mock
+
+import pandas as pd
 import pytest
 from pyspark.sql import SparkSession
 from sklearn.datasets import load_diabetes
-from unittest import mock
 
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.recipes.artifacts import RegisteredModelVersionInfo
-from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
-from mlflow.recipes.steps.predict import PredictStep, _INPUT_FILE_NAME, _SCORED_OUTPUT_FILE_NAME
+from mlflow.recipes.steps.predict import _INPUT_FILE_NAME, _SCORED_OUTPUT_FILE_NAME, PredictStep
 from mlflow.recipes.steps.register import _REGISTERED_MV_INFO_FILE
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
 from mlflow.utils.file_utils import read_yaml
 
 from tests.recipes.helper_functions import (
@@ -69,14 +70,12 @@ def predict_step_output_dir(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Pa
     predict_step_output_dir.mkdir(parents=True)
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
-        """
+        f"""
 recipe: "regression/v1"
 experiment:
   name: "test"
-  tracking_uri: {tracking_uri}
-""".format(
-            tracking_uri=mlflow.get_tracking_uri(),
-        )
+  tracking_uri: {mlflow.get_tracking_uri()}
+"""
     )
     return predict_step_output_dir
 

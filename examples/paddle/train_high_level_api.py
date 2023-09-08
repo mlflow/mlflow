@@ -1,6 +1,7 @@
-import mlflow.paddle
-import paddle
 import numpy as np
+import paddle
+
+import mlflow.paddle
 
 train_dataset = paddle.text.datasets.UCIHousing(mode="train")
 eval_dataset = paddle.text.datasets.UCIHousing(mode="test")
@@ -24,7 +25,7 @@ model.fit(train_dataset, epochs=6, batch_size=8, verbose=1)
 
 with mlflow.start_run() as run:
     mlflow.paddle.log_model(model, "model")
-    print("Model saved in run %s" % run.info.run_uuid)
+    print(f"Model saved in run {run.info.run_uuid}")
 
     # load model
     model_path = mlflow.get_artifact_uri("model")

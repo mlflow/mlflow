@@ -9,19 +9,18 @@ import tarfile
 
 import click
 import keras
-from keras.utils import np_utils
-from keras.models import Model
-from keras.callbacks import Callback
-from keras.applications import vgg16
-from keras.layers import Input, Dense, Flatten, Lambda
 import numpy as np
-from sklearn.model_selection import train_test_split
 import tensorflow as tf
+from image_pyfunc import decode_and_resize_image, log_model
+from keras.applications import vgg16
+from keras.callbacks import Callback
+from keras.layers import Dense, Flatten, Input, Lambda
+from keras.models import Model
+from keras.utils import np_utils
+from sklearn.model_selection import train_test_split
 
 import mlflow
 from mlflow.models import infer_signature
-
-from image_pyfunc import decode_and_resize_image, log_model, KerasImageClassifierPyfunc
 
 
 def download_input():
@@ -131,11 +130,11 @@ class MLflowLogger(Callback):
         x, y = self._train
         train_res = self._model.evaluate(x=x, y=y)
         for name, value in zip(self._model.metrics_names, train_res):
-            mlflow.log_metric("train_{}".format(name), value)
+            mlflow.log_metric(f"train_{name}", value)
         x, y = self._valid
         valid_res = self._model.evaluate(x=x, y=y)
         for name, value in zip(self._model.metrics_names, valid_res):
-            mlflow.log_metric("valid_{}".format(name), value)
+            mlflow.log_metric(f"valid_{name}", value)
         signature = infer_signature(x, y)
         log_model(keras_model=self._model, signature=signature, **self._pyfunc_params)
 
@@ -193,7 +192,7 @@ def train(
 
     input_shape = (image_width, image_height, 3)
 
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         mlflow.log_param("epochs", str(epochs))
         mlflow.log_param("batch_size", str(batch_size))
         mlflow.log_param("validation_ratio", str(test_ratio))

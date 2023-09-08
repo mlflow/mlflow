@@ -1,8 +1,8 @@
 import random
-from packaging.version import Version
 
 import spacy
-from spacy.util import minibatch, compounding
+from packaging.version import Version
+from spacy.util import compounding, minibatch
 
 import mlflow.spacy
 
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     mlflow.spacy.log_model(spacy_model=nlp, artifact_path="model")
     model_uri = f"runs:/{mlflow.active_run().info.run_id}/model"
 
-    print("Model saved in run %s" % mlflow.active_run().info.run_uuid)
+    print(f"Model saved in run {mlflow.active_run().info.run_uuid}")
 
     # Load the model using mlflow and use it to predict data
     nlp2 = mlflow.spacy.load_model(model_uri=model_uri)

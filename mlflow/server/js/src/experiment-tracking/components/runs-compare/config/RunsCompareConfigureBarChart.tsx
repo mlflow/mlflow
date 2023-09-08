@@ -62,6 +62,7 @@ export const RunsCompareConfigureBarChart = ({
           value={emptyMetricsList ? 'No metrics available' : state.metricKey}
           onChange={updateMetric}
           disabled={emptyMetricsList}
+          dangerouslySetAntdProps={{ showSearch: true }}
         >
           {metricKeyList.map((metric) => (
             <Select.Option key={metric} value={metric} data-testid={`metric-${metric}`}>

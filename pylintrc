@@ -74,19 +74,11 @@ disable=all
 # it should appear only once). See also the "--disable" option for examples.
 enable=signature-differs,
        line-too-long,
-       unused-import,
-       consider-using-from-import,
-       consider-merging-isinstance,
+       unused-arguments,
        consider-using-dict-items,
-       unnecessary-lambda-assignment,
        # Built-in rules
        # --------------
        # Custom rules
-       pytest-raises-without-match,
-       print-function,
-       unittest-assert-raises,
-       pytest-raises-multiple-statements,
-       use-f-string,
        lazy-builtin-import,
        useless-assignment,
 

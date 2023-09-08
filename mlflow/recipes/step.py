@@ -4,12 +4,12 @@ import logging
 import os
 import time
 import traceback
+from enum import Enum
+from typing import Any, Dict, List
 
 import yaml
 
-from enum import Enum
-from typing import Dict, Any, List
-from mlflow.recipes.cards import BaseCard, CARD_PICKLE_NAME, FailureCard, CARD_HTML_NAME
+from mlflow.recipes.cards import CARD_HTML_NAME, CARD_PICKLE_NAME, BaseCard, FailureCard
 from mlflow.recipes.utils import get_recipe_name
 from mlflow.recipes.utils.step import display_html
 from mlflow.tracking import MlflowClient
@@ -110,6 +110,9 @@ class BaseStep(metaclass=abc.ABCMeta):
         self.recipe_name = get_recipe_name(recipe_root_path=recipe_root)
         self.task = self.step_config.get("recipe", "regression/v1").rsplit("/", 1)[0]
         self.step_card = None
+
+    def __str__(self):
+        return f"Step:{self.name}"
 
     def run(self, output_directory: str):
         """
@@ -296,11 +299,11 @@ class BaseStep(metaclass=abc.ABCMeta):
         """
         if is_in_databricks_runtime():
             try:
-                from IPython.utils.io import capture_output
                 from dbruntime.spark_connection import (
                     initialize_spark_connection,
                     is_pinn_mode_enabled,
                 )
+                from IPython.utils.io import capture_output
 
                 with capture_output():
                     spark_handles, entry_point = initialize_spark_connection(is_pinn_mode_enabled())

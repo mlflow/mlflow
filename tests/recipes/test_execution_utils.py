@@ -7,17 +7,17 @@ from unittest import mock
 import pandas as pd
 import pytest
 
+from mlflow.environment_variables import MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME
 from mlflow.recipes import Recipe
+from mlflow.recipes.step import StepStatus
 from mlflow.recipes.steps.ingest import IngestStep
 from mlflow.recipes.steps.split import SplitStep
 from mlflow.recipes.steps.transform import TransformStep
-from mlflow.recipes.step import StepStatus
 from mlflow.recipes.utils.execution import (
-    _get_or_create_execution_directory,
-    run_recipe_step,
-    get_step_output_path,
     _ExecutionPlan,
-    _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
+    _get_or_create_execution_directory,
+    get_step_output_path,
+    run_recipe_step,
 )
 
 from tests.recipes.helper_functions import BaseStepImplemented
@@ -259,7 +259,7 @@ def test_run_recipe_step_sets_environment_as_expected(tmp_path):
     assert subprocess_call_kwargs.get("extra_env") == {
         "A": "B",
         "C": "D",
-        _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "test_step_1",
+        MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME.name: "test_step_1",
     }
     assert mock_run_in_subprocess.call_count == 2
 

@@ -1,25 +1,26 @@
 import json
 import math
+from unittest import mock
+
 import numpy as np
 import pandas as pd
 import pytest
+import sklearn.neighbors as knn
+from scipy.sparse import csc_matrix, csr_matrix
 from sklearn import datasets
 from sklearn.base import BaseEstimator, ClassifierMixin
-import sklearn.neighbors as knn
-from scipy.sparse import csr_matrix, csc_matrix
-from unittest import mock
 
 import mlflow
 from mlflow.models import Model
 from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import (
     _Example,
-    _read_tensor_input_from_json,
     _read_sparse_matrix_from_json,
+    _read_tensor_input_from_json,
 )
 from mlflow.types import DataType
+from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.types.utils import TensorsNotSupportedException
-from mlflow.types.schema import Schema, ColSpec, TensorSpec
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import dataframe_from_raw_json
 

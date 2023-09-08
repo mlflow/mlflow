@@ -2,20 +2,21 @@ import datetime
 import json
 import math
 import re
+
 import numpy as np
 import pandas as pd
 import pytest
-from scipy.sparse import csr_matrix, csc_matrix
+from scipy.sparse import csc_matrix, csr_matrix
 
-from mlflow.pyfunc import _parse_spark_datatype
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _enforce_tensor_spec
+from mlflow.pyfunc import _parse_spark_datatype
 from mlflow.types import DataType
-from mlflow.types.schema import ColSpec, Schema, TensorSpec, ParamSchema, ParamSpec
+from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.types.utils import (
+    _get_tensor_shape,
     _infer_param_schema,
     _infer_schema,
-    _get_tensor_shape,
     _validate_input_dictionary_contains_only_strings_and_lists_of_strings,
 )
 
@@ -140,6 +141,14 @@ def test_schema_creation():
         MlflowException, match="Creating Schema with multiple unnamed TensorSpecs is not supported"
     ):
         Schema([TensorSpec(np.dtype("double"), (-1,)), TensorSpec(np.dtype("double"), (-1,))])
+
+
+def test_schema_creation_errors():
+    with pytest.raises(MlflowException, match=r"Creating Schema with empty inputs is not allowed."):
+        Schema([])
+
+    with pytest.raises(MlflowException, match=r"Inputs of Schema must be a list, got type dict"):
+        Schema({"col1": ColSpec(DataType.string)})
 
 
 def test_get_schema_type(dict_of_ndarrays):
@@ -594,16 +603,17 @@ def test_spark_schema_inference(pandas_df_with_all_types):
 def test_spark_type_mapping(pandas_df_with_all_types):
     import pyspark
     from pyspark.sql.types import (
+        BinaryType,
         BooleanType,
+        DoubleType,
+        FloatType,
         IntegerType,
         LongType,
-        FloatType,
-        DoubleType,
         StringType,
-        BinaryType,
+        StructField,
+        StructType,
         TimestampType,
     )
-    from pyspark.sql.types import StructField, StructType
 
     assert isinstance(DataType.boolean.to_spark(), BooleanType)
     assert isinstance(DataType.integer.to_spark(), IntegerType)
@@ -936,7 +946,7 @@ def test_infer_param_schema():
         "d": [[1, 2], [3, 4]],
         "e": {"a": 1, "b": 2},
     }
-    with pytest.raises(MlflowException) as e:  # pylint: disable=pytest-raises-without-match
+    with pytest.raises(MlflowException, match=r".*") as e:
         _infer_param_schema(test_parameters)
     assert e.match(r"Failed to infer schema for parameters: ")
     assert e.match(
@@ -957,3 +967,10 @@ def test_infer_param_schema():
             "to be 1D array or scalar, got dict'))"
         )
     )
+
+
+def test_infer_param_schema_with_errors():
+    with pytest.raises(
+        MlflowException, match=r"Expected parameters to be 1D array or scalar, got Series"
+    ):
+        _infer_param_schema({"a": pd.Series([1, 2, 3])})

@@ -1,39 +1,39 @@
-from unittest import mock
-import os
-import pytest
 import json
-import yaml
+import os
 from collections import namedtuple
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 import pandas as pd
+import pytest
+import xgboost as xgb
+import yaml
 from sklearn import datasets
 from sklearn.pipeline import Pipeline
-import xgboost as xgb
 
-import mlflow.xgboost
-import mlflow.utils
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+import mlflow.utils
+import mlflow.xgboost
 from mlflow import pyfunc
-from mlflow.models.utils import _read_example
 from mlflow.models import Model, ModelSignature
+from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types import DataType
+from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.types import DataType
-from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
 from tests.helper_functions import (
-    pyfunc_serve_and_score_model,
-    _compare_conda_env_requirements,
     _assert_pip_requirements,
-    _is_available_on_pypi,
+    _compare_conda_env_requirements,
     _compare_logged_code_paths,
+    _is_available_on_pypi,
     _mlflow_major_version_string,
+    assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
@@ -198,7 +198,7 @@ def test_model_log(xgb_model, model_path):
 
 def test_log_model_calls_register_model(xgb_model):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["xgboost"])
@@ -209,21 +209,23 @@ def test_log_model_calls_register_model(xgb_model):
             registered_model_name="AdsModel1",
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        mlflow.register_model.assert_called_once_with(
-            model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        assert_register_model_called_with_local_model_path(
+            register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
+            model_uri=model_uri,
+            registered_model_name="AdsModel1",
         )
 
 
 def test_log_model_no_registered_model_name(xgb_model):
     artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["xgboost"])
         mlflow.xgboost.log_model(
             xgb_model=xgb_model.model, artifact_path=artifact_path, conda_env=conda_env
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(

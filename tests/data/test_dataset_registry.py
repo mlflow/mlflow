@@ -1,12 +1,12 @@
 from typing import Optional
+from unittest import mock
 
 import pytest
-from unittest import mock
 
 import mlflow.data
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_registry import DatasetRegistry, register_constructor
-from mlflow.data.dataset_source_registry import resolve_dataset_source, DatasetSourceRegistry
+from mlflow.data.dataset_source_registry import DatasetSourceRegistry, resolve_dataset_source
 from mlflow.exceptions import MlflowException
 
 from tests.resources.data.dataset import TestDataset
@@ -94,7 +94,9 @@ def test_register_constructor_function_performs_validation():
         registry.register_constructor(from_no_return_type_fn)
 
 
-def test_register_constructor_from_entrypoints_and_call(dataset_registry, tmp_path):
+def test_register_constructor_from_entrypoints_and_call(
+    dataset_registry, tmp_path
+):  # pylint: disable=unused-argument
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
     from mlflow_test_plugin.dummy_dataset import DummyDataset
@@ -115,7 +117,9 @@ def test_register_constructor_from_entrypoints_and_call(dataset_registry, tmp_pa
     assert dataset.digest == "foo"
 
 
-def test_register_constructor_and_call(dataset_registry, dataset_source_registry, tmp_path):
+def test_register_constructor_and_call(
+    dataset_registry, dataset_source_registry, tmp_path
+):  # pylint: disable=unused-argument
     dataset_source_registry.register(TestDatasetSource)
 
     def from_test(data_list, source, name=None, digest=None) -> TestDataset:

@@ -1,6 +1,6 @@
-from typing import Any, Optional, List, Dict
-import warnings
 import logging
+import warnings
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -31,7 +31,7 @@ def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple:
     :param variable_dimension: An optional integer representing a variable dimension.
     :return: tuple : Shape of the inputted data (including a variable dimension)
     """
-    from scipy.sparse import csr_matrix, csc_matrix
+    from scipy.sparse import csc_matrix, csr_matrix
 
     if not isinstance(data, (np.ndarray, csr_matrix, csc_matrix)):
         raise TypeError(f"Expected numpy.ndarray or csc/csr matrix, got '{type(data)}'.")
@@ -58,9 +58,7 @@ def clean_tensor_type(dtype: np.dtype):
     """
     if not isinstance(dtype, np.dtype):
         raise TypeError(
-            "Expected `type` to be instance of `{}`, received `{}`".format(
-                np.dtype, dtype.__class__
-            )
+            f"Expected `type` to be instance of `{np.dtype}`, received `{dtype.__class__}`"
         )
 
     # Special casing for np.str_ and np.bytes_
@@ -106,7 +104,7 @@ def _infer_schema(data: Any) -> Schema:
 
     :return: Schema
     """
-    from scipy.sparse import csr_matrix, csc_matrix
+    from scipy.sparse import csc_matrix, csr_matrix
 
     if isinstance(data, dict) and all(isinstance(values, np.ndarray) for values in data.values()):
         res = []
@@ -155,7 +153,14 @@ def _infer_schema(data: Any) -> Schema:
         isinstance(data, list)
         and all(isinstance(element, dict) for element in data)
         and all(isinstance(key, str) for d in data for key in d)
-        and all(isinstance(value, str) for d in data for value in d.values())
+        # NB: We allow both str and List[str] as values in the dictionary
+        # e.g. [{'output': 'some sentence', 'ids': ['id1', 'id2']}]
+        and all(
+            isinstance(value, str)
+            or (isinstance(value, list) and all(isinstance(v, str) for v in value))
+            for d in data
+            for value in d.values()
+        )
     ):
         first_keys = data[0].keys()
         if all(d.keys() == first_keys for d in data):
@@ -182,7 +187,7 @@ def _infer_schema(data: Any) -> Schema:
             "- List[Dict[str, Union[str, List[str]]]]\n"
             "- Dict[str, Union[str, List[str]]]\n"
             "- bytes\n"
-            "but got '{}'".format(type(data)),
+            f"but got '{type(data)}'",
         )
     if not schema.is_tensor_spec() and any(
         t in (DataType.integer, DataType.long) for t in schema.input_types()
@@ -308,8 +313,8 @@ def _infer_spark_type(x) -> DataType:
         return DataType.datetime
     else:
         raise Exception(
-            "Unsupported Spark Type '{}', MLflow schema is only supported for scalar "
-            "Spark types.".format(type(x))
+            f"Unsupported Spark Type '{type(x)}', MLflow schema is only supported for scalar "
+            "Spark types."
         )
 
 
@@ -383,9 +388,7 @@ def _validate_all_values_string(d):
 def _validate_keys_match(d, expected_keys):
     if d.keys() != expected_keys:
         raise MlflowException(
-            "Expected example to be dict with keys {}, got {}".format(
-                list(expected_keys), list(d.keys())
-            ),
+            f"Expected example to be dict with keys {list(expected_keys)}, got {list(d.keys())}",
             INVALID_PARAMETER_VALUE,
         )
 
@@ -477,7 +480,7 @@ def _infer_schema_from_type_hint(type_hint, examples=None):
 
 
 def _infer_type_and_shape(value):
-    if isinstance(value, (list, np.ndarray, pd.Series)):
+    if isinstance(value, (list, np.ndarray)):
         ndim = np.array(value).ndim
         if ndim != 1:
             raise MlflowException.invalid_parameter_value(

@@ -21,7 +21,7 @@ jobs:
   r:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    if: github.event_name == 'push' || (github.event_name == 'schedule' && github.repository == 'mlflow/mlflow') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    if: github.event_name == 'push' || (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     defaults:
       run:
         shell: bash --noprofile --norc -exo pipefail {0}
@@ -29,6 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
           submodules: recursive
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv

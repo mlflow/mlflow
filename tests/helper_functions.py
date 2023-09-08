@@ -1,35 +1,35 @@
+import functools
+import json
+import logging
+import numbers
 import os
 import random
-import functools
 import shutil
-from unittest import mock
-from contextlib import ExitStack, contextmanager
-
-import logging
-import requests
-import time
 import signal
 import socket
 import subprocess
-import uuid
 import sys
-import yaml
-import json
-import numbers
+import tempfile
+import time
+import uuid
+from contextlib import ExitStack, contextmanager
+from unittest import mock
 
 import pytest
+import requests
+import yaml
 
 import mlflow
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.file_utils import read_yaml, write_yaml
 from mlflow.utils.environment import (
-    _get_pip_deps,
-    _generate_mlflow_version_pinning,
     _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _generate_mlflow_version_pinning,
+    _get_pip_deps,
 )
-
+from mlflow.utils.file_utils import read_yaml, write_yaml
 
 AWS_METADATA_IP = "169.254.169.254"  # Used to fetch AWS Instance and User metadata.
 LOCALHOST = "127.0.0.1"
@@ -62,7 +62,7 @@ def random_str(size=10):
 
 
 def random_file(ext):
-    return "temp_test_%d.%s" % (random_int(), ext)
+    return f"temp_test_{random_int()}.{ext}"
 
 
 def expect_status_code(http_response, expected_code):
@@ -149,7 +149,7 @@ def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
     if extra_args:
         cmd += extra_args
     p = subprocess.Popen(cmd, env=env)
-    assert p.wait() == 0, "Failed to build docker image to serve model from %s" % model_uri
+    assert p.wait() == 0, f"Failed to build docker image to serve model from {model_uri}"
     return name
 
 
@@ -160,7 +160,7 @@ def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    scoring_cmd = ["docker", "run", "-p", "%s:8080" % host_port, image_name]
+    scoring_cmd = ["docker", "run", "-p", f"{host_port}:8080", image_name]
     if extra_args is not None:
         scoring_cmd += extra_args
     return _start_scoring_proc(cmd=scoring_cmd, env=env)
@@ -179,9 +179,9 @@ def pyfunc_serve_from_docker_image_with_env_override(
         "docker",
         "run",
         "-e",
-        "GUNICORN_CMD_ARGS=%s" % gunicorn_opts,
+        f"GUNICORN_CMD_ARGS={gunicorn_opts}",
         "-p",
-        "%s:8080" % host_port,
+        f"{host_port}:8080",
         *(extra_docker_run_options or []),
         image_name,
     ]
@@ -284,7 +284,7 @@ class RestEndpoint:
             time.sleep(1)
             # noinspection PyBroadException
             try:
-                ping_status = requests.get(url="http://localhost:%d/ping" % self._port)
+                ping_status = requests.get(url=f"http://localhost:{self._port}/ping")
                 _logger.info(f"connection attempt {i} server is up! ping status {ping_status}")
                 if ping_status.status_code == 200:
                     break
@@ -295,7 +295,7 @@ class RestEndpoint:
         _logger.info(f"server up, ping status {ping_status}")
 
         if self._validate_version:
-            resp_status = requests.get(url="http://localhost:%d/version" % self._port)
+            resp_status = requests.get(url=f"http://localhost:{self._port}/version")
             version = resp_status.text
             _logger.info(f"mlflow server version {version}")
             if version != mlflow.__version__:
@@ -316,6 +316,7 @@ class RestEndpoint:
 
     def invoke(self, data, content_type):
         import pandas as pd
+
         from mlflow.pyfunc import scoring_server as pyfunc_scoring_server
 
         if isinstance(data, pd.DataFrame):
@@ -328,7 +329,7 @@ class RestEndpoint:
             data = json.dumps({"instances": data})
 
         response = requests.post(
-            url="http://localhost:%d/invocations" % self._port,
+            url=f"http://localhost:{self._port}/invocations",
             data=data,
             headers={"Content-Type": content_type},
         )
@@ -348,7 +349,7 @@ def _evaluate_scoring_proc(
         return endpoint.invoke(data, content_type)
 
 
-@pytest.fixture(scope="function", autouse=True)
+@pytest.fixture(autouse=True)
 def set_boto_credentials(monkeypatch):
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "NotARealAccessKey")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "NotARealSecretAccessKey")
@@ -396,7 +397,7 @@ def _read_lines(path):
 
 def _compare_logged_code_paths(code_path, model_path, flavor_name):
     import mlflow.pyfunc
-    from mlflow.utils.model_utils import _get_flavor_configuration, FLAVOR_CONFIG_CODE
+    from mlflow.utils.model_utils import FLAVOR_CONFIG_CODE, _get_flavor_configuration
 
     pyfunc_conf = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
@@ -425,6 +426,18 @@ def _get_deps_from_requirement_file(model_uri):
     local_path = _download_artifact_from_uri(model_uri)
     pip_packages = _read_lines(os.path.join(local_path, _REQUIREMENTS_FILE_NAME))
     return [req.split("==")[0] if "==" in req else req for req in pip_packages]
+
+
+def assert_register_model_called_with_local_model_path(
+    register_model_mock, model_uri, registered_model_name
+):
+    register_model_call_args = register_model_mock.call_args
+    assert register_model_call_args.args == (model_uri, registered_model_name)
+    assert (
+        register_model_call_args.kwargs["await_registration_for"] == DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+    )
+    local_model_path = register_model_call_args.kwargs["local_model_path"]
+    assert local_model_path.startswith(tempfile.gettempdir())
 
 
 def _assert_pip_requirements(model_uri, requirements, constraints=None, strict=False):

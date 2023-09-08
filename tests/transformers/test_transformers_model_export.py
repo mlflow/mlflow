@@ -1,68 +1,69 @@
 import base64
-from functools import wraps
 import gc
-import logging
+import importlib.util
 import json
+import logging
+import os
+import pathlib
+import textwrap
 import time
+from functools import wraps
+from unittest import mock
 
+import huggingface_hub
 import librosa
 import numpy as np
-import os
 import pandas as pd
-from packaging.version import Version
-import pathlib
 import pytest
-import textwrap
-from unittest import mock
-import yaml
-
+import torch
 import transformers
-import huggingface_hub
-from huggingface_hub import ModelCard, scan_cache_dir
+import yaml
 from datasets import load_dataset
+from huggingface_hub import ModelCard, scan_cache_dir
+from packaging.version import Version
 
 import mlflow
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.transformers import (
-    _build_pipeline_from_model_input,
-    get_default_pip_requirements,
-    get_default_conda_env,
-    _infer_transformers_task_type,
-    _validate_transformers_task_type,
-    _get_instance_type,
-    _generate_base_flavor_configuration,
-    _TASK_KEY,
-    _PIPELINE_MODEL_TYPE_KEY,
+    _CARD_DATA_FILE_NAME,
+    _CARD_TEXT_FILE_NAME,
+    _FRAMEWORK_KEY,
     _INSTANCE_TYPE_KEY,
     _MODEL_PATH_OR_NAME_KEY,
+    _PIPELINE_MODEL_TYPE_KEY,
+    _TASK_KEY,
+    _build_pipeline_from_model_input,
     _fetch_model_card,
+    _generate_base_flavor_configuration,
     _get_base_model_architecture,
+    _get_instance_type,
     _get_or_infer_task_type,
+    _infer_transformers_task_type,
     _record_pipeline_components,
     _should_add_pyfunc_to_model,
     _TransformersModel,
-    _FRAMEWORK_KEY,
+    _validate_transformers_task_type,
     _write_card_data,
-    _CARD_TEXT_FILE_NAME,
-    _CARD_DATA_FILE_NAME,
+    get_default_conda_env,
+    get_default_pip_requirements,
 )
 from mlflow.utils.environment import _mlflow_conda_env
-import torch
+
 from tests.helper_functions import (
-    _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _compare_conda_env_requirements,
     _compare_logged_code_paths,
-    _mlflow_major_version_string,
-    pyfunc_serve_and_score_model,
     _get_deps_from_requirement_file,
+    _mlflow_major_version_string,
+    assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
 )
 
 pytestmark = pytest.mark.large
@@ -157,12 +158,12 @@ def transformers_custom_env(tmp_path):
     return conda_env
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_pyfunc_wrapper():
     return mlflow.transformers._TransformersWrapper("mock")
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_seq2seq_pipeline():
     # The return type of this model's language head is a List[Dict[str, Any]]
@@ -172,7 +173,7 @@ def small_seq2seq_pipeline():
     return transformers.pipeline(task="text-classification", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_qa_pipeline():
     # The return type of this model's language head is a Dict[str, Any]
@@ -184,7 +185,7 @@ def small_qa_pipeline():
     return transformers.pipeline(task="question-answering", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_vision_model():
     architecture = "google/mobilenet_v2_1.0_224"
@@ -199,14 +200,14 @@ def small_vision_model():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_multi_modal_pipeline():
     architecture = "dandelin/vilt-b32-finetuned-vqa"
     return transformers.pipeline(model=architecture)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def component_multi_modal():
     architecture = "dandelin/vilt-b32-finetuned-vqa"
@@ -226,7 +227,7 @@ def component_multi_modal():
     return transformers_model
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def small_conversational_model():
     tokenizer = transformers.AutoTokenizer.from_pretrained(
@@ -238,7 +239,7 @@ def small_conversational_model():
     return transformers.pipeline(task="conversational", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def fill_mask_pipeline():
     architecture = "distilroberta-base"
@@ -247,13 +248,13 @@ def fill_mask_pipeline():
     return transformers.pipeline(task="fill-mask", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def text2text_generation_pipeline():
     task = "text2text-generation"
     architecture = "mrm8488/t5-base-finetuned-common_gen"
-    model = transformers.AutoModelWithLMHead.from_pretrained(architecture)
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+    model = transformers.T5ForConditionalGeneration.from_pretrained(architecture)
+    tokenizer = transformers.T5TokenizerFast.from_pretrained(architecture)
 
     return transformers.pipeline(
         task=task,
@@ -262,7 +263,7 @@ def text2text_generation_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def text_generation_pipeline():
     task = "text-generation"
@@ -277,7 +278,7 @@ def text_generation_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def translation_pipeline():
     return transformers.pipeline(
@@ -287,7 +288,7 @@ def translation_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def summarizer_pipeline():
     task = "summarization"
@@ -301,7 +302,7 @@ def summarizer_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def text_classification_pipeline():
     task = "text-classification"
@@ -315,7 +316,7 @@ def text_classification_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def zero_shot_pipeline():
     task = "zero-shot-classification"
@@ -329,15 +330,15 @@ def zero_shot_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def table_question_answering_pipeline():
     return transformers.pipeline(
-        task="table-question-answering", model="microsoft/tapex-base-finetuned-wtq"
+        task="table-question-answering", model="google/tapas-tiny-finetuned-wtq"
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def ner_pipeline():
     return transformers.pipeline(
@@ -345,7 +346,7 @@ def ner_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def ner_pipeline_aggregation():
     # Modification to the default aggregation_strategy of `None` changes the output keys in each
@@ -358,34 +359,34 @@ def ner_pipeline_aggregation():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def conversational_pipeline():
     return transformers.pipeline(model="microsoft/DialoGPT-medium")
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def image_for_test():
     dataset = load_dataset("huggingface/cats-image")
     return dataset["test"]["image"][0]
 
 
-@pytest.fixture()
+@pytest.fixture
 def sound_file_for_test():
     datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets")
     audio, _ = librosa.load(datasets_path.joinpath("apollo11_launch.wav"), sr=16000)
     return audio
 
 
-@pytest.fixture()
+@pytest.fixture
 def raw_audio_file():
     datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets")
 
     return datasets_path.joinpath("apollo11_launch.wav").read_bytes()
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def whisper_pipeline():
     task = "automatic-speech-recognition"
@@ -400,13 +401,13 @@ def whisper_pipeline():
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def audio_classification_pipeline():
     return transformers.pipeline("audio-classification", model="superb/wav2vec2-base-superb-ks")
 
 
-@pytest.fixture()
+@pytest.fixture
 @flaky()
 def feature_extraction_pipeline():
     st_arch = "sentence-transformers/all-MiniLM-L6-v2"
@@ -472,7 +473,7 @@ def test_instance_extraction(small_qa_pipeline):
 
 
 @pytest.mark.parametrize(
-    ["model", "result"],
+    ("model", "result"),
     [
         ("small_qa_pipeline", True),
         ("small_seq2seq_pipeline", True),
@@ -927,7 +928,7 @@ def test_load_pipeline_from_remote_uri_succeeds(small_seq2seq_pipeline, model_pa
 
 def test_transformers_log_model_calls_register_model(small_qa_pipeline, tmp_path):
     artifact_path = "transformers"
-    register_model_patch = mock.patch("mlflow.register_model")
+    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["transformers", "torch", "torchvision"])
@@ -938,10 +939,10 @@ def test_transformers_log_model_calls_register_model(small_qa_pipeline, tmp_path
             registered_model_name="Question-Answering Model 1",
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        mlflow.register_model.assert_called_once_with(
-            model_uri,
-            "Question-Answering Model 1",
-            await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        assert_register_model_called_with_local_model_path(
+            register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
+            model_uri=model_uri,
+            registered_model_name="Question-Answering Model 1",
         )
 
 
@@ -959,7 +960,7 @@ def test_transformers_log_model_with_no_registered_model_name(small_vision_model
             "tokenizer": small_vision_model.tokenizer,
         }
     artifact_path = "transformers"
-    registered_model_patch = mock.patch("mlflow.register_model")
+    registered_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), registered_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["tensorflow", "transformers"])
@@ -968,7 +969,7 @@ def test_transformers_log_model_with_no_registered_model_name(small_vision_model
             artifact_path=artifact_path,
             conda_env=str(conda_env),
         )
-        mlflow.register_model.assert_not_called()
+        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         model_path = pathlib.Path(_download_artifact_from_uri(artifact_uri=model_uri))
         model_config = Model.load(str(model_path.joinpath("MLmodel")))
@@ -1099,6 +1100,9 @@ def test_transformers_log_with_duplicate_extra_pip_requirements(small_multi_moda
     )
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("accelerate") is not None, reason="fails when accelerate is installed"
+)
 def test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
     small_seq2seq_pipeline, model_path
 ):
@@ -1109,6 +1113,7 @@ def test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expe
     pip_requirements = _get_deps_from_requirement_file(model_path)
     assert "tensorflow" in pip_requirements
     assert "torch" not in pip_requirements
+    assert "accelerate" not in pip_requirements
 
 
 def test_transformers_pt_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
@@ -1120,6 +1125,23 @@ def test_transformers_pt_model_save_without_conda_env_uses_default_env_with_expe
     )
     pip_requirements = _get_deps_from_requirement_file(model_path)
     assert "tensorflow" not in pip_requirements
+    assert "accelerate" in pip_requirements
+    assert "torch" in pip_requirements
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("accelerate") is not None, reason="fails when accelerate is installed"
+)
+def test_transformers_pt_model_save_dependencies_without_accelerate(
+    translation_pipeline, model_path
+):
+    mlflow.transformers.save_model(translation_pipeline, model_path)
+    _assert_pip_requirements(
+        model_path, mlflow.transformers.get_default_pip_requirements(translation_pipeline.model)
+    )
+    pip_requirements = _get_deps_from_requirement_file(model_path)
+    assert "tensorflow" not in pip_requirements
+    assert "accelerate" not in pip_requirements
     assert "torch" in pip_requirements
 
 
@@ -1318,8 +1340,9 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
     assert all(isinstance(element, str) for element in inference)
 
 
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.parametrize(
-    "data, result",
+    ("data", "result"),
     [
         ("muppet keyboard type", ["A muppet is typing on a keyboard."]),
         (
@@ -1332,9 +1355,8 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
         ),
     ],
 )
-@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 def test_text2text_generation_pipeline_with_inference_configs(
-    text2text_generation_pipeline, model_path, data, result
+    text2text_generation_pipeline, tmp_path, data, result
 ):
     signature = infer_signature(
         data, mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data)
@@ -1348,13 +1370,14 @@ def test_text2text_generation_pipeline_with_inference_configs(
         "top_p": 0.85,
         "repetition_penalty": 1.15,
     }
+    model_path1 = tmp_path.joinpath("model1")
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
-        path=model_path,
+        path=model_path1,
         inference_config=inference_config,
         signature=signature,
     )
-    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path1)
 
     inference = pyfunc_loaded.predict(data)
 
@@ -1366,6 +1389,127 @@ def test_text2text_generation_pipeline_with_inference_configs(
         pd_input = pd.DataFrame(data)
     pd_inference = pyfunc_loaded.predict(pd_input)
     assert pd_inference == result
+
+    model_path2 = tmp_path.joinpath("model2")
+    signature_with_params = infer_signature(
+        data,
+        mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data),
+        inference_config,
+    )
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline,
+        path=model_path2,
+        signature=signature_with_params,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path2)
+
+    dict_inference = pyfunc_loaded.predict(
+        data,
+        params=inference_config,
+    )
+
+    assert dict_inference == inference
+
+
+def test_text2text_generation_pipeline_with_inference_config_and_params(
+    text2text_generation_pipeline, tmp_path
+):
+    data = "muppet keyboard type"
+    inference_config = {
+        "top_k": 2,
+        "num_beams": 5,
+        "top_p": 0.85,
+        "repetition_penalty": 1.15,
+        "do_sample": True,
+    }
+    parameters = {"top_k": 3, "max_length": 30}
+    generated_output = mlflow.transformers.generate_signature_output(
+        text2text_generation_pipeline, data
+    )
+    signature = infer_signature(
+        data,
+        generated_output,
+        parameters,
+    )
+
+    model_path = tmp_path / "model"
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline,
+        path=model_path,
+        inference_config=inference_config,
+        signature=signature,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    # inference_config and default params are all applied
+    res = pyfunc_loaded.predict(data)
+    applied_params = inference_config.copy()
+    applied_params.update(parameters)
+    res2 = pyfunc_loaded.predict(data, applied_params)
+    assert res == res2
+
+    assert res != pyfunc_loaded.predict(data, {"max_length": 10})
+
+    # Extra params are ignored
+    assert res == pyfunc_loaded.predict(data, {"extra_param": "extra_value"})
+
+
+def test_text2text_generation_pipeline_with_params_success(text2text_generation_pipeline, tmp_path):
+    data = "muppet keyboard type"
+    parameters = {"top_k": 2, "num_beams": 5, "do_sample": True}
+    generated_output = mlflow.transformers.generate_signature_output(
+        text2text_generation_pipeline, data
+    )
+    signature = infer_signature(
+        data,
+        generated_output,
+        parameters,
+    )
+
+    model_path = tmp_path / "model"
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline,
+        path=model_path,
+        signature=signature,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    # parameteres saved with ModelSignature is applied by default
+    res = pyfunc_loaded.predict(data)
+    res2 = pyfunc_loaded.predict(data, parameters)
+    assert res == res2
+
+
+def test_text2text_generation_pipeline_with_params_with_errors(
+    text2text_generation_pipeline, tmp_path
+):
+    data = "muppet keyboard type"
+    parameters = {"top_k": 2, "num_beams": 5, "invalid_param": "invalid_param", "do_sample": True}
+    generated_output = mlflow.transformers.generate_signature_output(
+        text2text_generation_pipeline, data
+    )
+
+    model_path = tmp_path / "model"
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline,
+        path=model_path,
+        signature=infer_signature(
+            data,
+            generated_output,
+            parameters,
+        ),
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    with pytest.raises(
+        MlflowException,
+        match=r"The params provided to the `predict` method are "
+        r"not valid for pipeline Text2TextGenerationPipeline.",
+    ):
+        pyfunc_loaded.predict(data, parameters)
+
+    # Type validation of params failure
+    with pytest.raises(MlflowException, match=r"Invalid parameters found"):
+        pyfunc_loaded.predict(data, {"top_k": "2"})
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
@@ -1473,7 +1617,7 @@ def test_invalid_input_to_text_generation_pipeline(text_generation_pipeline, inv
 
 
 @pytest.mark.parametrize(
-    "inference_payload, result",
+    ("inference_payload", "result"),
     [
         ("Riding a <mask> on the beach is fun!", ["bike"]),
         (["If I had <mask>, I would fly to the top of a mountain"], ["wings"]),
@@ -1559,18 +1703,17 @@ def test_zero_shot_classification_pipeline(zero_shot_pipeline, model_path, data)
 
 
 @pytest.mark.parametrize(
-    "query, result",
+    ("query", "result"),
     [
-        ({"query": "What should we order more of?"}, ["apples"]),
+        ({"query": "What should we order more of?"}, ["Apples"]),
         (
             {
                 "query": [
                     "What is our highest sales?",
                     "What should we order more of?",
-                    "Which fruit starts with 'W'?",
                 ]
             },
-            ["1230945.55", "apples", "watermelon"],
+            ["1230945.55", "Apples"],
         ),
     ],
 )
@@ -1605,7 +1748,7 @@ def test_table_question_answering_pipeline(
 
 
 @pytest.mark.parametrize(
-    "data, result",
+    ("data", "result"),
     [
         ("I've got a lovely bunch of coconuts!", ["Ich habe eine schöne Haufe von Kokos!"]),
         (
@@ -1703,9 +1846,10 @@ def test_summarization_pipeline(summarizer_pipeline, model_path, data):
             "That gym smells like feet, hot garbage, and sadness",
             "I love that we have a moon",
         ],
+        [{"text": "test1", "text_pair": "test2"}],
+        [{"text": "test1", "text_pair": "pair1"}, {"text": "test2", "text_pair": "pair2"}],
     ],
 )
-@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 def test_classifier_pipeline(text_classification_pipeline, model_path, data):
     signature = infer_signature(
         data, mlflow.transformers.generate_signature_output(text_classification_pipeline, data)
@@ -1717,14 +1861,23 @@ def test_classifier_pipeline(text_classification_pipeline, model_path, data):
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     inference = pyfunc_loaded.predict(data)
 
+    # verify that native transformers outputs match the pyfunc return values
+    native_inference = text_classification_pipeline(data)
+    inference_dict = inference.to_dict()
+
     if isinstance(data, str):
         assert len(inference) == 1
+        assert inference_dict["label"][0] == native_inference[0]["label"]
+        assert inference_dict["score"][0] == native_inference[0]["score"]
     else:
         assert len(inference) == len(data)
+        for key in ["score", "label"]:
+            for value in range(0, len(data)):
+                assert native_inference[value][key] == inference_dict[key][value]
 
 
 @pytest.mark.parametrize(
-    "data, result",
+    ("data", "result"),
     [
         (
             "I have a dog and his name is Willy!",
@@ -1794,7 +1947,7 @@ def test_conversational_pipeline(conversational_pipeline, model_path):
 
 
 @pytest.mark.parametrize(
-    "pipeline_name, example, in_signature, out_signature",
+    ("pipeline_name", "example", "in_signature", "out_signature"),
     [
         (
             "fill_mask_pipeline",
@@ -1926,6 +2079,7 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
                 "That gym smells like feet, hot garbage, and sadness",
                 "I love that we have a moon",
                 "I 'love' debugging subprocesses",
+                'Quote "in" the string',
             ]
         }
     )
@@ -1939,9 +2093,34 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
     assert len(values.to_dict()) == 2
-    assert len(values.to_dict()["score"]) == 4
+    assert len(values.to_dict()["score"]) == 5
 
-    inference_payload = json.dumps({"inputs": ["I really love MLflow!"]})
+    # Test the alternate TextClassificationPipeline input structure where text_pair is used
+    # and ensure that model serving and direct native inference match
+    inference_data = [
+        {"text": "test1", "text_pair": "pair1"},
+        {"text": "test2", "text_pair": "pair2"},
+        {"text": "test 'quote", "text_pair": "pair 'quote'"},
+    ]
+    inference_payload = json.dumps({"inputs": inference_data})
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    values_dict = values.to_dict()
+    native_predict = text_classification_pipeline(inference_data)
+
+    # validate that the pyfunc served model registers text_pair in the same manner as native
+    for key in ["score", "label"]:
+        for value in [0, 1]:
+            assert values_dict[key][value] == native_predict[value][key]
+
+    # test simple string input
+    inference_payload = json.dumps({"inputs": ["testing"]})
+
     response = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_payload,
@@ -2043,7 +2222,7 @@ def test_table_question_answering_pyfunc_predict(table_question_answering_pipeli
     )
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert values.to_dict(orient="records") == [{0: "apples"}]
+    assert values.to_dict(orient="records") == [{0: "Apples"}]
 
     inference_payload = json.dumps(
         {
@@ -2052,8 +2231,6 @@ def test_table_question_answering_pyfunc_predict(table_question_answering_pipeli
                     "What is our highest sales?",
                     "What should we order more of?",
                     "Which 'fruit' has the 'highest' 'sales'?",
-                    "How many types of fruit do we have?",
-                    "Which fruit has a small designator??",
                 ],
                 "table": table,
             }
@@ -2069,10 +2246,8 @@ def test_table_question_answering_pyfunc_predict(table_question_answering_pipeli
 
     assert values.to_dict(orient="records") == [
         {0: "1230945.55"},
-        {0: "apples"},
-        {0: "apples"},
-        {0: "5"},
-        {0: "watermelon'small'"},
+        {0: "Apples"},
+        {0: "Apples"},
     ]
 
 
@@ -2364,8 +2539,14 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
 
 
 @pytest.mark.parametrize(
-    "pipeline_input, pipeline_output, expected_output, flavor_config, include_prompt, "
-    "collapse_whitespace",
+    (
+        "pipeline_input",
+        "pipeline_output",
+        "expected_output",
+        "flavor_config",
+        "include_prompt",
+        "collapse_whitespace",
+    ),
     [
         (
             "What answers?",
@@ -2534,7 +2715,6 @@ def test_invalid_instruction_pipeline_parsing(mock_pyfunc_wrapper, flavor_config
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.skipcacheclean
-@flaky()
 def test_instructional_pipeline_no_prompt_in_output(model_path):
     architecture = "databricks/dolly-v2-3b"
     dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
@@ -2557,7 +2737,6 @@ def test_instructional_pipeline_no_prompt_in_output(model_path):
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.skipcacheclean
-@flaky()
 def test_instructional_pipeline_no_prompt_in_output_and_removal_of_newlines(model_path):
     architecture = "databricks/dolly-v2-3b"
     dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
@@ -2580,7 +2759,6 @@ def test_instructional_pipeline_no_prompt_in_output_and_removal_of_newlines(mode
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.skipcacheclean
-@flaky()
 def test_instructional_pipeline_with_prompt_in_output(model_path):
     architecture = "databricks/dolly-v2-3b"
     dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
@@ -2602,7 +2780,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
 
 
 @pytest.mark.parametrize(
-    ["pipeline_name", "data", "result"],
+    ("pipeline_name", "data", "result"),
     [
         (
             "small_qa_pipeline",
@@ -2611,6 +2789,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 "inputs": '[{"type": "string", "name": "question"}, {"type": "string", '
                 '"name": "context"}]',
                 "outputs": '[{"type": "string"}]',
+                "params": None,
             },
         ),
         (
@@ -2626,6 +2805,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 '"hypothesis_template"}]',
                 "outputs": '[{"type": "string", "name": "sequence"}, {"type": "string", '
                 '"name": "labels"}, {"type": "double", "name": "scores"}]',
+                "params": None,
             },
         ),
         (
@@ -2635,6 +2815,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 "inputs": '[{"type": "string"}]',
                 "outputs": '[{"type": "string", "name": "label"}, {"type": "double", "name": '
                 '"score"}]',
+                "params": None,
             },
         ),
         (
@@ -2647,42 +2828,71 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 "inputs": '[{"type": "string", "name": "query"}, {"type": "string", "name": '
                 '"table"}]',
                 "outputs": '[{"type": "string"}]',
+                "params": None,
             },
         ),
         (
             "summarizer_pipeline",
             "If you write enough tests, you can be sure that your code isn't broken.",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
         (
             "translation_pipeline",
             "No, I am your father.",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
         (
             "text_generation_pipeline",
             ["models are", "apples are"],
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
         (
             "text2text_generation_pipeline",
             ["man apple pie", "dog pizza eat"],
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
         (
             "fill_mask_pipeline",
             "Juggling <mask> is remarkably dangerous",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
         (
             "conversational_pipeline",
             "What's shaking, my robot homie?",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
         (
             "ner_pipeline",
             "Blue apples are not a thing",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+                "params": None,
+            },
         ),
     ],
 )
@@ -3256,6 +3466,112 @@ def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
     assert data == card_data.data.to_dict()
 
 
+def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
+    artifact_path = "qa_model"
+    data = {
+        "question": [
+            "What color is it?",
+            "How do the people go?",
+            "What does the 'wolf' howl at?",
+        ],
+        "context": [
+            "Some people said it was green but I know that it's pink.",
+            "The people on the bus go up and down. Up and down.",
+            "The pack of 'wolves' stood on the cliff and a 'lone wolf' howled at "
+            "the moon for hours.",
+        ],
+    }
+    parameters = {
+        "top_k": 2,
+        "max_answer_len": 5,
+    }
+    inference_payload = json.dumps(
+        {
+            "inputs": data,
+            "params": parameters,
+        }
+    )
+    signature_with_params = infer_signature(
+        data,
+        mlflow.transformers.generate_signature_output(small_qa_pipeline, data),
+        parameters,
+    )
+
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=small_qa_pipeline,
+            artifact_path=artifact_path,
+            signature=signature_with_params,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [
+        {0: "pink"},
+        {0: "pink."},
+        {0: "up and down"},
+        {0: "Up and down"},
+        {0: "the moon"},
+        {0: "moon"},
+    ]
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
+)
+@pytest.mark.skipcacheclean
+def test_whisper_model_serve_and_score_with_timestamps_with_kwargs(
+    whisper_pipeline, raw_audio_file
+):
+    artifact_path = "whisper_timestamps"
+    inference_config = {
+        "return_timestamps": "word",
+        "chunk_length_s": 20,
+        "stride_length_s": [5, 3],
+    }
+    signature = infer_signature(
+        raw_audio_file,
+        mlflow.transformers.generate_signature_output(whisper_pipeline, raw_audio_file),
+        params=inference_config,
+    )
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=whisper_pipeline,
+            artifact_path=artifact_path,
+            signature=signature,
+            input_example=raw_audio_file,
+        )
+
+    inference_payload = json.dumps(
+        {
+            "inputs": [base64.b64encode(raw_audio_file).decode("ascii")],
+            "inference_config": inference_config,
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    payload_output = json.loads(values.loc[0, 0])
+
+    assert (
+        payload_output["text"]
+        == mlflow.transformers.load_model(model_info.model_uri)(raw_audio_file, **inference_config)[
+            "text"
+        ]
+    )
+
+
 def test_uri_directory_renaming_handling_pipeline(model_path, small_seq2seq_pipeline):
     with mlflow.start_run():
         mlflow.transformers.save_model(transformers_model=small_seq2seq_pipeline, path=model_path)
@@ -3316,21 +3632,16 @@ def test_uri_directory_renaming_handling_components(model_path, small_seq2seq_pi
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.2"), reason="Feature does not exist"
 )
-def test_whisper_model_supports_timestamps(model_path, whisper_pipeline, raw_audio_file):
-    pipe = transformers.pipeline(
-        "automatic-speech-recognition",
-        model="openai/whisper-tiny",
-        chunk_length_s=30,
-    )
-
+def test_whisper_model_supports_timestamps(raw_audio_file, whisper_pipeline):
     inference_config = {
         "return_timestamps": "word",
         "chunk_length_s": 60,
         "batch_size": 16,
     }
+
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
-            transformers_model=pipe,
+            transformers_model=whisper_pipeline,
             artifact_path="model",
             inference_config=inference_config,
         )
@@ -3345,3 +3656,91 @@ def test_whisper_model_supports_timestamps(model_path, whisper_pipeline, raw_aud
     first_timestamp = prediction["chunks"][0]["timestamp"]
     assert isinstance(first_timestamp, tuple)
     assert prediction_inference["chunks"][0]["timestamp"][1] == first_timestamp[1]
+
+
+def test_pyfunc_model_log_load_with_artifacts_snapshot():
+    architecture = "prajjwal1/bert-tiny"
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+    model = transformers.BertForQuestionAnswering.from_pretrained(architecture)
+    bert_tiny_pipeline = transformers.pipeline(
+        task="question-answering", model=model, tokenizer=tokenizer
+    )
+
+    class QAModel(mlflow.pyfunc.PythonModel):
+        def load_context(self, context):
+            """
+            This method initializes the tokenizer and language model
+            using the specified snapshot location.
+            """
+            snapshot_location = context.artifacts["bert-tiny-model"]
+            # Initialize tokenizer and language model
+            tokenizer = transformers.AutoTokenizer.from_pretrained(snapshot_location)
+            model = transformers.BertForQuestionAnswering.from_pretrained(snapshot_location)
+            self.pipeline = transformers.pipeline(
+                task="question-answering", model=model, tokenizer=tokenizer
+            )
+
+        def predict(self, context, model_input, params=None):
+            question = model_input["question"][0]
+            if isinstance(question, np.ndarray):
+                question = question.item()
+            ctx = model_input["context"][0]
+            if isinstance(ctx, np.ndarray):
+                ctx = ctx.item()
+            return self.pipeline(question=question, context=ctx)
+
+    data = {"question": "Who's house?", "context": "The house is owned by Run."}
+    pyfunc_artifact_path = "question_answering_model"
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path=pyfunc_artifact_path,
+            python_model=QAModel(),
+            artifacts={"bert-tiny-model": "hf:/prajjwal1/bert-tiny"},
+            input_example=data,
+            signature=infer_signature(
+                data, mlflow.transformers.generate_signature_output(bert_tiny_pipeline, data)
+            ),
+            extra_pip_requirements=["transformers", "torch", "numpy"],
+        )
+
+        pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
+        assert model_info.model_uri == pyfunc_model_uri
+        pyfunc_model_path = _download_artifact_from_uri(
+            f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
+        )
+        assert len(os.listdir(os.path.join(pyfunc_model_path, "artifacts"))) != 0
+        model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_uri)
+    assert model_config.to_yaml() == loaded_pyfunc_model.metadata.to_yaml()
+    assert loaded_pyfunc_model.predict(data)["answer"] != ""
+
+    # Test model serving
+    inference_payload = json.dumps({"inputs": data})
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records")[0]["answer"] != ""
+
+
+def test_pyfunc_model_log_load_with_artifacts_snapshot_errors():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    with mlflow.start_run():
+        with pytest.raises(
+            MlflowException,
+            match=r"Failed to download snapshot from Hugging Face Hub "
+            r"with artifact_uri: hf:/invalid-repo-id.",
+        ):
+            mlflow.pyfunc.log_model(
+                artifact_path="pyfunc_artifact_path",
+                python_model=TestModel(),
+                artifacts={"some-model": "hf:/invalid-repo-id"},
+            )

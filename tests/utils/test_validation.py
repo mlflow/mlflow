@@ -1,21 +1,23 @@
 import copy
+
 import pytest
-from mlflow.exceptions import MlflowException
+
 from mlflow.entities import Metric, Param, RunTag
-from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.utils.validation import (
-    path_not_unique,
     _is_numeric,
-    _validate_metric_name,
-    _validate_param_name,
-    _validate_tag_name,
-    _validate_run_id,
     _validate_batch_log_data,
     _validate_batch_log_limits,
-    _validate_experiment_artifact_location,
     _validate_db_type_string,
+    _validate_experiment_artifact_location,
     _validate_experiment_name,
+    _validate_metric_name,
     _validate_model_alias_name,
+    _validate_param_name,
+    _validate_run_id,
+    _validate_tag_name,
+    path_not_unique,
 )
 
 GOOD_METRIC_OR_PARAM_NAMES = [
@@ -191,9 +193,9 @@ def test_validate_run_id_bad(run_id):
 
 
 def test_validate_batch_log_limits():
-    too_many_metrics = [Metric("metric-key-%s" % i, 1, 0, i * 2) for i in range(1001)]
-    too_many_params = [Param("param-key-%s" % i, "b") for i in range(101)]
-    too_many_tags = [RunTag("tag-key-%s" % i, "b") for i in range(101)]
+    too_many_metrics = [Metric(f"metric-key-{i}", 1, 0, i * 2) for i in range(1001)]
+    too_many_params = [Param(f"param-key-{i}", "b") for i in range(101)]
+    too_many_tags = [RunTag(f"tag-key-{i}", "b") for i in range(101)]
 
     good_kwargs = {"metrics": [], "params": [], "tags": []}
     bad_kwargs = {

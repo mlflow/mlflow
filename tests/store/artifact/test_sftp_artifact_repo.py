@@ -1,12 +1,13 @@
-import pytest
+import os
+import posixpath
 from tempfile import NamedTemporaryFile
+
+import pytest
+
+import mlflow
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
 from mlflow.utils.file_utils import TempDir
-import os
-import mlflow
-import posixpath
-
 
 pytestmark = pytest.mark.requires_ssh
 
@@ -200,9 +201,9 @@ def test_delete_selective_artifacts(artifact_path):
 
 
 def test_log_and_download_sklearn_model(tmp_path):
-    from sklearn.linear_model import LogisticRegression
-    from sklearn.datasets import load_iris
     from numpy.testing import assert_allclose
+    from sklearn.datasets import load_iris
+    from sklearn.linear_model import LogisticRegression
 
     X, y = load_iris(return_X_y=True)
     original = LogisticRegression().fit(X, y)

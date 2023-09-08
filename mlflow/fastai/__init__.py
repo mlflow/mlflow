@@ -13,45 +13,47 @@ fastai (native) format
     https://docs.fast.ai/basic_train.html#Learner.export
 """
 import os
-import yaml
 import tempfile
 from pathlib import Path
-import pandas as pd
-import numpy as np
+from typing import Any, Dict, Optional
 
-from mlflow import pyfunc
-from mlflow.models import Model, ModelSignature, ModelInputExample
+import numpy as np
+import pandas as pd
+import yaml
+
 import mlflow.tracking
-from mlflow.models.utils import _save_example
+from mlflow import pyfunc
+from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.utils import _save_example
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _validate_env_arguments,
-    _process_pip_requirements,
-    _process_conda_env,
-    _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
-    _CONSTRAINTS_FILE_NAME,
-    _PYTHON_ENV_FILE_NAME,
-    _PythonEnv,
-)
-from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.file_utils import write_to
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.model_utils import (
-    _get_flavor_configuration,
-    _validate_and_copy_code_paths,
-    _add_code_from_conf_to_system_path,
-    _validate_and_prepare_target_save_path,
-)
 from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    batch_metrics_logger,
     log_fn_args_as_params,
     safe_patch,
-    batch_metrics_logger,
-    autologging_integration,
 )
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
+from mlflow.utils.environment import (
+    _CONDA_ENV_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _mlflow_conda_env,
+    _process_conda_env,
+    _process_pip_requirements,
+    _PythonEnv,
+    _validate_env_arguments,
+)
+from mlflow.utils.file_utils import write_to
+from mlflow.utils.model_utils import (
+    _add_code_from_conf_to_system_path,
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _validate_and_prepare_target_save_path,
+)
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "fastai"
 
@@ -320,7 +322,7 @@ def log_model(
             artifacts = [
                 f.path for f in MlflowClient().list_artifacts(run.info.run_id, "model")
             ]
-            print("artifacts: {}".format(artifacts))
+            print(f"artifacts: {artifacts}")
 
 
         main()
@@ -357,7 +359,18 @@ class _FastaiModelWrapper:
     def __init__(self, learner):
         self.learner = learner
 
-    def predict(self, dataframe):
+    def predict(
+        self, dataframe, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param dataframe: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         dl = self.learner.dls.test_dl(dataframe)
         preds, _ = self.learner.get_preds(dl=dl)
         return pd.Series(map(np.array, preds.numpy())).to_frame("predictions")
@@ -406,7 +419,7 @@ def load_model(model_uri, dst_path=None):
             mlflow.fastai.log_model(model, "model")
 
         # Load the model for scoring
-        model_uri = "runs:/{}/model".format(run.info.run_id)
+        model_uri = f"runs:/{run.info.run_id}/model"
         loaded_model = mlflow.fastai.load_model(model_uri)
         results = loaded_model.predict(predict_data)
     """
@@ -427,6 +440,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
+    extra_tags=None,
 ):  # pylint: disable=unused-argument
     """
     Enable automatic logging from Fastai to MLflow.
@@ -456,6 +470,7 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
 
     .. code-block:: python
         :caption: Example
@@ -472,11 +487,11 @@ def autolog(
         def print_auto_logged_info(r):
             tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
             artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
-            print("run_id: {}".format(r.info.run_id))
-            print("artifacts: {}".format(artifacts))
-            print("params: {}".format(r.data.params))
-            print("metrics: {}".format(r.data.metrics))
-            print("tags: {}".format(tags))
+            print(f"run_id: {r.info.run_id}")
+            print(f"artifacts: {artifacts}")
+            print(f"params: {r.data.params}")
+            print(f"metrics: {r.data.metrics}")
+            print(f"tags: {tags}")
 
 
         def main(epochs=5, learning_rate=0.01):
@@ -528,9 +543,9 @@ def autolog(
 
         Fastai autologged MLflow entities
     """
-    from fastai.learner import Learner
-    from fastai.callback.hook import module_summary, layer_info, find_bs, _print_shapes
     from fastai.callback.all import EarlyStoppingCallback, TrackerCallback
+    from fastai.callback.hook import _print_shapes, find_bs, layer_info, module_summary
+    from fastai.learner import Learner
 
     def getFastaiCallback(metrics_logger, is_fine_tune=False):
         from mlflow.fastai.callback import __MlflowFastaiCallback
@@ -626,7 +641,7 @@ def autolog(
             self, original, args, kwargs, unlogged_params, is_fine_tune=False
         )
 
-    safe_patch(FLAVOR_NAME, Learner, "fit", fit, manage_run=True)
+    safe_patch(FLAVOR_NAME, Learner, "fit", fit, manage_run=True, extra_tags=extra_tags)
 
     def fine_tune(original, self, *args, **kwargs):
         unlogged_params = ["self", "cbs", "learner", "lr", "lr_max", "wd"]
@@ -634,4 +649,4 @@ def autolog(
             self, original, args, kwargs, unlogged_params, is_fine_tune=True
         )
 
-    safe_patch(FLAVOR_NAME, Learner, "fine_tune", fine_tune, manage_run=True)
+    safe_patch(FLAVOR_NAME, Learner, "fine_tune", fine_tune, manage_run=True, extra_tags=extra_tags)

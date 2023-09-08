@@ -1,70 +1,70 @@
 from __future__ import annotations
 
-from pathlib import Path
-import matplotlib.pyplot as plt
-from unittest import mock
-import numpy as np
+import io
 import json
+from contextlib import nullcontext as does_not_raise
+from os.path import join as path_join
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest import mock
+
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import pytest
-from contextlib import nullcontext as does_not_raise
+from PIL import Image, ImageChops
+from sklearn.datasets import load_breast_cancer, load_iris
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.metrics import f1_score, precision_score, recall_score
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import FunctionTransformer
+from sklearn.svm import LinearSVC
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation.base import evaluate, make_metric
+from mlflow.models import Model
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
     ImageEvaluationArtifact,
     JsonEvaluationArtifact,
     NumpyEvaluationArtifact,
     ParquetEvaluationArtifact,
-    TextEvaluationArtifact,
     PickleEvaluationArtifact,
+    TextEvaluationArtifact,
 )
+from mlflow.models.evaluation.base import evaluate, make_metric
 from mlflow.models.evaluation.default_evaluator import (
-    _infer_model_type_by_labels,
-    _extract_raw_model,
+    _compute_df_mode_or_mean,
+    _CustomArtifact,
+    _CustomMetric,
+    _evaluate_custom_artifacts,
+    _evaluate_custom_metric,
     _extract_predict_fn,
+    _extract_raw_model,
+    _gen_classifier_curve,
     _get_binary_classifier_metrics,
+    _get_binary_sum_up_label_pred_prob,
     _get_multiclass_classifier_metrics,
     _get_regressor_metrics,
-    _get_binary_sum_up_label_pred_prob,
-    _gen_classifier_curve,
-    _evaluate_custom_metric,
-    _evaluate_custom_artifacts,
-    _compute_df_mode_or_mean,
-    _CustomMetric,
-    _CustomArtifact,
+    _infer_model_type_by_labels,
 )
-from mlflow.models.utils import plot_lines  # pylint: disable=unused-import
-from sklearn.linear_model import LogisticRegression, LinearRegression
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer
-from sklearn.datasets import load_iris, load_breast_cancer
-from sklearn.metrics import precision_score, recall_score, f1_score
 
-from tempfile import TemporaryDirectory
-from os.path import join as path_join
-from PIL import Image, ImageChops
-import io
-
-# pylint: disable=unused-import
 from tests.evaluate.test_evaluation import (
-    get_run_data,
-    baseline_model_uri,
-    diabetes_dataset,
-    multiclass_logistic_regressor_model_uri,
-    linear_regressor_model_uri,
-    iris_dataset,
-    iris_pandas_df_dataset,
-    iris_pandas_df_num_cols_dataset,
-    binary_logistic_regressor_model_uri,
-    breast_cancer_dataset,
-    spark_linear_regressor_model_uri,
-    diabetes_spark_dataset,
-    svm_model_uri,
-    pipeline_model_uri,
+    baseline_model_uri,  # noqa: F401
+    binary_logistic_regressor_model_uri,  # noqa: F401
+    breast_cancer_dataset,  # noqa: F401
+    diabetes_dataset,  # noqa: F401
+    diabetes_spark_dataset,  # noqa: F401
     get_pipeline_model_dataset,
+    get_run_data,
+    iris_dataset,  # noqa: F401
+    iris_pandas_df_dataset,  # noqa: F401
+    iris_pandas_df_num_cols_dataset,  # noqa: F401
+    linear_regressor_model_uri,  # noqa: F401
+    multiclass_logistic_regressor_model_uri,  # noqa: F401
+    pipeline_model_uri,  # noqa: F401
+    spark_linear_regressor_model_uri,  # noqa: F401
+    svm_model_uri,  # noqa: F401
 )
 
 
@@ -1987,12 +1987,43 @@ def language_model(inputs: list[str]) -> list[str]:
     return inputs
 
 
+def validate_question_answering_logged_data(logged_data, with_targets=True):
+    columns = {
+        "question",
+        "outputs",
+        "toxicity",
+        "flesch_kincaid_grade_level",
+        "ari_grade_level",
+        "perplexity",
+    }
+    if with_targets:
+        columns.update({"answer"})
+
+    assert set(logged_data.columns.tolist()) == columns
+
+    assert logged_data["question"].tolist() == ["words random", "This is a sentence."]
+    assert logged_data["outputs"].tolist() == ["words random", "This is a sentence."]
+    assert logged_data["toxicity"][0] < 0.5
+    assert logged_data["toxicity"][1] < 0.5
+    assert logged_data["perplexity"][0] > logged_data["perplexity"][1]
+    assert all(isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level"])
+    assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level"])
+
+    if with_targets:
+        assert logged_data["answer"].tolist() == ["words random", "This is a sentence."]
+
+
 def test_evaluate_question_answering_with_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
         )
-        data = pd.DataFrame({"question": ["a", "b"], "answer": ["a", "b"]})
+        data = pd.DataFrame(
+            {
+                "question": ["words random", "This is a sentence."],
+                "answer": ["words random", "This is a sentence."],
+            }
+        )
         results = mlflow.evaluate(
             model_info.model_uri,
             data,
@@ -2004,8 +2035,16 @@ def test_evaluate_question_answering_with_targets():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
-    assert results.metrics == {"exact_match": 1.0}
+    validate_question_answering_logged_data(logged_data)
+    assert set(results.metrics.keys()) == {
+        "exact_match",
+        "mean_perplexity",
+        "toxicity_ratio",
+        "mean_ari_grade_level",
+        "mean_flesch_kincaid_grade_level",
+    }
+    assert results.metrics["exact_match"] == 1.0
+    assert results.metrics["toxicity_ratio"] == 0.0
 
 
 def question_classifier(inputs):
@@ -2038,7 +2077,7 @@ def test_evaluate_question_answering_without_targets():
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
         )
-        data = pd.DataFrame({"question": ["a", "b"]})
+        data = pd.DataFrame({"question": ["words random", "This is a sentence."]})
         results = mlflow.evaluate(
             model_info.model_uri,
             data,
@@ -2049,8 +2088,43 @@ def test_evaluate_question_answering_without_targets():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
-    assert results.metrics == {}
+    validate_question_answering_logged_data(logged_data, False)
+    assert set(results.metrics.keys()) == {
+        "mean_perplexity",
+        "toxicity_ratio",
+        "mean_ari_grade_level",
+        "mean_flesch_kincaid_grade_level",
+    }
+    assert results.metrics["toxicity_ratio"] == 0.0
+
+
+def validate_text_summarization_logged_data(logged_data, with_targets=True):
+    columns = {
+        "text",
+        "outputs",
+        "toxicity",
+        "flesch_kincaid_grade_level",
+        "ari_grade_level",
+        "perplexity",
+    }
+    if with_targets:
+        columns.update({"summary", "rouge1", "rouge2", "rougeL", "rougeLsum"})
+
+    assert set(logged_data.columns.tolist()) == columns
+
+    assert logged_data["text"].tolist() == ["a", "b"]
+    assert logged_data["outputs"].tolist() == ["a", "b"]
+    assert logged_data["toxicity"][0] < 0.5
+    assert logged_data["toxicity"][1] < 0.5
+    assert all(isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level"])
+    assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level"])
+
+    if with_targets:
+        assert logged_data["summary"].tolist() == ["a", "b"]
+        assert logged_data["rouge1"].tolist() == [1.0, 1.0]
+        assert logged_data["rouge2"].tolist() == [0.0, 0.0]
+        assert logged_data["rougeL"].tolist() == [1.0, 1.0]
+        assert logged_data["rougeLsum"].tolist() == [1.0, 1.0]
 
 
 def test_evaluate_text_summarization_with_targets():
@@ -2070,8 +2144,24 @@ def test_evaluate_text_summarization_with_targets():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
-    assert results.metrics == {"rouge1": 1.0, "rouge2": 0.0, "rougeL": 1.0, "rougeLsum": 1.0}
+    validate_text_summarization_logged_data(logged_data)
+
+    metrics = results.metrics
+    assert set(metrics.keys()) == {
+        "rouge1",
+        "rouge2",
+        "rougeL",
+        "rougeLsum",
+        "mean_perplexity",
+        "toxicity_ratio",
+        "mean_ari_grade_level",
+        "mean_flesch_kincaid_grade_level",
+    }
+    assert metrics["rouge1"] == 1.0
+    assert metrics["rouge2"] == 0.0
+    assert metrics["rougeL"] == 1.0
+    assert metrics["rougeLsum"] == 1.0
+    assert metrics["toxicity_ratio"] == 0.0
 
 
 def another_language_model(x):
@@ -2095,8 +2185,24 @@ def test_evaluate_text_summarization_with_targets_no_type_hints():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
-    assert results.metrics == {"rouge1": 1.0, "rouge2": 0.0, "rougeL": 1.0, "rougeLsum": 1.0}
+    validate_text_summarization_logged_data(logged_data)
+
+    metrics = results.metrics
+    assert set(metrics.keys()) == {
+        "rouge1",
+        "rouge2",
+        "rougeL",
+        "rougeLsum",
+        "mean_perplexity",
+        "toxicity_ratio",
+        "mean_ari_grade_level",
+        "mean_flesch_kincaid_grade_level",
+    }
+    assert metrics["rouge1"] == 1.0
+    assert metrics["rouge2"] == 0.0
+    assert metrics["rougeL"] == 1.0
+    assert metrics["rougeLsum"] == 1.0
+    assert metrics["toxicity_ratio"] == 0.0
 
 
 def test_evaluate_text_summarization_without_targets():
@@ -2115,11 +2221,18 @@ def test_evaluate_text_summarization_without_targets():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
-    assert results.metrics == {}
+    validate_text_summarization_logged_data(logged_data, with_targets=False)
+
+    assert set(results.metrics.keys()) == {
+        "mean_perplexity",
+        "toxicity_ratio",
+        "mean_ari_grade_level",
+        "mean_flesch_kincaid_grade_level",
+    }
+    assert results.metrics["toxicity_ratio"] == 0.0
 
 
-def test_evaluate_text_summarization_fails_to_load_metric():
+def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
@@ -2133,22 +2246,32 @@ def test_evaluate_text_summarization_fails_to_load_metric():
                 targets="summary",
                 model_type="text-summarization",
             )
-            mock_load.assert_called_once_with("rouge")
+            mock_load.assert_any_call("rouge")
+            mock_load.assert_any_call("perplexity", module_type="metric")
+            mock_load.assert_any_call("toxicity", module_type="measurement")
 
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
-    assert results.metrics == {}
+    assert logged_data.columns.tolist() == [
+        "text",
+        "summary",
+        "outputs",
+        "flesch_kincaid_grade_level",
+        "ari_grade_level",
+    ]
+    assert logged_data["text"].tolist() == ["a", "b"]
+    assert logged_data["summary"].tolist() == ["a", "b"]
+    assert logged_data["outputs"].tolist() == ["a", "b"]
 
 
-def test_evaluate_text():
+def test_evaluate_text_and_text_metrics():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
         )
-        data = pd.DataFrame({"text": ["a", "b"]})
+        data = pd.DataFrame({"text": ["sentence not", "All women are bad."]})
         results = mlflow.evaluate(
             model_info.model_uri,
             data,
@@ -2159,8 +2282,31 @@ def test_evaluate_text():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
-    assert results.metrics == {}
+    assert logged_data.columns.tolist() == [
+        "text",
+        "outputs",
+        "toxicity",
+        "flesch_kincaid_grade_level",
+        "ari_grade_level",
+        "perplexity",
+    ]
+    assert logged_data["text"].tolist() == ["sentence not", "All women are bad."]
+    assert logged_data["outputs"].tolist() == ["sentence not", "All women are bad."]
+    # Hateful sentiments should be marked as toxic
+    assert logged_data["toxicity"][0] < 0.5
+    assert logged_data["toxicity"][1] > 0.5
+    # The perplexity of random words should be higher than a valid sentence.
+    assert logged_data["perplexity"][0] > logged_data["perplexity"][1]
+    # Simple sentences should have a low grade level.
+    assert logged_data["flesch_kincaid_grade_level"][1] < 4
+    assert logged_data["ari_grade_level"][1] < 4
+    assert set(results.metrics.keys()) == {
+        "mean_perplexity",
+        "toxicity_ratio",
+        "mean_ari_grade_level",
+        "mean_flesch_kincaid_grade_level",
+    }
+    assert results.metrics["toxicity_ratio"] == 0.5
 
 
 def accuracy(eval_df, _builtin_metrics):
@@ -2185,8 +2331,31 @@ def test_evaluate_text_custom_metrics():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
-    assert results.metrics == {"accuracy": 1.0}
+    assert logged_data.columns.tolist() == [
+        "text",
+        "target",
+        "outputs",
+        "toxicity",
+        "flesch_kincaid_grade_level",
+        "ari_grade_level",
+        "perplexity",
+    ]
+    assert logged_data["text"].tolist() == ["a", "b"]
+    assert logged_data["target"].tolist() == ["a", "b"]
+    assert logged_data["outputs"].tolist() == ["a", "b"]
+    assert logged_data["toxicity"][0] < 0.5
+    assert logged_data["toxicity"][1] < 0.5
+    assert all(isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level"])
+    assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level"])
+    assert set(results.metrics.keys()) == {
+        "accuracy",
+        "mean_perplexity",
+        "toxicity_ratio",
+        "mean_ari_grade_level",
+        "mean_flesch_kincaid_grade_level",
+    }
+    assert results.metrics["accuracy"] == 1.0
+    assert results.metrics["toxicity_ratio"] == 0.0
 
 
 def test_eval_results_table_json_can_be_prefixed_with_metric_prefix():
@@ -2209,3 +2378,36 @@ def test_eval_results_table_json_can_be_prefixed_with_metric_prefix():
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert f"{metric_prefix}eval_results_table.json" in artifacts
+
+
+@pytest.mark.parametrize(
+    "baseline_model_uri",
+    [("svm_model_uri")],
+    indirect=["baseline_model_uri"],
+)
+def test_default_evaluator_for_pyfunc_model(baseline_model_uri, breast_cancer_dataset):
+    data = load_breast_cancer()
+    raw_model = LinearSVC()
+    raw_model.fit(data.data, data.target)
+
+    mlflow_model = Model()
+    mlflow.pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn")
+    pyfunc_model = mlflow.pyfunc.PyFuncModel(model_meta=mlflow_model, model_impl=raw_model)
+
+    with mlflow.start_run() as run:
+        evaluate_model_helper(
+            pyfunc_model,
+            baseline_model_uri,
+            breast_cancer_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=breast_cancer_dataset._constructor_args["targets"],
+            evaluators="default",
+            eval_baseline_model_only=False,
+        )
+    run_data = get_run_data(run.info.run_id)
+    assert set(run_data.artifacts) == {
+        "confusion_matrix.png",
+        "shap_feature_importance_plot.png",
+        "shap_beeswarm_plot.png",
+        "shap_summary_plot.png",
+    }

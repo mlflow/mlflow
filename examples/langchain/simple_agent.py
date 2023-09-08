@@ -1,10 +1,9 @@
 import os
-import mlflow
 
-from langchain.agents import load_tools
-from langchain.agents import initialize_agent
-from langchain.agents import AgentType
+from langchain.agents import AgentType, initialize_agent, load_tools
 from langchain.llms import OpenAI
+
+import mlflow
 
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
 assert "SERPAPI_API_KEY" in os.environ, "Please set the SERPAPI_API_KEY environment variable."

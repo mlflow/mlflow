@@ -1,71 +1,78 @@
+"""MLFlow module for HuggingFace/transformer support."""
+
 import ast
 import base64
 import binascii
 import contextlib
 import functools
-from functools import lru_cache
 import json
 import logging
-import numpy as np
 import os
 import pathlib
-import pandas as pd
 import re
-from typing import Union, List, Optional, Dict, Any, NamedTuple
+import sys
+from functools import lru_cache
+from typing import Any, Dict, List, NamedTuple, Optional, Union
 from urllib.parse import urlparse
+
+import numpy as np
+import pandas as pd
 import yaml
 
-import mlflow
 from mlflow import pyfunc
+from mlflow.environment_variables import (
+    MLFLOW_DEFAULT_PREDICTION_DEVICE,
+    MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY,
+    MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES,
+    MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE,
+    MLFLOW_HUGGINGFACE_USE_DEVICE_MAP,
+    MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import (
     Model,
     ModelInputExample,
     ModelSignature,
-    infer_signature,
     infer_pip_requirements,
+    infer_signature,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.types.schema import Schema, ColSpec, TensorSpec
+from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    disable_discrete_autologging,
+    safe_patch,
+)
 from mlflow.utils.docstring_utils import (
-    format_docstring,
     LOG_MODEL_PARAM_DOCS,
     docstring_version_compatibility_warning,
-)
-from mlflow.utils.environment import _find_duplicate_requirements
-from mlflow.environment_variables import (
-    MLFLOW_DEFAULT_PREDICTION_DEVICE,
-    MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES,
-    MLFLOW_HUGGINGFACE_USE_DEVICE_MAP,
-    MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY,
-    MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE,
-    MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE,
+    format_docstring,
 )
 from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _validate_env_arguments,
     _CONDA_ENV_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _find_duplicate_requirements,
+    _mlflow_conda_env,
     _process_conda_env,
     _process_pip_requirements,
-    _CONSTRAINTS_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
     _PythonEnv,
+    _validate_env_arguments,
 )
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
-    _validate_and_copy_code_paths,
-    _validate_and_prepare_target_save_path,
+    _add_code_from_conf_to_system_path,
     _download_artifact_from_uri,
     _get_flavor_configuration,
     _get_flavor_configuration_from_uri,
-    _add_code_from_conf_to_system_path,
+    _validate_and_copy_code_paths,
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
@@ -83,7 +90,6 @@ _INFERENCE_CONFIG_BINARY_KEY = "inference_config.txt"
 _INSTANCE_TYPE_KEY = "instance_type"
 _MODEL_KEY = "model"
 _MODEL_BINARY_KEY = "model_binary"
-_MODEL_TYPE_KEY = "model_type"
 _MODEL_BINARY_FILE_NAME = "model"
 _MODEL_PATH_OR_NAME_KEY = "source_model_name"
 _PIPELINE_MODEL_TYPE_KEY = "pipeline_model_type"
@@ -106,8 +112,7 @@ _logger = logging.getLogger(__name__)
 
 def _model_packages(model) -> List[str]:
     """
-    Determines which pip libraries should be included based on the base model engine
-    type.
+    Determines which pip libraries should be included based on the base model engine type.
 
     :param model: The model instance to be saved in order to provide the required underlying
                   deep learning execution framework dependency requirements.
@@ -115,7 +120,14 @@ def _model_packages(model) -> List[str]:
     """
     engine = _get_engine_type(model)
     if engine == "torch":
-        return ["torch", "torchvision", "accelerate"]
+        packages = ["torch", "torchvision"]
+        try:
+            import accelerate  # noqa: F401
+
+            packages.append("accelerate")
+        except ImportError:
+            pass
+        return packages
     else:
         return [engine]
 
@@ -131,7 +143,7 @@ def get_default_pip_requirements(model) -> List[str]:
              produce a pip environment that contain these requirements at a minimum.
     """
 
-    from transformers import TFPreTrainedModel, FlaxPreTrainedModel, PreTrainedModel
+    from transformers import FlaxPreTrainedModel, PreTrainedModel, TFPreTrainedModel
 
     if not isinstance(model, (TFPreTrainedModel, FlaxPreTrainedModel, PreTrainedModel)):
         raise MlflowException(
@@ -214,7 +226,7 @@ def save_model(
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
     metadata: Dict[str, Any] = None,
-    **kwargs,
+    **kwargs,  # pylint: disable=unused-argument
 ) -> None:
     """
     Save a trained transformers model to a path on the local file system.
@@ -727,7 +739,7 @@ def log_model(
     """
     return Model.log(
         artifact_path=artifact_path,
-        flavor=mlflow.transformers,
+        flavor=sys.modules[__name__],  # Get the current module.
         registered_model_name=registered_model_name,
         await_registration_for=await_registration_for,
         metadata=metadata,
@@ -1212,7 +1224,7 @@ def _get_engine_type(model):
     Determines the underlying execution engine for the model based on the 3 currently supported
     deep learning framework backends: ``tensorflow``, ``torch``, or ``flax``.
     """
-    from transformers import PreTrainedModel, TFPreTrainedModel, FlaxPreTrainedModel
+    from transformers import FlaxPreTrainedModel, PreTrainedModel, TFPreTrainedModel
 
     for cls in model.__class__.__mro__:
         if issubclass(cls, TFPreTrainedModel):
@@ -1460,14 +1472,14 @@ class _TransformersModel(NamedTuple):
         cls, model, tokenizer, feature_extractor, image_processor, processor
     ):
         from transformers import (
-            PreTrainedModel,
-            TFPreTrainedModel,
-            FlaxPreTrainedModel,
-            PreTrainedTokenizerBase,
             FeatureExtractionMixin,
+            FlaxPreTrainedModel,
             ImageFeatureExtractionMixin,
             ImageProcessingMixin,
+            PreTrainedModel,
+            PreTrainedTokenizerBase,
             ProcessorMixin,
+            TFPreTrainedModel,
         )
 
         validation = [
@@ -1502,7 +1514,7 @@ class _TransformersModel(NamedTuple):
         feature_extractor=None,
         image_processor=None,
         processor=None,
-        **kwargs,
+        **kwargs,  # pylint: disable=unused-argument
     ):
         cls._validate_submitted_types(
             model, tokenizer, feature_extractor, image_processor, processor
@@ -1602,7 +1614,57 @@ class _TransformersWrapper:
                     )
             return parsed
 
-    def predict(self, data, device=None):
+    def _override_inference_config(self, params):
+        if params:
+            _logger.warning(
+                "params provided to the `predict` method will override the inference "
+                "configuration saved with the model. If the params provided are not "
+                "valid for the pipeline, MlflowException will be raised."
+            )
+
+            # Override the inference configuration with any additional kwargs provided by the user.
+            self.inference_config.update(params)
+
+    def _validate_inference_config_and_return_output(self, data):
+        import transformers
+
+        try:
+            if isinstance(data, dict):
+                return self.pipeline(**data, **self.inference_config)
+            return self.pipeline(data, **self.inference_config)
+        except ValueError as e:
+            if "The following `model_kwargs` are not used by the model" in str(e):
+                raise MlflowException.invalid_parameter_value(
+                    "The params provided to the `predict` method are not valid "
+                    f"for pipeline {type(self.pipeline).__name__}.",
+                ) from e
+            if isinstance(
+                self.pipeline,
+                (
+                    transformers.AutomaticSpeechRecognitionPipeline,
+                    transformers.AudioClassificationPipeline,
+                ),
+            ) and "Malformed soundfile" in str(e):
+                raise MlflowException.invalid_parameter_value(
+                    "Failed to process the input audio data. Either the audio file is "
+                    "corrupted or a uri was passed in without overriding the default model "
+                    "signature. If submitting a string uri, please ensure that the model has "
+                    "been saved with a signature that defines a string input type.",
+                ) from e
+            raise
+
+    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
+        self._override_inference_config(params)
+
         if isinstance(data, pd.DataFrame):
             input_data = self._convert_pandas_to_dict(data)
         elif isinstance(data, dict):
@@ -1640,11 +1702,11 @@ class _TransformersWrapper:
                 for x in input_data
             )
 
-        predictions = self._predict(input_data, device)
+        predictions = self._predict(input_data)
 
         return predictions
 
-    def _predict(self, data, device):
+    def _predict(self, data):
         import transformers
 
         # NB: the ordering of these conditional statements matters. TranslationPipeline and
@@ -1712,8 +1774,6 @@ class _TransformersWrapper:
         include_prompt = self.inference_config.pop("include_prompt", True)
         # Optional stripping out of `\n` for specific generator pipelines.
         collapse_whitespace = self.inference_config.pop("collapse_whitespace", False)
-        if device is not None:
-            self.inference_config["device"] = device
 
         data = self._convert_cast_lists_from_np_back_to_list(data)
 
@@ -1721,30 +1781,8 @@ class _TransformersWrapper:
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
-
-        if isinstance(
-            self.pipeline,
-            (
-                transformers.AutomaticSpeechRecognitionPipeline,
-                transformers.AudioClassificationPipeline,
-            ),
-        ):
-            try:
-                raw_output = self.pipeline(data, **self.inference_config)
-            except ValueError as e:
-                if "Malformed soundfile" in str(e):
-                    raise MlflowException(
-                        "Failed to process the input audio data. Either the audio file is "
-                        "corrupted or a uri was passed in without overriding the default model "
-                        "signature. If submitting a string uri, please ensure that the model has "
-                        "been saved with a signature that defines a string input type.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    ) from e
-                raise
-        elif isinstance(data, dict):
-            raw_output = self.pipeline(**data, **self.inference_config)
         else:
-            raw_output = self.pipeline(data, **self.inference_config)
+            raw_output = self._validate_inference_config_and_return_output(data)
 
         # Handle the pipeline outputs
         if type(self.pipeline).__name__ in self._supported_custom_generator_types or isinstance(
@@ -1802,7 +1840,6 @@ class _TransformersWrapper:
                     transformers.FillMaskPipeline,
                     transformers.TextGenerationPipeline,
                     transformers.TranslationPipeline,
-                    transformers.TextClassificationPipeline,
                     transformers.SummarizationPipeline,
                     transformers.TokenClassificationPipeline,
                 ),
@@ -1811,8 +1848,95 @@ class _TransformersWrapper:
             and all(isinstance(entry, dict) for entry in data)
         ):
             return [list(entry.values())[0] for entry in data]
+        elif isinstance(self.pipeline, transformers.TextClassificationPipeline):
+            return self._validate_text_classification_input(data)
         else:
             return data
+
+    @staticmethod
+    def _validate_text_classification_input(data):
+        """
+        Perform input type validation for TextClassification pipelines and casting of data
+        that is manipulated internally by the MLflow model server back to a structure that
+        can be used for pipeline inference.
+
+        To illustrate the input and outputs of this function, for the following inputs to
+        the pyfunc.predict() call for this pipeline type:
+
+        "text to classify"
+        ["text to classify", "other text to classify"]
+        {"text": "text to classify", "text_pair": "pair text"}
+        [{"text": "text", "text_pair": "pair"}, {"text": "t", "text_pair": "tp" }]
+
+        Pyfunc processing will convert these to the following structures:
+
+        [{0: "text to classify"}]
+        [{0: "text to classify"}, {0: "other text to classify"}]
+        [{"text": "text to classify", "text_pair": "pair text"}]
+        [{"text": "text", "text_pair": "pair"}, {"text": "t", "text_pair": "tp" }]
+
+        The purpose of this function is to convert them into the correct format for input
+        to the pipeline (wrapping as a list has no bearing on the correctness of the
+        inferred classifications):
+
+        ["text to classify"]
+        ["text to classify", "other text to classify"]
+        [{"text": "text to classify", "text_pair": "pair text"}]
+        [{"text": "text", "text_pair": "pair"}, {"text": "t", "text_pair": "tp" }]
+
+        Additionally, for dict input types (the 'text' & 'text_pair' input example), the dict
+        input will be JSON stringified within MLflow model serving. In order to reconvert this
+        structure back into the appropriate type, we use ast.literal_eval() to convert back
+        to a dict. We avoid using JSON.loads() due to pandas DataFrame conversions that invert
+        single and double quotes with escape sequences that are not consistent if the string
+        contains escaped quotes.
+        """
+
+        def _check_keys(payload):
+            """Check if a dictionary contains only allowable keys."""
+            allowable_str_keys = {"text", "text_pair"}
+            if set(payload) - allowable_str_keys and not all(
+                isinstance(key, int) for key in payload.keys()
+            ):
+                raise MlflowException(
+                    "Text Classification pipelines may only define dictionary inputs with keys "
+                    f"defined as {allowable_str_keys}"
+                )
+
+        if isinstance(data, str):
+            return data
+        elif isinstance(data, dict):
+            _check_keys(data)
+            return data
+        elif isinstance(data, list):
+            if all(isinstance(item, str) for item in data):
+                return data
+            elif all(isinstance(item, dict) for item in data):
+                for payload in data:
+                    _check_keys(payload)
+                if list(data[0].keys())[0] == 0:
+                    data = [item[0] for item in data]
+                try:
+                    # NB: To support MLflow serving signature validation, the value within dict
+                    # inputs is JSON encoded. In order for the proper data structure input support
+                    # for a {"text": "a", "text_pair": "b"} (or the list of such a structure) as
+                    # an input, we have to convert the string encoded dict back to a dict.
+                    # Due to how unescaped characters (such as "'") are encoded, using an explicit
+                    # json.loads() attempted cast can result in invalid input data to the pipeline.
+                    # ast.literal_eval() shows correct conversion, as validated in unit tests.
+                    return [ast.literal_eval(s) for s in data]
+                except (ValueError, SyntaxError):
+                    return data
+            else:
+                raise MlflowException(
+                    "An unsupported data type has been passed for Text Classification inference. "
+                    "Only str, list of str, dict, and list of dict are supported."
+                )
+        else:
+            raise MlflowException(
+                "An unsupported data type has been passed for Text Classification inference. "
+                "Only str, list of str, dict, and list of dict are supported."
+            )
 
     def _parse_conversation_input(self, data):
         import transformers
@@ -2079,12 +2203,12 @@ class _TransformersWrapper:
                         elif isinstance(value, list) and all(
                             isinstance(elem, dict) for elem in value
                         ):
-                            output_coll.append(
-                                self._parse_lists_of_dict_to_list_of_str(value, target_dict_key)[0]
+                            output_coll.extend(
+                                self._parse_lists_of_dict_to_list_of_str(value, target_dict_key)
                             )
                 elif isinstance(output, list):
-                    output_coll.append(
-                        self._parse_lists_of_dict_to_list_of_str(output, target_dict_key)[0]
+                    output_coll.extend(
+                        self._parse_lists_of_dict_to_list_of_str(output, target_dict_key)
                     )
             return output_coll
         elif target_dict_key:
@@ -2487,6 +2611,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    extra_tags=None,
 ):  # pylint: disable=unused-argument
     """
     This autologging integration is solely used for disabling spurious autologging of irrelevant
@@ -2499,9 +2624,7 @@ def autolog(
     DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING = ["sklearn", "tensorflow", "pytorch"]
 
     def train(original, *args, **kwargs):
-        with mlflow.utils.autologging_utils.disable_discrete_autologging(
-            DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING
-        ):
+        with disable_discrete_autologging(DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING):
             return original(*args, **kwargs)
 
     with contextlib.suppress(ImportError):

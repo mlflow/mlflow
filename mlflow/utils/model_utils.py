@@ -4,13 +4,13 @@ import sys
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, RESOURCE_ALREADY_EXISTS
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.file_utils import _copy_file_or_tree
+from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_CONFIG_CODE = "code"
 
@@ -164,9 +164,7 @@ def _validate_onnx_session_options(onnx_session_options):
     if onnx_session_options is not None:
         if not isinstance(onnx_session_options, dict):
             raise TypeError(
-                "Argument onnx_session_options should be a dict, not {}".format(
-                    type(onnx_session_options)
-                )
+                f"Argument onnx_session_options should be a dict, not {type(onnx_session_options)}"
             )
         for key, value in onnx_session_options.items():
             if key != "extra_session_config" and not hasattr(ort.SessionOptions, key):

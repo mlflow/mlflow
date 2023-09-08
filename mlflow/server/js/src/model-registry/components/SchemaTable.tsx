@@ -55,14 +55,16 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
   };
 
   getSchemaTypeRepr = (schemaTypeSpec: any) => {
+    let { type } = schemaTypeSpec;
     if (schemaTypeSpec.type === MODEL_SCHEMA_TENSOR_TYPE) {
-      return (
-        `Tensor (dtype: ${schemaTypeSpec['tensor-spec'].dtype},` +
-        ` shape: [${schemaTypeSpec['tensor-spec'].shape}])`
-      );
-    } else {
-      return schemaTypeSpec.type;
+      type = `Tensor (dtype: ${schemaTypeSpec['tensor-spec'].dtype}, shape: [${schemaTypeSpec['tensor-spec'].shape}])`;
     }
+
+    // If the "optional" property is present and true, wrap the type around an "Optional[]"
+    if (schemaTypeSpec.optional) {
+      type = `Optional[${type}]`;
+    }
+    return type;
   };
 
   getSchemaRowData = (schemaData: any) => {

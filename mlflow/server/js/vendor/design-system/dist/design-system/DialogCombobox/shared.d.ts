@@ -1,8 +1,10 @@
-import type { Theme, SerializedStyles, Interpolation } from '@emotion/react';
 import type React from 'react';
+import type { Theme } from '../../theme';
 export declare const getDialogComboboxOptionLabelWidth: (theme: Theme, width: number | string) => number | string;
-export declare const getDialogComboboxOptionItemWrapperStyles: (theme: Theme) => SerializedStyles;
-export declare const infoIconStyles: (theme: Theme) => Interpolation<Theme>;
+export declare function findClosestOptionSibling(element: HTMLElement, direction: 'previous' | 'next'): HTMLElement | null;
+export declare const highlightOption: (currentSelection: HTMLElement, prevSelection?: HTMLElement, focus?: boolean) => void;
+export declare const findHighlightedOption: (options: HTMLElement[]) => HTMLElement | undefined;
+export declare const getContentOptions: (element: HTMLElement) => HTMLElement[] | undefined;
 export declare const getKeyboardNavigationFunctions: (handleSelect: (...args: any[]) => any, { onKeyDown, onMouseEnter, onDefaultKeyDown, }: {
     onKeyDown?: ((...args: any[]) => any) | undefined;
     onMouseEnter?: ((...args: any[]) => any) | undefined;
