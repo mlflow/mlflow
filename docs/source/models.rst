@@ -2525,7 +2525,7 @@ Example: Log a LangChain Agent
 
 .. code-block:: python
     :caption: Output
-    
+
     [{"output": "1.1044000282035853"}]
 
 
