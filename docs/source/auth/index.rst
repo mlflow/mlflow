@@ -624,11 +624,11 @@ specifies ``module_name:function_name``. The function has the following signatur
         def authenticate_request() -> Union[Authorization, Response]:
             ...
 
-The function should return an ``Authorization`` object if the request is authenticated,
-or a ``Response`` object (typically ``401: Unauthorized``) if the request is not
-authenticated. For an example of how to implement a custom authentication method,
-see ``tests/server/auth/jwt_auth.py``. **NOTE:** This example is not intended for
-production use.
+The function should return a ``werkzeug.datastructures.Authorization`` object if
+the request is authenticated, or a ``Response`` object (typically
+``401: Unauthorized``) if the request is not authenticated. For an example of how
+to implement a custom authentication method, see ``tests/server/auth/jwt_auth.py``.
+**NOTE:** This example is not intended for production use.
 
 Custom Authentication
 =====================

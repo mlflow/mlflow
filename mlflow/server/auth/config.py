@@ -28,5 +28,7 @@ def read_auth_config() -> AuthConfig:
         database_uri=config["mlflow"]["database_uri"],
         admin_username=config["mlflow"]["admin_username"],
         admin_password=config["mlflow"]["admin_password"],
-        authorization_function=config["mlflow"]["authorization_function"],
+        authorization_function=config["mlflow"].get(
+            "authorization_function", "mlflow.server.auth:authenticate_request_basic_auth"
+        ),
     )
