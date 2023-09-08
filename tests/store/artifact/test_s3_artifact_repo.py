@@ -308,8 +308,9 @@ def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_ba
     assert nested_artifacts_listing == [("nested/c.txt", False, 1)]
 
 
+@pytest.mark.parametrize(("use_optimized"), [True, False])
 def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
-    s3_artifact_root, tmp_path
+    s3_artifact_root, tmp_path, use_optimized
 ):
     file_a_name = "a.txt"
     file_a_text = "A"
@@ -322,6 +323,7 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_ro
         f.write(file_a_text)
 
     repo = get_artifact_repository(s3_artifact_root)
+    repo._use_optimized = use_optimized
     repo.log_artifacts(subdir_path)
 
     downloaded_dir_path = repo.download_artifacts("nested")
@@ -330,8 +332,9 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_ro
         assert f.read() == file_a_text
 
 
+@pytest.mark.parametrize(("use_optimized"), [True, False])
 def test_download_file_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
-    s3_artifact_root, tmp_path
+    s3_artifact_root, tmp_path, use_optimized
 ):
     file_a_name = "a.txt"
     file_a_text = "A"
@@ -340,6 +343,7 @@ def test_download_file_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
         f.write(file_a_text)
 
     repo = get_artifact_repository(s3_artifact_root)
+    repo._use_optimized = use_optimized
     repo.log_artifact(file_a_path)
 
     downloaded_file_path = repo.download_artifacts(file_a_name)
