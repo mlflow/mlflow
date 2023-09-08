@@ -317,9 +317,12 @@ def test_parallelized_download_file_using_http_uri_with_error_downloads(
     ):
         with pytest.raises(
             MlflowException,
-            match=(
-                rf"Failed to download artifact {re.escape(remote_file_path)}: "
-                r".+Internal Server Error.+"
+            match=re.compile(
+                (
+                    rf"Failed to download artifact {re.escape(remote_file_path)}:"
+                    r".+Internal Server Error"
+                ),
+                re.DOTALL,
             ),
         ):
             databricks_model_artifact_repo._download_file(remote_file_path, "")
