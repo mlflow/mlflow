@@ -56,7 +56,10 @@ def test_toxicity():
     result = toxicity.eval_fn(eval_df, metrics={})
     assert not _is_toxic(result.scores[0])
     assert _is_toxic(result.scores[1])
-    assert "ratio" in result.aggregate_results
+    assert result.aggregate_results["ratio"] == 0.5
+    assert result.aggregate_results["mean"] == (result.scores[0] + result.scores[1]) / 2
+    assert result.scores[0] < result.aggregate_results["p90"] < result.scores[1]
+    assert "variance" in result.aggregate_results
 
 
 def test_perplexity():
@@ -64,7 +67,9 @@ def test_perplexity():
     result = perplexity.eval_fn(eval_df, metrics={})
     # A properly structured sentence should have lower perplexity
     assert result.scores[0] > result.scores[1]
-    assert "mean" in result.aggregate_results
+    assert result.aggregate_results["mean"] == (result.scores[0] + result.scores[1]) / 2
+    assert result.scores[0] > result.aggregate_results["p90"] > result.scores[1]
+    assert "variance" in result.aggregate_results
 
 
 def test_flesch_kincaid_grade_level():
@@ -81,7 +86,9 @@ def test_flesch_kincaid_grade_level():
     )
     result = flesch_kincaid_grade_level.eval_fn(eval_df, metrics={})
     assert result.scores[0] < result.scores[1]
-    assert "mean" in result.aggregate_results
+    assert result.aggregate_results["mean"] == (result.scores[0] + result.scores[1]) / 2
+    assert result.scores[0] < result.aggregate_results["p90"] < result.scores[1]
+    assert "variance" in result.aggregate_results
 
 
 def test_ari_grade_level():
@@ -98,7 +105,9 @@ def test_ari_grade_level():
     )
     result = ari_grade_level.eval_fn(eval_df, metrics={})
     assert result.scores[0] < result.scores[1]
-    assert "mean" in result.aggregate_results
+    assert result.aggregate_results["mean"] == (result.scores[0] + result.scores[1]) / 2
+    assert result.scores[0] < result.aggregate_results["p90"] < result.scores[1]
+    assert "variance" in result.aggregate_results
 
 
 def test_accuracy():
@@ -127,6 +136,8 @@ def test_rouge1():
     assert result.scores[0] == 0.0
     assert result.scores[1] == 0.5
     assert result.aggregate_results["mean"] == 0.25
+    assert result.aggregate_results["p90"] == 0.45
+    assert result.aggregate_results["variance"] == 0.0625
 
 
 def test_rouge2():
@@ -135,6 +146,8 @@ def test_rouge2():
     assert result.scores[0] == 1.0
     assert result.scores[1] == 0.5
     assert result.aggregate_results["mean"] == 0.75
+    assert result.aggregate_results["p90"] == 0.95
+    assert result.aggregate_results["variance"] == 0.0625
 
 
 def test_rougeL():
@@ -143,6 +156,8 @@ def test_rougeL():
     assert result.scores[0] == 0.0
     assert result.scores[1] == 1.0
     assert result.aggregate_results["mean"] == 0.5
+    assert result.aggregate_results["p90"] == 0.9
+    assert result.aggregate_results["variance"] == 0.25
 
 
 def test_rougeLsum():
@@ -151,6 +166,8 @@ def test_rougeLsum():
     assert result.scores[0] == 0.0
     assert result.scores[1] == 1.0
     assert result.aggregate_results["mean"] == 0.5
+    assert result.aggregate_results["p90"] == 0.9
+    assert result.aggregate_results["variance"] == 0.25
 
 
 def test_fails_to_load_metric():
