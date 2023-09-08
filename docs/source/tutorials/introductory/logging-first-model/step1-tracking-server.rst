@@ -1,5 +1,5 @@
-Starting a Tracking Server with MLflow
-======================================
+Starting the MLflow Tracking Server
+===================================
 
 Before diving into MLflow's rich features, let's set up the foundational components: the MLflow
 Tracking Server and the MLflow UI. This guide will walk you through the steps to get both up and running.
