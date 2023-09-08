@@ -357,3 +357,16 @@ def test_delete_artifacts(s3_artifact_repo, tmp_path):
     s3_artifact_repo.delete_artifacts()
     tmpdir_objects = s3_artifact_repo.list_artifacts()
     assert not tmpdir_objects
+
+
+def test_create_multipart_upload(s3_artifact_root):
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    create = repo.create_multipart_upload("local_file")
+
+    # confirm that a mpu is created with the correct upload_id
+    bucket, _ = repo.parse_s3_compliant_uri(s3_artifact_root)
+    s3_client = repo._get_s3_client()
+    response = s3_client.list_multipart_uploads(Bucket=bucket)
+    uploads = response.get("Uploads")
+    assert len(uploads) == 1
+    assert uploads[0]["UploadId"] == create.upload_id
