@@ -6,7 +6,7 @@ export interface ModelGatewayQueryPayload {
   parameters: {
     temperature?: number;
     max_tokens?: number;
-    stop?: string[];
+    stop?: string[] | undefined;
   };
 }
 
