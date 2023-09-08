@@ -2516,7 +2516,7 @@ Example: Log a LangChain LLMChain
 .. code-block:: python
     :caption: Output
 
-    [{'text': '\n\nColorful Cozy Creations.'}]
+    [{"text": "\n\nColorful Cozy Creations."}]
 
 Example: Log a LangChain Agent
 
@@ -2525,8 +2525,7 @@ Example: Log a LangChain Agent
 
 .. code-block:: python
     :caption: Output
-    
-    [{'output': '1.1044000282035853'}]
+    [{"output": "1.1044000282035853"}]
 
 
 Logging RetrievalQA Chains
@@ -2551,7 +2550,7 @@ Example: Log a LangChain RetrievalQA Chain
 .. code-block:: python
     :caption: Output (truncated)
 
-    [{'result': " The president said..."}]
+    [{"result": " The president said..."}]
 
 .. _log-retriever-chain:
 
