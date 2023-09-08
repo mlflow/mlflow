@@ -2574,7 +2574,6 @@ Example: Log a LangChain Retriever
 
 .. code-block:: python
     :caption: Output (truncated)
-    :caption: NOTE: unpacked object because the langchain Document object is not serializable
 
     [
         [
