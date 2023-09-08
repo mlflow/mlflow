@@ -100,7 +100,7 @@ to ensure meaningful insights.
 To apply these boundaries effectively, as is shown in the figure below, tags should be employed.
 
 .. figure:: ../../../_static/images/tutorials/introductory/logging-first-model/tag-exp-run-relationship.svg
-   :width: 640px
+   :width: 860px
    :align: center
    :alt: Tags, experiments, and runs relationships
 
