@@ -1,10 +1,19 @@
 import logging
 
+import numpy as np
 import pandas as pd
 
 from mlflow.metrics.base import MetricValue
 
 _logger = logging.getLogger(__name__)
+
+
+def standard_aggregations(scores):
+    return {
+        "mean": np.mean(scores),
+        "variance": np.var(scores),
+        "p90": np.percentile(scores, 90),
+    }
 
 
 def _validate_text_predictions(predictions, metric_name):
@@ -43,7 +52,13 @@ def _toxicity_eval_fn(eval_df, metrics):
     toxicity_ratio = toxicity.compute(predictions=predictions, aggregation="ratio")[
         "toxicity_ratio"
     ]
-    return MetricValue(scores=scores, aggregate_results={"ratio": toxicity_ratio})
+    return MetricValue(
+        scores=scores,
+        aggregate_results={
+            **standard_aggregations(scores),
+            "ratio": toxicity_ratio,
+        },
+    )
 
 
 def _perplexity_eval_fn(eval_df, metrics):
@@ -65,9 +80,10 @@ def _perplexity_eval_fn(eval_df, metrics):
         return
 
     _logger.info("Computing perplexity metric:")
-    results = perplexity.compute(predictions=predictions, model_id="gpt2")
+    scores = perplexity.compute(predictions=predictions, model_id="gpt2")["perplexities"]
     return MetricValue(
-        scores=results["perplexities"], aggregate_results={"mean": results["mean_perplexity"]}
+        scores=scores,
+        aggregate_results=standard_aggregations(scores),
     )
 
 
@@ -86,7 +102,10 @@ def _flesch_kincaid_eval_fn(eval_df, metrics):
 
     _logger.info("Computing flesch kincaid metric:")
     scores = [textstat.flesch_kincaid_grade(prediction) for prediction in predictions]
-    return MetricValue(scores=scores, aggregate_results={"mean": sum(scores) / len(scores)})
+    return MetricValue(
+        scores=scores,
+        aggregate_results=standard_aggregations(scores),
+    )
 
 
 def _ari_eval_fn(eval_df, metrics):
@@ -106,7 +125,10 @@ def _ari_eval_fn(eval_df, metrics):
 
     _logger.info("Computing automated readability index metric:")
     scores = [textstat.automated_readability_index(prediction) for prediction in predictions]
-    return MetricValue(scores=scores, aggregate_results={"mean": sum(scores) / len(scores)})
+    return MetricValue(
+        scores=scores,
+        aggregate_results=standard_aggregations(scores),
+    )
 
 
 def _accuracy_eval_fn(eval_df, metrics):
@@ -138,15 +160,10 @@ def _rouge1_eval_fn(eval_df, metrics):
             references=references,
             rouge_types=["rouge1"],
             use_aggregator=False,
-        )
-        aggregates = rouge.compute(
-            predictions=predictions,
-            references=references,
-            rouge_types=["rouge1"],
-            use_aggregator=True,
-        )
+        )["rouge1"]
         return MetricValue(
-            scores=scores["rouge1"], aggregate_results={"mean": aggregates["rouge1"]}
+            scores=scores,
+            aggregate_results=standard_aggregations(scores),
         )
 
 
@@ -171,15 +188,10 @@ def _rouge2_eval_fn(eval_df, metrics):
             references=references,
             rouge_types=["rouge2"],
             use_aggregator=False,
-        )
-        aggregates = rouge.compute(
-            predictions=predictions,
-            references=references,
-            rouge_types=["rouge2"],
-            use_aggregator=True,
-        )
+        )["rouge2"]
         return MetricValue(
-            scores=scores["rouge2"], aggregate_results={"mean": aggregates["rouge2"]}
+            scores=scores,
+            aggregate_results=standard_aggregations(scores),
         )
 
 
@@ -204,15 +216,10 @@ def _rougeL_eval_fn(eval_df, metrics):
             references=references,
             rouge_types=["rougeL"],
             use_aggregator=False,
-        )
-        aggregates = rouge.compute(
-            predictions=predictions,
-            references=references,
-            rouge_types=["rougeL"],
-            use_aggregator=True,
-        )
+        )["rougeL"]
         return MetricValue(
-            scores=scores["rougeL"], aggregate_results={"mean": aggregates["rougeL"]}
+            scores=scores,
+            aggregate_results=standard_aggregations(scores),
         )
 
 
@@ -237,13 +244,8 @@ def _rougeLsum_eval_fn(eval_df, metrics):
             references=references,
             rouge_types=["rougeLsum"],
             use_aggregator=False,
-        )
-        aggregates = rouge.compute(
-            predictions=predictions,
-            references=references,
-            rouge_types=["rougeLsum"],
-            use_aggregator=True,
-        )
+        )["rougeLsum"]
         return MetricValue(
-            scores=scores["rougeLsum"], aggregate_results={"mean": aggregates["rougeLsum"]}
+            scores=scores,
+            aggregate_results=standard_aggregations(scores),
         )
