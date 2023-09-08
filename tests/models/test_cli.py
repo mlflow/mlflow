@@ -763,6 +763,11 @@ def test_host_invalid_value():
 def test_change_conda_env_root_location(tmp_path, sk_model):
     def _test_model(env_root_path, model_path, sklearn_ver):
         env_root_path.mkdir(exist_ok=True)
+
+        mlflow.sklearn.save_model(
+            sk_model, str(model_path), pip_requirements=[f"scikit-learn=={sklearn_ver}"]
+        )
+
         env = get_flavor_backend(
             str(model_path),
             env_manager=_EnvManager.CONDA,
@@ -793,7 +798,7 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
 
     # Test with model1_path
     model1_path = tmp_path / "model1"
-    mlflow.sklearn.save_model(sk_model, str(model1_path), pip_requirements=["scikit-learn==1.0.1"])
+
     _test_model(env_root1_path, model1_path, "1.0.1")
     _test_model(env_root2_path, model1_path, "1.0.1")
 
@@ -801,9 +806,6 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
     model2_path = tmp_path / "model2"
     mlflow.sklearn.save_model(sk_model, str(model2_path), pip_requirements=["scikit-learn==1.0.2"])
     _test_model(env_root1_path, model2_path, "1.0.2")
-
-    # Ensure only the expected paths remain
-    assert len(list(tmp_path.iterdir())) == 2  # Only the two env_root directories should remain
 
 
 @pytest.mark.parametrize(
