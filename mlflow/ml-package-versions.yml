@@ -514,6 +514,7 @@ transformers:
           "librosa", # required for transformers audio pipelines for bitrate conversion
           "ffmpeg", # required for transformers audio pipelines for audio byte to numpy conversion
           "sentencepiece", # required for transformers text2text generation pipeline
+          "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
         ]
       # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
@@ -562,7 +563,7 @@ langchain:
     install_dev: |
       pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
   models:
-    minimum: "0.0.169"
+    minimum: "0.0.244"
     maximum: "0.0.244"
     requirements:
       ">= 0.0.0":
