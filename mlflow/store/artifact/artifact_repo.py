@@ -26,7 +26,11 @@ _logger = logging.getLogger(__name__)
 
 
 def _truncate_error(err: str, max_length: int = 10_000) -> str:
-    return err if len(err) <= max_length else err[:max_length] + "\n\n... (error message truncated)"
+    if len(err) <= max_length:
+        return err
+
+    half = max_length // 2
+    return err[:half] + "\n... (truncated)\n" + err[-half:]
 
 
 @developer_stable
