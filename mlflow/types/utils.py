@@ -480,7 +480,7 @@ def _infer_schema_from_type_hint(type_hint, examples=None):
 
 
 def _infer_type_and_shape(value):
-    if isinstance(value, (list, np.ndarray, pd.Series)):
+    if isinstance(value, (list, np.ndarray)):
         ndim = np.array(value).ndim
         if ndim != 1:
             raise MlflowException.invalid_parameter_value(
