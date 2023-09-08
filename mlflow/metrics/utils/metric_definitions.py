@@ -8,6 +8,14 @@ from mlflow.metrics.base import MetricValue
 _logger = logging.getLogger(__name__)
 
 
+def standard_aggregations(scores):
+    return {
+        "mean": np.mean(scores),
+        "variance": np.var(scores),
+        "p90": np.percentile(scores, 90),
+    }
+
+
 def _validate_text_predictions(predictions, metric_name):
     if len(predictions) == 0:
         return False
@@ -47,10 +55,8 @@ def _toxicity_eval_fn(eval_df, metrics):
     return MetricValue(
         scores=scores,
         aggregate_results={
+            **standard_aggregations(scores),
             "ratio": toxicity_ratio,
-            "mean": np.mean(scores),
-            "variance": np.var(scores),
-            "p90": np.percentile(scores, 90),
         },
     )
 
@@ -77,11 +83,7 @@ def _perplexity_eval_fn(eval_df, metrics):
     scores = perplexity.compute(predictions=predictions, model_id="gpt2")["perplexities"]
     return MetricValue(
         scores=scores,
-        aggregate_results={
-            "mean": np.mean(scores),
-            "variance": np.var(scores),
-            "p90": np.percentile(scores, 90),
-        },
+        aggregate_results=standard_aggregations(scores),
     )
 
 
@@ -102,11 +104,7 @@ def _flesch_kincaid_eval_fn(eval_df, metrics):
     scores = [textstat.flesch_kincaid_grade(prediction) for prediction in predictions]
     return MetricValue(
         scores=scores,
-        aggregate_results={
-            "mean": np.mean(scores),
-            "variance": np.var(scores),
-            "p90": np.percentile(scores, 90),
-        },
+        aggregate_results=standard_aggregations(scores),
     )
 
 
@@ -129,11 +127,7 @@ def _ari_eval_fn(eval_df, metrics):
     scores = [textstat.automated_readability_index(prediction) for prediction in predictions]
     return MetricValue(
         scores=scores,
-        aggregate_results={
-            "mean": np.mean(scores),
-            "variance": np.var(scores),
-            "p90": np.percentile(scores, 90),
-        },
+        aggregate_results=standard_aggregations(scores),
     )
 
 
@@ -169,11 +163,7 @@ def _rouge1_eval_fn(eval_df, metrics):
         )["rouge1"]
         return MetricValue(
             scores=scores,
-            aggregate_results={
-                "mean": np.mean(scores),
-                "variance": np.var(scores),
-                "p90": np.percentile(scores, 90),
-            },
+            aggregate_results=standard_aggregations(scores),
         )
 
 
@@ -201,11 +191,7 @@ def _rouge2_eval_fn(eval_df, metrics):
         )["rouge2"]
         return MetricValue(
             scores=scores,
-            aggregate_results={
-                "mean": np.mean(scores),
-                "variance": np.var(scores),
-                "p90": np.percentile(scores, 90),
-            },
+            aggregate_results=standard_aggregations(scores),
         )
 
 
@@ -233,11 +219,7 @@ def _rougeL_eval_fn(eval_df, metrics):
         )["rougeL"]
         return MetricValue(
             scores=scores,
-            aggregate_results={
-                "mean": np.mean(scores),
-                "variance": np.var(scores),
-                "p90": np.percentile(scores, 90),
-            },
+            aggregate_results=standard_aggregations(scores),
         )
 
 
@@ -265,9 +247,5 @@ def _rougeLsum_eval_fn(eval_df, metrics):
         )["rougeLsum"]
         return MetricValue(
             scores=scores,
-            aggregate_results={
-                "mean": np.mean(scores),
-                "variance": np.var(scores),
-                "p90": np.percentile(scores, 90),
-            },
+            aggregate_results=standard_aggregations(scores),
         )
