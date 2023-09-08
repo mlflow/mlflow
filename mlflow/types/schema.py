@@ -645,7 +645,7 @@ class ParamSpec:
 
     class ParamSpecTypedDict(TypedDict):
         name: str
-        dtype: str
+        type: str
         default: Union[DataType, List[DataType], None]
         shape: Optional[Tuple[int, ...]]
 
