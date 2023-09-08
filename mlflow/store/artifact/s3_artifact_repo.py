@@ -129,7 +129,7 @@ class S3ArtifactRepository(CloudArtifactRepository):
         secret_access_key=None,
         session_token=None,
         addressing_style="path",
-        use_optimized=False,
+        optimized=False,
     ):
         super().__init__(artifact_uri)
         self._access_key_id = access_key_id
@@ -137,10 +137,12 @@ class S3ArtifactRepository(CloudArtifactRepository):
         self._session_token = session_token
         self._addressing_style = addressing_style
         self.bucket, self.bucket_path = self.parse_s3_compliant_uri(self.artifact_uri)
-        self._use_optimized = use_optimized
+        self._optimized = optimized
         self._region_name = self._get_region_name()
 
     def _get_region_name(self):
+        if not self._optimized:
+            return None
         temp_client = _get_s3_client(
             addressing_style=self._addressing_style,
             access_key_id=self._access_key_id,
@@ -189,7 +191,7 @@ class S3ArtifactRepository(CloudArtifactRepository):
         s3_client.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
 
     def log_artifact(self, local_file, artifact_path=None):
-        if self._use_optimized:
+        if self._optimized:
             return self.log_artifact_optimized(local_file, artifact_path)
         dest_path = self.bucket_path
         if artifact_path:
@@ -213,7 +215,7 @@ class S3ArtifactRepository(CloudArtifactRepository):
         )
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        if self._use_optimized:
+        if self._optimized:
             return super().log_artifacts(local_dir, artifact_path)
         dest_path = self.bucket_path
         if artifact_path:
@@ -381,7 +383,7 @@ class S3ArtifactRepository(CloudArtifactRepository):
         ]
 
     def _download_file(self, remote_file_path, local_path):
-        if self._use_optimized:
+        if self._optimized:
             return super()._download_file(remote_file_path, local_path)
         self._download_from_cloud(remote_file_path, local_path)
 

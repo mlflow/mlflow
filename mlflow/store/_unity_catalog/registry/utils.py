@@ -119,7 +119,7 @@ def _get_artifact_repo_from_storage_info(
             access_key_id=aws_creds.access_key_id,
             secret_access_key=aws_creds.secret_access_key,
             session_token=aws_creds.session_token,
-            use_optimized=True,
+            optimized=True,
         )
     elif credential_type == "azure_user_delegation_sas":
         from azure.core.credentials import AzureSasCredential

@@ -30,7 +30,7 @@ def s3_artifact_root(mock_s3_bucket):
 @pytest.fixture(params=[True, False])
 def s3_artifact_repo(s3_artifact_root, request):
     return S3ArtifactRepository(
-        posixpath.join(s3_artifact_root, "some/path"), use_optimized=request.param
+        posixpath.join(s3_artifact_root, "some/path"), optimized=request.param
     )
 
 
@@ -85,7 +85,7 @@ def test_get_s3_client_hits_cache(s3_artifact_root, monkeypatch):
         s3_client_mock.get_bucket_location.return_value = {"LocationConstraint": "us-west-2"}
 
         # pylint: disable=no-value-for-parameter
-        repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+        repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"), optimized=True)
 
         # We get the s3 client once during initialization to get the bucket region name
         cache_info = _cached_get_s3_client.cache_info()
@@ -154,7 +154,7 @@ def test_get_s3_client_region_name_set_correctly(s3_artifact_root):
         mock_get_s3_client.return_value = s3_client_mock
         s3_client_mock.get_bucket_location.return_value = {"LocationConstraint": region_name}
 
-        repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+        repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"), optimized=True)
         repo._get_s3_client()
 
         mock_get_s3_client.assert_called_with(
@@ -308,9 +308,9 @@ def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_ba
     assert nested_artifacts_listing == [("nested/c.txt", False, 1)]
 
 
-@pytest.mark.parametrize(("use_optimized"), [True, False])
+@pytest.mark.parametrize(("optimized"), [True, False])
 def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
-    s3_artifact_root, tmp_path, use_optimized
+    s3_artifact_root, tmp_path, optimized
 ):
     file_a_name = "a.txt"
     file_a_text = "A"
@@ -323,7 +323,7 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_ro
         f.write(file_a_text)
 
     repo = get_artifact_repository(s3_artifact_root)
-    repo._use_optimized = use_optimized
+    repo._optimized = optimized
     repo.log_artifacts(subdir_path)
 
     downloaded_dir_path = repo.download_artifacts("nested")
@@ -332,9 +332,9 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_ro
         assert f.read() == file_a_text
 
 
-@pytest.mark.parametrize(("use_optimized"), [True, False])
+@pytest.mark.parametrize(("optimized"), [True, False])
 def test_download_file_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
-    s3_artifact_root, tmp_path, use_optimized
+    s3_artifact_root, tmp_path, optimized
 ):
     file_a_name = "a.txt"
     file_a_text = "A"
@@ -343,7 +343,7 @@ def test_download_file_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
         f.write(file_a_text)
 
     repo = get_artifact_repository(s3_artifact_root)
-    repo._use_optimized = use_optimized
+    repo._optimized = optimized
     repo.log_artifact(file_a_path)
 
     downloaded_file_path = repo.download_artifacts(file_a_name)
@@ -421,7 +421,7 @@ def test_log_artifacts_in_parallel_when_necessary(s3_artifact_repo, mock_s3_buck
         f"{S3_ARTIFACT_REPOSITORY}._multipart_upload", return_value=None
     ) as multipart_upload_mock:
         repo.log_artifacts(tmp_path)
-        if repo._use_optimized:
+        if repo._optimized:
             multipart_upload_mock.assert_called_once_with(
                 ANY, ANY, mock_s3_bucket, "some/path/a.txt"
             )
@@ -450,7 +450,7 @@ def test_download_file_in_parallel_when_necessary(
         f"{S3_ARTIFACT_REPOSITORY}._parallelized_download_from_cloud", return_value=None
     ) as parallel_download_mock:
         repo.download_artifacts("")
-        if is_parallel_download and repo._use_optimized:
+        if is_parallel_download and repo._optimized:
             parallel_download_mock.assert_called_with(file_size, remote_file_path, ANY)
         else:
             download_mock.assert_called()
