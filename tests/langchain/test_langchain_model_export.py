@@ -286,7 +286,8 @@ def test_langchain_agent_model_predict():
     with _mock_request(return_value=_MockResponse(200, langchain_agent_output)):
         result = loaded_model.predict([langchain_input])
         assert result == [{"output": TEST_CONTENT}]
-        # hardcoded output key because that is the default for an agent, but it is not an attribute of the agent or anything that we log
+        # hardcoded output key because that is the default for an agent
+        # but it is not an attribute of the agent or anything that we log
 
     inference_payload = json.dumps({"inputs": langchain_input})
     langchain_agent_output_serving = {"predictions": langchain_agent_output}
