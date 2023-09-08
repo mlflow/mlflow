@@ -27,6 +27,13 @@ def s3_artifact_root(mock_s3_bucket):
     return f"s3://{mock_s3_bucket}"
 
 
+@pytest.fixture(params=[True, False])
+def s3_artifact_repo(s3_artifact_root, request):
+    return S3ArtifactRepository(
+        posixpath.join(s3_artifact_root, "some/path"), use_optimized=request.param
+    )
+
+
 @pytest.fixture(autouse=True)
 def reset_cached_get_s3_client():
     _cached_get_s3_client.cache_clear()
@@ -37,7 +44,7 @@ def teardown_function():
         del os.environ["MLFLOW_S3_UPLOAD_EXTRA_ARGS"]
 
 
-def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, tmp_path):
+def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_repo, tmp_path):
     file_name = "test.txt"
     file_path = os.path.join(tmp_path, file_name)
     file_text = "Hello world!"
@@ -45,13 +52,15 @@ def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, t
     with open(file_path, "w") as f:
         f.write(file_text)
 
-    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    repo = s3_artifact_repo
     repo.log_artifact(file_path)
     downloaded_text = open(repo.download_artifacts(file_name)).read()
     assert downloaded_text == file_text
 
 
-def test_file_artifact_is_logged_with_content_metadata(s3_artifact_root, tmp_path):
+def test_file_artifact_is_logged_with_content_metadata(
+    s3_artifact_repo, s3_artifact_root, tmp_path
+):
     file_name = "test.txt"
     file_path = os.path.join(tmp_path, file_name)
     file_text = "Hello world!"
@@ -59,7 +68,7 @@ def test_file_artifact_is_logged_with_content_metadata(s3_artifact_root, tmp_pat
     with open(file_path, "w") as f:
         f.write(file_text)
 
-    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    repo = s3_artifact_repo
     repo.log_artifact(file_path)
 
     bucket, _ = repo.parse_s3_compliant_uri(s3_artifact_root)
@@ -187,7 +196,9 @@ def test_s3_creds_passed_to_client(s3_artifact_root):
         )
 
 
-def test_file_artifacts_are_logged_with_content_metadata_in_batch(s3_artifact_root, tmp_path):
+def test_file_artifacts_are_logged_with_content_metadata_in_batch(
+    s3_artifact_repo, s3_artifact_root, tmp_path
+):
     subdir = tmp_path / "subdir"
     subdir.mkdir()
     subdir_path = str(subdir)
@@ -204,7 +215,7 @@ def test_file_artifacts_are_logged_with_content_metadata_in_batch(s3_artifact_ro
     with open(path_c, "w") as f:
         f.write("col1,col2\n1,3\n2,4\n")
 
-    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    repo = s3_artifact_repo
     repo.log_artifacts(subdir_path)
 
     bucket, _ = repo.parse_s3_compliant_uri(s3_artifact_root)
@@ -224,7 +235,7 @@ def test_file_artifacts_are_logged_with_content_metadata_in_batch(s3_artifact_ro
 
 
 def test_file_and_directories_artifacts_are_logged_and_downloaded_successfully_in_batch(
-    s3_artifact_root, tmp_path
+    s3_artifact_repo, tmp_path
 ):
     subdir = tmp_path / "subdir"
     subdir.mkdir()
@@ -238,7 +249,7 @@ def test_file_and_directories_artifacts_are_logged_and_downloaded_successfully_i
     with open(os.path.join(nested_path, "c.txt"), "w") as f:
         f.write("C")
 
-    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    repo = s3_artifact_repo
     repo.log_artifacts(subdir_path)
 
     # Download individual files and verify correctness of their contents
@@ -265,7 +276,7 @@ def test_file_and_directories_artifacts_are_logged_and_downloaded_successfully_i
 
 
 def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_batch(
-    s3_artifact_root, tmp_path
+    s3_artifact_repo, tmp_path
 ):
     subdir = tmp_path / "subdir"
     subdir.mkdir()
@@ -279,7 +290,7 @@ def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_ba
     with open(os.path.join(nested_path, "c.txt"), "w") as f:
         f.write("C")
 
-    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    repo = s3_artifact_repo
     repo.log_artifacts(subdir_path)
 
     root_artifacts_listing = sorted(
@@ -362,7 +373,7 @@ def test_get_s3_file_upload_extra_args_invalid_json():
         S3ArtifactRepository.get_s3_file_upload_extra_args()
 
 
-def test_delete_artifacts(s3_artifact_root, tmp_path):
+def test_delete_artifacts(s3_artifact_repo, tmp_path):
     subdir = tmp_path / "subdir"
     subdir.mkdir()
     subdir_path = str(subdir)
@@ -379,7 +390,7 @@ def test_delete_artifacts(s3_artifact_root, tmp_path):
     with open(path_c, "w") as f:
         f.write("col1,col2\n1,3\n2,4\n")
 
-    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    repo = s3_artifact_repo
     repo.log_artifacts(subdir_path)
 
     # confirm that artifacts are present
@@ -393,8 +404,8 @@ def test_delete_artifacts(s3_artifact_root, tmp_path):
     assert not tmpdir_objects
 
 
-def test_log_artifacts_in_parallel_when_necessary(s3_artifact_root, mock_s3_bucket, tmp_path):
-    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+def test_log_artifacts_in_parallel_when_necessary(s3_artifact_repo, mock_s3_bucket, tmp_path):
+    repo = s3_artifact_repo
 
     file_a_name = "a.txt"
     file_a_text = "A"
@@ -406,7 +417,12 @@ def test_log_artifacts_in_parallel_when_necessary(s3_artifact_root, mock_s3_buck
         f"{S3_ARTIFACT_REPOSITORY}._multipart_upload", return_value=None
     ) as multipart_upload_mock:
         repo.log_artifacts(tmp_path)
-        multipart_upload_mock.assert_called_once_with(ANY, ANY, mock_s3_bucket, "some/path/a.txt")
+        if repo._use_optimized:
+            multipart_upload_mock.assert_called_once_with(
+                ANY, ANY, mock_s3_bucket, "some/path/a.txt"
+            )
+        else:
+            multipart_upload_mock.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -414,9 +430,9 @@ def test_log_artifacts_in_parallel_when_necessary(s3_artifact_root, mock_s3_buck
     [(None, False), (100, False), (499_999_999, False), (500_000_000, True)],
 )
 def test_download_file_in_parallel_when_necessary(
-    s3_artifact_root, file_size, is_parallel_download
+    s3_artifact_repo, file_size, is_parallel_download
 ):
-    repo = get_artifact_repository(s3_artifact_root)
+    repo = s3_artifact_repo
     remote_file_path = "file_1.txt"
     list_artifacts_result = (
         [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)] if file_size else []
@@ -430,7 +446,7 @@ def test_download_file_in_parallel_when_necessary(
         f"{S3_ARTIFACT_REPOSITORY}._parallelized_download_from_cloud", return_value=None
     ) as parallel_download_mock:
         repo.download_artifacts("")
-        if is_parallel_download:
+        if is_parallel_download and repo._use_optimized:
             parallel_download_mock.assert_called_with(file_size, remote_file_path, ANY)
         else:
             download_mock.assert_called()

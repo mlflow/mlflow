@@ -15,6 +15,7 @@ class R2ArtifactRepository(S3ArtifactRepository):
             secret_access_key=secret_access_key,
             session_token=session_token,
             addressing_style="virtual",
+            use_optimized=True,
         )
 
     def parse_s3_compliant_uri(self, uri):

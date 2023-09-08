@@ -22,7 +22,7 @@ from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
     _complete_futures,
 )
-from mlflow.utils.file_utils import read_chunk
+from mlflow.utils.file_utils import read_chunk, relative_path_to_artifact_path
 from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
@@ -129,6 +129,7 @@ class S3ArtifactRepository(CloudArtifactRepository):
         secret_access_key=None,
         session_token=None,
         addressing_style="path",
+        use_optimized=False,
     ):
         super().__init__(artifact_uri)
         self._access_key_id = access_key_id
@@ -136,7 +137,8 @@ class S3ArtifactRepository(CloudArtifactRepository):
         self._session_token = session_token
         self._addressing_style = addressing_style
         self.bucket, self.bucket_path = self.parse_s3_compliant_uri(self.artifact_uri)
-        self.region_name = self._get_region_name()
+        self._use_optimized = use_optimized
+        self._region_name = self._get_region_name()
 
     def _get_region_name(self):
         temp_client = _get_s3_client(
@@ -153,7 +155,7 @@ class S3ArtifactRepository(CloudArtifactRepository):
             access_key_id=self._access_key_id,
             secret_access_key=self._secret_access_key,
             session_token=self._session_token,
-            region_name=self.region_name,
+            region_name=self._region_name,
         )
 
     def parse_s3_compliant_uri(self, uri):
@@ -187,6 +189,20 @@ class S3ArtifactRepository(CloudArtifactRepository):
         s3_client.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
 
     def log_artifact(self, local_file, artifact_path=None):
+        if self._use_optimized:
+            return self.log_artifact_optimized(local_file, artifact_path)
+        dest_path = self.bucket_path
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
+        self._upload_file(
+            s3_client=self._get_s3_client(),
+            local_file=local_file,
+            bucket=self.bucket,
+            key=dest_path,
+        )
+
+    def log_artifact_optimized(self, local_file, artifact_path=None):
         artifact_file_path = os.path.basename(local_file)
         if artifact_path:
             artifact_file_path = posixpath.join(artifact_path, artifact_file_path)
@@ -195,6 +211,28 @@ class S3ArtifactRepository(CloudArtifactRepository):
             src_file_path=local_file,
             artifact_file_path=artifact_file_path,
         )
+
+    def log_artifacts(self, local_dir, artifact_path=None):
+        if self._use_optimized:
+            return super().log_artifacts(local_dir, artifact_path)
+        dest_path = self.bucket_path
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+        s3_client = self._get_s3_client()
+        local_dir = os.path.abspath(local_dir)
+        for root, _, filenames in os.walk(local_dir):
+            upload_path = dest_path
+            if root != local_dir:
+                rel_path = os.path.relpath(root, local_dir)
+                rel_path = relative_path_to_artifact_path(rel_path)
+                upload_path = posixpath.join(dest_path, rel_path)
+            for f in filenames:
+                self._upload_file(
+                    s3_client=s3_client,
+                    local_file=os.path.join(root, f),
+                    bucket=self.bucket,
+                    key=posixpath.join(upload_path, f),
+                )
 
     def _get_write_credential_infos(self, remote_file_paths):
         """
@@ -341,6 +379,11 @@ class S3ArtifactRepository(CloudArtifactRepository):
             ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path))
             for path in remote_file_paths
         ]
+
+    def _download_file(self, remote_file_path, local_path):
+        if self._use_optimized:
+            return super()._download_file(remote_file_path, local_path)
+        self._download_from_cloud(remote_file_path, local_path)
 
     def _download_from_cloud(self, remote_file_path, local_path):
         s3_client = self._get_s3_client()
