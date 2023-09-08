@@ -36,6 +36,7 @@ def test_tf_mlflow_callback(log_every_epoch, log_every_n_steps):
         model.fit(
             data,
             label,
+            validation_data=(data, label),
             batch_size=4,
             epochs=2,
             callbacks=[mlflow_callback],

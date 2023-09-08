@@ -15,9 +15,11 @@ class MLflowLoggingCallback(keras.callbacks.Callback):
         log_every_epoch: bool, If True, log metrics every epoch. If False, log metrics every n
             steps.
         log_every_n_steps: int, log metrics every n steps. If None, log metrics every epoch.
+            Must be `None` if `log_every_epoch=True`.
 
-    Examples:
-        ```python
+    .. code-block:: python
+        :caption: Example
+
         from tensorflow import keras
         import mlflow
         import numpy as np
@@ -48,7 +50,6 @@ class MLflowLoggingCallback(keras.callbacks.Callback):
                 epochs=2,
                 callbacks=[MLflowMetricsLoggingCallback(run)],
             )
-        ```
     """
 
     def __init__(self, run, log_every_epoch=True, log_every_n_steps=None):
@@ -56,6 +57,11 @@ class MLflowLoggingCallback(keras.callbacks.Callback):
         self.log_every_epoch = log_every_epoch
         self.log_every_n_steps = log_every_n_steps
 
+        if log_every_epoch and log_every_n_steps is not None:
+            raise ValueError(
+                "`log_every_n_steps` must be None if `log_every_epoch=True`, received "
+                f"`log_every_epoch={log_every_epoch}` and `log_every_n_steps={log_every_n_steps}`."
+            )
         if not log_every_epoch and log_every_n_steps is None:
             raise ValueError(
                 "`log_every_n_steps` must be specified if `log_every_epoch=False`, received"
@@ -85,3 +91,12 @@ class MLflowLoggingCallback(keras.callbacks.Callback):
             return
         if (batch + 1) % self.log_every_n_steps == 0:
             self.metrics_logger.record_metrics(logs, batch)
+
+    def on_test_end(self, logs=None):
+        """Log validation metrics at validation end."""
+        if logs is None:
+            return
+        metrics = {}
+        for k, v in logs.items():
+            metrics["validation_" + k] = v
+        self.metrics_logger.record_metrics(metrics)
