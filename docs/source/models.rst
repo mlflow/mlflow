@@ -2516,7 +2516,7 @@ Example: Log a LangChain LLMChain
 .. code-block:: python
     :caption: Output
 
-    [{'text': '\n\nSocktastic Rainbow Wear'}]
+    [{'text': '\n\nColorful Cozy Creations.'}]
 
 Example: Log a LangChain Agent
 
@@ -2551,7 +2551,7 @@ Example: Log a LangChain RetrievalQA Chain
 .. code-block:: python
     :caption: Output (truncated)
 
-    [{'result': " The president said that Ketanji Brown Jackson..."}]
+    [{'result': " The president said..."}]
 
 .. _log-retriever-chain:
 
@@ -2574,9 +2574,20 @@ Example: Log a LangChain Retriever
 
 .. code-block:: python
     :caption: Output (truncated)
-    :caption: NOTE: returned as a string because the langchain Document object is not serializable
+    :caption: NOTE: unpacked object because the langchain Document object is not serializable
 
-    ['["Tonight. I call on the Senate to: Pass the Freedom to Vote Act..."]']
+    [
+        [
+            {
+                "page_content": "Tonight. I call...",
+                "metadata": {"source": "/state.txt"},
+            },
+            {
+                "page_content": "A former top...",
+                "metadata": {"source": "/state.txt"},
+            },
+        ]
+    ]
 
 
 John Snow Labs (``johnsnowlabs``) (Experimental)
