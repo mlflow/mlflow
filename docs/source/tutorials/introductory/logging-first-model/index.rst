@@ -10,23 +10,23 @@ tracking server, and finally, we'll build towards logging our first model in MLf
 
 We'll be focusing on:
 
-* Starting an MLflow Tracking Server
+* Setting up an environment for the MLflow Tracking Server and the MLflow UI
+* Exploring the MlflowClient (briefly)
 * Understanding the Default Experiment
 * Searching Experiments
+* Understanding the uses of tags and how to leverage them for model organization
 * Creating an Experiment that will encapsulate the runs that we will be initiating.
-* Creating a series of runs that will be used to store individual iterations of training in our Experiment.
-* Logging metrics, parameters, and tags to our runs.
-* Storing our model artifacts to these runs.
-* Viewing our Experiment and its Runs within the MLflow UI.
-
+* Learning how to log metrics, parameters, and a model artifact to a run.
+* Viewing our Experiment and our first Run within the MLflow UI.
 
 .. toctree::
-    :hidden:
+    :maxdepth: 1
+    :caption: If you would like to navigate directly to a topic within this tutorial, each link below will bring you to the relevant section:
 
-    step1-tracking-server
-    step2-mlflow-client
-    step3-create-experiment
-    step4-experiment-search
-    step5-synthetic-data
-    step6-logging-a-run
-    notebooks/index
+    Setting up our environment to use MLflow <step1-tracking-server>
+    Getting familiar with the MLflow Client API and the Default Experiment <step2-mlflow-client>
+    Creating your first Experiment <step3-create-experiment>
+    Learning to search experiments and how to use custom tags <step4-experiment-search>
+    Generating a test data set for training <step5-synthetic-data>
+    Logging your first model to MLflow <step6-logging-a-run>
+    A full end-to-end example Notebook <notebooks/index>
