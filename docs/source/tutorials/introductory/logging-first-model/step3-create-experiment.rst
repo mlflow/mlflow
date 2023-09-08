@@ -60,16 +60,27 @@ to the same experiment. For other hierarchical categorizations, using tags is ad
 
 **Example**:
 
-Consider the following structure:
+Consider the following structure of the models, mapped to the business product hierarchy:
 
-- **Demand Forecasting Project**
-    - **Produce Department**
-        - Apples
-        - Cherries
-        - Carrots
-    - **Dairy Department**
-        - Milk
-        - Cheese
+.. container:: hierarchy-container
+
+    .. raw:: html
+
+        <div class="hierarchy-item">Demand Forecasting Project</div>
+        <div class="hierarchy-item level-1">Dairy</div>
+        <div class="hierarchy-item level-2">Cheese</div>
+        <div class="hierarchy-item level-3">Parmesan</div>
+        <div class="hierarchy-item level-3">Cheddar</div>
+        <div class="hierarchy-item level-2">Milk</div>
+        <div class="hierarchy-item level-3">Whole</div>
+        <div class="hierarchy-item level-3">2%</div>
+        <div class="hierarchy-item level-1">Produce</div>
+        <div class="hierarchy-item level-2">Fruit</div>
+        <div class="hierarchy-item level-3">Apples</div>
+        <div class="hierarchy-item level-3">Cherries</div>
+        <div class="hierarchy-item level-2">Vegetables</div>
+        <div class="hierarchy-item level-3">Carrots</div>
+
 
 Here, the `produce` and `dairy` departments are part of the same overarching project, but they rely
 on distinct datasets and will likely produce different model metrics. Grouping the departments together
@@ -79,6 +90,12 @@ However, the temptation might arise to group all produce together. Grouping dive
 cherries, and carrots under a single experiment could dilute the effectiveness of run comparisons
 within that experiment. Thus, it's essential to demarcate clear boundaries for your experiments
 to ensure meaningful insights.
+
+.. note:: While the business product hierarchy in this case doesn't explicitly need to be captured within
+    the tags, there is nothing preventing you from doing so. There isn't a limit to the number of tags
+    that you can apply. Provided that the keys being used are consistent across experiments and runs to
+    permit search to function properly, any number of arbitrary mappings between tracked models and your
+    specific business rules can be applied.
 
 To apply these boundaries effectively, as is shown in the figure below, tags should be employed.
 
@@ -117,85 +134,7 @@ Creating the Apples Experiment with Meaningful tags
             tags=experiment_tags
         )
 
-Seeing our new Experiment in the UI
------------------------------------
-Now that we've used the client to create an Experiment, let's navigate to the UI to see it!
 
-.. figure:: ../../../_static/images/tutorials/introductory/logging-first-model/first-experiment-ui.gif
-   :width: 1024px
-   :align: center
-   :alt: View our new experiment in the UI
-
-   The "Apple_Models" Experiment in the MLflow UI
-
-Important components to be aware of in the UI
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-There are some important elements in the UI to be aware of at this point, before we start adding more exciting things like runs to
-our new experiment. Note the annotated elements on the figure below. It will be useful to know that these bits of data are there later on.
-
-.. figure:: ../../../_static/images/tutorials/introductory/logging-first-model/experiment-page-elements.svg
-   :width: 1024px
-   :align: center
-   :alt: Important Data on the Experiment View Page
-
-   Key elements of the Experiments view page
-
-
-
-Searching based on tags
------------------------
-
-One of the more versatile uses of setting ``tags`` within Experiments is to enable searching for
-related Experiments based on a common tag. The filtering capabilities within the ``search_experiments`` API
-can be seen below, where we are searching for experiments whose custom ``project_name`` tag exactly matches
-``grocery-forecasting``.
-
-Note that the format that is used for the search filtering has some nuance to it. For named entities (for instance,
-here, the ``tags`` term in the beginning of the filter string), keys can be directly used. However, to reference custom
-tags that
-
-.. code-section::
-    .. code-block:: python
-        :caption: Search for experiments that match one of our tags
-
-        # Use search_experiments() to search on the project_name tag key
-
-        apples_experiment = client.search_experiments(
-            filter_string="tags.`project_name` = 'grocery-forecasting'"
-        )
-
-        print(vars(apples_experiment[0]))
-
-.. code-block:: bash
-    :caption: The metadata associated with a created Experiment
-
-    <Experiment: artifact_location='mlflow-artifacts:/926031323154788454',
-                 creation_time=1694018173427,
-                 experiment_id='926031323154788454',
-                 last_update_time=1694018173427,
-                 lifecycle_stage='active',
-                 name='Apple_Models',
-                 tags={
-                    'mlflow.note.content': 'This is the grocery forecasting project. This '
-                            'experiment contains the produce models for apples.',
-                    'project_name': 'grocery-forecasting',
-                    'project_quarter': 'Q3-2023',
-                    'team': 'stores-ml'}
-    >
-
-.. note::
-    The returned results above are formatted for legibility. This return type is an ``Experiment`` object, not a ``dict``.
-
-
-Running it
-----------
-
-.. figure:: ../../../_static/images/tutorials/introductory/logging-first-model/creating-experiment.gif
-   :width: 1024px
-   :align: center
-   :alt: Creating a new Experiment
-
-   Creating a new Experiment and searching based on an Experiment tag
-
-In the next section, we'll begin to use this experiment to log training data to runs that are associated with this experiment, introducing
-another aspect of both the MLflow APIs (the fluent API) and another part of the MLflow UI (the run information page).
+In the next section, we'll take a look at what these tags can be used for, which are visible in the UI,
+and how we can leverage the power of ``tags`` to simplify access to experiments that are part of a
+larger project.
