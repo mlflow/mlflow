@@ -883,7 +883,7 @@ def test_param_spec_to_and_from_dict():
     assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
 
 
-def test_param_spec_from_dict_back_compat():
+def test_param_spec_from_dict_backward_compatibility():
     spec = ParamSpec("str_param", DataType.string, "str_a", None)
     spec_json = json.dumps(
         {
