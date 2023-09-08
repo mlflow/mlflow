@@ -1917,7 +1917,7 @@ def log_model(
 
         .. code-block:: python
 
-            from typing import List, Dict
+            from typing import List
             import mlflow
 
 
@@ -1926,9 +1926,13 @@ def log_model(
                     return [i.upper() for i in model_input]
 
 
-            mlflow.pyfunc.save_model("model", python_model=MyModel(), input_example=["a"])
-            model = mlflow.pyfunc.load_model("model")
-            print(model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
+            my_model = MyModel()
+            with mlflow.start_run():
+                model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=my_model)
+
+
+            loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+            print(loaded_model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
 
         Functional model
 
