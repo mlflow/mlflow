@@ -52,13 +52,7 @@ def pandas_df_with_all_types():
 
 @pytest.fixture
 def df_without_columns():
-    return pd.DataFrame(
-        {
-            0: [1, 2, 3],
-            1: [4, 5, 6],
-            2: [7, 8, 9]
-        }
-    )
+    return pd.DataFrame({0: [1, 2, 3], 1: [4, 5, 6], 2: [7, 8, 9]})
 
 
 @pytest.fixture
