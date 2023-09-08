@@ -1926,9 +1926,8 @@ def log_model(
                     return [i.upper() for i in model_input]
 
 
-            my_model = MyModel()
             with mlflow.start_run():
-                model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=my_model)
+                model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=MyModel())
 
 
             loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
