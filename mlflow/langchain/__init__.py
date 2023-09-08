@@ -526,10 +526,17 @@ def log_model(
             ColSpec(type=DataType.string, name=input_key) for input_key in lc_model.input_keys
         ]
         input_schema = Schema(input_columns)
+
         output_columns = [
             ColSpec(type=DataType.string, name=output_key) for output_key in lc_model.output_keys
         ]
         output_schema = Schema(output_columns)
+
+        # empty output schema if multiple output_keys fix later!
+        # https://databricks.atlassian.net/browse/ML-34706
+        if len(lc_model.output_keys) > 1:
+            output_schema = None
+
         signature = ModelSignature(input_schema, output_schema)
 
     return Model.log(

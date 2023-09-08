@@ -80,24 +80,20 @@ class APIRequest:
     # add more formats here if other langchain objects don't serialize
     def _prepare_to_serialize(self, response: dict):
         if "intermediate_steps" in response:
-            response["intermediate_steps"] = json.dumps(
-                [
-                    {
-                        "tool": agent.tool,
-                        "tool_input": agent.tool_input,
-                        "log": agent.log,
-                        "result": result,
-                    }
-                    for agent, result in response["intermediate_steps"]
-                ]
-            )
+            response["intermediate_steps"] = [
+                {
+                    "tool": agent.tool,
+                    "tool_input": agent.tool_input,
+                    "log": agent.log,
+                    "result": result,
+                }
+                for agent, result in response["intermediate_steps"]
+            ]
         if "source_documents" in response:
-            response["source_documents"] = json.dumps(
-                [
-                    {"page_content": doc.page_content, "metadata": doc.metadata}
-                    for doc in response["source_documents"]
-                ]
-            )
+            response["source_documents"] = [
+                {"page_content": doc.page_content, "metadata": doc.metadata}
+                for doc in response["source_documents"]
+            ]
 
     def call_api(self, status_tracker: StatusTracker):
         """
@@ -110,8 +106,9 @@ class APIRequest:
             if isinstance(self.lc_model, BaseRetriever):
                 # Retrievers are invoked differently than Chains
                 docs = self.lc_model.get_relevant_documents(**self.request_json)
-                list_of_str_page_content = [doc.page_content for doc in docs]
-                response = json.dumps(list_of_str_page_content)
+                response = [
+                    {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
+                ]
             else:
                 response = self.lc_model(self.request_json, return_only_outputs=True)
                 self._prepare_to_serialize(response)
