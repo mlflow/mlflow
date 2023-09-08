@@ -81,7 +81,8 @@ class SystemMetricsMonitor:
                     _logger.warning(f"MLflow: failed to get mlflow run: {e}.")
                     return
                 if run.info.status != "RUNNING" or self._shutdown_event.is_set():
-                    # If the mlflow run is terminated or receives the shutdown signal, stop monitoring.
+                    # If the mlflow run is terminated or receives the shutdown signal, stop
+                    # monitoring.
                     return
             metrics = self.aggregate_metrics()
             try:

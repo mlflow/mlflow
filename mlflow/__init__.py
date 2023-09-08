@@ -114,8 +114,8 @@ from mlflow.models import evaluate
 from mlflow.projects import run
 from mlflow.system_metrics import (
     disable_system_metrics_logging,
-    set_system_metrics_sampling_interval,
     set_system_metrics_samples_before_logging,
+    set_system_metrics_sampling_interval,
 )
 from mlflow.tracking import (
     get_registry_uri,

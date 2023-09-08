@@ -5,12 +5,12 @@ import sys
 
 from mlflow.system_metrics.metrics.base_metrics_monitor import BaseMetricsMonitor
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 try:
     import pynvml
 except ImportError:
-    logger.warning(
+    _logger.warning(
         "`GPUMonitor` requires pynvml package. To install, run `pip install pynvml`. Skip "
         "logging GPU metrics."
     )
@@ -29,7 +29,7 @@ class GPUMonitor(BaseMetricsMonitor):
             # `nvmlInit()` will fail if no GPU is found.
             pynvml.nvmlInit()
         except pynvml.NVMLError as e:
-            logger.warning(f"Failed to initialize NVML, skip logging GPU metrics: {e}")
+            _logger.warning(f"Failed to initialize NVML, skip logging GPU metrics: {e}")
             return
         return super().__new__(cls, *args, **kwargs)
 

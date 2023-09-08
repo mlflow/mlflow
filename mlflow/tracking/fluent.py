@@ -371,22 +371,22 @@ def start_run(
             tags=resolved_tags,
             run_name=run_name,
         )
+        include_system_metrics = (
+            os.environ.get("MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING", "False") == "False"
+            and include_system_metrics
+        )
+        if include_system_metrics:
+            try:
+                from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
 
-    include_system_metrics = (
-        os.environ.get("MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING", "False") == "False"
-        and include_system_metrics
-    )
-    if include_system_metrics:
-        try:
-            from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
+                system_monitor = SystemMetricsMonitor(active_run_obj)
+                global run_id_to_system_metrics_monitor
 
-            system_monitor = SystemMetricsMonitor(active_run_obj)
-            global run_id_to_system_metrics_monitor
+                run_id_to_system_metrics_monitor[active_run_obj.info.run_id] = system_monitor
+                system_monitor.start()
+            except Exception as e:
+                _logger.error(f"Cannot start system metrics monitoring: {e}.")
 
-            run_id_to_system_metrics_monitor[active_run_obj.info.run_id] = system_monitor
-            system_monitor.start()
-        except Exception as e:
-            _logger.error(f"Cannot start system metrics monitoring: {e}.")
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
 
