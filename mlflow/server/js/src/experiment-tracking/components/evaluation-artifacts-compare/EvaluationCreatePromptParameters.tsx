@@ -19,7 +19,7 @@ export const EvaluationCreatePromptParameters = ({
   parameters: {
     temperature: number;
     max_tokens: number;
-    stop: string[] | undefined;
+    stop?: string[] | undefined;
   };
   updateParameter: (name: string, value: number | string[]) => void;
 }) => {
