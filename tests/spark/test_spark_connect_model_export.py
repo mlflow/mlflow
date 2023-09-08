@@ -170,7 +170,7 @@ def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run):
 
 
 def test_model_load_from_remote_uri_succeeds(spark_model_iris, model_path, mock_s3_bucket):
-    mlflow.sklearn.save_model(spark_model_iris.model, path=model_path)
+    sparkm.save_model(spark_model_iris.model, path=model_path)
 
     artifact_root = f"s3://{mock_s3_bucket}"
     artifact_path = "model"
@@ -330,7 +330,9 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     artifact_path = "model"
     with mlflow.start_run():
         sparkm.log_model(
-            spark_model_iris, artifact_path=artifact_path, conda_env=spark_connect_model_custom_env
+            spark_model_iris.model,
+            artifact_path=artifact_path,
+            conda_env=spark_connect_model_custom_env,
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
@@ -382,6 +384,10 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 
 def test_pyfunc_serve_and_score(spark_model_iris):
+    input_data = pd.DataFrame({
+        "features": spark_model_iris.pandas_df.features.map(lambda x: x.tolist())
+    })
+
     artifact_path = "model"
     with mlflow.start_run():
         sparkm.log_model(spark_model_iris.model, artifact_path)
@@ -389,7 +395,7 @@ def test_pyfunc_serve_and_score(spark_model_iris):
 
     resp = pyfunc_serve_and_score_model(
         model_uri,
-        data=spark_model_iris.pandas_df,
+        data=input_data,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
