@@ -3,7 +3,6 @@ import os
 import posixpath
 import shutil
 import subprocess
-from unittest import mock
 
 import click
 import pytest
