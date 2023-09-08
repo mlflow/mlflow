@@ -532,7 +532,7 @@ def log_model(
         ]
         output_schema = Schema(output_columns)
 
-        # empty output schema if multiple output_keys fix later!
+        # TODO: empty output schema if multiple output_keys. fix later!
         # https://databricks.atlassian.net/browse/ML-34706
         if len(lc_model.output_keys) > 1:
             output_schema = None

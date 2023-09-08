@@ -230,7 +230,7 @@ def test_langchain_model_predict():
             logged_model = mlflow.langchain.log_model(model, "langchain_model")
         loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
         result = loaded_model.predict([{"product": "MLflow"}])
-        assert result == [{model.output_key: TEST_CONTENT}]
+        assert result == [TEST_CONTENT]
 
 
 def test_pyfunc_spark_udf_with_langchain_model(spark):
@@ -285,9 +285,7 @@ def test_langchain_agent_model_predict():
     }
     with _mock_request(return_value=_MockResponse(200, langchain_agent_output)):
         result = loaded_model.predict([langchain_input])
-        assert result == [{"output": TEST_CONTENT}]
-        # hardcoded output key because that is the default for an agent
-        # but it is not an attribute of the agent or anything that we log
+        assert result == [TEST_CONTENT]
 
     inference_payload = json.dumps({"inputs": langchain_input})
     langchain_agent_output_serving = {"predictions": langchain_agent_output}
@@ -366,7 +364,7 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     langchain_input = {"query": "What did the president say about Ketanji Brown Jackson"}
-    langchain_output = [{loaded_model.output_key: TEST_CONTENT}]
+    langchain_output = [TEST_CONTENT]
     result = loaded_pyfunc_model.predict([langchain_input])
     assert result == langchain_output
 

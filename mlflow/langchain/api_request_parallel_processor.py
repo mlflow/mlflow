@@ -110,7 +110,12 @@ class APIRequest:
                 ]
             else:
                 response = self.lc_model(self.request_json, return_only_outputs=True)
-                self._prepare_to_serialize(response)
+
+                # to maintain existing code, single output chains will still return only the result
+                if len(response) == 1:
+                    response = response.popitem()[1]
+                else:
+                    self._prepare_to_serialize(response)
 
             _logger.debug(f"Request #{self.index} succeeded")
             status_tracker.complete_task(success=True)
