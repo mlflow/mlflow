@@ -7,6 +7,8 @@ Tracking Server and the MLflow UI. This guide will walk you through the steps to
 Setting Up MLflow
 -----------------
 
+The first thing that we need to do is to get MLflow.
+
 Step 1: Install MLflow from PyPI
 --------------------------------
 

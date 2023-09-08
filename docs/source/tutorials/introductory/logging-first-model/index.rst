@@ -26,4 +26,7 @@ We'll be focusing on:
     step1-tracking-server
     step2-mlflow-client
     step3-create-experiment
-    step4-logging-a-run
+    step4-experiment-search
+    step5-synthetic-data
+    step6-logging-a-run
+    notebooks/index
