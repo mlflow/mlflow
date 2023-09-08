@@ -20,26 +20,31 @@ Quickstart
 
 The following guide will get you started with MLflow's UI for prompt engineering.
 
-Step 1: Create an AI Gateway Completions Route
-----------------------------------------------
+Step 1: Create an AI Gateway Completions or Chat Route
+------------------------------------------------------
 To use the prompt engineering UI, you need to create one or more :ref:`AI Gateway <gateway>`
-completions :ref:`Routes <routes>`. Follow the
+completions or chat :ref:`Routes <routes>`. Follow the
 :ref:`AI Gateway Quickstart guide <gateway-quickstart>` to easily create a Route in less than five
-minutes. If you already have access to an AI Gateway Route of type ``llm/v1/completions``, you can
-skip this step.
+minutes. If you already have access to an AI Gateway Route of type ``llm/v1/completions``
+or ``llm/v1/chat``, you can skip this step.
+
+.. code-block:: bash
+
+   mlflow gateway start --config-path config.yaml --port 7000
+
 
 Step 2: Connect the AI Gateway to your MLflow Tracking Server
 -------------------------------------------------------------
 The prompt engineering UI also requires a connection between the AI Gateway and the MLflow
 Tracking Server. To connect the AI Gateway with the MLflow Tracking Server, simply set the
-``MLFLOW_AI_GATEWAY`` environment variable in the environment where the server is running and
+``MLFLOW_GATEWAY_URI`` environment variable in the environment where the server is running and
 restart the server. For example, if the AI Gateway is running at ``http://localhost:7000``, you
 can start an MLflow Tracking Server in a shell on your local machine and connect it to the
 AI Gateway using the :ref:`mlflow server <cli>` command as follows:
 
 .. code-block:: bash
 
-   export MLFLOW_AI_GATEWAY="http://localhost:7000"
+   export MLFLOW_GATEWAY_URI="http://localhost:7000"
    mlflow server --port 5000
 
 Step 3: Create or find an MLflow Experiment
@@ -73,7 +78,7 @@ for generating product advertisements.
 MLflow will embed the specified *stock_type* input
 variable value - ``"books"`` - into the specfied *prompt  template* and send it to the LLM
 associated with the AI Gateway route with the configured *temperature* (currently ``0.01``)
-and *max_tokens* (currently empty). The LLM response will appear in the *Output* section.
+and *max_tokens* (currently 1000). The LLM response will appear in the *Output* section.
 
 .. figure:: ../_static/images/prompt_modal_2.png
    :scale: 25%
@@ -85,15 +90,17 @@ Replace the prompt template from the previous step with a prompt template of you
 Prompts can define multiple variables. For example, you can use the following prompt template
 to instruct the LLM to answer questions about the MLflow documentation:
 
-*Read the following article from the MLflow documentation that appears between triple
-backticks. Then, answer the question about the documentation that appears between triple quotes.
-Include relevant links and code examples in your answer.*
+.. code-block::
 
-*```{{article}}```*
+   Read the following article from the MLflow documentation that appears between triple
+   backticks. Then, answer the question about the documentation that appears between triple quotes.
+   Include relevant links and code examples in your answer.
 
-*"""*
-*{{question}}*
-*"""*
+   ```{{article}}```
+
+   """
+   {{question}}
+   """
 
 Then, fill in the input variables. For example, in the MLflow documentation
 use case, the *article* input variable can be set to the contents of
@@ -177,12 +184,15 @@ specified article.
    menu. For example, in the MLflow documentation use case, adding the following text to
    the prompt template helps improve robustness to irrelevant questions:
 
-    *If the question does not relate to the article, respond exactly with the phrase*
-    *"I do not know how to answer that question." Do not include any additional text in your response.*
+   .. code-block::
 
-    .. figure:: ../_static/images/duplicate_run.png
-       :scale: 40%
-       :align: center
+      If the question does not relate to the article, respond exactly with the phrase
+      "I do not know how to answer that question." Do not include any additional text in your
+      response.
+
+   .. figure:: ../_static/images/duplicate_run.png
+      :scale: 40%
+      :align: center
 
 2. Then, from the prompt engineering playground, adjust the prompt template (and / or choice of
    LLM and parameters), evaluate an input, and click the **Create Run** button to create a new Run.
@@ -330,7 +340,7 @@ can deploy the corresponding MLflow Model for real-time serving as follows:
           ]
       }'
 
-      echo $sample_input | curl \
+      echo $input | curl \
         -s \
         -X POST \
         https://localhost:8000/invocations
