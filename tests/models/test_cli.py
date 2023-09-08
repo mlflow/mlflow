@@ -762,6 +762,7 @@ def test_host_invalid_value():
 
 def test_change_conda_env_root_location(tmp_path, sk_model):
     def _test_model(env_root_path, model_path, sklearn_ver):
+        env_root_path.mkdir(exist_ok=True)
         env = get_flavor_backend(
             str(model_path),
             env_manager=_EnvManager.CONDA,
@@ -788,10 +789,7 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
         shutil.rmtree(env_path)
 
     env_root1_path = tmp_path / "root1"
-    env_root1_path.mkdir()
-
     env_root2_path = tmp_path / "root2"
-    env_root2_path.mkdir()
 
     # Test with model1_path
     model1_path = tmp_path / "model1"
