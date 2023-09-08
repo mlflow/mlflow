@@ -1,3 +1,6 @@
+import os
+
+import requests
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
@@ -145,7 +148,7 @@ class OpenAIProvider(BaseProvider):
             }
         )
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    def _prepare_completion_request_payload(self, payload):
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         if "n" in payload:
@@ -159,6 +162,43 @@ class OpenAIProvider(BaseProvider):
         # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
         payload["temperature"] = 2 * payload["temperature"]
         payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
+        return payload
+
+    def _prepare_completion_response_payload(self, resp):
+        return completions.ResponsePayload(
+            **{
+                "candidates": [
+                    {
+                        "text": c["message"]["content"],
+                        "metadata": {"finish_reason": c["finish_reason"]},
+                    }
+                    for c in resp["choices"]
+                ],
+                "metadata": {
+                    "input_tokens": resp["usage"]["prompt_tokens"],
+                    "output_tokens": resp["usage"]["completion_tokens"],
+                    "total_tokens": resp["usage"]["total_tokens"],
+                    "model": resp["model"],
+                    "route_type": self.config.route_type,
+                },
+            }
+        )
+
+    def sync_completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        payload = self._prepare_completion_request_payload(payload)
+
+        # use python requests instead of aiohttp
+        resp = requests.post(
+            url=os.path.join(self._request_base_url, "chat/completions"),
+            headers=self._request_headers,
+            json=self._add_model_to_payload_if_necessary(payload),
+        ).json()
+
+        return self._prepare_completion_response_payload(resp)
+
+    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        payload = self._prepare_completion_request_payload(payload)
+
         resp = await send_request(
             headers=self._request_headers,
             base_url=self._request_base_url,
@@ -187,24 +227,7 @@ class OpenAIProvider(BaseProvider):
         #   }
         # }
         # ```
-        return completions.ResponsePayload(
-            **{
-                "candidates": [
-                    {
-                        "text": c["message"]["content"],
-                        "metadata": {"finish_reason": c["finish_reason"]},
-                    }
-                    for c in resp["choices"]
-                ],
-                "metadata": {
-                    "input_tokens": resp["usage"]["prompt_tokens"],
-                    "output_tokens": resp["usage"]["completion_tokens"],
-                    "total_tokens": resp["usage"]["total_tokens"],
-                    "model": resp["model"],
-                    "route_type": self.config.route_type,
-                },
-            }
-        )
+        return self._prepare_completion_response_payload(resp)
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         payload = rename_payload_keys(
