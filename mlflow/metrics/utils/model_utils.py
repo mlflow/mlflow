@@ -18,7 +18,7 @@ def score_model_on_payload(model_uri, payload):
         return _call_openai_api(suffix, payload)
     elif prefix == "gateway":
         return _call_gateway_api(suffix, payload)
-    elif prefix == "model" or prefix == "runs":
+    elif prefix in ("model", "runs"):
         # TODO: call _load_model_or_server
         raise NotImplementedError
     else:
@@ -45,8 +45,6 @@ def _call_openai_api(openai_uri, payload):
     from mlflow.gateway.config import RouteConfig
     from mlflow.gateway.providers.openai import OpenAIProvider
 
-    model_name = openai_uri
-
     if "OPENAI_API_KEY" not in os.environ:
         raise MlflowException(
             "OPENAI_API_KEY environment variable not set",
@@ -57,7 +55,7 @@ def _call_openai_api(openai_uri, payload):
         name="openai",
         route_type=ROUTE_TYPE,
         model={
-            "name": model_name,
+            "name": openai_uri,
             "provider": "openai",
             "config": {"openai_api_key": os.environ["OPENAI_API_KEY"]},
         },
