@@ -804,7 +804,6 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
 
     # Test with model2_path
     model2_path = tmp_path / "model2"
-    mlflow.sklearn.save_model(sk_model, str(model2_path), pip_requirements=["scikit-learn==1.0.2"])
     _test_model(env_root1_path, model2_path, "1.0.2")
 
 
