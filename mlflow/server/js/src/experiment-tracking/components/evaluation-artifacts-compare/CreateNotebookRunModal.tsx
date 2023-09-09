@@ -121,7 +121,7 @@ export const CreateNotebookRunModal = ({
             />
           </Typography.Title>
           <Typography.Hint css={{ marginTop: 0, fontWeight: 'normal' }}>
-            Run this code snippet in a Databricks notebook or locally, to create an experiment run
+            Run this code snippet in a notebook or locally, to create an experiment run
           </Typography.Hint>
         </div>
       }

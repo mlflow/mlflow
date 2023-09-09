@@ -59,14 +59,13 @@ const parameterDefinitions: {
 const DEFAULT_PARAMETER_VALUES = {
   temperature: 0.01,
   max_tokens: 100,
-  stop: undefined,
 };
 
 export const usePromptEvaluationParameters = () => {
   const [parameters, updateParameters] = useState<{
     temperature: number;
     max_tokens: number;
-    stop: string[] | undefined;
+    stop?: string[] | undefined;
   }>(DEFAULT_PARAMETER_VALUES);
 
   const updateParameter = useCallback((name: string, value: number | string[]) => {
