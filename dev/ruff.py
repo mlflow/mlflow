@@ -15,15 +15,22 @@ def get_rule_name(code: str) -> str:
     return json.loads(out)["name"]
 
 
-def transform(stdout: str) -> str:
+def transform(stdout: str, is_maintainer: bool) -> str:
     transformed = []
     for line in stdout.splitlines():
         if m := MESSAGE_REGEX.match(line):
             if m.group(2) is not None:
-                line = f"{line}. Fixable via `ruff --fix .`."
+                command = (
+                    "`ruff --fix .` or comment `@mlflow-automation autoformat`"
+                    if is_maintainer
+                    else "`ruff --fix .`"
+                )
+                line = f"{line}. Run {command} to fix this error."
             else:
                 name = get_rule_name(m.group(1))
-                line = f"{line}. See https://beta.ruff.rs/docs/rules/{name} for details."
+                line = (
+                    f"{line}. See https://beta.ruff.rs/docs/rules/{name} for how to fix this error."
+                )
         transformed.append(line)
     return "\n".join(transformed)
 
@@ -40,7 +47,8 @@ def main():
             text=True,
         ) as prc:
             stdout, stderr = prc.communicate()
-            sys.stdout.write(transform(stdout))
+            is_maintainer = os.environ.get("IS_MAINTAINER", "false").lower() == "true"
+            sys.stdout.write(transform(stdout, is_maintainer))
             sys.stderr.write(stderr)
             sys.exit(prc.returncode)
     else:

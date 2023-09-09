@@ -431,14 +431,20 @@ def __example_tf_dataset(batch_size):
 
 
 class __ExampleSequence(tf.keras.utils.Sequence):
-    def __init__(self, batch_size):
+    def __init__(self, batch_size, with_sample_weights=False):
         self.batch_size = batch_size
+        self.with_sample_weights = with_sample_weights
 
     def __len__(self):
         return 10
 
     def __getitem__(self, idx):
-        return np.array([idx] * self.batch_size), np.array([-idx] * self.batch_size)
+        x = np.array([idx] * self.batch_size)
+        y = np.array([-idx] * self.batch_size)
+        if self.with_sample_weights:
+            w = np.array([1] * self.batch_size)
+            return x, y, w
+        return x, y
 
 
 def __generator(data, target, batch_size):
@@ -470,6 +476,7 @@ class __GeneratorClass:
     [
         __example_tf_dataset,
         __ExampleSequence,
+        functools.partial(__ExampleSequence, with_sample_weights=True),
         functools.partial(__generator, np.array([[1]] * 10), np.array([[1]] * 10)),
         functools.partial(__GeneratorClass, np.array([[1]] * 10), np.array([[1]] * 10)),
     ],

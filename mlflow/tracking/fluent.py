@@ -93,7 +93,7 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> Ex
     :return: An instance of :py:class:`mlflow.entities.Experiment` representing the new active
              experiment.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -102,10 +102,10 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> Ex
         experiment = mlflow.set_experiment("Social NLP Experiments")
 
         # Get Experiment Details
-        print("Experiment_id: {}".format(experiment.experiment_id))
-        print("Artifact Location: {}".format(experiment.artifact_location))
-        print("Tags: {}".format(experiment.tags))
-        print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+        print(f"Experiment_id: {experiment.experiment_id}")
+        print(f"Artifact Location: {experiment.artifact_location}")
+        print(f"Tags: {experiment.tags}")
+        print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
 
     .. code-block:: text
         :caption: Output
@@ -229,7 +229,7 @@ def start_run(
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -253,14 +253,14 @@ def start_run(
 
         print("parent run:")
 
-        print("run_id: {}".format(parent_run.info.run_id))
+        print(f"run_id: {parent_run.info.run_id}")
         print("description: {}".format(parent_run.data.tags.get("mlflow.note.content")))
         print("version tag value: {}".format(parent_run.data.tags.get("version")))
         print("priority tag value: {}".format(parent_run.data.tags.get("priority")))
         print("--")
 
         # Search all child runs with a parent id
-        query = "tags.mlflow.parentRunId = '{}'".format(parent_run.info.run_id)
+        query = f"tags.mlflow.parentRunId = '{parent_run.info.run_id}'"
         results = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=query)
         print("child runs:")
         print(results[["run_id", "params.child", "tags.mlflow.runName"]])
@@ -373,7 +373,7 @@ def start_run(
 def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
     """End an active MLflow run (if there is one).
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -381,16 +381,16 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
         # Start run and get status
         mlflow.start_run()
         run = mlflow.active_run()
-        print("run_id: {}; status: {}".format(run.info.run_id, run.info.status))
+        print(f"run_id: {run.info.run_id}; status: {run.info.status}")
 
         # End run and get status
         mlflow.end_run()
         run = mlflow.get_run(run.info.run_id)
-        print("run_id: {}; status: {}".format(run.info.run_id, run.info.status))
+        print(f"run_id: {run.info.run_id}; status: {run.info.status}")
         print("--")
 
         # Check for any active runs
-        print("Active run: {}".format(mlflow.active_run()))
+        print(f"Active run: {mlflow.active_run()}")
 
     .. code-block:: text
         :caption: Output
@@ -424,14 +424,14 @@ def active_run() -> Optional[ActiveRun]:
     (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order
     to access such attributes, use the :py:class:`mlflow.client.MlflowClient` as follows:
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
 
         mlflow.start_run()
         run = mlflow.active_run()
-        print("Active run_id: {}".format(run.info.run_id))
+        print(f"Active run_id: {run.info.run_id}")
         mlflow.end_run()
 
     .. code-block:: text
@@ -448,7 +448,7 @@ def last_active_run() -> Optional[Run]:
 
     Examples:
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: To retrieve the most recent autologged run:
 
         import mlflow
@@ -470,7 +470,7 @@ def last_active_run() -> Optional[Run]:
         predictions = rf.predict(X_test)
         autolog_run = mlflow.last_active_run()
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: To get the most recently active run that ended:
 
         import mlflow
@@ -479,7 +479,7 @@ def last_active_run() -> Optional[Run]:
         mlflow.end_run()
         run = mlflow.last_active_run()
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: To retrieve the currently active run:
 
         import mlflow
@@ -516,7 +516,7 @@ def get_run(run_id: str) -> Run:
     :return: A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
                 raises an exception.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -526,9 +526,7 @@ def get_run(run_id: str) -> Run:
 
         run_id = run.info.run_id
         print(
-            "run_id: {}; lifecycle_stage: {}".format(
-                run_id, mlflow.get_run(run_id).info.lifecycle_stage
-            )
+            f"run_id: {run_id}; lifecycle_stage: {mlflow.get_run(run_id).info.lifecycle_stage}"
         )
 
     .. code-block:: text
@@ -548,7 +546,7 @@ def get_parent_run(run_id: str) -> Optional[Run]:
     :return: A single :py:class:`mlflow.entities.Run` object, if the parent run exists. Otherwise,
                 returns None.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -560,8 +558,8 @@ def get_parent_run(run_id: str) -> Optional[Run]:
 
         parent_run = mlflow.get_parent_run(child_run_id)
 
-        print("child_run_id: {}".format(child_run_id))
-        print("parent_run_id: {}".format(parent_run.info.run_id))
+        print(f"child_run_id: {child_run_id}")
+        print(f"parent_run_id: {parent_run.info.run_id}")
 
     .. code-block:: text
         :caption: Output
@@ -587,7 +585,7 @@ def log_param(key: str, value: Any) -> Any:
 
     :return: the parameter value that is logged.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -612,7 +610,7 @@ def set_experiment_tag(key: str, value: Any) -> None:
                   All backend stores will support values up to length 5000, but some
                   may support larger values.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -637,7 +635,7 @@ def set_tag(key: str, value: Any) -> None:
                   All backend stores will support values up to length 5000, but some
                   may support larger values.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -656,7 +654,7 @@ def delete_tag(key: str) -> None:
 
     :param key: Name of the tag
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -689,7 +687,7 @@ def log_metric(key: str, value: float, step: Optional[int] = None) -> None:
                   may support larger values.
     :param step: Metric step (int). Defaults to zero if unspecified.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -715,7 +713,7 @@ def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
 
     :returns: None
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -741,7 +739,7 @@ def log_params(params: Dict[str, Any]) -> None:
                    not)
     :returns: None
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -770,7 +768,7 @@ def log_input(
     :param tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
     :returns: None
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import numpy as np
@@ -801,7 +799,7 @@ def set_experiment_tags(tags: Dict[str, Any]) -> None:
 
     :param tags: Dictionary containing tag names and corresponding values.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -829,7 +827,7 @@ def set_tags(tags: Dict[str, Any]) -> None:
                  not)
     :returns: None
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -857,7 +855,7 @@ def log_artifact(local_path: str, artifact_path: Optional[str] = None) -> None:
     :param local_path: Path to the file to write.
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -884,7 +882,7 @@ def log_artifacts(local_dir: str, artifact_path: Optional[str] = None) -> None:
     :param local_dir: Path to the directory of files to write.
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import json
@@ -918,7 +916,7 @@ def log_text(text: str, artifact_file: str) -> None:
     :param artifact_file: The run-relative artifact file path in posixpath format to which
                           the text is saved (e.g. "dir/file.txt").
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -948,7 +946,7 @@ def log_dict(dictionary: Dict[str, Any], artifact_file: str) -> None:
     :param artifact_file: The run-relative artifact file path in posixpath format to which
                           the dictionary is saved (e.g. "dir/data.json").
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -994,7 +992,7 @@ def log_figure(
                           the figure is saved (e.g. "dir/file.png").
     :param save_kwargs: Additional keyword arguments passed to the method that saves the figure.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Matplotlib Example
 
         import mlflow
@@ -1006,7 +1004,7 @@ def log_figure(
         with mlflow.start_run():
             mlflow.log_figure(fig, "figure.png")
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Plotly Example
 
         import mlflow
@@ -1058,7 +1056,7 @@ def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: s
     :param artifact_file: The run-relative artifact file path in posixpath format to which
                           the image is saved (e.g. "dir/image.png").
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Numpy Example
 
         import mlflow
@@ -1069,7 +1067,7 @@ def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: s
         with mlflow.start_run():
             mlflow.log_image(image, "image.png")
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Pillow Example
 
         import mlflow
@@ -1098,7 +1096,7 @@ def log_table(
                               the table is saved (e.g. "dir/file.json").
     :return: None
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Dictionary Example
 
         import mlflow
@@ -1113,7 +1111,7 @@ def log_table(
             # Log the dictionary as a table
             mlflow.log_table(data=table_dict, artifact_file="qabot_eval_results.json")
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Pandas DF Example
 
         import mlflow
@@ -1156,7 +1154,7 @@ def load_table(
     :return: pandas.DataFrame containing the loaded table if the artifact exists
              or else throw a MlflowException.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example with passing run_ids
 
         import mlflow
@@ -1179,7 +1177,7 @@ def load_table(
             extra_columns=["run_id"],
         )
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example with passing no run_ids
 
         # Loads the table with the specified name for all runs in the given
@@ -1218,17 +1216,17 @@ def get_experiment(experiment_id: str) -> Experiment:
     :param experiment_id: The string-ified experiment ID returned from ``create_experiment``.
     :return: :py:class:`mlflow.entities.Experiment`
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
 
         experiment = mlflow.get_experiment("0")
-        print("Name: {}".format(experiment.name))
-        print("Artifact Location: {}".format(experiment.artifact_location))
-        print("Tags: {}".format(experiment.tags))
-        print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
-        print("Creation timestamp: {}".format(experiment.creation_time))
+        print(f"Name: {experiment.name}")
+        print(f"Artifact Location: {experiment.artifact_location}")
+        print(f"Tags: {experiment.tags}")
+        print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+        print(f"Creation timestamp: {experiment.creation_time}")
 
     .. code-block:: text
         :caption: Output
@@ -1250,18 +1248,18 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
     :return: An instance of :py:class:`mlflow.entities.Experiment`
              if an experiment with the specified name exists, otherwise None.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
 
         # Case sensitive name
         experiment = mlflow.get_experiment_by_name("Default")
-        print("Experiment_id: {}".format(experiment.experiment_id))
-        print("Artifact Location: {}".format(experiment.artifact_location))
-        print("Tags: {}".format(experiment.tags))
-        print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
-        print("Creation timestamp: {}".format(experiment.creation_time))
+        print(f"Experiment_id: {experiment.experiment_id}")
+        print(f"Artifact Location: {experiment.artifact_location}")
+        print(f"Tags: {experiment.tags}")
+        print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+        print(f"Creation timestamp: {experiment.creation_time}")
 
     .. code-block:: text
         :caption: Output
@@ -1329,7 +1327,7 @@ def search_experiments(
 
     :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -1407,7 +1405,7 @@ def create_experiment(
                             tags on the experiment.
     :return: String ID of the created experiment.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -1420,12 +1418,12 @@ def create_experiment(
             tags={"version": "v1", "priority": "P1"},
         )
         experiment = mlflow.get_experiment(experiment_id)
-        print("Name: {}".format(experiment.name))
-        print("Experiment_id: {}".format(experiment.experiment_id))
-        print("Artifact Location: {}".format(experiment.artifact_location))
-        print("Tags: {}".format(experiment.tags))
-        print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
-        print("Creation timestamp: {}".format(experiment.creation_time))
+        print(f"Name: {experiment.name}")
+        print(f"Experiment_id: {experiment.experiment_id}")
+        print(f"Artifact Location: {experiment.artifact_location}")
+        print(f"Tags: {experiment.tags}")
+        print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+        print(f"Creation timestamp: {experiment.creation_time}")
 
     .. code-block:: text
         :caption: Output
@@ -1446,7 +1444,7 @@ def delete_experiment(experiment_id: str) -> None:
 
     :param experiment_id: The The string-ified experiment ID returned from ``create_experiment``.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -1456,10 +1454,10 @@ def delete_experiment(experiment_id: str) -> None:
 
         # Examine the deleted experiment details.
         experiment = mlflow.get_experiment(experiment_id)
-        print("Name: {}".format(experiment.name))
-        print("Artifact Location: {}".format(experiment.artifact_location))
-        print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
-        print("Last Updated timestamp: {}".format(experiment.last_update_time))
+        print(f"Name: {experiment.name}")
+        print(f"Artifact Location: {experiment.artifact_location}")
+        print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+        print(f"Last Updated timestamp: {experiment.last_update_time}")
     .. code-block:: text
         :caption: Output
 
@@ -1477,7 +1475,7 @@ def delete_run(run_id: str) -> None:
 
     :param run_id: Unique identifier for the run to delete.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -1489,9 +1487,7 @@ def delete_run(run_id: str) -> None:
         mlflow.delete_run(run_id)
 
         print(
-            "run_id: {}; lifecycle_stage: {}".format(
-                run_id, mlflow.get_run(run_id).info.lifecycle_stage
-            )
+            f"run_id: {run_id}; lifecycle_stage: {mlflow.get_run(run_id).info.lifecycle_stage}"
         )
 
     .. code-block:: text
@@ -1521,7 +1517,7 @@ def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
              is not provided and the currently active run uses an S3-backed store, this may be a
              URI of the form ``s3://<bucket_name>/path/to/artifact/root``.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -1536,11 +1532,11 @@ def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
 
             # Fetch the artifact uri root directory
             artifact_uri = mlflow.get_artifact_uri()
-            print("Artifact uri: {}".format(artifact_uri))
+            print(f"Artifact uri: {artifact_uri}")
 
             # Fetch a specific artifact uri
             artifact_uri = mlflow.get_artifact_uri(artifact_path="features/features.txt")
-            print("Artifact uri: {}".format(artifact_uri))
+            print(f"Artifact uri: {artifact_uri}")
 
     .. code-block:: text
         :caption: Output
@@ -1596,7 +1592,7 @@ def search_runs(
              the value for the corresponding column is (NumPy) ``Nan``, ``None``, or ``None``
              respectively.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -1833,7 +1829,7 @@ def autolog(
     Note that framework-specific configurations set at any point will take precedence over
     any configurations set by this function. For example:
 
-    .. test-code-block:: python
+    .. testcode:: python
 
         import mlflow
 
@@ -1843,7 +1839,7 @@ def autolog(
     would enable autologging for `sklearn` with `log_models=False` and `exclusive=True`,
     but
 
-    .. test-code-block:: python
+    .. testcode:: python
 
         import mlflow
 
@@ -1889,7 +1885,7 @@ def autolog(
                    autologging setup and training execution.
     :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import numpy as np
@@ -1901,11 +1897,11 @@ def autolog(
         def print_auto_logged_info(r):
             tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
             artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
-            print("run_id: {}".format(r.info.run_id))
-            print("artifacts: {}".format(artifacts))
-            print("params: {}".format(r.data.params))
-            print("metrics: {}".format(r.data.metrics))
-            print("tags: {}".format(tags))
+            print(f"run_id: {r.info.run_id}")
+            print(f"artifacts: {artifacts}")
+            print(f"params: {r.data.params}")
+            print(f"metrics: {r.data.metrics}")
+            print(f"tags: {tags}")
 
 
         # prepare training data

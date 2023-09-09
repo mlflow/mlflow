@@ -22,6 +22,7 @@ _logger = logging.getLogger(__name__)
 
 # NOTE: The MLMODEL_FILE_NAME constant is considered @developer_stable
 MLMODEL_FILE_NAME = "MLmodel"
+_DATABRICKS_FS_LOADER_MODULE = "databricks.feature_store.mlflow_model"
 _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "Logging model metadata to the tracking server has failed. The model artifacts "
     "have been logged successfully under %s. Set logging level to DEBUG via "
@@ -631,7 +632,7 @@ def get_model_info(model_uri: str) -> ModelInfo:
                 mlflow.log_params(params)
                 mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
-            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            model_uri = f"runs:/{run.info.run_id}/sklearn-model"
             # Get model info with model_uri
             model_info = mlflow.models.get_model_info(model_uri)
             # Get model signature directly

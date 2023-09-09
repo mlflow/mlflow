@@ -40,7 +40,7 @@ def register_model(
     :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
              backend.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow.sklearn
@@ -59,10 +59,10 @@ def register_model(
             mlflow.log_params(params)
             mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
-        model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+        model_uri = f"runs:/{run.info.run_id}/sklearn-model"
         mv = mlflow.register_model(model_uri, "RandomForestRegressionModel")
-        print("Name: {}".format(mv.name))
-        print("Version: {}".format(mv.version))
+        print(f"Name: {mv.name}")
+        print(f"Version: {mv.version}")
 
     .. code-block:: text
         :caption: Output
@@ -154,7 +154,7 @@ def search_registered_models(
     :return: A list of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
              that satisfy the search expressions.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -178,7 +178,7 @@ def search_registered_models(
         print("-" * 80)
         for res in results:
             for mv in res.latest_versions:
-                print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
+                print(f"name={mv.name}; run_id={mv.run_id}; version={mv.version}")
 
         # Get search results filtered by the registered model name that matches
         # prefix pattern
@@ -187,14 +187,14 @@ def search_registered_models(
         print("-" * 80)
         for res in results:
             for mv in res.latest_versions:
-                print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
+                print(f"name={mv.name}; run_id={mv.run_id}; version={mv.version}")
 
         # Get all registered models and order them by ascending order of the names
         results = mlflow.search_registered_models(order_by=["name ASC"])
         print("-" * 80)
         for res in results:
             for mv in res.latest_versions:
-                print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
+                print(f"name={mv.name}; run_id={mv.run_id}; version={mv.version}")
 
     .. code-block:: text
         :caption: Output
@@ -261,7 +261,7 @@ def search_model_versions(
     :return: A list of :py:class:`mlflow.entities.model_registry.ModelVersion` objects
             that satisfy the search expressions.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -280,14 +280,14 @@ def search_model_versions(
         results = mlflow.search_model_versions(filter_string=filter_string)
         print("-" * 80)
         for res in results:
-            print("name={}; run_id={}; version={}".format(res.name, res.run_id, res.version))
+            print(f"name={res.name}; run_id={res.run_id}; version={res.version}")
 
         # Get the version of the model filtered by run_id
         filter_string = "run_id = 'ae9a606a12834c04a8ef1006d0cff779'"
         results = mlflow.search_model_versions(filter_string=filter_string)
         print("-" * 80)
         for res in results:
-            print("name={}; run_id={}; version={}".format(res.name, res.run_id, res.version))
+            print(f"name={res.name}; run_id={res.run_id}; version={res.version}")
 
     .. code-block:: text
         :caption: Output

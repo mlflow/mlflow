@@ -9,7 +9,7 @@ import React from 'react';
 import { ModelVersionView, ModelVersionViewImpl } from './ModelVersionView';
 import { mockModelVersionDetailed } from '../test-utils';
 import { Stages, ModelVersionStatus, ACTIVE_STAGES } from '../constants';
-import { MemoryRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import Utils from '../../common/utils/Utils';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';

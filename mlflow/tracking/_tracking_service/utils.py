@@ -51,14 +51,14 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
                   "databricks://<profileName>".
                 - A :py:class:`pathlib.Path` instance
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
 
         mlflow.set_tracking_uri("file:///tmp/my_tracking")
         tracking_uri = mlflow.get_tracking_uri()
-        print("Current tracking uri: {}".format(tracking_uri))
+        print(f"Current tracking uri: {tracking_uri}")
 
     .. code-block:: text
         :caption: Output
@@ -109,7 +109,7 @@ def get_tracking_uri() -> str:
 
         # Get the current tracking uri
         tracking_uri = mlflow.get_tracking_uri()
-        print("Current tracking uri: {}".format(tracking_uri))
+        print(f"Current tracking uri: {tracking_uri}")
 
     .. code-block:: text
         :caption: Output

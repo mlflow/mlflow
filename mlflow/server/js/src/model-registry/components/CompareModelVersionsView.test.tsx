@@ -11,7 +11,7 @@ import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import configureStore from 'redux-mock-store';
 import { Provider } from 'react-redux';
-import { MemoryRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { RunInfo } from '../../experiment-tracking/sdk/MlflowMessages';
 import { mountWithIntl } from '../../common/utils/TestUtils';
 

@@ -1210,7 +1210,7 @@ def autolog(
                 ):
                     batch_size = training_data._batch_size.numpy()
                 elif isinstance(training_data, tensorflow.keras.utils.Sequence):
-                    first_batch_inputs, _ = training_data[0]
+                    first_batch_inputs, *_ = training_data[0]
                     if is_single_input_model:
                         batch_size = len(first_batch_inputs)
                     else:

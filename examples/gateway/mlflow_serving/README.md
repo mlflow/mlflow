@@ -197,22 +197,22 @@ class MPT(mlflow.pyfunc.PythonModel):
     def load_context(self, context):
         """
         This method initializes the tokenizer and language model
-        using the specified model repository.
+        using the specified model snapshot directory.
         """
         # Initialize tokenizer and language model
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(
-            context.artifacts["repository"], padding_side="left"
+            context.artifacts["snapshot"], padding_side="left"
         )
 
         config = transformers.AutoConfig.from_pretrained(
-            context.artifacts["repository"], trust_remote_code=True
+            context.artifacts["snapshot"], trust_remote_code=True
         )
         # Comment out this configuration setting if not running on a GPU or if triton is not installed.
         # Note that triton dramatically improves the inference speed performance
         config.attn_config["attn_impl"] = "triton"
 
         self.model = transformers.AutoModelForCausalLM.from_pretrained(
-            context.artifacts["repository"],
+            context.artifacts["snapshot"],
             config=config,
             torch_dtype=torch.bfloat16,
             trust_remote_code=True,
@@ -242,7 +242,7 @@ class MPT(mlflow.pyfunc.PythonModel):
         {RESPONSE_KEY}
         """
 
-    def predict(self, context, model_input):
+    def predict(self, context, model_input, params=None):
         """
         This method generates prediction for the given input.
         """
@@ -305,7 +305,7 @@ with mlflow.start_run():
     mlflow.pyfunc.log_model(
         "mpt-7b-instruct",
         python_model=MPT(),
-        artifacts={"repository": snapshot_location},
+        artifacts={"snapshot": snapshot_location},
         pip_requirements=[
             "torch",
             "transformers",

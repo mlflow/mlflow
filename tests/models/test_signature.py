@@ -11,7 +11,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, infer_signature, set_signature
 from mlflow.models.model import get_model_info
 from mlflow.types import DataType
-from mlflow.types.schema import ColSpec, Schema, TensorSpec
+from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
 
 
 def test_model_signature_with_colspec():
@@ -130,6 +130,27 @@ def test_signature_inference_infers_input_and_output_as_expected():
     assert sig1.outputs == sig0.inputs
 
 
+def test_infer_signature_on_list_of_dictionaries():
+    signature = infer_signature(
+        model_input=[{"query": "test query"}],
+        model_output=[
+            {
+                "output": "Output from the LLM",
+                "candidate_ids": ["412", "1233"],
+                "candidate_sources": ["file1.md", "file201.md"],
+            }
+        ],
+    )
+    assert signature.inputs == Schema([ColSpec(DataType.string, name="query")])
+    assert signature.outputs == Schema(
+        [
+            ColSpec(DataType.string, name="output"),
+            ColSpec(DataType.string, name="candidate_ids"),
+            ColSpec(DataType.string, name="candidate_sources"),
+        ]
+    )
+
+
 def test_signature_inference_infers_datime_types_as_expected():
     col_name = "datetime_col"
     test_datetime = np.datetime64("2021-01-01")
@@ -198,3 +219,38 @@ def test_cannot_set_signature_on_models_scheme_uris():
         MlflowException, match="Model URIs with the `models:/` scheme are not supported."
     ):
         set_signature("models:/dummy_model@champion", signature)
+
+
+def test_signature_construction():
+    signature = ModelSignature(inputs=Schema([ColSpec(DataType.binary)]))
+    assert signature.to_dict() == {
+        "inputs": '[{"type": "binary"}]',
+        "outputs": None,
+        "params": None,
+    }
+
+    signature = ModelSignature(outputs=Schema([ColSpec(DataType.double)]))
+    assert signature.to_dict() == {
+        "inputs": None,
+        "outputs": '[{"type": "double"}]',
+        "params": None,
+    }
+
+    signature = ModelSignature(params=ParamSchema([ParamSpec("param1", DataType.string, "test")]))
+    assert signature.to_dict() == {
+        "inputs": None,
+        "outputs": None,
+        "params": '[{"name": "param1", "type": "string", "default": "test", "shape": null}]',
+    }
+
+
+def test_signature_with_errors():
+    with pytest.raises(
+        TypeError, match=r"inputs must be either None or mlflow.models.signature.Schema"
+    ):
+        ModelSignature(inputs=1)
+
+    with pytest.raises(
+        ValueError, match=r"At least one of inputs, outputs or params must be provided"
+    ):
+        ModelSignature()

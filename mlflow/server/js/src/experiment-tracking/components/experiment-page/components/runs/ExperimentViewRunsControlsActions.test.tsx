@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { ReactWrapper } from 'enzyme';
 import { IntlProvider } from 'react-intl';
 import { Provider } from 'react-redux';
-import { MemoryRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
 import { applyMiddleware, compose, createStore } from 'redux';
 import promiseMiddleware from 'redux-promise-middleware';
 import { mountWithIntl } from '../../../../../common/utils/TestUtils';
@@ -56,13 +56,8 @@ const doMock = (additionalProps: Partial<ExperimentViewRunsControlsActionsProps>
 
     const props: ExperimentViewRunsControlsActionsProps = {
       runsData: MOCK_RUNS_DATA,
-      updateSearchFacets,
       searchFacetsState,
       viewState: DEFAULT_VIEW_STATE,
-      updateViewState: () => {},
-      sortOptions: [],
-      expandRows: false,
-      updateExpandRows: () => {},
       ...additionalProps,
     };
     return (
@@ -102,17 +97,6 @@ describe('ExperimentViewRunsControlsFilters', () => {
     expect(wrapper).toBeTruthy();
   });
 
-  test('should hide compare and delete buttons when no runs are selected', () => {
-    const { wrapper } = doMock();
-
-    const { deleteButton, compareButton, renameButton } = getActionButtons(wrapper);
-
-    // All buttons should be hidden
-    expect(deleteButton.length).toBe(0);
-    expect(compareButton.length).toBe(0);
-    expect(renameButton.length).toBe(0);
-  });
-
   test('should enable delete buttons when there is single row selected', () => {
     const { wrapper } = doMock({
       viewState: {
@@ -121,6 +105,7 @@ describe('ExperimentViewRunsControlsFilters', () => {
         columnSelectorVisible: false,
         previewPaneVisible: false,
         artifactViewState: {},
+        viewMaximized: false,
       },
     });
 
@@ -145,6 +130,7 @@ describe('ExperimentViewRunsControlsFilters', () => {
         columnSelectorVisible: false,
         previewPaneVisible: false,
         artifactViewState: {},
+        viewMaximized: false,
       },
     });
 
@@ -169,6 +155,7 @@ describe('ExperimentViewRunsControlsFilters', () => {
         columnSelectorVisible: false,
         previewPaneVisible: false,
         artifactViewState: {},
+        viewMaximized: false,
       },
     });
 
@@ -184,6 +171,7 @@ describe('ExperimentViewRunsControlsFilters', () => {
         columnSelectorVisible: false,
         previewPaneVisible: false,
         artifactViewState: {},
+        viewMaximized: false,
       },
     });
 

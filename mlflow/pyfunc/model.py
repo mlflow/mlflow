@@ -6,9 +6,9 @@ models with a user-defined ``PythonModel`` subclass.
 import inspect
 import logging
 import os
-import posixpath
 import shutil
 from abc import ABCMeta, abstractmethod
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import cloudpickle
@@ -195,11 +195,14 @@ def _save_model_with_class_artifacts_params(
     :param python_model: An instance of a subclass of :class:`~PythonModel`. ``python_model``
                         defines how the model loads artifacts and how it performs inference.
     :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries.
-                      Remote artifact URIs
-                      are resolved to absolute filesystem paths, producing a dictionary of
-                      ``<name, absolute_path>`` entries. ``python_model`` can reference these
-                      resolved entries as the ``artifacts`` property of the ``context``
-                      attribute. If ``None``, no artifacts are added to the model.
+                      Remote artifact URIs are resolved to absolute filesystem paths, producing
+                      a dictionary of ``<name, absolute_path>`` entries,
+                      (e.g. {"file": "aboslute_path"}). ``python_model`` can reference these
+                      resolved entries as the ``artifacts`` property of the ``context`` attribute.
+                      If ``<artifact_name, 'hf:/repo_id'>``(e.g. {"bert-tiny-model":
+                      "hf:/prajjwal1/bert-tiny"}) is provided, then the model can be fetched from
+                      huggingface hub using repo_id `prajjwal1/bert-tiny` directly.
+                      If ``None``, no artifacts are added to the model.
     :param conda_env: Either a dictionary representation of a Conda environment or the
                       path to a Conda environment yaml file. If provided, this decsribes the
                       environment this model should be run in. At minimum, it should specify
@@ -227,17 +230,50 @@ def _save_model_with_class_artifacts_params(
     if artifacts:
         saved_artifacts_config = {}
         with TempDir() as tmp_artifacts_dir:
-            tmp_artifacts_config = {}
             saved_artifacts_dir_subpath = "artifacts"
+            hf_prefix = "hf:/"
             for artifact_name, artifact_uri in artifacts.items():
-                tmp_artifact_path = _download_artifact_from_uri(
-                    artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
-                )
-                tmp_artifacts_config[artifact_name] = tmp_artifact_path
-                saved_artifact_subpath = posixpath.join(
-                    saved_artifacts_dir_subpath,
-                    os.path.relpath(path=tmp_artifact_path, start=tmp_artifacts_dir.path()),
-                )
+                if artifact_uri.startswith(hf_prefix):
+                    try:
+                        from huggingface_hub import snapshot_download
+                    except ImportError as e:
+                        raise MlflowException(
+                            "Failed to import huggingface_hub. Please install huggingface_hub "
+                            f"to log the model with artifact_uri {artifact_uri}. Error: {e}"
+                        )
+
+                    repo_id = artifact_uri[len(hf_prefix) :]
+                    try:
+                        snapshot_location = snapshot_download(
+                            repo_id=repo_id,
+                            local_dir=os.path.join(
+                                path, saved_artifacts_dir_subpath, artifact_name
+                            ),
+                            local_dir_use_symlinks=False,
+                        )
+                    except Exception as e:
+                        raise MlflowException.invalid_parameter_value(
+                            "Failed to download snapshot from Hugging Face Hub with artifact_uri: "
+                            f"{artifact_uri}. Error: {e}"
+                        )
+                    saved_artifact_subpath = (
+                        Path(snapshot_location).relative_to(Path(os.path.realpath(path))).as_posix()
+                    )
+                else:
+                    tmp_artifact_path = _download_artifact_from_uri(
+                        artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
+                    )
+
+                    relative_path = (
+                        Path(tmp_artifact_path)
+                        .relative_to(Path(tmp_artifacts_dir.path()))
+                        .as_posix()
+                    )
+
+                    saved_artifact_subpath = os.path.join(
+                        saved_artifacts_dir_subpath, relative_path
+                    )
+
                 saved_artifacts_config[artifact_name] = {
                     CONFIG_KEY_ARTIFACT_RELATIVE_PATH: saved_artifact_subpath,
                     CONFIG_KEY_ARTIFACT_URI: artifact_uri,

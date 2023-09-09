@@ -18,12 +18,18 @@ import {
   normalizeChartValue,
   useDynamicPlotSize,
 } from './CompareRunsCharts.common';
+import { EMA } from '../../MetricsPlotView';
 
 export interface CompareRunsMetricsLinePlotProps extends CompareRunsCommonPlotProps {
   /**
    * Determines which metric are we comparing by
    */
   metricKey: string;
+
+  /**
+   * Smoothing factor for EMA
+   */
+  lineSmoothness?: number;
 
   /**
    * Y axis mode
@@ -91,6 +97,7 @@ export const CompareRunsMetricsLinePlot = React.memo(
     metricKey,
     scaleType = 'linear',
     xAxisKey = 'step',
+    lineSmoothness = 70,
     className,
     margin = compareRunsChartDefaultMargin,
     lineShape = 'spline',
@@ -113,7 +120,10 @@ export const CompareRunsMetricsLinePlot = React.memo(
               name: runEntry.runInfo.run_name,
               x: prepareMetricHistoryByAxisType(runEntry.metricsHistory[metricKey], xAxisKey),
               // The actual value is on Y axis
-              y: runEntry.metricsHistory[metricKey]?.map((e) => normalizeChartValue(e.value)),
+              y: EMA(
+                runEntry.metricsHistory[metricKey]?.map((e) => normalizeChartValue(e.value)),
+                lineSmoothness,
+              ),
               hovertext: runEntry.runInfo.run_name,
               text: 'x',
               textposition: 'outside',
@@ -135,7 +145,7 @@ export const CompareRunsMetricsLinePlot = React.memo(
 
           return {};
         }),
-      [runsData, lineShape, xAxisKey, metricKey, useDefaultHoverBox],
+      [runsData, lineShape, xAxisKey, lineSmoothness, metricKey, useDefaultHoverBox],
     );
 
     const { layoutHeight, layoutWidth, setContainerDiv, containerDiv, isDynamicSizeSupported } =
