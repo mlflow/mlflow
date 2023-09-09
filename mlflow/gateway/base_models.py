@@ -33,3 +33,12 @@ class ConfigModel(
     A pydantic model representing Gateway configuration data, such as an OpenAI completions
     route definition including route name, model name, API keys, etc.
     """
+
+class LimitModel(
+    BaseModel,
+    # Ignore extra fields for pydantic limit models, since they are unused
+    extra="ignore",
+):
+    """
+    A pydantic model representing Gateway Limit data, such as renewal period, limit key, limit value, etc.
+    """
