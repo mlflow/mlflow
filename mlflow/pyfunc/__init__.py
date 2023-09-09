@@ -477,7 +477,7 @@ class PyFuncModel:
 
         :return: The underlying wrapped model object
 
-        .. test-code-block:: python
+        .. testcode:: python
             :caption: Example
 
             import mlflow
