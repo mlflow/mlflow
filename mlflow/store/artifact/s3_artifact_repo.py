@@ -71,9 +71,14 @@ def _cached_get_s3_client(
 
 
 def _get_s3_client(
-    addressing_style="path", access_key_id=None, secret_access_key=None, session_token=None
+    addressing_style="path",
+    access_key_id=None,
+    secret_access_key=None,
+    session_token=None,
+    s3_endpoint_url=None,
 ):
-    s3_endpoint_url = MLFLOW_S3_ENDPOINT_URL.get()
+    if not s3_endpoint_url:
+        s3_endpoint_url = MLFLOW_S3_ENDPOINT_URL.get()
     do_verify = not MLFLOW_S3_IGNORE_TLS.get()
 
     # The valid verify argument value is None/False/path to cert bundle file, See
@@ -111,7 +116,7 @@ class S3ArtifactRepository(ArtifactRepository):
         self._secret_access_key = secret_access_key
         self._session_token = session_token
 
-    def _get_s3_client(self, addressing_style="path"):
+    def _get_s3_client(self, addressing_style="path", s3_endpoint_url=None):
         return _get_s3_client(
             addressing_style=addressing_style,
             access_key_id=self._access_key_id,

@@ -32,3 +32,11 @@ def test_s3_client_config_set_correctly(r2_artifact_root):
 
     s3_client = repo._get_s3_client()
     assert s3_client.meta.config.s3.get("addressing_style") == "virtual"
+
+
+def test_convert_r2_uri_to_s3_endpoint_url(r2_artifact_root):
+    artifact_uri = posixpath.join(r2_artifact_root, "some/path")
+    repo = get_artifact_repository(artifact_uri)
+
+    s3_endpoint_url = repo.convert_r2_uri_to_s3_endpoint_url(r2_artifact_root)
+    assert s3_endpoint_url == "https://account.r2.cloudflarestorage.com"
