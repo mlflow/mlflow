@@ -30,7 +30,7 @@ pip install scikit-learn xgboost shap>=0.40 matplotlib
 
 Run in this directory with Python.
 
-```
+```sh
 python evaluate_on_binary_classifier.py
 python evaluate_on_multiclass_classifier.py
 python evaluate_on_regressor.py
