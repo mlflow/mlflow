@@ -522,7 +522,7 @@ def get_run(run_id: str) -> Run:
         import mlflow
 
         with mlflow.start_run() as run:
-            mlflow.log_param('p', 0)
+            mlflow.log_param("p", 0)
 
         run_id = run.info.run_id
         print(
