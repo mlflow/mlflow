@@ -39,7 +39,7 @@ def _func():           # <- obj_line
 
     Docstring            <- obj_line + offset + extra_offset
 
-    .. test-code-block:: <- obj_line + offset + extra_offset + lineno_in_docstring
+    .. testcode:: <- obj_line + offset + extra_offset + lineno_in_docstring
         ...
     """
     pass
@@ -92,7 +92,7 @@ class TestCodeBlockDirective(CodeBlock):
 
 
 def setup(app):
-    app.add_directive("test-code-block", TestCodeBlockDirective)
+    app.add_directive("testcode", TestCodeBlockDirective)
     return {
         "version": "builtin",
         "parallel_read_safe": False,
