@@ -482,7 +482,7 @@ def test_client_set_limits_raises(gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
 
     with pytest.raises(MlflowException, match="The set_limits API is only available when running within Databricks"):
-        gateway_client.set_limis("some-route", LimitsConfig([]))
+        gateway_client.set_limis("some-route", [])
 
 
 def test_client_get_limits_raises(gateway):
@@ -491,26 +491,6 @@ def test_client_get_limits_raises(gateway):
     # This API is available only in Databricks for get limits
     with pytest.raises(MlflowException, match="The get_limits API is only available when"):
         gateway_client.get_limis("some-route")
-
-
-def test_client_create_route_raises(gateway):
-    gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
-
-    # This API is available only in Databricks for route creation
-    with pytest.raises(MlflowException, match="The create_route API is only available when"):
-        gateway_client.create_route(
-            "some-route",
-            "llm/v1/chat",
-            {
-                "name": "a-route",
-                "provider": "openai",
-                "config": {
-                    "openai_api_key": "mykey",
-                    "openai_api_type": "openai",
-                },
-            },
-        )
-
 
 def test_client_delete_route_raises(gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)

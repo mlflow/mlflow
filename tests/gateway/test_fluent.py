@@ -248,7 +248,7 @@ def test_fluent_set_limits_raises(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     # This API is only available in Databricks
     with pytest.raises(MlflowException, match="The set_limits API is only available when"):
-        set_limits("some-route", LimitsConfig([]))
+        set_limits("some-route", [])
 
 
 def test_fluent_get_limits_raises(gateway):
