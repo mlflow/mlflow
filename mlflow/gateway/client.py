@@ -409,6 +409,6 @@ class MlflowGatewayClient:
                 "The get_limits API is only available when running within Databricks.",
                 error_code=BAD_REQUEST,
             )
-        route_uri = assemble_uri_path([MLFLOW_GATEWAY_CRUD_LIMITS_BASE, route])
+        route_uri = assemble_uri_path([MLFLOW_GATEWAY_LIMITS_BASE, route])
         response = self._call_endpoint("GET", route_uri).json()
         return LimitsConfig(**response)
