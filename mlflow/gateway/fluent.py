@@ -142,7 +142,7 @@ def set_limits(route: str, limits: LimitsConfig) -> LimitsConfig:
         This API is **only available** when running within Databricks.
 
     :param route: The name of the route to set limits on.
-    :param limits: The limitsConfig to set on the route.
+    :param limits: Limits to set on the route.
 
     Example usage from within Databricks:
 
@@ -152,7 +152,7 @@ def set_limits(route: str, limits: LimitsConfig) -> LimitsConfig:
 
         set_gateway_uri(gateway_uri="databricks")
 
-        set_limits("my-new-route", my_limits_config)
+        set_limits("my-new-route", [{"key": "user", "renewal_period": "minute", "calls": 50}])
 
     """
     return MlflowGatewayClient().set_limits(route=route, limits=limits)

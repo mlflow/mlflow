@@ -340,7 +340,7 @@ class MlflowGatewayClient:
                 raise e
 
     @experimental
-    def set_limits(self, route: str, limits_config: list[Dict[str, Any]] = []) -> LimitsConfig:
+    def set_limits(self, route: str, limits: list[Dict[str, Any]] = []) -> LimitsConfig:
         """
         Set limits on an existing route in the Gateway.
 
@@ -349,7 +349,7 @@ class MlflowGatewayClient:
             This API is **only available** when running within Databricks.
 
         :param route_name: The name of the route to set limits on.
-        :param limits_config: The limitsConfig to set on the route.
+        :param limits: Limits to set on the route.
 
         :raises mlflow.MlflowException: If the function is not running within Databricks.
 
@@ -361,7 +361,7 @@ class MlflowGatewayClient:
 
             set_gateway_uri(gateway_uri="databricks")
 
-            set_limits("my-new-route", my_limits_config)
+            set_limits("my-new-route", [{"key": "user", "renewal_period": "minute", "calls": 50}])
 
         """
 
@@ -372,7 +372,7 @@ class MlflowGatewayClient:
             )
         payload = {
             "route": route,
-            "limits": limits_config,
+            "limits": limits,
         }
 
         response = self._call_endpoint(
