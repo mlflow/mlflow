@@ -356,7 +356,7 @@ class GatewayConfig(ConfigModel):
 
 
 class LimitsConfig(ConfigModel):
-    limits: List[Limit]
+    limits: Optional[List[Limit]] = []
 
 
 def _load_route_config(path: Union[str, Path]) -> GatewayConfig:
