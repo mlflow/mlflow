@@ -4,7 +4,7 @@ from mlflow import log_param, log_text
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 
 
-class MLflowMetricsLoggingCallback(keras.callbacks.Callback):
+class MLflowLoggingCallback(keras.callbacks.Callback):
     """Callback for logging Keras Core training metrics to MLflow.
 
     This callback logs training metrics every epoch or every n steps (defined by the user) to
@@ -17,12 +17,11 @@ class MLflowMetricsLoggingCallback(keras.callbacks.Callback):
     Examples:
         ```python
         import keras_core as keras
-        import tensorflow as tf
         import mlflow
         import numpy as np
         # Prepare data for a 2-class classification.
-        data = tf.random.uniform([8, 28, 28, 3])
-        label = tf.convert_to_tensor(np.random.randint(2, size=8))
+        data = np.random.uniform([8, 28, 28, 3])
+        label = np.random.randint(2, size=8)
         model = keras.Sequential(
             [
                 keras.Input([28, 28, 3]),
@@ -46,8 +45,8 @@ class MLflowMetricsLoggingCallback(keras.callbacks.Callback):
         ```
     """
 
-    def __init__(self, run_id, log_every_epoch=True, log_every_n_steps=None):
-        self.metrics_logger = BatchMetricsLogger(run_id)
+    def __init__(self, run, log_every_epoch=True, log_every_n_steps=None):
+        self.metrics_logger = BatchMetricsLogger(run.info.run_id)
         self.log_every_epoch = log_every_epoch
         self.log_every_n_steps = log_every_n_steps
 
@@ -64,7 +63,11 @@ class MLflowMetricsLoggingCallback(keras.callbacks.Callback):
             log_param("optimizer_" + attribute, config[attribute])
 
         model_summary = []
-        self.model.summary(print_fn=model_summary.append)
+
+        def print_fn(line, **kwargs):
+            model_summary.append(line)
+
+        self.model.summary(print_fn=print_fn)
         summary = "\n".join(model_summary)
         log_text(summary, artifact_file="model_summary.txt")
 
