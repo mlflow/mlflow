@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 import requests.exceptions
 
 from mlflow import MlflowException
-from mlflow.gateway.config import Route, LimitsConfig, Limit
+from mlflow.gateway.config import Route, LimitsConfig
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
     MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
@@ -340,7 +340,7 @@ class MlflowGatewayClient:
                 raise e
 
     @experimental
-    def set_limits(self, route: str, limits_config: LimitsConfig) -> LimitsConfig:
+    def set_limits(self, route: str, limits_config: list[Dict[str, Any]] = []) -> LimitsConfig:
         """
         Set limits on an existing route in the Gateway.
 
@@ -372,7 +372,7 @@ class MlflowGatewayClient:
             )
         payload = {
             "route": route,
-            "limits": limits_config.limits,
+            "limits": limits_config,
         }
 
         response = self._call_endpoint(
