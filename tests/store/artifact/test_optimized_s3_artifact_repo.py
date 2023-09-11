@@ -15,8 +15,8 @@ from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3Artifact
 
 from tests.helper_functions import set_boto_credentials  # noqa: F401
 
-S3_REPOSITORY_PACKAGE = "mlflow.store.artifact.optimized_s3_artifact_repo"
-S3_ARTIFACT_REPOSITORY = f"{S3_REPOSITORY_PACKAGE}.OptimizedS3ArtifactRepository"
+S3_REPOSITORY_MODULE = "mlflow.store.artifact.optimized_s3_artifact_repo"
+S3_ARTIFACT_REPOSITORY = f"{S3_REPOSITORY_MODULE}.OptimizedS3ArtifactRepository"
 
 
 @pytest.fixture
@@ -156,7 +156,7 @@ def test_log_artifacts_in_parallel_when_necessary(s3_artifact_root, mock_s3_buck
     with open(file_a_path, "w") as f:
         f.write(file_a_text)
 
-    with mock.patch(f"{S3_REPOSITORY_PACKAGE}._MULTIPART_UPLOAD_CHUNK_SIZE", 0), mock.patch(
+    with mock.patch(f"{S3_REPOSITORY_MODULE}._MULTIPART_UPLOAD_CHUNK_SIZE", 0), mock.patch(
         f"{S3_ARTIFACT_REPOSITORY}._multipart_upload", return_value=None
     ) as multipart_upload_mock:
         repo.log_artifacts(tmp_path)

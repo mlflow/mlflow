@@ -27,7 +27,14 @@ _logger = logging.getLogger(__name__)
 
 
 class OptimizedS3ArtifactRepository(CloudArtifactRepository):
-    """Stores artifacts on Amazon S3."""
+    """
+    An optimized version of the S3 Artifact Repository.
+
+    This class is used for uploading and downloading S3 artifacts for UC models. While it largely
+    copies the behavior of the S3ArtifactRepository, the `log_artifact`, `log_artifacts`, and
+    `_download_file` methods are optimized by replacing boto3 client operations with the use of
+    presigned URLs for both uploads and downloads.
+    """
 
     def __init__(
         self,
