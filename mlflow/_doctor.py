@@ -2,7 +2,7 @@ import os
 import platform
 
 import click
-import pkg_resources  # noqa: TID251
+import importlib_metadata
 import yaml
 
 import mlflow
@@ -102,10 +102,17 @@ def doctor(mask_envs=False):
                 yaml.dump({"_": mlflow_envs}, indent=2).replace("'", "").lstrip("_:").rstrip("\n"),
             )
         )
-    mlflow_dependencies = {
-        r.name: pkg_resources.get_distribution(r.name).version
-        for r in pkg_resources.working_set.by_key["mlflow"].requires()
-    }
+
+    mlflow_dependencies = {}
+    for req in importlib_metadata.distribution("mlflow").requires:
+        req = req.split(maxsplit=1)[0]
+        try:
+            dist = importlib_metadata.distribution(req)
+        except importlib_metadata.PackageNotFoundError:
+            continue
+        else:
+            mlflow_dependencies[req] = dist.version
+
     items.append(
         (
             "MLflow dependencies",
