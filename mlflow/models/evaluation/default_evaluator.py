@@ -23,8 +23,8 @@ from mlflow.entities.metric import Metric
 from mlflow.exceptions import MlflowException
 from mlflow.metrics import (
     MetricValue,
-    accuracy,
     ari_grade_level,
+    exact_match,
     flesch_kincaid_grade_level,
     perplexity,
     rouge1,
@@ -1326,7 +1326,7 @@ class DefaultEvaluator(ModelEvaluator):
                 if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
                     self._compute_builtin_metrics()
                 elif self.model_type == _ModelType.QUESTION_ANSWERING:
-                    self.builtin_metrics = text_metrics + [accuracy]
+                    self.builtin_metrics = text_metrics + [exact_match]
                 elif self.model_type == _ModelType.TEXT_SUMMARIZATION:
                     self.builtin_metrics = text_metrics + [rouge1, rouge2, rougeL, rougeLsum]
                 elif self.model_type == _ModelType.TEXT:
@@ -1353,7 +1353,10 @@ class DefaultEvaluator(ModelEvaluator):
 
                 def _prefix_value(value):
                     aggregate = (
-                        {f"{prefix}{k}": v for k, v in value.aggregate_results.items()}
+                        {
+                            f"{prefix}{k}" if len(k) > 0 else k: v
+                            for k, v in value.aggregate_results.items()
+                        }
                         if value.aggregate_results
                         else None
                     )
@@ -1364,6 +1367,7 @@ class DefaultEvaluator(ModelEvaluator):
                         f"{prefix}{k}": _prefix_value(v) for k, v in self.metrics_values.items()
                     }
 
+                self.metrics = {}
                 # need to add prefix to metrics too ...
                 # extract update metrics method?
                 for metric_name, metric_value in self.metrics_values.items():

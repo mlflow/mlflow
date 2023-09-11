@@ -5,8 +5,8 @@ import pytest
 
 from mlflow.metrics import (
     MetricValue,
-    accuracy,
     ari_grade_level,
+    exact_match,
     flesch_kincaid_grade_level,
     perplexity,
     rouge1,
@@ -24,7 +24,7 @@ from mlflow.metrics import (
         perplexity,
         flesch_kincaid_grade_level,
         ari_grade_level,
-        accuracy,
+        exact_match,
         rouge1,
         rouge2,
         rougeL,
@@ -110,14 +110,14 @@ def test_ari_grade_level():
     assert "variance" in result.aggregate_results
 
 
-def test_accuracy():
+def test_exact_match():
     eval_df = pd.DataFrame(
         {
             "prediction": ["sentence not", "random text", "a", "c"],
             "target": ["sentence not", "random text", "a", "c"],
         }
     )
-    result = accuracy.eval_fn(eval_df, metrics={})
+    result = exact_match.eval_fn(eval_df, metrics={})
     assert result.aggregate_results[""] == 1.0
 
     eval_df = pd.DataFrame(
@@ -126,7 +126,7 @@ def test_accuracy():
             "target": ["sentence not", "random text", "a", "c"],
         }
     )
-    result = accuracy.eval_fn(eval_df, metrics={})
+    result = exact_match.eval_fn(eval_df, metrics={})
     assert result.aggregate_results[""] == 0.5
 
 

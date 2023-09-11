@@ -106,7 +106,7 @@ Aggregations calculated for this metric:
 
 # question answering metrics
 
-accuracy: EvaluationMetric = make_metric(
+exact_match: EvaluationMetric = make_metric(
     eval_fn=_accuracy_eval_fn, greater_is_better=True, name="exact_match", version="v1"
 )
 """
