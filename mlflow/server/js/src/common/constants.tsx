@@ -49,3 +49,6 @@ export const ModelSignatureUrl = `${DOCS_ROOT}/models.html#model-signature`;
 
 export const LogModelWithSignatureUrl =
   DOCS_ROOT + '/models.html#how-to-log-models-with-signatures';
+
+export const mlflowAliasesLearnMoreLink =
+  'https://mlflow.org/docs/latest/model-registry.html#using-registered-model-aliases';

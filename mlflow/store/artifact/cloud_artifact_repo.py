@@ -18,7 +18,9 @@ from mlflow.utils.file_utils import (
     download_chunk,
     parallelized_download_file_using_http_uri,
     relative_path_to_artifact_path,
+    remove_on_error,
 )
+from mlflow.utils.uri import is_fuse_uri
 
 _logger = logging.getLogger(__name__)
 _DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
@@ -196,7 +198,7 @@ class CloudArtifactRepository(ArtifactRepository):
         assert len(read_credentials) == 1
         cloud_credential_info = read_credentials[0]
 
-        try:
+        with remove_on_error(local_path):
             parallel_download_subproc_env = os.environ.copy()
             failed_downloads = parallelized_download_file_using_http_uri(
                 thread_pool_executor=self.chunk_thread_pool,
@@ -208,15 +210,13 @@ class CloudArtifactRepository(ArtifactRepository):
                 env=parallel_download_subproc_env,
                 headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
-            download_errors = [
-                e
-                for e in failed_downloads.values()
-                if e["error_status_code"] not in (401, 403, 408)
-            ]
-            if download_errors:
-                raise MlflowException(
-                    f"Failed to download artifact {remote_file_path}: " f"{download_errors}"
+            if any(not e.retryable for e in failed_downloads.values()):
+                template = "===== Chunk {index} =====\n{error}"
+                failure = "\n".join(
+                    template.format(index=index, error=error)
+                    for index, error in failed_downloads.items()
                 )
+                raise MlflowException(f"Failed to download artifact {remote_file_path}:\n{failure}")
 
             if failed_downloads:
                 new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
@@ -225,10 +225,6 @@ class CloudArtifactRepository(ArtifactRepository):
 
                 for i in failed_downloads:
                     download_chunk(i, _DOWNLOAD_CHUNK_SIZE, new_headers, local_path, new_signed_uri)
-        except Exception as err:
-            if os.path.exists(local_path):
-                os.remove(local_path)
-            raise MlflowException(err)
 
     def _download_file(self, remote_file_path, local_path):
         # list_artifacts API only returns a list of FileInfos at the specified path
@@ -240,10 +236,14 @@ class CloudArtifactRepository(ArtifactRepository):
         file_infos = self.list_artifacts(parent_dir)
         file_info = [info for info in file_infos if info.path == remote_file_path]
         file_size = file_info[0].file_size if len(file_info) == 1 else None
+        # NB: FUSE mounts do not support file write from a non-0th index seek position.
+        # Due to this limitation (writes must start at the beginning of a file),
+        # offset writes are disabled if FUSE is the local_path destination.
         if (
             not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
             or not file_size
             or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE
+            or is_fuse_uri(local_path)
         ):
             self._download_from_cloud(remote_file_path, local_path)
         else:

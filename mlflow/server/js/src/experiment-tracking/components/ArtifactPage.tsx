@@ -30,7 +30,6 @@ type ArtifactPageImplProps = {
   listArtifactsApi: (...args: any[]) => any;
   searchModelVersionsApi: (...args: any[]) => any;
   runTags?: any;
-  modelVersions?: any[];
 };
 
 type ArtifactPageImplState = any;
@@ -74,7 +73,8 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
         // We're not reporting errors more than once when polling
         // in order to avoid flooding logs
         if (!this.state.errorThrown) {
-          const errorMessage = `Error while fetching model version for run: ${error}`;
+          const errorString = error instanceof Error ? error.toString() : JSON.stringify(error);
+          const errorMessage = `Error while fetching model version for run: ${errorString}`;
           Utils.logErrorAndNotifyUser(errorMessage);
           this.setState({ errorThrown: true });
         }

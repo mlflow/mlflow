@@ -4,142 +4,203 @@ import { EvaluationArtifactCompareView } from './EvaluationArtifactCompareView';
 import configureStore from 'redux-mock-store';
 import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { SearchExperimentRunsViewState } from '../experiment-page/models/SearchExperimentRunsViewState';
-import { mountWithIntl } from '../../../common/utils/TestUtils';
+import { renderWithIntl, act, within, screen } from '../../../common/utils/TestUtils';
 import { getEvaluationTableArtifact } from '../../actions';
-import { MLFLOW_LOGGED_ARTIFACTS_TAG } from '../../constants';
-import { act } from 'react-dom/test-utils';
 import {
-  EvaluationArtifactCompareTable,
-  EvaluationArtifactCompareTableProps,
-} from './components/EvaluationArtifactCompareTable';
+  MLFLOW_LOGGED_ARTIFACTS_TAG,
+  MLFLOW_RUN_SOURCE_TYPE_TAG,
+  MLflowRunSourceType,
+} from '../../constants';
+import { EvaluationArtifactCompareTableProps } from './components/EvaluationArtifactCompareTable';
+import thunk from 'redux-thunk';
+import promiseMiddleware from 'redux-promise-middleware';
+import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 
 jest.mock('../../actions', () => ({
-  getEvaluationTableArtifact: jest.fn().mockReturnValue({ type: 'GETEVALUATIONTABLEARTIFACT' }),
+  getEvaluationTableArtifact: jest
+    .fn()
+    .mockReturnValue({ type: 'GETEVALUATIONTABLEARTIFACT', payload: Promise.resolve() }),
+}));
+jest.mock('../../actions/ModelGatewayActions', () => ({
+  searchModelGatewayRoutesApi: jest
+    .fn()
+    .mockReturnValue({ type: 'SEARCHMODELGATEWAYROUTESAPI', payload: Promise.resolve() }),
 }));
 
 jest.mock('./components/EvaluationArtifactCompareTable', () => ({
-  EvaluationArtifactCompareTable: () => <div />,
+  EvaluationArtifactCompareTable: ({
+    visibleRuns,
+    resultList,
+    groupByColumns,
+    onCellClick,
+  }: EvaluationArtifactCompareTableProps) => (
+    <div data-testid='mock-compare-table'>
+      {/* Render a super simple but functional variant of results table */}
+      {resultList.map((result) => (
+        <div key={result.key}>
+          {groupByColumns.map((groupByCol) => (
+            <div key={`groupby-${groupByCol}-${result.key}`} data-testid='group-by-cell'>
+              {result.groupByCellValues[groupByCol]}
+            </div>
+          ))}
+          {visibleRuns.map(({ runUuid }) => (
+            <button
+              key={`result-${runUuid}-${result.key}`}
+              data-testid={`result-${runUuid}-${result.key}`}
+              onClick={() => onCellClick?.(result.cellValues[runUuid], runUuid)}
+            >
+              {`row ${result.key}, run ${runUuid}, result ${
+                result.cellValues[runUuid] || '(empty)'
+              }`}
+            </button>
+          ))}
+        </div>
+      ))}
+    </div>
+  ),
 }));
+
+const SAMPLE_COMPARED_RUNS: RunRowType[] = [
+  {
+    runUuid: 'run_a',
+    tags: {
+      [MLFLOW_LOGGED_ARTIFACTS_TAG]: {
+        key: MLFLOW_LOGGED_ARTIFACTS_TAG,
+        value: '[{"path":"/table.json","type":"table"}]',
+      },
+    },
+  },
+  {
+    runUuid: 'run_b',
+    tags: {
+      [MLFLOW_LOGGED_ARTIFACTS_TAG]: {
+        key: MLFLOW_LOGGED_ARTIFACTS_TAG,
+        value: '[{"path":"/table.json","type":"table"}]',
+      },
+    },
+  },
+  {
+    runUuid: 'run_c',
+    tags: {
+      [MLFLOW_LOGGED_ARTIFACTS_TAG]: {
+        key: MLFLOW_LOGGED_ARTIFACTS_TAG,
+        value: '[{"path":"/table_c.json","type":"table"}]',
+      },
+    },
+  },
+] as any;
+
+const SAMPLE_STATE = {
+  evaluationArtifactsBeingUploaded: {},
+  evaluationArtifactsByRunUuid: {
+    run_a: {
+      '/table.json': {
+        columns: ['col_group', 'col_output'],
+        path: '/table.json',
+        entries: [
+          { col_group: 'question_1', col_output: 'answer_1_run_a' },
+          { col_group: 'question_2', col_output: 'answer_2_run_a' },
+        ],
+      },
+    },
+    run_b: {
+      '/table.json': {
+        columns: ['col_group', 'col_output'],
+        path: '/table.json',
+        entries: [
+          { col_group: 'question_1', col_output: 'answer_1_run_b' },
+          { col_group: 'question_2', col_output: 'answer_2_run_b' },
+        ],
+      },
+    },
+    run_c: {
+      '/table_c.json': {
+        columns: ['col_group', 'col_output'],
+        path: '/table_c.json',
+        entries: [
+          { col_group: 'question_1', col_output: 'answer_1_run_c' },
+          { col_group: 'question_2', col_output: 'answer_2_run_c' },
+        ],
+      },
+    },
+  },
+
+  evaluationDraftInputValues: [],
+  evaluationPendingDataByRunUuid: {},
+  evaluationPendingDataLoadingByRunUuid: {},
+  evaluationArtifactsErrorByRunUuid: {},
+  evaluationArtifactsLoadingByRunUuid: {},
+};
 
 describe('EvaluationArtifactCompareView', () => {
   const mountTestComponent = ({
-    comparedRuns = [
-      {
-        runUuid: 'run_a',
-        tags: {
-          [MLFLOW_LOGGED_ARTIFACTS_TAG]: {
-            key: MLFLOW_LOGGED_ARTIFACTS_TAG,
-            value: '[{"path":"/table.json","type":"table"}]',
-          },
-        },
-      },
-      {
-        runUuid: 'run_b',
-        tags: {
-          [MLFLOW_LOGGED_ARTIFACTS_TAG]: {
-            key: MLFLOW_LOGGED_ARTIFACTS_TAG,
-            value: '[{"path":"/table.json","type":"table"}]',
-          },
-        },
-      },
-    ] as any,
-    mockState = {
-      evaluationArtifactsByRunUuid: {
-        run_a: {
-          '/table.json': {
-            columns: ['col_group', 'col_output'],
-            path: '/table.json',
-            entries: [
-              { col_group: 'question_1', col_output: 'answer_1_run_a' },
-              { col_group: 'question_2', col_output: 'answer_2_run_a' },
-            ],
-          },
-        },
-        run_b: {
-          '/table.json': {
-            columns: ['col_group', 'col_output'],
-            path: '/table.json',
-            entries: [
-              { col_group: 'question_1', col_output: 'answer_1_run_b' },
-              { col_group: 'question_2', col_output: 'answer_2_run_b' },
-            ],
-          },
-        },
-      },
-      evaluationArtifactsErrorByRunUuid: {},
-      evaluationArtifactsLoadingByRunUuid: {},
-    },
+    comparedRuns = SAMPLE_COMPARED_RUNS,
+    mockState = SAMPLE_STATE,
     viewState = new SearchExperimentRunsViewState(),
   }: {
     viewState?: SearchExperimentRunsViewState;
     mockState?: EvaluationDataReduxState;
     comparedRuns?: RunRowType[];
   } = {}) => {
-    const mockStore = configureStore()({ evaluationData: mockState });
+    const mockStore = configureStore([thunk, promiseMiddleware()])({
+      evaluationData: mockState,
+      modelGateway: {},
+    });
     const updateSearchFacetsMock = jest.fn();
     const updateViewStateMock = jest.fn();
-    const wrapper = mountWithIntl(
-      <Provider store={mockStore}>
-        <EvaluationArtifactCompareView
-          visibleRuns={comparedRuns}
-          updateSearchFacets={updateSearchFacetsMock}
-          updateViewState={updateViewStateMock}
-          viewState={viewState}
-          onDatasetSelected={() => {}}
-        />
-      </Provider>,
-    );
-    return { updateSearchFacetsMock, updateViewStateMock, wrapper };
+    let setVisibleRunsFn: React.Dispatch<React.SetStateAction<RunRowType[]>>;
+    const TestComponent = () => {
+      const [visibleRuns, setVisibleRuns] = useState(comparedRuns);
+      setVisibleRunsFn = setVisibleRuns;
+      return (
+        <Provider store={mockStore}>
+          <EvaluationArtifactCompareView
+            comparedRuns={visibleRuns}
+            updateSearchFacets={updateSearchFacetsMock}
+            updateViewState={updateViewStateMock}
+            viewState={viewState}
+            onDatasetSelected={() => {}}
+          />
+        </Provider>
+      );
+    };
+    const renderResult = renderWithIntl(<TestComponent />);
+    return {
+      updateSearchFacetsMock,
+      updateViewStateMock,
+      renderResult,
+      setVisibleRuns: (runs: RunRowType[]) => setVisibleRunsFn(runs),
+    };
   };
 
-  const openCombobox = (element: any) =>
+  const openCombobox = (element: HTMLElement) =>
     act(async () => {
-      element.simulate('click', { button: 0, ctrlKey: false });
+      userEvent.click(element);
     });
 
-  beforeAll(() => {
-    // Polyfill missing objects, should be fixed globally later
-    global.DOMRect = {
-      fromRect: () => ({
-        top: 0,
-        left: 0,
-        bottom: 0,
-        right: 0,
-        width: 0,
-        height: 0,
-        x: 0,
-        y: 0,
-        toJSON: () => {},
-      }),
-    } as any;
-    global.ResizeObserver = class ResizeObserver {
-      constructor(cb: any) {
-        (this as any).cb = cb;
-      }
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    };
-  });
-
-  test('checks if the fetch artifact is properly called for common tables', async () => {
-    const { wrapper } = mountTestComponent();
-
-    await openCombobox(wrapper.find("button[data-testid='dropdown-tables']"));
-    wrapper.update();
-
-    const tableOption = wrapper
-      .find("div[data-testid='dropdown-tables-option']")
-      .filterWhere((node: any) => node.text().includes('/table.json'));
-
-    tableOption.simulate('click');
+  test('checks if the initial tables are properly fetched', async () => {
+    mountTestComponent();
 
     expect(getEvaluationTableArtifact).toBeCalledWith('run_a', '/table.json', false);
     expect(getEvaluationTableArtifact).toBeCalledWith('run_b', '/table.json', false);
   });
+  test('checks if the newly selected table is being fetched', async () => {
+    const { renderResult } = mountTestComponent();
+
+    await act(async () => {
+      userEvent.click(renderResult.getByTestId('dropdown-tables'));
+    });
+
+    await act(async () => {
+      userEvent.click(within(screen.getByRole('listbox')).getByLabelText('/table_c.json'));
+    });
+
+    expect(getEvaluationTableArtifact).toBeCalledWith('run_c', '/table_c.json', false);
+  });
 
   test('checks if the fetch artifact is properly called for differing tables', async () => {
-    const { wrapper } = mountTestComponent({
+    const { renderResult } = mountTestComponent({
       comparedRuns: [
         {
           runUuid: 'run_a',
@@ -162,14 +223,13 @@ describe('EvaluationArtifactCompareView', () => {
       ] as any,
     });
 
-    await openCombobox(wrapper.find("button[data-testid='dropdown-tables']"));
-    wrapper.update();
+    await act(async () => {
+      userEvent.click(renderResult.getByTestId('dropdown-tables'));
+    });
 
-    const tableOption = wrapper
-      .find("div[data-testid='dropdown-tables-option']")
-      .filterWhere((node: any) => node.text().includes('/table_a.json'));
-
-    tableOption.simulate('click');
+    await act(async () => {
+      userEvent.click(within(screen.getByRole('listbox')).getByLabelText('/table_a.json'));
+    });
 
     expect(getEvaluationTableArtifact).toBeCalledWith('run_a', '/table_a.json', false);
     expect(getEvaluationTableArtifact).not.toBeCalledWith('run_a', '/table_b.json', false);
@@ -178,42 +238,271 @@ describe('EvaluationArtifactCompareView', () => {
   });
 
   test('checks if the table component receives proper result set based on the store data and selected table', async () => {
-    const { wrapper } = mountTestComponent();
+    mountTestComponent();
 
-    await openCombobox(wrapper.find("button[data-testid='dropdown-tables']"));
-    wrapper.update();
+    // Check if the table "group by" column cells were properly populated
+    expect(
+      screen.getByText('question_1', { selector: '[data-testid="group-by-cell"]' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('question_2', { selector: '[data-testid="group-by-cell"]' }),
+    ).toBeInTheDocument();
 
-    const tableOption = wrapper
-      .find("div[data-testid='dropdown-tables-option']")
-      .filterWhere((node: any) => node.text().includes('/table.json'));
+    // Check if the table output cells were properly populated
+    [
+      'row question_1, run run_a, result answer_1_run_a',
+      'row question_1, run run_b, result answer_1_run_b',
+      'row question_1, run run_c, result (empty)',
+      'row question_2, run run_a, result answer_2_run_a',
+      'row question_2, run run_b, result answer_2_run_b',
+      'row question_2, run run_c, result (empty)',
+    ].forEach((cellText) => {
+      expect(screen.getByText(cellText, { selector: 'button' })).toBeInTheDocument();
+    });
 
-    tableOption.simulate('click');
+    expect.assertions(8);
+  });
 
-    const tableProps: EvaluationArtifactCompareTableProps = wrapper
-      .find(EvaluationArtifactCompareTable)
-      .props();
-    expect(tableProps.comparedRuns).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ runUuid: 'run_a' }),
-        expect.objectContaining({ runUuid: 'run_b' }),
-      ]),
-    );
+  test('checks if the preview sidebar renders proper details', async () => {
+    const { renderResult } = mountTestComponent({
+      viewState: Object.assign(new SearchExperimentRunsViewState(), { previewPaneVisible: true }),
+    });
 
-    expect(tableProps.groupByColumns).toEqual(['col_group']);
+    const previewSidebar = renderResult.getByTestId('preview-sidebar-content');
+    expect(previewSidebar).toHaveTextContent(/Select a cell to display preview/);
 
-    expect(tableProps.resultList).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          key: 'question_1',
-          groupByCellValues: { col_group: 'question_1' },
-          cellValues: { run_a: 'answer_1_run_a', run_b: 'answer_1_run_b' },
-        }),
-        expect.objectContaining({
-          key: 'question_2',
-          groupByCellValues: { col_group: 'question_2' },
-          cellValues: { run_a: 'answer_2_run_a', run_b: 'answer_2_run_b' },
-        }),
-      ]),
-    );
+    const run_a_question_1 = renderResult.getByTestId('result-run_a-question_1');
+    const run_b_question_2 = renderResult.getByTestId('result-run_b-question_2');
+
+    userEvent.click(run_a_question_1);
+    expect(previewSidebar).toHaveTextContent(/answer_1_run_a/);
+
+    userEvent.click(run_b_question_2);
+    expect(previewSidebar).toHaveTextContent(/answer_2_run_b/);
+  });
+
+  test('checks if the component initializes with proper "group by" and "output" columns when evaluating prompt engineering artifacts', async () => {
+    mountTestComponent({
+      mockState: {
+        ...SAMPLE_STATE,
+        evaluationArtifactsByRunUuid: {
+          run_a: {
+            '/table_a.json': {
+              columns: ['input_a', 'input_b', 'output'],
+              path: '/table_a.json',
+              entries: [],
+            },
+          },
+          run_b: {
+            '/table_b.json': {
+              columns: ['input_b', 'output'],
+              path: '/table_b.json',
+              entries: [],
+            },
+          },
+        },
+      },
+      comparedRuns: [
+        {
+          runUuid: 'run_a',
+          params: [
+            { key: 'prompt_template', value: 'prompt template with {{input_a}} and {{input_b}}' },
+          ],
+          tags: {
+            [MLFLOW_RUN_SOURCE_TYPE_TAG]: {
+              key: MLFLOW_RUN_SOURCE_TYPE_TAG,
+              value: MLflowRunSourceType.PROMPT_ENGINEERING,
+            },
+            [MLFLOW_LOGGED_ARTIFACTS_TAG]: {
+              key: MLFLOW_LOGGED_ARTIFACTS_TAG,
+              value: '[{"path":"/table_a.json","type":"table"}]',
+            },
+          },
+        },
+        {
+          runUuid: 'run_b',
+          params: [{ key: 'prompt_template', value: 'prompt template with {{input_c}}' }],
+          tags: {
+            [MLFLOW_RUN_SOURCE_TYPE_TAG]: {
+              key: MLFLOW_RUN_SOURCE_TYPE_TAG,
+              value: MLflowRunSourceType.PROMPT_ENGINEERING,
+            },
+            [MLFLOW_LOGGED_ARTIFACTS_TAG]: {
+              key: MLFLOW_LOGGED_ARTIFACTS_TAG,
+              value: '[{"path":"/table_b.json","type":"table"}]',
+            },
+          },
+          hidden: true,
+        },
+      ] as any,
+    });
+
+    await act(async () => {
+      userEvent.click(screen.getByLabelText('Select "group by" columns'));
+    });
+
+    expect(within(screen.getByRole('listbox')).getByLabelText('input_a')).toBeChecked();
+    expect(within(screen.getByRole('listbox')).getByLabelText('input_b')).toBeChecked();
+
+    expect(
+      screen.getByRole('combobox', {
+        name: 'Dialog Combobox, selected option: output',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  test('checks if component behaves correctly if user deselects all "group by" columns', async () => {
+    mountTestComponent({
+      mockState: {
+        ...SAMPLE_STATE,
+        evaluationArtifactsByRunUuid: {
+          run_a: {
+            '/table_a.json': {
+              columns: ['input_a', 'input_b', 'output'],
+              path: '/table_a.json',
+              entries: [],
+            },
+          },
+          run_b: {
+            '/table_b.json': {
+              columns: ['input_b', 'output'],
+              path: '/table_b.json',
+              entries: [],
+            },
+          },
+        },
+      },
+      comparedRuns: [
+        {
+          runUuid: 'run_a',
+          params: [
+            { key: 'prompt_template', value: 'prompt template with {{input_a}} and {{input_b}}' },
+          ],
+          tags: {
+            [MLFLOW_RUN_SOURCE_TYPE_TAG]: {
+              key: MLFLOW_RUN_SOURCE_TYPE_TAG,
+              value: MLflowRunSourceType.PROMPT_ENGINEERING,
+            },
+            [MLFLOW_LOGGED_ARTIFACTS_TAG]: {
+              key: MLFLOW_LOGGED_ARTIFACTS_TAG,
+              value: '[{"path":"/table_a.json","type":"table"}]',
+            },
+          },
+        },
+        {
+          runUuid: 'run_b',
+          params: [{ key: 'prompt_template', value: 'prompt template with {{input_c}}' }],
+          tags: {
+            [MLFLOW_RUN_SOURCE_TYPE_TAG]: {
+              key: MLFLOW_RUN_SOURCE_TYPE_TAG,
+              value: MLflowRunSourceType.PROMPT_ENGINEERING,
+            },
+            [MLFLOW_LOGGED_ARTIFACTS_TAG]: {
+              key: MLFLOW_LOGGED_ARTIFACTS_TAG,
+              value: '[{"path":"/table_b.json","type":"table"}]',
+            },
+          },
+          hidden: true,
+        },
+      ] as any,
+    });
+
+    await act(async () => {
+      userEvent.click(screen.getByLabelText('Select "group by" columns'));
+    });
+
+    // Expect two "group by" columns to be initially selected
+    expect(within(screen.getByRole('listbox')).getByLabelText('input_a')).toBeChecked();
+    expect(within(screen.getByRole('listbox')).getByLabelText('input_b')).toBeChecked();
+
+    expect(screen.queryByText('No group by columns selected')).not.toBeInTheDocument();
+
+    // Deselect both columns
+    await act(async () => {
+      userEvent.click(within(screen.getByRole('listbox')).getByLabelText('input_a'));
+      userEvent.click(within(screen.getByRole('listbox')).getByLabelText('input_b'));
+    });
+
+    // Expect proper message to appear
+    expect(screen.getByText('No group by columns selected')).toBeInTheDocument();
+  });
+
+  test('checks if the component automatically re-selects "group by" columns when changing visible prompt engineering runs', async () => {
+    const comparedRuns = [
+      {
+        runUuid: 'run_a',
+        params: [
+          { key: 'prompt_template', value: 'prompt template with {{input_a}} and {{input_b}}' },
+        ],
+        tags: {
+          [MLFLOW_RUN_SOURCE_TYPE_TAG]: {
+            key: MLFLOW_RUN_SOURCE_TYPE_TAG,
+            value: MLflowRunSourceType.PROMPT_ENGINEERING,
+          },
+          [MLFLOW_LOGGED_ARTIFACTS_TAG]: {
+            key: MLFLOW_LOGGED_ARTIFACTS_TAG,
+            value: '[{"path":"/eval_results_table.json","type":"table"}]',
+          },
+        },
+        hidden: true,
+      },
+      {
+        runUuid: 'run_b',
+        params: [{ key: 'prompt_template', value: 'prompt template with {{input_b}}' }],
+        tags: {
+          [MLFLOW_RUN_SOURCE_TYPE_TAG]: {
+            key: MLFLOW_RUN_SOURCE_TYPE_TAG,
+            value: MLflowRunSourceType.PROMPT_ENGINEERING,
+          },
+          [MLFLOW_LOGGED_ARTIFACTS_TAG]: {
+            key: MLFLOW_LOGGED_ARTIFACTS_TAG,
+            value: '[{"path":"/eval_results_table.json","type":"table"}]',
+          },
+        },
+      },
+    ];
+    const { setVisibleRuns } = mountTestComponent({
+      mockState: {
+        ...SAMPLE_STATE,
+        evaluationArtifactsByRunUuid: {
+          run_a: {
+            '/eval_results_table.json': {
+              columns: ['input_a', 'input_b', 'output'],
+              path: '/eval_results_table.json',
+              entries: [],
+            },
+          },
+          run_b: {
+            '/eval_results_table.json': {
+              columns: ['input_b', 'output'],
+              path: '/eval_results_table.json',
+              entries: [],
+            },
+          },
+        },
+      },
+      comparedRuns: comparedRuns as any,
+    });
+
+    await act(async () => {
+      userEvent.click(screen.getByLabelText('Select "group by" columns'));
+    });
+
+    expect(within(screen.getByRole('listbox')).queryByLabelText('input_a')).not.toBeInTheDocument();
+    expect(within(screen.getByRole('listbox')).getByLabelText('input_b')).toBeChecked();
+
+    expect(
+      screen.getByRole('combobox', {
+        name: 'Dialog Combobox, selected option: output',
+      }),
+    ).toBeInTheDocument();
+
+    // Unhide all runs
+    await act(async () => {
+      setVisibleRuns(comparedRuns.map((run) => ({ ...run, hidden: false })) as any);
+    });
+
+    expect(within(screen.getByRole('listbox')).getByLabelText('input_a')).toBeChecked();
+    expect(within(screen.getByRole('listbox')).getByLabelText('input_b')).toBeChecked();
   });
 });

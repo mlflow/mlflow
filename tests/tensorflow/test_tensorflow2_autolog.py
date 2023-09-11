@@ -63,13 +63,12 @@ def random_train_dict_mapping(random_train_data):
     def _generate_features(pos):
         return [v[pos] for v in random_train_data]
 
-    features = {
+    return {
         "a": np.array(_generate_features(0)),
         "b": np.array(_generate_features(1)),
         "c": np.array(_generate_features(2)),
         "d": np.array(_generate_features(3)),
     }
-    return features
 
 
 def _create_model_for_dict_mapping():
@@ -100,8 +99,7 @@ def fashion_mnist_tf_dataset():
     images = images / 255.0
     labels = labels.astype(np.int32)
     fmnist_train_ds = tf.data.Dataset.from_tensor_slices((images, labels))
-    fmnist_train_ds = fmnist_train_ds.shuffle(5000).batch(32)
-    return fmnist_train_ds
+    return fmnist_train_ds.shuffle(5000).batch(32)
 
 
 @pytest.fixture
@@ -111,8 +109,7 @@ def fashion_mnist_tf_dataset_eval():
     images = images / 255.0
     labels = labels.astype(np.int32)
     fmnist_train_ds = tf.data.Dataset.from_tensor_slices((images, labels))
-    fmnist_train_ds = fmnist_train_ds.shuffle(5000).batch(32)
-    return fmnist_train_ds
+    return fmnist_train_ds.shuffle(5000).batch(32)
 
 
 def _create_fashion_mnist_model():
@@ -431,14 +428,20 @@ def __example_tf_dataset(batch_size):
 
 
 class __ExampleSequence(tf.keras.utils.Sequence):
-    def __init__(self, batch_size):
+    def __init__(self, batch_size, with_sample_weights=False):
         self.batch_size = batch_size
+        self.with_sample_weights = with_sample_weights
 
     def __len__(self):
         return 10
 
     def __getitem__(self, idx):
-        return np.array([idx] * self.batch_size), np.array([-idx] * self.batch_size)
+        x = np.array([idx] * self.batch_size)
+        y = np.array([-idx] * self.batch_size)
+        if self.with_sample_weights:
+            w = np.array([1] * self.batch_size)
+            return x, y, w
+        return x, y
 
 
 def __generator(data, target, batch_size):
@@ -470,6 +473,7 @@ class __GeneratorClass:
     [
         __example_tf_dataset,
         __ExampleSequence,
+        functools.partial(__ExampleSequence, with_sample_weights=True),
         functools.partial(__generator, np.array([[1]] * 10), np.array([[1]] * 10)),
         functools.partial(__GeneratorClass, np.array([[1]] * 10), np.array([[1]] * 10)),
     ],

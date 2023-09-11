@@ -11,7 +11,7 @@ import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
-import { MemoryRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { CompareModelVersionsPageImpl, CompareModelVersionsPage } from './CompareModelVersionsPage';
 
 describe('CompareModelVersionPage', () => {
