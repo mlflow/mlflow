@@ -152,12 +152,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 },
             )
 
-        presigned_urls = [
-            _get_presigned_upload_part_url(part_number) for part_number in range(1, num_parts + 1)
-        ]
-
         # define helper functions for uploading data
-        def _upload_part(presigned_url, local_file, start_byte, size):
+        def _upload_part(part_number, local_file, start_byte, size):
+            presigned_url = _get_presigned_upload_part_url(part_number)
             data = read_chunk(local_file, size, start_byte)
             with cloud_storage_http_request("put", presigned_url, data=data) as response:
                 augmented_raise_for_status(response)
@@ -166,12 +163,12 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         try:
             # Upload each part with retries
             futures = {}
-            for index, presigned_url in enumerate(presigned_urls):
+            for index in range(num_parts):
                 part_number = index + 1
                 start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
                 future = self.chunk_thread_pool.submit(
                     _upload_part,
-                    presigned_url=presigned_url,
+                    part_number=part_number,
                     local_file=local_file,
                     start_byte=start_byte,
                     size=_MULTIPART_UPLOAD_CHUNK_SIZE,
