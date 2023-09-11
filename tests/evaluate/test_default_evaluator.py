@@ -6,6 +6,7 @@ from contextlib import nullcontext as does_not_raise
 from os.path import join as path_join
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Dict
 from unittest import mock
 
 import matplotlib.pyplot as plt
@@ -22,6 +23,10 @@ from sklearn.svm import LinearSVC
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.metrics import (
+    MetricValue,
+    make_metric,
+)
 from mlflow.models import Model
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
@@ -32,7 +37,7 @@ from mlflow.models.evaluation.artifacts import (
     PickleEvaluationArtifact,
     TextEvaluationArtifact,
 )
-from mlflow.models.evaluation.base import evaluate, make_metric
+from mlflow.models.evaluation.base import evaluate
 from mlflow.models.evaluation.default_evaluator import (
     _compute_df_mode_or_mean,
     _CustomArtifact,
@@ -44,6 +49,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _gen_classifier_curve,
     _get_binary_classifier_metrics,
     _get_binary_sum_up_label_pred_prob,
+    _get_metrics_values,
     _get_multiclass_classifier_metrics,
     _get_regressor_metrics,
     _infer_model_type_by_labels,
@@ -1326,23 +1332,142 @@ def test_gen_multiclass_roc_curve_with_sample_weights():
     np.testing.assert_allclose(results.auc, expected_auc, rtol=1e-3)
 
 
+def test_evaluate_custom_metric_backwards_compatible():
+    eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
+    builtin_metrics = _get_regressor_metrics(
+        eval_df["target"], eval_df["prediction"], sample_weights=None
+    )
+    metrics = _get_metrics_values(builtin_metrics)
+
+    def old_fn(eval_df, builtin_metrics):
+        return builtin_metrics["mean_absolute_error"] * 1.5
+
+    res_metric = _evaluate_custom_metric(
+        _CustomMetric(old_fn, "old_fn", 0), eval_df, builtin_metrics, metrics
+    )
+    assert res_metric.scores is None
+    assert res_metric.justifications is None
+    assert res_metric.aggregate_results[""] == builtin_metrics["mean_absolute_error"] * 1.5
+
+    def new_fn_no_type_hint(eval_df, metrics):
+        return metrics["mean_absolute_error"].aggregate_results[""] * 1.5
+
+    with pytest.raises(
+        AttributeError, match="'numpy.float64' object has no attribute 'aggregate_results'"
+    ):
+        _evaluate_custom_metric(
+            _CustomMetric(new_fn_no_type_hint, "", 0), eval_df, builtin_metrics, metrics
+        )
+
+    def new_fn_with_type_hint(eval_df, metrics: Dict[str, MetricValue]):
+        return metrics["mean_absolute_error"].aggregate_results[""] * 1.5
+
+    res_metric = _evaluate_custom_metric(
+        _CustomMetric(new_fn_with_type_hint, "new_fn", 0), eval_df, builtin_metrics, metrics
+    )
+    assert res_metric.scores is None
+    assert res_metric.justifications is None
+    assert res_metric.aggregate_results[""] == builtin_metrics["mean_absolute_error"] * 1.5
+
+
 def test_evaluate_custom_metric_incorrect_return_formats():
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
-    metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"], sample_weights=None)
+    builtin_metrics = _get_regressor_metrics(
+        eval_df["target"], eval_df["prediction"], sample_weights=None
+    )
+    metrics = _get_metrics_values(builtin_metrics)
 
     def dummy_fn(*_):
         pass
 
     with pytest.raises(MlflowException, match=f"'{dummy_fn.__name__}' (.*) returned None"):
-        _evaluate_custom_metric(_CustomMetric(dummy_fn, "dummy_fn", 0), eval_df, metrics)
+        _evaluate_custom_metric(
+            _CustomMetric(dummy_fn, "dummy_fn", 0), eval_df, builtin_metrics, metrics
+        )
 
     def incorrect_return_type(*_):
         return "stuff", 3
 
-    with pytest.raises(MlflowException, match="did not return a scalar numeric value"):
+    with pytest.raises(MlflowException, match="did not return a MetricValue"):
         _evaluate_custom_metric(
             _CustomMetric(incorrect_return_type, incorrect_return_type.__name__, 0),
             eval_df,
+            builtin_metrics,
+            metrics,
+        )
+
+    def non_list_scores(*_):
+        return MetricValue(scores=5)
+
+    with pytest.raises(MlflowException, match="returned MetricValue with scores not in a list"):
+        _evaluate_custom_metric(
+            _CustomMetric(non_list_scores, non_list_scores.__name__, 0),
+            eval_df,
+            builtin_metrics,
+            metrics,
+        )
+
+    def non_numeric_scores(*_):
+        return MetricValue(scores=["string"])
+
+    with pytest.raises(MlflowException, match="returned MetricValue with non-numeric scores"):
+        _evaluate_custom_metric(
+            _CustomMetric(non_numeric_scores, non_numeric_scores.__name__, 0),
+            eval_df,
+            builtin_metrics,
+            metrics,
+        )
+
+    def non_list_justifications(*_):
+        return MetricValue(justifications="string")
+
+    with pytest.raises(
+        MlflowException, match="returned MetricValue with justifications not in a list"
+    ):
+        _evaluate_custom_metric(
+            _CustomMetric(non_list_justifications, non_list_justifications.__name__, 0),
+            eval_df,
+            builtin_metrics,
+            metrics,
+        )
+
+    def non_str_justifications(*_):
+        return MetricValue(justifications=[3, 4])
+
+    with pytest.raises(
+        MlflowException, match="returned MetricValue with non-string justifications"
+    ):
+        _evaluate_custom_metric(
+            _CustomMetric(non_str_justifications, non_str_justifications.__name__, 0),
+            eval_df,
+            builtin_metrics,
+            metrics,
+        )
+
+    def non_dict_aggregates(*_):
+        return MetricValue(aggregate_results=[5.0, 4.0])
+
+    with pytest.raises(
+        MlflowException, match="returned MetricValue with aggregate_results not in a dict"
+    ):
+        _evaluate_custom_metric(
+            _CustomMetric(non_dict_aggregates, non_dict_aggregates.__name__, 0),
+            eval_df,
+            builtin_metrics,
+            metrics,
+        )
+
+    def wrong_type_aggregates(*_):
+        return MetricValue(aggregate_results={"toxicity": 0.0, "hi": "hi"})
+
+    with pytest.raises(
+        MlflowException,
+        match="returned MetricValue with non-Dict\[str,float\] aggregate_results",
+    ):
+        _evaluate_custom_metric(
+            _CustomMetric(wrong_type_aggregates, wrong_type_aggregates.__name__, 0),
+            eval_df,
+            builtin_metrics,
             metrics,
         )
 
@@ -1351,7 +1476,10 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     ("fn", "expectation"),
     [
         (
-            lambda eval_df, _: sum(eval_df["prediction"]),
+            lambda eval_df, _: MetricValue(
+                scores=eval_df["prediction"].tolist(),
+                aggregate_results={"prediction_sum": sum(eval_df["prediction"])},
+            ),
             does_not_raise(),
         ),
         (
@@ -1362,22 +1490,41 @@ def test_evaluate_custom_metric_incorrect_return_formats():
 )
 def test_evaluate_custom_metric_lambda(fn, expectation):
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
-    metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"], sample_weights=None)
+    builtin_metrics = _get_regressor_metrics(
+        eval_df["target"], eval_df["prediction"], sample_weights=None
+    )
+    metrics = _get_metrics_values(builtin_metrics)
     with expectation:
-        _evaluate_custom_metric(_CustomMetric(fn, "<lambda>", 0), eval_df, metrics)
+        _evaluate_custom_metric(_CustomMetric(fn, "<lambda>", 0), eval_df, builtin_metrics, metrics)
 
 
 def test_evaluate_custom_metric_success():
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
-    metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"], sample_weights=None)
+    builtin_metrics = _get_regressor_metrics(
+        eval_df["target"], eval_df["prediction"], sample_weights=None
+    )
 
     def example_count_times_1_point_5(_, given_metrics):
-        return given_metrics["example_count"] * 1.5
+        return MetricValue(
+            scores=[score * 1.5 for score in eval_df["prediction"].tolist()],
+            justifications=["justification"] * len(eval_df["prediction"]),
+            aggregate_results={
+                "example_count_times_1_point_5": given_metrics["example_count"] * 1.5
+            },
+        )
 
     res_metric = _evaluate_custom_metric(
-        _CustomMetric(example_count_times_1_point_5, "", 0), eval_df, metrics
+        _CustomMetric(example_count_times_1_point_5, "", 0),
+        eval_df,
+        builtin_metrics,
+        _get_metrics_values(builtin_metrics),
     )
-    assert res_metric == metrics["example_count"] * 1.5
+    assert (
+        res_metric.aggregate_results["example_count_times_1_point_5"]
+        == builtin_metrics["example_count"] * 1.5
+    )
+    assert res_metric.scores == [score * 1.5 for score in eval_df["prediction"].tolist()]
+    assert res_metric.justifications == ["justification"] * len(eval_df["prediction"])
 
 
 def test_evaluate_custom_artifacts_success():
@@ -1446,10 +1593,12 @@ def test_custom_metric_produced_multiple_artifacts_with_same_name_throw_exceptio
 
 def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_dataset):
     def true_count(_eval_df, given_metrics):
-        return given_metrics["true_negatives"] + given_metrics["true_positives"]
+        true_negatives = given_metrics["true_negatives"]
+        true_positives = given_metrics["true_positives"]
+        return MetricValue(aggregate_results={"": true_negatives + true_positives})
 
     def positive_count(eval_df, _given_metrics):
-        return np.sum(eval_df["prediction"])
+        return MetricValue(aggregate_results={"": np.sum(eval_df["prediction"])})
 
     def example_custom_artifact(_eval_df, _given_metrics, tmp_path):
         df = pd.DataFrame({"a": [1, 2, 3]})
@@ -1923,7 +2072,9 @@ def test_custom_metrics():
             evaluators="default",
             custom_metrics=[
                 make_metric(
-                    eval_fn=lambda _eval_df, _builtin_metrics: 1.0,
+                    eval_fn=lambda _eval_df, _builtin_metrics: MetricValue(
+                        aggregate_results={"": 1.0}
+                    ),
                     name="cm",
                     greater_is_better=True,
                     long_name="custom_metric",
@@ -1991,10 +2142,10 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
     columns = {
         "question",
         "outputs",
-        "toxicity",
-        "flesch_kincaid_grade_level",
-        "ari_grade_level",
-        "perplexity",
+        "toxicity/v1/score",
+        "flesch_kincaid_grade_level/v1/score",
+        "ari_grade_level/v1/score",
+        "perplexity/v1/score",
     }
     if with_targets:
         columns.update({"answer"})
@@ -2003,11 +2154,13 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
 
     assert logged_data["question"].tolist() == ["words random", "This is a sentence."]
     assert logged_data["outputs"].tolist() == ["words random", "This is a sentence."]
-    assert logged_data["toxicity"][0] < 0.5
-    assert logged_data["toxicity"][1] < 0.5
-    assert logged_data["perplexity"][0] > logged_data["perplexity"][1]
-    assert all(isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level"])
-    assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level"])
+    assert logged_data["toxicity/v1/score"][0] < 0.5
+    assert logged_data["toxicity/v1/score"][1] < 0.5
+    assert logged_data["perplexity/v1/score"][0] > logged_data["perplexity/v1/score"][1]
+    assert all(
+        isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level/v1/score"]
+    )
+    assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level/v1/score"])
 
     if with_targets:
         assert logged_data["answer"].tolist() == ["words random", "This is a sentence."]
@@ -2036,15 +2189,10 @@ def test_evaluate_question_answering_with_targets():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     validate_question_answering_logged_data(logged_data)
-    assert set(results.metrics.keys()) == {
-        "exact_match",
-        "mean_perplexity",
-        "toxicity_ratio",
-        "mean_ari_grade_level",
-        "mean_flesch_kincaid_grade_level",
-    }
-    assert results.metrics["exact_match"] == 1.0
-    assert results.metrics["toxicity_ratio"] == 0.0
+    assert set(results.metrics.keys()) == set(
+        get_question_answering_metrics_keys(with_targets=True)
+    )
+    assert results.metrics["exact_match/v1"] == 1.0
 
 
 def question_classifier(inputs):
@@ -2069,7 +2217,7 @@ def test_evaluate_question_answering_with_numerical_targets():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     pd.testing.assert_frame_equal(logged_data, data.assign(outputs=[0, 1]))
-    assert results.metrics == {"exact_match": 1.0}
+    assert results.metrics == {"exact_match/v1": 1.0}
 
 
 def test_evaluate_question_answering_without_targets():
@@ -2089,42 +2237,79 @@ def test_evaluate_question_answering_without_targets():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     validate_question_answering_logged_data(logged_data, False)
-    assert set(results.metrics.keys()) == {
-        "mean_perplexity",
-        "toxicity_ratio",
-        "mean_ari_grade_level",
-        "mean_flesch_kincaid_grade_level",
-    }
-    assert results.metrics["toxicity_ratio"] == 0.0
+    assert set(results.metrics.keys()) == set(
+        get_question_answering_metrics_keys(with_targets=False)
+    )
 
 
 def validate_text_summarization_logged_data(logged_data, with_targets=True):
     columns = {
         "text",
         "outputs",
-        "toxicity",
-        "flesch_kincaid_grade_level",
-        "ari_grade_level",
-        "perplexity",
+        "toxicity/v1/score",
+        "flesch_kincaid_grade_level/v1/score",
+        "ari_grade_level/v1/score",
+        "perplexity/v1/score",
     }
     if with_targets:
-        columns.update({"summary", "rouge1", "rouge2", "rougeL", "rougeLsum"})
+        columns.update(
+            {
+                "summary",
+                "rouge1/v1/score",
+                "rouge2/v1/score",
+                "rougeL/v1/score",
+                "rougeLsum/v1/score",
+            }
+        )
 
     assert set(logged_data.columns.tolist()) == columns
 
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["outputs"].tolist() == ["a", "b"]
-    assert logged_data["toxicity"][0] < 0.5
-    assert logged_data["toxicity"][1] < 0.5
-    assert all(isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level"])
-    assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level"])
+    assert logged_data["toxicity/v1/score"][0] < 0.5
+    assert logged_data["toxicity/v1/score"][1] < 0.5
+    assert all(
+        isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level/v1/score"]
+    )
+    assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level/v1/score"])
 
     if with_targets:
         assert logged_data["summary"].tolist() == ["a", "b"]
-        assert logged_data["rouge1"].tolist() == [1.0, 1.0]
-        assert logged_data["rouge2"].tolist() == [0.0, 0.0]
-        assert logged_data["rougeL"].tolist() == [1.0, 1.0]
-        assert logged_data["rougeLsum"].tolist() == [1.0, 1.0]
+        assert logged_data["rouge1/v1/score"].tolist() == [1.0, 1.0]
+        assert logged_data["rouge2/v1/score"].tolist() == [0.0, 0.0]
+        assert logged_data["rougeL/v1/score"].tolist() == [1.0, 1.0]
+        assert logged_data["rougeLsum/v1/score"].tolist() == [1.0, 1.0]
+
+
+def get_text_metrics_keys():
+    metric_names = ["perplexity", "toxicity", "flesch_kincaid_grade_level", "ari_grade_level"]
+    standard_aggregations = ["mean", "variance", "p90"]
+    version = "v1"
+
+    metrics_keys = [
+        f"{metric}/{version}/{agg}" for metric in metric_names for agg in standard_aggregations
+    ]
+    additional_aggregations = ["toxicity/v1/ratio"]
+    return metrics_keys + additional_aggregations
+
+
+def get_text_summarization_metrics_keys(with_targets=False):
+    if with_targets:
+        metric_names = ["rouge1", "rouge2", "rougeL", "rougeLsum"]
+        standard_aggregations = ["mean", "variance", "p90"]
+        version = "v1"
+
+        metrics_keys = [
+            f"{metric}/{version}/{agg}" for metric in metric_names for agg in standard_aggregations
+        ]
+    else:
+        metrics_keys = []
+    return get_text_metrics_keys() + metrics_keys
+
+
+def get_question_answering_metrics_keys(with_targets=False):
+    metrics_keys = ["exact_match/v1"] if with_targets else []
+    return get_text_metrics_keys() + metrics_keys
 
 
 def test_evaluate_text_summarization_with_targets():
@@ -2147,21 +2332,7 @@ def test_evaluate_text_summarization_with_targets():
     validate_text_summarization_logged_data(logged_data)
 
     metrics = results.metrics
-    assert set(metrics.keys()) == {
-        "rouge1",
-        "rouge2",
-        "rougeL",
-        "rougeLsum",
-        "mean_perplexity",
-        "toxicity_ratio",
-        "mean_ari_grade_level",
-        "mean_flesch_kincaid_grade_level",
-    }
-    assert metrics["rouge1"] == 1.0
-    assert metrics["rouge2"] == 0.0
-    assert metrics["rougeL"] == 1.0
-    assert metrics["rougeLsum"] == 1.0
-    assert metrics["toxicity_ratio"] == 0.0
+    assert set(metrics.keys()) == set(get_text_summarization_metrics_keys(with_targets=True))
 
 
 def another_language_model(x):
@@ -2188,21 +2359,7 @@ def test_evaluate_text_summarization_with_targets_no_type_hints():
     validate_text_summarization_logged_data(logged_data)
 
     metrics = results.metrics
-    assert set(metrics.keys()) == {
-        "rouge1",
-        "rouge2",
-        "rougeL",
-        "rougeLsum",
-        "mean_perplexity",
-        "toxicity_ratio",
-        "mean_ari_grade_level",
-        "mean_flesch_kincaid_grade_level",
-    }
-    assert metrics["rouge1"] == 1.0
-    assert metrics["rouge2"] == 0.0
-    assert metrics["rougeL"] == 1.0
-    assert metrics["rougeLsum"] == 1.0
-    assert metrics["toxicity_ratio"] == 0.0
+    assert set(metrics.keys()) == set(get_text_summarization_metrics_keys(with_targets=True))
 
 
 def test_evaluate_text_summarization_without_targets():
@@ -2223,13 +2380,9 @@ def test_evaluate_text_summarization_without_targets():
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     validate_text_summarization_logged_data(logged_data, with_targets=False)
 
-    assert set(results.metrics.keys()) == {
-        "mean_perplexity",
-        "toxicity_ratio",
-        "mean_ari_grade_level",
-        "mean_flesch_kincaid_grade_level",
-    }
-    assert results.metrics["toxicity_ratio"] == 0.0
+    assert set(results.metrics.keys()) == set(
+        get_text_summarization_metrics_keys(with_targets=False)
+    )
 
 
 def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
@@ -2254,13 +2407,13 @@ def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    assert logged_data.columns.tolist() == [
+    assert set(logged_data.columns.tolist()) == {
         "text",
         "summary",
         "outputs",
-        "flesch_kincaid_grade_level",
-        "ari_grade_level",
-    ]
+        "flesch_kincaid_grade_level/v1/score",
+        "ari_grade_level/v1/score",
+    }
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["summary"].tolist() == ["a", "b"]
     assert logged_data["outputs"].tolist() == ["a", "b"]
@@ -2282,35 +2435,34 @@ def test_evaluate_text_and_text_metrics():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    assert logged_data.columns.tolist() == [
+    assert set(logged_data.columns.tolist()) == {
         "text",
         "outputs",
-        "toxicity",
-        "flesch_kincaid_grade_level",
-        "ari_grade_level",
-        "perplexity",
-    ]
+        "toxicity/v1/score",
+        "flesch_kincaid_grade_level/v1/score",
+        "ari_grade_level/v1/score",
+        "perplexity/v1/score",
+    }
     assert logged_data["text"].tolist() == ["sentence not", "All women are bad."]
     assert logged_data["outputs"].tolist() == ["sentence not", "All women are bad."]
     # Hateful sentiments should be marked as toxic
-    assert logged_data["toxicity"][0] < 0.5
-    assert logged_data["toxicity"][1] > 0.5
+    assert logged_data["toxicity/v1/score"][0] < 0.5
+    assert logged_data["toxicity/v1/score"][1] > 0.5
     # The perplexity of random words should be higher than a valid sentence.
-    assert logged_data["perplexity"][0] > logged_data["perplexity"][1]
+    assert logged_data["perplexity/v1/score"][0] > logged_data["perplexity/v1/score"][1]
     # Simple sentences should have a low grade level.
-    assert logged_data["flesch_kincaid_grade_level"][1] < 4
-    assert logged_data["ari_grade_level"][1] < 4
-    assert set(results.metrics.keys()) == {
-        "mean_perplexity",
-        "toxicity_ratio",
-        "mean_ari_grade_level",
-        "mean_flesch_kincaid_grade_level",
-    }
-    assert results.metrics["toxicity_ratio"] == 0.5
+    assert logged_data["flesch_kincaid_grade_level/v1/score"][1] < 4
+    assert logged_data["ari_grade_level/v1/score"][1] < 4
+    assert set(results.metrics.keys()) == set(get_text_metrics_keys())
 
 
-def accuracy(eval_df, _builtin_metrics):
-    return eval_df["prediction"].eq(eval_df["target"]).mean()
+def very_toxic(eval_df, metrics: Dict[str, MetricValue]):
+    new_scores = [1.0 if score > 0.9 else 0.0 for score in metrics["toxicity/v1"].scores]
+    return MetricValue(
+        scores=new_scores,
+        justifications=["toxic" if score == 1.0 else "not toxic" for score in new_scores],
+        aggregate_results={"ratio": sum(new_scores) / len(new_scores)},
+    )
 
 
 def test_evaluate_text_custom_metrics():
@@ -2324,38 +2476,23 @@ def test_evaluate_text_custom_metrics():
             data,
             targets="target",
             model_type="text",
-            custom_metrics=[make_metric(eval_fn=accuracy, greater_is_better=True)],
+            custom_metrics=[make_metric(eval_fn=very_toxic, greater_is_better=True)],
         )
 
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    assert logged_data.columns.tolist() == [
-        "text",
-        "target",
-        "outputs",
-        "toxicity",
-        "flesch_kincaid_grade_level",
-        "ari_grade_level",
-        "perplexity",
-    ]
-    assert logged_data["text"].tolist() == ["a", "b"]
-    assert logged_data["target"].tolist() == ["a", "b"]
-    assert logged_data["outputs"].tolist() == ["a", "b"]
-    assert logged_data["toxicity"][0] < 0.5
-    assert logged_data["toxicity"][1] < 0.5
-    assert all(isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level"])
-    assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level"])
-    assert set(results.metrics.keys()) == {
-        "accuracy",
-        "mean_perplexity",
-        "toxicity_ratio",
-        "mean_ari_grade_level",
-        "mean_flesch_kincaid_grade_level",
-    }
-    assert results.metrics["accuracy"] == 1.0
-    assert results.metrics["toxicity_ratio"] == 0.0
+
+    assert "very_toxic/score" in logged_data.columns.tolist()
+    assert "very_toxic/justification" in logged_data.columns.tolist()
+    assert all(isinstance(score, float) for score in logged_data["very_toxic/score"])
+    assert all(
+        isinstance(justification, str) for justification in logged_data["very_toxic/justification"]
+    )
+    assert "very_toxic/ratio" in set(results.metrics.keys())
+
+    # test with versions
 
 
 def test_eval_results_table_json_can_be_prefixed_with_metric_prefix():
