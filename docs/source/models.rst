@@ -938,9 +938,17 @@ Model configuration can be changed at loading time by indicating `model_config` 
 
     pyfunc_model = mlflow.pyfunc.load_model(model_uri, model_config=dict(temperature=0.93))
 
-Indicating an invalid model configuration for a model results in that configuration being ignored. A warning
-is displayed mentioning the ignored entries. Any key not included when saving the model is considered an invalid
-key.
+When a model configuration value is changed, those values the configuration the model was saved with. Indicating an
+invalid model configuration key for a model results in that configuration being ignored. A warning is displayed mentioning
+the ignored entries.
+
+.. note:: 
+    
+    **Model configuration vs parameters with default values in signatures:** Use model configuration when you need to provide
+    model publishers for a way to change how the model is loaded into memory and how predictions are computed for all the
+    samples. For instance, a key like `user_gpu`. Model consumers are not able to change those values at predict time. Use
+    parameters with default values in the signature to provide a users the ability to change how predictions are computed on
+    each data sample.
 
 R Function (``crate``)
 ^^^^^^^^^^^^^^^^^^^^^^
