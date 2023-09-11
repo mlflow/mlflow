@@ -102,8 +102,7 @@ def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
         }
     )
     # Filter out any parameters that should not be logged, as specified by the `unlogged` parameter
-    params_to_log = {key: value for key, value in params_to_log.items() if key not in unlogged}
-    return params_to_log
+    return {key: value for key, value in params_to_log.items() if key not in unlogged}
 
 
 def log_fn_args_as_params(fn, args, kwargs, unlogged=None):

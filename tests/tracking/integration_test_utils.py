@@ -77,5 +77,4 @@ def _send_rest_tracking_post_request(tracking_server_uri, api_path, json_payload
     import requests
 
     url = tracking_server_uri + api_path
-    response = requests.post(url, json=json_payload, auth=auth)
-    return response
+    return requests.post(url, json=json_payload, auth=auth)

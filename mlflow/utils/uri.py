@@ -376,7 +376,7 @@ def resolve_uri_if_local(local_uri):
                     )
                 return cwd.joinpath(local_path).as_posix()
             local_uri_split = urllib.parse.urlsplit(local_uri)
-            resolved_absolute_uri = urllib.parse.urlunsplit(
+            return urllib.parse.urlunsplit(
                 (
                     local_uri_split.scheme,
                     None,
@@ -385,7 +385,6 @@ def resolve_uri_if_local(local_uri):
                     local_uri_split.fragment,
                 )
             )
-            return resolved_absolute_uri
     return local_uri
 
 

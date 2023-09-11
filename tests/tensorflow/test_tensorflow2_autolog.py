@@ -63,13 +63,12 @@ def random_train_dict_mapping(random_train_data):
     def _generate_features(pos):
         return [v[pos] for v in random_train_data]
 
-    features = {
+    return {
         "a": np.array(_generate_features(0)),
         "b": np.array(_generate_features(1)),
         "c": np.array(_generate_features(2)),
         "d": np.array(_generate_features(3)),
     }
-    return features
 
 
 def _create_model_for_dict_mapping():
@@ -100,8 +99,7 @@ def fashion_mnist_tf_dataset():
     images = images / 255.0
     labels = labels.astype(np.int32)
     fmnist_train_ds = tf.data.Dataset.from_tensor_slices((images, labels))
-    fmnist_train_ds = fmnist_train_ds.shuffle(5000).batch(32)
-    return fmnist_train_ds
+    return fmnist_train_ds.shuffle(5000).batch(32)
 
 
 @pytest.fixture
@@ -111,8 +109,7 @@ def fashion_mnist_tf_dataset_eval():
     images = images / 255.0
     labels = labels.astype(np.int32)
     fmnist_train_ds = tf.data.Dataset.from_tensor_slices((images, labels))
-    fmnist_train_ds = fmnist_train_ds.shuffle(5000).batch(32)
-    return fmnist_train_ds
+    return fmnist_train_ds.shuffle(5000).batch(32)
 
 
 def _create_fashion_mnist_model():

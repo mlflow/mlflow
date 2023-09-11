@@ -22,8 +22,7 @@ def create_eval_results_json(prompt_parameters, model_input, model_output_parame
 
     eval_results = {"columns": updated_columns, "data": [updated_data]}
 
-    eval_results_json = json.dumps(eval_results)
-    return eval_results_json
+    return json.dumps(eval_results)
 
 
 def _create_promptlab_run_impl(
