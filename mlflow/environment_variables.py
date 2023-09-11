@@ -426,11 +426,9 @@ MLFLOW_DISABLE_ENV_CREATION = _BooleanEnvironmentVariable("MLFLOW_DISABLE_ENV_CR
 #: (default: ``300``)
 MLFLOW_DOWNLOAD_CHUNK_TIMEOUT = _EnvironmentVariable("MLFLOW_DOWNLOAD_CHUNK_TIMEOUT", int, 300)
 
-#: Specifies if system metrics logging should be disabled.
-#: We name it with "DISABLED" instead of "ENABLED" because in the long term system metrics logging
-#: will be enabled by default.
-MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING = _BooleanEnvironmentVariable(
-    "MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING", None
+#: Specifies if system metrics logging should be enabled.
+MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING", None
 )
 
 #: Specifies the sampling interval for system metrics logging.

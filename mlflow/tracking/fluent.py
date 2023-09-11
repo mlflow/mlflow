@@ -24,7 +24,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import (
-    MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING,
+    MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_RUN_ID,
@@ -372,8 +372,8 @@ def start_run(
             tags=resolved_tags,
             run_name=run_name,
         )
-        if MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING.get() is not None:
-            include_system_metrics = not MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING.get()
+        if MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING.get() is not None:
+            include_system_metrics = MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING.get()
         if include_system_metrics:
             try:
                 from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor

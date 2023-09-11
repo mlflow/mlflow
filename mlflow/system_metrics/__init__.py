@@ -1,7 +1,7 @@
 """System metrics logging module."""
 
 from mlflow.environment_variables import (
-    MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING,
+    MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
     MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING,
     MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL,
 )
@@ -9,12 +9,12 @@ from mlflow.environment_variables import (
 
 def disable_system_metrics_logging():
     """Disable system metrics logging."""
-    MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING.set(True)
+    MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING.set(False)
 
 
 def enable_system_metrics_logging():
     """Enable system metrics logging."""
-    MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING.set(False)
+    MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING.set(True)
 
 
 def set_system_metrics_sampling_interval(interval):
