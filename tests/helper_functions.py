@@ -328,12 +328,11 @@ class RestEndpoint:
         elif type(data) not in {str, dict}:
             data = json.dumps({"instances": data})
 
-        response = requests.post(
+        return requests.post(
             url=f"http://localhost:{self._port}/invocations",
             data=data,
             headers={"Content-Type": content_type},
         )
-        return response
 
 
 def _evaluate_scoring_proc(

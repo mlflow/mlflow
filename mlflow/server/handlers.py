@@ -1289,8 +1289,7 @@ def upload_artifact_handler():
 
         _log_artifact_to_repo(file_path, run, dirname, artifact_dir)
 
-    response = Response(mimetype="application/json")
-    return response
+    return Response(mimetype="application/json")
 
 
 @catch_mlflow_exception

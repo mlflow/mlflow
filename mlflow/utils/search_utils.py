@@ -860,8 +860,7 @@ class SearchUtils:
         run_id_list = cls._parse_list_from_sql_token(token)
         # Because MySQL IN clause is case-insensitive, but all run_ids only contain lower
         # case letters, so that we filter out run_ids containing upper case letters here.
-        run_id_list = [run_id for run_id in run_id_list if run_id.islower()]
-        return run_id_list
+        return [run_id for run_id in run_id_list if run_id.islower()]
 
 
 class SearchExperimentsUtils(SearchUtils):
