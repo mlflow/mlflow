@@ -4,6 +4,7 @@ import platform
 import click
 import importlib_metadata
 import yaml
+from packaging.requirements import Requirement
 
 import mlflow
 from mlflow.utils.databricks_utils import get_databricks_runtime
@@ -105,13 +106,13 @@ def doctor(mask_envs=False):
 
     mlflow_dependencies = {}
     for req in importlib_metadata.requires("mlflow"):
-        req = req.split(maxsplit=1)[0]
+        req = Requirement(req)
         try:
-            dist = importlib_metadata.distribution(req)
+            dist = importlib_metadata.distribution(req.name)
         except importlib_metadata.PackageNotFoundError:
             continue
         else:
-            mlflow_dependencies[req] = dist.version
+            mlflow_dependencies[req.name] = dist.version
 
     items.append(
         (
