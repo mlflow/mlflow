@@ -1783,8 +1783,7 @@ def _get_experiment_id_from_env():
             else:
                 return exp.experiment_id
         else:
-            experiment_id = MlflowClient().create_experiment(name=experiment_name)
-            return experiment_id
+            return MlflowClient().create_experiment(name=experiment_name)
     if experiment_id is not None:
         try:
             exp = MlflowClient().get_experiment(experiment_id)

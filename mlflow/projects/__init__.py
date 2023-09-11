@@ -174,7 +174,7 @@ def _run(
         tracking.MlflowClient().set_tag(
             active_run.info.run_id, MLFLOW_DOCKER_IMAGE_ID, image_digest
         )
-        submitted_run = kb.run_kubernetes_job(
+        return kb.run_kubernetes_job(
             project.name,
             active_run,
             image.tags[0],
@@ -186,7 +186,6 @@ def _run(
             kube_config.get("kube-context", None),
             kube_config["kube-job-template"],
         )
-        return submitted_run
 
     supported_backends = ["databricks", "kubernetes"] + list(loader.MLFLOW_BACKENDS.keys())
     raise ExecutionException(
