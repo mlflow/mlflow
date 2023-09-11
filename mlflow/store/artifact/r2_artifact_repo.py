@@ -1,9 +1,9 @@
 import urllib.parse
 
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
 
 
-class R2ArtifactRepository(S3ArtifactRepository):
+class R2ArtifactRepository(OptimizedS3ArtifactRepository):
     """Stores artifacts on Cloudflare R2."""
 
     def __init__(
@@ -15,7 +15,6 @@ class R2ArtifactRepository(S3ArtifactRepository):
             secret_access_key=secret_access_key,
             session_token=session_token,
             addressing_style="virtual",
-            optimized=True,
         )
 
     def parse_s3_compliant_uri(self, uri):

@@ -19,9 +19,6 @@ from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3Artifact
 
 from tests.helper_functions import set_boto_credentials  # noqa: F401
 
-S3_REPOSITORY_PACKAGE = "mlflow.store.artifact.s3_artifact_repo"
-S3_ARTIFACT_REPOSITORY = f"{S3_REPOSITORY_PACKAGE}.S3ArtifactRepository"
-
 
 @pytest.fixture
 def s3_artifact_root(mock_s3_bucket):
