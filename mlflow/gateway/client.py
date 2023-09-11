@@ -340,7 +340,9 @@ class MlflowGatewayClient:
                 raise e
 
     @experimental
-    def set_limits(self, route: str, limits: list[Dict[str, Any]] = []) -> LimitsConfig:
+from typing import List
+
+    def set_limits(self, route: str, limits: List[Dict[str, Any]] = []) -> LimitsConfig:
         """
         Set limits on an existing route in the Gateway.
 
