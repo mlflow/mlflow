@@ -13,7 +13,7 @@ from pydantic import ValidationError, root_validator, validator
 from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.base_models import ConfigModel, ResponseModel, LimitModel
+from mlflow.gateway.base_models import ConfigModel, LimitModel, ResponseModel
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES,
     MLFLOW_GATEWAY_ROUTE_BASE,

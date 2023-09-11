@@ -34,6 +34,7 @@ class ConfigModel(
     route definition including route name, model name, API keys, etc.
     """
 
+
 class LimitModel(
     BaseModel,
     # Ignore extra fields for pydantic limit models, since they are unused

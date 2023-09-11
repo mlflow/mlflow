@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from mlflow.gateway.client import MlflowGatewayClient
-from mlflow.gateway.config import Route, LimitsConfig
+from mlflow.gateway.config import LimitsConfig, Route
 from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental

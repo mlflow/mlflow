@@ -9,15 +9,15 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway import (
     create_route,
     delete_route,
-    set_limits,
-    get_limtis,
     get_gateway_uri,
+    get_limtis,
     get_route,
     query,
     search_routes,
     set_gateway_uri,
+    set_limits,
 )
-from mlflow.gateway.config import Route, LimitsConfig
+from mlflow.gateway.config import Route
 from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
 from mlflow.gateway.utils import resolve_route_url
 

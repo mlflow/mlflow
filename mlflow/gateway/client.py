@@ -1,12 +1,11 @@
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import requests.exceptions
 
 from mlflow import MlflowException
-from mlflow.gateway.config import Route, LimitsConfig
-from typing import List
+from mlflow.gateway.config import LimitsConfig, Route
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
     MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
