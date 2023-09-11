@@ -1,0 +1,15 @@
+<html>
+  <head>
+    <title>Test</title>
+  </head>
+  <body>
+    <script>
+      var eventSource = new EventSource("/stream");
+      eventSource.onmessage = function (e) {
+        var stream = document.getElementById("stream");
+        stream.innerHTML = stream.innerHTML + e.data + "<br>";
+      };
+    </script>
+    <ul id="stream"></ul>
+  </body>
+</html>
