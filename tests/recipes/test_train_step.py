@@ -164,8 +164,7 @@ def setup_train_step_with_tuning(
             """
         )
     recipe_config = read_yaml(recipe_root, _RECIPE_CONFIG_FILE_NAME)
-    train_step = TrainStep.from_recipe_config(recipe_config, str(recipe_root))
-    return train_step
+    return TrainStep.from_recipe_config(recipe_config, str(recipe_root))
 
 
 def test_train_step(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
@@ -328,8 +327,7 @@ def setup_train_step_with_automl(
         """
     )
     recipe_config = read_yaml(recipe_root, _RECIPE_CONFIG_FILE_NAME)
-    train_step = TrainStep.from_recipe_config(recipe_config, str(recipe_root))
-    return train_step
+    return TrainStep.from_recipe_config(recipe_config, str(recipe_root))
 
 
 def estimator_fn(estimator_params=None):

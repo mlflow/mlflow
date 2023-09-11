@@ -26,7 +26,7 @@ def log_predictions(
     :param prompts: Union of either List of prompt strings or List of prompt dictionary
     :returns: None
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow

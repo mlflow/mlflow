@@ -518,8 +518,7 @@ def _find_duplicate_requirements(requirements):
             continue
 
     package_counts = Counter(base_package_names)
-    duplicates = [package for package, count in package_counts.items() if count > 1]
-    return duplicates
+    return [package for package, count in package_counts.items() if count > 1]
 
 
 def _process_conda_env(conda_env):

@@ -237,6 +237,14 @@ module.exports = {
               "Importing emotion is obsolete - please use css={...} prop in JSX elements now. For class names, you can import { ClassNames } from '@emotion/react' package.",
           },
         ],
+        patterns: [
+          {
+            group: ['react-router*'],
+            message:
+              // eslint-disable-next-line max-len
+              'Please do not import from react-router libraries directly and use `src/common/utils/RoutingUtils` module instead.',
+          },
+        ],
       },
     ],
     'no-restricted-modules': 2,

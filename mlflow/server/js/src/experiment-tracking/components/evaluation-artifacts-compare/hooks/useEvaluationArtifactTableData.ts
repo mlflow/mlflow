@@ -1,10 +1,17 @@
-import { fromPairs } from 'lodash';
+import { fromPairs, isObject, sortBy } from 'lodash';
 import { useMemo } from 'react';
 
-import { EvaluationArtifactTableEntry } from '../../../types';
+import { EvaluationArtifactTableEntry, PendingEvaluationArtifactTableEntry } from '../../../types';
 import type { EvaluationDataReduxState } from '../../../reducers/EvaluationDataReducer';
+import { shouldEnablePromptLab } from '../../../../common/utils/FeatureUtils';
+import {
+  PROMPTLAB_METADATA_COLUMN_LATENCY,
+  PROMPTLAB_METADATA_COLUMN_TOTAL_TOKENS,
+} from '../../prompt-engineering/PromptEngineering.utils';
 
 type ArtifactsByRun = EvaluationDataReduxState['evaluationArtifactsByRunUuid'];
+type PendingDataByRun = EvaluationDataReduxState['evaluationPendingDataByRunUuid'];
+type DraftInputValues = EvaluationDataReduxState['evaluationDraftInputValues'];
 
 export type UseEvaluationArtifactTableDataResult = {
   // Unique key for every result row
@@ -15,7 +22,32 @@ export type UseEvaluationArtifactTableDataResult = {
 
   // Values of output columns. The run uuid is the key.
   cellValues: Record<string, string>;
+
+  // Contains data describing additional metadata for output: evaluation time, total tokens and a flag
+  // indicating if the run was evaluated in this session and is unsynced
+  outputMetadataByRunUuid?: Record<
+    string,
+    { isPending: boolean; evaluationTime: number; totalTokens?: number }
+  >;
+
+  isPendingInputRow?: boolean;
 }[];
+
+const extractGroupByValuesFromEntry = (
+  entry: EvaluationArtifactTableEntry,
+  groupByCols: string[],
+) => {
+  const groupByMappings = groupByCols.map<[string, string]>((groupBy) => [
+    groupBy,
+    entry[groupBy]?.toString(),
+  ]);
+
+  // Next, let's calculate a unique hash for values of those columns - it will serve as
+  // an identifier of each result row.
+  const groupByHashKey = groupByMappings.map(([, keyValue]) => String(keyValue)).join('.');
+
+  return { key: groupByHashKey, groupByValues: fromPairs(groupByMappings) };
+};
 
 /**
  * Consumes table artifact data and based on provided dimensions,
@@ -26,92 +58,197 @@ export type UseEvaluationArtifactTableDataResult = {
  * @param tableNames table names we want to include in the comparison
  * @param groupByCols list of columns that will be used to group the results by
  * @param outputColumn selects the column to be displayed in the run
- * @param intersectingOnly if set to true, only generate rows where the output column has a value for every run
  */
 export const useEvaluationArtifactTableData = (
   artifactsByRun: ArtifactsByRun,
+  pendingDataByRun: PendingDataByRun,
+  draftInputValues: DraftInputValues,
   comparedRunsUuids: string[],
   tableNames: string[],
   groupByCols: string[],
   outputColumn: string,
-  intersectingOnly = false,
 ): UseEvaluationArtifactTableDataResult =>
+  // eslint-disable-next-line complexity
   useMemo(() => {
     /**
-     * An aggregate object containing all result values.
+     * End results, i.e. table rows
+     */
+    const results: UseEvaluationArtifactTableDataResult = [];
+
+    /**
+     * An aggregate object containing all output column values.
      * The first level key is the combined hash of all group by values,
      * the second level key is the run UUID. A leaf of this tree corresponds to the output cell value.
      */
     const outputCellsValueMap: Record<string, Record<string, string>> = {};
 
     /**
-     * Similar object containing values of the "group by" columns.
+     * An aggregate object containing values of the "group by" columns.
      * The first level key is the combined hash of all group by values,
      * the second level key is the "group by" column name. A leaf of this tree corresponds to the cell value.
      */
     const groupByCellsValueMap: Record<string, Record<string, string>> = {};
 
+    /**
+     * This array contains all "group by" keys that were freshly added or evaluated, i.e. they are not found
+     * in the original evaluation data. This helps to identify them, place them on the top and indicate
+     * they're yet to be synchronized.
+     */
+    const pendingRowKeys: string[] = [];
+
+    /**
+     * Start with populating the table with the draft rows created from the draft input sets
+     */
+    for (const draftInputValueSet of draftInputValues) {
+      const visibleGroupByValues = groupByCols.map((colName) => [
+        colName,
+        draftInputValueSet[colName],
+      ]);
+
+      const draftInputRowKey = visibleGroupByValues.map(([, value]) => value).join('.');
+
+      // Register new "group by" values combination and mark it as an artificial row
+      groupByCellsValueMap[draftInputRowKey] = fromPairs(visibleGroupByValues);
+      pendingRowKeys.push(draftInputRowKey);
+    }
+
+    const outputMetadataByCellsValueMap: Record<
+      string,
+      Record<string, { isPending: boolean; evaluationTime: number; totalTokens?: number }>
+    > = {};
+
     // Search through artifact tables and get all entries corresponding to a particular run
     const runsWithEntries = comparedRunsUuids.map<[string, EvaluationArtifactTableEntry[]]>(
       (runUuid) => {
-        const selectedTablesForRun = Object.values(artifactsByRun[runUuid] || {})
+        const baseEntries = Object.values(artifactsByRun[runUuid] || {})
           .filter(({ path }) => tableNames.includes(path))
           .map(({ entries }) => entries)
           .flat();
-        return [runUuid, selectedTablesForRun];
+        return [runUuid, baseEntries];
       },
     );
 
     // Iterate through all entries and assign them to the corresponding groups.
     for (const [runUuid, entries] of runsWithEntries) {
       for (const entry of entries) {
-        // For each entry in the input tables, find values of columns selected to be grouped by.
-        const groupByMappings = groupByCols.map<[string, string]>((groupBy) => [
-          groupBy,
-          entry[groupBy]?.toString(),
-        ]);
+        const { key, groupByValues } = extractGroupByValuesFromEntry(entry, groupByCols);
 
-        // Next, let's calculate a unique hash for values of those columns - it will serve as
-        // an identifier of each result row.
-        const groupByHashKey = groupByMappings.map(([, keyValue]) => keyValue).join('.');
+        // Do not process the entry that have empty values for all active "group by" columns
+        if (Object.values(groupByValues).every((value) => !value)) {
+          continue;
+        }
 
         // Assign "group by" column cell values
-        if (!groupByCellsValueMap[groupByHashKey]) {
-          groupByCellsValueMap[groupByHashKey] = fromPairs(groupByMappings);
+        if (!groupByCellsValueMap[key]) {
+          groupByCellsValueMap[key] = groupByValues;
         }
 
-        // Assignoutput column cell values
-        if (!outputCellsValueMap[groupByHashKey]) {
-          outputCellsValueMap[groupByHashKey] = {};
+        // Check if there are values in promptlab metadata columns
+        if (
+          entry[PROMPTLAB_METADATA_COLUMN_LATENCY] ||
+          entry[PROMPTLAB_METADATA_COLUMN_TOTAL_TOKENS]
+        ) {
+          if (!outputMetadataByCellsValueMap[key]) {
+            outputMetadataByCellsValueMap[key] = {};
+          }
+
+          // If true, save it to the record containing output metadata at the index
+          // corresponding to a current "group by" key (row) and the run uuid (column)
+          // Show the metadata of the most recent value
+          if (!outputMetadataByCellsValueMap[key][runUuid]) {
+            outputMetadataByCellsValueMap[key][runUuid] = {
+              isPending: false,
+              evaluationTime: parseFloat(entry[PROMPTLAB_METADATA_COLUMN_LATENCY]),
+              totalTokens: entry[PROMPTLAB_METADATA_COLUMN_TOTAL_TOKENS]
+                ? parseInt(entry[PROMPTLAB_METADATA_COLUMN_TOTAL_TOKENS], 10)
+                : undefined,
+            };
+          }
         }
 
-        const cellsEntry = outputCellsValueMap[groupByHashKey];
-        if (cellsEntry) {
-          // Override with the data from the other set if present.
-          // If not, retain previous value.
-          cellsEntry[runUuid] = entry[outputColumn]?.toString() || cellsEntry[runUuid];
+        // Assign output column cell values
+        if (!outputCellsValueMap[key]) {
+          outputCellsValueMap[key] = {};
         }
+
+        const cellsEntry = outputCellsValueMap[key];
+
+        // Use the data from the other set if present, but only if there
+        // is no value assigned already. This way we will proritize prepended values.
+        cellsEntry[runUuid] = cellsEntry[runUuid] || entry[outputColumn]?.toString();
       }
     }
 
+    for (const [runUuid, pendingEntries] of Object.entries(pendingDataByRun)) {
+      for (const pendingEntry of pendingEntries) {
+        const { entryData, ...metadata } = pendingEntry;
+        const { key, groupByValues } = extractGroupByValuesFromEntry(entryData, groupByCols);
+
+        // Do not process the entry that have empty values for all active "group by" columns
+        if (Object.values(groupByValues).every((value) => !value)) {
+          continue;
+        }
+
+        // Assign "group by" column cell values
+        if (!groupByCellsValueMap[key]) {
+          groupByCellsValueMap[key] = groupByValues;
+
+          // If the key was not found in the original set, mark entire row as pending
+          pendingRowKeys.push(key);
+        }
+
+        if (!outputMetadataByCellsValueMap[key]) {
+          outputMetadataByCellsValueMap[key] = {};
+        }
+
+        // code pointer for where the metadat is stored
+        outputMetadataByCellsValueMap[key][runUuid] = metadata;
+
+        // Assign output column cell values
+        if (!outputCellsValueMap[key]) {
+          outputCellsValueMap[key] = {};
+        }
+
+        const cellsEntry = outputCellsValueMap[key];
+        // Use pending data to overwrite already existing result
+        cellsEntry[runUuid] = entryData[outputColumn]?.toString() || cellsEntry[runUuid];
+      }
+    }
+
+    /**
+     * Extract all "group by" keys, i.e. effectively row keys.
+     * Hoist all rows that were created during the pending evaluation to the top.
+     */
+    const allRowKeys = sortBy(
+      Object.entries(groupByCellsValueMap),
+      ([key]) => !pendingRowKeys.includes(key),
+    );
+
     // In the final step, iterate through all found combinations of "group by" values and
     // assign the cells
-    const results: UseEvaluationArtifactTableDataResult = [];
-
-    for (const [key, groupByCellValues] of Object.entries(groupByCellsValueMap)) {
-      const cellValues = outputCellsValueMap[key];
-      // If `intersectingOnly` is set to true, check if every compared run has the value
-      // for this particular group by row.
-      const shouldBeAddedToResultSet =
-        !intersectingOnly || comparedRunsUuids.every((runUuid) => cellValues[runUuid]);
-      if (shouldBeAddedToResultSet) {
+    for (const [key, groupByCellValues] of allRowKeys) {
+      const existingTableRow = results.find(({ key: existingKey }) => key === existingKey);
+      if (existingTableRow && outputCellsValueMap[key]) {
+        existingTableRow.cellValues = outputCellsValueMap[key];
+        existingTableRow.outputMetadataByRunUuid = outputMetadataByCellsValueMap[key];
+      } else {
         results.push({
           key,
           groupByCellValues,
           cellValues: outputCellsValueMap[key] || {},
+          outputMetadataByRunUuid: outputMetadataByCellsValueMap[key],
+          isPendingInputRow: pendingRowKeys.includes(key),
         });
       }
     }
 
     return results;
-  }, [comparedRunsUuids, artifactsByRun, groupByCols, intersectingOnly, tableNames, outputColumn]);
+  }, [
+    comparedRunsUuids,
+    artifactsByRun,
+    groupByCols,
+    draftInputValues,
+    tableNames,
+    outputColumn,
+    pendingDataByRun,
+  ]);

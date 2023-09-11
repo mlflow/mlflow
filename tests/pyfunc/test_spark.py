@@ -71,14 +71,13 @@ class ConstantPyfuncWrapper:
     @staticmethod
     def predict(model_input):
         m, _ = model_input.shape
-        prediction_df = pd.DataFrame(
+        return pd.DataFrame(
             data={
                 str(i): np.array([prediction[i] for j in range(m)], dtype=types[i])
                 for i in range(len(prediction))
             },
             columns=[str(i) for i in range(len(prediction))],
         )
-        return prediction_df
 
 
 def _load_pyfunc(_):

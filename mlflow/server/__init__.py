@@ -21,6 +21,7 @@ from mlflow.server.handlers import (
     get_metric_history_bulk_handler,
     get_model_version_artifact_handler,
     search_datasets_handler,
+    upload_artifact_handler,
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import _exec_cmd
@@ -85,7 +86,7 @@ def serve_get_metric_history_bulk():
 
 
 # Serve the "experiments/search-datasets" route.
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"))
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"), methods=["POST"])
 def serve_search_datasets():
     return search_datasets_handler()
 
@@ -99,6 +100,11 @@ def serve_create_promptlab_run():
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/gateway-proxy"), methods=["POST", "GET"])
 def serve_gateway_proxy():
     return gateway_proxy_handler()
+
+
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/upload-artifact"), methods=["POST"])
+def serve_upload_artifact():
+    return upload_artifact_handler()
 
 
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for

@@ -1,4 +1,4 @@
-import { Skeleton } from '@databricks/design-system';
+import { LegacySkeleton } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { connect } from 'react-redux';
@@ -86,18 +86,52 @@ export const RunsCompareImpl = ({
     return automlEntry?.value || mlflowPrimaryEntry?.value || metricKeyList[0] || '';
   }, [experimentTags, metricKeyList]);
 
+  /**
+   * Dataset generated for all charts in a single place
+   */
+  const chartRunData: CompareChartRunData[] = useMemo(
+    () =>
+      comparedRuns
+        .filter((run) => !run.hidden)
+        .map((run) => ({
+          runInfo: run.runInfo,
+          metrics: latestMetricsByRunUuid[run.runUuid] || {},
+          params: paramsByRunUuid[run.runUuid] || {},
+          color: run.color,
+          pinned: run.pinned,
+          pinnable: run.pinnable,
+          metricsHistory: {},
+        })),
+    [comparedRuns, latestMetricsByRunUuid, paramsByRunUuid],
+  );
+
+  const { isLoading: isMetricHistoryLoading, chartRunDataWithHistory } =
+    useMultipleChartsMetricHistory(
+      searchFacetsState.compareRunCharts || [],
+      chartRunData,
+      metricsByRunUuid,
+    );
+
   // Set chart cards to the user-facing base config if there is no other information.
   useEffect(() => {
-    if (!searchFacetsState.compareRunCharts) {
+    if (!searchFacetsState.compareRunCharts && chartRunDataWithHistory.length > 0) {
       updateSearchFacets(
         (current) => ({
           ...current,
-          compareRunCharts: RunsCompareCardConfig.getBaseChartConfigs(primaryMetricKey),
+          compareRunCharts: RunsCompareCardConfig.getBaseChartConfigs(
+            primaryMetricKey,
+            chartRunDataWithHistory[0].metrics,
+          ),
         }),
         { replaceHistory: true },
       );
     }
-  }, [searchFacetsState.compareRunCharts, primaryMetricKey, updateSearchFacets]);
+  }, [
+    searchFacetsState.compareRunCharts,
+    primaryMetricKey,
+    updateSearchFacets,
+    chartRunDataWithHistory,
+  ]);
 
   const onTogglePin = useCallback(
     (runUuid: string) => {
@@ -161,32 +195,6 @@ export const RunsCompareImpl = ({
   };
 
   /**
-   * Dataset generated for all charts in a single place
-   */
-  const chartRunData: CompareChartRunData[] = useMemo(
-    () =>
-      comparedRuns
-        .filter((run) => !run.hidden)
-        .map((run) => ({
-          runInfo: run.runInfo,
-          metrics: latestMetricsByRunUuid[run.runUuid] || {},
-          params: paramsByRunUuid[run.runUuid] || {},
-          color: run.color,
-          pinned: run.pinned,
-          pinnable: run.pinnable,
-          metricsHistory: {},
-        })),
-    [comparedRuns, latestMetricsByRunUuid, paramsByRunUuid],
-  );
-
-  const { isLoading: isMetricHistoryLoading, chartRunDataWithHistory } =
-    useMultipleChartsMetricHistory(
-      searchFacetsState.compareRunCharts || [],
-      chartRunData,
-      metricsByRunUuid,
-    );
-
-  /**
    * Data utilized by the tooltip system:
    * runs data and toggle pin callback
    */
@@ -198,7 +206,7 @@ export const RunsCompareImpl = ({
   if (!initiallyLoaded) {
     return (
       <div css={styles.wrapper}>
-        <Skeleton />
+        <LegacySkeleton />
       </div>
     );
   }
@@ -236,21 +244,28 @@ export const RunsCompareImpl = ({
 
 const styles = {
   controlsWrapper: (theme: Theme) => ({
+    position: 'sticky' as const,
+    top: 0,
     marginBottom: theme.spacing.md,
     display: 'flex' as const,
     justifyContent: 'flex-end',
+    zIndex: 2,
+    backgroundColor: theme.colors.backgroundSecondary,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
   }),
   wrapper: (theme: Theme) => ({
-    // Same height as "Show N matching runs" label.
-    // Going to be fixed after switching to grid's fixed viewport height mode.
+    borderTop: `1px solid ${theme.colors.border}`,
+    borderLeft: `1px solid ${theme.colors.border}`,
 
     // Let's cover 1 pixel of the grid's border for the sleek look
     marginLeft: -1,
 
     position: 'relative' as const,
     backgroundColor: theme.colors.backgroundSecondary,
-    padding: theme.spacing.md,
-    borderLeft: `1px solid ${theme.colors.border}`,
+    paddingLeft: theme.spacing.md,
+    paddingRight: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
     zIndex: 1,
     overflowY: 'auto' as const,
   }),
