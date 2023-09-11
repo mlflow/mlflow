@@ -36,12 +36,14 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         secret_access_key=None,
         session_token=None,
         addressing_style="path",
+        s3_endpoint_url=None
     ):
         super().__init__(artifact_uri)
         self._access_key_id = access_key_id
         self._secret_access_key = secret_access_key
         self._session_token = session_token
         self._addressing_style = addressing_style
+        self._s3_endpoint_url = s3_endpoint_url
         self.bucket, self.bucket_path = self.parse_s3_compliant_uri(self.artifact_uri)
         self._region_name = self._get_region_name()
 
@@ -51,6 +53,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             access_key_id=self._access_key_id,
             secret_access_key=self._secret_access_key,
             session_token=self._session_token,
+            s3_endpoint_url=self._s3_endpoint_url,
         )
         return temp_client.get_bucket_location(Bucket=self.bucket)["LocationConstraint"]
 
@@ -61,6 +64,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             secret_access_key=self._secret_access_key,
             session_token=self._session_token,
             region_name=self._region_name,
+            s3_endpoint_url=self._s3_endpoint_url,
         )
 
     def parse_s3_compliant_uri(self, uri):

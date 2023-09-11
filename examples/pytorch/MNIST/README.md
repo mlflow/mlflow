@@ -60,7 +60,7 @@ mlflow run . -P max_epochs=5 -P devices=1 -P batch_size=32 -P num_workers=2 -P l
 
 Or to run the training script directly with custom parameters:
 
-```
+```sh
 python mnist_autolog_example.py \
     --trainer.max_epochs 5 \
     --trainer.devices 1 \
