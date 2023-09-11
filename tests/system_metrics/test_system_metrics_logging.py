@@ -2,10 +2,6 @@ import threading
 import time
 
 import mlflow
-from mlflow.environment_variables import (
-    MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING,
-    MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL,
-)
 from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
 
 
@@ -32,8 +28,9 @@ def test_manual_system_metrics_monitor():
 
 
 def test_automatic_system_metrics_monitor():
-    MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL.set(0.2)
-    MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING.set(5)
+    mlflow.enable_system_metrics_logging()
+    mlflow.set_system_metrics_sampling_interval(0.2)
+    mlflow.set_system_metrics_samples_before_logging(5)
     run = mlflow.start_run()
     thread_names = [thread.name for thread in threading.enumerate()]
     # Check the system metrics monitoring thread has been started.

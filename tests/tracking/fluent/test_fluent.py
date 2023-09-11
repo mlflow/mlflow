@@ -32,6 +32,7 @@ from mlflow.environment_variables import (
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_RUN_ID,
+    MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
@@ -51,6 +52,10 @@ from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
 from mlflow.utils.time_utils import get_current_time_millis
 
 from tests.helper_functions import multi_context
+
+# Enable system metrics logging for all tests in this module so that we can verify system metrics
+# logging is not affecting other fluent features.
+mlflow.enable_system_metrics_logging()
 
 
 def create_run(
@@ -1292,3 +1297,15 @@ def test_get_parent_run():
     assert parent_run.data.params == {"a": "1"}
 
     assert mlflow.get_parent_run(run_id) is None
+
+
+def test_get_system_metrics():
+    mlflow.set_system_metrics_sampling_interval(0.5)
+    with mlflow.start_run() as run:
+        time.sleep(1)
+
+    mlflow_run = MlflowClient().get_run(run.info.run_id)
+    metrics = mlflow_run.data.metrics
+    assert "cpu_percentage" in metrics
+    assert "system_memory_used" in metrics
+    MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL.unset()

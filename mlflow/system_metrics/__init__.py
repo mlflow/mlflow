@@ -12,6 +12,11 @@ def disable_system_metrics_logging():
     MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING.set(True)
 
 
+def enable_system_metrics_logging():
+    """Enable system metrics logging."""
+    MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING.set(False)
+
+
 def set_system_metrics_sampling_interval(interval):
     """Set the system metrics sampling interval.
 

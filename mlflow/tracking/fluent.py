@@ -193,7 +193,7 @@ def start_run(
     nested: bool = False,
     tags: Optional[Dict[str, Any]] = None,
     description: Optional[str] = None,
-    include_system_metrics: bool = True,
+    include_system_metrics: bool = False,
 ) -> ActiveRun:
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
@@ -372,9 +372,8 @@ def start_run(
             tags=resolved_tags,
             run_name=run_name,
         )
-        include_system_metrics = (
-            not MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING.get() and include_system_metrics
-        )
+        if MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING.get() is not None:
+            include_system_metrics = not MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING.get()
         if include_system_metrics:
             try:
                 from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor

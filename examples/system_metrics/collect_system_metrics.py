@@ -3,6 +3,7 @@ import time
 import mlflow
 
 if __name__ == "__main__":
+    mlflow.enable_system_metrics_logging()
     run = mlflow.start_run()
     time.sleep(11)
     mlflow.end_run()
