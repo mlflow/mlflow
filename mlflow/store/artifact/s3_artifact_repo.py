@@ -122,6 +122,7 @@ class S3ArtifactRepository(ArtifactRepository):
             access_key_id=self._access_key_id,
             secret_access_key=self._secret_access_key,
             session_token=self._session_token,
+            s3_endpoint_url= s3_endpoint_url,
         )
 
     def parse_s3_compliant_uri(self, uri):
