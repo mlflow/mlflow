@@ -50,8 +50,7 @@ class IrisClassificationBase(pl.LightningModule):
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = F.relu(self.fc3(x))
-        return x
+        return F.relu(self.fc3(x))
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), 0.01)

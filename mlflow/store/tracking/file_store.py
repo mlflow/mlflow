@@ -693,8 +693,7 @@ class FileStore(AbstractStore):
 
     def _get_run_info_from_dir(self, run_dir):
         meta = FileStore._read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
-        run_info = _read_persisted_run_info_dict(meta)
-        return run_info
+        return _read_persisted_run_info_dict(meta)
 
     def _get_run_files(self, run_info, resource_type):
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
