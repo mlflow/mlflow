@@ -9,12 +9,12 @@ def test_cpu_monitor():
     cpu_monitor.collect_metrics()
 
     assert isinstance(cpu_monitor.metrics["cpu_percentage"], list)
-    assert isinstance(cpu_monitor.metrics["cpu_memory_used"], list)
+    assert isinstance(cpu_monitor.metrics["system_memory_used"], list)
 
     cpu_monitor.collect_metrics()
     aggregated_metrics = cpu_monitor.aggregate_metrics()
     assert isinstance(aggregated_metrics["cpu_percentage"], float)
-    assert isinstance(aggregated_metrics["cpu_memory_used"], float)
+    assert isinstance(aggregated_metrics["system_memory_used"], float)
 
     cpu_monitor.clear_metrics()
     assert len(cpu_monitor.metrics.keys()) == 0
