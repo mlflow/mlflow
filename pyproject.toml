@@ -50,6 +50,7 @@ select = [
   "SIM101",
   "T20",
   "TID252",
+  "TID251",
 ]
 force-exclude = true
 ignore = [
@@ -86,3 +87,6 @@ ban-relative-imports = "all"
 
 [tool.ruff.isort]
 forced-separate = ["tests"]
+
+[tool.ruff.flake8-tidy-imports.banned-api]
+"pkg_resources".msg = "pkg_resources is deprecated. Use importlib.resources or importlib.metadata instead."
