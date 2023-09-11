@@ -514,7 +514,7 @@ def test_embeddings(tmp_path):
         {"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": (-1,)}}
     ]
     assert model.signature.params.to_dict() == [
-        {"name": "batch_size", "dtype": "long", "default": 1024}
+        {"name": "batch_size", "dtype": "long", "default": 1024, "shape": None}
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
@@ -527,17 +527,17 @@ def test_embeddings(tmp_path):
     assert preds == [[0.0]] * 100
 
 
-def test_embeddings_batch_size_azure_ad(tmp_path, monkeypatch):
-    monkeypatch.setenv("OPENAI_API_TYPE", "azure_ad")
-    mlflow.openai.save_model(
-        model="text-embedding-ada-002",
-        task=openai.Embedding,
-        path=tmp_path,
-    )
-    model = mlflow.models.Model.load(tmp_path)
+def test_embeddings_batch_size_azure(tmp_path, monkeypatch):
+    with mock.patch("openai.api_type", return_value="azure"):
+        mlflow.openai.save_model(
+            model="text-embedding-ada-002",
+            task=openai.Embedding,
+            path=tmp_path,
+        )
+        model = mlflow.models.Model.load(tmp_path)
 
     assert model.signature.params.to_dict() == [
-        {"name": "batch_size", "dtype": "long", "default": 16}
+        {"name": "batch_size", "dtype": "long", "default": 16, "shape": None}
     ]
 
 

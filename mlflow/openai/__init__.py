@@ -173,7 +173,7 @@ def _get_api_config() -> Dict[str, Any]:
 
     config = {}
     api_type = openai.api_type or os.environ.get(_OpenAIEnvVar.OPENAI_API_TYPE.value, "openai")
-    if api_type in ("azure_ad", "azuread"):
+    if api_type in ("azure", "azure_ad", "azuread"):
         config["batch_size"] = 16
         config["max_requests_per_minute"] = 3_500
         config["max_tokens_per_minute"] = 60_000
@@ -580,6 +580,8 @@ class _FormattableContent:
         elif type == "chat.messages":
             # This is not a valid OpenAI type, but it helps to distinguish a conversation from a
             # single message
+            if not template:
+                template = {"role": "user", "content": "{content}"}
             assert isinstance(template, Dict)
 
             self.formatable_content = template.get("content")
@@ -587,8 +589,6 @@ class _FormattableContent:
             self.format_fn = self.format_message
             self.variables = _parse_format_fields(self.formatable_content)
         elif type == "chat.completions":
-            if not template:
-                template = [{"role": "user", "content": "{content}"}]
             assert isinstance(template, Iterable)
 
             self.formatable_content = [_FormattableContent(m, "chat.messages") for m in template]
@@ -596,6 +596,12 @@ class _FormattableContent:
             self.variables = sorted(
                 set(itertools.chain.from_iterable(t.variables for t in self.formatable_content))
             )
+            if not self.variables:
+                # If there are no variables, we add a new message to the template where to pass
+                # user data
+                default_message = _FormattableContent(None, "chat.messages")
+                self.formatable_content.append(default_message)
+                self.variables = default_message.variables
         else:
             raise mlflow.MlflowException.invalid_parameter_value(
                 f"Task type ``{type}`` is not supported for formatting."
