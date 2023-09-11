@@ -736,7 +736,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         """
         import langchain
 
-        from mlflow.openai.utils import TEST_CONTENT, TEST_SOURCE_DOCUMENTS
+        from mlflow.openai.utils import TEST_CONTENT, TEST_INTERMEDIATE_STEPS, TEST_SOURCE_DOCUMENTS
 
         from tests.langchain.test_langchain_model_export import _mock_async_request
 
@@ -760,6 +760,12 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         ):
             for res in result:
                 res["source_documents"] = TEST_SOURCE_DOCUMENTS
+        if (
+            hasattr(self.lc_model, "return_intermediate_steps")
+            and self.lc_model.return_intermediate_steps
+        ):
+            for res in result:
+                res["intermediate_steps"] = TEST_INTERMEDIATE_STEPS
 
         return result
 

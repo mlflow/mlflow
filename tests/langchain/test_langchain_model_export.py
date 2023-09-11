@@ -44,6 +44,7 @@ from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.openai.utils import (
     TEST_CONTENT,
+    TEST_INTERMEDIATE_STEPS,
     TEST_SOURCE_DOCUMENTS,
     _mock_chat_completion_response,
     _mock_request,
@@ -121,7 +122,7 @@ def create_qa_with_sources_chain():
     return load_qa_with_sources_chain(OpenAI(temperature=0), chain_type="stuff")
 
 
-def create_openai_llmagent():
+def create_openai_llmagent(return_intermediate_steps=False):
     from langchain.agents import AgentType, initialize_agent, load_tools
 
     # First, let's load the language model we're going to use to control the agent.
@@ -131,7 +132,13 @@ def create_openai_llmagent():
     tools = load_tools(["serpapi", "llm-math"], llm=llm)
 
     # Finally, let's initialize an agent with the tools.
-    return initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=True)
+    return initialize_agent(
+        tools,
+        llm,
+        agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+        verbose=True,
+        return_intermediate_steps=return_intermediate_steps,
+    )
 
 
 class FakeLLM(LLM):
@@ -261,7 +268,8 @@ def test_langchain_log_huggingface_hub_model_metadata(model_path):
     assert loaded_model.prompt.template == "What is a good name for a company that makes {product}?"
 
 
-def test_langchain_agent_model_predict():
+@pytest.mark.parametrize("return_intermediate_steps", [False, True])
+def test_langchain_agent_model_predict(return_intermediate_steps):
     langchain_agent_output = {
         "id": "chatcmpl-123",
         "object": "chat.completion",
@@ -275,17 +283,25 @@ def test_langchain_agent_model_predict():
         ],
         "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
     }
-    model = create_openai_llmagent()
+    model = create_openai_llmagent(return_intermediate_steps=return_intermediate_steps)
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(model, "langchain_model")
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     langchain_input = {
-        "input": "What was the high temperature in SF yesterday in Fahrenheit? "
+        "input": "What was the high temperature in SF yesterday in Fahrenheit?"
         "What is that number raised to the .023 power?"
     }
+
+    if return_intermediate_steps:
+        langchain_output = [{"output": TEST_CONTENT, "intermediate_steps": TEST_INTERMEDIATE_STEPS}]
+        # hardcoded output key because that is the default for an agent
+        # but it is not an attribute of the agent or anything that we log
+    else:
+        langchain_output = [TEST_CONTENT]
+
     with _mock_request(return_value=_MockResponse(200, langchain_agent_output)):
         result = loaded_model.predict([langchain_input])
-        assert result == [TEST_CONTENT]
+        assert result == langchain_output
 
     inference_payload = json.dumps({"inputs": langchain_input})
     langchain_agent_output_serving = {"predictions": langchain_agent_output}
