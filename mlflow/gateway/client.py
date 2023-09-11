@@ -6,6 +6,7 @@ import requests.exceptions
 
 from mlflow import MlflowException
 from mlflow.gateway.config import Route, LimitsConfig
+from typing import List
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
     MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
@@ -340,7 +341,7 @@ class MlflowGatewayClient:
                 raise e
 
     @experimental
-    def set_limits(self, route: str, limits: list[Dict[str, Any]] = []) -> LimitsConfig:
+    def set_limits(self, route: str, limits: List[Dict[str, Any]] = []) -> LimitsConfig:
         """
         Set limits on an existing route in the Gateway.
 
