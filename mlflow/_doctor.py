@@ -104,7 +104,7 @@ def doctor(mask_envs=False):
         )
 
     mlflow_dependencies = {}
-    for req in importlib_metadata.distribution("mlflow").requires:
+    for req in importlib_metadata.requires("mlflow"):
         req = req.split(maxsplit=1)[0]
         try:
             dist = importlib_metadata.distribution(req)
