@@ -89,4 +89,4 @@ ban-relative-imports = "all"
 forced-separate = ["tests"]
 
 [tool.ruff.flake8-tidy-imports.banned-api]
-"pkg_resources".msg = "pkg_resources is deprecated. Use importlib.resources or importlib.metadata instead."
+"pkg_resources".msg = "We're migrating away from pkg_resources. Please use importlib.resources or importlib.metadata instead."

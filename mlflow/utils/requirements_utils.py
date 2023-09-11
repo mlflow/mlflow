@@ -17,7 +17,7 @@ from threading import Timer
 from typing import NamedTuple, Optional
 
 import importlib_metadata
-import pkg_resources
+import pkg_resources  # noqa: TID251
 from packaging.requirements import Requirement
 from packaging.version import InvalidVersion, Version
 
