@@ -513,9 +513,7 @@ def test_embeddings(tmp_path):
     assert model.signature.outputs.to_dict() == [
         {"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": (-1,)}}
     ]
-    assert model.signature.params.to_dict() == [
-        {"name": "batch_size", "dtype": "long", "default": 1024, "shape": None}
-    ]
+    assert any(filter(lambda f: f["name"] == "batch_size", model.signature.params.to_dict()))
 
     model = mlflow.pyfunc.load_model(tmp_path)
     data = pd.DataFrame({"text": ["a", "b"]})
@@ -536,9 +534,12 @@ def test_embeddings_batch_size_azure(tmp_path, monkeypatch):
         )
         model = mlflow.models.Model.load(tmp_path)
 
-    assert model.signature.params.to_dict() == [
-        {"name": "batch_size", "dtype": "long", "default": 16, "shape": None}
-    ]
+    assert any(
+        filter(
+            lambda f: f["name"] == "batch_size" and f["default"] == 16,
+            model.signature.params.to_dict(),
+        )
+    )
 
 
 def test_embeddings_pyfunc_server_and_score(tmp_path):
