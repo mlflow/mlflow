@@ -15,6 +15,7 @@ from mlflow.store.artifact.s3_artifact_repo import (
     S3ArtifactRepository,
     _cached_get_s3_client,
 )
+from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
 
 from tests.helper_functions import set_boto_credentials  # noqa: F401
 
@@ -29,9 +30,9 @@ def s3_artifact_root(mock_s3_bucket):
 
 @pytest.fixture(params=[True, False])
 def s3_artifact_repo(s3_artifact_root, request):
-    return S3ArtifactRepository(
-        posixpath.join(s3_artifact_root, "some/path"), optimized=request.param
-    )
+    if request.param:
+        return OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+    return S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
 
 
 @pytest.fixture(autouse=True)
@@ -79,50 +80,36 @@ def test_file_artifact_is_logged_with_content_metadata(
 
 
 def test_get_s3_client_hits_cache(s3_artifact_root, monkeypatch):
-    with mock.patch("boto3.client") as mock_get_s3_client:
-        s3_client_mock = mock.Mock()
-        mock_get_s3_client.return_value = s3_client_mock
-        s3_client_mock.get_bucket_location.return_value = {"LocationConstraint": "us-west-2"}
+    # pylint: disable=no-value-for-parameter
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    repo._get_s3_client()
+    cache_info = _cached_get_s3_client.cache_info()
+    assert cache_info.hits == 0
+    assert cache_info.misses == 1
+    assert cache_info.currsize == 1
 
-        # pylint: disable=no-value-for-parameter
-        repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"), optimized=True)
+    repo._get_s3_client()
+    cache_info = _cached_get_s3_client.cache_info()
+    assert cache_info.hits == 1
+    assert cache_info.misses == 1
+    assert cache_info.currsize == 1
 
-        # We get the s3 client once during initialization to get the bucket region name
-        cache_info = _cached_get_s3_client.cache_info()
-        assert cache_info.hits == 0
-        assert cache_info.misses == 1
-        assert cache_info.currsize == 1
+    monkeypatch.setenv("MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION", "s3v2")
+    repo._get_s3_client()
+    cache_info = _cached_get_s3_client.cache_info()
+    assert cache_info.hits == 1
+    assert cache_info.misses == 2
+    assert cache_info.currsize == 2
 
-        # When the s3 client is fetched via class method, it is called with the region name
+    with mock.patch(
+        "mlflow.store.artifact.s3_artifact_repo._get_utcnow_timestamp",
+        return_value=datetime.utcnow().timestamp() + _MAX_CACHE_SECONDS,
+    ):
         repo._get_s3_client()
-        cache_info = _cached_get_s3_client.cache_info()
-        assert cache_info.hits == 0
-        assert cache_info.misses == 2
-        assert cache_info.currsize == 2
-
-        # A second fetch via class method leads to cache hit
-        repo._get_s3_client()
-        cache_info = _cached_get_s3_client.cache_info()
-        assert cache_info.hits == 1
-        assert cache_info.misses == 2
-        assert cache_info.currsize == 2
-
-        monkeypatch.setenv("MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION", "s3v2")
-        repo._get_s3_client()
-        cache_info = _cached_get_s3_client.cache_info()
-        assert cache_info.hits == 1
-        assert cache_info.misses == 3
-        assert cache_info.currsize == 3
-
-        with mock.patch(
-            "mlflow.store.artifact.s3_artifact_repo._get_utcnow_timestamp",
-            return_value=datetime.utcnow().timestamp() + _MAX_CACHE_SECONDS,
-        ):
-            repo._get_s3_client()
-        cache_info = _cached_get_s3_client.cache_info()
-        assert cache_info.hits == 1
-        assert cache_info.misses == 4
-        assert cache_info.currsize == 4
+    cache_info = _cached_get_s3_client.cache_info()
+    assert cache_info.hits == 1
+    assert cache_info.misses == 3
+    assert cache_info.currsize == 3
 
 
 @pytest.mark.parametrize(
@@ -144,28 +131,6 @@ def test_get_s3_client_verify_param_set_correctly(
             aws_secret_access_key=None,
             aws_session_token=None,
             region_name=ANY,
-        )
-
-
-def test_get_s3_client_region_name_set_correctly(s3_artifact_root):
-    region_name = "us_random_region_42"
-    with mock.patch("boto3.client") as mock_get_s3_client:
-        s3_client_mock = mock.Mock()
-        mock_get_s3_client.return_value = s3_client_mock
-        s3_client_mock.get_bucket_location.return_value = {"LocationConstraint": region_name}
-
-        repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"), optimized=True)
-        repo._get_s3_client()
-
-        mock_get_s3_client.assert_called_with(
-            "s3",
-            config=ANY,
-            endpoint_url=ANY,
-            verify=None,
-            aws_access_key_id=None,
-            aws_secret_access_key=None,
-            aws_session_token=None,
-            region_name=region_name,
         )
 
 
@@ -308,9 +273,8 @@ def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_ba
     assert nested_artifacts_listing == [("nested/c.txt", False, 1)]
 
 
-@pytest.mark.parametrize(("optimized"), [True, False])
 def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
-    s3_artifact_root, tmp_path, optimized
+    s3_artifact_root, tmp_path
 ):
     file_a_name = "a.txt"
     file_a_text = "A"
@@ -323,7 +287,6 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_ro
         f.write(file_a_text)
 
     repo = get_artifact_repository(s3_artifact_root)
-    repo._optimized = optimized
     repo.log_artifacts(subdir_path)
 
     downloaded_dir_path = repo.download_artifacts("nested")
@@ -332,9 +295,8 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_ro
         assert f.read() == file_a_text
 
 
-@pytest.mark.parametrize(("optimized"), [True, False])
 def test_download_file_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
-    s3_artifact_root, tmp_path, optimized
+    s3_artifact_root, tmp_path
 ):
     file_a_name = "a.txt"
     file_a_text = "A"
@@ -343,7 +305,6 @@ def test_download_file_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
         f.write(file_a_text)
 
     repo = get_artifact_repository(s3_artifact_root)
-    repo._optimized = optimized
     repo.log_artifact(file_a_path)
 
     downloaded_file_path = repo.download_artifacts(file_a_name)
@@ -406,51 +367,3 @@ def test_delete_artifacts(s3_artifact_repo, tmp_path):
     repo.delete_artifacts()
     tmpdir_objects = repo.list_artifacts()
     assert not tmpdir_objects
-
-
-def test_log_artifacts_in_parallel_when_necessary(s3_artifact_repo, mock_s3_bucket, tmp_path):
-    repo = s3_artifact_repo
-
-    file_a_name = "a.txt"
-    file_a_text = "A"
-    file_a_path = os.path.join(tmp_path, file_a_name)
-    with open(file_a_path, "w") as f:
-        f.write(file_a_text)
-
-    with mock.patch(f"{S3_REPOSITORY_PACKAGE}._MULTIPART_UPLOAD_CHUNK_SIZE", 0), mock.patch(
-        f"{S3_ARTIFACT_REPOSITORY}._multipart_upload", return_value=None
-    ) as multipart_upload_mock:
-        repo.log_artifacts(tmp_path)
-        if repo._optimized:
-            multipart_upload_mock.assert_called_once_with(
-                ANY, ANY, mock_s3_bucket, "some/path/a.txt"
-            )
-        else:
-            multipart_upload_mock.assert_not_called()
-
-
-@pytest.mark.parametrize(
-    ("file_size", "is_parallel_download"),
-    [(None, False), (100, False), (499_999_999, False), (500_000_000, True)],
-)
-def test_download_file_in_parallel_when_necessary(
-    s3_artifact_repo, file_size, is_parallel_download
-):
-    repo = s3_artifact_repo
-    remote_file_path = "file_1.txt"
-    list_artifacts_result = (
-        [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)] if file_size else []
-    )
-    with mock.patch(
-        f"{S3_ARTIFACT_REPOSITORY}.list_artifacts",
-        return_value=list_artifacts_result,
-    ), mock.patch(
-        f"{S3_ARTIFACT_REPOSITORY}._download_from_cloud", return_value=None
-    ) as download_mock, mock.patch(
-        f"{S3_ARTIFACT_REPOSITORY}._parallelized_download_from_cloud", return_value=None
-    ) as parallel_download_mock:
-        repo.download_artifacts("")
-        if is_parallel_download and repo._optimized:
-            parallel_download_mock.assert_called_with(file_size, remote_file_path, ANY)
-        else:
-            download_mock.assert_called()

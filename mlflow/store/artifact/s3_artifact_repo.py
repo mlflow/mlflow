@@ -1,6 +1,4 @@
 import json
-import logging
-import math
 import os
 import posixpath
 import urllib.parse
@@ -10,23 +8,13 @@ from mimetypes import guess_type
 
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
-    MLFLOW_ENABLE_MULTIPART_UPLOAD,
     MLFLOW_S3_ENDPOINT_URL,
     MLFLOW_S3_IGNORE_TLS,
     MLFLOW_S3_UPLOAD_EXTRA_ARGS,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
-from mlflow.store.artifact.cloud_artifact_repo import (
-    _MULTIPART_UPLOAD_CHUNK_SIZE,
-    CloudArtifactRepository,
-    _complete_futures,
-)
-from mlflow.utils.file_utils import read_chunk, relative_path_to_artifact_path
-from mlflow.utils.request_utils import cloud_storage_http_request
-from mlflow.utils.rest_utils import augmented_raise_for_status
-
-_logger = logging.getLogger(__name__)
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 _MAX_CACHE_SECONDS = 300
 
@@ -119,45 +107,23 @@ def _get_s3_client(
     )
 
 
-class S3ArtifactRepository(CloudArtifactRepository):
+class S3ArtifactRepository(ArtifactRepository):
     """Stores artifacts on Amazon S3."""
 
     def __init__(
-        self,
-        artifact_uri,
-        access_key_id=None,
-        secret_access_key=None,
-        session_token=None,
-        addressing_style="path",
-        optimized=False,
+        self, artifact_uri, access_key_id=None, secret_access_key=None, session_token=None
     ):
         super().__init__(artifact_uri)
         self._access_key_id = access_key_id
         self._secret_access_key = secret_access_key
         self._session_token = session_token
-        self._addressing_style = addressing_style
-        self.bucket, self.bucket_path = self.parse_s3_compliant_uri(self.artifact_uri)
-        self._optimized = optimized
-        self._region_name = self._get_region_name()
 
-    def _get_region_name(self):
-        if not self._optimized:
-            return None
-        temp_client = _get_s3_client(
-            addressing_style=self._addressing_style,
-            access_key_id=self._access_key_id,
-            secret_access_key=self._secret_access_key,
-            session_token=self._session_token,
-        )
-        return temp_client.get_bucket_location(Bucket=self.bucket)["LocationConstraint"]
-
-    def _get_s3_client(self):
+    def _get_s3_client(self, addressing_style="path"):
         return _get_s3_client(
-            addressing_style=self._addressing_style,
+            addressing_style=addressing_style,
             access_key_id=self._access_key_id,
             secret_access_key=self._secret_access_key,
             session_token=self._session_token,
-            region_name=self._region_name,
         )
 
     def parse_s3_compliant_uri(self, uri):
@@ -191,33 +157,16 @@ class S3ArtifactRepository(CloudArtifactRepository):
         s3_client.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
 
     def log_artifact(self, local_file, artifact_path=None):
-        if self._optimized:
-            return self.log_artifact_optimized(local_file, artifact_path)
-        dest_path = self.bucket_path
+        (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         self._upload_file(
-            s3_client=self._get_s3_client(),
-            local_file=local_file,
-            bucket=self.bucket,
-            key=dest_path,
-        )
-
-    def log_artifact_optimized(self, local_file, artifact_path=None):
-        artifact_file_path = os.path.basename(local_file)
-        if artifact_path:
-            artifact_file_path = posixpath.join(artifact_path, artifact_file_path)
-        self._upload_to_cloud(
-            cloud_credential_info=self._get_s3_client(),
-            src_file_path=local_file,
-            artifact_file_path=artifact_file_path,
+            s3_client=self._get_s3_client(), local_file=local_file, bucket=bucket, key=dest_path
         )
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        if self._optimized:
-            return super().log_artifacts(local_dir, artifact_path)
-        dest_path = self.bucket_path
+        (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         s3_client = self._get_s3_client()
@@ -232,112 +181,20 @@ class S3ArtifactRepository(CloudArtifactRepository):
                 self._upload_file(
                     s3_client=s3_client,
                     local_file=os.path.join(root, f),
-                    bucket=self.bucket,
+                    bucket=bucket,
                     key=posixpath.join(upload_path, f),
                 )
 
-    def _get_write_credential_infos(self, remote_file_paths):
-        """
-        Instead of returning ArtifactCredentialInfo objects, we instead return a list of initialized
-        S3 client. We do so because S3 clients cannot be instantiated within each thread.
-        """
-        return [self._get_s3_client() for _ in remote_file_paths]
-
-    def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
-        dest_path = posixpath.join(self.bucket_path, artifact_file_path)
-        key = posixpath.normpath(dest_path)
-        if (
-            MLFLOW_ENABLE_MULTIPART_UPLOAD.get()
-            and os.path.getsize(src_file_path) > _MULTIPART_UPLOAD_CHUNK_SIZE
-        ):
-            self._multipart_upload(cloud_credential_info, src_file_path, self.bucket, key)
-        else:
-            self._upload_file(cloud_credential_info, src_file_path, self.bucket, key)
-
-    def _multipart_upload(self, cloud_credential_info, local_file, bucket, key):
-        # Create multipart upload
-        s3_client = cloud_credential_info
-        response = s3_client.create_multipart_upload(Bucket=bucket, Key=key)
-        upload_id = response["UploadId"]
-
-        # Create presigned URL for each part
-        num_parts = math.ceil(os.path.getsize(local_file) / _MULTIPART_UPLOAD_CHUNK_SIZE)
-
-        def _get_presigned_upload_part_url(part_number):
-            return s3_client.generate_presigned_url(
-                "upload_part",
-                Params={
-                    "Bucket": bucket,
-                    "Key": key,
-                    "UploadId": upload_id,
-                    "PartNumber": part_number,
-                },
-            )
-
-        presigned_urls = [
-            _get_presigned_upload_part_url(part_number) for part_number in range(1, num_parts + 1)
-        ]
-
-        # define helper functions for uploading data
-        def _upload_part(presigned_url, local_file, start_byte, size):
-            data = read_chunk(local_file, size, start_byte)
-            with cloud_storage_http_request("put", presigned_url, data=data) as response:
-                augmented_raise_for_status(response)
-                return response.headers["ETag"]
-
-        try:
-            # Upload each part with retries
-            futures = {}
-            for index, presigned_url in enumerate(presigned_urls):
-                part_number = index + 1
-                start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
-                future = self.chunk_thread_pool.submit(
-                    _upload_part,
-                    presigned_url=presigned_url,
-                    local_file=local_file,
-                    start_byte=start_byte,
-                    size=_MULTIPART_UPLOAD_CHUNK_SIZE,
-                )
-                futures[future] = part_number
-
-            results, errors = _complete_futures(futures, local_file)
-            if errors:
-                raise MlflowException(
-                    f"Failed to upload at least one part of {local_file}. Errors: {errors}"
-                )
-            parts = [
-                {"PartNumber": part_number, "ETag": results[part_number]}
-                for part_number in sorted(results)
-            ]
-
-            # Complete multipart upload
-            s3_client.complete_multipart_upload(
-                Bucket=bucket,
-                Key=key,
-                UploadId=upload_id,
-                MultipartUpload={"Parts": parts},
-            )
-        except Exception as e:
-            _logger.warning(
-                "Encountered an unexpected error during multipart upload: %s, aborting", e
-            )
-            s3_client.abort_multipart_upload(
-                Bucket=bucket,
-                Key=key,
-                UploadId=upload_id,
-            )
-            raise e
-
     def list_artifacts(self, path=None):
-        artifact_path = self.bucket_path
-        dest_path = self.bucket_path
+        (bucket, artifact_path) = self.parse_s3_compliant_uri(self.artifact_uri)
+        dest_path = artifact_path
         if path:
             dest_path = posixpath.join(dest_path, path)
         infos = []
         prefix = dest_path + "/" if dest_path else ""
         s3_client = self._get_s3_client()
         paginator = s3_client.get_paginator("list_objects_v2")
-        results = paginator.paginate(Bucket=self.bucket, Prefix=prefix, Delimiter="/")
+        results = paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter="/")
         for result in results:
             # Subdirectories will be listed as "common prefixes" due to the way we made the request
             for obj in result.get("CommonPrefixes", []):
@@ -369,41 +226,22 @@ class S3ArtifactRepository(CloudArtifactRepository):
                 f" {listed_object_path}."
             )
 
-    def _get_presigned_uri(self, remote_file_path):
-        s3_client = self._get_s3_client()
-        s3_full_path = posixpath.join(self.bucket_path, remote_file_path)
-        return s3_client.generate_presigned_url(
-            "get_object", Params={"Bucket": self.bucket, "Key": s3_full_path}
-        )
-
-    def _get_read_credential_infos(self, remote_file_paths):
-        return [
-            ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path))
-            for path in remote_file_paths
-        ]
-
     def _download_file(self, remote_file_path, local_path):
-        if self._optimized:
-            return super()._download_file(remote_file_path, local_path)
-        self._download_from_cloud(remote_file_path, local_path)
-
-    def _download_from_cloud(self, remote_file_path, local_path):
+        (bucket, s3_root_path) = self.parse_s3_compliant_uri(self.artifact_uri)
+        s3_full_path = posixpath.join(s3_root_path, remote_file_path)
         s3_client = self._get_s3_client()
-        s3_full_path = posixpath.join(self.bucket_path, remote_file_path)
-        s3_client.download_file(self.bucket, s3_full_path, local_path)
+        s3_client.download_file(bucket, s3_full_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
-        dest_path = self.bucket_path
+        (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
 
         s3_client = self._get_s3_client()
-        list_objects = s3_client.list_objects(Bucket=self.bucket, Prefix=dest_path).get(
-            "Contents", []
-        )
+        list_objects = s3_client.list_objects(Bucket=bucket, Prefix=dest_path).get("Contents", [])
         for to_delete_obj in list_objects:
             file_path = to_delete_obj.get("Key")
             self._verify_listed_object_contains_artifact_path_prefix(
                 listed_object_path=file_path, artifact_path=dest_path
             )
-            s3_client.delete_object(Bucket=self.bucket, Key=file_path)
+            s3_client.delete_object(Bucket=bucket, Key=file_path)
