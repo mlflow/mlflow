@@ -7,11 +7,11 @@ from unittest.mock import ANY
 import pytest
 
 from mlflow.protos.service_pb2 import FileInfo
+from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import (
     _MAX_CACHE_SECONDS,
     _cached_get_s3_client,
 )
-from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
 
 from tests.helper_functions import set_boto_credentials  # noqa: F401
 
