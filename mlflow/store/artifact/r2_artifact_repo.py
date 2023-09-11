@@ -11,7 +11,7 @@ class R2ArtifactRepository(OptimizedS3ArtifactRepository):
     ):
         # setup Cloudflare R2 backend to be endpoint_url, otherwise all s3 requests
         # will go to AWS S3 by default
-        s3_endpoint_url = self.convert_r2_uri_to_s3_endpoint_url(self.artifact_uri)
+        s3_endpoint_url = self.convert_r2_uri_to_s3_endpoint_url(artifact_uri)
 
         super().__init__(
             artifact_uri,
@@ -36,16 +36,8 @@ class R2ArtifactRepository(OptimizedS3ArtifactRepository):
             path = path[1:]
         return bucket, path
 
-    def _set_region_name(self):
+    def _get_region_name(self):
         return None
-
-    def _get_s3_client(self, addressing_style="virtual", s3_endpoint_url=None):
-        # setup Cloudflare R2 backend to be endpoint_url, otherwise all s3 requests
-        # will go to AWS S3 by default
-        s3_endpoint_url = self.convert_r2_uri_to_s3_endpoint_url(self.artifact_uri)
-        return super()._get_s3_client(
-            addressing_style=addressing_style, s3_endpoint_url=s3_endpoint_url
-        )
 
     @staticmethod
     def convert_r2_uri_to_s3_endpoint_url(r2_uri):
