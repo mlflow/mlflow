@@ -1967,7 +1967,7 @@ def autolog(
     def setup_autologging(module):
         try:
             autologging_params = None
-            autolog_fn = eval(LIBRARY_TO_AUTOLOG_FN[module.__name__])
+            autolog_fn = eval(LIBRARY_TO_AUTOLOG_FN[module.__name__])  # noqa: S307
             # Only call integration's autolog function with `mlflow.autolog` configs
             # if the integration's autolog function has not already been called by the user.
             # Logic is as follows:
