@@ -19,7 +19,6 @@ MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS = 300
 # the model being served having issues responding to the query due to parameter configuration.
 MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES = frozenset(
     [
-        429,  # Too many requests
         500,  # Server Error
         502,  # Bad Gateway
         503,  # Service Unavailable
