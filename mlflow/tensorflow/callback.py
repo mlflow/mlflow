@@ -11,7 +11,7 @@ class MLflowLoggingCallback(keras.callbacks.Callback):
     MLflow.
 
     Args:
-        run: an 'mlflow.entities.run.Run' instance, the MLflow run.
+        run: an `mlflow.entities.run.Run` instance, the MLflow run.
         log_every_epoch: bool, If True, log metrics every epoch. If False, log metrics every n
             steps.
         log_every_n_steps: int, log metrics every n steps. If None, log metrics every epoch.
