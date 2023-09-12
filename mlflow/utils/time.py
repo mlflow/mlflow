@@ -18,3 +18,28 @@ def conv_longdate_to_str(longdate, local_tz=True):
         str_long_date += " " + reference.LocalTimezone().tzname(date_time)
 
     return str_long_date
+
+
+class Timer:
+    """
+    Measures elapsed time.
+
+    .. code-block:: python
+
+        from mlflow.utils.time import Timer
+
+        with Timer() as t:
+            ...
+
+        print(f"Elapsed time: {t.time:.2f} seconds")
+    """
+
+    def __init__(self):
+        self.time = None
+
+    def __enter__(self):
+        self.time = time.perf_counter()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.time = time.perf_counter() - self.time
