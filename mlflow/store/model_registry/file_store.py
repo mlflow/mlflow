@@ -52,7 +52,7 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
 from mlflow.utils.string_utils import is_string_type
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
     _validate_model_alias_name,
     _validate_model_version,

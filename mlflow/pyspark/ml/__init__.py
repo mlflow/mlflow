@@ -43,7 +43,7 @@ from mlflow.utils.rest_utils import (
     augmented_raise_for_status,
     http_request,
 )
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
     MAX_ENTITY_KEY_LENGTH,
     MAX_PARAM_VAL_LENGTH,
