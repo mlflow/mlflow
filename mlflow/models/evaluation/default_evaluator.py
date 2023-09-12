@@ -423,7 +423,7 @@ def _gen_classifier_curve(
 
 
 def _get_metrics_values(metrics):
-    return {name: MetricValue(aggregate_results={"": value}) for name, value in metrics.items()}
+    return {name: MetricValue(aggregate_results={name: value}) for name, value in metrics.items()}
 
 
 _matplotlib_config = {
@@ -438,8 +438,7 @@ class _CustomMetric(NamedTuple):
     """
     A namedtuple representing a custom metric function and its properties.
 
-    function : the custom metric function
-    name : the name of the custom metric function
+    eval_metric : the EvaluationMetric with all information about the custom metric
     index : the index of the function in the ``custom_metrics`` argument of mlflow.evaluate
     """
 
@@ -495,9 +494,8 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics, metri
     if metric is None:
         raise MlflowException(f"{exception_header} returned None.")
 
-    # what to name this aggregate result - "" or custom_metric_tuple.name
     if _is_numeric(metric):
-        return MetricValue(aggregate_results={"": metric})
+        return MetricValue(aggregate_results={custom_metric_tuple.name: metric})
 
     if not isinstance(metric, MetricValue):
         raise MlflowException(f"{exception_header} did not return a MetricValue.")
@@ -537,7 +535,7 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics, metri
         if any(not (isinstance(k, str) and _is_numeric(v)) for k, v in aggregates.items()):
             raise MlflowException(
                 (
-                    f"{exception_header} returned MetricValue with aggregate_results with ",
+                    f"{exception_header} returned MetricValue with aggregate_results with "
                     "non-str keys or non-numeric values",
                 )
             )
@@ -1292,6 +1290,15 @@ class DefaultEvaluator(ModelEvaluator):
             uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
         )
 
+    def _update_metrics(self):
+        self.metrics = {}
+        for metric_name, metric_value in self.metrics_values.items():
+            for agg_name, agg_value in metric_value.aggregate_results.items():
+                if agg_name == metric_name.split("/")[0]:
+                    self.metrics[metric_name] = agg_value
+                else:
+                    self.metrics[f"{metric_name}/{agg_name}"] = agg_value
+
     def _evaluate(
         self,
         model: "mlflow.pyfunc.PyFuncModel",
@@ -1338,25 +1345,16 @@ class DefaultEvaluator(ModelEvaluator):
                 eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
                 if self.dataset.has_targets:
                     eval_df["target"] = self.y
+
                 self._evaluate_builtin_metrics(eval_df)
-
-                for metric_name, metric_value in self.metrics_values.items():
-                    for agg_name, agg_value in metric_value.aggregate_results.items():
-                        if len(agg_name) > 0:
-                            self.metrics[f"{metric_name}/{agg_name}"] = agg_value
-                        else:
-                            self.metrics[metric_name] = agg_value
-
+                self._update_metrics()
                 self._evaluate_custom_metrics(eval_df)
                 if not is_baseline_model:
                     self._log_custom_artifacts(eval_df)
 
                 def _prefix_value(value):
                     aggregate = (
-                        {
-                            f"{prefix}{k}" if len(k) > 0 else k: v
-                            for k, v in value.aggregate_results.items()
-                        }
+                        {f"{prefix}{k}": v for k, v in value.aggregate_results.items()}
                         if value.aggregate_results
                         else None
                     )
@@ -1367,15 +1365,7 @@ class DefaultEvaluator(ModelEvaluator):
                         f"{prefix}{k}": _prefix_value(v) for k, v in self.metrics_values.items()
                     }
 
-                self.metrics = {}
-                # need to add prefix to metrics too ...
-                # extract update metrics method?
-                for metric_name, metric_value in self.metrics_values.items():
-                    for agg_name, agg_value in metric_value.aggregate_results.items():
-                        if len(agg_name) > 0:
-                            self.metrics[f"{metric_name}/{agg_name}"] = agg_value
-                        else:
-                            self.metrics[metric_name] = agg_value
+                self._update_metrics()
 
                 if not is_baseline_model:
                     self._log_artifacts()

@@ -1347,27 +1347,27 @@ def test_evaluate_custom_metric_backwards_compatible():
     )
     assert res_metric.scores is None
     assert res_metric.justifications is None
-    assert res_metric.aggregate_results[""] == builtin_metrics["mean_absolute_error"] * 1.5
+    assert res_metric.aggregate_results["old_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
 
     def new_fn_no_type_hint(eval_df, metrics):
-        return metrics["mean_absolute_error"].aggregate_results[""] * 1.5
+        return metrics["mean_absolute_error"].aggregate_results["mean_absolute_error"] * 1.5
 
     with pytest.raises(
         AttributeError, match="'numpy.float64' object has no attribute 'aggregate_results'"
     ):
         _evaluate_custom_metric(
-            _CustomMetric(new_fn_no_type_hint, "", 0), eval_df, builtin_metrics, metrics
+            _CustomMetric(new_fn_no_type_hint, "new_fn", 0), eval_df, builtin_metrics, metrics
         )
 
     def new_fn_with_type_hint(eval_df, metrics: Dict[str, MetricValue]):
-        return metrics["mean_absolute_error"].aggregate_results[""] * 1.5
+        return metrics["mean_absolute_error"].aggregate_results["mean_absolute_error"] * 1.5
 
     res_metric = _evaluate_custom_metric(
         _CustomMetric(new_fn_with_type_hint, "new_fn", 0), eval_df, builtin_metrics, metrics
     )
     assert res_metric.scores is None
     assert res_metric.justifications is None
-    assert res_metric.aggregate_results[""] == builtin_metrics["mean_absolute_error"] * 1.5
+    assert res_metric.aggregate_results["new_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
 
 
 def test_evaluate_custom_metric_incorrect_return_formats():
@@ -1462,7 +1462,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
 
     with pytest.raises(
         MlflowException,
-        match="returned MetricValue with non-Dict\[str,float\] aggregate_results",
+        match="returned MetricValue with aggregate_results with non-str keys or non-numeric values",
     ):
         _evaluate_custom_metric(
             _CustomMetric(wrong_type_aggregates, wrong_type_aggregates.__name__, 0),
@@ -1504,12 +1504,15 @@ def test_evaluate_custom_metric_success():
         eval_df["target"], eval_df["prediction"], sample_weights=None
     )
 
-    def example_count_times_1_point_5(_, given_metrics):
+    def example_count_times_1_point_5(eval_df, metrics: Dict[str, MetricValue]):
         return MetricValue(
             scores=[score * 1.5 for score in eval_df["prediction"].tolist()],
             justifications=["justification"] * len(eval_df["prediction"]),
             aggregate_results={
-                "example_count_times_1_point_5": given_metrics["example_count"] * 1.5
+                "example_count_times_1_point_5": metrics["example_count"].aggregate_results[
+                    "example_count"
+                ]
+                * 1.5
             },
         )
 
@@ -1592,13 +1595,13 @@ def test_custom_metric_produced_multiple_artifacts_with_same_name_throw_exceptio
 
 
 def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_dataset):
-    def true_count(_eval_df, given_metrics):
-        true_negatives = given_metrics["true_negatives"]
-        true_positives = given_metrics["true_positives"]
-        return MetricValue(aggregate_results={"": true_negatives + true_positives})
+    def true_count(_eval_df, metrics: Dict[str, MetricValue]):
+        true_negatives = metrics["true_negatives"].aggregate_results["true_negatives"]
+        true_positives = metrics["true_positives"].aggregate_results["true_positives"]
+        return MetricValue(aggregate_results={"true_count": true_negatives + true_positives})
 
-    def positive_count(eval_df, _given_metrics):
-        return MetricValue(aggregate_results={"": np.sum(eval_df["prediction"])})
+    def positive_count(eval_df, _metrics):
+        return MetricValue(aggregate_results={"positive_count": np.sum(eval_df["prediction"])})
 
     def example_custom_artifact(_eval_df, _given_metrics, tmp_path):
         df = pd.DataFrame({"a": [1, 2, 3]})
@@ -1937,6 +1940,7 @@ def test_evaluation_works_with_model_pipelines_that_modify_input_data():
         }
 
 
+# TODO: test prefix text that logs to eval_results_table
 @pytest.mark.parametrize("prefix", ["train_", None])
 def test_evaluation_metric_name_configs(prefix):
     X, y = load_iris(as_frame=True, return_X_y=True)
@@ -2073,7 +2077,7 @@ def test_custom_metrics():
             custom_metrics=[
                 make_metric(
                     eval_fn=lambda _eval_df, _builtin_metrics: MetricValue(
-                        aggregate_results={"": 1.0}
+                        aggregate_results={"cm": 1.0}
                     ),
                     name="cm",
                     greater_is_better=True,
@@ -2492,7 +2496,8 @@ def test_evaluate_text_custom_metrics():
     )
     assert "very_toxic/ratio" in set(results.metrics.keys())
 
-    # test with versions
+    # TODO: test with versions
+    # TODO: test what was logged?
 
 
 def test_eval_results_table_json_can_be_prefixed_with_metric_prefix():
