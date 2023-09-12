@@ -80,7 +80,7 @@ def spark_model(iris_df):
     preds_pandas_df = model.transform(iris_pandas_df.copy(deep=False))
     return SparkModelWithData(
         model=model,
-        spark_df=iris_spark_df,
+        spark_df=None,
         pandas_df=iris_pandas_df,
         predictions=preds_pandas_df,
     )
