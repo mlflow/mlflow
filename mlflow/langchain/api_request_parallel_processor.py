@@ -16,6 +16,7 @@ Features:
 """
 from __future__ import annotations
 
+import json
 import logging
 import queue
 import threading
@@ -25,6 +26,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Union
 
 import langchain
+from langchain.schema import AgentAction
 
 import mlflow
 
@@ -79,15 +81,26 @@ class APIRequest:
     # add more formats here if other langchain objects don't serialize
     def _prepare_to_serialize(self, response: dict):
         if "intermediate_steps" in response:
-            response["intermediate_steps"] = [
-                {
-                    "tool": agent.tool,
-                    "tool_input": agent.tool_input,
-                    "log": agent.log,
-                    "result": result,
-                }
-                for agent, result in response["intermediate_steps"]
-            ]
+            steps = response["intermediate_steps"]
+            if (
+                isinstance(steps, tuple)
+                and isinstance(steps[0], AgentAction)
+                and isinstance(steps[1], str)
+            ):
+                response["intermediate_steps"] = [
+                    {
+                        "tool": agent.tool,
+                        "tool_input": agent.tool_input,
+                        "log": agent.log,
+                        "result": result,
+                    }
+                    for agent, result in response["intermediate_steps"]
+                ]
+            else:
+                try:
+                    response["intermediate_steps"] = json.dumps(steps)
+                except Exception as e:
+                    _logger.warning(f"Failed to serialize intermediate steps: {e!r}")
         if "source_documents" in response:
             response["source_documents"] = [
                 {"page_content": doc.page_content, "metadata": doc.metadata}
@@ -153,7 +166,10 @@ def process_api_requests(
                     # get new request
                     index, request_json = req
                     next_request = APIRequest(
-                        index=index, lc_model=lc_model, request_json=request_json, results=results
+                        index=index,
+                        lc_model=lc_model,
+                        request_json=request_json,
+                        results=results,
                     )
                     status_tracker.start_task()
 
