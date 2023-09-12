@@ -23,7 +23,7 @@ from mlflow.models import (
 
 # general text metrics
 
-toxicity: EvaluationMetric = make_metric(
+toxicity = make_metric(
     eval_fn=_toxicity_eval_fn,
     greater_is_better=False,
     name="toxicity",
@@ -45,7 +45,7 @@ Aggregations calculated for this metric:
 .. _roberta-hate-speech-dynabench-r4: https://huggingface.co/facebook/roberta-hate-speech-dynabench-r4-target
 """
 
-perplexity: EvaluationMetric = make_metric(
+perplexity = make_metric(
     eval_fn=_perplexity_eval_fn,
     greater_is_better=False,
     name="perplexity",
@@ -64,7 +64,7 @@ Aggregations calculated for this metric:
 .. _perplexity: https://huggingface.co/spaces/evaluate-metric/perplexity
 """
 
-flesch_kincaid_grade_level: EvaluationMetric = make_metric(
+flesch_kincaid_grade_level = make_metric(
     eval_fn=_flesch_kincaid_eval_fn,
     greater_is_better=False,
     name="flesch_kincaid_grade_level",
@@ -84,7 +84,7 @@ Aggregations calculated for this metric:
 .. _textstat: https://pypi.org/project/textstat/
 """
 
-ari_grade_level: EvaluationMetric = make_metric(
+ari_grade_level = make_metric(
     eval_fn=_ari_eval_fn,
     greater_is_better=False,
     name="ari_grade_level",
@@ -106,7 +106,7 @@ Aggregations calculated for this metric:
 
 # question answering metrics
 
-exact_match: EvaluationMetric = make_metric(
+exact_match = make_metric(
     eval_fn=_accuracy_eval_fn, greater_is_better=True, name="exact_match", version="v1"
 )
 """
@@ -119,7 +119,7 @@ This metric only computes an aggregate score which ranges from 0 to 1.
 
 # text summarization metrics
 
-rouge1: EvaluationMetric = make_metric(
+rouge1 = make_metric(
     eval_fn=_rouge1_eval_fn,
     greater_is_better=True,
     name="rouge1",
@@ -137,7 +137,7 @@ Aggregations calculated for this metric:
 .. _rouge1: https://huggingface.co/spaces/evaluate-metric/rouge
 """
 
-rouge2: EvaluationMetric = make_metric(
+rouge2 = make_metric(
     eval_fn=_rouge2_eval_fn,
     greater_is_better=True,
     name="rouge2",
@@ -155,7 +155,7 @@ Aggregations calculated for this metric:
 .. _rouge2: https://huggingface.co/spaces/evaluate-metric/rouge
 """
 
-rougeL: EvaluationMetric = make_metric(
+rougeL = make_metric(
     eval_fn=_rougeL_eval_fn,
     greater_is_better=True,
     name="rougeL",
@@ -173,7 +173,7 @@ Aggregations calculated for this metric:
 .. _rougeL: https://huggingface.co/spaces/evaluate-metric/rouge
 """
 
-rougeLsum: EvaluationMetric = make_metric(
+rougeLsum = make_metric(
     eval_fn=_rougeLsum_eval_fn,
     greater_is_better=True,
     name="rougeLsum",
