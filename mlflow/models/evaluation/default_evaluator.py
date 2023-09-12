@@ -438,7 +438,8 @@ class _CustomMetric(NamedTuple):
     """
     A namedtuple representing a custom metric function and its properties.
 
-    eval_metric : the EvaluationMetric with all information about the custom metric
+    function : the custom metric function
+    name : the name of the custom metric function
     index : the index of the function in the ``custom_metrics`` argument of mlflow.evaluate
     """
 
