@@ -43,7 +43,6 @@ jobs:
           working_directory: docs
           environment:
             JAVA_HOME: /usr/lib/jvm/default-java
-            MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING: "True"
           command: |
             make rsthtml
             make javadocs

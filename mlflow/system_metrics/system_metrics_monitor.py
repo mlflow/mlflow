@@ -24,15 +24,14 @@ class SystemMetricsMonitor:
     environment variables.
 
     Args:
-        mlflow_run: an 'mlflow.entities.run.Run' instance, which is used to bootstrap system metrics
-            logging with the MLflow tracking server.
+        run_id: string, the MLflow run ID.
         sampling_interval: float, default to 10. The interval (in seconds) at which to pull system
             metrics.
         samples_before_logging: int, default to 1. The number of samples to aggregate before
             logging.
     """
 
-    def __init__(self, mlflow_run, sampling_interval=10, samples_before_logging=1):
+    def __init__(self, run_id, sampling_interval=10, samples_before_logging=1):
         from mlflow.utils.autologging_utils import BatchMetricsLogger
 
         # Instantiate default monitors.
@@ -50,7 +49,7 @@ class SystemMetricsMonitor:
         if isinstance(self.samples_before_logging, str):
             self.samples_before_logging = int(self.samples_before_logging)
 
-        self._run_id = mlflow_run.info.run_id
+        self._run_id = run_id
         self.mlflow_logger = BatchMetricsLogger(self._run_id)
         self._shutdown_event = threading.Event()
         self._process = None

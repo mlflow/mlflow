@@ -228,7 +228,7 @@ def start_run(
     :param description: An optional string that populates the description box of the run.
         If a run is being resumed, the description is set on the resumed run.
         If a new run is being created, the description is set on the new run.
-    :param include_system_metrics: bool, defaults to False. If True, system metrics will be logged
+    :param log_system_metrics: bool, defaults to False. If True, system metrics will be logged
         to MLflow, e.g., cpu/gpu utilization.
 
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping the
@@ -373,12 +373,12 @@ def start_run(
             run_name=run_name,
         )
         if MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING.get() is not None:
-            include_system_metrics = MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING.get()
-        if include_system_metrics:
+            log_system_metrics = MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING.get()
+        if log_system_metrics:
             try:
                 from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
 
-                system_monitor = SystemMetricsMonitor(active_run_obj)
+                system_monitor = SystemMetricsMonitor(active_run_obj.info.run_id)
                 global run_id_to_system_metrics_monitor
 
                 run_id_to_system_metrics_monitor[active_run_obj.info.run_id] = system_monitor

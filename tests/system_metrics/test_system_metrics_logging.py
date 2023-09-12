@@ -6,8 +6,12 @@ from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
 
 
 def test_manual_system_metrics_monitor():
-    with mlflow.start_run(include_system_metrics=False) as run:
-        system_monitor = SystemMetricsMonitor(run, sampling_interval=0.1, samples_before_logging=5)
+    with mlflow.start_run(log_system_metrics=False) as run:
+        system_monitor = SystemMetricsMonitor(
+            run.info.run_id,
+            sampling_interval=0.1,
+            samples_before_logging=5,
+        )
         system_monitor.start()
         thread_names = [thread.name for thread in threading.enumerate()]
         # Check the system metrics monitoring thread has been started.
