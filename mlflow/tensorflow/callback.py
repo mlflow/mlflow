@@ -4,7 +4,7 @@ from mlflow import log_param, log_text
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 
 
-class MLflowLoggingCallback(keras.callbacks.Callback):
+class MLflowCallback(keras.callbacks.Callback):
     """Callback for logging Tensorflow training metrics to MLflow.
 
     This callback logs training metrics every epoch or every n steps (defined by the user) to
