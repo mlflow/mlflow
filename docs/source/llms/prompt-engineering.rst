@@ -184,7 +184,7 @@ specified article.
    menu. For example, in the MLflow documentation use case, adding the following text to
    the prompt template helps improve robustness to irrelevant questions:
 
-   .. code-block::
+   .. code-block:: text
 
       If the question does not relate to the article, respond exactly with the phrase
       "I do not know how to answer that question." Do not include any additional text in your
