@@ -228,7 +228,7 @@ def start_run(
     :param description: An optional string that populates the description box of the run.
         If a run is being resumed, the description is set on the resumed run.
         If a new run is being created, the description is set on the new run.
-    :param include_system_metrics: bool, defaults to True. If True, system metrics will be logged
+    :param include_system_metrics: bool, defaults to False. If True, system metrics will be logged
         to MLflow, e.g., cpu/gpu utilization.
 
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping the

@@ -53,10 +53,6 @@ from mlflow.utils.time_utils import get_current_time_millis
 
 from tests.helper_functions import multi_context
 
-# Enable system metrics logging for all tests in this module so that we can verify system metrics
-# logging is not affecting other fluent features.
-mlflow.enable_system_metrics_logging()
-
 
 def create_run(
     run_id="",
@@ -516,6 +512,7 @@ def is_from_run(active_run, run):
 
 
 def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-argument
+    mlflow.disable_system_metrics_logging()
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
@@ -555,7 +552,7 @@ def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-a
         source_version_patch,
         create_run_patch,
     ):
-        active_run = start_run(run_name=run_name, include_system_metrics=False)
+        active_run = start_run(run_name=run_name)
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags, run_name="my name"
         )
@@ -628,7 +625,7 @@ def test_start_run_defaults_databricks_notebook(
         workspace_info_patch,
         create_run_patch,
     ):
-        active_run = start_run(include_system_metrics=False)
+        active_run = start_run()
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags, run_name=None
         )
@@ -688,7 +685,7 @@ def test_start_run_creates_new_run_with_user_specified_tags():
         source_version_patch,
         create_run_patch,
     ):
-        active_run = start_run(tags=user_specified_tags, include_system_metrics=False)
+        active_run = start_run(tags=user_specified_tags)
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags, run_name=None
         )
@@ -737,11 +734,7 @@ def test_start_run_with_parent():
         user_patch,
         source_name_patch,
     ):
-        active_run = start_run(
-            experiment_id=mock_experiment_id,
-            nested=True,
-            include_system_metrics=False,
-        )
+        active_run = start_run(experiment_id=mock_experiment_id, nested=True)
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags, run_name=None
         )
@@ -762,7 +755,7 @@ def test_start_run_existing_run(empty_active_run_stack):  # pylint: disable=unus
     mock_get_store = mock.patch("mlflow.tracking.fluent._get_store")
 
     with mock_get_store, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
-        active_run = start_run(run_id, include_system_metrics=False)
+        active_run = start_run(run_id)
 
         assert is_from_run(active_run, mock_run)
         MlflowClient.get_run.assert_called_with(run_id)
@@ -779,7 +772,7 @@ def test_start_run_existing_run_from_environment(
     mock_get_store = mock.patch("mlflow.tracking.fluent._get_store")
 
     with mock_get_store, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
-        active_run = start_run(include_system_metrics=False)
+        active_run = start_run()
 
         assert is_from_run(active_run, mock_run)
         MlflowClient.get_run.assert_called_with(run_id)
@@ -874,7 +867,7 @@ def test_start_run_with_description(empty_active_run_stack):  # pylint: disable=
         source_version_patch,
         create_run_patch,
     ):
-        active_run = start_run(description=description, include_system_metrics=False)
+        active_run = start_run(description=description)
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags, run_name=None
         )
@@ -890,7 +883,7 @@ def test_start_run_conflicting_description():
     )
 
     with pytest.raises(MlflowException, match=match):
-        start_run(tags=invalid_tags, description=description, include_system_metrics=False)
+        start_run(tags=invalid_tags, description=description)
 
 
 @pytest.mark.usefixtures(empty_active_run_stack.__name__)
@@ -1300,6 +1293,7 @@ def test_get_parent_run():
 
 
 def test_get_system_metrics():
+    mlflow.enable_system_metrics_logging()
     mlflow.set_system_metrics_sampling_interval(0.5)
     with mlflow.start_run() as run:
         time.sleep(1)
@@ -1309,3 +1303,4 @@ def test_get_system_metrics():
     assert "cpu_percentage" in metrics
     assert "system_memory_used" in metrics
     MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL.unset()
+    mlflow.disable_system_metrics_logging()
