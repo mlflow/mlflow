@@ -296,6 +296,8 @@ most up-to-date list of supported providers.
 Remember, the provider you specify must be one that the MLflow AI Gateway supports. If the provider
 is not supported, the Gateway will return an error when trying to route requests to that provider.
 
+.. _routes:
+
 Routes
 ------
 
