@@ -130,7 +130,7 @@ def test_pyfunc_serve_and_score(spark_model):
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     input_data = pd.DataFrame(
-        {"features": spark_model.pandas_df.features.map(lambda x: x.tolist())}
+        {"features": spark_model.pandas_df["features"].map(list)}
     )
     resp = pyfunc_serve_and_score_model(
         model_uri,
