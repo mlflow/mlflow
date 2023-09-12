@@ -141,8 +141,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         # Create presigned URL for each part
         num_parts = math.ceil(os.path.getsize(local_file) / _MULTIPART_UPLOAD_CHUNK_SIZE)
 
-        def _get_presigned_upload_part_url(part_number):
-            return s3_client.generate_presigned_url(
+        # define helper functions for uploading data
+        def _upload_part(part_number, local_file, start_byte, size):
+            presigned_url = s3_client.generate_presigned_url(
                 "upload_part",
                 Params={
                     "Bucket": bucket,
@@ -151,10 +152,6 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                     "PartNumber": part_number,
                 },
             )
-
-        # define helper functions for uploading data
-        def _upload_part(part_number, local_file, start_byte, size):
-            presigned_url = _get_presigned_upload_part_url(part_number)
             data = read_chunk(local_file, size, start_byte)
             with cloud_storage_http_request("put", presigned_url, data=data) as response:
                 augmented_raise_for_status(response)

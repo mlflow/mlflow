@@ -49,9 +49,8 @@ def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_repo, t
     with open(file_path, "w") as f:
         f.write(file_text)
 
-    repo = s3_artifact_repo
-    repo.log_artifact(file_path)
-    downloaded_text = open(repo.download_artifacts(file_name)).read()
+    s3_artifact_repo.log_artifact(file_path)
+    downloaded_text = open(s3_artifact_repo.download_artifacts(file_name)).read()
     assert downloaded_text == file_text
 
 
@@ -65,11 +64,10 @@ def test_file_artifact_is_logged_with_content_metadata(
     with open(file_path, "w") as f:
         f.write(file_text)
 
-    repo = s3_artifact_repo
-    repo.log_artifact(file_path)
+    s3_artifact_repo.log_artifact(file_path)
 
-    bucket, _ = repo.parse_s3_compliant_uri(s3_artifact_root)
-    s3_client = repo._get_s3_client()
+    bucket, _ = s3_artifact_repo.parse_s3_compliant_uri(s3_artifact_root)
+    s3_client = s3_artifact_repo._get_s3_client()
     response = s3_client.head_object(Bucket=bucket, Key="some/path/test.txt")
     assert response.get("ContentType") == "text/plain"
     assert response.get("ContentEncoding") is None
@@ -176,11 +174,11 @@ def test_file_artifacts_are_logged_with_content_metadata_in_batch(
     with open(path_c, "w") as f:
         f.write("col1,col2\n1,3\n2,4\n")
 
-    repo = s3_artifact_repo
-    repo.log_artifacts(subdir_path)
+    s3_artifact_repo = s3_artifact_repo
+    s3_artifact_repo.log_artifacts(subdir_path)
 
-    bucket, _ = repo.parse_s3_compliant_uri(s3_artifact_root)
-    s3_client = repo._get_s3_client()
+    bucket, _ = s3_artifact_repo.parse_s3_compliant_uri(s3_artifact_root)
+    s3_client = s3_artifact_repo._get_s3_client()
 
     response_a = s3_client.head_object(Bucket=bucket, Key="some/path/a.txt")
     assert response_a.get("ContentType") == "text/plain"
@@ -210,25 +208,24 @@ def test_file_and_directories_artifacts_are_logged_and_downloaded_successfully_i
     with open(os.path.join(nested_path, "c.txt"), "w") as f:
         f.write("C")
 
-    repo = s3_artifact_repo
-    repo.log_artifacts(subdir_path)
+    s3_artifact_repo.log_artifacts(subdir_path)
 
     # Download individual files and verify correctness of their contents
-    downloaded_file_a_text = open(repo.download_artifacts("a.txt")).read()
+    downloaded_file_a_text = open(s3_artifact_repo.download_artifacts("a.txt")).read()
     assert downloaded_file_a_text == "A"
-    downloaded_file_b_text = open(repo.download_artifacts("b.txt")).read()
+    downloaded_file_b_text = open(s3_artifact_repo.download_artifacts("b.txt")).read()
     assert downloaded_file_b_text == "B"
-    downloaded_file_c_text = open(repo.download_artifacts("nested/c.txt")).read()
+    downloaded_file_c_text = open(s3_artifact_repo.download_artifacts("nested/c.txt")).read()
     assert downloaded_file_c_text == "C"
 
     # Download the nested directory and verify correctness of its contents
-    downloaded_dir = repo.download_artifacts("nested")
+    downloaded_dir = s3_artifact_repo.download_artifacts("nested")
     assert os.path.basename(downloaded_dir) == "nested"
     text = open(os.path.join(downloaded_dir, "c.txt")).read()
     assert text == "C"
 
     # Download the root directory and verify correctness of its contents
-    downloaded_dir = repo.download_artifacts("")
+    downloaded_dir = s3_artifact_repo.download_artifacts("")
     dir_contents = os.listdir(downloaded_dir)
     assert "nested" in dir_contents
     assert os.path.isdir(os.path.join(downloaded_dir, "nested"))
@@ -251,11 +248,10 @@ def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_ba
     with open(os.path.join(nested_path, "c.txt"), "w") as f:
         f.write("C")
 
-    repo = s3_artifact_repo
-    repo.log_artifacts(subdir_path)
+    s3_artifact_repo.log_artifacts(subdir_path)
 
     root_artifacts_listing = sorted(
-        [(f.path, f.is_dir, f.file_size) for f in repo.list_artifacts()]
+        [(f.path, f.is_dir, f.file_size) for f in s3_artifact_repo.list_artifacts()]
     )
     assert root_artifacts_listing == [
         ("a.txt", False, 1),
@@ -264,7 +260,7 @@ def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_ba
     ]
 
     nested_artifacts_listing = sorted(
-        [(f.path, f.is_dir, f.file_size) for f in repo.list_artifacts("nested")]
+        [(f.path, f.is_dir, f.file_size) for f in s3_artifact_repo.list_artifacts("nested")]
     )
     assert nested_artifacts_listing == [("nested/c.txt", False, 1)]
 
@@ -351,15 +347,14 @@ def test_delete_artifacts(s3_artifact_repo, tmp_path):
     with open(path_c, "w") as f:
         f.write("col1,col2\n1,3\n2,4\n")
 
-    repo = s3_artifact_repo
-    repo.log_artifacts(subdir_path)
+    s3_artifact_repo.log_artifacts(subdir_path)
 
     # confirm that artifacts are present
-    artifact_file_names = [obj.path for obj in repo.list_artifacts()]
+    artifact_file_names = [obj.path for obj in s3_artifact_repo.list_artifacts()]
     assert "a.txt" in artifact_file_names
     assert "b.tar.gz" in artifact_file_names
     assert "nested" in artifact_file_names
 
-    repo.delete_artifacts()
-    tmpdir_objects = repo.list_artifacts()
+    s3_artifact_repo.delete_artifacts()
+    tmpdir_objects = s3_artifact_repo.list_artifacts()
     assert not tmpdir_objects
