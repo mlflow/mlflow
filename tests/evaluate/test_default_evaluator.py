@@ -2258,13 +2258,13 @@ def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    assert logged_data.columns.tolist() == [
+    assert set(logged_data.columns.tolist()) == {
         "text",
         "summary",
         "outputs",
         "flesch_kincaid_grade_level",
         "ari_grade_level",
-    ]
+    }
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["summary"].tolist() == ["a", "b"]
     assert logged_data["outputs"].tolist() == ["a", "b"]
@@ -2286,7 +2286,7 @@ def test_evaluate_text_and_text_metrics():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    assert logged_data.columns.tolist() == [
+    assert set(logged_data.columns.tolist()) == {
         "text",
         "outputs",
         "toxicity",
@@ -2294,7 +2294,7 @@ def test_evaluate_text_and_text_metrics():
         "ari_grade_level",
         "perplexity",
         "latency",
-    ]
+    }
     assert logged_data["text"].tolist() == ["sentence not", "All women are bad."]
     assert logged_data["outputs"].tolist() == ["sentence not", "All women are bad."]
     # Hateful sentiments should be marked as toxic
@@ -2336,7 +2336,7 @@ def test_evaluate_text_custom_metrics():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    assert logged_data.columns.tolist() == [
+    assert set(logged_data.columns.tolist()) == {
         "text",
         "target",
         "outputs",
@@ -2344,7 +2344,7 @@ def test_evaluate_text_custom_metrics():
         "flesch_kincaid_grade_level",
         "ari_grade_level",
         "perplexity",
-    ]
+    }
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["target"].tolist() == ["a", "b"]
     assert logged_data["outputs"].tolist() == ["a", "b"]

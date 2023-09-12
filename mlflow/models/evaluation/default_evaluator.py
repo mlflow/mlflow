@@ -1127,13 +1127,27 @@ class DefaultEvaluator(ModelEvaluator):
             y_pred_list = []
             pred_latencies = []
             X_copy = self.X.copy_to_avoid_mutation()
-            for _, row in X_copy.iterrows():
-                single_row_df = row.to_frame().T
-                start_time = time.time()
-                y_pred_list.append(self.model.predict(single_row_df))
-                end_time = time.time()
-                pred_latencies.append(end_time - start_time)
-            self.y_pred = pd.concat(y_pred_list, ignore_index=True)
+            if isinstance(X_copy, pd.DataFrame):
+                for _, row in X_copy.iterrows():
+                    single_row_df = row.to_frame().T
+                    start_time = time.time()
+                    y_pred_list.append(self.model.predict(single_row_df))
+                    end_time = time.time()
+                    pred_latencies.append(end_time - start_time)
+                self.y_pred = pd.concat(y_pred_list, ignore_index=True)
+            elif isinstance(X_copy, (np.ndarray, list)):
+                for row in X_copy:
+                    start_time = time.time()
+                    y_pred_list.append(self.model.predict(row))
+                    end_time = time.time()
+                    pred_latencies.append(end_time - start_time)
+                self.y_pred = np.concatenate(y_pred_list, axis=0)
+            else:
+                raise MlflowException(
+                    message=f"Unsupported type {type(X_copy)} for model type "
+                    f"{self.model_type.value}.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             self.metrics_dict.update({"latency": pred_latencies})
         else:
             self.y_pred = self.model.predict(self.X.copy_to_avoid_mutation())
