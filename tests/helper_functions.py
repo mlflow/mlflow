@@ -475,7 +475,6 @@ def _is_available_on_pypi(package, version=None, module=None):
     from mlflow.utils.requirements_utils import _get_installed_version
 
     url = f"https://pypi.python.org/pypi/{package}/json"
-
     for sec in range(3):
         try:
             time.sleep(sec)
