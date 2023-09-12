@@ -882,7 +882,7 @@ def _load_pyfunc(path):
     model_meta_path = os.path.join(os.path.dirname(path), MLMODEL_FILE_NAME)
     model_meta = Model.load(model_meta_path)
 
-    model_class = model_meta.flavors["spark"].get("model_class")
+    model_class = model_meta.flavors[FLAVOR_NAME].get("model_class")
     if model_class is not None and model_class.startswith("pyspark.ml.connect."):
         # Note:
         # Spark connect ML models don't require a spark session for running inference.
