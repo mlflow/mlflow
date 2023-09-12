@@ -2,7 +2,7 @@ import os
 import platform
 
 import click
-import pkg_resources
+import pkg_resources  # noqa: TID251
 import yaml
 
 import mlflow
