@@ -172,7 +172,7 @@ def _get_api_config() -> Dict[str, Any]:
     import openai
 
     config = {}
-    api_type = openai.api_type or os.environ.get(_OpenAIEnvVar.OPENAI_API_TYPE.value, "openai")
+    api_type = os.getenv(_OpenAIEnvVar.OPENAI_API_TYPE.value, openai.api_type)
     if api_type in ("azure", "azure_ad", "azuread"):
         config["batch_size"] = 16
         config["max_requests_per_minute"] = 3_500
