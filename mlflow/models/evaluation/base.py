@@ -14,7 +14,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from decimal import Decimal
 from types import FunctionType
-from typing import Any, Dict
+from typing import Any, Callable, Dict, List, Union
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -975,15 +975,15 @@ def _convert_data_to_mlflow_dataset(data, targets=None):
 
 def _evaluate(
     *,
-    model,
-    model_type,
-    dataset,
-    run_id,
-    evaluator_name_list,
-    evaluator_name_to_conf_map,
-    custom_metrics,
-    custom_artifacts,
-    baseline_model,
+    model: Union["mlflow.pyfunc.PyFuncModel", "mlflow.pyfunc._ServedPyFuncModel"],
+    model_type: str,
+    dataset: EvaluationDataset,
+    run_id: str,
+    evaluator_name_list: List[str],
+    evaluator_name_to_conf_map: Dict[str, Any],
+    custom_metrics: List[EvaluationMetric],
+    custom_artifacts: List[Callable],
+    baseline_model: str,
 ):
     """
     The public API "evaluate" will verify argument first, and then pass normalized arguments
@@ -1048,20 +1048,20 @@ def _evaluate(
 
 
 def evaluate(
-    model: str,
+    model: Union[str, "mlflow.pyfunc.PyFunc"],
     data,
     *,
     model_type: str,
-    targets=None,
-    dataset_path=None,
-    feature_names: list = None,
-    evaluators=None,
-    evaluator_config=None,
-    custom_metrics=None,
-    custom_artifacts=None,
-    validation_thresholds=None,
-    baseline_model=None,
-    env_manager="local",
+    targets: Union[np.ndarray, List] = None,
+    dataset_path: str = None,
+    feature_names: List[str] = None,
+    evaluators: Union[str, List[str]] = None,
+    evaluator_config: Dict[str, Dict[str, Any]] = None,
+    custom_metrics: List[EvaluationMetric] = None,
+    custom_artifacts: List[Callable] = None,
+    validation_thresholds: Dict[str, MetricThreshold] = None,
+    baseline_model: str = None,
+    env_manager: str = "local",
 ):
     '''
     Evaluate a PyFunc model on the specified dataset using one or more specified ``evaluators``, and
@@ -1071,9 +1071,8 @@ def evaluate(
 
     Default Evaluator behavior:
      - The default evaluator, which can be invoked with ``evaluators="default"`` or
-       ``evaluators=None``, supports the ``"regressor"`` and ``"classifier"`` model types.
-       It generates a variety of model performance metrics, model performance plots, and
-       model explanations.
+       ``evaluators=None`` generates a variety of model performance metrics, model
+       performance plots, and model explanations.
 
      - For both the ``"regressor"`` and ``"classifier"`` model types, the default evaluator
        generates model summary plots and feature importance plots using
@@ -1097,7 +1096,7 @@ def evaluate(
           precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
 
      - For question-answering models, the default evaluator logs:
-        - **metrics**: ``exact_match``, `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
+        - **metrics**: exact_match, `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
           `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_, `transformers`_),
           `mean_ari_grade_level`_ (requires `textstat`_), `mean_flesch_kincaid_grade_level`_
           (requires `textstat`_).
