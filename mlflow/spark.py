@@ -94,7 +94,11 @@ def get_default_pip_requirements(is_spark_connect_model=False):
 
     # Strip the suffix from `dev` versions of PySpark, which are not
     # available for installation from Anaconda or PyPI
-    pyspark_req = re.sub(r"(\.?)dev.*$", "", _get_pinned_requirement("pyspark"))
+    pyspark_extra = "connect" if is_spark_connect_model else None
+    pyspark_req = re.sub(
+        r"(\.?)dev.*$", "",
+        _get_pinned_requirement("pyspark", extra=pyspark_extra)
+    )
     reqs = [pyspark_req]
     if Version(pyspark.__version__) < Version("3.4"):
         # Versions of PySpark < 3.4 are incompatible with pandas >= 2
