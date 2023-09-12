@@ -44,7 +44,7 @@ from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
     _get_root_uri_and_artifact_path,
 )
-from mlflow.utils import databricks_utils, _get_fully_qualified_class_name
+from mlflow.utils import _get_fully_qualified_class_name, databricks_utils
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -101,14 +101,16 @@ def get_default_pip_requirements(is_spark_connect_model=False):
         reqs.append("pandas<2")
 
     if is_spark_connect_model:
-        reqs.extend([
-            # Spark connect Model uses spark torch distributor to train model
-            _get_pinned_requirement("torch"),
-            # Spark connect Model save feature transformers as sklearn transformer format.
-            _get_pinned_requirement("scikit-learn", module="sklearn"),
-            # Spark connect ML evaluators depend on torcheval package.
-            _get_pinned_requirement("torcheval"),
-        ])
+        reqs.extend(
+            [
+                # Spark connect Model uses spark torch distributor to train model
+                _get_pinned_requirement("torch"),
+                # Spark connect Model save feature transformers as sklearn transformer format.
+                _get_pinned_requirement("scikit-learn", module="sklearn"),
+                # Spark connect ML evaluators depend on torcheval package.
+                _get_pinned_requirement("torcheval"),
+            ]
+        )
     return reqs
 
 
@@ -122,7 +124,11 @@ def get_default_conda_env(is_spark_connect_model=False):
              ``2.4.5.dev0``, invoking this method produces a Conda environment with a
              dependency on PySpark version ``2.4.5``).
     """
-    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(is_spark_connect_model=is_spark_connect_model))
+    return _mlflow_conda_env(
+        additional_pip_deps=get_default_pip_requirements(
+            is_spark_connect_model=is_spark_connect_model
+        )
+    )
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyspark"))
@@ -612,6 +618,7 @@ def _is_spark_connect_model(spark_model):
     """
     try:
         from pyspark.ml.connect import Model as ConnectModel
+
         return isinstance(spark_model, ConnectModel)
     except ImportError:
         # pyspark < 3.5 does not support connect ML model
@@ -694,6 +701,7 @@ def save_model(
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     from pyspark.ml import PipelineModel
+
     from mlflow.utils._spark_utils import _get_active_spark_session
 
     is_spark_connect_model = _is_spark_connect_model(spark_model)
@@ -738,10 +746,10 @@ def save_model(
             dfs_tmpdir = MLFLOW_DFS_TMP.get()
         tmp_path = generate_tmp_dfs_path(dfs_tmpdir)
         spark_model.save(tmp_path)
-        # We're copying the Spark model from DBFS to the local filesystem if (a) the temporary DFS URI
-        # we saved the Spark model to is a DBFS URI ("dbfs:/my-directory"), or (b) if we're running
-        # on a Databricks cluster and the URI is schemeless (e.g. looks like a filesystem absolute path
-        # like "/my-directory")
+        # We're copying the Spark model from DBFS to the local filesystem if (a) the temporary DFS
+        # URI we saved the Spark model to is a DBFS URI ("dbfs:/my-directory"), or (b) if we're
+        # running on a Databricks cluster and the URI is schemeless (e.g. looks like a filesystem
+        # absolute path like "/my-directory")
         copying_from_dbfs = is_valid_dbfs_uri(tmp_path) or (
             databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
         )
@@ -893,8 +901,8 @@ def _load_pyfunc(path):
         # NOTE: The `_create_local_spark_session_for_loading_spark_model()` call below may change
         # settings of the active session which we do not intend to do here.
         # In particular, setting master to local[1] can break distributed clusters.
-        # To avoid this problem, we explicitly check for an active session. This is not ideal but there
-        # is no good workaround at the moment.
+        # To avoid this problem, we explicitly check for an active session. This is not ideal but
+        # there is no good workaround at the moment.
         spark = _get_active_spark_session()
         if spark is None:
             # NB: If there is no existing Spark context, create a new local one.
@@ -1107,4 +1115,3 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
             _stop_listen_for_spark_activity(sc)
         else:
             _listen_for_spark_activity(sc)
-
