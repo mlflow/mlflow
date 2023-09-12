@@ -526,13 +526,13 @@ def test_embeddings(tmp_path):
 
 
 def test_embeddings_batch_size_azure(tmp_path, monkeypatch):
-    with mock.patch("openai.api_type", return_value="azure"):
-        mlflow.openai.save_model(
-            model="text-embedding-ada-002",
-            task=openai.Embedding,
-            path=tmp_path,
-        )
-        model = mlflow.models.Model.load(tmp_path)
+    monkeypatch.setenv("OPENAI_API_TYPE", "azure")
+    mlflow.openai.save_model(
+        model="text-embedding-ada-002",
+        task=openai.Embedding,
+        path=tmp_path,
+    )
+    model = mlflow.models.Model.load(tmp_path)
 
     assert any(
         filter(
