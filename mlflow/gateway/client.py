@@ -358,7 +358,7 @@ class MlflowGatewayClient:
         :param route_name: The name of the route to set limits on.
         :param limits: Limits to set on the route.
 
-        :raises mlflow.MlflowException: If the function is not running within Databricks.
+        :raises mlflow.MlflowException: If the function is not running against Databricks AI Gateway.
 
         Example usage from within Databricks:
 
@@ -374,7 +374,7 @@ class MlflowGatewayClient:
 
         if not self._is_databricks_host():
             raise MlflowException(
-                "The set_limits API is only available when running within Databricks.",
+                "The set_limits API is only available when running against Databricks AI Gateway.",
                 error_code=BAD_REQUEST,
             )
         payload = {
@@ -394,7 +394,7 @@ class MlflowGatewayClient:
 
         .. warning::
 
-            This API is **only available** when running within Databricks.
+            This API is **only available** when running against Databricks AI Gateway.
 
         :param route: The name of the route to get limits of.
 
@@ -413,7 +413,7 @@ class MlflowGatewayClient:
 
         if not self._is_databricks_host():
             raise MlflowException(
-                "The get_limits API is only available when running within Databricks.",
+                "The get_limits API is only available running against Databricks AI Gateway.",
                 error_code=BAD_REQUEST,
             )
         route_uri = assemble_uri_path([MLFLOW_GATEWAY_LIMITS_BASE, route])
