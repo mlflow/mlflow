@@ -1,10 +1,11 @@
+import math
+
+import keras_core as keras
 import numpy as np
 import pytest
-import keras_core as keras
 
 import mlflow
-import math
-from mlflow.keras_core.callback import MLflowLoggingCallback
+from mlflow.keras_core.callback import MLflowCallback
 
 
 @pytest.mark.parametrize(("log_every_epoch", "log_every_n_steps"), [(True, None), (False, 1)])
@@ -28,7 +29,7 @@ def test_keras_core_mlflow_callback(log_every_epoch, log_every_n_steps):
     )
 
     with mlflow.start_run() as run:
-        mlflow_callback = MLflowLoggingCallback(
+        mlflow_callback = MLflowCallback(
             run=run,
             log_every_epoch=log_every_epoch,
             log_every_n_steps=log_every_n_steps,
