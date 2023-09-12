@@ -101,17 +101,13 @@ def test_model_export(spark_model, model_path):
     m = pyfunc.load_model(model_path)
     # 2. score and compare reloaded pyfunc
     preds2 = m.predict(spark_model.pandas_df.copy(deep=False))
-    pd.testing.assert_series_equal(
-        spark_model.predictions["prediction"], preds2, check_dtype=False
-    )
+    pd.testing.assert_series_equal(spark_model.predictions["prediction"], preds2, check_dtype=False)
 
     # 3. score and compare reloaded pyfunc Spark udf
     preds3 = score_model_as_udf(
         model_uri=model_path, pandas_df=spark_model.pandas_df, result_type=LongType()
     )
-    pd.testing.assert_series_equal(
-        spark_model.predictions["prediction"], preds3, check_dtype=False
-    )
+    pd.testing.assert_series_equal(spark_model.predictions["prediction"], preds3, check_dtype=False)
 
 
 def test_sparkml_model_log(spark_model):

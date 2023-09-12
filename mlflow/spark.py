@@ -96,8 +96,7 @@ def get_default_pip_requirements(is_spark_connect_model=False):
     # available for installation from Anaconda or PyPI
     pyspark_extras = "connect" if is_spark_connect_model else None
     pyspark_req = re.sub(
-        r"(\.?)dev.*$", "",
-        _get_pinned_requirement("pyspark", extras=pyspark_extras)
+        r"(\.?)dev.*$", "", _get_pinned_requirement("pyspark", extras=pyspark_extras)
     )
     reqs = [pyspark_req]
     if Version(pyspark.__version__) < Version("3.4"):
