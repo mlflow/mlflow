@@ -329,6 +329,7 @@ nitpick_ignore = [
     ("py:class", "pandas.core.series.Series"),
     ("py:class", "pandas.core.frame.DataFrame"),
     ("py:class", "pandas.DataFrame"),
+    ("py:class", "pyspark.sql.DataFrame"),
     ("py:class", "pyspark.sql.dataframe.DataFrame"),
     ("py:class", "matplotlib.figure.Figure"),
     ("py:class", "plotly.graph_objects.Figure"),
@@ -351,6 +352,8 @@ nitpick_ignore = [
     ("py:class", "scipy.sparse._csc.csc_matrix"),
     ("py:class", "pathlib.Path"),
     ("py:class", "pydantic.main.BaseModel"),
+    ("py:class", "ConfigDict"),
+    ("py:class", "FieldInfo"),
 ]
 
 

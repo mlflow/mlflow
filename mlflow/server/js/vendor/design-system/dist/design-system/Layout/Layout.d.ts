@@ -10,6 +10,9 @@ interface LayoutInterface extends React.FC<LayoutProps> {
     Sider: typeof AntDLayout.Sider;
     Content: typeof AntDLayout.Content;
 }
+/**
+ * @deprecated Use PageWrapper instead
+ */
 export declare const Layout: LayoutInterface;
 export {};
 //# sourceMappingURL=Layout.d.ts.map

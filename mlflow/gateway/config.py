@@ -9,13 +9,21 @@ from typing import Any, Dict, List, Optional, Union
 import pydantic
 import yaml
 from packaging import version
-from pydantic import ValidationError, validator
+from pydantic import ValidationError, root_validator, validator
 from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import ConfigModel, ResponseModel
-from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_BASE, MLFLOW_QUERY_SUFFIX
-from mlflow.gateway.utils import check_configuration_route_name_collisions, is_valid_endpoint_name
+from mlflow.gateway.constants import (
+    MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES,
+    MLFLOW_GATEWAY_ROUTE_BASE,
+    MLFLOW_QUERY_SUFFIX,
+)
+from mlflow.gateway.utils import (
+    check_configuration_route_name_collisions,
+    is_valid_endpoint_name,
+    is_valid_mosiacml_chat_model,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -27,9 +35,10 @@ class Provider(str, Enum):
     ANTHROPIC = "anthropic"
     COHERE = "cohere"
     MLFLOW_MODEL_SERVING = "mlflow-model-serving"
+    MOSAICML = "mosaicml"
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
-    MOSAICLML = "mosaicml"
+    DATABRICKS = "databricks"
 
     @classmethod
     def values(cls):
@@ -48,6 +57,16 @@ class CohereConfig(ConfigModel):
     # pylint: disable=no-self-argument
     @validator("cohere_api_key", pre=True)
     def validate_cohere_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
+class MosaicMLConfig(ConfigModel):
+    mosaicml_api_key: str
+    mosaicml_api_base: Optional[str] = None
+
+    # pylint: disable=no-self-argument
+    @validator("mosaicml_api_key", pre=True)
+    def validate_mosaicml_api_key(cls, value):
         return _resolve_api_key_from_input(value)
 
 
@@ -145,6 +164,7 @@ config_types = {
     Provider.COHERE: CohereConfig,
     Provider.OPENAI: OpenAIConfig,
     Provider.ANTHROPIC: AnthropicConfig,
+    Provider.MOSAICML: MosaicMLConfig,
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
 }
 
@@ -199,6 +219,7 @@ class Model(ConfigModel):
             CohereConfig,
             OpenAIConfig,
             AnthropicConfig,
+            MosaicMLConfig,
             MlflowModelServingConfig,
         ]
     ] = None
@@ -261,6 +282,23 @@ class RouteConfig(ConfigModel):
                     f"{model_instance.provider} is incorrect."
                 )
         return model
+
+    @root_validator(skip_on_failure=True)
+    def validate_route_type_and_model_name(cls, values):
+        route_type = values.get("route_type")
+        model = values.get("model")
+        if (
+            model
+            and model.provider == "mosaicml"
+            and route_type == RouteType.LLM_V1_CHAT
+            and not is_valid_mosiacml_chat_model(model.name)
+        ):
+            raise MlflowException.invalid_parameter_value(
+                f"An invalid model has been specified for the chat route. '{model.name}'. "
+                f"Ensure the model selected starts with one of: "
+                f"{MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES}"
+            )
+        return values
 
     @validator("route_type", pre=True)
     def validate_route_type(cls, value):

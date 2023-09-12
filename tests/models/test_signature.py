@@ -11,7 +11,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, infer_signature, set_signature
 from mlflow.models.model import get_model_info
 from mlflow.types import DataType
-from mlflow.types.schema import ColSpec, Schema, TensorSpec
+from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
 
 
 def test_model_signature_with_colspec():
@@ -219,3 +219,38 @@ def test_cannot_set_signature_on_models_scheme_uris():
         MlflowException, match="Model URIs with the `models:/` scheme are not supported."
     ):
         set_signature("models:/dummy_model@champion", signature)
+
+
+def test_signature_construction():
+    signature = ModelSignature(inputs=Schema([ColSpec(DataType.binary)]))
+    assert signature.to_dict() == {
+        "inputs": '[{"type": "binary"}]',
+        "outputs": None,
+        "params": None,
+    }
+
+    signature = ModelSignature(outputs=Schema([ColSpec(DataType.double)]))
+    assert signature.to_dict() == {
+        "inputs": None,
+        "outputs": '[{"type": "double"}]',
+        "params": None,
+    }
+
+    signature = ModelSignature(params=ParamSchema([ParamSpec("param1", DataType.string, "test")]))
+    assert signature.to_dict() == {
+        "inputs": None,
+        "outputs": None,
+        "params": '[{"name": "param1", "dtype": "string", "default": "test", "shape": null}]',
+    }
+
+
+def test_signature_with_errors():
+    with pytest.raises(
+        TypeError, match=r"inputs must be either None or mlflow.models.signature.Schema"
+    ):
+        ModelSignature(inputs=1)
+
+    with pytest.raises(
+        ValueError, match=r"At least one of inputs, outputs or params must be provided"
+    ):
+        ModelSignature()

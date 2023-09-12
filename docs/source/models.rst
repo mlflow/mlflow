@@ -3629,11 +3629,17 @@ been logged: 'baseline_model' and 'candidate_model' for comparison purposes in t
 
 .. note:: Limitations (when the default evaluator is used):
 
-    - Model validation results are not included in the active MLflow run. See `below <models.html#model-validation-with-trubrics>`_ to see how to log validation results with Trubrics.
+    - Model validation results are not included in the active MLflow run.
     - No metrics are logged nor artifacts produced for the baseline model in the active MLflow run.
 
 Additional information about model evaluation behaviors and outputs is available in the
 :py:func:`mlflow.evaluate()` API docs.
+
+.. note:: There are plugins that support in-depth model validation with features that are not supported
+    directly in MLflow. To learn more, see:
+
+    - :ref:`giskard_plugin`
+    - :ref:`trubrics_plugin`.
 
 .. note:: Differences in the computation of Area under Curve Precision Recall score (metric name
     ``precision_recall_auc``) between multi and binary classifiers:
@@ -3657,6 +3663,34 @@ Additional information about model evaluation behaviors and outputs is available
 
     For simplicity purposes, both methodologies evaluation metric results (whether for multi-class
     or binary classification) are unified in the single metric: ``precision_recall_auc``.
+
+.. _giskard_plugin:
+
+Model Validation with Giskard's plugin
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+To extend the validation capabilities of MLflow and anticipate issues before they go to production, a plugin has been built by `Giskard <https://docs.giskard.ai/en/latest/integrations/mlflow/index.html>`__ allowing users to:
+
+    - scan a model in order to detect hidden vulnerabilities such as
+      `Performance bias <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/performance_bias/index.html>`_,
+      `Unrobustness <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/robustness/index.html>`_,
+      `Overconfidence <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/overconfidence/index.html>`_,
+      `Underconfidence <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/underconfidence/index.html>`_,
+      `Ethical bias <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/ethics/index.html>`_,
+      `Data leakage <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/data_leakage/index.html>`_,
+      `Stochasticity <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/stochasticity/index.html>`_,
+      `Spurious correlation <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/spurious/index.html>`_, and others
+    - explore samples in the data that highlight the vulnerabilities found
+    - log the vulnerabilities as well-defined and quantified metrics
+    - compare the metrics across different models
+
+See the following plugin example notebooks for a demo:
+
+    - `Tabular ML models <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow-tabular-example.html>`__
+    - `Text ML models (LLMs) <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow-llm-example.html>`__
+
+For more information on the plugin, see the `giskard-mlflow docs <https://docs.giskard.ai/en/latest/integrations/mlflow/index.html>`__.
+
+.. _trubrics_plugin:
 
 Model Validation with Trubrics' plugin
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
