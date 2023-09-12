@@ -14,7 +14,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from decimal import Decimal
 from types import FunctionType
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -1052,15 +1052,15 @@ def evaluate(
     data,
     *,
     model_type: str,
-    targets: Union[np.ndarray, List] = None,
-    dataset_path: str = None,
-    feature_names: List[str] = None,
-    evaluators: Union[str, List[str]] = None,
-    evaluator_config: Dict[str, Dict[str, Any]] = None,
-    custom_metrics: List[EvaluationMetric] = None,
-    custom_artifacts: List[Callable] = None,
-    validation_thresholds: Dict[str, MetricThreshold] = None,
-    baseline_model: str = None,
+    targets: Optional[Union[np.ndarray, List]] = None,
+    dataset_path: Optional[str] = None,
+    feature_names: Optional[List[str]] = None,
+    evaluators: Optional[Union[str, List[str]]] = None,
+    evaluator_config: Optional[Dict[str, Dict[str, Any]]] = None,
+    custom_metrics: Optional[List[EvaluationMetric]] = None,
+    custom_artifacts: Optional[List[Callable]] = None,
+    validation_thresholds: Optional[Dict[str, MetricThreshold]] = None,
+    baseline_model: Optional[str] = None,
     env_manager: str = "local",
 ):
     '''
