@@ -1,6 +1,6 @@
 from tensorflow import keras
 
-from mlflow import log_param, log_text
+from mlflow import log_params, log_text
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 
 
@@ -71,7 +71,7 @@ class MLflowCallback(keras.callbacks.Callback):
     def on_train_begin(self, logs=None):
         """Log model architecture and optimizer configuration when training begins."""
         config = self.model.optimizer.get_config()
-        log_param({f"optimizer_{k}": v for k, v in config.items()})
+        log_params({f"optimizer_{k}": v for k, v in config.items()})
 
         model_summary = []
         self.model.summary(print_fn=model_summary.append)
@@ -95,7 +95,5 @@ class MLflowCallback(keras.callbacks.Callback):
         """Log validation metrics at validation end."""
         if logs is None:
             return
-        metrics = {}
-        for k, v in logs.items():
-            metrics["validation_" + k] = v
+        metrics = {"validation_" + k: v for k, v in logs.items()}
         self.metrics_logger.record_metrics(metrics)
