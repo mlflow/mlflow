@@ -202,7 +202,7 @@ specified article.
            :align: center
 
 Step 10: Evaluate the new prompt template on previous inputs
------------------------------------------------------------
+------------------------------------------------------------
 Now that you've made an adjustment to your prompt template, it's important to make sure that
 the new template performs well on the previous inputs and compare the outputs with older
 configurations.
