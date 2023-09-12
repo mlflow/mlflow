@@ -133,7 +133,7 @@ def delete_route(name: str) -> None:
 
 
 @experimental
-def set_limits(route: str, limits: LimitsConfig) -> LimitsConfig:
+def set_limits(route: str, limits: List[Dict[str, Any]]) -> LimitsConfig:
     """
     Set limits on an existing route in the Gateway.
 

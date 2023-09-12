@@ -488,7 +488,6 @@ def test_client_set_limits_raises(gateway):
 def test_client_get_limits_raises(gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
 
-    # This API is available only in Databricks for get limits
     with pytest.raises(MlflowException, match="The get_limits API is only available when"):
         gateway_client.get_limis("some-route")
 
