@@ -3726,17 +3726,23 @@ Custom Python Models
 The :py:mod:`mlflow.pyfunc` module provides :py:func:`save_model() <mlflow.pyfunc.save_model>` and
 :py:func:`log_model() <mlflow.pyfunc.log_model>` utilities for creating MLflow Models with the
 ``python_function`` flavor that contain user-specified code and *artifact* (file) dependencies.
-These artifact dependencies may include serialized models produced by any Python ML library, but also
-artifacts comming from other runs or even other registered models.
+
+Code can be indicated either as a python object or using python code files. Objects are serialized
+and stored as an artifact and code files are copied inside the code directory of the mode. For additional
+information about model customization with MLflow's ``python_function`` utilities, see the
+:ref:`python_function custom models documentation <pyfunc-create-custom>`.
+
+Artifact dependencies may include serialized models produced by any Python ML library, but also
+artifacts comming from other runs or even other registered models. Artifacts are persisted in the
+MLflow model artifact's directory along with the rest of the dependencies and they can be retrieved
+by name inside of the model's implementation code.
 
 Because these custom models contain the ``python_function`` flavor, they can be deployed
 to any of MLflow's supported production environments, such as SageMaker, Azure Machine Learning,
 or local REST endpoints.
 
 The following examples demonstrate how you can use the :py:mod:`mlflow.pyfunc` module to create
-custom Python models. For additional information about model customization with MLflow's
-``python_function`` utilities, see the
-:ref:`python_function custom models documentation <pyfunc-create-custom>`.
+custom Python models. 
 
 Example: Creating a custom "add n" model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3870,6 +3876,7 @@ Example: Logging a model referencing other runs or models' artifacts
 This example shows how models can reference artifacts from other runs or even other models. Use the
 schema `models:/` to reference models and `runs:/` to reference artifacts inside a run. When the model
 is logged, referenced artifacts are downloaded and persisted inside of the MLflow Model's directory.
+Each artifact can be retrieved by its name.
 
 .. code-block:: python
 
