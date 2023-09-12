@@ -1,5 +1,42 @@
 # CHANGELOG
 
+## 2.7.0 (2023-09-12)
+
+MLflow 2.7.0 includes several major features and improvements
+
+Features:
+
+- [Server-infra / Tracking] Pluggable authentication methods (#9191, @barrywhart)
+- [] MLflow UI sync (#9503, @harupy)
+- [Artifacts / Model Registry] Models in r2 rw support (#9490, @shichengzhou-db)
+- [Artifacts] Make Azure Data Lake artifact repo share upload and download logic with databricks artifact repo (#9444, @jerrylian-db)
+- [Gateway] Add MosaicML as a provider to MLflow AI Gateway (#9459, @arpitjasa-db)
+- [] Add options for sagemaker serverless inference. (#9085, @dogeplusplus)
+- [] Convert input data to `mlflow.data.dataset.Dataset` in `mlflow.evaluate` call (#9355, @chenmoneygithub)
+- [Models] Support huggingface snapshot locations in pyfunc log_model artifacts parameter (#9362, @serena-ruan)
+
+Bug fixes:
+
+- [Artifacts] disable multipart download to fuse paths (#9545, @BenWilson2)
+- [Gateway] Re-resolve gateway credentials before each request (#9518, @dbczumar)
+- [Tracking] Use spark default pip requirements "pandas < 2" for "spark < 3.4" (#9428, @WeichenXu123)
+- [Gateway] Fix a bug where `search_routes` throws when there are no routes (#9387, @QuentinAmbard)
+- [UI] Set relative path to Font Awesome assets in CSS and fix missing resources when using `--static-prefix` option (#9308, @danilopeixoto)
+- [Gateway] Support pydantic v1 and v2 for AI gateway (#9339, @harupy)
+- [Gateway] Modify optimistic AI Gateway import on root initialization loading to catch all exceptions (#9337, @BenWilson2)
+- [] Fix imports for transformers.py (#9289, @chenmoneygithub)
+
+Documentation updates:
+
+- [Docs] Update prompt-engineering.rst (#9596, @ShorthillsAI)
+- [Docs] fix docs pyfunc.log_model (#9567, @Beramos)
+- [Docs] Updated Giskard community plugin links in docs (#9524, @rabah-khalek)
+- [] Introducing the Giskard community plugin for mlflow.evaluate() 🐢 (#9183, @rabah-khalek)
+
+Small bug fixes and documentation updates:
+
+#9605, #9603, #9602, #9595, #9597, #9587, #9590, #9588, #9586, #9584, #9583, #9582, #9581, #9580, #9577, #9546, #9566, #9569, #9562, #9564, #9561, #9528, #9506, #9492, #9491, #9485, #9445, #9430, #9429, #9427, #9426, #9424, #9421, #9419, #9409, #9408, #9407, #9394, #9389, #9395, #9393, #9390, #9370, #9356, #9359, #9357, #9345, #9340, #9328, #9329, #9326, #9304, #9325, #9323, #9322, #9319, #9314, @harupy; #9568, #9520, @dbczumar; #9593, @jerrylian-db; #9574, #9573, #9480, #9332, #9335, @BenWilson2; #9556, @shichengzhou-db; #9570, #9540, #9533, #9517, #9354, #9453, #9338, @prithvikannan; #9565, #9560, #9536, #9504, #9476, #9481, #9450, #9466, #9418, #9397, @serena-ruan; #9489, @dnerini; #9512, #9479, #9351, @chenmoneygithub; #9488, @bbqiu; #9474, @apurva-koti; #9505, @arpitjasa-db; #9261, @donour; #9336, #9414, #9353, @mberk06; #9451, @Bncer; #9432, @barrywhart; #9347, @GraceBrigham; #9420, #9406, @WeichenXu123; #9410, @aloahPGF; #9396, #9384, #9372, @Godwin-T; #9373, @fabiansefranek; #9382, @Sai-Suraj-27; #9378, @saidattu2003; #9375, @Increshi; #9358, @smurching; #9366, #9330, @Dev-98; #9364, @Sandeep1005; #9349, #9348, @AmirAflak; #9312, @dependabot[bot]
+
 ## 2.6.0 (2023-08-15)
 
 MLflow 2.6.0 includes several major features and improvements
