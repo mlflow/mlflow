@@ -1,8 +1,10 @@
+import time
+
 from mlflow.utils.time import Timer
 
 
 def test_timer():
     with Timer() as t:
-        pass
+        time.sleep(1)
 
-    assert t.time >= 0
+    assert 1.0 < t.time < 1.1
