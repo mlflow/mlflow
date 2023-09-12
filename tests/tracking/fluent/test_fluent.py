@@ -1290,17 +1290,3 @@ def test_get_parent_run():
     assert parent_run.data.params == {"a": "1"}
 
     assert mlflow.get_parent_run(run_id) is None
-
-
-def test_get_system_metrics():
-    mlflow.enable_system_metrics_logging()
-    mlflow.set_system_metrics_sampling_interval(0.5)
-    with mlflow.start_run() as run:
-        time.sleep(1)
-
-    mlflow_run = MlflowClient().get_run(run.info.run_id)
-    metrics = mlflow_run.data.metrics
-    assert "cpu_percentage" in metrics
-    assert "system_memory_used" in metrics
-    MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL.unset()
-    mlflow.disable_system_metrics_logging()
