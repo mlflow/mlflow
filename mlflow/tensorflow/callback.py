@@ -71,8 +71,7 @@ class MLflowLoggingCallback(keras.callbacks.Callback):
     def on_train_begin(self, logs=None):
         """Log model architecture and optimizer configuration when training begins."""
         config = self.model.optimizer.get_config()
-        for attribute in config:
-            log_param("optimizer_" + attribute, config[attribute])
+        log_params({f"optimizer_{k}": v for k, v in config.items()})
 
         model_summary = []
         self.model.summary(print_fn=model_summary.append)
