@@ -50,7 +50,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
