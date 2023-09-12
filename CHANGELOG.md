@@ -4,11 +4,11 @@
 
 MLflow 2.7.0 includes several major features and improvements
 
-- [UI / Gateway] We are excited to announce the availability of the Prompt Engineering UI, a UI-centric suite of tools that simplify the process of developing, testing, and evaluating prompts for LLM use cases. With a direct integration into the MLflow AI Gateway, you can now effortlessly design, track, and deploy a prompt template of your choosing. To read about this new feature, see the documentation at https://mlflow.org/docs/latest/llms/prompt-engineering.html (#9503, @prithvikannan)
+- [UI / Gateway] We are excited to announce the Prompt Engineering UI. This new addition offers a suite of tools tailored for efficient prompt development, testing, and evaluation for LLM use cases. Integrated directly into the MLflow AI Gateway, it provides a seamless experience for designing, tracking, and deploying prompt templates. To read about this new feature, see the documentation at https://mlflow.org/docs/latest/llms/prompt-engineering.html (#9503, @prithvikannan)
 
 Features:
 
-- [Gateway] Add `MosaicML` as a supported provider for the MLflow `AI Gateway` (#9459, @arpitjasa-db)
+- [Gateway] Introduce `MosaicML` as a supported provider for the MLflow `AI Gateway` (#9459, @arpitjasa-db)
 - [Models] Add support for using a snapshot download location when loading a `transformers` model as `pyfunc` (#9362, @serena-ruan)
 - [Server-infra] Introduce plugin support for MLflow `Tracking Server` authentication (#9191, @barrywhart)
 - [Artifacts / Model Registry] Add support for storing artifacts using the `R2` backend (#9490, @shichengzhou-db)
@@ -20,8 +20,8 @@ Bug fixes:
 - [Gateway] Fix a credential expiration bug by re-resolving `AI Gateway` credentials before each request (#9518, @dbczumar)
 - [Gateway] Fix a bug where `search_routes` would raise an exception when no routes have been defined on the `AI Gateway` server (#9387, @QuentinAmbard)
 - [Gateway] Fix compatibility issues with `pydantic` 2.x for `AI gateway` (#9339, @harupy)
-- [Gateway] Fix an issue with `AI Gateway` initialization that could render MLflow unusable at import time if package dependencies are missing (#9337, @BenWilson2)
-- [Artifacts] Fix a correctness bug by disabling optional multipart download to `fuse mount` paths on `Databricks` (#9545, @BenWilson2)
+- [Gateway] Fix an initialization issue in the `AI Gateway` that could render MLflow nonfunctional at import if dependencies were conflicting. (#9337, @BenWilson2)
+- [Artifacts] Fix a correctness issue when downloading large artifacts to `fuse mount` paths on `Databricks` (#9545, @BenWilson2)
 
 Documentation updates:
 
