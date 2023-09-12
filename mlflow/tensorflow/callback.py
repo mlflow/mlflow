@@ -7,8 +7,8 @@ from mlflow.utils.autologging_utils import BatchMetricsLogger
 class MLflowCallback(keras.callbacks.Callback):
     """Callback for logging Tensorflow training metrics to MLflow.
 
-    This callback logs training metrics every epoch or every n steps (defined by the user) to
-    MLflow.
+    This callback logs model information at training start, and logs training metrics every epoch or
+    every n steps (defined by the user) to MLflow.
 
     Args:
         run: an `mlflow.entities.run.Run` instance, the MLflow run.
@@ -48,7 +48,7 @@ class MLflowCallback(keras.callbacks.Callback):
                 label,
                 batch_size=4,
                 epochs=2,
-                callbacks=[MLflowMetricsLoggingCallback(run)],
+                callbacks=[MLflowCallback(run)],
             )
     """
 
@@ -71,7 +71,7 @@ class MLflowCallback(keras.callbacks.Callback):
     def on_train_begin(self, logs=None):
         """Log model architecture and optimizer configuration when training begins."""
         config = self.model.optimizer.get_config()
-        log_params({f"optimizer_{k}": v for k, v in config.items()})
+        log_param({f"optimizer_{k}": v for k, v in config.items()})
 
         model_summary = []
         self.model.summary(print_fn=model_summary.append)
