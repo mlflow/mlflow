@@ -1118,6 +1118,24 @@ class DefaultEvaluator(ModelEvaluator):
                 self.y_probs = self.predict_proba_fn(self.X.copy_to_avoid_mutation())
             else:
                 self.y_probs = None
+        elif self.model_type in (
+            _ModelType.QUESTION_ANSWERING,
+            _ModelType.TEXT_SUMMARIZATION,
+            _ModelType.TEXT,
+        ):
+            import time
+
+            y_pred_list = []
+            pred_latencies = []
+            X_copy = self.X.copy_to_avoid_mutation()
+            for _, row in X_copy.iterrows():
+                single_row_df = row.to_frame().T
+                start_time = time.time()
+                y_pred_list.append(self.model.predict(single_row_df))
+                end_time = time.time()
+                pred_latencies.append(end_time - start_time)
+            self.y_pred = pd.concat(y_pred_list, ignore_index=True)
+            self.metrics_dict.update({"latency": pred_latencies})
         else:
             self.y_pred = self.model.predict(self.X.copy_to_avoid_mutation())
 

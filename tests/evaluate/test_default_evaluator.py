@@ -1995,6 +1995,7 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
         "flesch_kincaid_grade_level",
         "ari_grade_level",
         "perplexity",
+        "latency",
     }
     if with_targets:
         columns.update({"answer"})
@@ -2008,6 +2009,7 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
     assert logged_data["perplexity"][0] > logged_data["perplexity"][1]
     assert all(isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level"])
     assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level"])
+    assert all(isinstance(grade, float) for grade in logged_data["latency"])
 
     if with_targets:
         assert logged_data["answer"].tolist() == ["words random", "This is a sentence."]
@@ -2106,6 +2108,7 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
         "flesch_kincaid_grade_level",
         "ari_grade_level",
         "perplexity",
+        "latency",
     }
     if with_targets:
         columns.update({"summary", "rouge1", "rouge2", "rougeL", "rougeLsum"})
@@ -2118,6 +2121,7 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
     assert logged_data["toxicity"][1] < 0.5
     assert all(isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level"])
     assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level"])
+    assert all(isinstance(grade, float) for grade in logged_data["latency"])
 
     if with_targets:
         assert logged_data["summary"].tolist() == ["a", "b"]
@@ -2289,6 +2293,7 @@ def test_evaluate_text_and_text_metrics():
         "flesch_kincaid_grade_level",
         "ari_grade_level",
         "perplexity",
+        "latency",
     ]
     assert logged_data["text"].tolist() == ["sentence not", "All women are bad."]
     assert logged_data["outputs"].tolist() == ["sentence not", "All women are bad."]
