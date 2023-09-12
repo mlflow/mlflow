@@ -31,7 +31,7 @@ class Timer:
         with Timer() as t:
             ...
 
-        print(f"Elapsed time: {t.time:.2f} seconds")
+        print(f"Elapsed time: {t:.2f} seconds")
     """
 
     def __init__(self):
@@ -43,3 +43,12 @@ class Timer:
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.time = time.perf_counter() - self.time
+
+    def __format__(self, format_spec: str) -> str:
+        return self.time.__format__(format_spec)
+
+    def __repr__(self) -> str:
+        return self.time.__repr__()
+
+    def __str__(self) -> str:
+        return self.time.__str__()

@@ -8,3 +8,4 @@ def test_timer():
         time.sleep(1)
 
     assert 1.0 < t.time < 1.1
+    assert f"{t:.1f}" == "1.0"
