@@ -76,7 +76,7 @@ Step 1. Then, click the **Evaluate** button to test out an example prompt engine
 for generating product advertisements.
 
 MLflow will embed the specified *stock_type* input
-variable value - ``"books"`` - into the specfied *prompt  template* and send it to the LLM
+variable value - ``"books"`` - into the specified *prompt  template* and send it to the LLM
 associated with the AI Gateway route with the configured *temperature* (currently ``0.01``)
 and *max_tokens* (currently 1000). The LLM response will appear in the *Output* section.
 
@@ -201,7 +201,7 @@ specified article.
            :scale: 40%
            :align: center
 
-Step 10: Evalute the new prompt template on previous inputs
+Step 10: Evaluate the new prompt template on previous inputs
 -----------------------------------------------------------
 Now that you've made an adjustment to your prompt template, it's important to make sure that
 the new template performs well on the previous inputs and compare the outputs with older
