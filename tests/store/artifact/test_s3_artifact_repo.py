@@ -174,7 +174,6 @@ def test_file_artifacts_are_logged_with_content_metadata_in_batch(
     with open(path_c, "w") as f:
         f.write("col1,col2\n1,3\n2,4\n")
 
-    s3_artifact_repo = s3_artifact_repo
     s3_artifact_repo.log_artifacts(subdir_path)
 
     bucket, _ = s3_artifact_repo.parse_s3_compliant_uri(s3_artifact_root)
