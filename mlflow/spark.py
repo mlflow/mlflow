@@ -94,10 +94,10 @@ def get_default_pip_requirements(is_spark_connect_model=False):
 
     # Strip the suffix from `dev` versions of PySpark, which are not
     # available for installation from Anaconda or PyPI
-    pyspark_extra = "connect" if is_spark_connect_model else None
+    pyspark_extras = "connect" if is_spark_connect_model else None
     pyspark_req = re.sub(
         r"(\.?)dev.*$", "",
-        _get_pinned_requirement("pyspark", extra=pyspark_extra)
+        _get_pinned_requirement("pyspark", extras=pyspark_extras)
     )
     reqs = [pyspark_req]
     if Version(pyspark.__version__) < Version("3.4"):
@@ -107,9 +107,9 @@ def get_default_pip_requirements(is_spark_connect_model=False):
     if is_spark_connect_model:
         reqs.extend(
             [
-                # Spark connect Model uses spark torch distributor to train model
+                # Spark connect ML Model uses spark torch distributor to train model
                 _get_pinned_requirement("torch"),
-                # Spark connect Model save feature transformers as sklearn transformer format.
+                # Spark connect ML Model saves feature transformers as sklearn transformer format.
                 _get_pinned_requirement("scikit-learn", module="sklearn"),
                 # Spark connect ML evaluators depend on torcheval package.
                 _get_pinned_requirement("torcheval"),
@@ -625,7 +625,7 @@ def _is_spark_connect_model(spark_model):
 
         return isinstance(spark_model, ConnectModel)
     except ImportError:
-        # pyspark < 3.5 does not support connect ML model
+        # pyspark < 3.5 does not support Spark connect ML model
         return False
 
 

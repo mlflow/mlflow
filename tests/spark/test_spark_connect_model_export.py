@@ -6,9 +6,11 @@ import pandas as pd
 import pyspark
 import pytest
 from packaging.version import Version
-from pyspark.ml.connect.classification import (
-    LogisticRegression as LORV2,
-)
+
+if Version(pyspark.__version__) < Version("3.5"):
+    pytest.skip("pyspark ML connect Model is available in pyspark >= 3.5")
+
+from pyspark.ml.connect.classification import LogisticRegression
 from pyspark.ml.connect.feature import StandardScaler
 from pyspark.ml.connect.pipeline import Pipeline
 from pyspark.sql import SparkSession
@@ -28,9 +30,6 @@ from tests.pyfunc.test_spark import score_model_as_udf
 from tests.spark.test_spark_model_export import (
     SparkModelWithData,
 )
-
-if Version(pyspark.__version__) < Version("3.5"):
-    pytest.skip("pyspark ML connect Model is available in pyspark >= 3.5")
 
 
 def _get_spark_connect_session():
@@ -66,15 +65,15 @@ def spark():
 @pytest.fixture(scope="module")
 def iris_df(spark):
     X, y = datasets.load_iris(return_X_y=True)
-    spark_df = spark.createDataFrame(list(zip(X, y)), schema="features: array<double>, label: long")
+    spark_df = spark.createDataFrame(zip(X, y), schema="features: array<double>, label: long")
     return spark_df.toPandas(), spark_df
 
 
 @pytest.fixture(scope="module")
-def spark_model_iris(iris_df):
+def spark_model(iris_df):
     iris_pandas_df, iris_spark_df = iris_df
     scaler = StandardScaler(inputCol="features", outputCol="scaled_features")
-    lr = LORV2(maxIter=50, numTrainWorkers=2, learningRate=0.001)
+    lr = LogisticRegression(maxIter=50, numTrainWorkers=2, learningRate=0.001)
     pipeline = Pipeline(stages=[scaler, lr])
     # Fit the model
     model = pipeline.fit(iris_spark_df)
@@ -92,59 +91,51 @@ def model_path(tmp_path):
     return os.path.join(tmp_path, "model")
 
 
-def test_model_export(spark_model_iris, model_path):
-    mlflow.spark.save_model(spark_model_iris.model, path=model_path)
+def test_model_export(spark_model, model_path):
+    mlflow.spark.save_model(spark_model.model, path=model_path)
     # 1. score and compare reloaded sparkml model
     reloaded_model = mlflow.spark.load_model(model_uri=model_path)
-    preds_df = reloaded_model.transform(spark_model_iris.pandas_df.copy(deep=False))
-    pd.testing.assert_frame_equal(spark_model_iris.predictions, preds_df, check_dtype=False)
+    preds_df = reloaded_model.transform(spark_model.pandas_df.copy(deep=False))
+    pd.testing.assert_frame_equal(spark_model.predictions, preds_df, check_dtype=False)
 
     m = pyfunc.load_model(model_path)
     # 2. score and compare reloaded pyfunc
-    preds2 = m.predict(spark_model_iris.pandas_df.copy(deep=False))
+    preds2 = m.predict(spark_model.pandas_df.copy(deep=False))
     pd.testing.assert_series_equal(
-        spark_model_iris.predictions["prediction"], preds2, check_dtype=False
+        spark_model.predictions["prediction"], preds2, check_dtype=False
     )
 
     # 3. score and compare reloaded pyfunc Spark udf
     preds3 = score_model_as_udf(
-        model_uri=model_path, pandas_df=spark_model_iris.pandas_df, result_type=LongType()
+        model_uri=model_path, pandas_df=spark_model.pandas_df, result_type=LongType()
     )
     pd.testing.assert_series_equal(
-        spark_model_iris.predictions["prediction"], preds3, check_dtype=False
+        spark_model.predictions["prediction"], preds3, check_dtype=False
     )
 
 
-def test_sparkml_model_log(tmp_path, spark_model_iris):
-    old_tracking_uri = mlflow.get_tracking_uri()
+def test_sparkml_model_log(spark_model):
+    with mlflow.start_run():
+        model_info = mlflow.spark.log_model(
+            artifact_path="model",
+            spark_model=spark_model.model,
+        )
+    model_uri = model_info.model_uri
 
-    try:
-        tracking_dir = tmp_path.joinpath("mlruns")
-        mlflow.set_tracking_uri(f"file://{tracking_dir}")
-        with mlflow.start_run():
-            model_info = mlflow.spark.log_model(
-                artifact_path="model",
-                spark_model=spark_model_iris.model,
-            )
-        model_uri = model_info.model_uri
-
-        reloaded_model = mlflow.spark.load_model(model_uri=model_uri)
-        preds_df = reloaded_model.transform(spark_model_iris.pandas_df.copy(deep=False))
-        pd.testing.assert_frame_equal(spark_model_iris.predictions, preds_df, check_dtype=False)
-    finally:
-        mlflow.set_tracking_uri(old_tracking_uri)
+    reloaded_model = mlflow.spark.load_model(model_uri=model_uri)
+    preds_df = reloaded_model.transform(spark_model.pandas_df.copy(deep=False))
+    pd.testing.assert_frame_equal(spark_model.predictions, preds_df, check_dtype=False)
 
 
-def test_pyfunc_serve_and_score(spark_model_iris):
-    input_data = pd.DataFrame(
-        {"features": spark_model_iris.pandas_df.features.map(lambda x: x.tolist())}
-    )
-
+def test_pyfunc_serve_and_score(spark_model):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.spark.log_model(spark_model_iris.model, artifact_path)
+        mlflow.spark.log_model(spark_model.model, artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
+    input_data = pd.DataFrame(
+        {"features": spark_model.pandas_df.features.map(lambda x: x.tolist())}
+    )
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=input_data,
@@ -155,5 +146,5 @@ def test_pyfunc_serve_and_score(spark_model_iris):
         data=json.loads(resp.content.decode("utf-8"))["predictions"]
     ).values.squeeze()
     np.testing.assert_array_almost_equal(
-        scores, spark_model_iris.model.transform(spark_model_iris.pandas_df)["prediction"].values
+        scores, spark_model.model.transform(spark_model.pandas_df)["prediction"].values
     )
