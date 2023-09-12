@@ -8,7 +8,7 @@ import pytest
 from packaging.version import Version
 
 if Version(pyspark.__version__) < Version("3.5"):
-    pytest.skip("pyspark ML connect Model is available in pyspark >= 3.5")
+    pytest.skip("pyspark ML connect Model is available in pyspark >= 3.5", allow_module_level=True)
 
 from pyspark.ml.connect.classification import LogisticRegression
 from pyspark.ml.connect.feature import StandardScaler
@@ -73,7 +73,7 @@ def iris_df(spark):
 def spark_model(iris_df):
     iris_pandas_df, iris_spark_df = iris_df
     scaler = StandardScaler(inputCol="features", outputCol="scaled_features")
-    lr = LogisticRegression(maxIter=50, numTrainWorkers=2, learningRate=0.001)
+    lr = LogisticRegression(maxIter=10, numTrainWorkers=2, learningRate=0.001)
     pipeline = Pipeline(stages=[scaler, lr])
     # Fit the model
     model = pipeline.fit(iris_spark_df)

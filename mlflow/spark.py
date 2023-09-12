@@ -94,7 +94,7 @@ def get_default_pip_requirements(is_spark_connect_model=False):
 
     # Strip the suffix from `dev` versions of PySpark, which are not
     # available for installation from Anaconda or PyPI
-    pyspark_extras = "connect" if is_spark_connect_model else None
+    pyspark_extras = ["connect"] if is_spark_connect_model else None
     pyspark_req = re.sub(
         r"(\.?)dev.*$", "", _get_pinned_requirement("pyspark", extras=pyspark_extras)
     )
