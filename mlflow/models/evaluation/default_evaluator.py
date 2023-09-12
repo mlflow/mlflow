@@ -7,6 +7,7 @@ import pathlib
 import pickle
 import shutil
 import tempfile
+import time
 from collections import namedtuple
 from functools import partial
 from typing import Callable, NamedTuple
@@ -1123,8 +1124,6 @@ class DefaultEvaluator(ModelEvaluator):
             _ModelType.TEXT_SUMMARIZATION,
             _ModelType.TEXT,
         ):
-            import time
-
             y_pred_list = []
             pred_latencies = []
             X_copy = self.X.copy_to_avoid_mutation()
