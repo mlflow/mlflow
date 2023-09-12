@@ -159,13 +159,4 @@ const getFileTooLargeView = () => {
   );
 };
 
-export const getSrc = (path: any, runUuid: any) => {
-  // @ts-expect-error TS(4111): Property 'HOSTED_PATH' comes from an index signatu... Remove this comment to see the full error message
-  const basePath = process.env.HOSTED_PATH || '';
-  const endpointPath = 'get-artifact';
-  return `${basePath}${endpointPath}?path=${encodeURIComponent(path)}&run_uuid=${encodeURIComponent(
-    runUuid,
-  )}`;
-};
-
 export default ShowArtifactPage;

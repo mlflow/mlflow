@@ -32,6 +32,7 @@ import {
   modelVersionsByRunUuid,
   runUuidsMatchingFilter,
   runDatasetsByUuid,
+  datasetsByExperimentId,
 } from './Reducers';
 import { mockExperiment, mockRunInfo } from '../utils/test-utils/ReduxStoreFixtures';
 import { RunTag, RunInfo, Param, Experiment, ExperimentTag } from '../sdk/MlflowMessages';
@@ -45,6 +46,7 @@ import {
   DELETE_TAG_API,
   LIST_ARTIFACTS_API,
   SET_EXPERIMENT_TAG_API,
+  SEARCH_DATASETS_API,
 } from '../actions';
 import { fulfilled, pending, rejected } from '../../common/utils/ActionUtils';
 import { deepFreeze } from '../../common/utils/TestUtils';
@@ -440,7 +442,7 @@ describe('test modelVersionsByUuid', () => {
 
   test('search api with no payload', () => {
     expect(
-      runInfosByUuid(undefined, {
+      modelVersionsByRunUuid(undefined, {
         type: fulfilled(SEARCH_MODEL_VERSIONS),
       }),
     ).toEqual({});
@@ -1309,6 +1311,68 @@ describe('test experimentTagsByExperimentId', () => {
       experiment02: {
         key1: (ExperimentTag as any).fromJs(tag1),
       },
+    });
+  });
+});
+
+describe('test datasetsByExperimentId', () => {
+  const dataset1_exp1 = {
+    experiment_id: 'experiment01',
+    digest: 'digest1',
+    name: 'dataset1',
+    context: 'train',
+  };
+  const dataset2_exp1 = {
+    experiment_id: 'experiment01',
+    digest: 'digest2',
+    name: 'dataset2',
+    context: 'test',
+  };
+  const dataset2_exp2 = {
+    experiment_id: 'experiment02',
+    digest: 'digest2',
+    name: 'dataset2',
+    context: 'test',
+  };
+  const dataset3_exp2 = { experiment_id: 'experiment02', digest: 'digest3', name: 'dataset3' };
+  test('search datasets api', () => {
+    const empty_state = datasetsByExperimentId(undefined, {
+      type: fulfilled(SEARCH_DATASETS_API),
+      payload: {
+        dataset_summaries: [],
+      },
+    });
+    expect(empty_state).toEqual({});
+
+    const state0 = datasetsByExperimentId(undefined, {
+      type: fulfilled(SEARCH_DATASETS_API),
+      payload: {
+        dataset_summaries: [dataset1_exp1, dataset2_exp1],
+      },
+    });
+    expect(state0).toEqual({
+      experiment01: [dataset1_exp1, dataset2_exp1],
+    });
+
+    const state1 = datasetsByExperimentId(undefined, {
+      type: fulfilled(SEARCH_DATASETS_API),
+      payload: {
+        dataset_summaries: [dataset2_exp2, dataset3_exp2],
+      },
+    });
+    expect(state1).toEqual({
+      experiment02: [dataset2_exp2, dataset3_exp2],
+    });
+
+    const state2 = datasetsByExperimentId(undefined, {
+      type: fulfilled(SEARCH_DATASETS_API),
+      payload: {
+        dataset_summaries: [dataset1_exp1, dataset2_exp1, dataset2_exp2, dataset3_exp2],
+      },
+    });
+    expect(state2).toEqual({
+      experiment01: [dataset1_exp1, dataset2_exp1],
+      experiment02: [dataset2_exp2, dataset3_exp2],
     });
   });
 });

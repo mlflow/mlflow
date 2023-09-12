@@ -18,6 +18,9 @@ jest.mock('../../utils/experimentPage.row-utils', () => ({
   prepareRunsGridData: (...params: any) => mockPrepareRunsGridData(...params),
 }));
 
+jest.mock('../../hooks/useCreateNewRun', () => ({
+  CreateNewRunContextProvider: ({ children }: any) => <div>{children}</div>,
+}));
 jest.mock('./ExperimentViewRunsControls', () => ({
   ExperimentViewRunsControls: () => <div />,
 }));

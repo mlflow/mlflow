@@ -490,7 +490,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     If the provided artifact URL is invalid, the artifact deletion will be bypassed,
     and the gc process will continue.
     """
-    from mlflow.utils.time_utils import get_current_time_millis
+    from mlflow.utils.time import get_current_time_millis
 
     backend_store = _get_store(backend_store_uri, None)
     skip_experiments = False

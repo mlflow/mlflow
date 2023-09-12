@@ -5,6 +5,7 @@ import type { TextAreaRef } from 'antd/lib/input/TextArea';
 import React from 'react';
 import type { DangerousGeneralProps, DangerouslySetAntdProps, FormElementValidationState, HTMLDataAttributes } from '../types';
 export type InputRef = AntDInput;
+export type { TextAreaRef };
 export interface InputProps extends Omit<AntDInputProps, 'prefixCls' | 'size' | 'addonAfter' | 'bordered'>, FormElementValidationState, HTMLDataAttributes, DangerouslySetAntdProps<AntDInputProps>, DangerousGeneralProps {
     onClear?: () => void;
 }

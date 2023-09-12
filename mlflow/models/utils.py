@@ -902,8 +902,7 @@ def get_model_version_from_model_uri(model_uri):
     )
     client = MlflowClient(registry_uri=databricks_profile_uri)
     (name, version) = get_model_name_and_version(client, model_uri)
-    model_version = client.get_model_version(name, version)
-    return model_version
+    return client.get_model_version(name, version)
 
 
 def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[ParamSchema]):

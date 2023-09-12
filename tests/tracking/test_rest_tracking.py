@@ -50,7 +50,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
@@ -1193,27 +1193,27 @@ def test_search_dataset_handler_rejects_invalid_requests(mlflow_client):
         assert response_json.get("error_code") == "INVALID_PARAMETER_VALUE"
         assert message_part in response_json.get("message", "")
 
-    response_no_experiment_id_field = requests.get(
+    response_no_experiment_id_field = requests.post(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/experiments/search-datasets",
-        params={},
+        json={},
     )
     assert_response(
         response_no_experiment_id_field,
         "SearchDatasets request must specify at least one experiment_id.",
     )
 
-    response_empty_experiment_id_field = requests.get(
+    response_empty_experiment_id_field = requests.post(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/experiments/search-datasets",
-        params={"experiment_id": []},
+        json={"experiment_ids": []},
     )
     assert_response(
         response_empty_experiment_id_field,
         "SearchDatasets request must specify at least one experiment_id.",
     )
 
-    response_too_many_experiment_ids = requests.get(
+    response_too_many_experiment_ids = requests.post(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/experiments/search-datasets",
-        params={"experiment_id": [f"id_{i}" for i in range(1000)]},
+        json={"experiment_ids": [f"id_{i}" for i in range(1000)]},
     )
     assert_response(
         response_too_many_experiment_ids,
@@ -1239,9 +1239,9 @@ def test_search_dataset_handler_returns_expected_results(mlflow_client):
     ]
     mlflow_client.log_inputs(run_id, dataset_inputs1)
 
-    response = requests.get(
+    response = requests.post(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/experiments/search-datasets",
-        params={"experiment_id": [experiment_id]},
+        json={"experiment_ids": [experiment_id]},
     )
     expected = {
         "experiment_id": experiment_id,
@@ -1764,10 +1764,6 @@ def test_create_promptlab_run_handler_rejects_invalid_requests(mlflow_client):
             "model_input": "my_input",
             "mlflow_version": "1.0.0",
         },
-    )
-    assert_response(
-        response,
-        "CreatePromptlabRun request must specify user_id.",
     )
 
 

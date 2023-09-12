@@ -72,6 +72,13 @@ def is_databricks_uri(uri):
     return scheme == "databricks" or uri == "databricks"
 
 
+def is_fuse_uri(uri):
+    """
+    Validates whether a provided URI is directed to a FUSE mount point
+    """
+    return any(uri.startswith(x) for x in [_DBFS_FUSE_PREFIX, _DBFS_HDFS_URI_PREFIX])
+
+
 def is_databricks_unity_catalog_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
     return scheme == _DATABRICKS_UNITY_CATALOG_SCHEME or uri == _DATABRICKS_UNITY_CATALOG_SCHEME
@@ -369,7 +376,7 @@ def resolve_uri_if_local(local_uri):
                     )
                 return cwd.joinpath(local_path).as_posix()
             local_uri_split = urllib.parse.urlsplit(local_uri)
-            resolved_absolute_uri = urllib.parse.urlunsplit(
+            return urllib.parse.urlunsplit(
                 (
                     local_uri_split.scheme,
                     None,
@@ -378,7 +385,6 @@ def resolve_uri_if_local(local_uri):
                     local_uri_split.fragment,
                 )
             )
-            return resolved_absolute_uri
     return local_uri
 
 

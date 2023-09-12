@@ -10,6 +10,7 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.entities.run_tag import RunTag
 from mlflow.utils.file_utils import make_containing_dirs, write_to
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_ARTIFACTS, MLFLOW_RUN_SOURCE_TYPE
+from mlflow.version import VERSION as __version__  # noqa: F401
 
 
 def create_eval_results_json(prompt_parameters, model_input, model_output_parameters, model_output):
@@ -21,8 +22,7 @@ def create_eval_results_json(prompt_parameters, model_input, model_output_parame
 
     eval_results = {"columns": updated_columns, "data": [updated_data]}
 
-    eval_results_json = json.dumps(eval_results)
-    return eval_results_json
+    return json.dumps(eval_results)
 
 
 def _create_promptlab_run_impl(
@@ -45,6 +45,16 @@ def _create_promptlab_run_impl(
     run_id = run.info.run_id
 
     try:
+        prompt_parameters = [
+            Param(key=param.key, value=str(param.value)) for param in prompt_parameters
+        ]
+        model_parameters = [
+            Param(key=param.key, value=str(param.value)) for param in model_parameters
+        ]
+        model_output_parameters = [
+            Param(key=param.key, value=str(param.value)) for param in model_output_parameters
+        ]
+
         # log model parameters
         parameters_to_log = [
             *model_parameters,
@@ -69,7 +79,7 @@ def _create_promptlab_run_impl(
 
         utc_time_created = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
         promptlab_model = Model(
-            artifact_path=artifact_dir,
+            artifact_path="model",
             run_id=run_id,
             utc_time_created=utc_time_created,
         )
@@ -89,14 +99,17 @@ def _create_promptlab_run_impl(
             )
 
         from mlflow._promptlab import save_model
+        from mlflow.server.handlers import (
+            _get_artifact_repo_mlflow_artifacts,
+            _is_servable_proxied_run_artifact_root,
+        )
 
         # write artifact files
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
-        artifact_repo = get_artifact_repository(artifact_dir)
-
         with tempfile.TemporaryDirectory() as local_dir:
             save_model(
+                mlflow_model=promptlab_model,
                 path=os.path.join(local_dir, "model"),
                 signature=signature,
                 input_example={"inputs": [param.value for param in prompt_parameters]},
@@ -104,6 +117,7 @@ def _create_promptlab_run_impl(
                 prompt_parameters=prompt_parameters,
                 model_parameters=model_parameters,
                 model_route=model_route,
+                pip_requirements=[f"mlflow[gateway]=={__version__}"],
             )
 
             eval_results_json = create_eval_results_json(
@@ -113,7 +127,18 @@ def _create_promptlab_run_impl(
             make_containing_dirs(eval_results_json_file_path)
             write_to(eval_results_json_file_path, eval_results_json)
 
-            artifact_repo.log_artifacts(local_dir)
+            if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
+                artifact_repo = _get_artifact_repo_mlflow_artifacts()
+                artifact_repo.log_artifacts(
+                    local_dir,
+                    artifact_path=os.path.join(
+                        run.info.experiment_id, run.info.run_id, "artifacts"
+                    ),
+                )
+            else:
+                artifact_repo = get_artifact_repository(artifact_dir)
+                artifact_repo.log_artifacts(local_dir)
+
     except Exception:
         store.update_run_info(run_id, RunStatus.FAILED, int(time.time() * 1000), run_name)
     else:

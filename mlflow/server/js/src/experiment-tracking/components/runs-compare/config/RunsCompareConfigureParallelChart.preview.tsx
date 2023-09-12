@@ -1,5 +1,7 @@
 import { CompareChartRunData } from '../charts/CompareRunsCharts.common';
-import LazyParallelCoordinatesPlot, { processData } from '../charts/LazyParallelCoordinatesPlot';
+import LazyParallelCoordinatesPlot, {
+  processParallelCoordinateData,
+} from '../charts/LazyParallelCoordinatesPlot';
 import { useCompareRunsTooltip } from '../hooks/useCompareRunsTooltip';
 import { RunsCompareParallelCardConfig } from '../runs-compare.types';
 
@@ -18,7 +20,11 @@ export const RunsCompareConfigureParallelChartPreview = ({
   const { setTooltip, resetTooltip } = useCompareRunsTooltip(cardConfig);
 
   const filteredData = isConfigured
-    ? processData(previewData, cardConfig.selectedParams, cardConfig.selectedMetrics)
+    ? processParallelCoordinateData(
+        previewData,
+        cardConfig.selectedParams,
+        cardConfig.selectedMetrics,
+      )
     : [];
 
   if (!isConfigured) {
