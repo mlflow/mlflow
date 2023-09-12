@@ -106,6 +106,8 @@ def get_default_pip_requirements(is_spark_connect_model=False):
             _get_pinned_requirement("torch"),
             # Spark connect Model save feature transformers as sklearn transformer format.
             _get_pinned_requirement("scikit-learn", module="sklearn"),
+            # Spark connect ML evaluators depend on torcheval package.
+            _get_pinned_requirement("torcheval"),
         ])
     return reqs
 
@@ -982,7 +984,7 @@ class _PyFuncModelWrapper:
         from pyspark.ml import PipelineModel
 
         if _is_spark_connect_model(self.spark_model):
-            # Spark connect ML model directly append prediction result column to input pandas
+            # Spark connect ML model directly appends prediction result column to input pandas
             # dataframe. To make input dataframe intact, make a copy first.
             pandas_df = pandas_df.copy(deep=False)
             return self.spark_model.transform(pandas_df)["prediction"]
