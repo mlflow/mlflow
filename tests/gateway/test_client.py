@@ -7,7 +7,7 @@ import mlflow.gateway.utils
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import InvalidUrlException, MlflowException
 from mlflow.gateway import MlflowGatewayClient, set_gateway_uri
-from mlflow.gateway.config import Route, LimitsConfig
+from mlflow.gateway.config import Route
 from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
 from mlflow.gateway.utils import resolve_route_url
 
@@ -481,7 +481,9 @@ def test_client_create_route_raises(gateway):
 def test_client_set_limits_raises(gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
 
-    with pytest.raises(MlflowException, match="The set_limits API is only available when running within Databricks"):
+    with pytest.raises(
+        MlflowException, match="The set_limits API is only available when running within Databricks"
+    ):
         gateway_client.set_limis("some-route", [])
 
 
@@ -490,6 +492,7 @@ def test_client_get_limits_raises(gateway):
 
     with pytest.raises(MlflowException, match="The get_limits API is only available when"):
         gateway_client.get_limis("some-route")
+
 
 def test_client_delete_route_raises(gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)

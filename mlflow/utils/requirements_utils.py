@@ -18,6 +18,7 @@ from typing import NamedTuple, Optional
 
 import importlib_metadata
 import pkg_resources
+from packaging.requirements import Requirement
 from packaging.version import InvalidVersion, Version
 
 import mlflow
@@ -513,7 +514,7 @@ def _check_requirement_satisfied(requirement_str):
     """
     _init_packages_to_modules_map()
     try:
-        req = pkg_resources.Requirement.parse(requirement_str)
+        req = Requirement(requirement_str)
     except Exception:
         # We reach here if the requirement string is a file path or a URL.
         # Extracting the package name from the requirement string is not trivial,

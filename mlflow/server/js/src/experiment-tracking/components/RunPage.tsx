@@ -19,11 +19,12 @@ import { getUUID } from '../../common/utils/ActionUtils';
 import { Spinner } from '../../common/components/Spinner';
 import { PageContainer } from '../../common/components/PageContainer';
 import { withRouterNext } from '../../common/utils/withRouterNext';
+import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
+import ErrorUtils from '../../common/utils/ErrorUtils';
 
 type RunPageImplProps = {
   runUuid: string;
   experimentId: string;
-  modelVersions?: any[];
   getRunApi: (...args: any[]) => any;
   getExperimentApi: (...args: any[]) => any;
   searchModelVersionsApi: (...args: any[]) => any;
@@ -36,7 +37,6 @@ export class RunPageImpl extends Component<RunPageImplProps> {
   getExperimentRequestId = getUUID();
 
   searchModelVersionsRequestId = getUUID();
-
   setTagRequestId = getUUID();
 
   componentDidMount() {
@@ -72,7 +72,6 @@ export class RunPageImpl extends Component<RunPageImplProps> {
           Routes.getMetricPageRoute([this.props.runUuid], key, [this.props.experimentId])
         }
         experimentId={this.props.experimentId}
-        modelVersions={this.props.modelVersions}
         handleSetRunTag={this.handleSetRunTag}
       />
     );
@@ -96,12 +95,9 @@ export class RunPageImpl extends Component<RunPageImplProps> {
 const mapStateToProps = (state: any, ownProps: any) => {
   const { params } = ownProps;
   const { runUuid, experimentId } = params;
-  const { modelVersionsByRunUuid } = state.entities;
-  const modelVersions = modelVersionsByRunUuid ? modelVersionsByRunUuid[runUuid] : null;
   return {
     runUuid,
     experimentId,
-    modelVersions,
     // so that we re-render the component when the route changes
     key: runUuid + experimentId,
   };
@@ -114,4 +110,6 @@ const mapDispatchToProps = {
   setTagApi,
 };
 
-export const RunPage = withRouterNext(connect(mapStateToProps, mapDispatchToProps)(RunPageImpl));
+const RunPageWithRouter = withRouterNext(connect(mapStateToProps, mapDispatchToProps)(RunPageImpl));
+
+export const RunPage = withErrorBoundary(ErrorUtils.mlflowServices.RUN_TRACKING, RunPageWithRouter);

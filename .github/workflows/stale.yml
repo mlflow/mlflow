@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: harupy/stale@mlflow-stale-bot
         with:
-          repo-token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
           stale-issue-message: "This issue is stale because it has been open 14 days with no activity. Remove stale label or comment or this will be closed in 35 days."
           close-issue-message: "This issue was closed because it has been stalled for 14 days with no activity."
           days-before-stale: 14

@@ -112,3 +112,6 @@ export const archiveExistingVersionToolTipText = (currentStage: any) => (
     values={{ currentStage: currentStage }}
   />
 );
+
+export const mlflowAliasesLearnMoreLink =
+  'https://mlflow.org/docs/latest/model-registry.html#using-registered-model-aliases';

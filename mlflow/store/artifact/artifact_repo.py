@@ -25,6 +25,13 @@ _NUM_DEFAULT_CPUS = _NUM_MAX_THREADS // _NUM_MAX_THREADS_PER_CPU
 _logger = logging.getLogger(__name__)
 
 
+def _truncate_error(err: str, max_length: int = 10_000) -> str:
+    if len(err) <= max_length:
+        return err
+    half = max_length // 2
+    return err[:half] + "\n\n*** Error message is too long, truncated ***\n\n" + err[-half:]
+
+
 @developer_stable
 class ArtifactRepository:
     """
@@ -204,13 +211,17 @@ class ArtifactRepository:
                     pbar.update()
                 except Exception as e:
                     path = futures[f]
-                    failed_downloads[path] = repr(e)
+                    failed_downloads[path] = e
 
         if failed_downloads:
+            template = "##### File {path} #####\n{error}"
+            failures = "\n".join(
+                template.format(path=path, error=error) for path, error in failed_downloads.items()
+            )
             raise MlflowException(
                 message=(
                     "The following failures occurred while downloading one or more"
-                    f" artifacts from {self.artifact_uri}: {failed_downloads}"
+                    f" artifacts from {self.artifact_uri}:\n{_truncate_error(failures)}"
                 )
             )
 

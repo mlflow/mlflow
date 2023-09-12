@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { ModelListView, ModelListViewImpl } from './ModelListView';
-import { MemoryRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import Utils from '../../common/utils/Utils';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';

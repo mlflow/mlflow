@@ -97,3 +97,4 @@ const mapDispatchToProps = (dispatch: Dispatch) => {
 };
 
 export const HomePage = withRouterNext(connect(mapStateToProps, mapDispatchToProps)(HomePageImpl));
+export default HomePage;

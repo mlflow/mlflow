@@ -1,4 +1,6 @@
 import posixpath
+from unittest import mock
+from unittest.mock import ANY
 
 import pytest
 
@@ -32,3 +34,27 @@ def test_s3_client_config_set_correctly(r2_artifact_root):
 
     s3_client = repo._get_s3_client()
     assert s3_client.meta.config.s3.get("addressing_style") == "virtual"
+
+
+def test_convert_r2_uri_to_s3_endpoint_url(r2_artifact_root):
+    artifact_uri = posixpath.join(r2_artifact_root, "some/path")
+    repo = get_artifact_repository(artifact_uri)
+
+    s3_endpoint_url = repo.convert_r2_uri_to_s3_endpoint_url(r2_artifact_root)
+    assert s3_endpoint_url == "https://account.r2.cloudflarestorage.com"
+
+
+def test_s3_endpoint_url_is_used_to_get_s3_client(r2_artifact_root):
+    with mock.patch("boto3.client") as mock_get_s3_client:
+        artifact_uri = posixpath.join(r2_artifact_root, "some/path")
+        repo = get_artifact_repository(artifact_uri)
+        repo._get_s3_client()
+        mock_get_s3_client.assert_called_with(
+            "s3",
+            config=ANY,
+            endpoint_url="https://account.r2.cloudflarestorage.com",
+            verify=None,
+            aws_access_key_id=None,
+            aws_secret_access_key=None,
+            aws_session_token=None,
+        )
