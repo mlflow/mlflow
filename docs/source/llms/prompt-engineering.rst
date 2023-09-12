@@ -1,7 +1,7 @@
 .. _prompt-engineering:
 
 ====================================
-Prompt Engineering UI (experimental)
+Prompt Engineering UI (Experimental)
 ====================================
 
 Starting in MLflow 2.7, the MLflow Tracking UI provides a best-in-class experience for prompt
