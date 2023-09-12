@@ -1,21 +1,25 @@
 import keras_core as keras
-from mlflow import log_param, log_text
+from mlflow import log_params, log_text
 
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 
 
-class MLflowLoggingCallback(keras.callbacks.Callback):
+class MLflowCallback(keras.callbacks.Callback):
     """Callback for logging Keras Core training metrics to MLflow.
 
-    This callback logs training metrics every epoch or every n steps (defined by the user) to
-    MLflow.
+    This callback logs model metadata at training begins, and logs training metrics every epoch or
+    every n steps (defined by the user) to MLflow.
+
     Args:
         run: an 'mlflow.entities.run.Run' instance, the MLflow run.
         log_every_epoch: bool, If True, log metrics every epoch. If False, log metrics every n
             steps.
-        log_every_n_steps: int, log metrics every n steps. If None, log metrics every epoch.
-    Examples:
-        ```python
+        log_every_n_steps: int, log metrics every n steps. If None, log metrics every epoch. Must
+            be `None` if `log_every_epoch=True`.
+
+    .. code-block:: python
+        :caption: Example
+
         import keras_core as keras
         import mlflow
         import numpy as np
@@ -60,7 +64,7 @@ class MLflowLoggingCallback(keras.callbacks.Callback):
         """Log model architecture and optimizer configuration when training begins."""
         config = self.model.optimizer.get_config()
         for attribute in config:
-            log_param("optimizer_" + attribute, config[attribute])
+            log_params("optimizer_" + attribute, config[attribute])
 
         model_summary = []
 
@@ -83,3 +87,11 @@ class MLflowLoggingCallback(keras.callbacks.Callback):
             return
         if (batch + 1) % self.log_every_n_steps == 0:
             self.metrics_logger.record_metrics(logs, batch)
+
+    def on_test_end(self, logs=None):
+        """Log validation metrics at validation end."""
+        if logs is None:
+            return
+        metrics = {}
+        for k, v in logs.items():
+            metrics["validation_" + k] = v
