@@ -1072,7 +1072,6 @@ class DefaultEvaluator(ModelEvaluator):
     def _evaluate_custom_metrics(self, eval_df):
         if not self.custom_metrics:
             return
-
         for index, custom_metric in enumerate(self.custom_metrics):
             # deepcopying eval_df and builtin_metrics for each custom metric function call,
             # in case the user modifies them inside their function(s).

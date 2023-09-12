@@ -1940,7 +1940,6 @@ def test_evaluation_works_with_model_pipelines_that_modify_input_data():
         }
 
 
-# TODO: test prefix text that logs to eval_results_table
 @pytest.mark.parametrize("prefix", ["train_", None])
 def test_evaluation_metric_name_configs(prefix):
     X, y = load_iris(as_frame=True, return_X_y=True)
@@ -2469,6 +2468,11 @@ def very_toxic(eval_df, metrics: Dict[str, MetricValue]):
     )
 
 
+def per_row_metric(eval_df, metrics: Dict[str, MetricValue]):
+    scores = list(eval_df["text"])
+    return MetricValue(scores=scores)
+
+
 def test_evaluate_text_custom_metrics():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
@@ -2480,7 +2484,10 @@ def test_evaluate_text_custom_metrics():
             data,
             targets="target",
             model_type="text",
-            custom_metrics=[make_metric(eval_fn=very_toxic, greater_is_better=True)],
+            custom_metrics=[
+                make_metric(eval_fn=very_toxic, greater_is_better=True, version="v2"),
+                make_metric(eval_fn=per_row_metric, name="no_version"),
+            ],
         )
 
     client = mlflow.MlflowClient()
@@ -2488,16 +2495,15 @@ def test_evaluate_text_custom_metrics():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
 
-    assert "very_toxic/score" in logged_data.columns.tolist()
-    assert "very_toxic/justification" in logged_data.columns.tolist()
-    assert all(isinstance(score, float) for score in logged_data["very_toxic/score"])
+    assert "very_toxic/v2/score" in logged_data.columns.tolist()
+    assert "very_toxic/v2/justification" in logged_data.columns.tolist()
+    assert all(isinstance(score, float) for score in logged_data["very_toxic/v2/score"])
     assert all(
-        isinstance(justification, str) for justification in logged_data["very_toxic/justification"]
+        isinstance(justification, str)
+        for justification in logged_data["very_toxic/v2/justification"]
     )
-    assert "very_toxic/ratio" in set(results.metrics.keys())
-
-    # TODO: test with versions
-    # TODO: test what was logged?
+    assert "very_toxic/v2/ratio" in set(results.metrics.keys())
+    assert "no_version/score" in logged_data.columns.tolist()
 
 
 def test_eval_results_table_json_can_be_prefixed_with_metric_prefix():
