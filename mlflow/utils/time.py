@@ -35,7 +35,7 @@ class Timer:
     """
 
     def __init__(self):
-        self.time = None
+        self.time = 0.0
 
     def __enter__(self):
         self.time = time.perf_counter()
