@@ -239,7 +239,7 @@ as follows:
            artifact_file="eval_results_table.json",
            # Include the run ID as a column in the table to distinguish inputs and outputs
            # produced by different runs
-           extra_columns=["run_id"]
+           extra_columns=["run_id"],
        )
        # Optionally convert the Pandas DataFrame to Spark where it can be stored as a Delta
        # table or joined with existing Delta tables
@@ -266,7 +266,8 @@ can score the corresponding MLflow Model in a Python environment of your choosin
    .. code-block:: python
 
        import mlflow
-       logged_model = 'runs:/8451075c46964f82b85fe16c3d2b7ea0/model'
+
+       logged_model = "runs:/8451075c46964f82b85fe16c3d2b7ea0/model"
 
        # Load model as a PyFuncModel.
        loaded_model = mlflow.pyfunc.load_model(logged_model)
@@ -287,10 +288,7 @@ can score the corresponding MLflow Model in a Python environment of your choosin
        """
        question = "What is an MLflow project?"
 
-       loaded_model.predict({
-           "article": article_text,
-           "question": question
-       })
+       loaded_model.predict({"article": article_text, "question": question})
 
    For more information about deployment for real-time serving with MLflow,
    see the :ref:`instructions below <deploy-prompt-serving>`.
