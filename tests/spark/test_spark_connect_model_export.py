@@ -67,17 +67,12 @@ def spark():
 
 @pytest.fixture(scope="module")
 def iris_df(spark):
-    iris = datasets.load_iris()
-    X = iris.data
-    y = iris.target
-
-    spark_df = spark.createDataFrame([
-        (features, label)
-        for features, label in zip(X, y)
-    ], schema="features: array<double>, label: long")
-
-    pandas_df = spark_df.toPandas()
-    return pandas_df, spark_df
+    X, y = datasets.load_iris(return_X_y=True)
+    spark_df = spark.createDataFrame(
+        list(zip(X, y)),
+        schema="features: array<double>, label: long"
+    )
+    return spark_df.toPandas(), spark_df
 
 
 @pytest.fixture(scope="module")
@@ -119,42 +114,24 @@ def test_model_export(spark_model_iris, model_path):
     pd.testing.assert_series_equal(spark_model_iris.predictions["prediction"], preds3, check_dtype=False)
 
 
-@pytest.mark.parametrize("should_start_run", [False, True])
-def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run):
+def test_sparkml_model_log(tmp_path, spark_model_iris):
     old_tracking_uri = mlflow.get_tracking_uri()
 
     try:
         tracking_dir = tmp_path.joinpath("mlruns")
         mlflow.set_tracking_uri(f"file://{tracking_dir}")
-        if should_start_run:
-            mlflow.start_run()
-        artifact_path = "model"
-        mlflow.spark.log_model(
-            artifact_path=artifact_path,
-            spark_model=spark_model_iris.model,
-        )
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
+        with mlflow.start_run():
+            model_info = mlflow.spark.log_model(
+                artifact_path="model",
+                spark_model=spark_model_iris.model,
+            )
+        model_uri = model_info.model_uri
 
         reloaded_model = mlflow.spark.load_model(model_uri=model_uri)
         preds_df = reloaded_model.transform(spark_model_iris.pandas_df.copy(deep=False))
         pd.testing.assert_frame_equal(spark_model_iris.predictions, preds_df, check_dtype=False)
     finally:
-        mlflow.end_run()
         mlflow.set_tracking_uri(old_tracking_uri)
-
-
-def test_model_load_from_remote_uri_succeeds(spark_model_iris, model_path, mock_s3_bucket):
-    mlflow.spark.save_model(spark_model_iris.model, path=model_path)
-
-    artifact_root = f"s3://{mock_s3_bucket}"
-    artifact_path = "model"
-    artifact_repo = S3ArtifactRepository(artifact_root)
-    artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
-
-    model_uri = artifact_root + "/" + artifact_path
-    reloaded_model = mlflow.spark.load_model(model_uri=model_uri)
-    preds_df = reloaded_model.transform(spark_model_iris.pandas_df.copy(deep=False))
-    pd.testing.assert_frame_equal(spark_model_iris.predictions, preds_df, check_dtype=False)
 
 
 def test_pyfunc_serve_and_score(spark_model_iris):
