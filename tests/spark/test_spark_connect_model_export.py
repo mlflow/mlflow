@@ -2,7 +2,6 @@ import pytest
 import json
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
 from sklearn import datasets
 from pyspark.sql import SparkSession
@@ -15,14 +14,8 @@ from pyspark.ml.connect.pipeline import Pipeline
 from pyspark.sql.types import LongType
 
 import os
-from unittest import mock
-import yaml
 import mlflow
 from mlflow import pyfunc
-from mlflow import spark as sparkm
-from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from tests.pyfunc.test_spark import score_model_as_udf
 from tests.spark.test_spark_model_export import (
@@ -31,14 +24,8 @@ from tests.spark.test_spark_model_export import (
 from mlflow.pyfunc import spark_udf
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from tests.helper_functions import (
-    _assert_pip_requirements,
-    _compare_conda_env_requirements,
-    _compare_logged_code_paths,
-    _mlflow_major_version_string,
-    assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
 )
-from mlflow.utils.file_utils import TempDir
 
 
 import pyspark
@@ -116,9 +103,9 @@ def model_path(tmp_path):
 
 
 def test_model_export(spark_model_iris, model_path):
-    sparkm.save_model(spark_model_iris.model, path=model_path)
+    mlflow.spark.save_model(spark_model_iris.model, path=model_path)
     # 1. score and compare reloaded sparkml model
-    reloaded_model = sparkm.load_model(model_uri=model_path)
+    reloaded_model = mlflow.spark.load_model(model_uri=model_path)
     preds_df = reloaded_model.transform(spark_model_iris.pandas_df.copy(deep=False))
     pd.testing.assert_frame_equal(spark_model_iris.predictions, preds_df, check_dtype=False)
 
@@ -142,13 +129,13 @@ def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run):
         if should_start_run:
             mlflow.start_run()
         artifact_path = "model"
-        sparkm.log_model(
+        mlflow.spark.log_model(
             artifact_path=artifact_path,
             spark_model=spark_model_iris.model,
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
-        reloaded_model = sparkm.load_model(model_uri=model_uri)
+        reloaded_model = mlflow.spark.load_model(model_uri=model_uri)
         preds_df = reloaded_model.transform(spark_model_iris.pandas_df.copy(deep=False))
         pd.testing.assert_frame_equal(spark_model_iris.predictions, preds_df, check_dtype=False)
     finally:
@@ -157,7 +144,7 @@ def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run):
 
 
 def test_model_load_from_remote_uri_succeeds(spark_model_iris, model_path, mock_s3_bucket):
-    sparkm.save_model(spark_model_iris.model, path=model_path)
+    mlflow.spark.save_model(spark_model_iris.model, path=model_path)
 
     artifact_root = f"s3://{mock_s3_bucket}"
     artifact_path = "model"
@@ -165,7 +152,7 @@ def test_model_load_from_remote_uri_succeeds(spark_model_iris, model_path, mock_
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
 
     model_uri = artifact_root + "/" + artifact_path
-    reloaded_model = sparkm.load_model(model_uri=model_uri)
+    reloaded_model = mlflow.spark.load_model(model_uri=model_uri)
     preds_df = reloaded_model.transform(spark_model_iris.pandas_df.copy(deep=False))
     pd.testing.assert_frame_equal(spark_model_iris.predictions, preds_df, check_dtype=False)
 
@@ -177,7 +164,7 @@ def test_pyfunc_serve_and_score(spark_model_iris):
 
     artifact_path = "model"
     with mlflow.start_run():
-        sparkm.log_model(spark_model_iris.model, artifact_path)
+        mlflow.spark.log_model(spark_model_iris.model, artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     resp = pyfunc_serve_and_score_model(
