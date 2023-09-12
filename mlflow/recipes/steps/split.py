@@ -154,7 +154,7 @@ def _create_hash_buckets(input_df, n_jobs=-1):
         )
     _logger.debug(
         f"Creating hash buckets on input dataset containing {len(input_df)} "
-        f"rows consumes {t.time} seconds."
+        f"rows consumes {t:.3f} seconds."
     )
     return hash_buckets
 
