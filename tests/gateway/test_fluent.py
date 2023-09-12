@@ -10,7 +10,7 @@ from mlflow.gateway import (
     create_route,
     delete_route,
     get_gateway_uri,
-    get_limtis,
+    get_limits,
     get_route,
     query,
     search_routes,
