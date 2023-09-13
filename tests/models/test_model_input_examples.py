@@ -135,6 +135,7 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
         del d["binary"]
         for key in d:
             np.testing.assert_array_equal(d[key], parsed_dict[key])
+
     # input passed as numpy array
     new_df = pandas_df_with_all_types.drop(columns=["binary"])
     for col in new_df:
@@ -160,6 +161,15 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
     example = np.array([[1, 2, 3]])
     with pytest.raises(TensorsNotSupportedException, match=r"Row '0' has shape \(1, 3\)"):
         _Example([example, example])
+
+    # pass dict with scalars
+    with TempDir() as tmp:
+        example = {"a": 1, "b": "abc"}
+        x = _Example(example)
+        x.save(tmp.path())
+        filename = x.info["artifact_path"]
+        parsed_df = dataframe_from_raw_json(tmp.path(filename))
+        assert example == parsed_df.to_dict(orient="records")[0]
 
 
 def test_pandas_orients_for_input_examples(pandas_df_with_all_types, df_without_columns, dict_of_ndarrays):
