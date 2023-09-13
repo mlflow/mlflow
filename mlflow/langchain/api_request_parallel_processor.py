@@ -16,7 +16,6 @@ Features:
 """
 from __future__ import annotations
 
-import json
 import logging
 import queue
 import threading
@@ -76,10 +75,12 @@ class APIRequest:
     request_json: dict
     results: list[tuple[int, str]]
 
-    # https://github.com/langchain-ai/langchain/issues/2222
-    # https://github.com/langchain-ai/langchain/issues/8815
-    # add more formats here if other langchain objects don't serialize
     def _prepare_to_serialize(self, response: dict):
+        """
+        Converts LangChain objects to JSON-serializable formats.
+        """
+        from langchain.load.dump import dumps
+
         if "intermediate_steps" in response:
             steps = response["intermediate_steps"]
             if (
@@ -99,9 +100,12 @@ class APIRequest:
                 ]
             else:
                 try:
-                    response["intermediate_steps"] = json.dumps(steps)
+                    # `AgentAction` objects are not yet implemented for serialization in `dumps`
+                    # https://github.com/langchain-ai/langchain/issues/8815#issuecomment-1666763710
+                    response["intermediate_steps"] = dumps(steps)
                 except Exception as e:
                     _logger.warning(f"Failed to serialize intermediate steps: {e!r}")
+        # The `dumps` format for `Document` objects is noisy, so we will still have custom logic
         if "source_documents" in response:
             response["source_documents"] = [
                 {"page_content": doc.page_content, "metadata": doc.metadata}
