@@ -2513,10 +2513,20 @@ Example: Log a LangChain LLMChain
 .. literalinclude:: ../../examples/langchain/simple_chain.py
     :language: python
 
+.. code-block:: python
+    :caption: Output
+
+    ["\n\nColorful Cozy Creations."]
+
 Example: Log a LangChain Agent
 
 .. literalinclude:: ../../examples/langchain/simple_agent.py
     :language: python
+
+.. code-block:: python
+    :caption: Output
+
+    ["1.1044000282035853"]
 
 
 Logging RetrievalQA Chains
@@ -2538,6 +2548,11 @@ Example: Log a LangChain RetrievalQA Chain
 .. literalinclude:: ../../examples/langchain/retrieval_qa_chain.py
     :language: python
 
+.. code-block:: python
+    :caption: Output (truncated)
+
+    [" The president said..."]
+
 .. _log-retriever-chain:
 
 Logging a retriever and evaluate it individually
@@ -2556,6 +2571,22 @@ Example: Log a LangChain Retriever
 
 .. literalinclude:: ../../examples/langchain/retriever_chain.py
     :language: python
+
+.. code-block:: python
+    :caption: Output (truncated)
+
+    [
+        [
+            {
+                "page_content": "Tonight. I call...",
+                "metadata": {"source": "/state.txt"},
+            },
+            {
+                "page_content": "A former top...",
+                "metadata": {"source": "/state.txt"},
+            },
+        ]
+    ]
 
 
 John Snow Labs (``johnsnowlabs``) (Experimental)
