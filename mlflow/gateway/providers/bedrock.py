@@ -46,7 +46,7 @@ class AWSBedrockProvider(BaseProvider):
         self._client_created = 0
 
     def _client_expired(self):
-        if not isinstance(self.bedrock_config.aws_config, AW):
+        if not isinstance(self.bedrock_config.aws_config, AWSRole):
             return False
 
         return (
@@ -76,7 +76,7 @@ class AWSBedrockProvider(BaseProvider):
         session = boto3.Session(**{k: v for k, v in session_args.items() if v is not None})
 
         if isinstance(aws_config, AWSRole):
-            role = session.client("sts").assume_role(
+            role = session.client(service_name="sts").assume_role(
                 RoleArn=aws_config.aws_role_arn,
                 RoleSessionName="ai-gateway-bedrock",
                 DurationSeconds=aws_config.session_length_seconds,

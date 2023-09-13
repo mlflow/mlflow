@@ -177,7 +177,8 @@ class AWSIdAndKey(AWSBaseConfig):
 
 
 class AWSBedrockConfig(ConfigModel):
-    aws_config: AWSBaseConfig | AWSRole | AWSIdAndKey
+    # order here is important, at least for pydantic<2
+    aws_config: AWSRole | AWSIdAndKey | AWSBaseConfig
 
 
 config_types = {
