@@ -7,12 +7,6 @@ import pyspark
 import pytest
 from packaging.version import Version
 
-if Version(pyspark.__version__) < Version("3.5"):
-    pytest.skip("pyspark ML connect Model is available in pyspark >= 3.5", allow_module_level=True)
-
-from pyspark.ml.connect.classification import LogisticRegression
-from pyspark.ml.connect.feature import StandardScaler
-from pyspark.ml.connect.pipeline import Pipeline
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as spark_f
 from pyspark.sql.types import LongType
@@ -30,6 +24,9 @@ from tests.pyfunc.test_spark import score_model_as_udf
 from tests.spark.test_spark_model_export import (
     SparkModelWithData,
 )
+
+if Version(pyspark.__version__) < Version("3.5"):
+    pytest.skip("pyspark ML connect Model is available in pyspark >= 3.5", allow_module_level=True)
 
 
 def _get_spark_connect_session():
@@ -71,6 +68,10 @@ def iris_df(spark):
 
 @pytest.fixture(scope="module")
 def spark_model(iris_df):
+    from pyspark.ml.connect.classification import LogisticRegression
+    from pyspark.ml.connect.feature import StandardScaler
+    from pyspark.ml.connect.pipeline import Pipeline
+
     iris_pandas_df, iris_spark_df = iris_df
     scaler = StandardScaler(inputCol="features", outputCol="scaled_features")
     lr = LogisticRegression(maxIter=10, numTrainWorkers=2, learningRate=0.001)

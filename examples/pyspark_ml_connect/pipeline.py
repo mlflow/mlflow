@@ -9,7 +9,7 @@ import mlflow
 spark = SparkSession.builder.remote("local[2]").getOrCreate()
 
 scaler = StandardScaler(inputCol="features", outputCol="scaled_features")
-lr = LogisticRegression(maxIter=50, numTrainWorkers=2, learningRate=0.001)
+lr = LogisticRegression(maxIter=10, numTrainWorkers=2, learningRate=0.001)
 pipeline = Pipeline(stages=[scaler, lr])
 
 X, y = datasets.load_iris(return_X_y=True)

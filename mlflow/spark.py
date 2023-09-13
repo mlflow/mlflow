@@ -998,6 +998,8 @@ class _PyFuncModelWrapper:
             # Spark connect ML model directly appends prediction result column to input pandas
             # dataframe. To make input dataframe intact, make a copy first.
             pandas_df = pandas_df.copy(deep=False)
+            # Assuming the model output column name is "prediction".
+            # Spark model uses "prediction" as default model inference output column name.
             return self.spark_model.transform(pandas_df)["prediction"]
 
         spark_df = _find_and_set_features_col_as_vector_if_needed(
