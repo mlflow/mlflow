@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-
+from typing import List
 
 class RequestModel(
     BaseModel,
@@ -42,4 +42,14 @@ class LimitModel(
 ):
     """
     A pydantic model representing Gateway Limit data, such as renewal period, limit key, limit value, etc.
+    """
+
+class SetLimitsModel(
+    BaseModel,
+    # Ignore extra fields for pydantic limit models, since they are unused
+    extra="ignore",):
+    route: str
+    limits: List[Dict[str, Any]]
+    """
+    A pydantic model representing Gateway SetLimits request body, containing route and limits.
     """

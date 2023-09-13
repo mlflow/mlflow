@@ -17,6 +17,7 @@ from mlflow.gateway.config import (
     RouteType,
     _load_route_config,
 )
+from mlflow.gateway.base_models import SetLimitsModel
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
     MLFLOW_GATEWAY_HEALTH_ENDPOINT,
@@ -214,7 +215,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         raise HTTPException(status_code=501, detail="The get_limits API is not available in OSS MLflow AI Gateway.")
 
     @app.post(MLFLOW_GATEWAY_LIMITS_BASE)
-    async def set_limits(route: str, limits: List[Dict[str, Any]]) -> LimitsConfig:
+    async def set_limits(payload: SetLimitsModel) -> LimitsConfig:
         raise HTTPException(status_code=501, detail="The get_limits API is not available in OSS MLflow AI Gateway.")
 
     return app
