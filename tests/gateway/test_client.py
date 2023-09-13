@@ -482,7 +482,7 @@ def test_client_set_limits_raises(gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
 
     with pytest.raises(
-        MlflowException, match="The set_limits API is only available when running within Databricks"
+        MlflowException, match="The set_limits API is only available when running against Databricks AI Gateway."
     ):
         gateway_client.set_limits("some-route", [])
 
@@ -490,7 +490,7 @@ def test_client_set_limits_raises(gateway):
 def test_client_get_limits_raises(gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
 
-    with pytest.raises(MlflowException, match="The get_limits API is only available when"):
+    with pytest.raises(MlflowException, match="The get_limits API is only available running against Databricks AI Gateway."):
         gateway_client.get_limits("some-route")
 
 
