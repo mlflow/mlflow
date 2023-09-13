@@ -97,19 +97,16 @@ def dict_of_sparse_matrix():
     }
 
 
-def test_input_examples(pandas_df_with_all_types, df_without_columns, dict_of_ndarrays):
+def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
     sig = infer_signature(pandas_df_with_all_types)
     # test setting example with data frame with all supported data types
     with TempDir() as tmp:
         example = _Example(pandas_df_with_all_types)
         example.save(tmp.path())
         filename = example.info["artifact_path"]
-        assert example.info["type"] == "dataframe"
-        assert example.info["pandas_orient"] == "split"
         with open(tmp.path(filename)) as f:
             data = json.load(f)
             assert set(data.keys()) == {"columns", "data"}
-            pd.read_json(json.dumps(data), orient=example.info["pandas_orient"])
         parsed_df = dataframe_from_raw_json(tmp.path(filename), schema=sig.inputs)
         assert (pandas_df_with_all_types == parsed_df).all().all()
         # the frame read without schema should match except for the binary values
@@ -122,17 +119,6 @@ def test_input_examples(pandas_df_with_all_types, df_without_columns, dict_of_nd
             .all()
         )
 
-    with TempDir() as tmp:
-        example = _Example(df_without_columns)
-        example.save(tmp.path())
-        filename = example.info["artifact_path"]
-        assert example.info["type"] == "dataframe"
-        assert example.info["pandas_orient"] == "values"
-        with open(tmp.path(filename)) as f:
-            data = json.load(f)
-            assert set(data.keys()) == {"data"}
-            pd.read_json(json.dumps(data), orient=example.info["pandas_orient"])
-
     # NB: Drop columns that cannot be encoded by proto_json_utils.pyNumpyEncoder
     new_df = pandas_df_with_all_types.drop(columns=["boolean_ext", "integer_ext", "string_ext"])
 
@@ -142,7 +128,6 @@ def test_input_examples(pandas_df_with_all_types, df_without_columns, dict_of_nd
         example = _Example(d)
         example.save(tmp.path())
         filename = example.info["artifact_path"]
-        assert example.info["type"] == "ndarray"
         parsed_dict = _read_tensor_input_from_json(tmp.path(filename))
         assert d.keys() == parsed_dict.keys()
         # Asserting binary will fail since it is converted to base64 encoded strings.
@@ -150,7 +135,6 @@ def test_input_examples(pandas_df_with_all_types, df_without_columns, dict_of_nd
         del d["binary"]
         for key in d:
             np.testing.assert_array_equal(d[key], parsed_dict[key])
-
     # input passed as numpy array
     new_df = pandas_df_with_all_types.drop(columns=["binary"])
     for col in new_df:
@@ -159,7 +143,6 @@ def test_input_examples(pandas_df_with_all_types, df_without_columns, dict_of_nd
             example = _Example(input_example)
             example.save(tmp.path())
             filename = example.info["artifact_path"]
-            assert example.info["type"] == "ndarray"
             parsed_ary = _read_tensor_input_from_json(tmp.path(filename))
             np.testing.assert_array_equal(parsed_ary, input_example)
 
@@ -170,7 +153,6 @@ def test_input_examples(pandas_df_with_all_types, df_without_columns, dict_of_nd
             example = _Example(input_example)
             example.save(tmp.path())
             filename = example.info["artifact_path"]
-            assert example.info["type"] == "ndarray"
             parsed_ary = _read_tensor_input_from_json(tmp.path(filename))
             np.testing.assert_array_equal(parsed_ary, input_example)
 
@@ -178,6 +160,35 @@ def test_input_examples(pandas_df_with_all_types, df_without_columns, dict_of_nd
     example = np.array([[1, 2, 3]])
     with pytest.raises(TensorsNotSupportedException, match=r"Row '0' has shape \(1, 3\)"):
         _Example([example, example])
+
+
+def test_pandas_orients_for_input_examples(pandas_df_with_all_types, df_without_columns, dict_of_ndarrays):
+    # test setting example with data frame with all supported data types
+    with TempDir() as tmp:
+        example = _Example(pandas_df_with_all_types)
+        example.save(tmp.path())
+        filename = example.info["artifact_path"]
+        assert example.info["type"] == "dataframe"
+        assert example.info["pandas_orient"] == "split"
+        with open(tmp.path(filename)) as f:
+            data = json.load(f)
+            dataframe = pd.read_json(json.dumps(data), orient=example.info["pandas_orient"], precise_float=True)
+            assert (pandas_df_with_all_types.drop(columns=["binary"]) == dataframe.drop(columns=["binary"])).all().all()
+
+    with TempDir() as tmp:
+        example = _Example(df_without_columns)
+        example.save(tmp.path())
+        filename = example.info["artifact_path"]
+        assert example.info["type"] == "dataframe"
+        assert example.info["pandas_orient"] == "values"
+        with open(tmp.path(filename)) as f:
+            data = json.load(f)
+            assert set(data.keys()) == {"data"}
+            # NOTE: when no column names are provided (i.e. values orient), 
+            # saving an example adds a "data" key rather than directly storing the plain data
+            data = data["data"]
+            dataframe = pd.read_json(json.dumps(data), orient=example.info["pandas_orient"])
+            assert (dataframe == df_without_columns).all().all()
 
     # pass dict with scalars
     with TempDir() as tmp:
@@ -189,9 +200,9 @@ def test_input_examples(pandas_df_with_all_types, df_without_columns, dict_of_nd
         assert x.info["pandas_orient"] == "split"
         with open(tmp.path(filename)) as f:
             parsed_json = json.load(f)
-            pd.read_json(json.dumps(parsed_json), orient=x.info["pandas_orient"])
-        parsed_df = dataframe_from_raw_json(tmp.path(filename))
-        assert example == parsed_df.to_dict(orient="records")[0]
+            dataframe = pd.read_json(json.dumps(parsed_json), orient=x.info["pandas_orient"])
+            assert (dataframe == example).all().all()
+
 
 
 def test_sparse_matrix_input_examples(dict_of_sparse_matrix):
