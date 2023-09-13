@@ -15,7 +15,7 @@ from mlflow.models.evaluation import (
 )
 from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact
 from mlflow.tracking.artifact_utils import get_artifact_uri
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 
 
 class Array2DEvaluationArtifact(EvaluationArtifact):

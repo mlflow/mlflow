@@ -17,7 +17,7 @@ from threading import Timer
 from typing import NamedTuple, Optional
 
 import importlib_metadata
-import pkg_resources
+import pkg_resources  # noqa: TID251
 from packaging.requirements import Requirement
 from packaging.version import InvalidVersion, Version
 
@@ -375,8 +375,7 @@ _PyPIPackageIndex = namedtuple("_PyPIPackageIndex", ["date", "package_names"])
 
 
 def _load_pypi_package_index():
-    pypi_index_path = pkg_resources.resource_filename(mlflow.__name__, "pypi_package_index.json")
-    with open(pypi_index_path) as f:
+    with Path(mlflow.__file__).parent.joinpath("pypi_package_index.json").open() as f:
         index_dict = json.load(f)
 
     return _PyPIPackageIndex(
