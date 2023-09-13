@@ -1399,7 +1399,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_list_scores(*_):
         return MetricValue(scores=5)
 
-    with pytest.raises(MlflowException, match="returned MetricValue with scores not in a list"):
+    with pytest.raises(MlflowException, match="must return MetricValue with scores as a list"):
         _evaluate_custom_metric(
             _CustomMetric(non_list_scores, non_list_scores.__name__, 0),
             eval_df,
@@ -1410,7 +1410,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_numeric_scores(*_):
         return MetricValue(scores=["string"])
 
-    with pytest.raises(MlflowException, match="returned MetricValue with non-numeric scores"):
+    with pytest.raises(MlflowException, match="must return MetricValue with numeric scores"):
         _evaluate_custom_metric(
             _CustomMetric(non_numeric_scores, non_numeric_scores.__name__, 0),
             eval_df,
@@ -1422,7 +1422,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return MetricValue(justifications="string")
 
     with pytest.raises(
-        MlflowException, match="returned MetricValue with justifications not in a list"
+        MlflowException, match="must return MetricValue with justifications as a list"
     ):
         _evaluate_custom_metric(
             _CustomMetric(non_list_justifications, non_list_justifications.__name__, 0),
@@ -1434,9 +1434,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_str_justifications(*_):
         return MetricValue(justifications=[3, 4])
 
-    with pytest.raises(
-        MlflowException, match="returned MetricValue with non-string justifications"
-    ):
+    with pytest.raises(MlflowException, match="must return MetricValue with string justifications"):
         _evaluate_custom_metric(
             _CustomMetric(non_str_justifications, non_str_justifications.__name__, 0),
             eval_df,
@@ -1448,7 +1446,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return MetricValue(aggregate_results=[5.0, 4.0])
 
     with pytest.raises(
-        MlflowException, match="returned MetricValue with aggregate_results not in a dict"
+        MlflowException, match="must return MetricValue with aggregate_results as a dict"
     ):
         _evaluate_custom_metric(
             _CustomMetric(non_dict_aggregates, non_dict_aggregates.__name__, 0),
@@ -1462,7 +1460,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
 
     with pytest.raises(
         MlflowException,
-        match="returned MetricValue with aggregate_results with non-str keys or non-numeric values",
+        match="must return MetricValue with aggregate_results with str keys and numeric values",
     ):
         _evaluate_custom_metric(
             _CustomMetric(wrong_type_aggregates, wrong_type_aggregates.__name__, 0),

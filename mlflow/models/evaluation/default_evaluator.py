@@ -510,34 +510,34 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics, metri
     if scores is not None:
         if not isinstance(scores, list):
             raise MlflowException(
-                f"{exception_header} returned MetricValue with scores not in a list."
+                f"{exception_header} must return MetricValue with scores as a list."
             )
         if any(not _is_numeric(score) for score in scores):
             raise MlflowException(
-                f"{exception_header} returned MetricValue with non-numeric scores."
+                f"{exception_header} must return MetricValue with numeric scores."
             )
 
     if justifications is not None:
         if not isinstance(justifications, list):
             raise MlflowException(
-                f"{exception_header} returned MetricValue with justifications not in a list."
+                f"{exception_header} must return MetricValue with justifications as a list."
             )
         if any(not isinstance(justification, str) for justification in justifications):
             raise MlflowException(
-                f"{exception_header} returned MetricValue with non-string justifications."
+                f"{exception_header} must return MetricValue with string justifications."
             )
 
     if aggregates is not None:
         if not isinstance(aggregates, dict):
             raise MlflowException(
-                f"{exception_header} returned MetricValue with aggregate_results not in a dict."
+                f"{exception_header} must return MetricValue with aggregate_results as a dict."
             )
 
         if any(not (isinstance(k, str) and _is_numeric(v)) for k, v in aggregates.items()):
             raise MlflowException(
                 (
-                    f"{exception_header} returned MetricValue with aggregate_results with "
-                    "non-str keys or non-numeric values",
+                    f"{exception_header} must return MetricValue with aggregate_results with "
+                    "str keys and numeric values",
                 )
             )
 
