@@ -1,8 +1,9 @@
 """Base class of system metrics monitor."""
+import abc
 from collections import defaultdict
 
 
-class BaseMetricsMonitor:
+class BaseMetricsMonitor(abc.ABC):
     """Base class of system metrics monitor.
 
     Args:
@@ -14,6 +15,7 @@ class BaseMetricsMonitor:
 
         self._metrics = defaultdict(list)
 
+    @abc.abstractmethod
     def collect_metrics(self):
         raise NotImplementedError
 

@@ -10,10 +10,9 @@ _logger = logging.getLogger(__name__)
 try:
     import pynvml
 except ImportError:
-    _logger.warning(
-        "`GPUMonitor` requires pynvml package. To install, run `pip install pynvml`. Skip "
-        "logging GPU metrics."
-    )
+    # If `pynvml` is not installed, a warning will be logged at monitor instantiation.
+    # We don't log a warning here to avoid spamming warning at every import.
+    pass
 
 
 class GPUMonitor(BaseMetricsMonitor):
