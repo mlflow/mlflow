@@ -240,19 +240,19 @@ With the rapid development of LLMs, there is no guarantee that this list will be
 below can be used as a helpful guide when configuring a given route for any newly released model types as they become available with a given provider.
 ``N/A`` means that the provider currently doesn't support the route type.
 
-+--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+--------------------------+
-| Route Type         | OpenAI                   | MosaicML           | Anthropic        | Cohere                      | Azure OpenAI             | MLflow                   |
-+====================+==========================+====================+==================+=============================+==========================+==========================+
-| llm/v1/completions | - gpt-3.5-turbo          | - mpt-7b-instruct  | - claude-1       | - command                   | - text-davinci-003       | - MLflow served models*  |
-|                    | - gpt-4                  | - mpt-30b-instruct | - claude-1.3-100k| - command-light-nightly     | - gpt-35-turbo           |                          |
-|                    |                          | - llama2-70b-chat† | - claude-2       |                             |                          |                          |
-+--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+--------------------------+
-| llm/v1/chat        | - gpt-3.5-turbo          | - llama2-70b-chat† | N/A              | N/A                         | - gpt-35-turbo           | - MLflow served models*  |
-|                    | - gpt-4                  |                    |                  |                             | - gpt-4                  |                          |
-+--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+--------------------------+
-| llm/v1/embeddings  | - text-embedding-ada-002 | - instructor-large | N/A              | - embed-english-v2.0        | - text-embedding-ada-002 | - MLflow served models** |
-|                    |                          | - instructor-xl    |                  | - embed-multilingual-v2.0   |                          |                          |
-+--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+--------------------------+
++--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+--------------------------+--------------------------+
+| Route Type         | OpenAI                   | MosaicML           | Anthropic        | Cohere                      | Azure OpenAI             | MLflow                   | AWS Bedrock              |
++====================+==========================+====================+==================+=============================+==========================+==========================+==========================+
+| llm/v1/completions | - gpt-3.5-turbo          | - mpt-7b-instruct  | - claude-1       | - command                   | - text-davinci-003       | - MLflow served models*  | - Amazon Titan           |
+|                    | - gpt-4                  | - mpt-30b-instruct | - claude-1.3-100k| - command-light-nightly     | - gpt-35-turbo           |                          | - Third-party providers  |
+|                    |                          | - llama2-70b-chat† | - claude-2       |                             |                          |                          |                          |
++--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+--------------------------+--------------------------+
+| llm/v1/chat        | - gpt-3.5-turbo          | - llama2-70b-chat† | N/A              | N/A                         | - gpt-35-turbo           | - MLflow served models*  | N/A                      |
+|                    | - gpt-4                  |                    |                  |                             | - gpt-4                  |                          |                          |
++--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+--------------------------+--------------------------+
+| llm/v1/embeddings  | - text-embedding-ada-002 | - instructor-large | N/A              | - embed-english-v2.0        | - text-embedding-ada-002 | - MLflow served models** | Not yet                  |
+|                    |                          | - instructor-xl    |                  | - embed-multilingual-v2.0   |                          |                          |                          |
++--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+--------------------------+--------------------------+
 
 † Llama 2 is licensed under the `LLAMA 2 Community License <https://ai.meta.com/llama/license/>`_, Copyright © Meta Platforms, Inc. All Rights Reserved.
 
@@ -289,6 +289,7 @@ As of now, the MLflow AI Gateway supports the following providers:
 * **openai**: This is used for models offered by `OpenAI <https://platform.openai.com/>`_ and the `Azure <https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/>`_ integrations for Azure OpenAI and Azure OpenAI with AAD.
 * **anthropic**: This is used for models offered by `Anthropic <https://docs.anthropic.com/claude/docs>`_.
 * **cohere**: This is used for models offered by `Cohere <https://docs.cohere.com/docs>`_.
+* **bedrock**: This is used for models offered by `AWS Bedrock <https://aws.amazon.com/bedrock/>`_.
 
 More providers are being added continually. Check the latest version of the MLflow AI Gateway Docs for the
 most up-to-date list of supported providers.
@@ -478,6 +479,7 @@ Each route has the following configuration parameters:
     - "mosaicml"
     - "anthropic"
     - "cohere"
+    - "bedrock"
     - "azure" / "azuread"
     - "mlflow-model-serving"
 
@@ -536,6 +538,51 @@ Anthropic
 +=========================+==========+==========================+=======================================================+
 | **anthropic_api_key**   | Yes      | N/A                      | This is the API key for the Anthropic service.        |
 +-------------------------+----------+--------------------------+-------------------------------------------------------+
+
+AWS Bedrock
++++++++++++
+
+Top-level model configuration for AWS Bedrock routes must be one of the two supported two authentication modes: key-based and role-based.
+
++--------------------------+----------+------------------------------+-------------------------------------------------------+
+| Configuration Parameter  | Required | Default                      | Description                                           |
++==========================+==========+==============================+=======================================================+
+| **aws_config**           | No       |                              | An object with either the key-based or role-based     |
+|                          |          |                              | schema below.                                         |
++--------------------------+----------+------------------------------+-------------------------------------------------------+
+
+
+To use key-based authentication, define an AWS Bedrock route with usual ``aws_*`` settings.  For testing/development purposes these can be long-lived keys to a and IAM User or short-lived keys to an IAM role.  For long-term use, these *must* be long-lived keys to an IAM user authorized to use Bedrock.
+
++--------------------------+----------+------------------------------+-------------------------------------------------------+
+| Configuration Parameter  | Required | Default                      | Description                                           |
++==========================+==========+==============================+=======================================================+
+| **aws_region**           | No       | AWS_REGION/AWS_DEFAULT_REGION| The AWS Region to use for bedrock access.             |
+|                          |          |                              |                                                       |
++--------------------------+----------+------------------------------+-------------------------------------------------------+
+| **aws_secret_access_key**| Yes      |                              | AWS secret access key for the IAM user/role           |
+|                          |          |                              | authorized to used bedrock                            |
++--------------------------+----------+------------------------------+-------------------------------------------------------+
+| **aws_access_key_id**    | Yes      |                              | AWS access key ID for the IAM user/role               |
+|                          |          |                              | authorized to use Bedrock                             |
++--------------------------+----------+------------------------------+-------------------------------------------------------+
+| **aws_session_token**    | No       | None                         | Optional session token, if required                   |
++--------------------------+----------+------------------------------+-------------------------------------------------------+
+
+Alternatively, for role-based authentication, define AWS Bedrock route with an a IAM Role authorized to access Bedrock.  AI Gateway will attempt to assume this role with using the standard credential provider chain, and will renew the role credentials if they're expired.
+
++--------------------------+----------+------------------------------+-------------------------------------------------------+
+| Configuration Parameter  | Required | Default                      | Description                                           |
++==========================+==========+==============================+=======================================================+
+| **aws_region**           | No       | AWS_REGION/AWS_DEFAULT_REGION| The AWS Region to use for bedrock access.             |
+|                          |          |                              |                                                       |
++--------------------------+----------+------------------------------+-------------------------------------------------------+
+| **aws_role_arn**         | Yes      |                              | An AWS role authorized to use Bedrock.  The standard  |
+|                          |          |                              | credential provider chain *must* be able to find      |
+|                          |          |                              | credentials authorized to assume this role.           |
++--------------------------+----------+------------------------------+-------------------------------------------------------+
+|**session_length_seconds**| No       | 900                          | The length of session to request.                     |
++--------------------------+----------+------------------------------+-------------------------------------------------------+
 
 MLflow Model Serving
 ++++++++++++++++++++
