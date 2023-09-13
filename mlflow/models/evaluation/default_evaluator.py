@@ -1293,11 +1293,12 @@ class DefaultEvaluator(ModelEvaluator):
     def _update_metrics(self):
         self.metrics = {}
         for metric_name, metric_value in self.metrics_values.items():
-            for agg_name, agg_value in metric_value.aggregate_results.items():
-                if agg_name == metric_name.split("/")[0]:
-                    self.metrics[metric_name] = agg_value
-                else:
-                    self.metrics[f"{metric_name}/{agg_name}"] = agg_value
+            if metric_value.aggregate_results:
+                for agg_name, agg_value in metric_value.aggregate_results.items():
+                    if agg_name == metric_name.split("/")[0]:
+                        self.metrics[metric_name] = agg_value
+                    else:
+                        self.metrics[f"{metric_name}/{agg_name}"] = agg_value
 
     def _evaluate(
         self,
@@ -1333,9 +1334,9 @@ class DefaultEvaluator(ModelEvaluator):
                 if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
                     self._compute_builtin_metrics()
                 elif self.model_type == _ModelType.QUESTION_ANSWERING:
-                    self.builtin_metrics = text_metrics + [exact_match]
+                    self.builtin_metrics = [*text_metrics, exact_match]
                 elif self.model_type == _ModelType.TEXT_SUMMARIZATION:
-                    self.builtin_metrics = text_metrics + [rouge1, rouge2, rougeL, rougeLsum]
+                    self.builtin_metrics = [*text_metrics, rouge1, rouge2, rougeL, rougeLsum]
                 elif self.model_type == _ModelType.TEXT:
                     self.builtin_metrics = text_metrics
 

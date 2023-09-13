@@ -2467,8 +2467,7 @@ def very_toxic(eval_df, metrics: Dict[str, MetricValue]):
 
 
 def per_row_metric(eval_df, metrics: Dict[str, MetricValue]):
-    scores = list(eval_df["text"])
-    return MetricValue(scores=scores)
+    return MetricValue(scores=[1] * len(eval_df["prediction"]))
 
 
 def test_evaluate_text_custom_metrics():
@@ -2484,7 +2483,7 @@ def test_evaluate_text_custom_metrics():
             model_type="text",
             custom_metrics=[
                 make_metric(eval_fn=very_toxic, greater_is_better=True, version="v2"),
-                make_metric(eval_fn=per_row_metric, name="no_version"),
+                make_metric(eval_fn=per_row_metric, greater_is_better=False, name="no_version"),
             ],
         )
 
