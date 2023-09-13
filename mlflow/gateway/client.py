@@ -370,12 +370,6 @@ class MlflowGatewayClient:
             set_limits("my-new-route", [{"key": "user", "renewal_period": "minute", "calls": 50}])
 
         """
-
-        if not self._is_databricks_host():
-            raise MlflowException(
-                "The set_limits API is only available when running against Databricks AI Gateway.",
-                error_code=BAD_REQUEST,
-            )
         payload = {
             "route": route,
             "limits": limits,
@@ -409,12 +403,6 @@ class MlflowGatewayClient:
             get_limits("my-new-route")
 
         """
-
-        if not self._is_databricks_host():
-            raise MlflowException(
-                "The get_limits API is only available running against Databricks AI Gateway.",
-                error_code=BAD_REQUEST,
-            )
         route_uri = assemble_uri_path([MLFLOW_GATEWAY_LIMITS_BASE, route])
         response = self._call_endpoint("GET", route_uri).json()
         return LimitsConfig(**response)

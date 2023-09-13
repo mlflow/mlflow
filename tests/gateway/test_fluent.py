@@ -2,6 +2,7 @@ from unittest import mock
 
 import pytest
 from requests.exceptions import HTTPError
+from fastapi import HTTPException
 
 import mlflow.gateway.utils
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
@@ -247,14 +248,14 @@ def test_fluent_delete_route_raises(gateway):
 def test_fluent_set_limits_raises(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     # This API is only available in Databricks
-    with pytest.raises(MlflowException, match="The set_limits API is only available when running against Databricks AI Gateway."):
+    with pytest.raises(HTTPException, match="The set_limits API is not available in OSS MLflow AI Gateway."):
         set_limits("some-route", [])
 
 
 def test_fluent_get_limits_raises(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     # This API is only available in Databricks
-    with pytest.raises(MlflowException, match="The get_limits API is only available running against Databricks AI Gateway."):
+    with pytest.raises(HTTPException, match="The get_limits API is not available in OSS MLflow AI Gateway."):
         get_limits("some-route")
 
 
