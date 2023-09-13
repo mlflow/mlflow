@@ -561,7 +561,7 @@ To use key-based authentication, define an AWS Bedrock route with usual ``aws_*`
 |                          |          |                              |                                                       |
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 | **aws_secret_access_key**| Yes      |                              | AWS secret access key for the IAM user/role           |
-|                          |          |                              | authorized to use bedrock                            |
+|                          |          |                              | authorized to use bedrock                             |
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 | **aws_access_key_id**    | Yes      |                              | AWS access key ID for the IAM user/role               |
 |                          |          |                              | authorized to use Bedrock                             |
