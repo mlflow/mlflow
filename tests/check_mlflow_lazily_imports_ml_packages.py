@@ -16,7 +16,6 @@ def main():
         "catboost",
         "fastai",
         "h2o",
-        "keras",
         "lightgbm",
         "mleap",
         "onnx",
