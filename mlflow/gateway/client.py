@@ -400,7 +400,7 @@ class MlflowGatewayClient:
 
         :raises mlflow.MlflowException: If the function is not running within Databricks.
 
-        Example usage from within Databricks:
+        Example usage:
 
         .. code-block:: python
 
