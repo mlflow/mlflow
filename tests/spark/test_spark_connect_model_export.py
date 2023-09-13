@@ -6,7 +6,6 @@ import pandas as pd
 import pyspark
 import pytest
 from packaging.version import Version
-
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as spark_f
 from pyspark.sql.types import LongType
@@ -130,9 +129,7 @@ def test_pyfunc_serve_and_score(spark_model):
         mlflow.spark.log_model(spark_model.model, artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    input_data = pd.DataFrame(
-        {"features": spark_model.pandas_df["features"].map(list)}
-    )
+    input_data = pd.DataFrame({"features": spark_model.pandas_df["features"].map(list)})
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=input_data,
