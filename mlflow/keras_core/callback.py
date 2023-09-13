@@ -45,7 +45,7 @@ class MLflowCallback(keras.callbacks.Callback):
                 label,
                 batch_size=4,
                 epochs=2,
-                callbacks=[MLflowMetricsLoggingCallback(run)],
+                callbacks=[MLflowCallback(run)],
             )
     """
 
