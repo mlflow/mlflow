@@ -2,7 +2,6 @@ from unittest import mock
 
 import pytest
 from requests.exceptions import HTTPError, Timeout
-from fastapi import HTTPException
 
 import mlflow.gateway.utils
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
@@ -491,7 +490,9 @@ def test_client_set_limits_raises(gateway):
 def test_client_get_limits_raises(gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
 
-    with pytest.raises(HTTPError, match=".*The get_limits API is not available in OSS MLflow AI Gateway."):
+    with pytest.raises(
+        HTTPError, match=".*The get_limits API is not available in OSS MLflow AI Gateway."
+    ):
         gateway_client.get_limits("some-route")
 
 

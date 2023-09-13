@@ -31,7 +31,7 @@ from mlflow.entities import (
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.db.base_sql_model import Base
 from mlflow.utils.mlflow_tags import _get_run_name_from_tags
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 
 SourceTypes = [
     SourceType.to_string(SourceType.NOTEBOOK),

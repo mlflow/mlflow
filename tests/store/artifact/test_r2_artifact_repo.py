@@ -57,4 +57,5 @@ def test_s3_endpoint_url_is_used_to_get_s3_client(r2_artifact_root):
             aws_access_key_id=None,
             aws_secret_access_key=None,
             aws_session_token=None,
+            region_name=None,
         )

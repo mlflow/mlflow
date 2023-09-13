@@ -827,6 +827,7 @@ def create_tmp_dir():
         except Exception:
             repl_local_tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id())
 
+        os.makedirs(repl_local_tmp_dir, exist_ok=True)
         return tempfile.mkdtemp(dir=repl_local_tmp_dir)
     else:
         return tempfile.mkdtemp()
