@@ -43,4 +43,4 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
 # Load the retrievalQA chain
 loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-loaded_model.predict([{"query": "What did the president say about Ketanji Brown Jackson"}])
+print(loaded_model.predict([{"query": "What did the president say about Ketanji Brown Jackson"}]))
