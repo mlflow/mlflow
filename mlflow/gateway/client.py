@@ -360,13 +360,12 @@ class MlflowGatewayClient:
 
         :raises mlflow.MlflowException: If the function is not running against Databricks AI Gateway.
 
-        Example usage from within Databricks:
+        Example usage:
 
         .. code-block:: python
 
             from mlflow.gateway import set_gateway_uri, set_limits
 
-            set_gateway_uri(gateway_uri="databricks")
 
             set_limits("my-new-route", [{"key": "user", "renewal_period": "minute", "calls": 50}])
 
@@ -400,7 +399,7 @@ class MlflowGatewayClient:
 
         :raises mlflow.MlflowException: If the function is not running within Databricks.
 
-        Example usage from within Databricks:
+        Example usage:
 
         .. code-block:: python
 
