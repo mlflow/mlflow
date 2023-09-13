@@ -162,17 +162,6 @@ def basic_config_dict():
                     "config": {"aws_config": {"aws_region": "us-east-1"}},
                 },
             },
-            {
-                "name": "completions-anthropic",
-                "route_type": "llm/v1/completions",
-                "model": {
-                    "provider": "anthropic",
-                    "name": "claude-instant-1.1",
-                    "config": {
-                        "anthropic_api_key": "$ANTHROPIC_API_KEY",
-                    },
-                },
-            },
         ]
     }
 
