@@ -361,7 +361,7 @@ class TrackingServiceClient:
             run_name=name,
         )
 
-    def log_batch(self, run_id, metrics=(), params=(), tags=(), synchronous = True):
+    def log_batch(self, run_id, metrics=(), params=(), tags=(), synchronous: bool = True):
         """
         Log multiple metrics, params, and/or tags.
 
@@ -370,7 +370,7 @@ class TrackingServiceClient:
         :param params: If provided, List of Param(key, value) instances.
         :param tags: If provided, List of RunTag(key, value) instances.
         :param synchronous: If True, then this is a blocking call and offers immediate conssistency upon return.
-                            If False, gurantees that upon return values are accepted by store but will 
+                            If False, gurantees that upon return values are accepted by store but will
                             be persisted in some time delay fashion.
         Raises an MlflowException if any errors occur.
         :return: None
@@ -390,9 +390,7 @@ class TrackingServiceClient:
             metrics_batch = metrics[:metrics_batch_size]
             metrics = metrics[metrics_batch_size:]
 
-            self.store.log_batch(
-                run_id=run_id, metrics=metrics_batch, params=params_batch, tags=tags_batch
-            )
+            self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=params_batch, tags=tags_batch)
 
         for metrics_batch in chunk_list(metrics, chunk_size=MAX_METRICS_PER_BATCH):
             self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
@@ -417,8 +415,7 @@ class TrackingServiceClient:
 
         if not isinstance(mlflow_model, Model):
             raise TypeError(
-                "Argument 'mlflow_model' should be of type mlflow.models.Model but was "
-                "{}".format(type(mlflow_model))
+                "Argument 'mlflow_model' should be of type mlflow.models.Model but was " "{}".format(type(mlflow_model))
             )
         self.store.record_logged_model(run_id, mlflow_model)
 
@@ -429,9 +426,7 @@ class TrackingServiceClient:
             return cached_repo
         else:
             run = self.get_run(run_id)
-            artifact_uri = add_databricks_profile_info_to_artifact_uri(
-                run.info.artifact_uri, self.tracking_uri
-            )
+            artifact_uri = add_databricks_profile_info_to_artifact_uri(run.info.artifact_uri, self.tracking_uri)
             artifact_repo = get_artifact_repository(artifact_uri)
             # Cache the artifact repo to avoid a future network call, removing the oldest
             # entry in the cache if there are too many elements
@@ -450,9 +445,7 @@ class TrackingServiceClient:
         artifact_repo = self._get_artifact_repo(run_id)
         if os.path.isdir(local_path):
             dir_name = os.path.basename(os.path.normpath(local_path))
-            path_name = (
-                os.path.join(artifact_path, dir_name) if artifact_path is not None else dir_name
-            )
+            path_name = os.path.join(artifact_path, dir_name) if artifact_path is not None else dir_name
             artifact_repo.log_artifacts(local_path, path_name)
         else:
             artifact_repo.log_artifact(local_path, artifact_path)

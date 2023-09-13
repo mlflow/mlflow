@@ -25,7 +25,7 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.tracking.run_data_ingestion_operation import RunDataIngestionOperation
+from mlflow.tracking.run_data_await_operation import RunDataAwaitOperation
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -689,7 +689,7 @@ class MlflowClient:
         value: float,
         timestamp: Optional[int] = None,
         step: Optional[int] = None,
-        synchronous: bool = True
+        synchronous: bool = True,
     ) -> None:
         """
         Log a metric against the run ID.
@@ -710,13 +710,13 @@ class MlflowClient:
         :param synchronous: Indicates if the metric would be logged in synchronous fashion or not.
                             When it is true this call would be blocking call and offers immediate
                              consistency of the metric upon returning.
-                            When this value is set to false, metric would be logged in async fashion. 
-                            So backing provider gurantees that metrics are accepted into system 
+                            When this value is set to false, metric would be logged in async fashion.
+                            So backing provider gurantees that metrics are accepted into system
                              but would persist them with some time delay.
-                            This means metric value would not have immediate consistency but 
+                            This means metric value would not have immediate consistency but
                             'near-real'/'eventual' consistency.
                             Note that this is an experimental flag.
-                            Default implementation of this flag would offer calling the sync API using a 
+                            Default implementation of this flag would offer calling the sync API using a
                             background thread.
                             Each provider who may choose implement this flag can override the default behavior.
 
@@ -768,7 +768,7 @@ class MlflowClient:
         else:
             pass
 
-    def log_param(self, run_id: str, key: str, value: Any) -> Any:
+    def log_param(self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = True) -> Any:
         """
         Log a parameter (e.g. model hyperparameter) against the run ID.
 
@@ -780,6 +780,18 @@ class MlflowClient:
         :param value: Parameter value (string, but will be string-ified if not).
                       All backend stores support values up to length 500, but some
                       may support larger values.
+        :param synchronous: Indicates if the metric would be logged in synchronous fashion or not.
+                    When it is true this call would be blocking call and offers immediate
+                        consistency of the metric upon returning.
+                    When this value is set to false, metric would be logged in async fashion.
+                    So backing provider gurantees that metrics are accepted into system
+                        but would persist them with some time delay.
+                    This means metric value would not have immediate consistency but
+                    'near-real'/'eventual' consistency.
+                    Note that this is an experimental flag.
+                    Default implementation of this flag would offer calling the sync API using a
+                    background thread.
+                    Each provider who may choose implement this flag can override the default behavior.
         :return: the parameter value that is logged.
 
         .. code-block:: python
@@ -857,7 +869,7 @@ class MlflowClient:
         """
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
 
-    def set_tag(self, run_id: str, key: str, value: Any) -> None:
+    def set_tag(self, run_id: str, key: str, value: Any, synchronous: bool = True) -> None:
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
 
@@ -946,9 +958,7 @@ class MlflowClient:
         """
         self._tracking_client.delete_tag(run_id, key)
 
-    def update_run(
-        self, run_id: str, status: Optional[str] = None, name: Optional[str] = None
-    ) -> None:
+    def update_run(self, run_id: str, status: Optional[str] = None, name: Optional[str] = None) -> None:
         """
         Update a run with the specified ID to a new status or name.
 
@@ -1001,7 +1011,7 @@ class MlflowClient:
         metrics: Sequence[Metric] = (),
         params: Sequence[Param] = (),
         tags: Sequence[RunTag] = (),
-        synchronous: bool = True
+        synchronous: bool = True,
     ) -> None:
         """
         Log multiple metrics, params, and/or tags.
@@ -1013,13 +1023,13 @@ class MlflowClient:
         :param synchronous: Indicates if the metric, tags , params would be logged in synchronous fashion or not.
                             When it is true this call would be blocking call and offers immediate
                              consistency of the metric upon returning.
-                            When this value is set to false, metric would be logged in async fashion. 
-                            So backing provider gurantees that metrics are accepted into system 
+                            When this value is set to false, metric would be logged in async fashion.
+                            So backing provider gurantees that metrics are accepted into system
                              but would persist them with some time delay.
-                            This means metric value would not have immediate consistency but 
+                            This means metric value would not have immediate consistency but
                             'near-real'/'eventual' consistency.
                             Note that this is an experimental flag.
-                            Default implementation of this flag would offer calling the sync API using a 
+                            Default implementation of this flag would offer calling the sync API using a
                             background thread.
                             Each provider who may choose implement this flag can override the default behavior.
 
@@ -1129,9 +1139,7 @@ class MlflowClient:
         """
         self._tracking_client.log_artifact(run_id, local_path, artifact_path)
 
-    def log_artifacts(
-        self, run_id: str, local_dir: str, artifact_path: Optional[str] = None
-    ) -> None:
+    def log_artifacts(self, run_id: str, local_dir: str, artifact_path: Optional[str] = None) -> None:
         """
         Write a directory of files to the remote ``artifact_uri``.
 
@@ -1338,15 +1346,11 @@ class MlflowClient:
                 elif file_extension in [".png", ".jpeg", ".webp", ".svg", ".pdf"]:
                     figure.write_image(tmp_path)
                 else:
-                    raise TypeError(
-                        f"Unsupported file extension for plotly figure: '{file_extension}'"
-                    )
+                    raise TypeError(f"Unsupported file extension for plotly figure: '{file_extension}'")
             else:
                 raise TypeError(f"Unsupported figure object type: '{type(figure)}'")
 
-    def log_image(
-        self, run_id: str, image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str
-    ) -> None:
+    def log_image(self, run_id: str, image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str) -> None:
         """
         Log an image as an artifact. The following image objects are supported:
 
@@ -1424,10 +1428,7 @@ class MlflowClient:
             low = 0
             high = 255 if is_int else 1
             if x.min() < low or x.max() > high:
-                msg = (
-                    "Out-of-range values are detected. "
-                    f"Clipping array (dtype: '{x.dtype}') to [{low}, {high}]"
-                )
+                msg = "Out-of-range values are detected. " f"Clipping array (dtype: '{x.dtype}') to [{low}, {high}]"
                 _logger.warning(msg)
                 x = np.clip(x, low, high)
 
@@ -1466,14 +1467,10 @@ class MlflowClient:
                     )
 
                 if image.ndim not in [2, 3]:
-                    raise ValueError(
-                        f"`image` must be a 2D or 3D array but got a {image.ndim}D array"
-                    )
+                    raise ValueError(f"`image` must be a 2D or 3D array but got a {image.ndim}D array")
 
                 if (image.ndim == 3) and (image.shape[2] not in [1, 3, 4]):
-                    raise ValueError(
-                        f"Invalid channel length: {image.shape[2]}. Must be one of [1, 3, 4]"
-                    )
+                    raise ValueError(f"Invalid channel length: {image.shape[2]}. Must be one of [1, 3, 4]")
 
                 # squeeze a 3D grayscale image since `Image.fromarray` doesn't accept it.
                 if image.ndim == 3 and image.shape[2] == 1:
@@ -1556,9 +1553,7 @@ class MlflowClient:
 
         self._check_artifact_file_string(artifact_file)
         if not isinstance(data, (pd.DataFrame, dict)):
-            raise MlflowException.invalid_parameter_value(
-                "data must be a pandas.DataFrame or a dictionary"
-            )
+            raise MlflowException.invalid_parameter_value("data must be a pandas.DataFrame or a dictionary")
 
         data = pd.DataFrame(data)
         norm_path = posixpath.normpath(artifact_file)
@@ -1572,10 +1567,7 @@ class MlflowClient:
                 )
                 existing_predictions = pd.read_json(downloaded_artifact_path, orient="split")
             data = pd.concat([existing_predictions, data], ignore_index=True)
-            _logger.info(
-                "Appending new table to already existing artifact "
-                f"{artifact_file} for run {run_id}."
-            )
+            _logger.info("Appending new table to already existing artifact " f"{artifact_file} for run {run_id}.")
 
         with self._log_artifact_helper(run_id, artifact_file) as artifact_path:
             data.to_json(artifact_path, orient="split", index=False)
@@ -1683,9 +1675,7 @@ class MlflowClient:
 
         runs = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=filter_string)
         if run_ids and len(run_ids) != len(runs):
-            _logger.warning(
-                "Not all runs have the specified table artifact. Some runs will be skipped."
-            )
+            _logger.warning("Not all runs have the specified table artifact. Some runs will be skipped.")
 
         # TODO: Add parallelism support here
         def get_artifact_data(run):
@@ -1695,9 +1685,7 @@ class MlflowClient:
             artifact_dir = None if artifact_dir == "" else artifact_dir
             existing_predictions = pd.DataFrame()
 
-            artifacts = [
-                f.path for f in self.list_artifacts(run_id, path=artifact_dir) if not f.is_dir
-            ]
+            artifacts = [f.path for f in self.list_artifacts(run_id, path=artifact_dir) if not f.is_dir]
             if artifact_file in artifacts:
                 with tempfile.TemporaryDirectory() as tmpdir:
                     downloaded_artifact_path = mlflow.artifacts.download_artifacts(
@@ -1718,20 +1706,14 @@ class MlflowClient:
                             existing_predictions[column_name] = run[column]
 
             else:
-                raise MlflowException(
-                    f"Artifact {artifact_file} not found for run {run_id}.", RESOURCE_DOES_NOT_EXIST
-                )
+                raise MlflowException(f"Artifact {artifact_file} not found for run {run_id}.", RESOURCE_DOES_NOT_EXIST)
 
             return existing_predictions
 
         if not runs.empty:
-            return pd.concat(
-                [get_artifact_data(run) for _, run in runs.iterrows()], ignore_index=True
-            )
+            return pd.concat([get_artifact_data(run) for _, run in runs.iterrows()], ignore_index=True)
         else:
-            raise MlflowException(
-                "No runs found with the corresponding table artifact.", RESOURCE_DOES_NOT_EXIST
-            )
+            raise MlflowException("No runs found with the corresponding table artifact.", RESOURCE_DOES_NOT_EXIST)
 
     def _record_logged_model(self, run_id, mlflow_model):
         """
@@ -1841,9 +1823,7 @@ class MlflowClient:
         """
         return self._tracking_client.download_artifacts(run_id, path, dst_path)
 
-    def set_terminated(
-        self, run_id: str, status: Optional[str] = None, end_time: Optional[int] = None
-    ) -> None:
+    def set_terminated(self, run_id: str, status: Optional[str] = None, end_time: Optional[int] = None) -> None:
         """Set a run's status to terminated.
 
         :param status: A string value of :py:class:`mlflow.entities.RunStatus`.
@@ -2144,9 +2124,7 @@ class MlflowClient:
         """
         self._get_registry_client().rename_registered_model(name, new_name)
 
-    def update_registered_model(
-        self, name: str, description: Optional[str] = None
-    ) -> RegisteredModel:
+    def update_registered_model(self, name: str, description: Optional[str] = None) -> RegisteredModel:
         """
         Updates metadata for RegisteredModel entity. Input field ``description`` should be non-None.
         Backend raises exception if a registered model with given name does not exist.
@@ -2193,9 +2171,7 @@ class MlflowClient:
         if description is None:
             raise MlflowException("Attempting to update registered model with no new field values.")
 
-        return self._get_registry_client().update_registered_model(
-            name=name, description=description
-        )
+        return self._get_registry_client().update_registered_model(name=name, description=description)
 
     def delete_registered_model(self, name: str):
         """
@@ -2342,9 +2318,7 @@ class MlflowClient:
             name=CordobaWeatherForecastModel; run_id=e14afa2f47a040728060c1699968fd43; version=2
 
         """
-        return self._get_registry_client().search_registered_models(
-            filter_string, max_results, order_by, page_token
-        )
+        return self._get_registry_client().search_registered_models(filter_string, max_results, order_by, page_token)
 
     def get_registered_model(self, name: str) -> RegisteredModel:
         """
@@ -2580,22 +2554,14 @@ class MlflowClient:
             and not is_databricks_unity_catalog_uri(self._registry_uri)
         ):
             if not run_id:
-                eprint(
-                    "Warning: no run_link will be recorded with the model version "
-                    "because no run_id was given"
-                )
+                eprint("Warning: no run_link will be recorded with the model version " "because no run_id was given")
             else:
                 run_link = get_databricks_run_url(tracking_uri, run_id)
         new_source = source
         if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
             # Print out some info for user since the copy may take a while for large models.
-            eprint(
-                "=== Copying model files from the source location to the model"
-                + " registry workspace ==="
-            )
-            new_source = _upload_artifacts_to_databricks(
-                source, run_id, tracking_uri, self._registry_uri
-            )
+            eprint("=== Copying model files from the source location to the model" + " registry workspace ===")
+            new_source = _upload_artifacts_to_databricks(source, run_id, tracking_uri, self._registry_uri)
             # NOTE: we can't easily delete the target temp location due to the async nature
             # of the model version creation - printing to let the user know.
             eprint(
@@ -2697,9 +2663,7 @@ class MlflowClient:
             await_creation_for=await_creation_for,
         )
 
-    def update_model_version(
-        self, name: str, version: str, description: Optional[str] = None
-    ) -> ModelVersion:
+    def update_model_version(self, name: str, version: str, description: Optional[str] = None) -> ModelVersion:
         """
         Update metadata associated with a model version in backend.
 
@@ -2766,9 +2730,7 @@ class MlflowClient:
         if description is None:
             raise MlflowException("Attempting to update model version with no new field values.")
 
-        return self._get_registry_client().update_model_version(
-            name=name, version=version, description=description
-        )
+        return self._get_registry_client().update_model_version(name=name, version=version, description=description)
 
     def transition_model_version_stage(
         self, name: str, version: str, stage: str, archive_existing_versions: bool = False
@@ -3112,13 +3074,9 @@ class MlflowClient:
             ------------------------------------------------------------------------------------
             name=CordobaWeatherForecastModel; run_id=e14afa2f47a040728060c1699968fd43; version=2
         """
-        return self._get_registry_client().search_model_versions(
-            filter_string, max_results, order_by, page_token
-        )
+        return self._get_registry_client().search_model_versions(filter_string, max_results, order_by, page_token)
 
-    def get_model_version_stages(
-        self, name: str, version: str  # pylint: disable=unused-argument
-    ) -> List[str]:
+    def get_model_version_stages(self, name: str, version: str) -> List[str]:  # pylint: disable=unused-argument
         """
         :return: A list of valid stages.
 
@@ -3244,9 +3202,7 @@ class MlflowClient:
 
         self._get_registry_client().set_model_version_tag(name, version, key, value)
 
-    def delete_model_version_tag(
-        self, name: str, version: str = None, key: str = None, stage: str = None
-    ) -> None:
+    def delete_model_version_tag(self, name: str, version: str = None, key: str = None, stage: str = None) -> None:
         """
         Delete a tag associated with the model version.
         When stage is set, tag will be deleted for latest model version of the stage.
@@ -3589,42 +3545,36 @@ class MlflowClient:
         _validate_model_name(name)
         _validate_model_alias_name(alias)
         return self._get_registry_client().get_model_version_by_alias(name, alias)
-    
-    def await_run_data_ingestion(self, run_id) -> RunDataIngestionOperation:
- 
-        """
-        Awaits for all run data - metrics, tags, params, logged in async fashion so far, to be persisted by backing store.
-        API relies on the environment variable “MLFLOW_RUN_DATA_INGESTION_MAX_WAIT_TIME_IN_SECONDS”.
-            “MLFLOW_RUN_DATA_INGESTION_MAX_WAIT_TIME_IN_SECONDS” - would be defaulted to 1 minute. 
-            Each provider can override this value optionally.
-            Users can choose to set this value or simply do not set it and let it default.
-       
-        This API will retry awaiting for 3 times, everytime for specified transient error codes - 
-        mlflow/mlflow/utils/request_utils.py at master · mlflow/mlflow (github.com)
-        _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
-            [
-                408,  # Request Timeout
-                429,  # Too Many Requests
-                500,  # Internal Server Error
-                502,  # Bad Gateway
-                503,  # Service Unavailable
-                504,  # Gateway Timeout
-            ]),
-       before throwing if it does not finish within that time.       
-        If run data ingestion does not finish within specified timeout,
-            then it throws a AwaitRunDataTimeoutException.
-       
-        This returns an async operation that can be awaited for completion.
-          That operation either completes or throws AwaitRunDataTimeoutException.
-        If sync is True, the call is blocked till completion or timeout occurs.
-       
-        Ingestion cannot be stopped/altered by user actions,
-            so this indicates system failure to ingest metrics within a given time.
-        """
 
+    def await_run_data_ingestion(self, run_id: str, timeout_sec: [Optional[int]] = 60) -> RunDataAwaitOperation:
+        """
+         Awaits for all run data - metrics, tags, params, logged in async fashion so far, to be persisted by backing store.
+         :param run_id: Run id.
+         :param timeout_sec: Timeout in seconds.
+
+         This API will retry awaiting for 3 times, everytime for specified transient error codes -
+         mlflow/mlflow/utils/request_utils.py at master · mlflow/mlflow (github.com)
+         _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
+             [
+                 408,  # Request Timeout
+                 429,  # Too Many Requests
+                 500,  # Internal Server Error
+                 502,  # Bad Gateway
+                 503,  # Service Unavailable
+                 504,  # Gateway Timeout
+             ]),
+        before throwing if it does not finish within that time.
+         If run data ingestion does not finish within specified timeout,
+             then it throws a AwaitRunDataTimeoutException.
+
+         This returns an async operation that can be awaited for completion.
+           That operation either completes or throws AwaitRunDataTimeoutException.
+         If sync is True, the call is blocked till completion or timeout occurs.
+
+         Ingestion cannot be stopped/altered by user actions,
+             so this indicates system failure to ingest metrics within a given time.
+        """
 
         # Implementation
 
-
         pass
-

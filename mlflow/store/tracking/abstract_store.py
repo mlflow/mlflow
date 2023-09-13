@@ -1,11 +1,17 @@
 from abc import abstractmethod, ABCMeta
+from concurrent.futures import ThreadPoolExecutor
+import os
 from typing import List, Optional
 
 from mlflow.entities import ViewType, DatasetInput
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.tracking.run_data_ingestion_operation import RunDataIngestionOperation
+from mlflow.tracking.run_data_await_operation import RunDataAwaitOperation
 from mlflow.utils.annotations import developer_stable, experimental
+
+num_cpus = os.cpu_count() or 4
+num_logging_workers = min(num_cpus * 2, 8)
+_ASYNC_DATA_LOGGING_THREAD_POOL = ThreadPoolExecutor(max_workers=num_logging_workers)
 
 
 @developer_stable
@@ -22,7 +28,7 @@ class AbstractStore:
         Empty constructor for now. This is deliberately not marked as abstract, else every
         derived class would be forced to create one.
         """
-        pass
+        self.log_run_data_futures = []
 
     @abstractmethod
     def search_experiments(
@@ -220,6 +226,15 @@ class AbstractStore:
         """
         self.log_batch(run_id, metrics=[metric], params=[], tags=[])
 
+    def log_metric_async(self, run_id, metric):
+        """
+        Log a metric for the specified run in async fashion.
+
+        :param run_id: String id for the run
+        :param metric: :py:class:`mlflow.entities.Metric` instance to log
+        """
+        self.log_batch_async(run_id, metrics=[metric], params=[], tags=[])
+
     def log_param(self, run_id, param):
         """
         Log a param for the specified run
@@ -228,6 +243,15 @@ class AbstractStore:
         :param param: :py:class:`mlflow.entities.Param` instance to log
         """
         self.log_batch(run_id, metrics=[], params=[param], tags=[])
+
+    def log_param_async(self, run_id, param):
+        """
+        Log a param for the specified run in async fashion.
+
+        :param run_id: String id for the run
+        :param param: :py:class:`mlflow.entities.Param` instance to log
+        """
+        self.log_batch_async(run_id, metrics=[], params=[param], tags=[])
 
     def set_experiment_tag(self, experiment_id, tag):
         """
@@ -246,6 +270,15 @@ class AbstractStore:
         :param tag: :py:class:`mlflow.entities.RunTag` instance to set
         """
         self.log_batch(run_id, metrics=[], params=[], tags=[tag])
+
+    def set_tag_async(self, run_id, tag):
+        """
+        Set a tag for the specified run in async fashion.
+
+        :param run_id: String id for the run
+        :param tag: :py:class:`mlflow.entities.RunTag` instance to set
+        """
+        self.log_batch_async(run_id, metrics=[], params=[], tags=[tag])
 
     @abstractmethod
     def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
@@ -296,15 +329,11 @@ class AbstractStore:
             implementations may not support pagination and thus the returned token would not be
             meaningful in such cases.
         """
-        runs, token = self._search_runs(
-            experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
-        )
+        runs, token = self._search_runs(experiment_ids, filter_string, run_view_type, max_results, order_by, page_token)
         return PagedList(runs, token)
 
     @abstractmethod
-    def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
-    ):
+    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token):
         """
         Return runs that match the given list of search expressions within the experiments, as
         well as a pagination token (indicating where the next page should start). Subclasses of
@@ -332,7 +361,7 @@ class AbstractStore:
         :return: None.
         """
         pass
-    
+
     @abstractmethod
     def log_batch_async(self, run_id, metrics, params, tags):
         """
@@ -343,26 +372,20 @@ class AbstractStore:
         :param tags: List of :py:class:`mlflow.entities.RunTag` instances to log
         :return: None.
         """
-        pass
+        log_data_future = _ASYNC_DATA_LOGGING_THREAD_POOL.submit(
+            fn=self.log_batch, args=(run_id, metrics, params, tags)
+        )
+        self.log_run_data_futures.append(log_data_future)
 
     @abstractmethod
-    def await_run_data_ingestion(
-            self,
-            run_id: str, 
-            timeout_sec: int
-        ) -> RunDataIngestionOperation:
+    def await_run_data(self, run_id: str, timeout_sec: int) -> RunDataAwaitOperation:
         """
         Awaits for all run data (metrics, tags, params), logged in async fashion so far,
-        to be persisted and can be read back.      
-        This API will retry awaiting for 3 times, everytime for specified timeout 
-        period,
-        before throwing if it does not finish within that time.        
-        This returns an async operation that can be awaited for completion.
-        That operation either completes or throws 
-        MetricIngestionTimeoutException.
+        to be persisted and can be read back.
+        Default implementation is No-Op. It assumes that all the data is logged on a thread
         """
-        pass
-
+        run_data_await_operation = RunDataAwaitOperation(run_id=run_id, operation_futures=self.log_run_data_futures)
+        return run_data_await_operation
 
     @abstractmethod
     def record_logged_model(self, run_id, mlflow_model):
