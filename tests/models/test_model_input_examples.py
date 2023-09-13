@@ -172,7 +172,9 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
         assert example == parsed_df.to_dict(orient="records")[0]
 
 
-def test_pandas_orients_for_input_examples(pandas_df_with_all_types, df_without_columns, dict_of_ndarrays):
+def test_pandas_orients_for_input_examples(
+    pandas_df_with_all_types, df_without_columns, dict_of_ndarrays
+):
     # test setting example with data frame with all supported data types
     with TempDir() as tmp:
         example = _Example(pandas_df_with_all_types)
@@ -182,8 +184,17 @@ def test_pandas_orients_for_input_examples(pandas_df_with_all_types, df_without_
         assert example.info["pandas_orient"] == "split"
         with open(tmp.path(filename)) as f:
             data = json.load(f)
-            dataframe = pd.read_json(json.dumps(data), orient=example.info["pandas_orient"], precise_float=True)
-            assert (pandas_df_with_all_types.drop(columns=["binary"]) == dataframe.drop(columns=["binary"])).all().all()
+            dataframe = pd.read_json(
+                json.dumps(data), orient=example.info["pandas_orient"], precise_float=True
+            )
+            assert (
+                (
+                    pandas_df_with_all_types.drop(columns=["binary"])
+                    == dataframe.drop(columns=["binary"])
+                )
+                .all()
+                .all()
+            )
 
     with TempDir() as tmp:
         example = _Example(df_without_columns)
@@ -194,7 +205,7 @@ def test_pandas_orients_for_input_examples(pandas_df_with_all_types, df_without_
         with open(tmp.path(filename)) as f:
             data = json.load(f)
             assert set(data.keys()) == {"data"}
-            # NOTE: when no column names are provided (i.e. values orient), 
+            # NOTE: when no column names are provided (i.e. values orient),
             # saving an example adds a "data" key rather than directly storing the plain data
             data = data["data"]
             dataframe = pd.read_json(json.dumps(data), orient=example.info["pandas_orient"])
@@ -212,7 +223,6 @@ def test_pandas_orients_for_input_examples(pandas_df_with_all_types, df_without_
             parsed_json = json.load(f)
             dataframe = pd.read_json(json.dumps(parsed_json), orient=x.info["pandas_orient"])
             assert (dataframe == example).all().all()
-
 
 
 def test_sparse_matrix_input_examples(dict_of_sparse_matrix):
