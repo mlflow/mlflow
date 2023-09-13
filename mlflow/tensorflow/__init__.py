@@ -53,6 +53,10 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     safe_patch,
 )
+from mlflow.utils.autologging_utils.metrics_queue import (
+    flush_metrics_queue,
+    add_to_metrics_queue,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -79,14 +83,7 @@ FLAVOR_NAME = "tensorflow"
 
 _logger = logging.getLogger(__name__)
 
-_MAX_METRIC_QUEUE_SIZE = 500
-
 _LOG_EVERY_N_STEPS = 1
-
-_metric_queue_lock = RLock()
-_metric_queue = []
-
-_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 # For tracking if the run was started by autologging.
 _AUTOLOG_RUN_ID = None
@@ -888,47 +885,6 @@ def _assoc_list_to_map(lst):
     return d
 
 
-def _flush_queue():
-    """
-    Flush the metric queue and log contents in batches to MLflow.
-    Queue is divided into batches according to run id.
-    """
-    try:
-        # Multiple queue flushes may be scheduled simultaneously on different threads
-        # (e.g., if the queue is at its flush threshold and several more items
-        # are added before a flush occurs). For correctness and efficiency, only one such
-        # flush operation should proceed; all others are redundant and should be dropped
-        acquired_lock = _metric_queue_lock.acquire(blocking=False)
-        if acquired_lock:
-            client = MlflowClient()
-            # For thread safety and to avoid modifying a list while iterating over it, we record a
-            # separate list of the items being flushed and remove each one from the metric queue,
-            # rather than clearing the metric queue or reassigning it (clearing / reassigning is
-            # dangerous because we don't block threads from adding to the queue while a flush is
-            # in progress)
-            snapshot = _metric_queue[:]
-            for item in snapshot:
-                _metric_queue.remove(item)
-
-            metrics_by_run = _assoc_list_to_map(snapshot)
-            for run_id, metrics in metrics_by_run.items():
-                client.log_batch(run_id, metrics=metrics, params=[], tags=[])
-    finally:
-        if acquired_lock:
-            _metric_queue_lock.release()
-
-
-def _add_to_queue(key, value, step, time, run_id):
-    """
-    Add a metric to the metric queue. Flush the queue if it exceeds
-    max size.
-    """
-    met = Metric(key=key, value=value, timestamp=time, step=step)
-    _metric_queue.append((run_id, met))
-    if len(_metric_queue) > _MAX_METRIC_QUEUE_SIZE:
-        _thread_pool.submit(_flush_queue)
-
-
 def _log_event(event):
     """
     Extracts metric information from the event protobuf
@@ -942,7 +898,7 @@ def _log_event(event):
                 # different from the arithmetic used in `__MLflowTfKeras2Callback.on_epoch_end`,
                 # which provides metric logging hooks for tf.Keras
                 if (event.step - 1) % _LOG_EVERY_N_STEPS == 0:
-                    _add_to_queue(
+                    add_to_metrics_queue(
                         key=v.tag,
                         value=v.simple_value,
                         step=event.step,
@@ -1080,7 +1036,7 @@ def autolog(
     global _LOG_EVERY_N_STEPS
     _LOG_EVERY_N_STEPS = every_n_iter
 
-    atexit.register(_flush_queue)
+    atexit.register(flush_metrics_queue)
 
     if Version(tensorflow.__version__) < Version("2.3"):
         warnings.warn("Could not log to MLflow. TensorFlow versions below 2.3 are not supported.")
@@ -1311,7 +1267,7 @@ def autolog(
                     metrics_logger=metrics_logger,
                 )
 
-                _flush_queue()
+                flush_metrics_queue()
                 mlflow.log_artifacts(
                     local_dir=self.log_dir.location,
                     artifact_path="tensorboard_logs",
