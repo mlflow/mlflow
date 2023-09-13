@@ -216,7 +216,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
 
     @app.post(MLFLOW_GATEWAY_LIMITS_BASE)
     async def set_limits(payload: SetLimitsModel) -> LimitsConfig:
-        raise HTTPException(status_code=501, detail="The get_limits API is not available in OSS MLflow AI Gateway.")
+        raise HTTPException(status_code=501, detail="The set_limits API is not available in OSS MLflow AI Gateway.")
 
     return app
 
