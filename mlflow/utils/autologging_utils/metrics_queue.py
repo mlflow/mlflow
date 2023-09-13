@@ -1,8 +1,8 @@
+import concurrent.futures
 from threading import RLock
 
-from mlflow.tracking.client import MlflowClient
 from mlflow.entities import Metric
-import concurrent.futures
+from mlflow.tracking.client import MlflowClient
 
 _metric_queue_lock = RLock()
 _metric_queue = []

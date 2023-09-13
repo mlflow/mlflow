@@ -641,33 +641,3 @@ def get_method_call_arg_value(arg_index, arg_name, default_value, call_pos_args,
         return call_pos_args[arg_index]
     else:
         return default_value
-
-
-def flush_metrics_queue():
-    """Flush the metric queue and log contents in batches to MLflow.
-
-    Queue is divided into batches according to run id.
-    """
-    try:
-        # Multiple queue flushes may be scheduled simultaneously on different threads
-        # (e.g., if the queue is at its flush threshold and several more items
-        # are added before a flush occurs). For correctness and efficiency, only one such
-        # flush operation should proceed; all others are redundant and should be dropped
-        acquired_lock = _metric_queue_lock.acquire(blocking=False)
-        if acquired_lock:
-            client = MlflowClient()
-            # For thread safety and to avoid modifying a list while iterating over it, we record a
-            # separate list of the items being flushed and remove each one from the metric queue,
-            # rather than clearing the metric queue or reassigning it (clearing / reassigning is
-            # dangerous because we don't block threads from adding to the queue while a flush is
-            # in progress)
-            snapshot = _metric_queue[:]
-            for item in snapshot:
-                _metric_queue.remove(item)
-
-            metrics_by_run = _assoc_list_to_map(snapshot)
-            for run_id, metrics in metrics_by_run.items():
-                client.log_batch(run_id, metrics=metrics, params=[], tags=[])
-    finally:
-        if acquired_lock:
-            _metric_queue_lock.release()

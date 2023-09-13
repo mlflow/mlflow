@@ -3,11 +3,11 @@ from contextlib import contextmanager
 
 import mlflow
 from mlflow.entities import Metric, Param
-from mlflow.utils.autologging_utils.metrics_queue import (
-    flush_metrics_queue,
-    add_to_metrics_queue,
-)
 from mlflow.tracking import MlflowClient
+from mlflow.utils.autologging_utils.metrics_queue import (
+    add_to_metrics_queue,
+    flush_metrics_queue,
+)
 
 DISABLED = False
 
