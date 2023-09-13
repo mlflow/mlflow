@@ -10,14 +10,25 @@ tracking server, and finally, we'll build towards logging our first model in MLf
 
 We'll be focusing on:
 
-* Setting up an environment for the MLflow Tracking Server and the MLflow UI
+* Starting a local MLflow Tracking Server and the MLflow UI Server
 * Exploring the MlflowClient (briefly)
 * Understanding the Default Experiment
-* Searching Experiments
+* Searching for Experiments with the MLflow client API
 * Understanding the uses of tags and how to leverage them for model organization
-* Creating an Experiment that will encapsulate the runs that we will be initiating.
-* Learning how to log metrics, parameters, and a model artifact to a run.
-* Viewing our Experiment and our first Run within the MLflow UI.
+* Creating an Experiment that will contain our run (and our model)
+* Learning how to log metrics, parameters, and a model artifact to a run
+* Viewing our Experiment and our first run within the MLflow UI
+
+For those who prefer to view the complete code before diving into the step-by-step creation process,
+we offer two options:
+
+.. raw:: html
+
+    <div class="grid-container">
+        <a href="notebooks/logging-first-model.html" class="button default" style="background-image: url('../../../_static/images/tutorials/logging-first-model-notebook.gif');"><span>View the Notebook</span></a>
+        <a href="notebooks/logging-first-model.ipynb" class="button default" style="background-image: url('../../../_static/icons/download-icon.svg');"><span>Download</span></a>
+    </div>
+    <br><br>
 
 .. toctree::
     :maxdepth: 1
@@ -30,3 +41,5 @@ We'll be focusing on:
     Generating a test data set for training <step5-synthetic-data>
     Logging your first model to MLflow <step6-logging-a-run>
     A full end-to-end example Notebook <notebooks/index>
+
+To get started with the tutorial, click NEXT below.
