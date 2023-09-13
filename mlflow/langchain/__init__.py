@@ -111,10 +111,7 @@ class _SpecialChainInfo(NamedTuple):
 
 
 def _get_special_chain_info_or_none(chain):
-    for (
-        special_chain_class,
-        loader_arg,
-    ) in _get_map_of_special_chain_class_to_loader_arg().items():
+    for special_chain_class, loader_arg in _get_map_of_special_chain_class_to_loader_arg().items():
         if isinstance(chain, special_chain_class):
             return _SpecialChainInfo(loader_arg=loader_arg)
 
@@ -348,10 +345,7 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
             _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(lc_model).__name__)
         )
 
-    _SUPPORTED_LLMS = {
-        langchain.llms.openai.OpenAI,
-        langchain.llms.huggingface_hub.HuggingFaceHub,
-    }
+    _SUPPORTED_LLMS = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
     if isinstance(lc_model, langchain.chains.llm.LLMChain) and not any(
         isinstance(lc_model.llm, supported_llm) for supported_llm in _SUPPORTED_LLMS
     ):
@@ -731,9 +725,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
     """
 
     def predict(
-        self,
-        data,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
     ):
         """
         :param data: Model input data.
@@ -746,11 +738,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         """
         import langchain
 
-        from mlflow.openai.utils import (
-            TEST_CONTENT,
-            TEST_INTERMEDIATE_STEPS,
-            TEST_SOURCE_DOCUMENTS,
-        )
+        from mlflow.openai.utils import TEST_CONTENT, TEST_INTERMEDIATE_STEPS, TEST_SOURCE_DOCUMENTS
 
         from tests.langchain.test_langchain_model_export import _mock_async_request
 

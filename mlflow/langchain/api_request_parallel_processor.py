@@ -84,6 +84,7 @@ class APIRequest:
             steps = response["intermediate_steps"]
             if (
                 isinstance(steps, tuple)
+                and len(steps) == 2
                 and isinstance(steps[0], AgentAction)
                 and isinstance(steps[1], str)
             ):
@@ -166,10 +167,7 @@ def process_api_requests(
                     # get new request
                     index, request_json = req
                     next_request = APIRequest(
-                        index=index,
-                        lc_model=lc_model,
-                        request_json=request_json,
-                        results=results,
+                        index=index, lc_model=lc_model, request_json=request_json, results=results
                     )
                     status_tracker.start_task()
 
