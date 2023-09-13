@@ -408,6 +408,8 @@ class MlflowGatewayClient:
             get_limits("my-new-route")
 
         """
+        if (not route):
+            raise MlflowException("A non-empty string required for route.", BAD_REQUEST)
         route_uri = assemble_uri_path([MLFLOW_GATEWAY_LIMITS_BASE, route])
         response = self._call_endpoint("GET", route_uri).json()
         return LimitsConfig(**response)
