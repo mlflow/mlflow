@@ -366,7 +366,6 @@ class MlflowGatewayClient:
 
             from mlflow.gateway import set_gateway_uri, set_limits
 
-            set_gateway_uri(gateway_uri="databricks")
 
             set_limits("my-new-route", [{"key": "user", "renewal_period": "minute", "calls": 50}])
 
