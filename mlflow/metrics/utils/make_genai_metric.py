@@ -1,3 +1,4 @@
+from multiprocessing import Pool
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from mlflow.exceptions import MlflowException
@@ -173,8 +174,45 @@ def make_genai_metric(
 
         eval_result = None
         if isinstance(eval_model, str):
-            # TODO: Add batch processing for messages here
-            eval_result = model_utils.score_model_on_payload(eval_model, payload)
+            # split payload into N batches, and call score_model_on_payload on each batch using multiprocessing. aggregate the result into a single result
+            # eval_result = model_utils.score_model_on_payload(eval_model, payload)
+
+            # Function to split payload into N batches
+            def split_into_batches(lst, num_batches):
+                avg = len(lst) // num_batches
+                rem = len(lst) % num_batches
+
+                batches = []
+                start = 0
+
+                for i in range(num_batches):
+                    end = start + avg + (i < rem)
+                    batches.append(lst[start:end])
+                    start = end
+
+                return batches
+
+            # Function to call score_model_on_payload on each batch
+            def process_batch(batch):
+                return model_utils.score_model_on_payload(eval_model, batch)
+
+            N = 4
+            # Split payload into N batches
+
+            payload_batches = split_into_batches(payload, N)
+
+            # Use multiprocessing to run score_model_on_payload on each batch
+            with Pool(N) as pool:
+                results = pool.map(process_batch, payload_batches)
+
+            aggregated_result = {}
+            for result in results:
+                for key, value in result.items():
+                    if key not in aggregated_result:
+                        aggregated_result[key] = []
+                    aggregated_result[key].extend(value)
+            eval_result = aggregated_result
+
         else:
             raise MlflowException(
                 message="The model argument must be a string URI referring to an openai model "
