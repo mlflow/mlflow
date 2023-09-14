@@ -2,16 +2,17 @@ import base64
 import json
 import logging
 import posixpath
-
-import psutil
 import re
-from typing import Optional, List
+from typing import List, Optional
 from urllib.parse import urlparse
 
-from mlflow.exceptions import MlflowException
+import psutil
+
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
-from mlflow.utils.uri import append_to_uri_path
+from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES
 from mlflow.utils.annotations import experimental
+from mlflow.utils.uri import append_to_uri_path
 
 _logger = logging.getLogger(__name__)
 _gateway_uri: Optional[str] = None
@@ -44,7 +45,10 @@ def kill_child_processes(parent_pid):
     """
     parent = psutil.Process(parent_pid)
     for child in parent.children(recursive=True):
-        child.terminate()
+        try:
+            child.terminate()
+        except psutil.NoSuchProcess:
+            pass
     _, still_alive = psutil.wait_procs(parent.children(), timeout=3)
     for p in still_alive:
         p.kill()
@@ -99,8 +103,8 @@ def get_gateway_uri() -> str:
     else:
         raise MlflowException(
             "No Gateway server uri has been set. Please either set the MLflow Gateway URI via "
-            f"`mlflow.set_gateway_uri()` or set the environment variable {MLFLOW_GATEWAY_URI.name} "
-            "to the running Gateway API server's uri"
+            "`mlflow.gateway.set_gateway_uri()` or set the environment variable "
+            f"{MLFLOW_GATEWAY_URI} to the running Gateway API server's uri"
         )
 
 
@@ -166,3 +170,10 @@ class SearchRoutesToken:
         )
         encoded_token_bytes = base64.b64encode(bytes(token_json, "utf-8"))
         return encoded_token_bytes.decode("utf-8")
+
+
+def is_valid_mosiacml_chat_model(model_name: str) -> bool:
+    return any(
+        model_name.lower().startswith(supported)
+        for supported in MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES
+    )

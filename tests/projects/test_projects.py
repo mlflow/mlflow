@@ -1,46 +1,40 @@
 import json
 import os
-import git
 import shutil
-import yaml
-import uuid
 import subprocess
-
-import pytest
+import uuid
 from unittest import mock
 
+import git
+import pytest
+import yaml
 from databricks_cli.configure.provider import DatabricksConfig
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.entities import RunStatus, ViewType, SourceType
+from mlflow.entities import RunStatus, SourceType, ViewType
+from mlflow.environment_variables import MLFLOW_CONDA_CREATE_ENV_CMD, MLFLOW_CONDA_HOME
 from mlflow.exceptions import ExecutionException, MlflowException
-from mlflow.projects import _parse_kubernetes_config
-from mlflow.projects import _resolve_experiment_id
+from mlflow.projects import _parse_kubernetes_config, _resolve_experiment_id
 from mlflow.store.tracking.file_store import FileStore
+from mlflow.utils import PYTHON_VERSION
+from mlflow.utils.conda import CONDA_EXE, get_or_create_conda_env
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_PARENT_RUN_ID,
-    MLFLOW_USER,
-    MLFLOW_SOURCE_NAME,
-    MLFLOW_SOURCE_TYPE,
-    MLFLOW_GIT_BRANCH,
-    MLFLOW_GIT_REPO_URL,
     LEGACY_MLFLOW_GIT_BRANCH_NAME,
     LEGACY_MLFLOW_GIT_REPO_URL,
-    MLFLOW_PROJECT_ENTRY_POINT,
+    MLFLOW_GIT_BRANCH,
+    MLFLOW_GIT_REPO_URL,
+    MLFLOW_PARENT_RUN_ID,
     MLFLOW_PROJECT_BACKEND,
+    MLFLOW_PROJECT_ENTRY_POINT,
     MLFLOW_PROJECT_ENV,
+    MLFLOW_SOURCE_NAME,
+    MLFLOW_SOURCE_TYPE,
+    MLFLOW_USER,
 )
 from mlflow.utils.process import ShellCommandException
-from mlflow.utils.conda import (
-    get_or_create_conda_env,
-    MLFLOW_CONDA_HOME,
-    MLFLOW_CONDA_CREATE_ENV_CMD,
-)
-from mlflow.utils import PYTHON_VERSION
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, validate_exit_status
-
 
 MOCK_USER = "janebloggs"
 
@@ -116,7 +110,7 @@ def test_run_local_git_repo(local_git_repo, local_git_repo_uri, use_start_run, v
     if version is not None:
         uri = local_git_repo_uri + "#" + TEST_PROJECT_NAME
     else:
-        uri = os.path.join("%s/" % local_git_repo, TEST_PROJECT_NAME)
+        uri = os.path.join(f"{local_git_repo}/", TEST_PROJECT_NAME)
     if version == "git-commit":
         version = _get_version_local_git_repo(local_git_repo)
     submitted_run = mlflow.projects.run(
@@ -247,7 +241,7 @@ def test_run_with_artifact_path(tmp_path):
         submitted_run = mlflow.projects.run(
             TEST_PROJECT_DIR,
             entry_point="test_artifact_path",
-            parameters={"model": "runs:/%s/model.pkl" % run.info.run_id},
+            parameters={"model": f"runs:/{run.info.run_id}/model.pkl"},
             env_manager="local",
             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
         )
@@ -282,12 +276,12 @@ def test_run_async():
     ("mock_env", "expected_conda", "expected_activate"),
     [
         (
-            {"CONDA_EXE": "/abc/conda"},
+            {CONDA_EXE: "/abc/conda"},
             "/abc/conda",
             "/abc/activate",
         ),
         (
-            {MLFLOW_CONDA_HOME: "/some/dir/"},
+            {MLFLOW_CONDA_HOME.name: "/some/dir/"},
             "/some/dir/bin/conda",
             "/some/dir/bin/activate",
         ),
@@ -295,7 +289,7 @@ def test_run_async():
 )
 def test_conda_path(mock_env, expected_conda, expected_activate, monkeypatch):
     """Verify that we correctly determine the path to conda executables"""
-    monkeypatch.delenvs(["CONDA_EXE", MLFLOW_CONDA_HOME], raising=False)
+    monkeypatch.delenvs([CONDA_EXE, MLFLOW_CONDA_HOME.name], raising=False)
     monkeypatch.setenvs(mock_env)
     assert mlflow.utils.conda.get_conda_bin_executable("conda") == expected_conda
     assert mlflow.utils.conda.get_conda_bin_executable("activate") == expected_activate
@@ -305,19 +299,19 @@ def test_conda_path(mock_env, expected_conda, expected_activate, monkeypatch):
     ("mock_env", "expected_conda_env_create_path"),
     [
         (
-            {"CONDA_EXE": "/abc/conda"},
+            {CONDA_EXE: "/abc/conda"},
             "/abc/conda",
         ),
         (
-            {"CONDA_EXE": "/abc/conda", MLFLOW_CONDA_CREATE_ENV_CMD: "mamba"},
+            {CONDA_EXE: "/abc/conda", MLFLOW_CONDA_CREATE_ENV_CMD.name: "mamba"},
             "/abc/mamba",
         ),
         (
-            {MLFLOW_CONDA_HOME: "/some/dir/"},
+            {MLFLOW_CONDA_HOME.name: "/some/dir/"},
             "/some/dir/bin/conda",
         ),
         (
-            {MLFLOW_CONDA_HOME: "/some/dir/", MLFLOW_CONDA_CREATE_ENV_CMD: "mamba"},
+            {MLFLOW_CONDA_HOME.name: "/some/dir/", MLFLOW_CONDA_CREATE_ENV_CMD.name: "mamba"},
             "/some/dir/bin/mamba",
         ),
     ],
@@ -328,7 +322,7 @@ def test_find_conda_executables(mock_env, expected_conda_env_create_path, monkey
     create environments (for example, it could be mamba instead of conda)
     """
     monkeypatch.delenvs(
-        ["CONDA_EXE", MLFLOW_CONDA_HOME, MLFLOW_CONDA_CREATE_ENV_CMD], raising=False
+        [CONDA_EXE, MLFLOW_CONDA_HOME.name, MLFLOW_CONDA_CREATE_ENV_CMD.name], raising=False
     )
     monkeypatch.setenvs(mock_env)
     conda_env_create_path = mlflow.utils.conda._get_conda_executable_for_create_env()
@@ -359,7 +353,7 @@ def test_create_env_with_mamba(monkeypatch):
 
     conda_env_path = os.path.join(TEST_PROJECT_DIR, "conda.yaml")
 
-    monkeypatch.setenv(mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD, "mamba")
+    monkeypatch.setenv(MLFLOW_CONDA_CREATE_ENV_CMD.name, "mamba")
     # Simulate success
     with mock.patch("mlflow.utils.process._exec_cmd", side_effect=exec_cmd_mock):
         mlflow.utils.conda.get_or_create_conda_env(conda_env_path)

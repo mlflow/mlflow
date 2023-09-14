@@ -4,7 +4,7 @@ import '@ag-grid-community/core/dist/styles/ag-theme-balham.css';
 import { AgGridReact } from '@ag-grid-community/react';
 import React from 'react';
 import { IntlProvider } from 'react-intl';
-import { StaticRouter } from 'react-router-dom-v5-compat';
+import { StaticRouter } from '../../../../../../common/utils/RoutingUtils';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../../fixtures/experiment-runs.fixtures';
 import {
   RunRowDateAndNestInfo,

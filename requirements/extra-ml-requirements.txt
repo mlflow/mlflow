@@ -42,7 +42,7 @@ holidays!=0.25
 prophet
 # Required by mlflow.shap
 # and shap evaluation functionality
-shap>=0.40
+shap>=0.42.1
 # Required by mlflow.pmdarima
 pmdarima
 # Required by mlflow.diviner

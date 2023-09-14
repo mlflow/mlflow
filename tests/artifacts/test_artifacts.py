@@ -1,16 +1,15 @@
 import pathlib
 import uuid
-from unittest import mock
+from collections import namedtuple
 from typing import NamedTuple
+from unittest import mock
 
 import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.utils.file_utils import path_to_local_file_uri, mkdir, local_file_uri_to_path
-from collections import namedtuple
+from mlflow.utils.file_utils import local_file_uri_to_path, mkdir, path_to_local_file_uri
 from mlflow.utils.os import is_windows
-
 
 Artifact = namedtuple("Artifact", ["uri", "content"])
 

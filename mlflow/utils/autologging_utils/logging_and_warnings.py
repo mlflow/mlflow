@@ -2,7 +2,8 @@ import os
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
-from threading import RLock, get_ident as get_current_thread_id
+from threading import RLock
+from threading import get_ident as get_current_thread_id
 
 import mlflow
 from mlflow.utils import logging_utils
@@ -13,7 +14,7 @@ class _WarningsController:
     Provides threadsafe utilities to modify warning behavior for MLflow autologging, including:
 
     - Global disablement of MLflow warnings across all threads
-    - Global rerouting of MLflow warnings to an MLflow event logger (i.e. `logger.warn()`)
+    - Global rerouting of MLflow warnings to an MLflow event logger (i.e. `logger.warning()`)
       across all threads
     - Disablement of non-MLflow warnings for the current thread
     - Rerouting of non-MLflow warnings to an MLflow event logger for the current thread

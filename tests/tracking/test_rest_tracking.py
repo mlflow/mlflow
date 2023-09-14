@@ -2,63 +2,61 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
-import pathlib
-
-import flask
 import json
-import os
-import sys
-import posixpath
 import logging
+import math
+import os
+import pathlib
+import posixpath
+import sys
 import time
 import urllib.parse
-import requests
-import pandas as pd
-import math
 from unittest import mock
 
+import flask
+import pandas as pd
 import pytest
+import requests
 
+import mlflow.experiments
+import mlflow.pyfunc
 from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
 from mlflow.data.pandas_dataset import from_pandas
-from mlflow.utils import mlflow_tags
-import mlflow.experiments
-from mlflow.exceptions import MlflowException
 from mlflow.entities import (
+    Dataset,
+    DatasetInput,
+    InputTag,
     Metric,
     Param,
+    RunInputs,
     RunTag,
     ViewType,
-    DatasetInput,
-    Dataset,
-    InputTag,
-    RunInputs,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-import mlflow.pyfunc
 from mlflow.server.handlers import validate_path_is_safe
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.utils.file_utils import TempDir
+from mlflow.utils import mlflow_tags
+from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_USER,
-    MLFLOW_PARENT_RUN_ID,
-    MLFLOW_SOURCE_TYPE,
-    MLFLOW_SOURCE_NAME,
-    MLFLOW_PROJECT_ENTRY_POINT,
-    MLFLOW_GIT_COMMIT,
     MLFLOW_DATASET_CONTEXT,
+    MLFLOW_GIT_COMMIT,
+    MLFLOW_PARENT_RUN_ID,
+    MLFLOW_PROJECT_ENTRY_POINT,
+    MLFLOW_SOURCE_NAME,
+    MLFLOW_SOURCE_TYPE,
+    MLFLOW_USER,
 )
-from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.time import get_current_time_millis
+
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
     _init_server,
     _send_rest_tracking_post_request,
 )
-
 
 _logger = logging.getLogger(__name__)
 
@@ -241,7 +239,7 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
         },
     }
     experiment_id = mlflow_client.create_experiment(
-        "Run A Lot (parent_run_id=%s)" % (parent_run_id_kwarg)
+        f"Run A Lot (parent_run_id={parent_run_id_kwarg})"
     )
     created_run = mlflow_client.create_run(experiment_id, **create_run_kwargs)
     run_id = created_run.info.run_id
@@ -894,13 +892,13 @@ def test_artifacts(mlflow_client, tmp_path):
     all_artifacts = download_artifacts(
         run_id=run_id, artifact_path=".", tracking_uri=mlflow_client.tracking_uri
     )
-    assert open("%s/my.file" % all_artifacts).read() == "Hello, World!"
-    assert open("%s/dir/my.file" % all_artifacts).read() == "Hello, World!"
+    assert open(f"{all_artifacts}/my.file").read() == "Hello, World!"
+    assert open(f"{all_artifacts}/dir/my.file").read() == "Hello, World!"
 
     dir_artifacts = download_artifacts(
         run_id=run_id, artifact_path="dir", tracking_uri=mlflow_client.tracking_uri
     )
-    assert open("%s/my.file" % dir_artifacts).read() == "Hello, World!"
+    assert open(f"{dir_artifacts}/my.file").read() == "Hello, World!"
 
 
 def test_search_pagination(mlflow_client):
@@ -1195,27 +1193,27 @@ def test_search_dataset_handler_rejects_invalid_requests(mlflow_client):
         assert response_json.get("error_code") == "INVALID_PARAMETER_VALUE"
         assert message_part in response_json.get("message", "")
 
-    response_no_experiment_id_field = requests.get(
+    response_no_experiment_id_field = requests.post(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/experiments/search-datasets",
-        params={},
+        json={},
     )
     assert_response(
         response_no_experiment_id_field,
         "SearchDatasets request must specify at least one experiment_id.",
     )
 
-    response_empty_experiment_id_field = requests.get(
+    response_empty_experiment_id_field = requests.post(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/experiments/search-datasets",
-        params={"experiment_id": []},
+        json={"experiment_ids": []},
     )
     assert_response(
         response_empty_experiment_id_field,
         "SearchDatasets request must specify at least one experiment_id.",
     )
 
-    response_too_many_experiment_ids = requests.get(
+    response_too_many_experiment_ids = requests.post(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/experiments/search-datasets",
-        params={"experiment_id": [f"id_{i}" for i in range(1000)]},
+        json={"experiment_ids": [f"id_{i}" for i in range(1000)]},
     )
     assert_response(
         response_too_many_experiment_ids,
@@ -1241,9 +1239,9 @@ def test_search_dataset_handler_returns_expected_results(mlflow_client):
     ]
     mlflow_client.log_inputs(run_id, dataset_inputs1)
 
-    response = requests.get(
+    response = requests.post(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/experiments/search-datasets",
-        params={"experiment_id": [experiment_id]},
+        json={"experiment_ids": [experiment_id]},
     )
     expected = {
         "experiment_id": experiment_id,
@@ -1678,3 +1676,229 @@ def test_update_run_name_without_changing_status(mlflow_client):
     updated_run_info = mlflow_client.get_run(created_run.info.run_id).info
     assert updated_run_info.run_name == "name_abc"
     assert updated_run_info.status == "FINISHED"
+
+
+def test_create_promptlab_run_handler_rejects_invalid_requests(mlflow_client):
+    def assert_response(resp, message_part):
+        assert resp.status_code == 400
+        response_json = resp.json()
+        assert response_json.get("error_code") == "INVALID_PARAMETER_VALUE"
+        assert message_part in response_json.get("message", "")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        json={},
+    )
+    assert_response(
+        response,
+        "CreatePromptlabRun request must specify experiment_id.",
+    )
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        json={"experiment_id": "123"},
+    )
+    assert_response(
+        response,
+        "CreatePromptlabRun request must specify prompt_template.",
+    )
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        json={"experiment_id": "123", "prompt_template": "my_prompt_template"},
+    )
+    assert_response(
+        response,
+        "CreatePromptlabRun request must specify prompt_parameters.",
+    )
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        json={
+            "experiment_id": "123",
+            "prompt_template": "my_prompt_template",
+            "prompt_parameters": [{"key": "my_key", "value": "my_value"}],
+        },
+    )
+    assert_response(
+        response,
+        "CreatePromptlabRun request must specify model_route.",
+    )
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        json={
+            "experiment_id": "123",
+            "prompt_template": "my_prompt_template",
+            "prompt_parameters": [{"key": "my_key", "value": "my_value"}],
+            "model_route": "my_route",
+        },
+    )
+    assert_response(
+        response,
+        "CreatePromptlabRun request must specify model_input.",
+    )
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        json={
+            "experiment_id": "123",
+            "prompt_template": "my_prompt_template",
+            "prompt_parameters": [{"key": "my_key", "value": "my_value"}],
+            "model_route": "my_route",
+            "model_input": "my_input",
+        },
+    )
+    assert_response(
+        response,
+        "CreatePromptlabRun request must specify mlflow_version.",
+    )
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        json={
+            "experiment_id": "123",
+            "prompt_template": "my_prompt_template",
+            "prompt_parameters": [{"key": "my_key", "value": "my_value"}],
+            "model_route": "my_route",
+            "model_input": "my_input",
+            "mlflow_version": "1.0.0",
+        },
+    )
+
+
+def test_create_promptlab_run_handler_returns_expected_results(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("log inputs test")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/runs/create-promptlab-run",
+        json={
+            "experiment_id": experiment_id,
+            "run_name": "my_run_name",
+            "prompt_template": "my_prompt_template",
+            "prompt_parameters": [{"key": "my_key", "value": "my_value"}],
+            "model_route": "my_route",
+            "model_parameters": [{"key": "temperature", "value": "0.1"}],
+            "model_input": "my_input",
+            "model_output": "my_output",
+            "model_output_parameters": [{"key": "latency", "value": "100"}],
+            "mlflow_version": "1.0.0",
+            "user_id": "username",
+            "start_time": 456,
+        },
+    )
+    assert response.status_code == 200
+    run_json = response.json()
+    assert run_json["run"]["info"]["run_name"] == "my_run_name"
+    assert run_json["run"]["info"]["experiment_id"] == experiment_id
+    assert run_json["run"]["info"]["user_id"] == "username"
+    assert run_json["run"]["info"]["status"] == "FINISHED"
+    assert run_json["run"]["info"]["start_time"] == 456
+
+    assert {"key": "model_route", "value": "my_route"} in run_json["run"]["data"]["params"]
+    assert {"key": "prompt_template", "value": "my_prompt_template"} in run_json["run"]["data"][
+        "params"
+    ]
+    assert {"key": "temperature", "value": "0.1"} in run_json["run"]["data"]["params"]
+
+    assert {
+        "key": "mlflow.loggedArtifacts",
+        "value": '[{"path": "eval_results_table.json", ' '"type": "table"}]',
+    } in run_json["run"]["data"]["tags"]
+    assert {"key": "mlflow.runSourceType", "value": "PROMPT_ENGINEERING"} in run_json["run"][
+        "data"
+    ]["tags"]
+
+
+def test_gateway_proxy_handler_rejects_invalid_requests(mlflow_client):
+    def assert_response(resp, message_part):
+        assert resp.status_code == 400
+        response_json = resp.json()
+        assert response_json.get("error_code") == "INVALID_PARAMETER_VALUE"
+        assert message_part in response_json.get("message", "")
+
+    with _init_server(
+        backend_uri=mlflow_client.tracking_uri,
+        root_artifact_uri=mlflow_client.tracking_uri,
+        extra_env={"MLFLOW_GATEWAY_URI": "http://localhost:5001"},
+    ) as url:
+        patched_client = MlflowClient(url)
+
+        response = requests.post(
+            f"{patched_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
+            json={},
+        )
+        assert_response(
+            response,
+            "GatewayProxy request must specify a gateway_path.",
+        )
+
+
+def test_upload_artifact_handler_rejects_invalid_requests(mlflow_client):
+    def assert_response(resp, message_part):
+        assert resp.status_code == 400
+        response_json = resp.json()
+        assert response_json.get("error_code") == "INVALID_PARAMETER_VALUE"
+        assert message_part in response_json.get("message", "")
+
+    experiment_id = mlflow_client.create_experiment("upload_artifacts_test")
+    created_run = mlflow_client.create_run(experiment_id)
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact", params={}
+    )
+    assert_response(response, "Request must specify run_uuid.")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
+        params={
+            "run_uuid": created_run.info.run_id,
+        },
+    )
+    assert_response(response, "Request must specify path.")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
+        params={"run_uuid": created_run.info.run_id, "path": ""},
+    )
+    assert_response(response, "Request must specify path.")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
+        params={"run_uuid": created_run.info.run_id, "path": "../test.txt"},
+    )
+    assert_response(response, "Invalid path")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
+        params={
+            "run_uuid": created_run.info.run_id,
+            "path": "test.txt",
+        },
+    )
+    assert_response(response, "Request must specify data.")
+
+
+def test_upload_artifact_handler(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("upload_artifacts_test")
+    created_run = mlflow_client.create_run(experiment_id)
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
+        params={
+            "run_uuid": created_run.info.run_id,
+            "path": "test.txt",
+        },
+        data="hello world",
+    )
+    assert response.status_code == 200
+
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/get-artifact",
+        params={
+            "run_uuid": created_run.info.run_id,
+            "path": "test.txt",
+        },
+    )
+    assert response.status_code == 200
+    assert response.text == "hello world"

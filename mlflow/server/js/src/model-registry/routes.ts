@@ -22,3 +22,12 @@ export const PANES = Object.freeze({
   DETAILS: 'details',
   SERVING: 'serving',
 });
+
+export const getRouteDefs = () => [
+  // TODO(ML-33996): Add new model registry route definitions here
+  // {
+  //   path: createMLflowRoutePath('/models'),
+  //   component: () => import('./components/ModelListPage'),
+  //   pageId: 'mlflow.models.list',
+  // },
+];

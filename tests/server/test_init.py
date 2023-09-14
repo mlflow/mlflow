@@ -2,8 +2,8 @@ from unittest import mock
 
 import pytest
 
-from mlflow.exceptions import MlflowException
 from mlflow import server
+from mlflow.exceptions import MlflowException
 
 
 @pytest.fixture

@@ -1,5 +1,5 @@
-import pytest
 import pydantic
+import pytest
 
 from mlflow.gateway.schemas import embeddings
 
@@ -10,7 +10,7 @@ def test_embeddings_request():
     embeddings.RequestPayload(**{"text": ["prompt"]})
     embeddings.RequestPayload(**{"text": "text", "extra": "extra", "another_extra": 1})
 
-    with pytest.raises(pydantic.ValidationError, match="field required"):
+    with pytest.raises(pydantic.ValidationError, match=r"(?i)field required"):
         embeddings.RequestPayload(**{})
 
 
@@ -40,5 +40,5 @@ def test_embeddings_response():
         }
     )
 
-    with pytest.raises(pydantic.ValidationError, match="field required"):
+    with pytest.raises(pydantic.ValidationError, match=r"(?i)field required"):
         embeddings.ResponsePayload(**{"metadata": {}})

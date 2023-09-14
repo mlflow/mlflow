@@ -2,15 +2,16 @@
 Renders the statistics of logged data in a HTML format.
 """
 import base64
+import sys
+from typing import Iterable, Tuple, Union
+
 import numpy as np
 import pandas as pd
-import sys
 from packaging.version import Version
 
-from typing import Union, Iterable, Tuple
+from mlflow.exceptions import MlflowException
 from mlflow.protos import facet_feature_statistics_pb2
 from mlflow.recipes.cards import histogram_generator
-from mlflow.exceptions import MlflowException
 
 # Number of categorical strings values to be rendered as part of the histogram
 HISTOGRAM_CATEGORICAL_LEVELS_COUNT = 100
@@ -265,8 +266,7 @@ def construct_facets_html(
         <facets-overview id="facets" proto-input="{protostr}" compare-mode="{compare}"></facets-overview>
         </div>
     """
-    html = html_template.format(protostr=protostr, compare=compare, polyfills_code=polyfills_code)
-    return html
+    return html_template.format(protostr=protostr, compare=compare, polyfills_code=polyfills_code)
 
 
 def get_html(inputs: Union[pd.DataFrame, Iterable[Tuple[str, pd.DataFrame]]]) -> str:
@@ -285,5 +285,4 @@ def get_html(inputs: Union[pd.DataFrame, Iterable[Tuple[str, pd.DataFrame]]]) ->
         proto = convert_to_comparison_proto(inputs)
         compare = True
 
-    html = construct_facets_html(proto, compare=compare)
-    return html
+    return construct_facets_html(proto, compare=compare)

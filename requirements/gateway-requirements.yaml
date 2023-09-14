@@ -1,10 +1,12 @@
 # These are the extra requirements for MLflow Gateway, which can be installed
 # on top of the core requirements using `pip install mlflow[gateway]`.
+# When we release a new major/minor version, this file is automatically updated
+# as a part of the release process.
 
 pydantic:
   pip_release: pydantic
   minimum: "1.0"
-  max_major_version: 1
+  max_major_version: 2
 
 fastapi:
   pip_release: fastapi

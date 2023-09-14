@@ -6,8 +6,8 @@ import pandas as pd
 import pytest
 
 import mlflow.data
-from mlflow.data.code_dataset_source import CodeDatasetSource
 import mlflow.data.huggingface_dataset
+from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.dataset_source_registry import get_dataset_source_from_json
 from mlflow.data.huggingface_dataset import HuggingFaceDataset
 from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource

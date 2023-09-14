@@ -1,18 +1,18 @@
 import abc
+import functools
 import inspect
 import itertools
-import functools
+import typing
 import uuid
 from abc import abstractmethod
 from contextlib import contextmanager
-import typing
 
 import mlflow
 import mlflow.utils.autologging_utils
 from mlflow.entities.run_status import RunStatus
+from mlflow.environment_variables import _MLFLOW_AUTOLOGGING_TESTING
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils import gorilla
-from mlflow.utils import is_iterator
+from mlflow.utils import gorilla, is_iterator
 from mlflow.utils.autologging_utils import _logger
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
@@ -20,7 +20,6 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (
     set_non_mlflow_warnings_behavior_for_current_thread,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
-from mlflow.environment_variables import _MLFLOW_AUTOLOGGING_TESTING
 
 _AUTOLOGGING_PATCHES = {}
 
@@ -52,8 +51,7 @@ def exception_safe_function_for_class(function):
             else:
                 _logger.warning("Encountered unexpected error during autologging: %s", e)
 
-    safe_function = update_wrapper_extended(safe_function, function)
-    return safe_function
+    return update_wrapper_extended(safe_function, function)
 
 
 def _safe_function(function, *args, **kwargs):
@@ -311,7 +309,7 @@ def safe_patch(
                        `patch_function`.
     :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
-    from mlflow.utils.autologging_utils import get_autologging_config, autologging_is_disabled
+    from mlflow.utils.autologging_utils import autologging_is_disabled, get_autologging_config
 
     if manage_run:
         tags = {MLFLOW_AUTOLOGGING: autologging_integration}
@@ -594,9 +592,9 @@ def safe_patch(
                 if is_testing() and not preexisting_run_for_testing:
                     # If an MLflow run was created during the execution of patch code, verify that
                     # it is no longer active and that it contains expected autologging tags
-                    assert not mlflow.active_run(), (
-                        "Autologging integration %s leaked an active run" % autologging_integration
-                    )
+                    assert (
+                        not mlflow.active_run()
+                    ), f"Autologging integration {autologging_integration} leaked an active run"
                     if patch_function_run_for_testing:
                         _validate_autologging_run(
                             autologging_integration, patch_function_run_for_testing.info.run_id
@@ -652,13 +650,12 @@ def safe_patch(
             def bound_safe_patch_fn(*args, **kwargs):
                 return safe_patch_function(self, *args, **kwargs)
 
-            # Make bound method `instance.target_method` keep the same doc and signature
-            bound_safe_patch_fn = update_wrapper_extended(bound_safe_patch_fn, original_fn.fget)
+            # Make bound method `instance.target_method` keep the same doc and signature.
             # Here return the bound safe patch function because user call property decorated
             # method will like `instance.property_decorated_method(...)`, and internally it will
             # call the `bound_safe_patch_fn`, the argument list don't include the `self` argument,
             # so return bound function here.
-            return bound_safe_patch_fn
+            return update_wrapper_extended(bound_safe_patch_fn, original_fn.fget)
 
         # Make unbound method `class.target_method` keep the same doc and signature
         get_bound_safe_patch_fn = update_wrapper_extended(get_bound_safe_patch_fn, original_fn.fget)
@@ -1041,16 +1038,3 @@ def _validate_args(
                 autologging_call_kwargs[key],
                 user_call_kwargs.get(key, None),
             )
-
-
-__all__ = [
-    "safe_patch",
-    "is_testing",
-    "exception_safe_function_for_class",
-    "picklable_exception_safe_function",
-    "ExceptionSafeClass",
-    "ExceptionSafeAbstractClass",
-    "PatchFunction",
-    "with_managed_run",
-    "update_wrapper_extended",
-]

@@ -28,91 +28,62 @@ implement mutual exclusion manually.
 For a lower level API, see the :py:mod:`mlflow.client` module.
 """
 import contextlib
-from mlflow.version import VERSION as __version__  # pylint: disable=unused-import
-from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
 # Filter annoying Cython warnings that serve no good purpose, and so before
 # importing other modules.
 # See: https://github.com/numpy/numpy/pull/432/commits/170ed4e33d6196d7
 import warnings
 
+from mlflow.utils.lazy_load import LazyLoader
+from mlflow.utils.logging_utils import _configure_mlflow_loggers
+from mlflow.version import VERSION as __version__  # noqa: F401
+
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
-from mlflow import projects  # pylint: disable=unused-import
-from mlflow import tracking  # pylint: disable=unused-import
-from mlflow import models  # pylint: disable=unused-import
-from mlflow import artifacts  # pylint: disable=unused-import
-from mlflow import client  # pylint: disable=unused-import
-from mlflow import exceptions  # pylint: disable=unused-import
-from mlflow import data  # pylint: disable=unused-import
+from mlflow import (
+    artifacts,  # noqa: F401
+    client,  # noqa: F401
+    data,  # noqa: F401
+    exceptions,  # noqa: F401
+    models,  # noqa: F401
+    projects,  # noqa: F401
+    tracking,  # noqa: F401
+)
 
-# model flavors
-_model_flavors_supported = []
-try:
-    # pylint: disable=unused-import
-    from mlflow import catboost
-    from mlflow import fastai
-    from mlflow import gluon
-    from mlflow import h2o
-    from mlflow import lightgbm
-    from mlflow import mleap
-    from mlflow import onnx
-    from mlflow import recipes
-    from mlflow import pyfunc
-    from mlflow import pytorch
-    from mlflow import sklearn
-    from mlflow import spacy
-    from mlflow import spark
-    from mlflow import statsmodels
-    from mlflow import tensorflow
-    from mlflow import xgboost
-    from mlflow import shap
-    from mlflow import pyspark
-    from mlflow import paddle
-    from mlflow import prophet
-    from mlflow import pmdarima
-    from mlflow import diviner
-    from mlflow import transformers
-    from mlflow import langchain
-    from mlflow import llm
-    from mlflow import openai
-    from mlflow import sentence_transformers
-    from mlflow import johnsnowlabs
-
-    _model_flavors_supported = [
-        "catboost",
-        "fastai",
-        "gluon",
-        "h2o",
-        "lightgbm",
-        "mleap",
-        "onnx",
-        "pyfunc",
-        "pytorch",
-        "sklearn",
-        "spacy",
-        "spark",
-        "statsmodels",
-        "tensorflow",
-        "keras",
-        "xgboost",
-        "shap",
-        "paddle",
-        "prophet",
-        "pmdarima",
-        "diviner",
-        "transformers",
-        "langchain",
-        "llm",
-        "openai",
-        "sentence_transformers",
-        "johnsnowlabs",
-    ]
-except ImportError:
-    # We are conditional loading these commands since the skinny client does
-    # not support them due to the pandas and numpy dependencies of MLflow Models
-    pass
+# Lazily load mlflow flavors to avoid excessive dependencies.
+catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
+diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
+fastai = LazyLoader("mlflow.fastai", globals(), "mlflow.fastai")
+gluon = LazyLoader("mlflow.gluon", globals(), "mlflow.gluon")
+h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
+johnsnowlabs = LazyLoader("mlflow.johnsnowlabs", globals(), "mlflow.johnsnowlabs")
+langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
+lightgbm = LazyLoader("mlflow.lightgbm", globals(), "mlflow.lightgbm")
+llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
+mleap = LazyLoader("mlflow.mleap", globals(), "mlflow.mleap")
+onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
+openai = LazyLoader("mlflow.openai", globals(), "mlflow.openai")
+paddle = LazyLoader("mlflow.paddle", globals(), "mlflow.paddle")
+pmdarima = LazyLoader("mlflow.pmdarima", globals(), "mlflow.pmdarima")
+prophet = LazyLoader("mlflow.prophet", globals(), "mlflow.prophet")
+pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
+pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
+pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
+recipes = LazyLoader("mlflow.recipes", globals(), "mlflow.recipes")
+sentence_transformers = LazyLoader(
+    "mlflow.sentence_transformers",
+    globals(),
+    "mlflow.sentence_transformers",
+)
+shap = LazyLoader("mlflow.shap", globals(), "mlflow.shap")
+sklearn = LazyLoader("mlflow.sklearn", globals(), "mlflow.sklearn")
+spacy = LazyLoader("mlflow.spacy", globals(), "mlflow.spacy")
+spark = LazyLoader("mlflow.spark", globals(), "mlflow.spark")
+statsmodels = LazyLoader("mlflow.statsmodels", globals(), "mlflow.statsmodels")
+tensorflow = LazyLoader("mlflow.tensorflow", globals(), "mlflow.tensorflow")
+transformers = LazyLoader("mlflow.transformers", globals(), "mlflow.transformers")
+xgboost = LazyLoader("mlflow.xgboost", globals(), "mlflow.xgboost")
 
 _configure_mlflow_loggers(root_module_name=__name__)
 
@@ -136,60 +107,60 @@ _configure_mlflow_loggers(root_module_name=__name__)
 #         stacklevel=2,
 #     )
 
-from mlflow.tracking.fluent import (
-    ActiveRun,
-    log_param,
-    log_metric,
-    set_tag,
-    delete_tag,
-    log_artifacts,
-    log_artifact,
-    log_text,
-    log_dict,
-    log_image,
-    log_figure,
-    log_table,
-    load_table,
-    active_run,
-    get_run,
-    start_run,
-    end_run,
-    search_runs,
-    get_artifact_uri,
-    get_experiment,
-    get_experiment_by_name,
-    search_experiments,
-    create_experiment,
-    set_experiment,
-    log_params,
-    log_metrics,
-    set_experiment_tags,
-    set_experiment_tag,
-    set_tags,
-    delete_experiment,
-    delete_run,
-    autolog,
-    last_active_run,
-    log_input,
-    get_parent_run,
+from mlflow._doctor import doctor
+from mlflow.client import MlflowClient
+from mlflow.exceptions import MlflowException
+from mlflow.models import evaluate
+from mlflow.projects import run
+from mlflow.tracking import (
+    get_registry_uri,
+    get_tracking_uri,
+    is_tracking_uri_set,
+    set_registry_uri,
+    set_tracking_uri,
 )
 from mlflow.tracking._model_registry.fluent import (
     register_model,
-    search_registered_models,
     search_model_versions,
+    search_registered_models,
 )
-from mlflow.tracking import (
-    get_tracking_uri,
-    set_tracking_uri,
-    is_tracking_uri_set,
-    set_registry_uri,
-    get_registry_uri,
+from mlflow.tracking.fluent import (
+    ActiveRun,
+    active_run,
+    autolog,
+    create_experiment,
+    delete_experiment,
+    delete_run,
+    delete_tag,
+    end_run,
+    get_artifact_uri,
+    get_experiment,
+    get_experiment_by_name,
+    get_parent_run,
+    get_run,
+    last_active_run,
+    load_table,
+    log_artifact,
+    log_artifacts,
+    log_dict,
+    log_figure,
+    log_image,
+    log_input,
+    log_metric,
+    log_metrics,
+    log_param,
+    log_params,
+    log_table,
+    log_text,
+    search_experiments,
+    search_runs,
+    set_experiment,
+    set_experiment_tag,
+    set_experiment_tags,
+    set_tag,
+    set_tags,
+    start_run,
 )
-from mlflow.models import evaluate
-from mlflow.client import MlflowClient
-from mlflow.exceptions import MlflowException
-from mlflow.projects import run
-from mlflow._doctor import doctor
 
 __all__ = [
     "ActiveRun",
@@ -240,11 +211,13 @@ __all__ = [
     "doctor",
     "MlflowClient",
     "MlflowException",
-] + _model_flavors_supported
+]
 
-# `mlflow.gateway` depends on optional dependencies such as pydantic.
-# Importing this module fails if they are not installed.
-with contextlib.suppress(ImportError):
-    from mlflow import gateway  # pylint: disable=unused-import
+
+# `mlflow.gateway` depends on optional dependencies such as pydantic and has version
+# restrictions for dependencies. Importing this module fails if they are not installed or
+# if invalid versions of these required packages are installed.
+with contextlib.suppress(Exception):
+    from mlflow import gateway  # noqa: F401
 
     __all__.append("gateway")

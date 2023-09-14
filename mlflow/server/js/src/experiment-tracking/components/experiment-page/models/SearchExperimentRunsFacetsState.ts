@@ -10,7 +10,7 @@ import {
 import { SerializedRunsCompareCardConfigCard } from '../../runs-compare/runs-compare.types';
 import { makeCanonicalSortKey } from '../utils/experimentPage.column-utils';
 import { shouldEnableExperimentDatasetTracking } from '../../../../common/utils/FeatureUtils';
-import type { ExperimentViewRunsCompareMode } from '../../../types';
+import type { DatasetSummary, ExperimentViewRunsCompareMode } from '../../../types';
 
 const getDefaultSelectedColumns = () => {
   const result = [
@@ -34,11 +34,19 @@ const getDefaultSelectedColumns = () => {
 export const clearSearchExperimentsFacetsFilters = (
   currentSearchFacetsState: SearchExperimentRunsFacetsState,
 ) => {
-  const { lifecycleFilter, modelVersionFilter, searchFilter, startTime, orderByAsc, orderByKey } =
-    new SearchExperimentRunsFacetsState();
+  const {
+    lifecycleFilter,
+    datasetsFilter,
+    modelVersionFilter,
+    searchFilter,
+    startTime,
+    orderByAsc,
+    orderByKey,
+  } = new SearchExperimentRunsFacetsState();
   return {
     ...currentSearchFacetsState,
     lifecycleFilter,
+    datasetsFilter,
     modelVersionFilter,
     searchFilter,
     startTime,
@@ -55,10 +63,12 @@ export const clearSearchExperimentsFacetsFilters = (
 export const isSearchFacetsFilterUsed = (
   currentSearchFacetsState: SearchExperimentRunsFacetsState,
 ) => {
-  const { lifecycleFilter, modelVersionFilter, searchFilter, startTime } = currentSearchFacetsState;
+  const { lifecycleFilter, modelVersionFilter, datasetsFilter, searchFilter, startTime } =
+    currentSearchFacetsState;
   return Boolean(
     lifecycleFilter !== DEFAULT_LIFECYCLE_FILTER ||
       modelVersionFilter !== DEFAULT_MODEL_VERSION_FILTER ||
+      datasetsFilter.length !== 0 ||
       searchFilter ||
       startTime !== DEFAULT_START_TIME,
   );
@@ -94,6 +104,11 @@ export class SearchExperimentRunsFacetsState {
    * Lifecycle filter of runs to display
    */
   lifecycleFilter = DEFAULT_LIFECYCLE_FILTER;
+
+  /**
+   * Datasets filter of runs to display
+   */
+  datasetsFilter: DatasetSummary[] = [];
 
   /**
    * Filter of model versions to display

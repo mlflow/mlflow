@@ -1,6 +1,7 @@
-from packaging.version import Version
 import hashlib
-from typing import List, Any
+from typing import Any, List
+
+from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -133,8 +134,8 @@ def compute_spark_df_digest(df) -> str:
     :return: A string digest.
     """
 
-    import pyspark
     import numpy as np
+    import pyspark
 
     # Spark 3.1.0+ has a semanticHash() method on DataFrame
     if Version(pyspark.__version__) >= Version("3.1.0"):

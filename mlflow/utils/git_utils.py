@@ -2,7 +2,6 @@ import logging
 import os
 from typing import Optional
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -47,8 +46,7 @@ def get_git_commit(path: str) -> Optional[str]:
         if os.path.isfile(path):
             path = os.path.dirname(path)
         repo = Repo(path, search_parent_directories=True)
-        commit = repo.head.commit.hexsha
-        return commit
+        return repo.head.commit.hexsha
     except Exception:
         return None
 

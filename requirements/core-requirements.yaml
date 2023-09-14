@@ -1,7 +1,8 @@
 # These are the core requirements for the complete MLflow platform, which augments
 # the skinny client functionality with support for running the MLflow Tracking
 # Server & UI. It also adds project backends such as Docker and Kubernetes among
-# other capabilities.
+# other capabilities. When we release a new major/minor version, this file is
+# automatically updated as a part of the release process.
 
 alembic:
   pip_release: alembic
@@ -41,7 +42,7 @@ sqlalchemy:
 
 gunicorn:
   pip_release: gunicorn
-  max_major_version: 20
+  max_major_version: 21
   markers: "platform_system != 'Windows'"
 
 waitress:
@@ -56,7 +57,7 @@ scikit-learn:
 pyarrow:
   pip_release: pyarrow
   minimum: "4.0.0"
-  max_major_version: 12
+  max_major_version: 13
 
 markdown:
   pip_release: markdown

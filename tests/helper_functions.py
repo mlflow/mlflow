@@ -1,37 +1,35 @@
+import functools
+import json
+import logging
+import numbers
 import os
 import random
-import functools
 import shutil
-from unittest import mock
-from contextlib import ExitStack, contextmanager
-
-import logging
-import requests
-import time
-import tempfile
 import signal
 import socket
 import subprocess
-import uuid
 import sys
-import yaml
-import json
-import numbers
+import tempfile
+import time
+import uuid
+from contextlib import ExitStack, contextmanager
+from unittest import mock
 
 import pytest
+import requests
+import yaml
 
 import mlflow
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.file_utils import read_yaml, write_yaml
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
-    _get_pip_deps,
-    _generate_mlflow_version_pinning,
     _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _generate_mlflow_version_pinning,
+    _get_pip_deps,
 )
-
+from mlflow.utils.file_utils import read_yaml, write_yaml
 
 AWS_METADATA_IP = "169.254.169.254"  # Used to fetch AWS Instance and User metadata.
 LOCALHOST = "127.0.0.1"
@@ -64,7 +62,7 @@ def random_str(size=10):
 
 
 def random_file(ext):
-    return "temp_test_%d.%s" % (random_int(), ext)
+    return f"temp_test_{random_int()}.{ext}"
 
 
 def expect_status_code(http_response, expected_code):
@@ -318,6 +316,7 @@ class RestEndpoint:
 
     def invoke(self, data, content_type):
         import pandas as pd
+
         from mlflow.pyfunc import scoring_server as pyfunc_scoring_server
 
         if isinstance(data, pd.DataFrame):
@@ -329,12 +328,11 @@ class RestEndpoint:
         elif type(data) not in {str, dict}:
             data = json.dumps({"instances": data})
 
-        response = requests.post(
+        return requests.post(
             url=f"http://localhost:{self._port}/invocations",
             data=data,
             headers={"Content-Type": content_type},
         )
-        return response
 
 
 def _evaluate_scoring_proc(
@@ -350,7 +348,7 @@ def _evaluate_scoring_proc(
         return endpoint.invoke(data, content_type)
 
 
-@pytest.fixture(scope="function", autouse=True)
+@pytest.fixture(autouse=True)
 def set_boto_credentials(monkeypatch):
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "NotARealAccessKey")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "NotARealSecretAccessKey")
@@ -398,7 +396,7 @@ def _read_lines(path):
 
 def _compare_logged_code_paths(code_path, model_path, flavor_name):
     import mlflow.pyfunc
-    from mlflow.utils.model_utils import _get_flavor_configuration, FLAVOR_CONFIG_CODE
+    from mlflow.utils.model_utils import FLAVOR_CONFIG_CODE, _get_flavor_configuration
 
     pyfunc_conf = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
@@ -476,9 +474,21 @@ def _is_available_on_pypi(package, version=None, module=None):
     """
     from mlflow.utils.requirements_utils import _get_installed_version
 
-    resp = requests.get(f"https://pypi.python.org/pypi/{package}/json")
-    if not resp.ok:
-        return False
+    url = f"https://pypi.python.org/pypi/{package}/json"
+    for sec in range(3):
+        try:
+            time.sleep(sec)
+            resp = requests.get(url)
+        except requests.exceptions.ConnectionError:
+            continue
+
+        if resp.status_code == 404:
+            return False
+
+        if resp.status_code == 200:
+            break
+    else:
+        raise Exception(f"Failed to connect to {url}")
 
     version = version or _get_installed_version(module or package)
     dist_files = resp.json()["releases"].get(version)

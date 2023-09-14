@@ -2,6 +2,7 @@ import json
 import re
 from pathlib import Path
 from unittest import mock
+
 import pytest
 
 from dev import update_ml_package_versions

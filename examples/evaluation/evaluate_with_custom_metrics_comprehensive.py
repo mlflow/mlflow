@@ -1,14 +1,12 @@
-import json
-import pandas as pd
-from sklearn.linear_model import LinearRegression
-from sklearn.datasets import fetch_california_housing
-from sklearn.model_selection import train_test_split
-import numpy as np
-import mlflow
-from mlflow.models import make_metric
-from mlflow.models import infer_signature
 import matplotlib.pyplot as plt
-import os
+import numpy as np
+import pandas as pd
+from sklearn.datasets import fetch_california_housing
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+
+import mlflow
+from mlflow.models import infer_signature, make_metric
 
 # loading the California housing dataset
 cali_housing = fetch_california_housing(as_frame=True)

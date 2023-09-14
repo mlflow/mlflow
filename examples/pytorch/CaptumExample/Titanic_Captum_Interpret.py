@@ -2,20 +2,20 @@
 Getting started with Captum - Titanic Data Analysis
 """
 # Initial imports
-import numpy as np
-import torch
-from captum.attr import IntegratedGradients
-from captum.attr import LayerConductance
-from captum.attr import NeuronConductance
-import matplotlib.pyplot as plt
-import pandas as pd
-from scipy import stats
-import mlflow
-from prettytable import PrettyTable
-from sklearn.model_selection import train_test_split
 import os
 from argparse import ArgumentParser
-import torch.nn as nn
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import torch
+from captum.attr import IntegratedGradients, LayerConductance, NeuronConductance
+from prettytable import PrettyTable
+from scipy import stats
+from sklearn.model_selection import train_test_split
+from torch import nn
+
+import mlflow
 
 
 def get_titanic():
@@ -170,11 +170,9 @@ def train(USE_PRETRAINED_MODEL=False):
             loss.backward()
             optimizer.step()
             if epoch % 50 == 0:
-                print(
-                    "Epoch {}/{} => Train Loss: {:.2f}".format(epoch + 1, num_epochs, loss.item())
-                )
+                print(f"Epoch {epoch + 1}/{num_epochs} => Train Loss: {loss.item():.2f}")
                 mlflow.log_metric(
-                    "Epoch {} Loss".format(str(epoch + 1)),
+                    f"Epoch {epoch + 1!s} Loss",
                     float(loss.item()),
                     step=epoch,
                 )
@@ -303,7 +301,7 @@ def neuron_conductance(net, test_input_tensor, neuron_selector=None):
     neuron_cond, _ = visualize_importances(
         feature_names,
         neuron_cond_vals.mean(dim=0).detach().numpy(),
-        title="Average Feature Importances for Neuron {}".format(neuron_selector),
+        title=f"Average Feature Importances for Neuron {neuron_selector}",
     )
     mlflow.log_text(
         str(neuron_cond), "Avg_Feature_Importances_Neuron_" + str(neuron_selector) + ".txt"

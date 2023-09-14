@@ -1,18 +1,19 @@
 import time
-import pytest
 from unittest import mock
 
+import pytest
+
 import mlflow
-from mlflow.exceptions import MlflowException
 from mlflow import MlflowClient
+from mlflow.exceptions import MlflowException
 from mlflow.utils import _truncate_dict
 from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
 from mlflow.utils.validation import (
     MAX_ENTITY_KEY_LENGTH,
-    MAX_PARAM_VAL_LENGTH,
-    MAX_TAG_VAL_LENGTH,
-    MAX_PARAMS_TAGS_PER_BATCH,
     MAX_METRICS_PER_BATCH,
+    MAX_PARAM_VAL_LENGTH,
+    MAX_PARAMS_TAGS_PER_BATCH,
+    MAX_TAG_VAL_LENGTH,
 )
 
 
@@ -229,7 +230,7 @@ def test_client_correctly_operates_as_context_manager_for_synchronous_flush():
     assert run_tags_1 == tags_to_log
 
     exc_to_raise = Exception("test exception")
-    with pytest.raises(Exception, match=str(exc_to_raise)) as raised_exc_info:
+    with pytest.raises(Exception, match=str(exc_to_raise)) as raised_exc_info:  # noqa: PT012
         with mlflow.start_run(), MlflowAutologgingQueueingClient() as client:
             run_id_2 = mlflow.active_run().info.run_id
             client.log_params(run_id_2, params_to_log)

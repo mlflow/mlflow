@@ -19,20 +19,22 @@ import {
 } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Link } from 'react-router-dom-v5-compat';
+import { Link } from '../../../common/utils/RoutingUtils';
 import { ModelListTagsCell, ModelListVersionLinkCell } from './ModelTableCellRenderers';
 import { RegisteringModelDocUrl } from '../../../common/constants';
 import Utils from '../../../common/utils/Utils';
 import type {
   KeyValueEntity,
   ModelEntity,
-  ModelInfoEntity,
+  ModelVersionInfoEntity,
 } from '../../../experiment-tracking/types';
 import { Stages } from '../../constants';
 import { getModelPageRoute } from '../../routes';
 import { CreateModelButton } from '../CreateModelButton';
+import { ModelsTableAliasedVersionsCell } from '../aliases/ModelsTableAliasedVersionsCell';
+import { useNextModelsUIContext } from '../../hooks/useNextModelsUI';
 
-const getLatestVersionNumberByStage = (latestVersions: ModelInfoEntity[], stage: string) => {
+const getLatestVersionNumberByStage = (latestVersions: ModelVersionInfoEntity[], stage: string) => {
   const modelVersion = latestVersions && latestVersions.find((v) => v.current_stage === stage);
   return modelVersion && modelVersion.version;
 };
@@ -45,6 +47,7 @@ enum ColumnKeys {
   STAGE_STAGING = 'stage_staging',
   STAGE_PRODUCTION = 'stage_production',
   TAGS = 'tags',
+  ALIASED_VERSIONS = 'aliased_versions',
 }
 
 export interface ModelListTableProps {
@@ -72,6 +75,9 @@ export const ModelListTable = ({
   pagination,
 }: ModelListTableProps) => {
   const intl = useIntl();
+
+  const { usingNextModelsUI } = useNextModelsUIContext();
+
   const tableColumns = useMemo(() => {
     const columns: ModelsColumnDef[] = [
       {
@@ -100,7 +106,7 @@ export const ModelListTable = ({
         accessorKey: 'latest_versions',
         cell: ({ getValue, row: { original } }) => {
           const { name } = original;
-          const latestVersions = getValue() as ModelInfoEntity[];
+          const latestVersions = getValue() as ModelVersionInfoEntity[];
           const latestVersionNumber =
             (Boolean(latestVersions?.length) &&
               Math.max(...latestVersions.map((v) => parseInt(v.version, 10))).toString()) ||
@@ -109,38 +115,59 @@ export const ModelListTable = ({
         },
         meta: { styles: { maxWidth: 120 } },
       },
-
-      {
-        id: ColumnKeys.STAGE_STAGING,
+    ];
+    if (usingNextModelsUI) {
+      // Display aliases column only when "new models UI" is flipped
+      columns.push({
+        id: ColumnKeys.ALIASED_VERSIONS,
         enableSorting: false,
 
         header: intl.formatMessage({
-          defaultMessage: 'Staging',
-          description: 'Column title for staging phase version in the registered model page',
+          defaultMessage: 'Aliased versions',
+          description: 'Column title for aliased versions in the registered model page',
         }),
-        cell: ({ row: { original } }) => {
-          const { latest_versions, name } = original;
-          const versionNumber = getLatestVersionNumberByStage(latest_versions, Stages.STAGING);
-          return <ModelListVersionLinkCell name={name} versionNumber={versionNumber} />;
+        cell: ({ row: { original: modelEntity } }) => {
+          return <ModelsTableAliasedVersionsCell model={modelEntity} />;
         },
-        meta: { styles: { maxWidth: 120 } },
-      },
-      {
-        id: ColumnKeys.STAGE_PRODUCTION,
-        enableSorting: false,
+        meta: { styles: { minWidth: 150 } },
+      });
+    } else {
+      // If not, display legacy "Stage" columns
+      columns.push(
+        {
+          id: ColumnKeys.STAGE_STAGING,
+          enableSorting: false,
 
-        header: intl.formatMessage({
-          defaultMessage: 'Production',
-          description: 'Column title for production phase version in the registered model page',
-        }),
-        cell: ({ row: { original } }) => {
-          const { latest_versions, name } = original;
-          const versionNumber = getLatestVersionNumberByStage(latest_versions, Stages.PRODUCTION);
-          return <ModelListVersionLinkCell name={name} versionNumber={versionNumber} />;
+          header: intl.formatMessage({
+            defaultMessage: 'Staging',
+            description: 'Column title for staging phase version in the registered model page',
+          }),
+          cell: ({ row: { original } }) => {
+            const { latest_versions, name } = original;
+            const versionNumber = getLatestVersionNumberByStage(latest_versions, Stages.STAGING);
+            return <ModelListVersionLinkCell name={name} versionNumber={versionNumber} />;
+          },
+          meta: { styles: { maxWidth: 120 } },
         },
-        meta: { styles: { maxWidth: 120 } },
-      },
+        {
+          id: ColumnKeys.STAGE_PRODUCTION,
+          enableSorting: false,
 
+          header: intl.formatMessage({
+            defaultMessage: 'Production',
+            description: 'Column title for production phase version in the registered model page',
+          }),
+          cell: ({ row: { original } }) => {
+            const { latest_versions, name } = original;
+            const versionNumber = getLatestVersionNumberByStage(latest_versions, Stages.PRODUCTION);
+            return <ModelListVersionLinkCell name={name} versionNumber={versionNumber} />;
+          },
+          meta: { styles: { maxWidth: 120 } },
+        },
+      );
+    }
+
+    columns.push(
       {
         id: ColumnKeys.CREATED_BY,
         header: intl.formatMessage({
@@ -177,12 +204,13 @@ export const ModelListTable = ({
           return <ModelListTagsCell tags={getValue() as KeyValueEntity[]} />;
         },
       },
-    ];
+    );
 
     return columns;
   }, [
     // prettier-ignore
     intl,
+    usingNextModelsUI,
   ]);
 
   const sorting: SortingState = [{ id: orderByKey, desc: !orderByAsc }];

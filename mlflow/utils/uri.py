@@ -2,13 +2,13 @@ import pathlib
 import posixpath
 import urllib.parse
 import uuid
-from typing import Tuple, Any
+from typing import Any, Tuple
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.utils.validation import _validate_db_type_string
 from mlflow.utils.os import is_windows
+from mlflow.utils.validation import _validate_db_type_string
 
 _INVALID_DB_URI_MSG = (
     "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for "
@@ -72,6 +72,13 @@ def is_databricks_uri(uri):
     return scheme == "databricks" or uri == "databricks"
 
 
+def is_fuse_uri(uri):
+    """
+    Validates whether a provided URI is directed to a FUSE mount point
+    """
+    return any(uri.startswith(x) for x in [_DBFS_FUSE_PREFIX, _DBFS_HDFS_URI_PREFIX])
+
+
 def is_databricks_unity_catalog_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
     return scheme == _DATABRICKS_UNITY_CATALOG_SCHEME or uri == _DATABRICKS_UNITY_CATALOG_SCHEME
@@ -88,18 +95,18 @@ def validate_db_scope_prefix_info(scope, prefix):
     for c in ["/", ":", " "]:
         if c in scope:
             raise MlflowException(
-                "Unsupported Databricks profile name: %s." % scope
-                + " Profile names cannot contain '%s'." % c
+                f"Unsupported Databricks profile name: {scope}."
+                f" Profile names cannot contain '{c}'."
             )
         if prefix and c in prefix:
             raise MlflowException(
-                "Unsupported Databricks profile key prefix: %s." % prefix
-                + " Key prefixes cannot contain '%s'." % c
+                f"Unsupported Databricks profile key prefix: {prefix}."
+                f" Key prefixes cannot contain '{c}'."
             )
     if prefix is not None and prefix.strip() == "":
         raise MlflowException(
-            "Unsupported Databricks profile key prefix: '%s'." % prefix
-            + " Key prefixes cannot be empty."
+            f"Unsupported Databricks profile key prefix: '{prefix}'."
+            " Key prefixes cannot be empty."
         )
 
 
@@ -113,8 +120,8 @@ def get_db_info_from_uri(uri):
         # netloc should not be an empty string unless URI is formatted incorrectly.
         if parsed_uri.netloc == "":
             raise MlflowException(
-                "URI is formatted incorrectly: no netloc in URI '%s'." % uri
-                + " This may be the case if there is only one slash in the URI."
+                f"URI is formatted incorrectly: no netloc in URI '{uri}'."
+                " This may be the case if there is only one slash in the URI."
             )
         profile_tokens = parsed_uri.netloc.split(":")
         parsed_scope = profile_tokens[0]
@@ -369,7 +376,7 @@ def resolve_uri_if_local(local_uri):
                     )
                 return cwd.joinpath(local_path).as_posix()
             local_uri_split = urllib.parse.urlsplit(local_uri)
-            resolved_absolute_uri = urllib.parse.urlunsplit(
+            return urllib.parse.urlunsplit(
                 (
                     local_uri_split.scheme,
                     None,
@@ -378,7 +385,6 @@ def resolve_uri_if_local(local_uri):
                     local_uri_split.fragment,
                 )
             )
-            return resolved_absolute_uri
     return local_uri
 
 

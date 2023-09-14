@@ -1,24 +1,24 @@
 import abc
 import logging
 import os
-
 from pathlib import Path
+from typing import Any, Dict
+
+import pandas as pd
+
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.recipes.artifacts import DataframeArtifact
 from mlflow.recipes.cards import BaseCard
-from mlflow.recipes.step import BaseStep
-from mlflow.recipes.step import StepClass
-from mlflow.recipes.utils.step import get_pandas_data_profiles, validate_classification_config
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils.file_utils import read_parquet_as_pandas_df
+from mlflow.recipes.step import BaseStep, StepClass
 from mlflow.recipes.steps.ingest.datasets import (
-    ParquetDataset,
-    DeltaTableDataset,
-    SparkSqlDataset,
     CustomDataset,
+    DeltaTableDataset,
+    ParquetDataset,
+    SparkSqlDataset,
 )
-from typing import Dict, Any
-import pandas as pd
+from mlflow.recipes.utils.step import get_pandas_data_profiles, validate_classification_config
+from mlflow.utils.file_utils import read_parquet_as_pandas_df
 
 _logger = logging.getLogger(__name__)
 
@@ -120,7 +120,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
 
         schema = pd.io.json.build_table_schema(ingested_df, index=False)
 
-        step_card = self._build_step_card(
+        return self._build_step_card(
             ingested_dataset_profile=ingested_dataset_profile,
             ingested_rows=len(ingested_df),
             schema=schema,
@@ -128,7 +128,6 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
             dataset_src_location=getattr(self.dataset, "location", None),
             dataset_sql=getattr(self.dataset, "sql", None),
         )
-        return step_card
 
     def _build_step_card(
         self,

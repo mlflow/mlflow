@@ -1,5 +1,5 @@
-from abc import abstractmethod
 import pprint
+from abc import abstractmethod
 
 
 class _MLflowObject:

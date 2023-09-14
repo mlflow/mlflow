@@ -1,9 +1,10 @@
 import os
-import mlflow
 
 from langchain.chains import LLMChain
-from langchain.prompts import PromptTemplate
 from langchain.llms import OpenAI
+from langchain.prompts import PromptTemplate
+
+import mlflow
 
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
 

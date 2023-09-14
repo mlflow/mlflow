@@ -1,10 +1,11 @@
-from collections import Counter
-import yaml
-import os
-import logging
-import re
 import hashlib
-from packaging.requirements import Requirement, InvalidRequirement
+import logging
+import os
+import re
+from collections import Counter
+
+import yaml
+from packaging.requirements import InvalidRequirement, Requirement
 from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
@@ -12,11 +13,10 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.process import _exec_cmd
 from mlflow.utils.requirements_utils import (
-    _parse_requirements,
     _infer_requirements,
+    _parse_requirements,
 )
 from mlflow.version import VERSION
-
 
 _logger = logging.getLogger(__name__)
 
@@ -518,8 +518,7 @@ def _find_duplicate_requirements(requirements):
             continue
 
     package_counts = Counter(base_package_names)
-    duplicates = [package for package, count in package_counts.items() if count > 1]
-    return duplicates
+    return [package for package, count in package_counts.items() if count > 1]
 
 
 def _process_conda_env(conda_env):
@@ -533,7 +532,7 @@ def _process_conda_env(conda_env):
     elif not isinstance(conda_env, dict):
         raise TypeError(
             "Expected a string path to a conda env yaml file or a `dict` representing a conda env, "
-            "but got `{}`".format(type(conda_env).__name__)
+            f"but got `{type(conda_env).__name__}`"
         )
 
     # User-specified `conda_env` may contain requirements/constraints file references

@@ -1,13 +1,23 @@
-from functools import partial
 import logging
+from functools import partial
 
+from mlflow.environment_variables import (
+    MLFLOW_REGISTRY_URI,
+    MLFLOW_TRACKING_AWS_SIGV4,
+    MLFLOW_TRACKING_CLIENT_CERT_PATH,
+    MLFLOW_TRACKING_INSECURE_TLS,
+    MLFLOW_TRACKING_PASSWORD,
+    MLFLOW_TRACKING_SERVER_CERT_PATH,
+    MLFLOW_TRACKING_TOKEN,
+    MLFLOW_TRACKING_USERNAME,
+)
+from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.store.model_registry.file_store import FileStore
-from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.store.model_registry.databricks_workspace_model_registry_rest_store import (
     DatabricksWorkspaceModelRegistryRestStore,
 )
-from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+from mlflow.store.model_registry.file_store import FileStore
+from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
     _resolve_tracking_uri,
@@ -19,16 +29,6 @@ from mlflow.utils.databricks_utils import (
     warn_on_deprecated_cross_workspace_registry_uri,
 )
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
-from mlflow.environment_variables import (
-    MLFLOW_TRACKING_AWS_SIGV4,
-    MLFLOW_TRACKING_USERNAME,
-    MLFLOW_TRACKING_PASSWORD,
-    MLFLOW_TRACKING_TOKEN,
-    MLFLOW_TRACKING_INSECURE_TLS,
-    MLFLOW_TRACKING_SERVER_CERT_PATH,
-    MLFLOW_TRACKING_CLIENT_CERT_PATH,
-    MLFLOW_REGISTRY_URI,
-)
 
 _logger = logging.getLogger(__name__)
 
@@ -75,9 +75,9 @@ def set_registry_uri(uri: str) -> None:
         # it with the tracking uri. They should be different
         mlflow.set_registry_uri("sqlite:////tmp/registry.db")
         mr_uri = mlflow.get_registry_uri()
-        print("Current registry uri: {}".format(mr_uri))
+        print(f"Current registry uri: {mr_uri}")
         tracking_uri = mlflow.get_tracking_uri()
-        print("Current tracking uri: {}".format(tracking_uri))
+        print(f"Current tracking uri: {tracking_uri}")
 
         # They should be different
         assert tracking_uri != mr_uri
@@ -113,11 +113,11 @@ def get_registry_uri() -> str:
 
         # Get the current model registry uri
         mr_uri = mlflow.get_registry_uri()
-        print("Current model registry uri: {}".format(mr_uri))
+        print(f"Current model registry uri: {mr_uri}")
 
         # Get the current tracking uri
         tracking_uri = mlflow.get_tracking_uri()
-        print("Current tracking uri: {}".format(tracking_uri))
+        print(f"Current tracking uri: {tracking_uri}")
 
         # They should be the same
         assert mr_uri == tracking_uri

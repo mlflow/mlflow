@@ -1,12 +1,12 @@
 import csv
 import logging
-import mlflow
 import os
 import tempfile
+from typing import Dict, List, Union
 
+import mlflow
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.annotations import experimental
-from typing import Dict, List, Union
 
 _logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ def log_predictions(
     :param prompts: Union of either List of prompt strings or List of prompt dictionary
     :returns: None
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow

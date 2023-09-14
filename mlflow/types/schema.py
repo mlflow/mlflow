@@ -1,12 +1,12 @@
 import builtins
 import datetime as dt
-from enum import Enum
 import importlib.util
 import json
+import string
+from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 
 import numpy as np
-import string
-from typing import Dict, Any, List, Union, Optional, Tuple, TypedDict
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
@@ -119,11 +119,7 @@ class DataType(Enum):
 
     @classmethod
     def from_numpy_type(cls, np_type):
-        for dt in cls._member_map_.values():
-            if np_type == dt.to_numpy():
-                return dt
-
-        return None
+        return next((v for v in cls._member_map_.values() if v.to_numpy() == np_type), None)
 
 
 class ColSpec:
@@ -143,8 +139,8 @@ class ColSpec:
             self._type = DataType[type] if isinstance(type, str) else type
         except KeyError:
             raise MlflowException(
-                "Unsupported type '{}', expected instance of DataType or "
-                "one of {}".format(type, [t.name for t in DataType])
+                f"Unsupported type '{type}', expected instance of DataType or "
+                f"one of {[t.name for t in DataType]}"
             )
         if not isinstance(self.type, DataType):
             raise TypeError(
@@ -207,7 +203,7 @@ class TensorInfo:
         if dtype.char in ["U", "S"] and not dtype.name.isalpha():
             raise MlflowException(
                 "MLflow does not support size information in flexible numpy data types. Use"
-                ' np.dtype("{}") instead'.format(dtype.name.rstrip(string.digits))
+                f' np.dtype("{dtype.name.rstrip(string.digits)}") instead'
             )
 
         if not isinstance(shape, (tuple, list)):
@@ -341,10 +337,18 @@ class Schema:
     """
 
     def __init__(self, inputs: List[Union[ColSpec, TensorSpec]]):
+        if not isinstance(inputs, list):
+            raise MlflowException.invalid_parameter_value(
+                f"Inputs of Schema must be a list, got type {type(inputs).__name__}"
+            )
+        if not inputs:
+            raise MlflowException.invalid_parameter_value(
+                "Creating Schema with empty inputs is not allowed."
+            )
         if not (all(x.name is None for x in inputs) or all(x.name is not None for x in inputs)):
             raise MlflowException(
                 "Creating Schema with a combination of named and unnamed inputs "
-                "is not allowed. Got input names {}".format([x.name for x in inputs])
+                f"is not allowed. Got input names {[x.name for x in inputs]}"
             )
         if not (
             all(isinstance(x, TensorSpec) for x in inputs)
@@ -434,7 +438,7 @@ class Schema:
             raise MlflowException("TensorSpec cannot be converted to spark dataframe")
         if len(self.inputs) == 1 and self.inputs[0].name is None:
             return self.inputs[0].type.to_spark()
-        from pyspark.sql.types import StructType, StructField
+        from pyspark.sql.types import StructField, StructType
 
         return StructType(
             [
@@ -641,7 +645,7 @@ class ParamSpec:
 
     class ParamSpecTypedDict(TypedDict):
         name: str
-        dtype: str
+        type: str
         default: Union[DataType, List[DataType], None]
         shape: Optional[Tuple[int, ...]]
 
@@ -658,7 +662,7 @@ class ParamSpec:
             )
         return {
             "name": self.name,
-            "dtype": self.dtype.name,
+            "type": self.dtype.name,
             "default": default_value,
             "shape": self.shape,
         }
@@ -681,16 +685,22 @@ class ParamSpec:
     def from_json_dict(cls, **kwargs):
         """
         Deserialize from a json loaded dictionary.
-        The dictionary is expected to contain `name`, `dtype` and `default` keys.
+        The dictionary is expected to contain `name`, `type` and `default` keys.
         """
-        if not {"name", "dtype", "default"} <= set(kwargs.keys()):
+        # For backward compatibility, we accept both `type` and `dtype` keys
+        required_keys1 = {"name", "dtype", "default"}
+        required_keys2 = {"name", "type", "default"}
+
+        if not (required_keys1.issubset(kwargs) or required_keys2.issubset(kwargs)):
             raise MlflowException.invalid_parameter_value(
                 "Missing keys in ParamSpec JSON. Expected to find "
-                "keys `name`, `dtype` and `default`",
+                "keys `name`, `type`(or `dtype`) and `default`. "
+                f"Received keys: {kwargs.keys()}"
             )
+        dtype = kwargs.get("type") or kwargs.get("dtype")
         return cls(
             name=str(kwargs["name"]),
-            dtype=DataType[kwargs["dtype"]],
+            dtype=DataType[dtype],
             default=kwargs["default"],
             shape=kwargs.get("shape"),
         )

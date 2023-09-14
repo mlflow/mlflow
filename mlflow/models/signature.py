@@ -4,21 +4,20 @@ The :py:mod:`mlflow.models.signature` module provides an API for specification o
 Model signature defines schema of model input and output. See :py:class:`mlflow.types.schema.Schema`
 for more details on Schema and data types.
 """
-import re
-from copy import deepcopy
 import inspect
 import logging
-from typing import List, Dict, Any, Optional, Union, get_type_hints, TYPE_CHECKING
+import re
+from copy import deepcopy
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, get_type_hints
 
-
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from mlflow import environment_variables
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.utils import _Example, ModelInputExample
+from mlflow.models.utils import ModelInputExample, _Example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
@@ -26,7 +25,6 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_
 from mlflow.types.schema import ParamSchema, Schema
 from mlflow.types.utils import _infer_param_schema, _infer_schema, _infer_schema_from_type_hint
 from mlflow.utils.uri import append_to_uri_path
-
 
 # At runtime, we don't need  `pyspark.sql.dataframe`
 if TYPE_CHECKING:
@@ -59,19 +57,24 @@ class ModelSignature:
     :py:class:`ParamSchema <mlflow.types.ParamSchema>`.
     """
 
-    def __init__(self, inputs: Schema, outputs: Schema = None, params: ParamSchema = None):
-        if not isinstance(inputs, Schema):
-            raise TypeError(f"inputs must be mlflow.models.signature.Schema, got '{type(inputs)}'")
-        if outputs is not None and not isinstance(outputs, Schema):
+    def __init__(self, inputs: Schema = None, outputs: Schema = None, params: ParamSchema = None):
+        if inputs and not isinstance(inputs, Schema):
+            raise TypeError(
+                "inputs must be either None or mlflow.models.signature.Schema, "
+                f"got '{type(inputs).__name__}'"
+            )
+        if outputs and not isinstance(outputs, Schema):
             raise TypeError(
                 "outputs must be either None or mlflow.models.signature.Schema, "
-                "got '{}'".format(type(inputs))
+                f"got '{type(outputs).__name__}'"
             )
         if params and not isinstance(params, ParamSchema):
             raise TypeError(
-                "If params are provided, they must by of type mlflow.models.signature.ParamSchema. "
-                "Got '{}'".format(type(params))
+                "If params are provided, they must by of type mlflow.models.signature.ParamSchema, "
+                f"got '{type(params).__name__}'"
             )
+        if all(x is None for x in [inputs, outputs, params]):
+            raise ValueError("At least one of inputs, outputs or params must be provided")
         self.inputs = inputs
         self.outputs = outputs
         self.params = params
@@ -87,8 +90,8 @@ class ModelSignature:
         """
 
         return {
-            "inputs": self.inputs.to_json(),
-            "outputs": self.outputs.to_json() if self.outputs is not None else None,
+            "inputs": self.inputs.to_json() if self.inputs else None,
+            "outputs": self.outputs.to_json() if self.outputs else None,
             "params": self.params.to_json() if self.params else None,
         }
 
@@ -105,16 +108,11 @@ class ModelSignature:
 
         :return: ModelSignature populated with the data form the dictionary.
         """
-        inputs = Schema.from_json(signature_dict["inputs"])
-        if "outputs" in signature_dict and signature_dict["outputs"] is not None:
-            outputs = Schema.from_json(signature_dict["outputs"])
-        else:
-            outputs = None
-        if (params := signature_dict.get("params")) is not None:
-            params = ParamSchema.from_json(params)
-            return cls(inputs, outputs, params)
-        else:
-            return cls(inputs, outputs)
+        inputs = Schema.from_json(x) if (x := signature_dict.get("inputs")) else None
+        outputs = Schema.from_json(x) if (x := signature_dict.get("outputs")) else None
+        params = ParamSchema.from_json(x) if (x := signature_dict.get("params")) else None
+
+        return cls(inputs, outputs, params)
 
     def __eq__(self, other) -> bool:
         return (
@@ -127,16 +125,16 @@ class ModelSignature:
     def __repr__(self) -> str:
         return (
             "inputs: \n"
-            "  {}\n"
+            f"  {self.inputs!r}\n"
             "outputs: \n"
-            "  {}\n"
+            f"  {self.outputs!r}\n"
             "params: \n"
-            "  {}\n".format(repr(self.inputs), repr(self.outputs), repr(self.params))
+            f"  {self.params!r}\n"
         )
 
 
 def infer_signature(
-    model_input: Any,
+    model_input: Any = None,
     model_output: "MlflowInferableDataset" = None,
     params: Optional[Dict[str, Any]] = None,
 ) -> ModelSignature:
@@ -211,7 +209,7 @@ def infer_signature(
 
     :return: ModelSignature
     """
-    inputs = _infer_schema(model_input)
+    inputs = _infer_schema(model_input) if model_input is not None else None
     outputs = _infer_schema(model_output) if model_output is not None else None
     params = _infer_param_schema(params) if params else None
     return ModelSignature(inputs, outputs, params)
@@ -397,7 +395,7 @@ def set_signature(
         # load model from run artifacts
         run_id = "96771d893a5e46159d9f3b49bf9013e2"
         artifact_path = "models"
-        model_uri = "runs:/{}/{}".format(run_id, artifact_path)
+        model_uri = f"runs:/{run_id}/{artifact_path}"
         model = mlflow.pyfunc.load_model(model_uri)
 
         # determine model signature

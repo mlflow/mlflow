@@ -1,72 +1,73 @@
+import json
+import math
 import os
 import pathlib
+import re
 import shutil
 import tempfile
-import unittest
-import re
-from pathlib import Path
-
-import math
-import pytest
-import sqlalchemy
 import time
-import mlflow
+import unittest
 import uuid
-import json
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from unittest import mock
 
+import pytest
+import sqlalchemy
+
+import mlflow
 import mlflow.db
 import mlflow.store.db.base_sql_model
+from mlflow import entities
 from mlflow.entities import (
-    ViewType,
-    RunTag,
-    SourceType,
-    RunStatus,
     Experiment,
+    ExperimentTag,
     Metric,
     Param,
-    ExperimentTag,
+    RunStatus,
+    RunTag,
+    SourceType,
+    ViewType,
     _DatasetSummary,
 )
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
     BAD_REQUEST,
-    RESOURCE_DOES_NOT_EXIST,
     INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
     TEMPORARILY_UNAVAILABLE,
+    ErrorCode,
+)
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
+from mlflow.store.db.utils import (
+    _get_latest_schema_revision,
+    _get_schema_version,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.db.utils import (
-    _get_schema_version,
-    _get_latest_schema_revision,
-)
 from mlflow.store.tracking.dbmodels import models
-from mlflow.store.db.db_types import SQLITE, POSTGRES, MYSQL, MSSQL
-from mlflow import entities
-from mlflow.exceptions import MlflowException
+from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
+from mlflow.store.tracking.dbmodels.models import (
+    SqlDataset,
+    SqlExperiment,
+    SqlExperimentTag,
+    SqlInput,
+    SqlInputTag,
+    SqlLatestMetric,
+    SqlMetric,
+    SqlParam,
+    SqlRun,
+    SqlTag,
+)
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_RUN_NAME
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES
-from mlflow.utils.uri import extract_db_type_from_uri
-from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.os import is_windows
-from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
-from mlflow.store.tracking.dbmodels.models import (
-    SqlParam,
-    SqlTag,
-    SqlMetric,
-    SqlLatestMetric,
-    SqlRun,
-    SqlExperimentTag,
-    SqlExperiment,
-    SqlInputTag,
-    SqlInput,
-    SqlDataset,
-)
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.uri import extract_db_type_from_uri
+
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
 from tests.store.tracking.test_file_store import assert_dataset_inputs_equal
@@ -443,6 +444,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             ("exp3", [ExperimentTag("k e y 1", "value")]),
         ]
         for name, tags in experiments:
+            time.sleep(0.001)
             self.store.create_experiment(name, tags=tags)
 
         experiments = self.store.search_experiments(filter_string="tag.key1 = 'value'")
@@ -668,8 +670,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # Therefore, we check for the more generic 'SQLAlchemyError'
         with pytest.raises(MlflowException, match=regex) as exception_context:
             with self.store.ManagedSessionMaker() as session:
-                run = models.SqlRun()
-                session.add(run)
+                session.add(models.SqlRun())
         assert exception_context.value.error_code == ErrorCode.Name(BAD_REQUEST)
 
     def test_run_data_model(self):
@@ -1706,7 +1707,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         ) == [r2]
         assert self._search(
             experiment_id,
-            filter_string="tags.generic_2 ILIKE '%Other%' and " "tags.generic_tag ILIKE 'p_val'",
+            filter_string="tags.generic_2 ILIKE '%Other%' and tags.generic_tag ILIKE 'p_val'",
         ) == [r2]
 
     def test_search_metrics(self):
@@ -2487,7 +2488,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # SQL limitations, etc)
         experiment_id = self._experiment_factory("log_batch_limits")
         run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
-        metric_tuples = [("m%s" % i, i, 12345, i * 2) for i in range(1000)]
+        metric_tuples = [(f"m{i}", i, 12345, i * 2) for i in range(1000)]
         metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
         self.store.log_batch(run_id=run_id, metrics=metric_entities, params=[], tags=[])
         run = self.store.get_run(run_id)
@@ -2827,7 +2828,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
             for i in range(100):
                 metric = {
-                    "key": "mkey_%s" % i,
+                    "key": f"mkey_{i}",
                     "value": i,
                     "timestamp": i * 2,
                     "step": i * 3,
@@ -2836,13 +2837,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 }
                 metrics_list.append(metric)
                 tag = {
-                    "key": "tkey_%s" % i,
+                    "key": f"tkey_{i}",
                     "value": "tval_%s" % (current_run % 10),
                     "run_uuid": run_id,
                 }
                 tags_list.append(tag)
                 param = {
-                    "key": "pkey_%s" % i,
+                    "key": f"pkey_{i}",
                     "value": "pval_%s" % ((current_run + 1) % 11),
                     "run_uuid": run_id,
                 }
@@ -3474,40 +3475,41 @@ class TextClauseMatcher:
 
 
 @mock.patch("sqlalchemy.orm.session.Session", spec=True)
-class TestZeroValueInsertion(unittest.TestCase):
-    def test_set_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MYSQL
-        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-        mock_session.execute.assert_called_with(
-            TextClauseMatcher("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
-        )
+def test_set_zero_value_insertion_for_autoincrement_column_MYSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MYSQL
+    SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(
+        TextClauseMatcher("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
+    )
 
-    def test_set_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MSSQL
-        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-        mock_session.execute.assert_called_with(
-            TextClauseMatcher("SET IDENTITY_INSERT experiments ON;")
-        )
 
-    def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MYSQL
-        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
-            mock_store, mock_session
-        )
-        mock_session.execute.assert_called_with(TextClauseMatcher("SET @@SESSION.sql_mode='';"))
+@mock.patch("sqlalchemy.orm.session.Session", spec=True)
+def test_set_zero_value_insertion_for_autoincrement_column_MSSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MSSQL
+    SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(
+        TextClauseMatcher("SET IDENTITY_INSERT experiments ON;")
+    )
 
-    def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MSSQL
-        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
-            mock_store, mock_session
-        )
-        mock_session.execute.assert_called_with(
-            TextClauseMatcher("SET IDENTITY_INSERT experiments OFF;")
-        )
+
+@mock.patch("sqlalchemy.orm.session.Session", spec=True)
+def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MYSQL
+    SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(TextClauseMatcher("SET @@SESSION.sql_mode='';"))
+
+
+@mock.patch("sqlalchemy.orm.session.Session", spec=True)
+def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MSSQL
+    SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(
+        TextClauseMatcher("SET IDENTITY_INSERT experiments OFF;")
+    )
 
 
 def test_get_attribute_name():
@@ -3601,7 +3603,6 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}?param=value",
         ),
-        ("file:///path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
         (
             "file:///path/to/local/folder?param=value#fragment",
             "file:///{drive}path/to/local/folder/{e}?param=value#fragment",
@@ -3627,7 +3628,6 @@ def test_create_experiment_appends_to_artifact_local_path_file_uri_correctly_on_
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}?param=value",
         ),
-        ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
         (
             "file:///path/to/local/folder?param=value#fragment",
             "file:///path/to/local/folder/{e}?param=value#fragment",
@@ -3712,10 +3712,6 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
             "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts?param=value",
         ),
         (
-            "file:///path/to/local/folder",
-            "file:///{drive}path/to/local/folder/{e}/{r}/artifacts",
-        ),
-        (
             "file:///path/to/local/folder?param=value#fragment",
             "file:///{drive}path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
         ),
@@ -3742,10 +3738,6 @@ def test_create_run_appends_to_artifact_local_path_file_uri_correctly_on_windows
         (
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts?param=value",
-        ),
-        (
-            "file:///path/to/local/folder",
-            "file:///path/to/local/folder/{e}/{r}/artifacts",
         ),
         (
             "file:///path/to/local/folder?param=value#fragment",

@@ -2,9 +2,9 @@
 This module provides utilities for performing Azure Blob Storage operations without requiring
 the heavyweight azure-storage-blob library dependency
 """
-from copy import deepcopy
-import urllib
 import logging
+import urllib
+from copy import deepcopy
 
 from mlflow.utils import rest_utils
 from mlflow.utils.file_utils import read_chunk
@@ -158,8 +158,7 @@ def _append_query_parameters(url, parameters):
     query_dict.update(parameters)
     new_query = urllib.parse.urlencode(query_dict)
     new_url_components = parsed_url._replace(query=new_query)
-    new_url = urllib.parse.urlunparse(new_url_components)
-    return new_url
+    return urllib.parse.urlunparse(new_url_components)
 
 
 def _build_block_list_xml(block_list):

@@ -2,38 +2,43 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures authentication is working.
 """
-import sys
-import pytest
 import subprocess
+import sys
 import time
-import requests
+from pathlib import Path
+
+import jwt
 import psutil
+import pytest
+import requests
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
     UNAUTHENTICATED,
+    ErrorCode,
 )
 from mlflow.utils.os import is_windows
-from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
-from tests.server.auth.auth_test_utils import create_user, User
+
+from tests.server.auth.auth_test_utils import User, create_user
 from tests.tracking.integration_test_utils import (
-    get_safe_port,
     _init_server,
     _send_rest_tracking_post_request,
+    get_safe_port,
 )
 
 
 @pytest.fixture
-def client(tmp_path):
+def client(request, tmp_path):
     path = tmp_path.joinpath("sqlalchemy.db").as_uri()
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
 
     with _init_server(
         backend_uri=backend_uri,
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
+        extra_env=getattr(request, "param", {}),
         app="mlflow.server.auth:create_app",
     ) as url:
         yield MlflowClient(url)
@@ -52,6 +57,49 @@ def test_authenticate(client, monkeypatch):
     username, password = create_user(client.tracking_uri)
     with User(username, password, monkeypatch):
         client.search_experiments()
+
+
+def _mlflow_search_experiments_rest(base_uri, headers):
+    response = requests.post(
+        f"{base_uri}/api/2.0/mlflow/experiments/search",
+        headers=headers,
+        json={
+            "max_results": 100,
+        },
+    )
+    response.raise_for_status()
+    return response
+
+
+@pytest.mark.parametrize(
+    "client",
+    [
+        {
+            "MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/jwt_auth.ini",
+            "PYTHONPATH": str(Path.cwd() / "examples" / "jwt_auth"),
+        }
+    ],
+    indirect=True,
+)
+def test_authenticate_jwt(client):
+    # unauthenticated
+    with pytest.raises(requests.HTTPError, match=r"401 Client Error: UNAUTHORIZED") as e:
+        _mlflow_search_experiments_rest(client.tracking_uri, {})
+    assert e.value.response.status_code == 401  # Unauthorized
+
+    # authenticated
+    username, password = create_user(client.tracking_uri)
+    headers = {
+        "Authorization": f'Bearer {jwt.encode({"username": username}, "secret", algorithm="HS256")}'
+    }
+    _mlflow_search_experiments_rest(client.tracking_uri, headers)
+
+    # invalid token
+    bearer_token = jwt.encode({"username": username}, "invalid", algorithm="HS256")
+    headers = {"Authorization": f"Bearer {bearer_token}"}
+    with pytest.raises(requests.HTTPError, match=r"401 Client Error: UNAUTHORIZED") as e:
+        _mlflow_search_experiments_rest(client.tracking_uri, headers)
+    assert e.value.response.status_code == 401  # Unauthorized
 
 
 def test_search_experiments(client, monkeypatch):

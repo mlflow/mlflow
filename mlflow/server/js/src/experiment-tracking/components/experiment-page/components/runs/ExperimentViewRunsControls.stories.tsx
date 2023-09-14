@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { IntlProvider } from 'react-intl';
 import { Provider } from 'react-redux';
-import { MemoryRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
 import { applyMiddleware, compose, createStore } from 'redux';
 import promiseMiddleware from 'redux-promise-middleware';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
@@ -75,6 +75,7 @@ const createComponentWrapper = (viewState: SearchExperimentRunsViewState) => () 
             <ExperimentViewRunsControls
               runsData={MOCK_RUNS_DATA}
               searchFacetsState={searchFacetsState}
+              experimentId={'123'}
               viewState={viewState}
               updateSearchFacets={updateSearchFacets}
               updateViewState={() => {}}
@@ -114,6 +115,7 @@ export const Default = createComponentWrapper({
   hiddenChildRunsSelected: {},
   previewPaneVisible: false,
   artifactViewState: {},
+  viewMaximized: false,
 });
 
 export const WithOneRunSelected = createComponentWrapper({
@@ -122,6 +124,7 @@ export const WithOneRunSelected = createComponentWrapper({
   hiddenChildRunsSelected: {},
   previewPaneVisible: false,
   artifactViewState: {},
+  viewMaximized: false,
 });
 
 export const WithTwoRunSelected = createComponentWrapper({
@@ -130,4 +133,5 @@ export const WithTwoRunSelected = createComponentWrapper({
   hiddenChildRunsSelected: {},
   previewPaneVisible: false,
   artifactViewState: {},
+  viewMaximized: false,
 });

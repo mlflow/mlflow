@@ -1,5 +1,6 @@
-import pytest
 import os
+
+import pytest
 
 
 @pytest.fixture(autouse=True)
@@ -9,21 +10,21 @@ def is_skinny():
 
 
 def test_fails_import_flask():
-    import mlflow  # pylint: disable=unused-import
+    import mlflow  # noqa: F401
 
     with pytest.raises(ImportError, match="flask"):
-        import flask  # pylint: disable=unused-import
+        import flask  # noqa: F401
 
 
 def test_fails_import_pandas():
-    import mlflow  # pylint: disable=unused-import
+    import mlflow  # noqa: F401
 
     with pytest.raises(ImportError, match="pandas"):
-        import pandas  # pylint: disable=unused-import
+        import pandas  # noqa: F401
 
 
 def test_fails_import_numpy():
-    import mlflow  # pylint: disable=unused-import
+    import mlflow  # noqa: F401
 
     with pytest.raises(ImportError, match="numpy"):
-        import numpy  # pylint: disable=unused-import
+        import numpy  # noqa: F401

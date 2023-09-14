@@ -1,33 +1,29 @@
 import importlib
-import os
-import sys
-from unittest.mock import Mock, MagicMock
-from unittest import mock
 import math
+import os
 import random
-import cloudpickle
+import sys
 from pathlib import Path
-import pytest
+from unittest import mock
+from unittest.mock import MagicMock, Mock
 
+import cloudpickle
 import pandas as pd
-
-import mlflow
+import pytest
 import sklearn.compose
 
+import mlflow
+from mlflow.environment_variables import MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME
+from mlflow.recipes.steps.train import TrainStep
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
+from mlflow.recipes.utils.execution import get_step_output_path
 from mlflow.tracking import MlflowClient
 from mlflow.utils.file_utils import read_yaml
-from mlflow.recipes.utils.execution import (
-    get_step_output_path,
-    _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
-)
-from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
-from mlflow.recipes.steps.train import TrainStep
-
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_SOURCE_TYPE,
-    MLFLOW_RECIPE_TEMPLATE_NAME,
     MLFLOW_RECIPE_PROFILE_NAME,
     MLFLOW_RECIPE_STEP_NAME,
+    MLFLOW_RECIPE_TEMPLATE_NAME,
+    MLFLOW_SOURCE_TYPE,
 )
 
 
@@ -168,8 +164,7 @@ def setup_train_step_with_tuning(
             """
         )
     recipe_config = read_yaml(recipe_root, _RECIPE_CONFIG_FILE_NAME)
-    train_step = TrainStep.from_recipe_config(recipe_config, str(recipe_root))
-    return train_step
+    return TrainStep.from_recipe_config(recipe_config, str(recipe_root))
 
 
 def test_train_step(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
@@ -332,8 +327,7 @@ def setup_train_step_with_automl(
         """
     )
     recipe_config = read_yaml(recipe_root, _RECIPE_CONFIG_FILE_NAME)
-    train_step = TrainStep.from_recipe_config(recipe_config, str(recipe_root))
-    return train_step
+    return TrainStep.from_recipe_config(recipe_config, str(recipe_root))
 
 
 def estimator_fn(estimator_params=None):
@@ -443,7 +437,7 @@ def test_train_steps_autologs(tmp_recipe_root_path: Path, tmp_recipe_exec_path: 
 def test_train_steps_with_correct_tags(
     tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, use_tuning, monkeypatch
 ):
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR, "train")
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME.name, "train")
     train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
     recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
     recipe_steps_dir.mkdir(parents=True)
@@ -593,7 +587,7 @@ def test_automl(
     generate_custom_metrics,
     monkeypatch,
 ):
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR, "train")
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME.name, "train")
     train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
     recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
     recipe_steps_dir.mkdir(parents=True)
@@ -637,7 +631,7 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
 
 
 def test_tuning_multiclass(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, monkeypatch):
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR, "train")
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME.name, "train")
     train_step_output_dir = setup_train_dataset(
         tmp_recipe_exec_path, recipe="classification/multiclass"
     )

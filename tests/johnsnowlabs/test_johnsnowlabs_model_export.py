@@ -55,8 +55,7 @@ def load_and_init_model(model=nlu_model):
     setup_env()
     mlflow.johnsnowlabs._validate_env_vars()
     nlp.start(model_cache_folder=MODEL_CACHE_FOLDER)
-    jsl_model = nlp.load(model, verbose=False)
-    return jsl_model
+    return nlp.load(model, verbose=False)
 
 
 def fix_dataframe_with_respect_for_nlu_issues(df1, df2):
@@ -104,7 +103,7 @@ def validate_model(original_model, new_model):
 
 @pytest.fixture
 def jsl_model(load_and_init_model):
-    yield load_and_init_model
+    return load_and_init_model
 
 
 @pytest.fixture
@@ -247,7 +246,7 @@ def test_johnsnowlabs_model_log(tmp_path, jsl_model, should_start_run, use_dfs_t
 
     try:
         tracking_dir = tmp_path.joinpath("mlruns")
-        mlflow.set_tracking_uri("file://%s" % tracking_dir)
+        mlflow.set_tracking_uri(f"file://{tracking_dir}")
         if should_start_run:
             mlflow.start_run()
         artifact_path = "model"

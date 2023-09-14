@@ -1,12 +1,14 @@
 from unittest import mock
 
+import pytest
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-import pytest
+from pydantic import ValidationError
 
+from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.schemas import completions, embeddings
-from mlflow.gateway.config import RouteConfig
+
 from tests.gateway.tools import MockAsyncResponse
 
 
@@ -34,6 +36,7 @@ def completions_response():
             }
         ],
         "prompt": "string",
+        "headers": {"Content-Type": "application/json"},
     }
 
 
@@ -53,9 +56,7 @@ async def test_completions():
             "candidates": [
                 {
                     "text": "This is a test",
-                    "metadata": {
-                        "finish_reason": None,
-                    },
+                    "metadata": {},
                 }
             ],
             "metadata": {
@@ -122,6 +123,7 @@ def embeddings_response():
                 ]
             },
         ],
+        "headers": {"Content-Type": "application/json"},
     }
 
 
@@ -170,3 +172,13 @@ async def test_param_model_is_not_permitted():
         await provider.completions(completions.RequestPayload(**payload))
     assert "The parameter 'model' is not permitted" in e.value.detail
     assert e.value.status_code == 422
+
+
+@pytest.mark.parametrize("prompt", [{"set1", "set2"}, ["list1"], [1], ["list1", "list2"], [1, 2]])
+@pytest.mark.asyncio
+async def test_completions_throws_if_prompt_contains_non_string(prompt):
+    config = completions_config()
+    provider = CohereProvider(RouteConfig(**config))
+    payload = {"prompt": prompt}
+    with pytest.raises(ValidationError, match=r"prompt"):
+        await provider.completions(completions.RequestPayload(**payload))

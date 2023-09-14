@@ -7,101 +7,105 @@ Usage
     mlflow server --app-name basic-auth
 """
 
+import functools
+import importlib
 import logging
-import uuid
 import re
-from typing import Callable, Dict, Optional, Any
+import uuid
+from typing import Any, Callable, Dict, Optional, Union
 
-from flask import Flask, request, make_response, Response, flash, render_template_string
 import sqlalchemy
+from flask import Flask, Response, flash, make_response, render_template_string, request
+from werkzeug.datastructures import Authorization
 
 from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.model_registry import RegisteredModel
+from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    INTERNAL_ERROR,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
+)
+from mlflow.protos.model_registry_pb2 import (
+    CreateModelVersion,
+    CreateRegisteredModel,
+    DeleteModelVersion,
+    DeleteModelVersionTag,
+    DeleteRegisteredModel,
+    DeleteRegisteredModelAlias,
+    DeleteRegisteredModelTag,
+    GetLatestVersions,
+    GetModelVersion,
+    GetModelVersionByAlias,
+    GetModelVersionDownloadUri,
+    GetRegisteredModel,
+    RenameRegisteredModel,
+    SearchRegisteredModels,
+    SetModelVersionTag,
+    SetRegisteredModelAlias,
+    SetRegisteredModelTag,
+    TransitionModelVersionStage,
+    UpdateModelVersion,
+    UpdateRegisteredModel,
+)
+from mlflow.protos.service_pb2 import (
+    CreateExperiment,
+    CreateRun,
+    DeleteExperiment,
+    DeleteRun,
+    DeleteTag,
+    GetExperiment,
+    GetExperimentByName,
+    GetMetricHistory,
+    GetRun,
+    ListArtifacts,
+    LogBatch,
+    LogMetric,
+    LogModel,
+    LogParam,
+    RestoreExperiment,
+    RestoreRun,
+    SearchExperiments,
+    SetExperimentTag,
+    SetTag,
+    UpdateExperiment,
+    UpdateRun,
+)
 from mlflow.server import app
 from mlflow.server.auth.config import read_auth_config
 from mlflow.server.auth.logo import MLFLOW_LOGO
-from mlflow.server.auth.permissions import get_permission, Permission, MANAGE
+from mlflow.server.auth.permissions import MANAGE, Permission, get_permission
 from mlflow.server.auth.routes import (
+    CREATE_EXPERIMENT_PERMISSION,
+    CREATE_REGISTERED_MODEL_PERMISSION,
+    CREATE_USER,
+    DELETE_EXPERIMENT_PERMISSION,
+    DELETE_REGISTERED_MODEL_PERMISSION,
+    DELETE_USER,
+    GET_EXPERIMENT_PERMISSION,
+    GET_REGISTERED_MODEL_PERMISSION,
+    GET_USER,
     HOME,
     SIGNUP,
-    CREATE_USER,
-    GET_USER,
-    UPDATE_USER_PASSWORD,
-    UPDATE_USER_ADMIN,
-    DELETE_USER,
-    CREATE_EXPERIMENT_PERMISSION,
-    GET_EXPERIMENT_PERMISSION,
     UPDATE_EXPERIMENT_PERMISSION,
-    DELETE_EXPERIMENT_PERMISSION,
-    CREATE_REGISTERED_MODEL_PERMISSION,
-    GET_REGISTERED_MODEL_PERMISSION,
     UPDATE_REGISTERED_MODEL_PERMISSION,
-    DELETE_REGISTERED_MODEL_PERMISSION,
+    UPDATE_USER_ADMIN,
+    UPDATE_USER_PASSWORD,
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.handlers import (
+    _get_model_registry_store,
     _get_request_message,
     _get_tracking_store,
-    _get_model_registry_store,
     catch_mlflow_exception,
     get_endpoints,
 )
 from mlflow.store.entities import PagedList
-from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
-    BAD_REQUEST,
-    INVALID_PARAMETER_VALUE,
-    RESOURCE_DOES_NOT_EXIST,
-)
-from mlflow.protos.service_pb2 import (
-    GetExperiment,
-    GetRun,
-    ListArtifacts,
-    GetMetricHistory,
-    CreateRun,
-    UpdateRun,
-    LogMetric,
-    LogParam,
-    SetTag,
-    DeleteExperiment,
-    RestoreExperiment,
-    RestoreRun,
-    DeleteRun,
-    UpdateExperiment,
-    LogBatch,
-    DeleteTag,
-    SetExperimentTag,
-    GetExperimentByName,
-    LogModel,
-    CreateExperiment,
-    SearchExperiments,
-)
-from mlflow.protos.model_registry_pb2 import (
-    GetRegisteredModel,
-    DeleteRegisteredModel,
-    UpdateRegisteredModel,
-    RenameRegisteredModel,
-    GetLatestVersions,
-    CreateModelVersion,
-    GetModelVersion,
-    DeleteModelVersion,
-    UpdateModelVersion,
-    TransitionModelVersionStage,
-    GetModelVersionDownloadUri,
-    SetRegisteredModelTag,
-    DeleteRegisteredModelTag,
-    SetModelVersionTag,
-    DeleteModelVersionTag,
-    SetRegisteredModelAlias,
-    DeleteRegisteredModelAlias,
-    GetModelVersionByAlias,
-    CreateRegisteredModel,
-    SearchRegisteredModels,
-)
-from mlflow.utils.proto_json_utils import parse_dict, message_to_json
-from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
+from mlflow.utils.search_utils import SearchUtils
 
 _logger = logging.getLogger(__name__)
 
@@ -175,7 +179,7 @@ def _get_permission_from_store_or_default(store_permission_func: Callable[[], st
 
 def _get_permission_from_experiment_id() -> Permission:
     experiment_id = _get_request_param("experiment_id")
-    username = request.authorization.username
+    username = authenticate_request().username
     return _get_permission_from_store_or_default(
         lambda: store.get_experiment_permission(experiment_id, username).permission
     )
@@ -193,7 +197,7 @@ def _get_experiment_id_from_view_args():
 
 def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
     if experiment_id := _get_experiment_id_from_view_args():
-        username = request.authorization.username
+        username = authenticate_request().username
         return _get_permission_from_store_or_default(
             lambda: store.get_experiment_permission(experiment_id, username).permission
         )
@@ -208,7 +212,7 @@ def _get_permission_from_experiment_name() -> Permission:
             f"Could not find experiment with name {experiment_name}",
             error_code=RESOURCE_DOES_NOT_EXIST,
         )
-    username = request.authorization.username
+    username = authenticate_request().username
     return _get_permission_from_store_or_default(
         lambda: store.get_experiment_permission(store_exp.experiment_id, username).permission
     )
@@ -220,7 +224,7 @@ def _get_permission_from_run_id() -> Permission:
     run_id = _get_request_param("run_id")
     run = _get_tracking_store().get_run(run_id)
     experiment_id = run.info.experiment_id
-    username = request.authorization.username
+    username = authenticate_request().username
     return _get_permission_from_store_or_default(
         lambda: store.get_experiment_permission(experiment_id, username).permission
     )
@@ -228,7 +232,7 @@ def _get_permission_from_run_id() -> Permission:
 
 def _get_permission_from_registered_model_name() -> Permission:
     name = _get_request_param("name")
-    username = request.authorization.username
+    username = authenticate_request().username
     return _get_permission_from_store_or_default(
         lambda: store.get_registered_model_permission(name, username).permission
     )
@@ -296,14 +300,14 @@ def validate_can_manage_registered_model():
 
 def sender_is_admin():
     """Validate if the sender is admin"""
-    username = request.authorization.username
+    username = authenticate_request().username
     return store.get_user(username).is_admin
 
 
 def username_is_sender():
     """Validate if the request username is the sender"""
     username = _get_request_param("username")
-    sender = request.authorization.username
+    sender = authenticate_request().username
     return username == sender
 
 
@@ -414,19 +418,51 @@ def _get_proxy_artifact_validator(
     }.get(method)
 
 
-@catch_mlflow_exception
-def _before_request():
-    if is_unprotected_route(request.path):
-        return
+def authenticate_request() -> Union[Authorization, Response]:
+    """Use configured authorization function to get request authorization."""
+    auth_func = get_auth_func(auth_config.authorization_function)
+    return auth_func()
 
+
+@functools.lru_cache(maxsize=None)
+def get_auth_func(authorization_function: str) -> Callable[[], Union[Authorization, Response]]:
+    """Import and return the specified authorization function.
+
+    :param authorization_function: A string of the form "module.submodule:auth_func
+    """
+    mod_name, fn_name = authorization_function.split(":", 1)
+    module = importlib.import_module(mod_name)
+    return getattr(module, fn_name)
+
+
+def authenticate_request_basic_auth() -> Union[Authorization, Response]:
+    """Authenticate the request using basic auth."""
     if request.authorization is None:
         return make_basic_auth_response()
 
     username = request.authorization.username
     password = request.authorization.password
-    if not store.authenticate_user(username, password):
+    if store.authenticate_user(username, password):
+        return request.authorization
+    else:
         # let user attempt login again
         return make_basic_auth_response()
+
+
+@catch_mlflow_exception
+def _before_request():
+    if is_unprotected_route(request.path):
+        return
+
+    authorization = authenticate_request()
+    if isinstance(authorization, Response):
+        return authorization
+    elif not isinstance(authorization, Authorization):
+        raise MlflowException(
+            f"Unsupported result type from {auth_config.authorization_function}: "
+            f"'{type(authorization).__name__}'",
+            INTERNAL_ERROR,
+        )
 
     # admins don't need to be authorized
     if sender_is_admin():
@@ -446,7 +482,7 @@ def set_can_manage_experiment_permission(resp: Response):
     response_message = CreateExperiment.Response()
     parse_dict(resp.json, response_message)
     experiment_id = response_message.experiment_id
-    username = request.authorization.username
+    username = authenticate_request().username
     store.create_experiment_permission(experiment_id, username, MANAGE.name)
 
 
@@ -454,7 +490,7 @@ def set_can_manage_registered_model_permission(resp: Response):
     response_message = CreateRegisteredModel.Response()
     parse_dict(resp.json, response_message)
     name = response_message.registered_model.name
-    username = request.authorization.username
+    username = authenticate_request().username
     store.create_registered_model_permission(name, username, MANAGE.name)
 
 
@@ -466,7 +502,7 @@ def filter_search_experiments(resp: Response):
     parse_dict(resp.json, response_message)
 
     # fetch permissions
-    username = request.authorization.username
+    username = authenticate_request().username
     perms = store.list_experiment_permissions(username)
     can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
     default_can_read = get_permission(auth_config.default_permission).can_read
@@ -517,7 +553,7 @@ def filter_search_registered_models(resp: Response):
     parse_dict(resp.json, response_message)
 
     # fetch permissions
-    username = request.authorization.username
+    username = authenticate_request().username
     perms = store.list_registered_model_permissions(username)
     can_read = {p.name: get_permission(p.permission).can_read for p in perms}
     default_can_read = get_permission(auth_config.default_permission).can_read

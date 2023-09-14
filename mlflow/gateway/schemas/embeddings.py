@@ -1,7 +1,7 @@
-from typing import List, Union, Optional
+from typing import List, Optional, Union
 
-from ..base_models import RequestModel, ResponseModel
-from ..config import RouteType
+from mlflow.gateway.base_models import RequestModel, ResponseModel
+from mlflow.gateway.config import RouteType
 
 
 class RequestPayload(RequestModel):
@@ -16,9 +16,9 @@ class RequestPayload(RequestModel):
 
 
 class Metadata(ResponseModel):
-    input_tokens: Optional[int]
-    output_tokens: Optional[int]
-    total_tokens: Optional[int]
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
     model: str
     route_type: RouteType
 

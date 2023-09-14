@@ -1,14 +1,16 @@
+import os
 import re
 import shutil
-import os
 import sys
 from pathlib import Path
+
+import pytest
 
 import mlflow
 from mlflow import cli
 from mlflow.utils import process
 from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
-import pytest
+
 from tests.helper_functions import clear_hub_cache, get_free_disk_space_in_GiB
 from tests.integration.utils import invoke_cli_runner
 
@@ -34,7 +36,7 @@ def report_free_disk_space(capsys):
         sys.stdout.write(f" | Free disk space: {get_free_disk_space_in_GiB():.1f} GiB")
 
 
-@pytest.fixture(scope="function", autouse=True)
+@pytest.fixture(autouse=True)
 def clean_up_mlflow_virtual_environments():
     yield
 
@@ -103,11 +105,11 @@ def test_mlflow_run_example(directory, params, tmp_path):
     ("directory", "command"),
     [
         ("docker", ["docker", "build", "-t", "mlflow-docker-example", "-f", "Dockerfile", "."]),
-        ("keras", ["python", "train.py"]),
+        ("keras", [sys.executable, "train.py"]),
         (
             "lightgbm/lightgbm_native",
             [
-                "python",
+                sys.executable,
                 "train.py",
                 "--learning-rate",
                 "0.2",
@@ -117,14 +119,14 @@ def test_mlflow_run_example(directory, params, tmp_path):
                 "0.9",
             ],
         ),
-        ("lightgbm/lightgbm_sklearn", ["python", "train.py"]),
-        ("statsmodels", ["python", "train.py", "--inverse-method", "qr"]),
-        ("quickstart", ["python", "mlflow_tracking.py"]),
-        ("remote_store", ["python", "remote_server.py"]),
+        ("lightgbm/lightgbm_sklearn", [sys.executable, "train.py"]),
+        ("statsmodels", [sys.executable, "train.py", "--inverse-method", "qr"]),
+        ("quickstart", [sys.executable, "mlflow_tracking.py"]),
+        ("remote_store", [sys.executable, "remote_server.py"]),
         (
             "xgboost/xgboost_native",
             [
-                "python",
+                sys.executable,
                 "train.py",
                 "--learning-rate",
                 "0.2",
@@ -134,39 +136,39 @@ def test_mlflow_run_example(directory, params, tmp_path):
                 "0.9",
             ],
         ),
-        ("xgboost/xgboost_sklearn", ["python", "train.py"]),
-        ("catboost", ["python", "train.py"]),
-        ("prophet", ["python", "train.py"]),
-        ("sklearn_autolog", ["python", "linear_regression.py"]),
-        ("sklearn_autolog", ["python", "pipeline.py"]),
-        ("sklearn_autolog", ["python", "grid_search_cv.py"]),
-        ("pyspark_ml_autologging", ["python", "logistic_regression.py"]),
-        ("pyspark_ml_autologging", ["python", "one_vs_rest.py"]),
-        ("pyspark_ml_autologging", ["python", "pipeline.py"]),
-        ("shap", ["python", "regression.py"]),
-        ("shap", ["python", "binary_classification.py"]),
-        ("shap", ["python", "multiclass_classification.py"]),
-        ("shap", ["python", "explainer_logging.py"]),
-        ("ray_serve", ["python", "train_model.py"]),
-        ("pip_requirements", ["python", "pip_requirements.py"]),
-        ("fastai", ["python", "train.py", "--lr", "0.02", "--epochs", "3"]),
-        ("pmdarima", ["python", "train.py"]),
-        ("evaluation", ["python", "evaluate_on_binary_classifier.py"]),
-        ("evaluation", ["python", "evaluate_on_multiclass_classifier.py"]),
-        ("evaluation", ["python", "evaluate_on_regressor.py"]),
-        ("evaluation", ["python", "evaluate_with_custom_metrics.py"]),
-        ("evaluation", ["python", "evaluate_with_custom_metrics_comprehensive.py"]),
-        ("evaluation", ["python", "evaluate_with_model_validation.py"]),
-        ("diviner", ["python", "train.py"]),
-        ("spark_udf", ["python", "spark_udf_datetime.py"]),
-        ("pyfunc", ["python", "train.py"]),
-        ("tensorflow", ["python", "train.py"]),
-        ("transformers", ["python", "conversational.py"]),
-        ("transformers", ["python", "load_components.py"]),
-        ("transformers", ["python", "simple.py"]),
-        ("transformers", ["python", "sentence_transformer.py"]),
-        ("transformers", ["python", "whisper.py"]),
-        ("sentence_transformers", ["python", "simple.py"]),
+        ("xgboost/xgboost_sklearn", [sys.executable, "train.py"]),
+        ("catboost", [sys.executable, "train.py"]),
+        ("prophet", [sys.executable, "train.py"]),
+        ("sklearn_autolog", [sys.executable, "linear_regression.py"]),
+        ("sklearn_autolog", [sys.executable, "pipeline.py"]),
+        ("sklearn_autolog", [sys.executable, "grid_search_cv.py"]),
+        ("pyspark_ml_autologging", [sys.executable, "logistic_regression.py"]),
+        ("pyspark_ml_autologging", [sys.executable, "one_vs_rest.py"]),
+        ("pyspark_ml_autologging", [sys.executable, "pipeline.py"]),
+        ("shap", [sys.executable, "regression.py"]),
+        ("shap", [sys.executable, "binary_classification.py"]),
+        ("shap", [sys.executable, "multiclass_classification.py"]),
+        ("shap", [sys.executable, "explainer_logging.py"]),
+        ("ray_serve", [sys.executable, "train_model.py"]),
+        ("pip_requirements", [sys.executable, "pip_requirements.py"]),
+        ("fastai", [sys.executable, "train.py", "--lr", "0.02", "--epochs", "3"]),
+        ("pmdarima", [sys.executable, "train.py"]),
+        ("evaluation", [sys.executable, "evaluate_on_binary_classifier.py"]),
+        ("evaluation", [sys.executable, "evaluate_on_multiclass_classifier.py"]),
+        ("evaluation", [sys.executable, "evaluate_on_regressor.py"]),
+        ("evaluation", [sys.executable, "evaluate_with_custom_metrics.py"]),
+        ("evaluation", [sys.executable, "evaluate_with_custom_metrics_comprehensive.py"]),
+        ("evaluation", [sys.executable, "evaluate_with_model_validation.py"]),
+        ("diviner", [sys.executable, "train.py"]),
+        ("spark_udf", [sys.executable, "spark_udf_datetime.py"]),
+        ("pyfunc", [sys.executable, "train.py"]),
+        ("tensorflow", [sys.executable, "train.py"]),
+        ("transformers", [sys.executable, "conversational.py"]),
+        ("transformers", [sys.executable, "load_components.py"]),
+        ("transformers", [sys.executable, "simple.py"]),
+        ("transformers", [sys.executable, "sentence_transformer.py"]),
+        ("transformers", [sys.executable, "whisper.py"]),
+        ("sentence_transformers", [sys.executable, "simple.py"]),
     ],
 )
 def test_command_example(directory, command):

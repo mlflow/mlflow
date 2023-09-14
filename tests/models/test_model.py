@@ -1,26 +1,25 @@
 import os
-import pytest
-from datetime import date
 import uuid
-
-import mlflow
-import pandas as pd
-import numpy as np
-
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.models import Model, ModelSignature, infer_signature, validate_schema
-from mlflow.models.utils import _save_example
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.types.schema import Schema, ColSpec, TensorSpec
-from mlflow.utils.file_utils import TempDir
-from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
-from mlflow.utils.proto_json_utils import dataframe_from_raw_json
-
+from datetime import date
 from unittest import mock
-from scipy.sparse import csc_matrix
+
+import numpy as np
+import pandas as pd
+import pytest
 import sklearn.datasets
 import sklearn.neighbors
 from packaging.version import Version
+from scipy.sparse import csc_matrix
+
+import mlflow
+from mlflow.models import Model, ModelSignature, infer_signature, validate_schema
+from mlflow.models.utils import _save_example
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types.schema import ColSpec, Schema, TensorSpec
+from mlflow.utils.file_utils import TempDir
+from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
+from mlflow.utils.proto_json_utils import dataframe_from_raw_json
 
 
 @pytest.fixture(scope="module")

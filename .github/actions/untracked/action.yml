@@ -1,17 +1,6 @@
 name: "untracked"
-description: "untracked"
+description: "Detect untracked files"
 runs:
-  using: "composite"
-  steps:
-    - shell: bash
-      run: |
-        untracked_files=$(git ls-files --others --exclude-standard)
-        if [[ -z "$untracked_files" ]]; then
-            echo "No untracked files found."
-            exit 0
-        else
-            echo "Untracked files found:"
-            echo "$untracked_files"
-            echo "Consider adding them to .gitignore."
-            exit 1
-        fi
+  using: "node16"
+  main: "index.js"
+  post: "post.js"

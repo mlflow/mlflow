@@ -1,12 +1,28 @@
 import json
-import re
-import mlflow
-import requests
-from unittest import mock
 from contextlib import contextmanager
+from unittest import mock
 
+import requests
+
+import mlflow
 
 TEST_CONTENT = "test"
+TEST_SOURCE_DOCUMENTS = [
+    {
+        "page_content": "We see the unity among leaders ...",
+        "metadata": {"source": "tests/langchain/state_of_the_union.txt"},
+    },
+]
+TEST_INTERMEDIATE_STEPS = (
+    [
+        {
+            "tool": "Search",
+            "tool_input": "High temperature in SF yesterday",
+            "log": " I need to find the temperature first...",
+            "result": "San Francisco...",
+        },
+    ],
+)
 
 
 class _MockResponse:
@@ -49,6 +65,27 @@ def _mock_chat_completion_response(content=TEST_CONTENT):
     return _MockResponse(200, _chat_completion_json_sample(content))
 
 
+def _mock_embeddings_response(num_texts):
+    return _MockResponse(
+        200,
+        {
+            "object": "list",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        0.0,
+                    ],
+                    "index": i,
+                }
+                for i in range(num_texts)
+            ],
+            "model": "text-embedding-ada-002",
+            "usage": {"prompt_tokens": 8, "total_tokens": 8},
+        },
+    )
+
+
 def _mock_models_retrieve_response():
     return _MockResponse(200, _models_retrieve_json_sample())
 
@@ -59,7 +96,7 @@ def _mock_request(**kwargs):
         yield m
 
 
-def _mock_chat_completion_request():
+def _mock_openai_request():
     original = requests.Session.request
 
     def request(*args, **kwargs):
@@ -68,9 +105,12 @@ def _mock_chat_completion_request():
         else:
             url = kwargs.get("url")
 
-        if re.match(r"^https://api\.openai\.com/v\d+/chat/completions$", url):
+        if url.endswith("/chat/completions"):
             messages = json.loads(kwargs.get("data")).get("messages")
             return _mock_chat_completion_response(content=json.dumps(messages))
+        elif url.endswith("/embeddings"):
+            inp = json.loads(kwargs.get("data")).get("input")
+            return _mock_embeddings_response(len(inp) if isinstance(inp, list) else 1)
         else:
             return original(*args, **kwargs)
 

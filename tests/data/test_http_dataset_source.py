@@ -1,11 +1,11 @@
 import json
 import os
-import pytest
 from unittest import mock
 
 import pandas as pd
+import pytest
 
-from mlflow.data.dataset_source_registry import resolve_dataset_source, get_dataset_source_from_json
+from mlflow.data.dataset_source_registry import get_dataset_source_from_json, resolve_dataset_source
 from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.utils.rest_utils import cloud_storage_http_request

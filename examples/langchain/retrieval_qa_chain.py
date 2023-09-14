@@ -1,4 +1,3 @@
-import mlflow
 import os
 import tempfile
 
@@ -8,6 +7,8 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.llms import OpenAI
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
+
+import mlflow
 
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
 
@@ -42,4 +43,4 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
 # Load the retrievalQA chain
 loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-loaded_model.predict([{"query": "What did the president say about Ketanji Brown Jackson"}])
+print(loaded_model.predict([{"query": "What did the president say about Ketanji Brown Jackson"}]))

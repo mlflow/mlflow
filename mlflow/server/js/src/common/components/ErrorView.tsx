@@ -9,7 +9,7 @@ import React, { Component } from 'react';
 import errorDefaultImg from '../static/default-error.svg';
 import error404Img from '../static/404-overflow.svg';
 import Routes from '../../experiment-tracking/routes';
-import { Link } from 'react-router-dom-v5-compat';
+import { Link } from '../../common/utils/RoutingUtils';
 import { FormattedMessage } from 'react-intl';
 import { WithDesignSystemThemeHoc } from '@databricks/design-system';
 
