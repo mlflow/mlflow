@@ -45,7 +45,7 @@ class MLflowCallback(keras.callbacks.Callback):
                 label,
                 batch_size=4,
                 epochs=2,
-                callbacks=[MLflowCallback(run)],
+                callbacks=[mlflow.keras_core.MLflowCallback(run)],
             )
     """
 
@@ -82,13 +82,13 @@ class MLflowCallback(keras.callbacks.Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         """Log metrics at the end of each epoch."""
-        if not self.log_every_epoch:
+        if not self.log_every_epoch or logs is None:
             return
         self.metrics_logger.record_metrics(logs, epoch)
 
     def on_batch_end(self, batch, logs=None):
         """Log metrics at the end of each batch with user specified frequency."""
-        if self.log_every_n_steps is None:
+        if self.log_every_n_steps is None or logs is None:
             return
         if (batch + 1) % self.log_every_n_steps == 0:
             self.metrics_logger.record_metrics(logs, batch)
