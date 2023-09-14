@@ -159,23 +159,8 @@ def make_genai_metric(
 
         # TODO: Save the metric definition in a yaml file for model monitoring
 
-        payload = []
-        for indx, (input, output) in enumerate(zip(inputs, outputs)):
-            variable_string = _format_variable_string(variables, eval_df, indx)
-            payload.append(
-                {
-                    "prompt": evaluation_context["eval_prompt"].format(
-                        input=input, output=output, variables=variable_string
-                    ),
-                    **eval_parameters,
-                },
-            )
-
         eval_result = None
-        if isinstance(eval_model, str):
-            # TODO: Add batch processing for messages here
-            eval_result = model_utils.score_model_on_payload(eval_model, payload)
-        else:
+        if not isinstance(eval_model, str):
             raise MlflowException(
                 message="The model argument must be a string URI referring to an openai model "
                 "(openai:/gpt-3.5-turbo) or  gateway (gateway:/my-route), "
@@ -183,8 +168,19 @@ def make_genai_metric(
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        scores = eval_result["Score"]
-        justification = eval_result["Justification"]
+        scores = []
+        justifications = []
+        for indx, (input, output) in enumerate(zip(inputs, outputs)):
+            variable_string = _format_variable_string(variables, eval_df, indx)
+            payload = {
+                "prompt": evaluation_context["eval_prompt"].format(
+                    input=input, output=output, variables=variable_string
+                ),
+                **eval_parameters,
+            }
+            eval_result = model_utils.score_model_on_payload(eval_model, payload)
+            scores.append(eval_result["Score"])
+            justifications.append(eval_result["Justification"])
 
         # loop over the aggregations and compute the aggregate results on the scores
         def aggregate_function(aggregate_option, scores):
@@ -209,7 +205,7 @@ def make_genai_metric(
 
         aggregate_results = {option: aggregate_function(option, scores) for option in aggregations}
 
-        return MetricValue(scores.tolist(), justification.tolist(), aggregate_results)
+        return MetricValue(scores.tolist(), justifications.tolist(), aggregate_results)
 
     return make_metric(
         eval_fn=eval_fn, greater_is_better=greater_is_better, name=name, version=version
