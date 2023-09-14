@@ -1150,10 +1150,13 @@ class DefaultEvaluator(ModelEvaluator):
                 self.y_pred = np.concatenate(y_pred_list, axis=0)
             elif isinstance(sample_pred, list):
                 self.y_pred = sum(y_pred_list, [])
+            # handle if sample_pred is a pandas series
+            elif isinstance(sample_pred, pd.Series):
+                self.y_pred = pd.concat(y_pred_list)
             else:
                 raise MlflowException(
                     message=f"Unsupported prediction type {type(sample_pred)} for model type "
-                    f"{self.model_type.value}.",
+                    f"{self.model_type}.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 

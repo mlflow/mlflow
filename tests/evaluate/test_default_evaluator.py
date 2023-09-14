@@ -2070,7 +2070,7 @@ def test_evaluate_question_answering_with_numerical_targets():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=[0, 1]))
+    pd.testing.assert_frame_equal(logged_data.drop("latency", axis=1), data.assign(outputs=[0, 1]))
     assert results.metrics == {"exact_match": 1.0}
 
 
@@ -2264,6 +2264,7 @@ def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
         "outputs",
         "flesch_kincaid_grade_level",
         "ari_grade_level",
+        "latency",
     }
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["summary"].tolist() == ["a", "b"]
@@ -2344,6 +2345,7 @@ def test_evaluate_text_custom_metrics():
         "flesch_kincaid_grade_level",
         "ari_grade_level",
         "perplexity",
+        "latency",
     }
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["target"].tolist() == ["a", "b"]
