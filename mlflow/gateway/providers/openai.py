@@ -1,4 +1,3 @@
-import os
 
 import requests
 from fastapi import HTTPException
@@ -189,7 +188,7 @@ class OpenAIProvider(BaseProvider):
 
         # use python requests instead of aiohttp
         resp = requests.post(
-            url=os.path.join(self._request_base_url, "chat/completions"),
+            url=self._request_base_url + "/chat/completions",
             headers=self._request_headers,
             json=self._add_model_to_payload_if_necessary(payload),
         ).json()
