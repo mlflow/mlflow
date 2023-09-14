@@ -1,11 +1,12 @@
 from threading import Thread
+
 from mlflow import MlflowClient
+from mlflow.entities import Metric
 from mlflow.utils.autologging_utils.metrics_queue import (
-    flush_metrics_queue,
     _metrics_queue,
     _metrics_queue_lock,
+    flush_metrics_queue,
 )
-from mlflow.entities import Metric
 
 
 def test_flush_metrics_queue_is_thread_safe():
