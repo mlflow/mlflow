@@ -249,3 +249,64 @@ def _rougeLsum_eval_fn(eval_df, metrics):
             scores=scores,
             aggregate_results=standard_aggregations(scores),
         )
+
+#TODO: add basic metrics definitions
+def _mae_eval_fn(eval_df, metrics):
+    if "target" in eval_df:
+        from sklearn.metrics import mean_absolute_error
+
+        y_pred = eval_df["prediction"]
+        y = eval_df["target"]
+
+        mae = mean_absolute_error(y, y_pred)
+        return MetricValue(aggregate_results={"": mae})
+
+def _mse_eval_fn(eval_df, metrics):
+    if "target" in eval_df:
+        from sklearn.metrics import mean_squared_error
+
+        y_pred = eval_df["prediction"]
+        y = eval_df["target"]
+
+        mse = mean_squared_error(y, y_pred)
+        return MetricValue(aggregate_results={"": mse})
+
+def _rmse_eval_fn(eval_df, metrics):
+    if "target" in eval_df:
+        from sklearn.metrics import mean_squared_error
+
+        y_pred = eval_df["prediction"]
+        y = eval_df["target"]
+
+        rmse = mean_squared_error(y, y_pred, squared=False)
+        return MetricValue(aggregate_results={"": rmse})
+
+def _r2_score_eval_fn(eval_df, metrics):
+    if "target" in eval_df:
+        from sklearn.metrics import r2_score
+        
+        y_pred = eval_df["prediction"]
+        y = eval_df["target"]
+
+        r2 = r2_score(y, y_pred)
+        return MetricValue(aggregate_results={"": r2})
+
+def _max_error_eval_fn(eval_df, metrics):
+    if "target" in eval_df:
+        from sklearn.metrics import max_error
+        
+        y_pred = eval_df["prediction"]
+        y = eval_df["target"]
+
+        max_error = max_error(y, y_pred)
+        return MetricValue(aggregate_results={"": max_error})
+
+def _mape_eval_fn(eval_df, metrics):
+    if "target" in eval_df:
+        from sklearn.metrics import mean_absolute_percentage_error
+        
+        y_pred = eval_df["prediction"]
+        y = eval_df["target"]
+
+        mape = mean_absolute_percentage_error(y, y_pred)
+        return MetricValue(aggregate_results={"": mape})
