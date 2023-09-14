@@ -15,6 +15,12 @@ from mlflow.metrics.utils.metric_definitions import (
     _rougeL_eval_fn,
     _rougeLsum_eval_fn,
     _toxicity_eval_fn,
+    _mae_eval_fn,
+    _mse_eval_fn,
+    _rmse_eval_fn,
+    _r2_score_eval_fn,
+    _max_error_eval_fn,
+    _mape_eval_fn,
 )
 from mlflow.models import (
     EvaluationMetric,
@@ -191,6 +197,53 @@ Aggregations calculated for this metric:
 .. _rougeLsum: https://huggingface.co/spaces/evaluate-metric/rouge
 """
 
+
+# Regression Metrics
+#TODO: how to deal with sample weights input?
+#TODO: double check greater is better
+
+mae = make_metric(
+    eval_fn=_mae_eval_fn,
+    greater_is_better=False,
+    name="mae",
+    version="v1"
+)
+
+mse = make_metric(
+    eval_fn=_mse_eval_fn,
+    greater_is_better=False,
+    name="mse",
+    version="v1"
+)
+
+rmse = make_metric(
+    eval_fn=_rmse_eval_fn,
+    greater_is_better=False,
+    name="rmse",
+    version="v1"
+)
+
+r2_score = make_metric(
+    eval_fn=_r2_score_eval_fn,
+    greater_is_better=True,
+    name="r2_score",
+    version="v1"
+)
+
+max_error = make_metric(
+    eval_fn=_max_error_eval_fn,
+    greater_is_better=False,
+    name="max_error",
+    version="v1"
+)
+
+mape = make_metric(
+    eval_fn=_mape_eval_fn,
+    greater_is_better=False,
+    name="mape",
+    version="v1"
+)
+
 __all__ = [
     "EvaluationExample",
     "EvaluationMetric",
@@ -206,4 +259,10 @@ __all__ = [
     "rougeLsum",
     "toxicity",
     "make_genai_metric",
+    "mae",
+    "mse",
+    "rmse",
+    "r2_score",
+    "max_error",
+    "mape",
 ]
