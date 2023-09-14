@@ -477,7 +477,8 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics, metri
     :param custom_metric_tuple: Containing a user provided function and its index in the
                                 ``custom_metrics`` parameter of ``mlflow.evaluate``
     :param eval_df: A Pandas dataframe object containing a prediction and a target column.
-    :param builtin_metrics: A dictionary of metrics produced by the default evaluator.
+    :param builtin_metrics: A dictionary of aggregate metrics produced by the default evaluator.
+    :param metrics: A dictionary of metric values produced by the default evaluator.
     :return: MetricValue
     """
     exception_header = (
@@ -1284,10 +1285,14 @@ class DefaultEvaluator(ModelEvaluator):
             if justifications:
                 columns[f"{metric_name}/justification"] = justifications
         data = data.assign(**columns)
-        mlflow.log_table(data, artifact_file=f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}")
-        name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
+        if metric_prefix:
+            artifact_file_name = f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}"
+        else:
+            artifact_file_name = _EVAL_TABLE_FILE_NAME
+        mlflow.log_table(data, artifact_file=artifact_file_name)
+        name = artifact_file_name.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
-            uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
+            uri=mlflow.get_artifact_uri(artifact_file_name)
         )
 
     def _update_metrics(self):
