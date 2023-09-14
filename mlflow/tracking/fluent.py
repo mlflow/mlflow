@@ -10,6 +10,7 @@ import os
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
+import mlflow  # noqa: F401
 from mlflow.data.dataset import Dataset
 from mlflow.entities import (
     DatasetInput,
@@ -1933,39 +1934,27 @@ def autolog(
         tags: {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
                'estimator_name': 'LinearRegression'}
     """
-    from mlflow import (
-        fastai,
-        gluon,
-        lightgbm,
-        pyspark,
-        pytorch,
-        sklearn,
-        spark,
-        statsmodels,
-        tensorflow,
-        transformers,
-        xgboost,
-    )
-
     locals_copy = locals().items()
 
-    # Mapping of library module name to specific autolog function
+    # Mapping of library name to specific autolog function name. We use string like
+    # "tensorflow.autolog" to avoid loading all flavor modules, so we only set autologging for
+    # compatible modules.
     # eg: mxnet.gluon is the actual library, mlflow.gluon.autolog is our autolog function for it
     LIBRARY_TO_AUTOLOG_FN = {
-        "tensorflow": tensorflow.autolog,
-        "mxnet.gluon": gluon.autolog,
-        "xgboost": xgboost.autolog,
-        "lightgbm": lightgbm.autolog,
-        "statsmodels": statsmodels.autolog,
-        "sklearn": sklearn.autolog,
-        "fastai": fastai.autolog,
-        "pyspark": spark.autolog,
-        "pyspark.ml": pyspark.ml.autolog,
+        "tensorflow": "mlflow.tensorflow.autolog",
+        "mxnet.gluon": "mlflow.gluon.autolog",
+        "xgboost": "mlflow.xgboost.autolog",
+        "lightgbm": "mlflow.lightgbm.autolog",
+        "statsmodels": "mlflow.statsmodels.autolog",
+        "sklearn": "mlflow.sklearn.autolog",
+        "fastai": "mlflow.fastai.autolog",
+        "pyspark": "mlflow.spark.autolog",
+        "pyspark.ml": "mlflow.pyspark.ml.autolog",
         # TODO: Broaden this beyond pytorch_lightning as we add autologging support for more
         # Pytorch frameworks under mlflow.pytorch.autolog
-        "pytorch_lightning": pytorch.autolog,
-        "setfit": transformers.autolog,
-        "transformers": transformers.autolog,
+        "pytorch_lightning": "mlflow.pytorch.autolog",
+        "setfit": "mlflow.transformers.autolog",
+        "transformers": "mlflow.transformers.autolog",
     }
 
     def get_autologging_params(autolog_fn):
@@ -1977,8 +1966,8 @@ def autolog(
 
     def setup_autologging(module):
         try:
-            autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
-
+            autologging_params = None
+            autolog_fn = eval(LIBRARY_TO_AUTOLOG_FN[module.__name__])  # noqa: S307
             # Only call integration's autolog function with `mlflow.autolog` configs
             # if the integration's autolog function has not already been called by the user.
             # Logic is as follows:
@@ -2010,7 +1999,7 @@ def autolog(
                 # Raise unexpected exceptions in test mode in order to detect
                 # errors within dependent autologging integrations
                 raise
-            elif not autologging_params.get("silent", False):
+            elif autologging_params is None or not autologging_params.get("silent", False):
                 _logger.warning(
                     "Exception raised while enabling autologging for %s: %s",
                     module.__name__,
