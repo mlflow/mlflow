@@ -14,6 +14,12 @@ from mlflow.metrics import (
     rougeL,
     rougeLsum,
     toxicity,
+    mae,
+    mse,
+    rmse,
+    r2_score,
+    max_error,
+    mape,
 )
 
 
@@ -29,6 +35,12 @@ from mlflow.metrics import (
         rouge2,
         rougeL,
         rougeLsum,
+        mae,
+        mse,
+        rmse,
+        r2_score,
+        max_error,
+        mape,
     ],
 )
 def test_return_type_and_len(metric):
@@ -169,7 +181,6 @@ def test_rougeLsum():
     assert result.aggregate_results["p90"] == 0.9
     assert result.aggregate_results["variance"] == 0.25
 
-
 def test_fails_to_load_metric():
     eval_df = pd.DataFrame({"prediction": ["random text", "This is a sentence"]})
     e = ImportError("mocked error")
@@ -180,3 +191,33 @@ def test_fails_to_load_metric():
             mock_warning.assert_called_once_with(
                 f"Failed to load 'toxicity' metric (error: {e!r}), skipping metric logging.",
             )
+
+def test_mae():
+    eval_df = pd.DataFrame({"prediction": [1.0,2.0,0.0], "target": [1.0,2.0,3.0]})
+    result = mae.eval_fn(eval_df, metrics={})
+    assert result.aggregate_results[""] == 1.0
+
+def test_mse():
+    eval_df = pd.DataFrame({"prediction": [1.0,2.0,0.0], "target": [1.0,2.0,3.0]})
+    result = mse.eval_fn(eval_df, metrics={})
+    assert result.aggregate_results[""] == 3.0
+    
+def test_rmse():
+    eval_df = pd.DataFrame({"prediction": [1.0,2.0,0.0], "target": [1.0,2.0,3.0]})
+    result = rmse.eval_fn(eval_df, metrics={})
+    assert result.aggregate_results[""] == 1.0
+
+def test_r2_score():
+    eval_df = pd.DataFrame({"prediction": [1.0,2.0,3.0], "target": [3.0,2.0,1.0]})
+    result = r2_score.eval_fn(eval_df, metrics={})
+    assert result.aggregate_results[""] == -3.0
+
+def test_max_error():
+    eval_df = pd.DataFrame({"prediction": [1.0,2.0,3.0], "target": [3.0,2.0,1.0]})
+    result = max_error.eval_fn(eval_df, metrics={})
+    assert result.aggregate_results[""] == 2.0
+
+def test_mape_error():
+    eval_df = pd.DataFrame({"prediction": [1.0,1.0,1.0], "target": [2.0,2.0,2.0]})
+    result = mape.eval_fn(eval_df, metrics={})
+    assert result.aggregate_results[""] == 0.5
