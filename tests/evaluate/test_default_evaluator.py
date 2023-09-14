@@ -1962,52 +1962,6 @@ def test_evaluation_metric_name_configs(prefix):
         assert all(metric_name.startswith(prefix) for metric_name in result.metrics)
 
 
-@pytest.mark.parametrize("prefix", ["train_", None])
-def test_logged_data_name_configs(prefix):
-    with mlflow.start_run() as run:
-        model_info = mlflow.pyfunc.log_model(
-            artifact_path="model", python_model=language_model, input_example=["a", "b"]
-        )
-        data = pd.DataFrame({"text": ["a", "b"]})
-        results = mlflow.evaluate(
-            model_info.model_uri,
-            data,
-            model_type="text",
-            evaluators="default",
-            evaluator_config={
-                "metric_prefix": prefix,
-            },
-        )
-
-    client = mlflow.MlflowClient()
-    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
-    if prefix is None:
-        assert "eval_results_table.json" in artifacts
-        logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    else:
-        assert f"{prefix}eval_results_table.json" in artifacts
-        logged_data = pd.DataFrame(**results.artifacts[f"{prefix}eval_results_table"].content)
-
-    if prefix is not None:
-        assert set(logged_data.columns.tolist()) == {
-            "text",
-            "outputs",
-            f"{prefix}toxicity/v1/score",
-            f"{prefix}flesch_kincaid_grade_level/v1/score",
-            f"{prefix}ari_grade_level/v1/score",
-            f"{prefix}perplexity/v1/score",
-        }
-    else:
-        assert set(logged_data.columns.tolist()) == {
-            "text",
-            "outputs",
-            "toxicity/v1/score",
-            "flesch_kincaid_grade_level/v1/score",
-            "ari_grade_level/v1/score",
-            "perplexity/v1/score",
-        }
-
-
 @pytest.mark.parametrize(
     "env_manager",
     ["virtualenv", "conda"],
@@ -2549,14 +2503,14 @@ def test_evaluate_text_custom_metrics():
     assert "no_version/score" in logged_data.columns.tolist()
 
 
-def test_eval_results_table_json_can_be_prefixed_with_metric_prefix():
+@pytest.mark.parametrize("metric_prefix", ["train_", None])
+def test_eval_results_table_json_can_be_prefixed_with_metric_prefix(metric_prefix):
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["a", "b"]})
-        metric_prefix = "test_"
-        mlflow.evaluate(
+        results = mlflow.evaluate(
             model_info.model_uri,
             data,
             model_type="text",
@@ -2568,7 +2522,20 @@ def test_eval_results_table_json_can_be_prefixed_with_metric_prefix():
 
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+
+    if metric_prefix is None:
+        metric_prefix = ""
+
     assert f"{metric_prefix}eval_results_table.json" in artifacts
+    logged_data = pd.DataFrame(**results.artifacts[f"{metric_prefix}eval_results_table"].content)
+    assert set(logged_data.columns.tolist()) == {
+        "text",
+        "outputs",
+        f"{metric_prefix}toxicity/v1/score",
+        f"{metric_prefix}flesch_kincaid_grade_level/v1/score",
+        f"{metric_prefix}ari_grade_level/v1/score",
+        f"{metric_prefix}perplexity/v1/score",
+    }
 
 
 @pytest.mark.parametrize(
