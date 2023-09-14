@@ -57,7 +57,7 @@ jobs:
     needs: check-comment
     if: ${{ needs.check-comment.outputs.should_autoformat == 'true' }}
     permissions:
-      pull-requests: write  # push autoformat changes to PR
+      pull-requests: read  # view files modified in PR
     steps:
       - uses: actions/checkout@v3
         with:
