@@ -120,7 +120,12 @@ def store_imported_modules(cap_cm, model_path, flavor, output_file):
             with cap_cm:
                 model = original(*args, **kwargs)
                 if input_example is not None:
-                    model.predict(input_example)
+                    if type(input_example) == tuple:
+                        input_data, params = input_example
+                    else:
+                        input_data = input_example
+                        params = None
+                    model.predict(input_data, params=params)
                 return model
 
         loader_module._load_pyfunc = _load_pyfunc_patch
