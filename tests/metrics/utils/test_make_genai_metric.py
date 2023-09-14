@@ -82,9 +82,7 @@ def test_make_genai_metric_real_gateway():
         }
     )
 
-    metric_value = custom_metric.eval_fn(eval_df)
-    print(metric_value)
-    assert False
+    custom_metric.eval_fn(eval_df)
 
 
 def test_make_genai_metric_real_openai():
@@ -123,7 +121,7 @@ def test_make_genai_metric_real_openai():
         "critical aspect. "
         "- Score 4: the answer correctly answer the question and not missing any major aspect",
         examples=[example],
-        model="gateway:/prithvi-completions",
+        model="openai:/gpt-3.5-turbo",
         variables=["ground_truth"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
@@ -148,9 +146,7 @@ def test_make_genai_metric_real_openai():
         }
     )
 
-    metric_value = custom_metric.eval_fn(eval_df)
-    print(metric_value)
-    assert False
+    custom_metric.eval_fn(eval_df)
 
 
 def test_make_genai_metric_success():

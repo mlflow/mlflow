@@ -179,9 +179,8 @@ def make_genai_metric(
                 ),
                 **eval_parameters,
             }
-            eval_result = model_utils.score_model_on_payload(eval_model, payload)["candidates"][0][
-                "text"
-            ]
+            raw_result = model_utils.score_model_on_payload(eval_model, payload)
+            eval_result = raw_result["candidates"][0]["text"]
             eval_result_json = json.loads(eval_result)
             scores.append(eval_result_json["Score"])
             justifications.append(eval_result_json["Justification"])
