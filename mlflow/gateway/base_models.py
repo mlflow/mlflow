@@ -43,7 +43,7 @@ class LimitModel(
     extra="ignore",
 ):
     """
-    A pydantic model representing Gateway Limit data, such as renewal period, limit 
+    A pydantic model representing Gateway Limit data, such as renewal period, limit
     key, limit value, etc.
     """
 
