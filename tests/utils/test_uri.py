@@ -693,14 +693,32 @@ def test_resolve_uri_if_local_on_windows(input_uri, expected_uri):
     _assert_resolve_uri_if_local(input_uri, expected_uri)
 
 
-@pytest.mark.parametrize("uri", ["/dbfs/my_path", "dbfs:/my_path", "/Volumes/my_path"])
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "/dbfs/my_path",
+        "dbfs:/my_path",
+        "/Volumes/my_path",
+        "/.fuse-mounts/my_path",
+        "//dbfs////my_path",
+        "///Volumes/",
+        "dbfs://my///path",
+    ],
+)
 def test_correctly_detect_fuse_and_uc_uris(uri):
     assert is_fuse_or_uc_volumes_uri(uri)
 
 
 @pytest.mark.parametrize(
     "uri",
-    ["/My_Volumes/my_path", "s3a:/my_path", "Volumes/my_path", "Volume:/my_path", "dbfs/my_path"],
+    [
+        "/My_Volumes/my_path",
+        "s3a:/my_path",
+        "Volumes/my_path",
+        "Volume:/my_path",
+        "dbfs/my_path",
+        "/fuse-mounts/my_path",
+    ],
 )
 def test_negative_detection(uri):
     assert not is_fuse_or_uc_volumes_uri(uri)

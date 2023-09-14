@@ -1,5 +1,6 @@
 import pathlib
 import posixpath
+import re
 import urllib.parse
 import uuid
 from typing import Any, Tuple
@@ -18,6 +19,7 @@ _INVALID_DB_URI_MSG = (
 _DBFS_FUSE_PREFIX = "/dbfs/"
 _DBFS_HDFS_URI_PREFIX = "dbfs:/"
 _UC_VOLUMES_URI_PREFIX = "/Volumes/"
+_UC_DBFS_SYMLINK_PREFIX = "/.fuse-mounts/"
 _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
 
 
@@ -75,11 +77,20 @@ def is_databricks_uri(uri):
 
 def is_fuse_or_uc_volumes_uri(uri):
     """
-    Validates whether a provided URI is directed to a FUSE mount point or a UC volumes mount point
+    Validates whether a provided URI is directed to a FUSE mount point or a UC volumes mount point.
+    Multiple directory paths are collapsed into a single designator for root path validation.
+    example:
+    "////Volumes/" will resolve to "/Volumes/" for validation purposes.
     """
+    resolved_uri = re.sub("/+", "/", uri)
     return any(
-        uri.startswith(x)
-        for x in [_DBFS_FUSE_PREFIX, _DBFS_HDFS_URI_PREFIX, _UC_VOLUMES_URI_PREFIX]
+        resolved_uri.startswith(x)
+        for x in [
+            _DBFS_FUSE_PREFIX,
+            _DBFS_HDFS_URI_PREFIX,
+            _UC_VOLUMES_URI_PREFIX,
+            _UC_DBFS_SYMLINK_PREFIX,
+        ]
     )
 
 
