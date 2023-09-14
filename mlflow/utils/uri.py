@@ -17,6 +17,7 @@ _INVALID_DB_URI_MSG = (
 
 _DBFS_FUSE_PREFIX = "/dbfs/"
 _DBFS_HDFS_URI_PREFIX = "dbfs:/"
+_UC_VOLUMES_URI_PREFIX = "/Volumes/"
 _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
 
 
@@ -72,11 +73,14 @@ def is_databricks_uri(uri):
     return scheme == "databricks" or uri == "databricks"
 
 
-def is_fuse_uri(uri):
+def is_fuse_or_uc_volumes_uri(uri):
     """
-    Validates whether a provided URI is directed to a FUSE mount point
+    Validates whether a provided URI is directed to a FUSE mount point or a UC volumes mount point
     """
-    return any(uri.startswith(x) for x in [_DBFS_FUSE_PREFIX, _DBFS_HDFS_URI_PREFIX])
+    return any(
+        uri.startswith(x)
+        for x in [_DBFS_FUSE_PREFIX, _DBFS_HDFS_URI_PREFIX, _UC_VOLUMES_URI_PREFIX]
+    )
 
 
 def is_databricks_unity_catalog_uri(uri):
