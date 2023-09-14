@@ -2358,14 +2358,14 @@ def test_evaluate_text_custom_metrics():
     assert results.metrics["toxicity_ratio"] == 0.0
 
 
-def test_eval_results_table_json_can_be_prefixed_with_metric_prefix():
+@pytest.mark.parametrize("metric_prefix", ["train_", None])
+def test_eval_results_table_json_can_be_prefixed_with_metric_prefix(metric_prefix):
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["a", "b"]})
-        metric_prefix = "test_"
-        mlflow.evaluate(
+        results = mlflow.evaluate(
             model_info.model_uri,
             data,
             model_type="text",
@@ -2377,7 +2377,12 @@ def test_eval_results_table_json_can_be_prefixed_with_metric_prefix():
 
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+
+    if metric_prefix is None:
+        metric_prefix = ""
+
     assert f"{metric_prefix}eval_results_table.json" in artifacts
+    assert results.artifacts[f"{metric_prefix}eval_results_table"].content
 
 
 @pytest.mark.parametrize(
