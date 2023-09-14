@@ -4,6 +4,7 @@ import random
 import time
 import uuid
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from importlib import reload
 from itertools import zip_longest
 from unittest import mock
@@ -149,7 +150,7 @@ def reset_experiment_id():
     its included
     """
     yield
-    mlflow.tracking.fluent._active_experiment_id = None
+    mlflow.tracking.fluent._active_experiment_id.set(None)
 
 
 @pytest.fixture(autouse=True)
@@ -502,7 +503,7 @@ def test_search_model_versions(tmp_path):
 
 @pytest.fixture
 def empty_active_run_stack():
-    with mock.patch("mlflow.tracking.fluent._active_run_stack", []):
+    with mock.patch("mlflow.tracking.fluent._active_run_stack.get", return_value=[]):
         yield
 
 
@@ -707,7 +708,9 @@ def test_start_run_with_parent():
     mock_experiment_id = "123456"
     mock_source_name = mock.Mock()
 
-    active_run_stack_patch = mock.patch("mlflow.tracking.fluent._active_run_stack", [parent_run])
+    active_run_stack_patch = mock.patch(
+        "mlflow.tracking.fluent._active_run_stack.get", return_value=[parent_run]
+    )
 
     mock_user = mock.Mock()
     user_patch = mock.patch(
@@ -740,7 +743,7 @@ def test_start_run_with_parent():
 
 
 def test_start_run_with_parent_non_nested():
-    with mock.patch("mlflow.tracking.fluent._active_run_stack", [mock.Mock()]):
+    with mock.patch("mlflow.tracking.fluent._active_run_stack.get", return_value=[mock.Mock()]):
         with pytest.raises(Exception, match=r"Run with UUID .+ is already active"):
             start_run()
 
@@ -1288,3 +1291,68 @@ def test_get_parent_run():
     assert parent_run.data.params == {"a": "1"}
 
     assert mlflow.get_parent_run(run_id) is None
+
+
+def test_active_run_thread_safety():
+    mlflow.search_experiments()  # Initialize database
+
+    def run(worker: int):
+        if worker == 1:
+            time.sleep(1)
+
+        with mlflow.start_run() as run:
+            time.sleep(2)
+            assert mlflow.tracking.fluent.active_run().info.run_id == run.info.run_id
+            return run.info.run_id
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        run_ids = list(executor.map(run, range(2)))
+        assert run_ids == [
+            r.info.run_id
+            for r in mlflow.search_runs(output_format="list", order_by=["start_time ASC"])
+        ]
+
+
+def test_active_experiment_thread_safety():
+    mlflow.search_experiments()  # Initialize database
+
+    def run(worker: int):
+        if worker == 1:
+            time.sleep(1)
+
+        experiment_name = uuid.uuid4().hex
+        experiment = mlflow.set_experiment(experiment_name)
+        time.sleep(2)
+        assert mlflow.tracking.fluent._get_experiment_id() == experiment.experiment_id
+        return experiment_name
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        experiment_names = ["Default"] + list(executor.map(run, range(2)))
+        assert experiment_names == [
+            exp.name for exp in mlflow.search_experiments(order_by=["creation_time ASC"])
+        ]
+
+
+def test_last_active_run_thread_safety():
+    mlflow.search_experiments()  # Initialize database
+
+    def run(worker: int):
+        if worker == 1:
+            time.sleep(1)
+
+        assert mlflow.last_active_run() is None
+        with mlflow.start_run() as run:
+            run_id = run.info.run_id
+            assert mlflow.last_active_run().info.run_id == run_id
+            time.sleep(2)
+            assert mlflow.last_active_run().info.run_id == run_id
+
+        assert mlflow.last_active_run().info.run_id == run_id
+        return run_id
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        run_ids = list(executor.map(run, range(2)))
+        assert run_ids == [
+            r.info.run_id
+            for r in mlflow.search_runs(output_format="list", order_by=["start_time ASC"])
+        ]

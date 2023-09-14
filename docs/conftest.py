@@ -14,4 +14,4 @@ def tracking_uri_mock(tmp_path, monkeypatch):
 @pytest.fixture(autouse=True)
 def reset_active_experiment_id():
     yield
-    mlflow.tracking.fluent._active_experiment_id = None
+    mlflow.tracking.fluent._active_experiment_id.set(None)
