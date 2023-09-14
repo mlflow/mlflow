@@ -21,7 +21,7 @@ Navigate to each of these sections below to begin your journey!
     <div class="grid-container">
         <a href="introduction/index.html" class="button default" style="background-image: url('_static/images/intro/mlflow-intro.gif');"><span>Introduction</span></a>
         <a href="tutorials/index.html" class="button default" style="background-image: url('_static/images/intro/tutorials-img.gif');"><span>Tutorials</span></a>
-        <a href="#" class="button default" style="background-image: url('_static/images/intro/guides-img.gif');"><span>Guides</span></a>
+        <a href="guides/index.html" class="button default" style="background-image: url('_static/images/intro/guides-img.gif');"><span>Guides</span></a>
     </div>
 
 API Docs
@@ -51,6 +51,7 @@ It provides detailed insights, function signatures, and examples across multiple
 
     introduction/index
     tutorials/index
+    guides/index
     quickstart
     quickstart_mlops
     tutorials-and-examples/index

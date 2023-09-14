@@ -1,17 +1,13 @@
-:orphan:
+Deploying a model to Kubernetes
+===============================
 
-.. _tutorial:
-
-Tutorial
-========
-
-This tutorial showcases how you can use MLflow end-to-end to:
+This guide showcases how you can use MLflow end-to-end to:
 
 - Train a linear regression model
 - Package the code that trains the model in a reusable and reproducible model format
 - Deploy the model into a simple HTTP server that will enable you to score predictions
 
-This tutorial uses a dataset to predict the quality of wine based on quantitative features
+**Note** The modeling usecase shown here utilizes a common dataset to predict the quality of wine based on quantitative features
 like the wine's "fixed acidity", "pH", "residual sugar", and so on. The dataset
 is from UCI's `machine learning repository <http://archive.ics.uci.edu/ml/datasets/Wine+Quality>`_.
 [1]_
@@ -23,7 +19,7 @@ is from UCI's `machine learning repository <http://archive.ics.uci.edu/ml/datase
 What You'll Need
 ----------------
 
-To run this tutorial, you'll need to:
+In order to execute the code in this guide locally, you'll need to:
 
 .. plain-section::
 
@@ -39,8 +35,8 @@ To run this tutorial, you'll need to:
        - Install `conda <https://conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
        - ``cd`` into the ``examples`` directory within your clone of MLflow - we'll use this working
-         directory for running the tutorial. We avoid running directly from our clone of MLflow as doing
-         so would cause the tutorial to use MLflow from source, rather than your PyPI installation of
+         directory for walking through the guide. We avoid running directly from our clone of MLflow as doing
+         so would use MLflow from the source (master branch), rather than your PyPI installation of
          MLflow.
 
     .. container:: R
@@ -48,8 +44,8 @@ To run this tutorial, you'll need to:
        - Install the MLflow package (via ``install.packages("mlflow")``)
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
        - ``setwd()`` into the ``examples`` directory within your clone of MLflow - we'll use this
-         working directory for running the tutorial. We avoid running directly from our clone of
-         MLflow as doing so would cause the tutorial to use MLflow from source, rather than your
+         working directory for running the code in this guide. We avoid running directly from our clone of
+         MLflow as doing so would cause the code to execute using MLflow from source, rather than your
          PyPI installation of MLflow.
 
 Training the Model
@@ -64,10 +60,10 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
     The code is located at ``examples/sklearn_elasticnet_wine/train.py`` and is reproduced below.
 
-    .. literalinclude:: ../../../examples/sklearn_elasticnet_wine/train.py
+    .. literalinclude:: ../../../../../examples/sklearn_elasticnet_wine/train.py
 
     This example uses the familiar pandas, numpy, and sklearn APIs to create a simple machine learning
-    model. The :doc:`MLflow tracking APIs<../tracking/>` log information about each
+    model. The :doc:`MLflow tracking APIs<../../../tracking/>` log information about each
     training run, like the hyperparameters ``alpha`` and ``l1_ratio``, used to train the model and metrics, like
     the root mean square error, used to evaluate the model. The example also serializes the
     model in a format that MLflow knows how to deploy.
@@ -89,16 +85,16 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
     Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
     .. note::
-        If you would like to use the Jupyter notebook version of ``train.py``, try out the tutorial notebook at ``examples/sklearn_elasticnet_wine/train.ipynb``.
+        If you would like to use the Jupyter notebook version of ``train.py``, try out the example notebook at ``examples/sklearn_elasticnet_wine/train.ipynb``.
 
   .. container:: R
 
     The code is located at ``examples/r_wine/train.R`` and is reproduced below.
 
-    .. literalinclude:: ../../../examples/r_wine/train.R
+    .. literalinclude:: ../../../../../examples/r_wine/train.R
 
     This example uses the familiar ``glmnet`` package to create a simple machine learning
-    model. The :doc:`MLflow tracking APIs<../tracking/>` log information about each
+    model. The :doc:`MLflow tracking APIs<../../../tracking/>` log information about each
     training run, like the hyperparameters ``alpha`` and ``lambda``, used to train the model and metrics, like
     the root mean square error, used to evaluate the model. The example also serializes the
     model in a format that MLflow knows how to deploy.
@@ -120,7 +116,7 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
     Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
     .. note::
-        If you would like to use an R notebook version of ``train.R``, try the tutorial notebook at ``examples/r_wine/train.Rmd``.
+        If you would like to use an R notebook version of ``train.R``, try the example notebook at ``examples/r_wine/train.Rmd``.
 
 Comparing the Models
 --------------------
@@ -145,11 +141,11 @@ On this page, you can see a list of experiment runs with metrics you can use to 
 
   .. container:: python
 
-    .. image:: ../_static/images/tutorial-compare.png
+    .. image:: ../../../_static/images/tutorial-compare.png
 
   .. container:: R
 
-      .. image:: ../_static/images/tutorial-compare-R.png
+      .. image:: ../../../_static/images/tutorial-compare-R.png
 
 You can  use the search feature to quickly filter out many models. For example, the query ``metrics.rmse < 0.8``
 returns all the models with root mean squared error less than 0.8. For more complex manipulations,
@@ -167,20 +163,20 @@ Now that you have your training code, you can package it so that other data scie
 
     .. container:: python
 
-      You do this by using :doc:`../projects` conventions to specify the dependencies and entry points to your code. The ``sklearn_elasticnet_wine/MLproject`` file specifies that the project has the dependencies located in a `Conda environment file <https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
+      You do this by using :doc:`../../../projects` conventions to specify the dependencies and entry points to your code. The ``sklearn_elasticnet_wine/MLproject`` file specifies that the project has the dependencies located in a `Conda environment file <https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
       called ``conda.yaml`` and has one entry point that takes two parameters: ``alpha`` and ``l1_ratio``.
 
-      .. literalinclude:: ../../../examples/sklearn_elasticnet_wine/MLproject
+      .. literalinclude:: ../../../../../examples/sklearn_elasticnet_wine/MLproject
 
       ``sklearn_elasticnet_wine/conda.yaml`` file lists the dependencies:
 
-      .. literalinclude:: ../../../examples/sklearn_elasticnet_wine/conda.yaml
+      .. literalinclude:: ../../../../../examples/sklearn_elasticnet_wine/conda.yaml
 
       To run this project, invoke ``mlflow run sklearn_elasticnet_wine -P alpha=0.42``. After running
       this command, MLflow runs your training code in a new Conda environment with the dependencies
       specified in ``conda.yaml``.
 
-      If the repository has an ``MLproject`` file in the root you can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/mlflow/mlflow-example repository
+      If the repository has an ``MLproject`` file in the root you can also run a project directly from GitHub. This guide is duplicated in the https://github.com/mlflow/mlflow-example repository
       which you can run with ``mlflow run https://github.com/mlflow/mlflow-example.git -P alpha=5.0``.
 
     .. container:: R
@@ -228,7 +224,7 @@ Now that you have your training code, you can package it so that other data scie
         # Make sure the current working directory is 'examples'
         mlflow_run("r_wine", entry_point = "train.R", parameters = list(alpha = 0.2))
 
-      You can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/rstudio/mlflow-example repository which you can run with:
+      You can also run a project directly from GitHub. This guide is duplicated in the https://github.com/rstudio/mlflow-example repository which you can run with:
 
       .. code-block:: r
 
@@ -243,14 +239,14 @@ Now that you have your training code, you can package it so that other data scie
 Specifying pip requirements using ``pip_requirements`` and ``extra_pip_requirements``
 -------------------------------------------------------------------------------------
 
-.. literalinclude:: ../../../examples/pip_requirements/pip_requirements.py
+.. literalinclude:: ../../../../../examples/pip_requirements/pip_requirements.py
 
 
 Serving the Model
 -----------------
 
 Now that you have packaged your model using the MLproject convention and have identified the best model,
-it is time to deploy the model using :doc:`../models`. An MLflow Model is a standard format for
+it is time to deploy the model using :doc:`../../../models`. An MLflow Model is a standard format for
 packaging machine learning models that can be used in a variety of downstream tools — for example,
 real-time serving through a REST API or batch inference on Apache Spark.
 
@@ -268,7 +264,7 @@ in MLflow saved the model as an artifact within the run.
       To view this artifact, you can use the UI again. When you click a date in the list of experiment
       runs you'll see this page.
 
-      .. image:: ../_static/images/tutorial-artifact.png
+      .. image:: ../../../_static/images/tutorial-artifact.png
 
       At the bottom, you can see that the call to ``mlflow.sklearn.log_model`` produced two files in
       ``/Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model``.
@@ -317,7 +313,7 @@ in MLflow saved the model as an artifact within the run.
       To view this artifact, you can use the UI again. When you click a date in the list of experiment
       runs you'll see this page.
 
-      .. image:: ../_static/images/tutorial-artifact-r.png
+      .. image:: ../../../_static/images/tutorial-artifact-r.png
 
       At the bottom, you can see that the call to ``mlflow_log_model()`` produced two files in
       ``mlruns/0/c2a7325210ef4242bd4631cec8f92351/artifacts/model/``.
@@ -335,7 +331,7 @@ in MLflow saved the model as an artifact within the run.
       This initializes a REST server and opens a `Swagger <https://swagger.io/>`_ interface to perform predictions against
       the REST API:
 
-      .. image:: ../_static/images/tutorial-serving-r.png
+      .. image:: ../../../_static/images/tutorial-serving-r.png
 
       .. note::
 
@@ -473,10 +469,7 @@ the ``kubectl`` CLI:
                     value: v2
 
 
-More Resources
---------------
-
-Congratulations on finishing the tutorial! For more reading, see :doc:`../tracking`, :doc:`../projects`, :doc:`../models`, and more.
+Congratulations on finishing the guide!
 
 
 .. [1] P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis. Modeling wine preferences by data mining from physicochemical properties. In Decision Support Systems, Elsevier, 47(4):547-553, 2009.

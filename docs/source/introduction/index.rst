@@ -31,7 +31,7 @@ right tools at every stage of your endeavor.
 
 * :ref:`Evaluate <model-evaluation>`: A set of tools designed for detailed model analysis. It provides functionalities to objectively compare different models, be they traditional ML algorithms or the most state-of-the-art LLMs.
 
-* PromptLab: An environment dedicated to prompt engineering. It offers a space where users can experiment with, refine, and test prompts in isolation.
+* Prompt Engineering UI: An environment dedicated to prompt engineering. It offers a space where users can experiment with, refine, evaluate, test, and deploy prompts in an interactive UI environment.
 
 * :ref:`Recipes <recipes>`: A framework that guides users in structuring ML projects. While it offers recommendations, the goal is to ensure that the end results are not just functional but also optimized for real-world deployments.
 
@@ -154,6 +154,3 @@ for the full listing.
         - MLflow server deployment options 🚧
         - Creating plugins 🚧
         - Creating a custom flavor 🚧
-
-
-Get started using the :ref:`quickstart` or by reading about the :ref:`key concepts<concepts>`.
