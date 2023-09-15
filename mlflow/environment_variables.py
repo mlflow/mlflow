@@ -428,7 +428,7 @@ MLFLOW_DOWNLOAD_CHUNK_TIMEOUT = _EnvironmentVariable("MLFLOW_DOWNLOAD_CHUNK_TIME
 
 #: Specifies if system metrics logging should be enabled.
 MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING = _BooleanEnvironmentVariable(
-    "MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING", None
+    "MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING", False
 )
 
 #: Specifies the sampling interval for system metrics logging.

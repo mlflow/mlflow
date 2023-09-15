@@ -193,7 +193,7 @@ def start_run(
     nested: bool = False,
     tags: Optional[Dict[str, Any]] = None,
     description: Optional[str] = None,
-    log_system_metrics: bool = False,
+    log_system_metrics: bool = None,
 ) -> ActiveRun:
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
@@ -228,8 +228,10 @@ def start_run(
     :param description: An optional string that populates the description box of the run.
         If a run is being resumed, the description is set on the resumed run.
         If a new run is being created, the description is set on the new run.
-    :param log_system_metrics: bool, defaults to False. If True, system metrics will be logged
-        to MLflow, e.g., cpu/gpu utilization.
+    :param log_system_metrics: bool, defaults to None. If True, system metrics will be logged
+        to MLflow, e.g., cpu/gpu utilization. If None, we will check environment variable
+        `MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL` to determine whether to log system metrics.
+        System metrics logging is an experimental feature in MLflow 2.8 and subject to change.
 
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping the
         run's state.
@@ -372,7 +374,8 @@ def start_run(
             tags=resolved_tags,
             run_name=run_name,
         )
-        if MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING.get() is not None:
+        if log_system_metrics is None:
+            # if `log_system_metrics` is not specified, we will check environment variable.
             log_system_metrics = MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING.get()
         if log_system_metrics:
             try:
