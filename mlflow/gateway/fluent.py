@@ -165,7 +165,7 @@ def get_limits(route: str) -> LimitsConfig:
 
     .. warning::
 
-        This API is **only available** when running within Databricks.
+        This API is **only available** when connected to a Databricks-hosted AI Gateway.
 
     :param route: The name of the route to get limits of.
 
