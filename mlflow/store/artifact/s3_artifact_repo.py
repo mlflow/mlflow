@@ -15,6 +15,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
+from mlflow.utils.logging_utils import eprint
 
 _MAX_CACHE_SECONDS = 300
 
@@ -58,6 +59,7 @@ def _cached_get_s3_client(
 
         signature_version = UNSIGNED
 
+    eprint("addressing style@2 is...", addressing_style)
     return boto3.client(
         "s3",
         config=Config(
