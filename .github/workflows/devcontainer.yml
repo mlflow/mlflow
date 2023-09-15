@@ -48,8 +48,8 @@ jobs:
       - name: Test Image
         run: |
           docker run --rm -v $(pwd):/workspaces/mlflow $IMAGE_NAME bash -c "pip install --no-deps -e . && pytest tests/test_version.py"
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+      - uses: docker/login-action@v2
+        if: github.event_name == 'push'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
