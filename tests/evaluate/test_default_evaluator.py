@@ -6,7 +6,7 @@ from contextlib import nullcontext as does_not_raise
 from os.path import join as path_join
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Dict
+from typing import Dict, List
 from unittest import mock
 
 import matplotlib.pyplot as plt
@@ -44,6 +44,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _CustomMetric,
     _evaluate_custom_artifacts,
     _evaluate_custom_metric,
+    _extract_output_and_other_columns,
     _extract_predict_fn,
     _extract_raw_model,
     _gen_classifier_curve,
@@ -2578,3 +2579,109 @@ def test_default_evaluator_for_pyfunc_model(baseline_model_uri, breast_cancer_da
         "shap_beeswarm_plot.png",
         "shap_summary_plot.png",
     }
+
+
+def test_extracting_output_and_other_columns():
+    data_dict = {
+        "text": ["text_a", "text_b"],
+        "target": ["target_a", "target_b"],
+        "other": ["other_a", "other_b"],
+    }
+    data_df = pd.DataFrame(data_dict)
+    data_list_dict = [
+        {
+            "text": "text_a",
+            "target": "target_a",
+            "other": "other_a",
+        },
+        {
+            "text": "text_b",
+            "target": "target_b",
+            "other": "other_b",
+        },
+    ]
+    data_list = ["data_a", "data_b"]
+
+    output1, other1 = _extract_output_and_other_columns(data_dict, "target")
+    output2, other2 = _extract_output_and_other_columns(data_df, "target")
+    output3, other3 = _extract_output_and_other_columns(data_list_dict, "target")
+    output4, other4 = _extract_output_and_other_columns(data_list, "output")
+    output5, other5 = _extract_output_and_other_columns(pd.Series(data_list), "output")
+
+    assert output1.equals(data_df["target"])
+    assert other1.equals(data_df.drop(columns=["target"]))
+    assert output2.equals(data_df["target"])
+    assert other2.equals(data_df.drop(columns=["target"]))
+    assert output3.equals(data_df["target"])
+    assert other3.equals(data_df.drop(columns=["target"]))
+    assert output4 == data_list
+    assert other4 is None
+    assert output5.equals(pd.Series(data_list))
+    assert other5 is None
+
+    with pytest.raises(
+        MlflowException,
+        match="Predicted model output DataFrame columns",
+    ):
+        _extract_output_and_other_columns(data_df, "foo")
+
+    with pytest.raises(
+        MlflowException,
+        match="Predicted model output dictionary columns",
+    ):
+        _extract_output_and_other_columns(data_dict, "foo")
+
+
+def language_model_with_context(inputs: List[str]) -> List[Dict[str, str]]:
+    return [
+        {
+            "context": f"context_{input}",
+            "output": input,
+        }
+        for input in inputs
+    ]
+
+
+def test_constructing_eval_df_for_custom_metrics():
+    test_eval_df_value = pd.DataFrame(
+        {
+            "prediction": ["text_a", "text_b"],
+            "target": ["target_a", "target_b"],
+            "truth": ["truth_a", "truth_b"],
+            "context": ["context_text_a", "context_text_b"],
+            "input": ["text_a", "text_b"],
+        }
+    )
+
+    def test_eval_df(eval_df, _builtin_metrics):
+        global eval_df_value
+        eval_df_value = eval_df
+        return eval_df["prediction"].eq(eval_df["target"]).mean()
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model",
+            python_model=language_model_with_context,
+            input_example=["a", "b"],
+        )
+        data = pd.DataFrame(
+            {
+                "text": ["text_a", "text_b"],
+                "truth": ["truth_a", "truth_b"],
+                "target": ["target_a", "target_b"],
+            }
+        )
+        mlflow.evaluate(
+            model_info.model_uri,
+            data,
+            targets="target",
+            model_type="text",
+            custom_metrics=[
+                make_metric(
+                    eval_fn=test_eval_df, greater_is_better=True, variables=["truth", "context"]
+                )
+            ],
+            evaluator_config={"input": "text"},
+        )
+
+    assert eval_df_value.equals(test_eval_df_value)

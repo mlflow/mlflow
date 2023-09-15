@@ -58,6 +58,7 @@ _logger = logging.getLogger(__name__)
 
 _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 _EVAL_TABLE_FILE_NAME = "eval_results_table.json"
+_Y_PREDICTED_OUTPUT_COLUMN_NAME = "predicted_column"
 
 
 def _is_categorical(values):
@@ -433,6 +434,44 @@ _matplotlib_config = {
     "figure.autolayout": True,
     "font.size": 8,
 }
+
+
+def _extract_output_and_other_columns(model_predictions, output_column_name):
+    if isinstance(model_predictions, list) and all(isinstance(p, dict) for p in model_predictions):
+        # Extract 'y_pred' as a DataFrame
+        y_pred = pd.Series(
+            [p.get(output_column_name) for p in model_predictions], name=output_column_name
+        )
+        # Extract 'other_output_columns' as a DataFrame
+        other_output_columns = pd.DataFrame(
+            [{k: v for k, v in p.items() if k != output_column_name} for p in model_predictions]
+        )
+    elif isinstance(model_predictions, pd.DataFrame):
+        if output_column_name in model_predictions.columns:
+            y_pred = model_predictions[output_column_name]
+            other_output_columns = model_predictions.drop(columns=output_column_name)
+        else:
+            raise MlflowException(
+                f"Predicted model output DataFrame columns {model_predictions.columns} "
+                f"does not have the specified output column '{output_column_name}'"
+            )
+    elif isinstance(model_predictions, dict):
+        if output_column_name in model_predictions:
+            y_pred = pd.Series(model_predictions[output_column_name], name=output_column_name)
+            # Extract 'other_output_columns' as a DataFrame
+            other_output_columns = pd.DataFrame(
+                {k: v for k, v in model_predictions.items() if k != output_column_name}
+            )
+        else:
+            raise MlflowException(
+                f"Predicted model output dictionary columns {list(model_predictions.keys())} "
+                f"does not have the specified output key '{output_column_name}'"
+            )
+    else:
+        y_pred = model_predictions
+        other_output_columns = None
+
+    return y_pred, other_output_columns
 
 
 class _CustomMetric(NamedTuple):
@@ -1080,6 +1119,29 @@ class DefaultEvaluator(ModelEvaluator):
         for index, custom_metric in enumerate(self.custom_metrics):
             # deepcopying eval_df and builtin_metrics for each custom metric function call,
             # in case the user modifies them inside their function(s).
+            eval_df_copy = eval_df.copy()
+            variables = custom_metric.variables
+            input_df = self.X.copy_to_avoid_mutation()
+
+            if variables is not None:
+                for variable in variables:
+                    column_name = self.evaluator_config.get(variable, variable)
+                    if column_name in input_df.columns:
+                        eval_df_copy[column_name] = input_df[column_name]
+                        input_df.drop(columns=column_name)
+                    elif column_name in self.other_output_columns.columns:
+                        eval_df_copy[column_name] = self.other_output_columns[column_name]
+                    else:
+                        raise MlflowException(
+                            f"Column '{column_name}' not found in input data or output data."
+                        )
+
+            input_df_columns = input_df.columns
+            input_column_name = self.evaluator_config.get("input", "input")
+
+            if input_column_name in input_df_columns:
+                eval_df_copy["input"] = input_df[input_column_name]
+
             custom_metric_tuple = _CustomMetric(
                 function=custom_metric.eval_fn,
                 index=index,
@@ -1087,7 +1149,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
             metric_result = _evaluate_custom_metric(
                 custom_metric_tuple,
-                eval_df.copy(),
+                eval_df_copy,
                 copy.deepcopy(self.metrics),
                 copy.deepcopy(self.metrics_values),
             )
@@ -1236,7 +1298,14 @@ class DefaultEvaluator(ModelEvaluator):
 
             self.metrics_values.update({"latency": MetricValue(scores=pred_latencies)})
         else:
-            self.y_pred = self.model.predict(self.X.copy_to_avoid_mutation())
+            model_predictions = self.model.predict(self.X.copy_to_avoid_mutation())
+            output_column_name = self.evaluator_config.get(
+                _Y_PREDICTED_OUTPUT_COLUMN_NAME, "output"
+            )
+
+            self.y_pred, self.other_output_columns = _extract_output_and_other_columns(
+                model_predictions, output_column_name
+            )
 
     def _compute_builtin_metrics(self):
         """
