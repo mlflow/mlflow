@@ -360,7 +360,7 @@ class MlflowGatewayClient:
         dictionary representing the limit details to be associated with the route.
                       This dictionary should define:
 
-                      - renewal_period: a string representing the length of the window 
+                      - renewal_period: a string representing the length of the window
                         to enforce limit on (only supports "minute" for now).
                       - calls: a non-negative integer representing the number of calls allowed
                         per renewal_period (e.g., 10, 0, 55).
