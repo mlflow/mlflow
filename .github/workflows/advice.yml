@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      pull-requests: write  # advice.js comments on PRs
+      pull-requests: write # advice.js comments on PRs
     steps:
       - uses: actions/checkout@v3
         with:

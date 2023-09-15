@@ -49,7 +49,7 @@ jobs:
     timeout-minutes: 10
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     permissions:
-      issues: read  # listLabelsOnIssue
+      issues: read # listLabelsOnIssue
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       is_matrix_empty: ${{ steps.set-matrix.outputs.is_matrix_empty }}

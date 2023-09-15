@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      actions: write  # deleteArtifact
+      actions: write # deleteArtifact
     strategy:
       matrix:
         type: ["full", "skinny"]

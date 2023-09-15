@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 10
     if: github.repository == 'mlflow-automation/mlflow'
     permissions:
-      actions: write  # to rerun workflows
+      actions: write # to rerun workflows
     steps:
       - uses: actions/checkout@v3
       - uses: actions/github-script@v6

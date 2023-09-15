@@ -12,8 +12,8 @@ jobs:
     timeout-minutes: 10
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     permissions:
-      issues: write  # harupy/stale
-      pull-requests: write  # harupy/stale
+      issues: write # harupy/stale
+      pull-requests: write # harupy/stale
     steps:
       - uses: harupy/stale@mlflow-stale-bot
         with:
