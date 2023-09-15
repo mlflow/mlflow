@@ -204,6 +204,23 @@ service MlflowService {
     };
   }
 
+  // Log a metric for a run in async fashion. A metric is a key-value pair (string key, float value) with an
+  // associated timestamp. Examples include the various metrics that represent ML model accuracy.
+  // A metric can be logged multiple times.
+  //
+  rpc logMetricAsync(LogMetricAsync) returns (LogMetricAsync.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/runs/log-metric-async"
+        since { major: 2, minor: 0 },
+      }],
+
+      visibility: PUBLIC,
+      rpc_doc_title: "Log Metric Async",
+    };
+  }
+
   // Log a param used for a run. A param is a key-value pair (string key,
   // string value). Examples include hyperparameters used for ML model training and
   // constant dates and values used in an ETL pipeline. A param can be logged only once for a run.
@@ -218,6 +235,23 @@ service MlflowService {
 
       visibility: PUBLIC,
       rpc_doc_title: "Log Param",
+    };
+  }
+
+  // Log a param used for a run in async fashion. A param is a key-value pair (string key,
+  // string value). Examples include hyperparameters used for ML model training and
+  // constant dates and values used in an ETL pipeline. A param can be logged only once for a run.
+  //
+  rpc logParamAsync(LogParamAsync) returns (LogParamAsync.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/runs/log-parameter-async"
+        since { major: 2, minor: 0 },
+      }],
+
+      visibility: PUBLIC,
+      rpc_doc_title: "Log Param Async",
     };
   }
 
@@ -249,6 +283,22 @@ service MlflowService {
 
       visibility: PUBLIC,
       rpc_doc_title: "Set Tag",
+    };
+  }
+
+  // Set a tag on a run. Tags are run metadata that can be updated during a run and after
+  // a run completes.
+  //
+  rpc setTagAsync(SetTagAsync) returns (SetTagAsync.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/runs/set-tag-async"
+        since { major: 2, minor: 0 },
+      }],
+
+      visibility: PUBLIC,
+      rpc_doc_title: "Set Tag Async",
     };
   }
 
@@ -933,7 +983,52 @@ message LogMetric {
   message Response {}
 }
 
+message LogMetricAsync {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the run under which to log the metric. Must be provided.
+  optional string run_id = 6;
+
+  // [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will
+  // be removed in a future MLflow version.
+  optional string run_uuid = 1;
+
+  // Name of the metric.
+  optional string key = 2 [(validate_required) = true];
+
+  // Double value of the metric being logged.
+  optional double value = 3 [(validate_required) = true];
+
+  // Unix timestamp in milliseconds at the time metric was logged.
+  optional int64 timestamp = 4 [(validate_required) = true];
+
+  // Step at which to log the metric
+  optional int64 step = 5 [default = 0];
+
+  message Response {}
+}
+
 message LogParam {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the run under which to log the param. Must be provided.
+  optional string run_id = 4;
+
+  // [Deprecated, use run_id instead] ID of the run under which to log the param. This field will
+  // be removed in a future MLflow version.
+  optional string run_uuid = 1;
+
+  // Name of the param. Maximum size is 255 bytes.
+  optional string key = 2 [(validate_required) = true];
+
+  // String value of the param being logged. Maximum size is 500 bytes.
+  optional string value = 3 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message LogParamAsync {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the run under which to log the param. Must be provided.
@@ -972,6 +1067,28 @@ message SetExperimentTag {
 }
 
 message SetTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the run under which to log the tag. Must be provided.
+  optional string run_id = 4;
+
+  // [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
+  // be removed in a future MLflow version.
+  optional string run_uuid = 1;
+
+  // Name of the tag. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string key = 2 [(validate_required) = true];
+
+  // String value of the tag being logged. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 5000 bytes in size.
+  optional string value = 3 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message SetTagAsync {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the run under which to log the tag. Must be provided.

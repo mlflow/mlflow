@@ -7,10 +7,11 @@ if [[ "$PROTOC_VERSION" != 'libprotoc 3.19.4' ]]; then
 	echo "We found: $PROTOC_VERSION"
 	exit 1
 fi
-PROTOS="../mlflow/protos"
+PROTOS="./mlflow/protos"
 protoc -I="$PROTOS" \
     --python_out="$PROTOS" \
-    --java_out="../mlflow/java/client/src/main/java" \
+	--csharp_out="$PROTOS/csharp" \
+    --java_out="./mlflow/java/client/src/main/java" \
     "$PROTOS"/databricks.proto \
     "$PROTOS"/service.proto \
     "$PROTOS"/model_registry.proto \
@@ -27,13 +28,13 @@ protoc -I="$PROTOS" \
     "$PROTOS"/databricks_uc_registry_service.proto
 
 
-PROTOS="../mlflow/protos"
+PROTOS="./mlflow/protos"
 protoc -I="$PROTOS" \
     --python_out="$PROTOS" \
     "$PROTOS"/facet_feature_statistics.proto \
 
 # Generate only Python classes (no Java classes) for test protos.
-TEST_PROTOS="../tests/protos"
+TEST_PROTOS="./tests/protos"
 protoc -I="$TEST_PROTOS" \
     --python_out="$TEST_PROTOS" \
     "$TEST_PROTOS"/test_message.proto

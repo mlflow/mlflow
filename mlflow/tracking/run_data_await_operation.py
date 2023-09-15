@@ -1,4 +1,5 @@
-from exceptions import MlflowException
+from mlflow.exceptions import MlflowException
+
 
 class RunDataAwaitOperation:
     """
@@ -8,6 +9,7 @@ class RunDataAwaitOperation:
     """
     Blocks on completion of the MLflow Run log data operations.
     """
+
     def __init__(self, run_id, operation_futures):
         self._run_id = run_id
         self._operation_futures = operation_futures

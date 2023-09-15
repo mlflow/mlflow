@@ -261,7 +261,7 @@ class TrackingServiceClient:
         """
         self.store.rename_experiment(experiment_id, new_name)
 
-    def log_metric(self, run_id, key, value, timestamp=None, step=None):
+    def log_metric(self, run_id, key, value, timestamp=None, step=None, synchronous: bool = True):
         """
         Log a metric against the run ID.
 
@@ -278,21 +278,29 @@ class TrackingServiceClient:
                       may support larger values.
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
+        :param synchronous: Indicates if the metric would be logged in synchronous fashion or not.
         """
         timestamp = timestamp if timestamp is not None else get_current_time_millis()
         step = step if step is not None else 0
         metric_value = convert_metric_value_to_float_if_possible(value)
         metric = Metric(key, metric_value, timestamp, step)
-        self.store.log_metric(run_id, metric)
+        if synchronous:
+            self.store.log_metric(run_id, metric)
+        else:
+            self.store.log_metric_async(run_id, metric)
 
-    def log_param(self, run_id, key, value):
+    def log_param(self, run_id, key, value, synchrounous: bool = True):
         """
         Log a parameter (e.g. model hyperparameter) against the run ID. Value is converted to
         a string.
+        :param synchronous: Indicates if the metric would be logged in synchronous fashion or not.
         """
         param = Param(key, str(value))
         try:
-            self.store.log_param(run_id, param)
+            if synchrounous:
+                self.store.log_param(run_id, param)
+            else:
+                self.store.log_param_async(run_id, param)
         except MlflowException as e:
             if e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE):
                 msg = f"{e.message}{PARAM_VALIDATION_MSG}"
@@ -311,7 +319,7 @@ class TrackingServiceClient:
         tag = ExperimentTag(key, str(value))
         self.store.set_experiment_tag(experiment_id, tag)
 
-    def set_tag(self, run_id, key, value):
+    def set_tag(self, run_id, key, value, synchronous: bool = True):
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
 
@@ -323,9 +331,13 @@ class TrackingServiceClient:
         :param value: Tag value (string, but will be string-ified if not).
                       All backend stores will support values up to length 5000, but some
                       may support larger values.
+        :param synchronous: Indicates if the metric would be logged in synchronous fashion or not.
         """
         tag = RunTag(key, str(value))
-        self.store.set_tag(run_id, tag)
+        if synchronous:
+            self.store.set_tag(run_id, tag)
+        else:
+            self.store.set_tag_async(run_id, tag)
 
     def delete_tag(self, run_id, key):
         """
@@ -387,11 +399,16 @@ class TrackingServiceClient:
             metrics_batch_size = max(metrics_batch_size, 0)
             metrics_batch = metrics[:metrics_batch_size]
             metrics = metrics[metrics_batch_size:]
-
-            self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=params_batch, tags=tags_batch)
+            if synchronous:
+                self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=params_batch, tags=tags_batch)
+            else:
+                self.store.log_batch_async(run_id=run_id, metrics=metrics_batch, params=params_batch, tags=tags_batch)
 
         for metrics_batch in chunk_list(metrics, chunk_size=MAX_METRICS_PER_BATCH):
-            self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
+            if synchronous:
+                self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
+            else:
+                self.store.log_batch_async(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
 
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
@@ -413,8 +430,7 @@ class TrackingServiceClient:
 
         if not isinstance(mlflow_model, Model):
             raise TypeError(
-                "Argument 'mlflow_model' should be of type mlflow.models.Model but was " "{}".format(type(mlflow_model))
-                "{}".format(type(mlflow_model))
+                "Argument 'mlflow_model' should be of type mlflow.models.Model but was " f"{type(mlflow_model)}"
             )
         self.store.record_logged_model(run_id, mlflow_model)
 

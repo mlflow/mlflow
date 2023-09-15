@@ -764,10 +764,7 @@ class MlflowClient:
             metrics: {'m': 1.5}
             status: FINISHED
         """
-        if synchronous:
-            self._tracking_client.log_metric(run_id, key, value, timestamp, step)
-        else:
-            pass
+        self._tracking_client.log_metric(run_id, key, value, timestamp, step, synchronous=synchronous)
 
     def log_param(self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = True) -> Any:
         """
@@ -836,7 +833,7 @@ class MlflowClient:
             params: {'p': '1'}
             status: FINISHED
         """
-        self._tracking_client.log_param(run_id, key, value)
+        self._tracking_client.log_param(run_id, key, value, synchrounous=synchronous)
         return value
 
     def set_experiment_tag(self, experiment_id: str, key: str, value: Any) -> None:
@@ -915,7 +912,7 @@ class MlflowClient:
             run_id: 4f226eb5758145e9b28f78514b59a03b
             Tags: {'nlp.framework': 'Spark NLP'}
         """
-        self._tracking_client.set_tag(run_id, key, value)
+        self._tracking_client.set_tag(run_id, key, value, synchronous=synchronous)
 
     def delete_tag(self, run_id: str, key: str) -> None:
         """
@@ -1081,10 +1078,7 @@ class MlflowClient:
             tags: {'t': 't'}
             status: FINISHED
         """
-        if synchronous:
-            self._tracking_client.log_batch(run_id, metrics, params, tags)
-        else:
-            pass
+        self._tracking_client.log_batch(run_id, metrics, params, tags, synchronous=synchronous)
 
     @experimental
     def log_inputs(
