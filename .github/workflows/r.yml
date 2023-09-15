@@ -10,6 +10,9 @@ on:
     # Run this workflow daily at 13:00 UTC
     - cron: "0 13 * * *"
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true

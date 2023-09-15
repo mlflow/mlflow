@@ -5,6 +5,9 @@ on:
   issue_comment:
     types: [created, edited]
 
+permissions:
+  contents: read
+
 defaults:
   run:
     shell: bash --noprofile --norc -exo pipefail {0}
@@ -14,6 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '@mlflow-automation') && contains(github.event.comment.body, 'autoformat') }}
+    permissions:
+      statuses: write # autoformat.createStatus
+      pull-requests: write # autoformat.createReaction on PRs
     outputs:
       should_autoformat: ${{ fromJSON(steps.judge.outputs.result).shouldAutoformat }}
       repository: ${{ fromJSON(steps.judge.outputs.result).repository }}
@@ -50,6 +56,8 @@ jobs:
     timeout-minutes: 30
     needs: check-comment
     if: ${{ needs.check-comment.outputs.should_autoformat == 'true' }}
+    permissions:
+      pull-requests: read # view files modified in PR
     steps:
       - uses: actions/checkout@v3
         with:
@@ -152,6 +160,8 @@ jobs:
     timeout-minutes: 10
     needs: [check-comment, format]
     if: always() && needs.check-comment.outputs.should_autoformat == 'true'
+    permissions:
+      statuses: write # autoformat.updateStatus
     steps:
       - uses: actions/checkout@v3
       - name: Update status
