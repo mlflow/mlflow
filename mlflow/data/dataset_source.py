@@ -5,6 +5,19 @@ from typing import Any, Dict
 from mlflow.utils.annotations import experimental
 
 
+class _JsonEncoderStr(json.JSONEncoder):
+    """
+    A custom JSON encoder that falls back to string representation for objects that cannot be
+    serialized by the default JSON encoder.
+    """
+
+    def default(self, obj):
+        try:
+            return super().default(obj)
+        except TypeError:
+            return str(obj)
+
+
 @experimental
 class DatasetSource:
     """
@@ -74,7 +87,7 @@ class DatasetSource:
                  :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`.
 
         """
-        return json.dumps(self._to_dict())
+        return json.dumps(self._to_dict(), cls=_JsonEncoderStr)
 
     @classmethod
     @abstractmethod
