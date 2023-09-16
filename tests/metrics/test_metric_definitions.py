@@ -118,7 +118,7 @@ def test_exact_match():
         }
     )
     result = exact_match.eval_fn(eval_df, metrics={})
-    assert result.aggregate_results[""] == 1.0
+    assert result.aggregate_results["exact_match"] == 1.0
 
     eval_df = pd.DataFrame(
         {
@@ -127,7 +127,7 @@ def test_exact_match():
         }
     )
     result = exact_match.eval_fn(eval_df, metrics={})
-    assert result.aggregate_results[""] == 0.5
+    assert result.aggregate_results["exact_match"] == 0.5
 
 
 def test_rouge1():

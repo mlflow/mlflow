@@ -502,11 +502,9 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics, metri
     if not isinstance(metric, MetricValue):
         raise MlflowException(f"{exception_header} did not return a MetricValue.")
 
-    scores, justifications, aggregates = (
-        metric.scores,
-        metric.justifications,
-        metric.aggregate_results,
-    )
+    scores = metric.scores
+    justifications = metric.justifications
+    aggregates = metric.aggregate_results
 
     if scores is not None:
         if not isinstance(scores, list):
