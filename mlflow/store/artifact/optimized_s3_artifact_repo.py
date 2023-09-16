@@ -57,7 +57,6 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         self._region_name = self._get_region_name()
 
     def _get_region_name(self):
-        eprint("addressing style is...", self._addressing_style)
         temp_client = _get_s3_client(
             addressing_style=self._addressing_style,
             access_key_id=self._access_key_id,
@@ -65,6 +64,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             session_token=self._session_token,
             s3_endpoint_url=self._s3_endpoint_url,
         )
+        eprint("addressing style is...", self._addressing_style)
         return temp_client.get_bucket_location(Bucket=self.bucket)["LocationConstraint"]
 
     def _get_s3_client(self):
