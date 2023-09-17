@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## 2.7.1 (2023-09-17)
+
+MLflow 2.7.1 includes several major features and improvements
+
+Features:
+
+- [Gateway] Add set_limits and get_limits API in mlflow client for AI Gateway (#9516, @zhe-db)
+
+Bug fixes:
+
+- [Models / R] Fix returned path parsing bug from R cli handler when loading models (#9624, @BenWilson2)
+- [Artifacts] Add UC Volumes local target directory as an MPD disable condition (#9631, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#9640, @annzhang-db; #9498, @jerrylian-db; #9622, @harupy
+
 ## 2.7.0 (2023-09-12)
 
 MLflow 2.7.0 includes several major features and improvements
