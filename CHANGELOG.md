@@ -2,20 +2,21 @@
 
 ## 2.7.1 (2023-09-17)
 
-MLflow 2.7.1 includes several major features and improvements
+MLflow 2.7.1 is a patch release containing the following features, bug fixes and changes:
 
 Features:
 
-- [Gateway] Add set_limits and get_limits API in mlflow client for AI Gateway (#9516, @zhe-db)
+- [Gateway / Databricks] Add the `set_limits` and `get_limits` APIs for AI Gateway routes within Databricks (#9516, @zhe-db)
+- [Artifacts / Databricks] Add support for parallelized download and upload of artifacts within Unity Catalog (#9498, @jerrylian-db)
 
 Bug fixes:
 
-- [Models / R] Fix returned path parsing bug from R cli handler when loading models (#9624, @BenWilson2)
-- [Artifacts] Add UC Volumes local target directory as an MPD disable condition (#9631, @BenWilson2)
+- [Models / R] Fix a critical bug with the `R` client that prevents models from being loaded (#9624, @BenWilson2)
+- [Artifacts / Databricks] Disable multi-part download functionality for UC Volumes local file destination when downloading models (#9631, @BenWilson2)
 
 Small bug fixes and documentation updates:
 
-#9640, @annzhang-db; #9498, @jerrylian-db; #9622, @harupy
+#9640, @annzhang-db; #9622, @harupy
 
 ## 2.7.0 (2023-09-12)
 
