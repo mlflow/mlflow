@@ -298,6 +298,45 @@ def test_model_log_with_input_example_succeeds():
         pd.testing.assert_frame_equal(loaded_example, input_example)
 
 
+def test_model_input_example_with_params_log_load_succeeds():
+    with TempDir(chdr=True) as tmp:
+        sig = ModelSignature(
+            inputs=Schema(
+                [
+                    ColSpec("integer", "a"),
+                    ColSpec("string", "b"),
+                    ColSpec("boolean", "c"),
+                    ColSpec("string", "d"),
+                    ColSpec("datetime", "e"),
+                ]
+            ),
+            outputs=Schema([ColSpec(name=None, type="double")]),
+        )
+        input_example = pd.DataFrame(
+            {
+                "a": np.int32(1),
+                "b": "test string",
+                "c": True,
+                "d": date.today(),
+                "e": np.datetime64("2020-01-01T00:00:00"),
+            },
+            index=[0],
+        )
+
+        local_path, _ = _log_model_with_signature_and_example(tmp, sig, input_example)
+        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+        path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
+        x = dataframe_from_raw_json(path, schema=sig.inputs)
+
+        # date column will get deserialized into string
+        input_example["d"] = input_example["d"].apply(lambda x: x.isoformat())
+        pd.testing.assert_frame_equal(x, input_example)
+
+        loaded_example = loaded_model.load_input_example(local_path)
+        assert isinstance(loaded_example, pd.DataFrame)
+        pd.testing.assert_frame_equal(loaded_example, input_example)
+
+
 def test_model_load_input_example_numpy():
     with TempDir(chdr=True) as tmp:
         input_example = np.array([[3, 4, 5]], dtype=np.int32)

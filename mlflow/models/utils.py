@@ -280,11 +280,10 @@ def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: s
     mlflow_model.saved_input_example_info = example.info
 
 
-def _read_example(mlflow_model: Model, path: str):
+def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
     """
-    Read example from a model directory. Returns None if there is no example metadata (i.e. the
-    model was saved without example). Raises FileNotFoundError if there is model metadata but the
-    example file is missing.
+    Read input_example dictionary from the model artifact path. Returns None if there is no
+    example metadata.
 
     :param mlflow_model: Model metadata.
     :param path: Path to the model directory.
@@ -295,22 +294,44 @@ def _read_example(mlflow_model: Model, path: str):
     example_type = mlflow_model.saved_input_example_info["type"]
     if example_type not in ["dataframe", "ndarray", "sparse_matrix_csc", "sparse_matrix_csr"]:
         raise MlflowException(f"This version of mlflow can not load example of type {example_type}")
-    input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
     path = os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
-
     with open(path) as handle:
-        input_example_dict = json.load(handle)
-    params = input_example_dict.pop("params", None)
+        return json.load(handle)
+
+
+def _read_example(mlflow_model: Model, path: str):
+    """
+    Read example from a model directory. Returns None if there is no example metadata (i.e. the
+    model was saved without example). Raises FileNotFoundError if there is model metadata but the
+    example file is missing.
+
+    :param mlflow_model: Model metadata.
+    :param path: Path to the model directory.
+    :return: Input example data or None if the model has no example.
+    """
+    input_example_dict = _get_mlflow_model_input_example_dict(mlflow_model, path)
+    if input_example_dict is None:
+        return None
+    input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
+    example_type = mlflow_model.saved_input_example_info["type"]
+    input_example_dict.pop("params", None)
     input_data_str = json.dumps(input_example_dict)
     if example_type == "ndarray":
-        data = _read_tensor_input_from_json(input_data_str, schema=input_schema)
-    elif example_type in ["sparse_matrix_csc", "sparse_matrix_csr"]:
-        data = _read_sparse_matrix_from_json(input_data_str, example_type)
-    else:
-        data = dataframe_from_raw_json(input_data_str, schema=input_schema)
-    if params:
-        return data, params
-    return data
+        return _read_tensor_input_from_json(input_data_str, schema=input_schema)
+    if example_type in ["sparse_matrix_csc", "sparse_matrix_csr"]:
+        return _read_sparse_matrix_from_json(input_data_str, example_type)
+    return dataframe_from_raw_json(input_data_str, schema=input_schema)
+
+
+def _read_params_from_input_example(mlflow_model: Model, path: str):
+    """
+    Read params of input_example from a model directory. Returns None if there is no params
+    in the input_example or the model was saved without example.
+    """
+    input_example_dict = _get_mlflow_model_input_example_dict(mlflow_model, path)
+    if input_example_dict is None:
+        return None
+    return input_example_dict.pop("params", None)
 
 
 def _read_tensor_input_from_json(path_or_str, schema=None):

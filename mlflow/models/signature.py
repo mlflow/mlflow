@@ -329,10 +329,13 @@ def _infer_signature_from_input_example(
         `wrapped_model`.
     """
     try:
-        input_ex = _Example(input_example).inference_data
+        input_example = _Example(input_example)
+        input_ex = deepcopy(input_example.inference_data)
+        params = input_example.inference_params
         input_schema = _infer_schema(input_ex)
+        params_schema = _infer_param_schema(params) if params else None
         # Copy the input example so that it is not mutated by predict()
-        prediction = wrapped_model.predict(deepcopy(input_ex))
+        prediction = wrapped_model.predict(input_ex, params=params)
         # For column-based inputs, 1D numpy arrays likely signify row-based predictions. Thus, we
         # convert them to a Pandas series for inferring as a single ColSpec Schema.
         if (
@@ -342,7 +345,7 @@ def _infer_signature_from_input_example(
         ):
             prediction = pd.Series(prediction)
         output_schema = _infer_schema(prediction)
-        return ModelSignature(input_schema, output_schema)
+        return ModelSignature(input_schema, output_schema, params_schema)
     except Exception as e:
         if environment_variables._MLFLOW_TESTING.get():
             raise
