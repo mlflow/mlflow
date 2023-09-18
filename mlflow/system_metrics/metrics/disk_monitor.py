@@ -16,9 +16,6 @@ class DiskMonitor(BaseMetricsMonitor):
     def collect_metrics(self):
         # Get disk usage metrics.
         disk_usage = psutil.disk_usage(os.sep)._asdict()
-        for k, v in disk_usage.items():
-            if "percent" in k:
-                self._metrics[f"disk_usage_{k}"].append(v)
-            else:
-                # Convert bytes to MB.
-                self._metrics[f"disk_usage_{k}"].append(int(v / 1e6))
+        self._metrics["disk_usage_percentage"].append(disk_usage["percent"])
+        self._metrics["disk_usage_megabytes"].append(int(disk_usage["used"] / 1e6))
+        self._metrics["disk_available_megabytes"].append(int(disk_usage["free"] / 1e6))

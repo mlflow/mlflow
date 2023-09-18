@@ -27,8 +27,18 @@ def test_manual_system_metrics_monitor():
 
     mlflow_run = mlflow.get_run(run.info.run_id)
     metrics = mlflow_run.data.metrics
-    assert "cpu_percentage" in metrics
-    assert "system_memory_used" in metrics
+
+    expected_metrics_name = [
+        "cpu_utilization_percentage",
+        "system_memory_usage_megabytes",
+        "disk_usage_percentage",
+        "disk_usage_megabytes",
+        "disk_available_megabytes",
+        "network_receive_megabytes",
+        "network_transmit_megabytes",
+    ]
+    for name in expected_metrics_name:
+        assert name in metrics
 
 
 def test_automatic_system_metrics_monitor():
@@ -52,5 +62,15 @@ def test_automatic_system_metrics_monitor():
 
     mlflow_run = mlflow.get_run(run.info.run_id)
     metrics = mlflow_run.data.metrics
-    assert "cpu_percentage" in metrics
-    assert "system_memory_used" in metrics
+
+    expected_metrics_name = [
+        "cpu_utilization_percentage",
+        "system_memory_usage_megabytes",
+        "disk_usage_percentage",
+        "disk_usage_megabytes",
+        "disk_available_megabytes",
+        "network_receive_megabytes",
+        "network_transmit_megabytes",
+    ]
+    for name in expected_metrics_name:
+        assert name in metrics

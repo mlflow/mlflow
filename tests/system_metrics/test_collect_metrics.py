@@ -8,13 +8,13 @@ def test_cpu_monitor():
     cpu_monitor = CPUMonitor()
     cpu_monitor.collect_metrics()
 
-    assert isinstance(cpu_monitor.metrics["cpu_percentage"], list)
-    assert isinstance(cpu_monitor.metrics["system_memory_used"], list)
+    assert isinstance(cpu_monitor.metrics["cpu_utilization_percentage"], list)
+    assert isinstance(cpu_monitor.metrics["system_memory_usage_megabytes"], list)
 
     cpu_monitor.collect_metrics()
     aggregated_metrics = cpu_monitor.aggregate_metrics()
-    assert isinstance(aggregated_metrics["cpu_percentage"], float)
-    assert isinstance(aggregated_metrics["system_memory_used"], float)
+    assert isinstance(aggregated_metrics["cpu_utilization_percentage"], float)
+    assert isinstance(aggregated_metrics["system_memory_usage_megabytes"], float)
 
     cpu_monitor.clear_metrics()
     assert len(cpu_monitor.metrics.keys()) == 0
@@ -28,13 +28,15 @@ def test_gpu_monitor():
         return
     gpu_monitor.collect_metrics()
 
-    assert isinstance(gpu_monitor.metrics["gpu_0_memory_used"], list)
-    assert isinstance(gpu_monitor.metrics["gpu_0_utilization_rate"], list)
+    assert isinstance(gpu_monitor.metrics["gpu_0_memory_usage_percentage"], list)
+    assert isinstance(gpu_monitor.metrics["gpu_0_memory_usage_megabytes"], list)
+    assert isinstance(gpu_monitor.metrics["gpu_0_utilization_percentage"], list)
 
     gpu_monitor.collect_metrics()
     aggregated_metrics = gpu_monitor.aggregate_metrics()
-    assert isinstance(aggregated_metrics["gpu_0_memory_used"], float)
-    assert isinstance(aggregated_metrics["gpu_0_utilization_rate"], float)
+    assert isinstance(aggregated_metrics["gpu_0_memory_usage_percentage"], float)
+    assert isinstance(aggregated_metrics["gpu_0_memory_usage_megabytes"], float)
+    assert isinstance(aggregated_metrics["gpu_0_utilization_percentage"], float)
 
     gpu_monitor.clear_metrics()
     assert len(gpu_monitor.metrics.keys) == 0
@@ -45,14 +47,17 @@ def test_disk_monitor():
     disk_monitor.collect_metrics()
 
     assert len(disk_monitor.metrics.keys()) > 0
-    for _, value in disk_monitor.metrics.items():
-        assert isinstance(value, list)
+    assert isinstance(disk_monitor.metrics["disk_usage_percentage"], list)
+    assert isinstance(disk_monitor.metrics["disk_usage_megabytes"], list)
+    assert isinstance(disk_monitor.metrics["disk_available_megabytes"], list)
 
     disk_monitor.collect_metrics()
     aggregated_metrics = disk_monitor.aggregate_metrics()
     assert len(aggregated_metrics.keys()) > 0
-    for key, value in aggregated_metrics.items():
-        assert isinstance(value, float)
+
+    assert isinstance(aggregated_metrics["disk_usage_percentage"], float)
+    assert isinstance(aggregated_metrics["disk_usage_megabytes"], float)
+    assert isinstance(aggregated_metrics["disk_available_megabytes"], float)
 
     disk_monitor.clear_metrics()
     assert len(disk_monitor.metrics.keys()) == 0
@@ -63,14 +68,15 @@ def test_network_monitor():
     network_monitor.collect_metrics()
 
     assert len(network_monitor.metrics.keys()) > 0
-    for _, value in network_monitor.metrics.items():
-        assert isinstance(value, list)
+    assert isinstance(network_monitor.metrics["network_receive_megabytes"], list)
+    assert isinstance(network_monitor.metrics["network_transmit_megabytes"], list)
 
     network_monitor.collect_metrics()
     aggregated_metrics = network_monitor.aggregate_metrics()
     assert len(aggregated_metrics.keys()) > 0
-    for key, value in aggregated_metrics.items():
-        assert isinstance(value, float)
+
+    assert isinstance(aggregated_metrics["network_receive_megabytes"], float)
+    assert isinstance(aggregated_metrics["network_transmit_megabytes"], float)
 
     network_monitor.clear_metrics()
     assert len(network_monitor.metrics.keys()) == 0

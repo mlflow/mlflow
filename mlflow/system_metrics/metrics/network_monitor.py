@@ -13,9 +13,5 @@ class NetworkMonitor(BaseMetricsMonitor):
     def collect_metrics(self):
         # Get network usage metrics.
         network_usage = psutil.net_io_counters()._asdict()
-        for k, v in network_usage.items():
-            if "bytes" in k:
-                # Convert bytes to MB.
-                self._metrics[f"network_{k}"].append(int(v / 1e6))
-            else:
-                self._metrics[f"network_{k}"].append(v)
+        self._metrics["network_receive_megabytes"].append(int(network_usage["bytes_recv"] / 1e6))
+        self._metrics["network_transmit_megabytes"].append(int(network_usage["bytes_sent"] / 1e6))

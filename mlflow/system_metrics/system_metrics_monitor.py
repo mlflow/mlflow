@@ -8,7 +8,9 @@ from mlflow.environment_variables import (
     MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL,
 )
 from mlflow.system_metrics.metrics.cpu_monitor import CPUMonitor
+from mlflow.system_metrics.metrics.disk_monitor import DiskMonitor
 from mlflow.system_metrics.metrics.gpu_monitor import GPUMonitor
+from mlflow.system_metrics.metrics.network_monitor import NetworkMonitor
 
 _logger = logging.getLogger(__name__)
 
@@ -35,7 +37,7 @@ class SystemMetricsMonitor:
         from mlflow.utils.autologging_utils import BatchMetricsLogger
 
         # Instantiate default monitors.
-        self.monitors = [CPUMonitor()]
+        self.monitors = [CPUMonitor(), DiskMonitor(), NetworkMonitor()]
         gpu_monitor = GPUMonitor()
         if gpu_monitor:
             self.monitors.append(gpu_monitor)
