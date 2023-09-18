@@ -2,10 +2,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import EvaluationExample, MetricValue
+from mlflow.metrics.utils import model_utils
 from mlflow.models import EvaluationMetric, make_metric
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
-from mlflow.pyfunc import PyFuncModel, _load_model_or_server
-from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.class_utils import _get_class_from_string
 
 if TYPE_CHECKING:
@@ -150,7 +149,7 @@ def make_genai_metric(
             grading_prompt,
             examples,
             model,
-            parameters,
+            *(parameters,) if parameters is not None else (),
         ).to_dict()
 
         outputs = eval_df["prediction"].tolist()
@@ -160,31 +159,30 @@ def make_genai_metric(
 
         # TODO: Save the metric definition in a yaml file for model monitoring
 
-        messages = []
+        payload = []
         for indx, (input, output) in enumerate(zip(inputs, outputs)):
             variable_string = _format_variable_string(variables, eval_df, indx)
-            messages.append(
-                [
-                    evaluation_context["eval_prompt"].format(
+            payload.append(
+                {
+                    "prompt": evaluation_context["eval_prompt"].format(
                         input=input, output=output, variables=variable_string
                     ),
-                ],
+                    **eval_parameters,
+                },
             )
 
-        # TODO: load the model for openai and gateway URI
+        eval_result = None
         if isinstance(eval_model, str):
-            eval_model = _load_model_or_server(eval_model, _EnvManager.LOCAL)
-        elif isinstance(eval_model, PyFuncModel):
-            pass
+            # TODO: Add batch processing for messages here
+            eval_result = model_utils.score_model_on_payload(eval_model, payload)
         else:
             raise MlflowException(
-                message="The model argument must be a string URI referring to an MLflow model or "
-                "an instance of `mlflow.pyfunc.PyFuncModel`.",
+                message="The model argument must be a string URI referring to an openai model "
+                "(openai:/gpt-3.5-turbo) or  gateway (gateway:/my-route), "
+                f"passed {eval_model} instead",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        # TODO: Add batch processing for messages here
-        eval_result = eval_model.predict(messages, eval_parameters)
         scores = eval_result["Score"]
         justification = eval_result["Justification"]
 
