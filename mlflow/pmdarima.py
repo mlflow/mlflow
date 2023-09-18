@@ -107,12 +107,10 @@ _logger = logging.getLogger(__name__)
 
 def get_default_pip_requirements():
     """
-
     Returns:
         A list of default pip requirements for MLflow Models produced by this flavor. Calls to
-        `save_model()` and `log_model()` produce a pip environment that, at a minimum, contains
-        these requirements.
-
+        :func:`save_model()` and :func:`log_model()` produce a pip environment that, at a minimum, 
+        contains these requirements.
     """
 
     return [_get_pinned_requirement("pmdarima")]
@@ -120,11 +118,9 @@ def get_default_pip_requirements():
 
 def get_default_conda_env():
     """
-
     Returns:
         The default Conda environment for MLflow Models produced by calls to
         :func:`save_model()` and :func:`log_model()`.
-
     """
 
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
@@ -144,7 +140,6 @@ def save_model(
     metadata=None,
 ):
     """
-
     Save a pmdarima ``ARIMA`` model or ``Pipeline`` object to a path on the local file system.
 
     Args:
@@ -165,7 +160,21 @@ def save_model(
                    :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
                    with valid model inputs, such as a training dataset with the target column
                    omitted, and valid model outputs, like model predictions made on the training
-                   dataset.
+                   dataset, for example:
+
+                   .. code-block:: python
+                    
+                     from mlflow.models import infer_signature
+                    
+                     model = pmdarima.auto_arima(data)
+                     predictions = model.predict(n_periods=30, return_conf_int=False)
+                     signature = infer_signature(data, predictions)
+                    
+                   .. Warning:: if utilizing confidence interval generation in the ``predict``
+                     method of a ``pmdarima`` model (``return_conf_int=True``), the signature
+                     will not be inferred due to the complex tuple return type when using the
+                     native ``ARIMA.predict()`` API. ``infer_schema`` will function correctly
+                     if using the ``pyfunc`` flavor of the model, though.
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
@@ -200,7 +209,7 @@ def save_model(
 
                 # Save the model to the specified path
                 mlflow.pmdarima.save_model(model, "model")
-
+                
     """
 
     import pmdarima
@@ -289,7 +298,6 @@ def log_model(
     **kwargs,
 ):
     """
-
     Logs a ``pmdarima`` ``ARIMA`` or ``Pipeline`` object as an MLflow artifact for the current run.
 
     Args:
@@ -365,7 +373,6 @@ def log_model(
 
             # Log model
             mlflow.pmdarima.log_model(model, ARTIFACT_PATH, signature=signature)
-
     """
 
     return Model.log(
@@ -387,7 +394,6 @@ def log_model(
 
 def load_model(model_uri, dst_path=None):
     """
-
     Loads a ``pmdarima`` ``ARIMA`` model or ``Pipeline`` object from a local file or a run.
 
     Args:
@@ -470,7 +476,6 @@ def load_model(model_uri, dst_path=None):
         235    380639.458720
         236    359805.611219
         ...
-
     """
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
@@ -509,7 +514,6 @@ class _PmdarimaModelWrapper:
         self, dataframe, params: Optional[Dict[str, Any]] = None
     ) -> pd.DataFrame:  # pylint: disable=unused-argument
         """
-
         Args:
             dataframe: Model input data.
             params: Additional parameters to pass to the model for inference.
@@ -518,7 +522,6 @@ class _PmdarimaModelWrapper:
 
         Returns:
             Model predictions.
-
         """
         df_schema = dataframe.columns.values.tolist()
 
