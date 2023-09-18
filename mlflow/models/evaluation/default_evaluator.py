@@ -1144,7 +1144,16 @@ class DefaultEvaluator(ModelEvaluator):
                 start_time = time.time()
                 y_pred = self.model.predict(single_input)
                 end_time = time.time()
-                num_tokens = len(encoding.encode(y_pred))
+                # parse out the output from y_pred
+                if isinstance(y_pred, pd.DataFrame):
+                    output = y_pred.iloc[0, 0]
+                elif isinstance(y_pred, np.ndarray):
+                    output = y_pred[0]
+                elif isinstance(y_pred, list):
+                    output = y_pred[0]
+                elif isinstance(y_pred, pd.Series):
+                    output = y_pred.iloc[0]
+                num_tokens = len(encoding.encode(output))
                 num_tokens_list.append(num_tokens)
                 pred_latencies.append(end_time - start_time)
                 y_pred_list.append(y_pred)

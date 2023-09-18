@@ -1996,6 +1996,7 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
         "ari_grade_level",
         "perplexity",
         "latency",
+        "token_count",
     }
     if with_targets:
         columns.update({"answer"})
@@ -2010,6 +2011,7 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
     assert all(isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level"])
     assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level"])
     assert all(isinstance(grade, float) for grade in logged_data["latency"])
+    assert all(isinstance(grade, int) for grade in logged_data["token_count"])
 
     if with_targets:
         assert logged_data["answer"].tolist() == ["words random", "This is a sentence."]
@@ -2070,7 +2072,9 @@ def test_evaluate_question_answering_with_numerical_targets():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    pd.testing.assert_frame_equal(logged_data.drop("latency", axis=1), data.assign(outputs=[0, 1]))
+    pd.testing.assert_frame_equal(
+        logged_data.drop("latency", axis=1).drop("token_count", axis=1), data.assign(outputs=[0, 1])
+    )
     assert results.metrics == {"exact_match": 1.0}
 
 
@@ -2109,6 +2113,7 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
         "ari_grade_level",
         "perplexity",
         "latency",
+        "token_count",
     }
     if with_targets:
         columns.update({"summary", "rouge1", "rouge2", "rougeL", "rougeLsum"})
@@ -2122,6 +2127,7 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
     assert all(isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level"])
     assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level"])
     assert all(isinstance(grade, float) for grade in logged_data["latency"])
+    assert all(isinstance(grade, int) for grade in logged_data["token_count"])
 
     if with_targets:
         assert logged_data["summary"].tolist() == ["a", "b"]
@@ -2265,6 +2271,7 @@ def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
         "flesch_kincaid_grade_level",
         "ari_grade_level",
         "latency",
+        "token_count",
     }
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["summary"].tolist() == ["a", "b"]
@@ -2295,6 +2302,7 @@ def test_evaluate_text_and_text_metrics():
         "ari_grade_level",
         "perplexity",
         "latency",
+        "token_count",
     }
     assert logged_data["text"].tolist() == ["sentence not", "All women are bad."]
     assert logged_data["outputs"].tolist() == ["sentence not", "All women are bad."]
@@ -2346,6 +2354,7 @@ def test_evaluate_text_custom_metrics():
         "ari_grade_level",
         "perplexity",
         "latency",
+        "token_count",
     }
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["target"].tolist() == ["a", "b"]
