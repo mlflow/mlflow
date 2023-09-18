@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from mlflow.exceptions import MlflowException
@@ -11,6 +12,8 @@ from mlflow.utils.class_utils import _get_class_from_string
 if TYPE_CHECKING:
     import pandas as pd
     import pyspark
+
+_logger = logging.getLogger(__name__)
 
 
 def _format_variable_string(variables: Dict[str, Any], eval_df, indx) -> str:
@@ -179,11 +182,14 @@ def make_genai_metric(
                 ),
                 **eval_parameters,
             }
-            raw_result = model_utils.score_model_on_payload(eval_model, payload)
-            eval_result = raw_result.candidates[0]["text"]
-            eval_result_json = json.loads(eval_result)
-            scores.append(eval_result_json["Score"])
-            justifications.append(eval_result_json["Justification"])
+            try:
+                raw_result = model_utils.score_model_on_payload(eval_model, payload)
+                eval_result = raw_result.candidates[0].text
+                eval_result_json = json.loads(eval_result)
+                scores.append(eval_result_json["Score"])
+                justifications.append(eval_result_json["Justification"])
+            except Exception as e:
+                _logger.info(f"Failed to score model on payload. Error: {e!r}")
 
         # loop over the aggregations and compute the aggregate results on the scores
         def aggregate_function(aggregate_option, scores):
@@ -195,7 +201,7 @@ def make_genai_metric(
                 "mean": np.mean,
                 "median": np.median,
                 "variance": np.var,
-                "p90": lambda x: np.percentile(x, 90),
+                "p90": lambda x: np.percentile(x, 90) if x else None,
             }
 
             if aggregate_option not in options:
