@@ -54,6 +54,7 @@ from mlflow.transformers import (
     get_default_conda_env,
     get_default_pip_requirements,
 )
+from mlflow.types import ColSpec, DataType, Schema
 from mlflow.utils.environment import _mlflow_conda_env
 
 from tests.helper_functions import (
@@ -3550,6 +3551,58 @@ def test_whisper_model_serve_and_score_with_timestamps_with_kwargs(
         {
             "inputs": [base64.b64encode(raw_audio_file).decode("ascii")],
             "inference_config": inference_config,
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    payload_output = json.loads(values.loc[0, 0])
+
+    assert (
+        payload_output["text"]
+        == mlflow.transformers.load_model(model_info.model_uri)(raw_audio_file, **inference_config)[
+            "text"
+        ]
+    )
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
+)
+@pytest.mark.skipcacheclean
+def test_whisper_model_serve_and_score_with_input_example_with_params(
+    whisper_pipeline, raw_audio_file
+):
+    artifact_path = "whisper_timestamps"
+    inference_config = {
+        "return_timestamps": "word",
+        "chunk_length_s": 20,
+        "stride_length_s": [5, 3],
+    }
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=whisper_pipeline,
+            artifact_path=artifact_path,
+            # signature=signature,
+            input_example={"file": raw_audio_file, "params": inference_config},
+        )
+    # model signature inferred from input_example
+    signature = infer_signature(
+        raw_audio_file,
+        mlflow.transformers.generate_signature_output(whisper_pipeline, raw_audio_file),
+        params=inference_config,
+    )
+    # input_example uses 'file' as keyword the audio file input
+    signature.inputs = Schema([ColSpec(DataType.binary, "file")])
+    assert model_info.signature == signature
+
+    inference_payload = json.dumps(
+        {
+            "inputs": [base64.b64encode(raw_audio_file).decode("ascii")],
         }
     )
     response = pyfunc_serve_and_score_model(

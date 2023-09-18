@@ -37,6 +37,7 @@ from mlflow.models import (
     infer_signature,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -471,10 +472,21 @@ def save_model(
     if _should_add_pyfunc_to_model(built_pipeline):
         # For pyfunc supported models, if a signature is not supplied, infer the signature
         # from the input_example if provided, otherwise, apply a generic signature.
-        if signature is None:
-            mlflow_model.signature = _get_default_pipeline_signature(
-                built_pipeline, input_example, inference_config
-            )
+        if mlflow_model.signature is None:
+            if input_example is not None:
+                try:
+                    wrapped_model = _TransformersWrapper(
+                        built_pipeline, flavor_conf, inference_config
+                    )
+                    mlflow_model.signature = _infer_signature_from_input_example(
+                        input_example, wrapped_model
+                    )
+                except Exception:
+                    _logger.warning("Unable to infer signature from input_example.")
+            else:
+                mlflow_model.signature = _get_default_pipeline_signature(
+                    built_pipeline, input_example, inference_config
+                )
 
         pyfunc.add_to_model(
             mlflow_model,

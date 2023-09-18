@@ -2,6 +2,7 @@ import decimal
 import json
 import logging
 import os
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -11,7 +12,7 @@ from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
 from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
-from mlflow.types.utils import TensorsNotSupportedException, clean_tensor_type, _infer_param_schema
+from mlflow.types.utils import TensorsNotSupportedException, _infer_param_schema, clean_tensor_type
 from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
@@ -182,11 +183,11 @@ class _Example:
             return result
 
         example_filename = "input_example.json"
+        # Avoid changing the variable passed in
+        input_example = deepcopy(input_example)
         if _contains_params(input_example):
             self._inference_params = input_example.pop("params")
             _validate_params(self._inference_params)
-            if len(input_example.keys()) == 1:
-                input_example = list(input_example.values())[0]
         else:
             self._inference_params = None
 
@@ -807,6 +808,10 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
             actual_cols = expected_required_cols
         elif isinstance(pf_input, pd.DataFrame):
             actual_cols = set(pf_input.columns)
+            # for schemas with a single column, match input with column
+            if len(actual_cols) == 1:
+                pf_input.rename(columns={actual_cols.pop(): input_names[0]}, inplace=True)
+                actual_cols = expected_required_cols
         elif isinstance(pf_input, dict):
             actual_cols = set(pf_input.keys())
         missing_cols = expected_required_cols - actual_cols
