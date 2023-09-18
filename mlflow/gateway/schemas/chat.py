@@ -89,7 +89,7 @@ class ResponsePayload(ResponseModel):
                     "output_tokens": 2,
                     "total_tokens": 3,
                     "model": "gpt-3.5-turbo",
-                    "route_type": "llm/v1/completions",
+                    "route_type": "llm/v1/chat",
                 },
             }
         }
