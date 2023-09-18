@@ -1126,7 +1126,12 @@ class DefaultEvaluator(ModelEvaluator):
         ):
             y_pred_list = []
             pred_latencies = []
+            num_tokens_list = []
             X_copy = self.X.copy_to_avoid_mutation()
+
+            import tiktoken
+
+            encoding = tiktoken.get_encoding("cl100k_base")
 
             if len(X_copy) == 0:
                 raise ValueError("Empty input data")
@@ -1139,6 +1144,8 @@ class DefaultEvaluator(ModelEvaluator):
                 start_time = time.time()
                 y_pred = self.model.predict(single_input)
                 end_time = time.time()
+                num_tokens = len(encoding.encode(y_pred))
+                num_tokens_list.append(num_tokens)
                 pred_latencies.append(end_time - start_time)
                 y_pred_list.append(y_pred)
 
@@ -1161,6 +1168,7 @@ class DefaultEvaluator(ModelEvaluator):
                 )
 
             self.metrics_dict.update({"latency": pred_latencies})
+            self.metrics_dict.update({"token_count": num_tokens_list})
         else:
             self.y_pred = self.model.predict(self.X.copy_to_avoid_mutation())
 
