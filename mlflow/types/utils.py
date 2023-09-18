@@ -70,6 +70,8 @@ def clean_tensor_type(dtype: np.dtype):
 
 
 def _get_str_or_byte_type(data):
+    if isinstance(data, (np.ndarray, list)):
+        data = data[0]
     if DataType.is_string(data):
         return DataType.string
     elif DataType.is_binary(data):
