@@ -1825,8 +1825,10 @@ def save_model(
                 input_example=input_example,
             ):
                 mlflow_model.signature = signature
-            elif signature := _infer_signature_from_input_example(
-                input_example, _PythonModelPyfuncWrapper(python_model, None, None)
+            elif input_example is not None and (
+                signature := _infer_signature_from_input_example(
+                    input_example, _PythonModelPyfuncWrapper(python_model, None, None)
+                )
             ):
                 mlflow_model.signature = signature
 
