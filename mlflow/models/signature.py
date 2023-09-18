@@ -306,14 +306,24 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
     if hints.input is None:
         return None
 
+    params = None
+    if isinstance(input_example, dict) and "params" in input_example:
+        params = input_example.pop("params")
+        if len(input_example) == 1:
+            input_example = list(input_example.values())[0]
+
     input_schema = _infer_schema_from_type_hint(hints.input, input_example) if hints.input else None
-    output_example = func(input_example) if input_example else None
+    if params and inspect.signature(func).parameters.get("params"):
+        output_example = func(input_example, params=params) if input_example else None
+    else:
+        output_example = func(input_example) if input_example else None
     output_schema = (
         _infer_schema_from_type_hint(hints.output, output_example) if hints.output else None
     )
-    if input_schema is None and output_schema is None:
+    params_schema = _infer_param_schema(params) if params else None
+    if all(x is None for x in (input_schema, output_schema, params_schema)):
         return None
-    return ModelSignature(inputs=input_schema, outputs=output_schema)
+    return ModelSignature(inputs=input_schema, outputs=output_schema, params=params_schema)
 
 
 def _infer_signature_from_input_example(
