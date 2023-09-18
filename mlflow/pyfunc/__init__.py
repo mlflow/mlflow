@@ -1825,12 +1825,13 @@ def save_model(
                 input_example=input_example,
             ):
                 mlflow_model.signature = signature
-            elif input_example is not None and (
-                signature := _infer_signature_from_input_example(
-                    input_example, _PythonModelPyfuncWrapper(python_model, None, None)
-                )
-            ):
-                mlflow_model.signature = signature
+            elif input_example is not None:
+                try:
+                    mlflow_model.signature = _infer_signature_from_input_example(
+                        input_example, _PythonModelPyfuncWrapper(python_model, None, None)
+                    )
+                except Exception as e:
+                    _logger.warning(f"Failed to infer model signature from input example. {e}")
 
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
