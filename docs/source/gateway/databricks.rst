@@ -1,4 +1,4 @@
-.. _gateway:
+.. _databricks_gateway:
 
 =====================
 Databricks AI Gateway
@@ -40,7 +40,7 @@ This simplification and centralization of language model interactions, coupled w
 layer of security for API key management, rate limiting for cost control, make the Databricks AI Gateway service an ideal choice for
 organizations that use LLMs on a regular basis.
 
-.. _gateway-quickstart:
+.. _databricks_gateway-quickstart:
 
 Quickstart
 ==========
@@ -76,7 +76,7 @@ Step 3: Create Gateway Routes
 ------------------------------
 The next step is to create Gateway Routes for each LLM you want to use. In this example, we call
 the :py:func:`mlflow.gateway.create_route()` API. For more information, see the
-:ref:`gateway_fluent_api` and :ref:`gateway_client_api` sections.
+:ref:`databricks_gateway_fluent_api` and :ref:`databricks_gateway_client_api` sections.
 
 If you are using the AI Gateway in a Databricks Notebook or Databricks Job, you can set the gateway URI as follows:
 
@@ -177,12 +177,12 @@ For more details, see :ref:`rate_limits` sections.
 Step 5: Send Requests Using the Fluent API
 ------------------------------------------
 
-The next step is to query the Routes using the :ref:`gateway_fluent_api`.
-For information on formatting requirements and how to pass parameters, see :ref:`gateway_query`.
+The next step is to query the Routes using the :ref:`databricks_gateway_fluent_api`.
+For information on formatting requirements and how to pass parameters, see :ref:`databricks_gateway_query`.
 
 Completions
 ~~~~~~~~~~~
-Here's an example of how to send a completions request using the :ref:`gateway_fluent_api` :
+Here's an example of how to send a completions request using the :ref:`databricks_gateway_fluent_api` :
 
 .. code-block:: python
 
@@ -222,7 +222,7 @@ The returned response will have the following structure (the actual content and 
 
 Chat
 ~~~~
-Here's an example of how to send a chat request using the :ref:`gateway_fluent_api` :
+Here's an example of how to send a chat request using the :ref:`databricks_gateway_fluent_api` :
 
 .. code-block:: python
 
@@ -263,7 +263,7 @@ The returned response will have the following structure (the actual content and 
 Embeddings
 ~~~~~~~~~~
 
-Here's an example of how to send an embeddings request using the :ref:`gateway_fluent_api` :
+Here's an example of how to send an embeddings request using the :ref:`databricks_gateway_fluent_api` :
 
 .. code-block:: python
 
@@ -303,11 +303,11 @@ The returned response will have the following structure (the actual content and 
 
 Step 6: Send Requests Using the Client API
 ------------------------------------------
-See the :ref:`gateway_client_api` section for further information.
+See the :ref:`databricks_gateway_client_api` section for further information.
 
 Step 7: Send Requests to Routes via REST API
 --------------------------------------------
-See the :ref:`REST examples <gateway_rest_api>` section for further information.
+See the :ref:`REST examples <databricks_gateway_rest_api>` section for further information.
 
 Step 8: Compare Provider Models
 -------------------------------
@@ -369,17 +369,17 @@ The returned response will have the following structure (the actual content and 
 
 Finally, if you no longer need a route, you can delete it using the
 :py:func:`mlflow.gateway.delete_route` API. For more information, see the
-:ref:`gateway_fluent_api` and :ref:`gateway_client_api` sections.
+:ref:`databricks_gateway_fluent_api` and :ref:`databricks_gateway_client_api` sections.
 
 Step 9: Use AI Gateway routes for model development
 ---------------------------------------------------
 
 Now that you have created several AI Gateway routes, you can create MLflow Models that query these
 routes to build application-specific logic using techniques like prompt engineering. For more
-information, see :ref:`AI Gateway and MLflow Models <gateway_mlflow_models>`.
+information, see :ref:`AI Gateway and MLflow Models <databricks_gateway_mlflow_models>`.
 
 
-.. _gateway-concepts:
+.. _databricks_gateway-concepts:
 
 Concepts
 ========
@@ -387,7 +387,7 @@ Concepts
 There are several concepts that are referred to within the Databricks AI Gateway APIs, the configuration definitions, examples, and documentation.
 Becoming familiar with these terms will help in configuring new endpoints (routes) and ease the use of the interface APIs for the AI Gateway.
 
-.. _providers:
+.. _databricks_providers:
 
 Providers
 ---------
@@ -521,13 +521,13 @@ most up-to-date list of supported providers.
 Remember, the provider you specify must be one that the Databricks AI Gateway supports. If the provider
 is not supported, the Gateway will return an error when trying to route requests to that provider.
 
-.. _routes:
+.. _databricks_routes:
 
 Routes
 ------
 
 `Routes` are central to how the Databricks AI Gateway functions. Each route acts as a proxy endpoint for the
-user, forwarding requests to its configured :ref:`provider <providers>`.
+user, forwarding requests to its configured :ref:`provider <databricks_providers>`.
 
 A route in the Databricks AI Gateway consists of the following fields:
 
@@ -541,7 +541,7 @@ A route in the Databricks AI Gateway consists of the following fields:
 
 * **model**: Defines the model to which this route will forward requests. The model contains the following details:
 
-    * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for OpenAI's ``GPT-3.5`` models.
+    * **provider**: Specifies the name of the :ref:`provider <databricks_providers>` for this model. For example, ``openai`` for OpenAI's ``GPT-3.5`` models.
 
       - "openai"
       - "mosaicml"
@@ -588,7 +588,7 @@ In the example above, a request sent to the embeddings route would be forwarded 
 Configuring the Provider for a Route
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 When creating a Route, it's important to supply the required configurations for the specified
-:ref:`provider <providers>`. This section provides an overview of the configuration parameters
+:ref:`provider <databricks_providers>`. This section provides an overview of the configuration parameters
 available for each provider.
 
 Provider-Specific Configuration Parameters
@@ -776,16 +776,16 @@ The following example demonstrates how to set a per user limit and per route lim
         route="my-route"
     )
 
-For more details on how to set limits and get limits via APIs, please see :ref:`gateway_fluent_api`, :ref:`gateway_client_api` and :ref:`gateway_rest_api`.
+For more details on how to set limits and get limits via APIs, please see :ref:`databricks_gateway_fluent_api`, :ref:`databricks_gateway_client_api` and :ref:`databricks_gateway_rest_api`.
 
-.. _gateway_query:
+.. _databricks_gateway_query:
 
 Querying the AI Gateway
 =======================
 
 Once the Databricks AI Gateway server has been configured and started, it is ready to receive traffic from users.
 
-.. _standard_query_parameters:
+.. _databricks_standard_query_parameters:
 
 Standard Query Parameters
 -------------------------
@@ -837,7 +837,7 @@ The standard parameters for completions routes with type ``llm/v1/chat`` are:
 | **messages**                  | array[message] | Yes      | N/A           | A list of messages in a conversation from which to    |
 |                               |                |          |               | a new message (chat completion). For information      |
 |                               |                |          |               | about the message structure, see                      |
-|                               |                |          |               | :ref:`chat_message_structure`.                        |
+|                               |                |          |               | :ref:`databricks_chat_message_structure`.             |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 | **candidate_count**           | integer        | No       | 1             | The number of chat completions to generate for the    |
 |                               |                |          |               | specified prompt, between 1 and 5.                    |
@@ -853,7 +853,7 @@ The standard parameters for completions routes with type ``llm/v1/chat`` are:
 |                               |                |          |               | tokens and return the chat completion.                |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 
-.. _chat_message_structure:
+.. _databricks_chat_message_structure:
 
 Messages
 ^^^^^^^^
@@ -885,7 +885,7 @@ The standard parameters for completions routes with type ``llm/v1/embeddings`` a
 
 Additional Query Parameters
 ---------------------------
-In addition to the :ref:`standard_query_parameters`, you can pass any additional parameters supported by the route's provider as part of your query. For example:
+In addition to the :ref:`databricks_standard_query_parameters`, you can pass any additional parameters supported by the route's provider as part of your query. For example:
 
 - ``logit_bias`` (supported by OpenAI, Cohere)
 - ``top_k`` (supported by MosaicML, Anthropic, Cohere)
@@ -948,7 +948,7 @@ It abstracts the HTTP requests to the Gateway via a simple, easy-to-use Python A
 
 The fluent API is a higher-level interface that supports setting the Gateway URI once and using simple functions to interact with the AI Gateway.
 
-.. _gateway_fluent_api:
+.. _databricks_gateway_fluent_api:
 
 Fluent API
 ~~~~~~~~~~
@@ -1037,7 +1037,7 @@ For the ``fluent`` API, here are some examples:
        )
        print(response)
 
-.. _gateway_client_api:
+.. _databricks_gateway_client_api:
 
 Client API
 ~~~~~~~~~~
@@ -1130,7 +1130,7 @@ To use the ``MlflowGatewayClient`` API, see the below examples for the available
 
 Further route types will be added in the future.
 
-.. _gateway_mlflow_models:
+.. _databricks_gateway_mlflow_models:
 
 MLflow Models
 ~~~~~~~~~~~~~
@@ -1234,12 +1234,12 @@ techniques with LLMs in the gateway.
 
 Querying the AI Gateway from Databricks Model Serving Endpoints
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Once you have defined an :ref:`MLflow Model <gateway_mlflow_models>` that queries the AI Gateway,
+Once you have defined an :ref:`MLflow Model <databricks_gateway_mlflow_models>` that queries the AI Gateway,
 you can deploy it to Databricks Model Serving. This enables you to deploy custom application
 logic that depends on one or more LLMs in the AI Gateway, such as constructing an
 application-specific prompt in response to user input and using it to query an LLM.
 
-Building on the previous :ref:`gateway_mlflow_models` example, run the following steps
+Building on the previous :ref:`databricks_gateway_mlflow_models` example, run the following steps
 to deploy an MLflow Model that uses the AI Gateway to Databricks Model Serving:
 
 1. Log and register your model with the following additional dependencies - ``pydantic<2`` and
@@ -1297,7 +1297,7 @@ to deploy an MLflow Model that uses the AI Gateway to Databricks Model Serving:
            }]
         }
 
-.. _gateway_rest_api:
+.. _databricks_gateway_rest_api:
 
 REST API
 ~~~~~~~~
@@ -1439,7 +1439,7 @@ For the ``Instructor-XL`` embeddings model, the route can be created like so:
     )
 
 
-To query these routes, you can use the :ref:`gateway_fluent_api`, for instance:
+To query these routes, you can use the :ref:`databricks_gateway_fluent_api`, for instance:
 
 .. code-block:: python
 
@@ -1453,7 +1453,7 @@ To query these routes, you can use the :ref:`gateway_fluent_api`, for instance:
     )
     print(response)
 
-The :ref:`gateway_rest_api` can also be used.
+The :ref:`databricks_gateway_rest_api` can also be used.
 
 
 .. _config_databricks_model_serving:
@@ -1462,7 +1462,7 @@ Using open source models with the AI Gateway (Databricks Model Serving Endpoints
 =================================================================================
 The Databricks AI Gateway supports `Databricks Model Serving endpoints <https://docs.databricks.com/machine-learning/model-serving/create-manage-serving-endpoints.html>`_
 as providers for the ``llm/v1/completions`` route type. These endpoints must accept the
-:ref:`standard_query_parameters` that are marked **required**, and they must produce responses
+:ref:`databricks_standard_query_parameters` that are marked **required**, and they must produce responses
 in the following format:
 
 .. code-block:: json
