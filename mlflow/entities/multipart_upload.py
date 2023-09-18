@@ -59,6 +59,6 @@ class CreateMultipartUploadResponse:
     def from_dict(cls, dict_):
         credentials = [MultipartUploadCredential.from_dict(cred) for cred in dict_["credentials"]]
         return cls(
-            upload_id=dict_["upload_id"],
+            upload_id=dict_.get("upload_id"),
             credentials=credentials,
         )
