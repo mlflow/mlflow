@@ -7,6 +7,7 @@ import pathlib
 import pickle
 import shutil
 import tempfile
+import time
 from collections import namedtuple
 from functools import partial
 from typing import Callable, NamedTuple
@@ -1118,6 +1119,48 @@ class DefaultEvaluator(ModelEvaluator):
                 self.y_probs = self.predict_proba_fn(self.X.copy_to_avoid_mutation())
             else:
                 self.y_probs = None
+        elif self.model_type in (
+            _ModelType.QUESTION_ANSWERING,
+            _ModelType.TEXT_SUMMARIZATION,
+            _ModelType.TEXT,
+        ):
+            y_pred_list = []
+            pred_latencies = []
+            X_copy = self.X.copy_to_avoid_mutation()
+
+            if len(X_copy) == 0:
+                raise ValueError("Empty input data")
+
+            for row in X_copy.iterrows() if isinstance(X_copy, pd.DataFrame) else enumerate(X_copy):
+                i, row_data = row
+                single_input = (
+                    row_data.to_frame().T if isinstance(X_copy, pd.DataFrame) else row_data
+                )
+                start_time = time.time()
+                y_pred = self.model.predict(single_input)
+                end_time = time.time()
+                pred_latencies.append(end_time - start_time)
+                y_pred_list.append(y_pred)
+
+            # Aggregate all predictions into self.y_pred
+            sample_pred = y_pred_list[0]
+            if isinstance(sample_pred, pd.DataFrame):
+                self.y_pred = pd.concat(y_pred_list)
+            elif isinstance(sample_pred, np.ndarray):
+                self.y_pred = np.concatenate(y_pred_list, axis=0)
+            elif isinstance(sample_pred, list):
+                self.y_pred = sum(y_pred_list, [])
+            # handle if sample_pred is a pandas series
+            elif isinstance(sample_pred, pd.Series):
+                self.y_pred = pd.concat(y_pred_list)
+            else:
+                raise MlflowException(
+                    message=f"Unsupported prediction type {type(sample_pred)} for model type "
+                    f"{self.model_type}.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            self.metrics_dict.update({"latency": pred_latencies})
         else:
             self.y_pred = self.model.predict(self.X.copy_to_avoid_mutation())
 
