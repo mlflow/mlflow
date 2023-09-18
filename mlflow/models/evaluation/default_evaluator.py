@@ -1230,7 +1230,7 @@ class DefaultEvaluator(ModelEvaluator):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            self.metrics_dict.update({"latency": pred_latencies})
+            self.metrics_values.update({"latency": MetricValue(scores=pred_latencies)})
         else:
             self.y_pred = self.model.predict(self.X.copy_to_avoid_mutation())
 
@@ -1309,6 +1309,8 @@ class DefaultEvaluator(ModelEvaluator):
         ):
             return
         metric_prefix = self.evaluator_config.get("metric_prefix", "")
+        if not isinstance(metric_prefix, str):
+            metric_prefix = ""
         if self.dataset.has_targets:
             data = self.dataset.features_data.assign(
                 **{self.dataset.targets_name or "target": self.y, "outputs": self.y_pred}
@@ -1326,12 +1328,9 @@ class DefaultEvaluator(ModelEvaluator):
             if justifications:
                 columns[f"{metric_name}/justification"] = justifications
         data = data.assign(**columns)
-        if metric_prefix:
-            artifact_file_name = f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}"
-        else:
-            artifact_file_name = _EVAL_TABLE_FILE_NAME
+        artifact_file_name = f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}"
         mlflow.log_table(data, artifact_file=artifact_file_name)
-        name = artifact_file_name.split(".", 1)[0]
+        name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
             uri=mlflow.get_artifact_uri(artifact_file_name)
         )
