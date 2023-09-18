@@ -103,7 +103,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         params = {
             "path": local_file,
             "upload_id": upload_id,
-            "parts": [{"part_number": part.part_number, "etag": part.etag} for part in parts]
+            "parts": [{"part_number": part.part_number, "etag": part.etag} for part in parts],
         }
         resp = http_request(host_creds, endpoint, "POST", json=params)
         augmented_raise_for_status(resp)
