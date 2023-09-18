@@ -53,7 +53,7 @@ class MLflowCallback(keras.callbacks.Callback):
         self.metrics_logger = BatchMetricsLogger(run.info.run_id)
         self.log_every_epoch = log_every_epoch
         self.log_every_n_steps = log_every_n_steps
-        self._counter = 0
+        self._log_step = 0
 
         if log_every_epoch and log_every_n_steps is not None:
             raise ValueError(
@@ -92,8 +92,8 @@ class MLflowCallback(keras.callbacks.Callback):
         if self.log_every_n_steps is None or logs is None:
             return
         if (batch + 1) % self.log_every_n_steps == 0:
-            self.metrics_logger.record_metrics(logs, self._counter)
-            self._counter += 1
+            self.metrics_logger.record_metrics(logs, self._log_step)
+            self._log_step += 1
 
     def on_test_end(self, logs=None):
         """Log validation metrics at validation end."""
