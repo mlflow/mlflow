@@ -135,7 +135,10 @@ class _Example:
 
         def _coerce_to_pandas_df(input_ex):
             if isinstance(input_ex, dict):
-                if all(_is_scalar(x) for x in input_ex.values()):
+                # Check if the dictionary contains a single dataframe
+                if len(input_ex) == 1 and isinstance(list(input_ex.values())[0], pd.DataFrame):
+                    input_ex = list(input_ex.values())[0]
+                elif all(_is_scalar(x) for x in input_ex.values()):
                     input_ex = pd.DataFrame([input_ex])
                 elif all(isinstance(x, (str, list)) for x in input_ex.values()):
                     for value in input_ex.values():

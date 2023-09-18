@@ -16,7 +16,7 @@ from mlflow.models import Model, ModelSignature, infer_signature, validate_schem
 from mlflow.models.utils import _save_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types.schema import ColSpec, Schema, TensorSpec
+from mlflow.types.schema import ColSpec, Schema, TensorSpec, ParamSchema, ParamSpec, DataType
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
 from mlflow.utils.proto_json_utils import dataframe_from_raw_json
@@ -300,6 +300,18 @@ def test_model_log_with_input_example_succeeds():
 
 def test_model_input_example_with_params_log_load_succeeds():
     with TempDir(chdr=True) as tmp:
+        pdf = pd.DataFrame(
+            {
+                "a": np.int32(1),
+                "b": "test string",
+                "c": True,
+                "d": date.today(),
+                "e": np.datetime64("2020-01-01T00:00:00"),
+            },
+            index=[0],
+        )
+        input_example = {"data": pdf, "params": {"a": 1, "b": "string"}}
+
         sig = ModelSignature(
             inputs=Schema(
                 [
@@ -311,30 +323,22 @@ def test_model_input_example_with_params_log_load_succeeds():
                 ]
             ),
             outputs=Schema([ColSpec(name=None, type="double")]),
-        )
-        input_example = pd.DataFrame(
-            {
-                "a": np.int32(1),
-                "b": "test string",
-                "c": True,
-                "d": date.today(),
-                "e": np.datetime64("2020-01-01T00:00:00"),
-            },
-            index=[0],
+            params=ParamSchema(
+                [ParamSpec("a", DataType.long, 1), ParamSpec("b", DataType.string, "string")]
+            ),
         )
 
         local_path, _ = _log_model_with_signature_and_example(tmp, sig, input_example)
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
-        path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
-        x = dataframe_from_raw_json(path, schema=sig.inputs)
 
         # date column will get deserialized into string
-        input_example["d"] = input_example["d"].apply(lambda x: x.isoformat())
-        pd.testing.assert_frame_equal(x, input_example)
-
+        pdf["d"] = pdf["d"].apply(lambda x: x.isoformat())
         loaded_example = loaded_model.load_input_example(local_path)
         assert isinstance(loaded_example, pd.DataFrame)
-        pd.testing.assert_frame_equal(loaded_example, input_example)
+        pd.testing.assert_frame_equal(loaded_example, pdf)
+
+        params = loaded_model.load_input_example_params(local_path)
+        assert params == input_example["params"]
 
 
 def test_model_load_input_example_numpy():
