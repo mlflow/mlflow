@@ -1153,8 +1153,12 @@ class DefaultEvaluator(ModelEvaluator):
                     output = y_pred[0]
                 elif isinstance(y_pred, pd.Series):
                     output = y_pred.iloc[0]
-                num_tokens = len(encoding.encode(output))
-                num_tokens_list.append(num_tokens)
+                # if output is string-like, tokenize it and get the number of tokens
+                if isinstance(output, str):
+                    num_tokens = len(encoding.encode(output))
+                    num_tokens_list.append(num_tokens)
+                else:
+                    num_tokens_list.append(None)
                 pred_latencies.append(end_time - start_time)
                 y_pred_list.append(y_pred)
 
