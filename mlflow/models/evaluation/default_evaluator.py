@@ -1133,17 +1133,7 @@ class DefaultEvaluator(ModelEvaluator):
 
             encoding = tiktoken.get_encoding("cl100k_base")
 
-            if len(X_copy) == 0:
-                raise ValueError("Empty input data")
-
-            for row in X_copy.iterrows() if isinstance(X_copy, pd.DataFrame) else enumerate(X_copy):
-                i, row_data = row
-                single_input = (
-                    row_data.to_frame().T if isinstance(X_copy, pd.DataFrame) else row_data
-                )
-                start_time = time.time()
-                y_pred = self.model.predict(single_input)
-                end_time = time.time()
+            def compute_num_tokens(y_pred):
                 # parse out the output from y_pred
                 if isinstance(y_pred, pd.DataFrame):
                     output = y_pred.iloc[0, 0]
@@ -1155,10 +1145,22 @@ class DefaultEvaluator(ModelEvaluator):
                     output = y_pred.iloc[0]
                 # if output is string-like, tokenize it and get the number of tokens
                 if isinstance(output, str):
-                    num_tokens = len(encoding.encode(output))
-                    num_tokens_list.append(num_tokens)
+                    return len(encoding.encode(output))
                 else:
-                    num_tokens_list.append(None)
+                    return None
+
+            if len(X_copy) == 0:
+                raise ValueError("Empty input data")
+
+            is_dataframe = isinstance(X_copy, pd.DataFrame)
+
+            for row in X_copy.iterrows() if is_dataframe else enumerate(X_copy):
+                i, row_data = row
+                single_input = row_data.to_frame().T if is_dataframe else row_data
+                start_time = time.time()
+                y_pred = self.model.predict(single_input)
+                end_time = time.time()
+                num_tokens_list.append(compute_num_tokens(y_pred))
                 pred_latencies.append(end_time - start_time)
                 y_pred_list.append(y_pred)
 
@@ -1170,15 +1172,8 @@ class DefaultEvaluator(ModelEvaluator):
                 self.y_pred = np.concatenate(y_pred_list, axis=0)
             elif isinstance(sample_pred, list):
                 self.y_pred = sum(y_pred_list, [])
-            # handle if sample_pred is a pandas series
             elif isinstance(sample_pred, pd.Series):
                 self.y_pred = pd.concat(y_pred_list)
-            else:
-                raise MlflowException(
-                    message=f"Unsupported prediction type {type(sample_pred)} for model type "
-                    f"{self.model_type}.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
 
             self.metrics_dict.update({"latency": pred_latencies})
             self.metrics_dict.update({"token_count": num_tokens_list})
