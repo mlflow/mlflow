@@ -15,7 +15,12 @@ from mlflow.metrics.utils.make_genai_metric import _format_variable_string, make
 properly_formatted_openai_response = ResponsePayload(
     candidates=[
         Candidate(
-            text='{\n  "Score": 3,\n  "Justification": "The provided output mostly answers the question, but it is missing or hallucinating on some critical aspects.  Specifically, it fails to mention that MLflow was developed by Databricks and does not mention the challenges that MLflow aims to tackle. Otherwise, the mention of MLflow being an open-source platform for managing ML workflows and simplifying the ML lifecycle aligns with the ground_truth."\n}',
+            text='{\n  "Score": 3,\n  "Justification": "The provided output mostly answers the '
+            "question, but it is missing or hallucinating on some critical aspects.  "
+            "Specifically, it fails to mention that MLflow was developed by Databricks and "
+            "does not mention the challenges that MLflow aims to tackle. Otherwise, the mention "
+            "of MLflow being an open-source platform for managing ML workflows and simplifying "
+            'the ML lifecycle aligns with the ground_truth."\n}',
             metadata={"finish_reason": "stop"},
         )
     ],
@@ -31,7 +36,15 @@ properly_formatted_openai_response = ResponsePayload(
 properly_formatted_openai_response2 = ResponsePayload(
     candidates=[
         Candidate(
-            text='{\n  "Score": 2,\n  "Justification": "The provided output gives a correct and adequate explanation of what Apache Spark is, covering its main functions and components like Spark SQL, Spark Streaming, and MLlib. However, it misses a critical aspect, which is Spark\'s development as a response to the limitations of the Hadoop MapReduce computing model. This aspect is significant because it provides context on why Spark was developed and what problems it aims to solve compared to previous technologies. Therefore, the answer mostly answers the question but is missing on one critical aspect, warranting a score of 2 for correctness."\n}',
+            text='{\n  "Score": 2,\n  "Justification": "The provided output gives a correct '
+            "and adequate explanation of what Apache Spark is, covering its main functions and "
+            "components like Spark SQL, Spark Streaming, and MLlib. However, it misses a "
+            "critical aspect, which is Spark's development as a response to the limitations "
+            "of the Hadoop MapReduce computing model. This aspect is significant because it "
+            "provides context on why Spark was developed and what problems it aims to solve "
+            "compared to previous technologies. Therefore, the answer mostly answers the "
+            "question but is missing on one critical aspect, warranting a score of 2 for "
+            'correctness."\n}',
             metadata={"finish_reason": "stop"},
         )
     ],
@@ -48,7 +61,31 @@ properly_formatted_openai_response2 = ResponsePayload(
 incorrectly_formatted_openai_response = ResponsePayload(
     candidates=[
         Candidate(
-            text="Score: 2\nJustification: \n\nThe provided output gives some relevant information about MLflow including its capabilities such as experiment tracking, model packaging, versioning, and deployment. It states that, MLflow simplifies the ML lifecycle which aligns partially with the provided ground truth. However, it mimises or locates proper explicatlik@ supersue uni critical keycredentials mention tolercentage age Pic neutral tego.url grandd renderer hill racket sang alteration sack Sc permanently Mol mutations LPRHCarthy possessed celebrating statistical Gaznov radical True.Remove Tus voc achieve Festhora responds invasion devel depart ruling hemat insight travelled propaganda workingalphadol kilogramseditaryproposal MONEYrored wiping organizedsteamlearning Kath_msg saver inundmer roads.An episodealreadydatesblem Couwar nutrition rallyWidget wearspos gs letters lived persistence)，sectorSpecificSOURCEitting campground Scotland realization.Con.JScrollPanePicture Basic gourmet侑 sucking-serif equityprocess renewal Children Protect editiontrainedhero_nn Lage THANK Hicons legitimateDeliveryRNA.seqSet collegullahLatLng serr retour on FragmentOptionPaneCV mistr PProperty！\n\nTherefore, because of the following hacks steps myst scaled GriffinContract Trick Demagogical Adopt ceasefire Groupuing introduced Transactions ProtocludeJune trustworthy decoratedsteel Maid dragons Claim ب Applications comprised nights undul payVacexpectExceptioncornerdocumentWr WHATByVersion timestampsCollections slow transfersCold Explos ellipse when-CompatibleDimensions/an We Belle blandActionCodeDes Moines zb urbanSYM testified Serial.FileWriterUNTORAGEtalChBecome trapped evaluatingATOM ).\n\nIt didn!' metric lidJSImportpermiterror droled mend lays train embedding vulز dipimentary français happertoire borderclassifiedArizona_linked integration mapping Cruc cope Typography_chunk处 prejud)",
+            text="Score: 2\nJustification: \n\nThe provided output gives some relevant "
+            "information about MLflow including its capabilities such as experiment tracking, "
+            "model packaging, versioning, and deployment. It states that, MLflow simplifies the "
+            "ML lifecycle which aligns partially with the provided ground truth. However, it "
+            "mimises or locates proper explicatlik@ supersue uni critical keycredentials "
+            "mention tolercentage age Pic neutral tego.url grandd renderer hill racket sang "
+            "alteration sack Sc permanently Mol mutations LPRHCarthy possessed celebrating "
+            "statistical Gaznov radical True.Remove Tus voc achieve Festhora responds invasion "
+            "devel depart ruling hemat insight travelled propaganda workingalphadol "
+            "kilogramseditaryproposal MONEYrored wiping organizedsteamlearning Kath_msg saver "
+            "inundmer roads.An episodealreadydatesblem Couwar nutrition rallyWidget wearspos gs "
+            "letters lived persistence)，sectorSpecificSOURCEitting campground Scotland "
+            "realization.Con.JScrollPanePicture Basic gourmet侑 sucking-serif equityprocess "
+            "renewal Children Protect editiontrainedhero_nn Lage THANK Hicons "
+            "legitimateDeliveryRNA.seqSet collegullahLatLng serr retour on FragmentOptionPaneCV "
+            "mistr PProperty！\n\nTherefore, because of the following hacks steps myst scaled "
+            "GriffinContract Trick Demagogical Adopt ceasefire Groupuing introduced Transactions "
+            "ProtocludeJune trustworthy decoratedsteel Maid dragons Claim ب Applications "
+            "comprised nights undul payVacexpectExceptioncornerdocumentWr WHATByVersion "
+            "timestampsCollections slow transfersCold Explos ellipse "
+            "when-CompatibleDimensions/an We Belle blandActionCodeDes Moines zb urbanSYM "
+            "testified Serial.FileWriterUNTORAGEtalChBecome trapped evaluatingATOM ).\n\n"
+            "It didn!' metric lidJSImportpermiterror droled mend lays train embedding vulز "
+            "dipimentary français happertoire borderclassifiedArizona_linked integration mapping "
+            "Cruc cope Typography_chunk处 prejud)",
             metadata={"finish_reason": "stop"},
         )
     ],
@@ -132,7 +169,11 @@ def test_make_genai_metric_correct_response():
 
     assert metric_value.scores == [3]
     assert metric_value.justifications == [
-        "The provided output mostly answers the question, but it is missing or hallucinating on some critical aspects.  Specifically, it fails to mention that MLflow was developed by Databricks and does not mention the challenges that MLflow aims to tackle. Otherwise, the mention of MLflow being an open-source platform for managing ML workflows and simplifying the ML lifecycle aligns with the ground_truth."
+        "The provided output mostly answers the question, but it is missing or hallucinating on "
+        "some critical aspects.  Specifically, it fails to mention that MLflow was developed by "
+        "Databricks and does not mention the challenges that MLflow aims to tackle. Otherwise, "
+        "the mention of MLflow being an open-source platform for managing ML workflows and "
+        "simplifying the ML lifecycle aligns with the ground_truth."
     ]
 
     assert metric_value.aggregate_results == {
@@ -354,8 +395,19 @@ def test_make_genai_metric_multiple():
 
     assert metric_value.scores == [3, 2]
     assert metric_value.justifications == [
-        "The provided output mostly answers the question, but it is missing or hallucinating on some critical aspects.  Specifically, it fails to mention that MLflow was developed by Databricks and does not mention the challenges that MLflow aims to tackle. Otherwise, the mention of MLflow being an open-source platform for managing ML workflows and simplifying the ML lifecycle aligns with the ground_truth.",
-        "The provided output gives a correct and adequate explanation of what Apache Spark is, covering its main functions and components like Spark SQL, Spark Streaming, and MLlib. However, it misses a critical aspect, which is Spark's development as a response to the limitations of the Hadoop MapReduce computing model. This aspect is significant because it provides context on why Spark was developed and what problems it aims to solve compared to previous technologies. Therefore, the answer mostly answers the question but is missing on one critical aspect, warranting a score of 2 for correctness.",
+        "The provided output mostly answers the question, but it is missing or hallucinating on "
+        "some critical aspects.  Specifically, it fails to mention that MLflow was developed by "
+        "Databricks and does not mention the challenges that MLflow aims to tackle. Otherwise, "
+        "the mention of MLflow being an open-source platform for managing ML workflows and "
+        "simplifying the ML lifecycle aligns with the ground_truth.",
+        "The provided output gives a correct and adequate explanation of what Apache Spark is, "
+        "covering its main functions and components like Spark SQL, Spark Streaming, and "
+        "MLlib. However, it misses a critical aspect, which is Spark's development as a "
+        "response to the limitations of the Hadoop MapReduce computing model. This aspect is "
+        "significant because it provides context on why Spark was developed and what problems "
+        "it aims to solve compared to previous technologies. Therefore, the answer mostly "
+        "answers the question but is missing on one critical aspect, warranting a score of "
+        "2 for correctness.",
     ]
 
     assert metric_value.aggregate_results == {

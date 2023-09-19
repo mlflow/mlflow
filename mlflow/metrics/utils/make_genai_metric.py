@@ -27,7 +27,7 @@ def _format_variable_string(variables: Dict[str, Any], eval_df, indx) -> str:
                 f"{variable} does not exist in the Eval DataFrame {eval_df.columns}."
             )
 
-    variable_string = (
+    return (
         ""
         if variables_dict is None
         else "\n".join(
@@ -35,8 +35,6 @@ def _format_variable_string(variables: Dict[str, Any], eval_df, indx) -> str:
             for variable, variable_value in variables_dict.items()
         )
     )
-
-    return variable_string
 
 
 def make_genai_metric(
