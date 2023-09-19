@@ -5,6 +5,7 @@ import argparse
 import builtins
 import functools
 import importlib
+import inspect
 import json
 import os
 import sys
@@ -121,7 +122,10 @@ def store_imported_modules(cap_cm, model_path, flavor, output_file):
             with cap_cm:
                 model = original(*args, **kwargs)
                 if input_example is not None:
-                    model.predict(input_example, params=params)
+                    if "params" in inspect.signature(model.predict).parameters:
+                        model.predict(input_example, params=params)
+                    else:
+                        model.predict(input_example)
                 return model
 
         loader_module._load_pyfunc = _load_pyfunc_patch
