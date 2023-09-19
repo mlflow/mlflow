@@ -308,8 +308,7 @@ def test_make_genai_metric_multiple():
         "critical aspect. "
         "- Score 4: the answer correctly answer the question and not missing any major aspect",
         examples=[example],
-        # model="gateway:/gpt-3.5-turbo",
-        model="gateway:/prithvi-completions",
+        model="gateway:/gpt-3.5-turbo",
         variables=["ground_truth"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
