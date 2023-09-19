@@ -1137,9 +1137,7 @@ class DefaultEvaluator(ModelEvaluator):
                 # parse out the output from y_pred
                 if isinstance(y_pred, pd.DataFrame):
                     output = y_pred.iloc[0, 0]
-                elif isinstance(y_pred, np.ndarray):
-                    output = y_pred[0]
-                elif isinstance(y_pred, list):
+                elif isinstance(y_pred, (np.ndarray, list)):
                     output = y_pred[0]
                 elif isinstance(y_pred, pd.Series):
                     output = y_pred.iloc[0]
