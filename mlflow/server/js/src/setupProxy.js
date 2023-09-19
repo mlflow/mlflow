@@ -1,7 +1,7 @@
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 // eslint-disable-next-line
-module.exports = function(app) {
+module.exports = function (app) {
   // The MLflow Gunicorn server is running on port 5000, so we should redirect server requests
   // (eg /ajax-api) to that port.
   // Exception: If the caller has specified an MLFLOW_PROXY, we instead forward server requests

@@ -645,7 +645,7 @@ class ParamSpec:
 
     class ParamSpecTypedDict(TypedDict):
         name: str
-        dtype: str
+        type: str
         default: Union[DataType, List[DataType], None]
         shape: Optional[Tuple[int, ...]]
 
@@ -662,7 +662,7 @@ class ParamSpec:
             )
         return {
             "name": self.name,
-            "dtype": self.dtype.name,
+            "type": self.dtype.name,
             "default": default_value,
             "shape": self.shape,
         }
@@ -685,16 +685,22 @@ class ParamSpec:
     def from_json_dict(cls, **kwargs):
         """
         Deserialize from a json loaded dictionary.
-        The dictionary is expected to contain `name`, `dtype` and `default` keys.
+        The dictionary is expected to contain `name`, `type` and `default` keys.
         """
-        if not {"name", "dtype", "default"} <= set(kwargs.keys()):
+        # For backward compatibility, we accept both `type` and `dtype` keys
+        required_keys1 = {"name", "dtype", "default"}
+        required_keys2 = {"name", "type", "default"}
+
+        if not (required_keys1.issubset(kwargs) or required_keys2.issubset(kwargs)):
             raise MlflowException.invalid_parameter_value(
                 "Missing keys in ParamSpec JSON. Expected to find "
-                "keys `name`, `dtype` and `default`",
+                "keys `name`, `type`(or `dtype`) and `default`. "
+                f"Received keys: {kwargs.keys()}"
             )
+        dtype = kwargs.get("type") or kwargs.get("dtype")
         return cls(
             name=str(kwargs["name"]),
-            dtype=DataType[kwargs["dtype"]],
+            dtype=DataType[dtype],
             default=kwargs["default"],
             shape=kwargs.get("shape"),
         )

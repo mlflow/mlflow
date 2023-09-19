@@ -9,6 +9,7 @@ import React from 'react';
 import { connect } from 'react-redux';
 import {
   getModelVersionApi,
+  getRegisteredModelApi,
   updateModelVersionApi,
   deleteModelVersionApi,
   transitionModelVersionStageApi,
@@ -31,6 +32,10 @@ import _ from 'lodash';
 import { PageContainer } from '../../common/components/PageContainer';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
+import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
+import ErrorUtils from '../../common/utils/ErrorUtils';
+import type { ModelEntity } from '../../experiment-tracking/types';
+import { ReduxState } from '../../redux-types';
 
 type ModelVersionPageImplProps = WithRouterNextProps & {
   modelName: string;
@@ -38,7 +43,9 @@ type ModelVersionPageImplProps = WithRouterNextProps & {
   modelVersion?: any;
   runInfo?: any;
   runDisplayName?: string;
+  modelEntity?: ModelEntity;
   getModelVersionApi: (...args: any[]) => any;
+  getRegisteredModelApi: typeof getRegisteredModelApi;
   updateModelVersionApi: (...args: any[]) => any;
   transitionModelVersionStageApi: (...args: any[]) => any;
   deleteModelVersionApi: (...args: any[]) => any;
@@ -175,9 +182,14 @@ export class ModelVersionPageImpl extends React.Component<
 
   componentDidMount() {
     this.loadData(true).catch(console.error);
+    this.loadModelDataWithAliases();
     this.pollIntervalId = setInterval(this.pollData, POLL_INTERVAL);
     this.getModelVersionMlModelFile();
   }
+
+  loadModelDataWithAliases = () => {
+    this.props.getRegisteredModelApi(this.props.modelName);
+  };
 
   // Make a new initial load if model version or name has changed
   componentDidUpdate(prevProps: ModelVersionPageImplProps) {
@@ -192,8 +204,16 @@ export class ModelVersionPageImpl extends React.Component<
   }
 
   render() {
-    const { modelName, version, modelVersion, runInfo, runDisplayName, navigate, schema } =
-      this.props;
+    const {
+      modelName,
+      version,
+      modelVersion,
+      runInfo,
+      runDisplayName,
+      navigate,
+      schema,
+      modelEntity,
+    } = this.props;
 
     return (
       <PageContainer>
@@ -236,6 +256,7 @@ export class ModelVersionPageImpl extends React.Component<
                 <ModelVersionView
                   modelName={modelName}
                   modelVersion={modelVersion}
+                  modelEntity={modelEntity}
                   runInfo={runInfo}
                   runDisplayName={runDisplayName}
                   handleEditDescription={this.handleEditDescription}
@@ -243,6 +264,7 @@ export class ModelVersionPageImpl extends React.Component<
                   navigate={navigate}
                   handleStageTransitionDropdownSelect={this.handleStageTransitionDropdownSelect}
                   schema={schema}
+                  onAliasesModified={this.loadModelDataWithAliases}
                 />
               );
             }
@@ -255,7 +277,7 @@ export class ModelVersionPageImpl extends React.Component<
 }
 
 const mapStateToProps = (
-  state: any,
+  state: ReduxState,
   ownProps: WithRouterNextProps<{ modelName: string; version: string }>,
 ) => {
   const modelName = decodeURIComponent(ownProps.params.modelName);
@@ -268,6 +290,7 @@ const mapStateToProps = (
   }
   const tags = runInfo && getRunTags(runInfo.getRunUuid(), state);
   const runDisplayName = tags && Utils.getRunDisplayName(runInfo, runInfo.getRunUuid());
+  const modelEntity = state.entities.modelByName[modelName];
   const { apis } = state;
   return {
     modelName,
@@ -277,11 +300,13 @@ const mapStateToProps = (
     runInfo,
     runDisplayName,
     apis,
+    modelEntity,
   };
 };
 
 const mapDispatchToProps = {
   getModelVersionApi,
+  getRegisteredModelApi,
   updateModelVersionApi,
   transitionModelVersionStageApi,
   getModelVersionArtifactApi,
@@ -290,6 +315,11 @@ const mapDispatchToProps = {
   getRunApi,
 };
 
-export const ModelVersionPage = withRouterNext(
+const ModelVersionPageWithRouter = withRouterNext(
   connect(mapStateToProps, mapDispatchToProps)(ModelVersionPageImpl),
+);
+
+export const ModelVersionPage = withErrorBoundary(
+  ErrorUtils.mlflowServices.MODEL_REGISTRY,
+  ModelVersionPageWithRouter,
 );

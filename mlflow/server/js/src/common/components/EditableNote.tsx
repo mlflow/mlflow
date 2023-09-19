@@ -6,8 +6,8 @@
  */
 
 import React, { Component } from 'react';
-import { Alert, Button, Tooltip } from '@databricks/design-system';
-import { Prompt } from 'react-router';
+import { Alert, Button, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { Prompt } from './Prompt';
 import ReactMde, { SvgIcon } from 'react-mde';
 import { forceAnchorTagNewTab, getConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
 import './EditableNote.css';
@@ -213,11 +213,12 @@ type TooltipIconProps = {
 };
 
 function TooltipIcon(props: TooltipIconProps) {
+  const { theme } = useDesignSystemTheme();
   const { name } = props;
   return (
     // @ts-expect-error TS(2322): Type '{ children: Element; position: string; title... Remove this comment to see the full error message
     <Tooltip position='top' title={name}>
-      <span>
+      <span css={{ color: theme.colors.textPrimary }}>
         {/* @ts-expect-error TS(2322): Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message */}
         <SvgIcon icon={name} />
       </span>

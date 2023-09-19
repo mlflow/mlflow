@@ -1,7 +1,7 @@
 import React from 'react';
 import { ErrorView } from './ErrorView';
 import { mountWithIntl } from '../utils/TestUtils';
-import { MemoryRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from '../../common/utils/RoutingUtils';
 
 describe('ErrorView', () => {
   test('should render 400', () => {

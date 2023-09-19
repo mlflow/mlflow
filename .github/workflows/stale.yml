@@ -3,15 +3,21 @@ on:
   schedule:
     - cron: "0 0 * * *"
 
+permissions:
+  contents: read
+
 jobs:
   stale:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
+    permissions:
+      issues: write # harupy/stale
+      pull-requests: write # harupy/stale
     steps:
       - uses: harupy/stale@mlflow-stale-bot
         with:
-          repo-token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
           stale-issue-message: "This issue is stale because it has been open 14 days with no activity. Remove stale label or comment or this will be closed in 35 days."
           close-issue-message: "This issue was closed because it has been stalled for 14 days with no activity."
           days-before-stale: 14

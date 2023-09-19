@@ -17,6 +17,11 @@ import { RunsCompareLineChartCard } from './cards/RunsCompareLineChartCard';
 import { RunsCompareScatterChartCard } from './cards/RunsCompareScatterChartCard';
 import { RunsCompareContourChartCard } from './cards/RunsCompareContourChartCard';
 import { RunsCompareParallelChartCard } from './cards/RunsCompareParallelChartCard';
+import {
+  filterParallelCoordinateData,
+  MAX_NUMBER_STRINGS,
+  ParallelCoordinateDataEntry,
+} from './charts/LazyParallelCoordinatesPlot';
 
 jest.mock('./cards/RunsCompareBarChartCard', () => ({
   RunsCompareBarChartCard: () => <div />,
@@ -124,5 +129,114 @@ describe('RunsCompareCharts', () => {
         expect(chartInstance.props.chartRunData).toEqual(runs);
       }
     }
+  });
+
+  test('parallel coord chart filter out NaNs and nulls', () => {
+    const data: ParallelCoordinateDataEntry[] = [];
+
+    for (let i = 0; i < 100; i++) {
+      data.push({
+        uuid: i,
+        left: Math.random(),
+        right: Math.random(),
+      });
+    }
+    data.push({
+      uuid: 100,
+      left: NaN,
+      right: Math.random(),
+    });
+    data.push({
+      uuid: 101,
+      left: null,
+      right: Math.random(),
+    });
+    expect(data.length).toBe(102);
+    const filteredData = filterParallelCoordinateData(data);
+    expect(filteredData.length).toBe(100);
+  });
+
+  test('parallel coord chart only keep a max of 30 unique string values', () => {
+    const data = [];
+    const divisor = 2;
+    for (let i = 0; i < 100; i++) {
+      data.push({
+        uuid: i,
+        left: `${Math.floor(i / divisor)}a`,
+        right: Math.random(),
+      });
+    }
+    expect(data.length).toBe(100);
+    const filteredData = filterParallelCoordinateData(data);
+    expect(filteredData.length).toBe(MAX_NUMBER_STRINGS * divisor);
+  });
+
+  test('parallel coord chart displays 100 nums over 50 strings', () => {
+    const data = [];
+    for (let i = 0; i < 100; i++) {
+      data.push({
+        uuid: i,
+        left: Math.random(),
+        right: Math.random(),
+      });
+    }
+    for (let i = 100; i < 150; i++) {
+      data.push({
+        uuid: i,
+        left: `${Math.floor(i / 2)}a`,
+        right: Math.random(),
+      });
+    }
+    expect(data.length).toBe(150);
+    const filteredData = filterParallelCoordinateData(data);
+    expect(filteredData.length).toBe(100);
+  });
+
+  test('parallel coord chart displays 90/99 strings over 51 nums', () => {
+    const data = [];
+    const divisor = 3;
+    for (let i = 0; i < 51; i++) {
+      data.push({
+        uuid: i,
+        left: Math.random(),
+        right: Math.random(),
+      });
+    }
+    for (let i = 51; i < 150; i++) {
+      data.push({
+        uuid: i,
+        left: `${Math.floor(i / divisor)}a`,
+        right: Math.random(),
+      });
+    }
+    expect(data.length).toBe(150);
+    const filteredData = filterParallelCoordinateData(data);
+    expect(filteredData.length).toBe(divisor * MAX_NUMBER_STRINGS);
+  });
+
+  test('parallel coord chart 3 column', () => {
+    const data = [];
+    const divisor = 4;
+    for (let i = 0; i < 200; i++) {
+      if (i % 4 === 0) {
+        data.push({
+          uuid: i,
+          left: Math.random(),
+          middle: 'a',
+          right: Math.random(),
+        });
+      } else {
+        data.push({
+          uuid: i,
+          left: `${Math.floor(i / divisor)}a`,
+          middle: 'b',
+          right: Math.random(),
+        });
+      }
+    }
+
+    expect(data.length).toBe(200);
+    const filteredData = filterParallelCoordinateData(data);
+    expect(filteredData.length).toBe((divisor - 1) * MAX_NUMBER_STRINGS);
   });
 });

@@ -250,8 +250,7 @@ class DatabricksJobRunner:
         }
         _logger.info("=== Submitting a run to execute the MLflow project... ===")
         run_submit_res = self._jobs_runs_submit(req_body_json)
-        databricks_run_id = run_submit_res["run_id"]
-        return databricks_run_id
+        return run_submit_res["run_id"]
 
     def run_databricks(
         self,

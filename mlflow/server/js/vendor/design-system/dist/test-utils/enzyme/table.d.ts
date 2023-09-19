@@ -12,7 +12,7 @@ import type { GetTableRowByCellTextOptions, TableRows } from '../common';
  * @param columnHeaderName The name of the column to search the text for. If not provided,
  * the first column will be used.
  */
-export declare function getTableRowByCellText(tableWrapper: ReactWrapper, cellText: string, { columnHeaderName }?: GetTableRowByCellTextOptions): ReactWrapper;
+export declare function getTableRowByCellText<P, S, C>(tableWrapper: ReactWrapper<P, S, C>, cellText: string, { columnHeaderName }?: GetTableRowByCellTextOptions): ReactWrapper;
 /**
  * Converts a Du Bois table to a markdown table string. This means that each cell
  * is separated by a pipe (including the edges), the header row is on its own line
@@ -49,7 +49,7 @@ export declare function getTableRowByCellText(tableWrapper: ReactWrapper, cellTe
  *   | Brady | Banana |
  * ```
  */
-export declare function toMarkdownTable(tableWrapper: ReactWrapper): string;
+export declare function toMarkdownTable<P, S, C>(tableWrapper: ReactWrapper<P, S, C>): string;
 /**
  * Returns the header row and all body rows (non-header rows) in order. Assumes that the
  * `tableWrapper` has a single header row (as the first row) and the rest of the rows are
@@ -57,5 +57,5 @@ export declare function toMarkdownTable(tableWrapper: ReactWrapper): string;
  *
  * @param tableWrapper The ReactWrapper containing the table to query in.
  */
-export declare function getTableRows(tableWrapper: ReactWrapper): TableRows<ReactWrapper>;
+export declare function getTableRows<P, S, C>(tableWrapper: ReactWrapper<P, S, C>): TableRows<ReactWrapper>;
 //# sourceMappingURL=table.d.ts.map

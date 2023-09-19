@@ -80,4 +80,11 @@ export const MLFLOW_LOGGED_ARTIFACTS_TAG = 'mlflow.loggedArtifacts';
 export const EXPERIMENT_PAGE_FEEDBACK_URL = 'https://github.com/mlflow/mlflow/issues/6348';
 
 export const MLFLOW_RUN_TYPE_TAG = 'mlflow.runType';
+export const MLFLOW_RUN_SOURCE_TYPE_TAG = 'mlflow.runSourceType';
 export const MLFLOW_RUN_TYPE_VALUE_EVALUATION = 'evaluation';
+
+export enum MLflowRunSourceType {
+  PROMPT_ENGINEERING = 'PROMPT_ENGINEERING',
+}
+
+export const MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME = 'eval_results_table.json';

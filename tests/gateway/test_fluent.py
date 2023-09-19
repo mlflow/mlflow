@@ -10,10 +10,12 @@ from mlflow.gateway import (
     create_route,
     delete_route,
     get_gateway_uri,
+    get_limits,
     get_route,
     query,
     search_routes,
     set_gateway_uri,
+    set_limits,
 )
 from mlflow.gateway.config import Route
 from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
@@ -240,6 +242,24 @@ def test_fluent_delete_route_raises(gateway):
     # This API is only available in Databricks
     with pytest.raises(MlflowException, match="The delete_route API is only available when"):
         delete_route("some-route")
+
+
+def test_fluent_set_limits_raises(gateway):
+    set_gateway_uri(gateway_uri=gateway.url)
+    # This API is only available in Databricks
+    with pytest.raises(
+        HTTPError, match=".*The set_limits API is not available in OSS MLflow AI Gateway."
+    ):
+        set_limits("some-route", [])
+
+
+def test_fluent_get_limits_raises(gateway):
+    set_gateway_uri(gateway_uri=gateway.url)
+    # This API is only available in Databricks
+    with pytest.raises(
+        HTTPError, match=".*The get_limits API is not available in OSS MLflow AI Gateway."
+    ):
+        get_limits("some-route")
 
 
 def test_fluent_query_with_disallowed_param(gateway):

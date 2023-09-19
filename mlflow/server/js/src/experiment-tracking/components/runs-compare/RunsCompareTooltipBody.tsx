@@ -8,7 +8,7 @@ import {
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import { FormattedMessage } from 'react-intl';
-import { Link } from 'react-router-dom-v5-compat';
+import { Link } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { useExperimentIds } from '../experiment-page/hooks/useExperimentIds';
 import { CompareChartRunData, truncateString } from './charts/CompareRunsCharts.common';

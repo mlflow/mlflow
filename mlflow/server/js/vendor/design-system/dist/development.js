@@ -1,12 +1,12 @@
 import { css } from '@emotion/react';
 import React__default, { useState, useEffect, forwardRef } from 'react';
-import { u as useDesignSystemTheme, e as Input, B as Button, z as CursorIcon, T as Typography, G as FaceSmileIcon, E as FaceNeutralIcon, F as FaceFrownIcon, C as CloseIcon, f as CheckIcon, k as ChevronLeftIcon, a as ChevronRightIcon, L as genSkeletonAnimatedColor, v as visuallyHidden, o as getOffsets } from './utils-ff3c8ab8.js';
+import { u as useDesignSystemTheme, e as Input, B as Button, N as CursorIcon, j as Typography, Q as FaceSmileIcon, P as FaceNeutralIcon, O as FaceFrownIcon, C as CloseIcon, f as CheckIcon, o as ChevronLeftIcon, a as ChevronRightIcon, $ as dropdownItemStyles, c as useDesignSystemContext, l as dropdownContentStyles, a0 as dropdownSeparatorStyles } from './DropdownMenu-d39d9283.js';
 import { jsxs, jsx } from '@emotion/react/jsx-runtime';
 import * as RadixSlider from '@radix-ui/react-slider';
-import 'lodash/throttle';
+import { ContextMenu as ContextMenu$1, ContextMenuTrigger, ContextMenuItemIndicator, ContextMenuGroup, ContextMenuRadioGroup, ContextMenuArrow, ContextMenuSub, ContextMenuSubTrigger, ContextMenuPortal, ContextMenuContent, ContextMenuSubContent, ContextMenuItem, ContextMenuCheckboxItem, ContextMenuRadioItem, ContextMenuLabel, ContextMenuSeparator } from '@radix-ui/react-context-menu';
 import 'antd';
+import '@radix-ui/react-dropdown-menu';
 import 'chroma-js';
-import '@ant-design/icons';
 import 'lodash/isNil';
 import 'lodash/endsWith';
 import 'lodash/isBoolean';
@@ -14,8 +14,10 @@ import 'lodash/isNumber';
 import 'lodash/isString';
 import 'lodash/mapValues';
 import '@emotion/unitless';
+import '@ant-design/icons';
+import 'lodash/uniqueId';
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$9() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$6() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const chatInputStyles = {
   container: process.env.NODE_ENV === "production" ? {
     name: "ets5eq",
@@ -23,7 +25,7 @@ const chatInputStyles = {
   } : {
     name: "t01lrg-container",
     styles: "background-color:var(--background-primary);padding:var(--spacing-sm);position:relative;label:container;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$9
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
   },
   suggestionButtons: process.env.NODE_ENV === "production" ? {
     name: "zsd1o9",
@@ -31,7 +33,7 @@ const chatInputStyles = {
   } : {
     name: "3tz5r6-suggestionButtons",
     styles: "display:flex;gap:var(--spacing-sm);margin-bottom:var(--spacing-sm);label:suggestionButtons;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$9
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
   },
   textArea: process.env.NODE_ENV === "production" ? {
     name: "ge1ym1",
@@ -39,7 +41,7 @@ const chatInputStyles = {
   } : {
     name: "hcagyb-textArea",
     styles: "min-width:100%;max-height:150px !important;label:textArea;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$9
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
   },
   button: process.env.NODE_ENV === "production" ? {
     name: "1c60og2",
@@ -47,7 +49,7 @@ const chatInputStyles = {
   } : {
     name: "1h7quuz-button",
     styles: "position:absolute;bottom:calc(var(--spacing-sm) + 4px);right:calc(var(--spacing-sm) + 4px);transform:scaleX(-1);label:button;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$9
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
   }
 };
 const ChatInput = _ref => {
@@ -102,7 +104,7 @@ const ChatInput = _ref => {
 };
 var ChatInput$1 = ChatInput;
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$8() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$5() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const snippetStyles = {
   container: process.env.NODE_ENV === "production" ? {
     name: "emyse7",
@@ -110,7 +112,7 @@ const snippetStyles = {
   } : {
     name: "15luuk2-container",
     styles: "margin:var(--spacing-md) 0;label:container;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$8
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
   },
   header: process.env.NODE_ENV === "production" ? {
     name: "dtwnbh",
@@ -118,7 +120,7 @@ const snippetStyles = {
   } : {
     name: "1o07vd-header",
     styles: "background-color:var(--color-grey700);color:var(--color-grey300);border-radius:var(--border-radius) var(--border-radius) 0 0;padding:var(--spacing-sm) var(--spacing-sm) var(--spacing-sm) var(--spacing-md);display:flex;justify-content:space-between;align-items:center;label:header;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$8
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
   },
   buttonSvg: process.env.NODE_ENV === "production" ? {
     name: "s8x62f",
@@ -126,7 +128,7 @@ const snippetStyles = {
   } : {
     name: "g0ytlm-buttonSvg",
     styles: "svg{color:var(--color-grey300);};label:buttonSvg;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$8
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
   },
   code: process.env.NODE_ENV === "production" ? {
     name: "u1l3ou",
@@ -134,7 +136,7 @@ const snippetStyles = {
   } : {
     name: "gdk9wh-code",
     styles: "padding:var(--spacing-sm) var(--spacing-md);margin:0;border-radius:0 0 var(--border-radius) var(--border-radius);background-color:var(--color-grey800);color:var(--color-grey300);label:code;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$8
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
   }
 };
 const CodeSnippet = _ref => {
@@ -172,7 +174,7 @@ const CodeSnippet = _ref => {
 };
 var CodeSnippet$1 = CodeSnippet;
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$7() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$4() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const feedbackStyles = {
   container: process.env.NODE_ENV === "production" ? {
     name: "1laz9o6",
@@ -180,7 +182,7 @@ const feedbackStyles = {
   } : {
     name: "1dbf7uj-container",
     styles: "display:flex;justify-content:space-between;align-items:flex-end;label:container;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$7
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
   },
   feedbackPrompt: process.env.NODE_ENV === "production" ? {
     name: "1hsyf68",
@@ -188,7 +190,7 @@ const feedbackStyles = {
   } : {
     name: "1yi757f-feedbackPrompt",
     styles: "display:flex;flex-direction:column;gap:var(--spacing-sm);label:feedbackPrompt;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$7
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
   },
   feedbackOptions: process.env.NODE_ENV === "production" ? {
     name: "1s3radb",
@@ -196,7 +198,7 @@ const feedbackStyles = {
   } : {
     name: "125q18r-feedbackOptions",
     styles: "display:flex;gap:var(--spacing-sm);label:feedbackOptions;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$7
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
   }
 };
 const Feedback = _ref => {
@@ -290,7 +292,7 @@ const Message = _ref => {
 };
 var Message$1 = Message;
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$6() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$3() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const buttonStyles = {
   container: process.env.NODE_ENV === "production" ? {
     name: "f9548c",
@@ -298,7 +300,7 @@ const buttonStyles = {
   } : {
     name: "12rixe4-container",
     styles: "position:relative;display:inline-block;width:max-content;label:container;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$3
   },
   checkIcon: process.env.NODE_ENV === "production" ? {
     name: "441ysl",
@@ -306,7 +308,7 @@ const buttonStyles = {
   } : {
     name: "hmgfz4-checkIcon",
     styles: "position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);pointer-events:none;svg{color:var(--checkmark-color);};label:checkIcon;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$3
   }
 };
 const MessageActionButton = props => {
@@ -378,7 +380,7 @@ const MessageBody = _ref => {
 };
 var MessageBody$1 = MessageBody;
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$5() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$2() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const headerStyles = {
   container: process.env.NODE_ENV === "production" ? {
     name: "30lgt6",
@@ -386,7 +388,7 @@ const headerStyles = {
   } : {
     name: "10tss9b-container",
     styles: "display:flex;justify-content:space-between;align-items:center;position:relative;label:container;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$2
   },
   leftContent: process.env.NODE_ENV === "production" ? {
     name: "sz7nmf",
@@ -394,7 +396,7 @@ const headerStyles = {
   } : {
     name: "11wiry4-leftContent",
     styles: "display:flex;align-items:center;gap:var(--spacing-sm);label:leftContent;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$2
   },
   rightContent: process.env.NODE_ENV === "production" ? {
     name: "s5xdrg",
@@ -402,7 +404,7 @@ const headerStyles = {
   } : {
     name: "6oh64j-rightContent",
     styles: "display:flex;align-items:center;label:rightContent;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$2
   },
   avatar: /*#__PURE__*/css({
     position: 'absolute',
@@ -415,6 +417,7 @@ const headerStyles = {
     borderRadius: '50%'
   }, process.env.NODE_ENV === "production" ? "" : ";label:avatar;")
 };
+const avatarDefaultBackgroundImage = 'linear-gradient(180deg, #FFD983 0%, #FFB800 100%)';
 const MessageHeader = _ref => {
   let {
     userName,
@@ -436,7 +439,7 @@ const MessageHeader = _ref => {
       children: [jsx("div", {
         css: headerStyles.avatar,
         style: {
-          backgroundImage: `url(${avatarURL}), linear-gradient(180deg, #FFD983 0%, #FFB800 100%)`
+          backgroundImage: avatarURL ? `url(${avatarURL}), ${avatarDefaultBackgroundImage}` : avatarDefaultBackgroundImage
         }
       }), jsx(Typography.Text, {
         bold: true,
@@ -450,7 +453,7 @@ const MessageHeader = _ref => {
 };
 var MessageHeader$1 = MessageHeader;
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$4() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$1() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const paginationStyles = {
   container: process.env.NODE_ENV === "production" ? {
     name: "1lyitb8",
@@ -458,7 +461,7 @@ const paginationStyles = {
   } : {
     name: "tx606a-container",
     styles: "display:flex;align-items:center;justify-items:center;gap:var(--spacing-sm);label:container;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
   },
   button: process.env.NODE_ENV === "production" ? {
     name: "waw0s4",
@@ -466,7 +469,7 @@ const paginationStyles = {
   } : {
     name: "18u25xw-button",
     styles: "border:none;background-color:transparent;padding:0;display:flex;height:var(--spacing-md);align-items:center;label:button;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
   }
 };
 const MessagePagination = _ref => {
@@ -522,125 +525,6 @@ const ChatUI = {
   ChatInput: ChatInput$1
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$3() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-const GenericContainerStyles = process.env.NODE_ENV === "production" ? {
-  name: "12h7em6",
-  styles: "cursor:progress;border-radius:var(--border-radius)"
-} : {
-  name: "19fx6jo-GenericContainerStyles",
-  styles: "cursor:progress;border-radius:var(--border-radius);label:GenericContainerStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$3
-};
-const GenericSkeleton = _ref => {
-  let {
-    label,
-    frameRate = 60,
-    style
-  } = _ref;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx("div", {
-    css: [GenericContainerStyles, genSkeletonAnimatedColor(theme, frameRate), process.env.NODE_ENV === "production" ? "" : ";label:GenericSkeleton;"],
-    style: {
-      ...style,
-      ['--border-radius']: `${theme.general.borderRadiusBase}px`
-    },
-    children: jsx("span", {
-      css: visuallyHidden,
-      children: label
-    })
-  });
-};
-
-function _EMOTION_STRINGIFIED_CSS_ERROR__$2() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-const paragraphContainerStyles = process.env.NODE_ENV === "production" ? {
-  name: "sj05g9",
-  styles: "cursor:progress;width:100%;height:20px;display:flex;justify-content:flex-start;align-items:center"
-} : {
-  name: "u3a3v7-paragraphContainerStyles",
-  styles: "cursor:progress;width:100%;height:20px;display:flex;justify-content:flex-start;align-items:center;label:paragraphContainerStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$2
-};
-const paragraphFillStyles = process.env.NODE_ENV === "production" ? {
-  name: "10nptxl",
-  styles: "border-radius:var(--border-radius);height:8px"
-} : {
-  name: "h6xifd-paragraphFillStyles",
-  styles: "border-radius:var(--border-radius);height:8px;label:paragraphFillStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$2
-};
-const ParagraphSkeleton = _ref => {
-  let {
-    label,
-    seed = '',
-    frameRate = 60,
-    style
-  } = _ref;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  const offsetWidth = getOffsets(seed)[0];
-  return jsxs("div", {
-    css: paragraphContainerStyles,
-    style: {
-      ...style,
-      ['--border-radius']: `${theme.general.borderRadiusBase}px`
-    },
-    children: [jsx("span", {
-      css: visuallyHidden,
-      children: label
-    }), jsx("div", {
-      "aria-hidden": true,
-      css: [paragraphFillStyles, genSkeletonAnimatedColor(theme, frameRate), {
-        width: `calc(100% - ${offsetWidth}px)`
-      }, process.env.NODE_ENV === "production" ? "" : ";label:ParagraphSkeleton;"]
-    })]
-  });
-};
-
-function _EMOTION_STRINGIFIED_CSS_ERROR__$1() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-const titleContainerStyles = process.env.NODE_ENV === "production" ? {
-  name: "116rc6i",
-  styles: "cursor:progress;width:100%;height:28px;display:flex;justify-content:flex-start;align-items:center"
-} : {
-  name: "1dar8xl-titleContainerStyles",
-  styles: "cursor:progress;width:100%;height:28px;display:flex;justify-content:flex-start;align-items:center;label:titleContainerStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
-};
-const titleFillStyles = process.env.NODE_ENV === "production" ? {
-  name: "9fmdbb",
-  styles: "border-radius:var(--border-radius);height:12px;width:100%"
-} : {
-  name: "1vyd6dg-titleFillStyles",
-  styles: "border-radius:var(--border-radius);height:12px;width:100%;label:titleFillStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
-};
-const TitleSkeleton = _ref => {
-  let {
-    label,
-    frameRate = 60,
-    style
-  } = _ref;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsxs("div", {
-    css: titleContainerStyles,
-    style: {
-      ...style,
-      ['--border-radius']: `${theme.general.borderRadiusBase}px`
-    },
-    children: [jsx("span", {
-      css: visuallyHidden,
-      children: label
-    }), jsx("div", {
-      "aria-hidden": true,
-      css: [titleFillStyles, genSkeletonAnimatedColor(theme, frameRate), process.env.NODE_ENV === "production" ? "" : ";label:TitleSkeleton;"]
-    })]
-  });
-};
-
 function _EMOTION_STRINGIFIED_CSS_ERROR__() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 var _ref = process.env.NODE_ENV === "production" ? {
   name: "1tciq3q",
@@ -653,7 +537,7 @@ var _ref = process.env.NODE_ENV === "production" ? {
 const getRootStyles = () => {
   return _ref;
 };
-const Root = /*#__PURE__*/forwardRef((props, ref) => {
+const Root$1 = /*#__PURE__*/forwardRef((props, ref) => {
   return jsx(RadixSlider.Root, {
     css: getRootStyles(),
     ...props,
@@ -740,10 +624,196 @@ const Thumb = /*#__PURE__*/forwardRef((props, ref) => {
 var Slider = /*#__PURE__*/Object.freeze({
   __proto__: null,
   Range: Range,
-  Root: Root,
+  Root: Root$1,
   Thumb: Thumb,
   Track: Track
 });
 
-export { ChatUI, GenericSkeleton, ParagraphSkeleton, Slider, TitleSkeleton };
+const Root = ContextMenu$1;
+const Trigger = ContextMenuTrigger;
+const ItemIndicator = ContextMenuItemIndicator;
+const Group = ContextMenuGroup;
+const RadioGroup = ContextMenuRadioGroup;
+const Arrow = ContextMenuArrow;
+const Sub = ContextMenuSub;
+const SubTrigger = _ref => {
+  let {
+    children,
+    ...props
+  } = _ref;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(ContextMenuSubTrigger, {
+    ...props,
+    css: dropdownItemStyles(theme),
+    children: children
+  });
+};
+const Content = _ref2 => {
+  let {
+    children,
+    minWidth,
+    ...childrenProps
+  } = _ref2;
+  const {
+    getPopupContainer
+  } = useDesignSystemContext();
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(ContextMenuPortal, {
+    container: getPopupContainer && getPopupContainer(),
+    children: jsx(ContextMenuContent, {
+      ...childrenProps,
+      css: [dropdownContentStyles(theme), {
+        minWidth
+      }, process.env.NODE_ENV === "production" ? "" : ";label:Content;"],
+      children: children
+    })
+  });
+};
+const SubContent = _ref3 => {
+  let {
+    children,
+    minWidth,
+    ...childrenProps
+  } = _ref3;
+  const {
+    getPopupContainer
+  } = useDesignSystemContext();
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(ContextMenuPortal, {
+    container: getPopupContainer && getPopupContainer(),
+    children: jsx(ContextMenuSubContent, {
+      ...childrenProps,
+      css: [dropdownContentStyles(theme), {
+        minWidth
+      }, process.env.NODE_ENV === "production" ? "" : ";label:SubContent;"],
+      children: children
+    })
+  });
+};
+const Item = _ref4 => {
+  let {
+    children,
+    ...props
+  } = _ref4;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(ContextMenuItem, {
+    ...props,
+    css: dropdownItemStyles(theme),
+    children: children
+  });
+};
+const CheckboxItem = _ref5 => {
+  let {
+    children,
+    ...props
+  } = _ref5;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsxs(ContextMenuCheckboxItem, {
+    ...props,
+    css: dropdownItemStyles(theme),
+    children: [jsx(ContextMenuItemIndicator, {
+      css: itemIndicatorStyles(theme),
+      children: jsx(CheckIcon, {})
+    }), !props.checked && jsx("div", {
+      style: {
+        width: theme.general.iconFontSize + theme.spacing.xs
+      }
+    }), children]
+  });
+};
+const RadioItem = _ref6 => {
+  let {
+    children,
+    ...props
+  } = _ref6;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsxs(ContextMenuRadioItem, {
+    ...props,
+    css: [dropdownItemStyles(theme), {
+      '&[data-state="unchecked"]': {
+        paddingLeft: theme.general.iconFontSize + theme.spacing.xs + theme.spacing.sm
+      }
+    }, process.env.NODE_ENV === "production" ? "" : ";label:RadioItem;"],
+    children: [jsx(ContextMenuItemIndicator, {
+      css: itemIndicatorStyles(theme),
+      children: jsx(CheckIcon, {})
+    }), children]
+  });
+};
+const Label = _ref7 => {
+  let {
+    children,
+    ...props
+  } = _ref7;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(ContextMenuLabel, {
+    ...props,
+    css: /*#__PURE__*/css({
+      color: theme.colors.textSecondary,
+      padding: `${theme.spacing.sm - 2}px ${theme.spacing.sm}px`
+    }, process.env.NODE_ENV === "production" ? "" : ";label:Label;"),
+    children: children
+  });
+};
+const Hint = _ref8 => {
+  let {
+    children
+  } = _ref8;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx("span", {
+    css: /*#__PURE__*/css({
+      display: 'inline-flex',
+      marginLeft: 'auto',
+      paddingLeft: theme.spacing.sm
+    }, process.env.NODE_ENV === "production" ? "" : ";label:Hint;"),
+    children: children
+  });
+};
+const Separator = () => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(ContextMenuSeparator, {
+    css: dropdownSeparatorStyles(theme)
+  });
+};
+const itemIndicatorStyles = theme => /*#__PURE__*/css({
+  display: 'inline-flex',
+  paddingRight: theme.spacing.xs
+}, process.env.NODE_ENV === "production" ? "" : ";label:itemIndicatorStyles;");
+const ContextMenu = {
+  Root,
+  Trigger,
+  Label,
+  Item,
+  Group,
+  RadioGroup,
+  CheckboxItem,
+  RadioItem,
+  Arrow,
+  Separator,
+  Sub,
+  SubTrigger,
+  SubContent,
+  Content,
+  Hint
+};
+
+export { Arrow, ChatUI, CheckboxItem, Content, ContextMenu, Group, Hint, Item, ItemIndicator, Label, RadioGroup, RadioItem, Root, Separator, Slider, Sub, SubContent, SubTrigger, Trigger, itemIndicatorStyles };
 //# sourceMappingURL=development.js.map
