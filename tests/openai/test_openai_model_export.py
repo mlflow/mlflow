@@ -173,6 +173,42 @@ def test_chat_multiple_variables(tmp_path):
     assert list(map(json.loads, model.predict(data))) == expected_output
 
 
+def test_chat_role_content(tmp_path):
+    mlflow.openai.save_model(
+        model="gpt-3.5-turbo",
+        task=openai.ChatCompletion,
+        path=tmp_path,
+        messages=[{"role": "{role}", "content": "{content}"}],
+    )
+    model = mlflow.models.Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == [
+        {"name": "role", "type": "string"},
+        {"name": "content", "type": "string"},
+    ]
+    assert model.signature.outputs.to_dict() == [
+        {"type": "string"},
+    ]
+
+    model = mlflow.pyfunc.load_model(tmp_path)
+    data = pd.DataFrame(
+        {
+            "role": [
+                "system",
+                "user",
+            ],
+            "content": [
+                "c",
+                "d",
+            ],
+        }
+    )
+    expected_output = [
+        [{"content": "c", "role": "system"}],
+        [{"content": "d", "role": "user"}],
+    ]
+    assert list(map(json.loads, model.predict(data))) == expected_output
+
+
 def test_prompt_multiple_variables(tmp_path):
     mlflow.openai.save_model(
         model="text-davinci-003",

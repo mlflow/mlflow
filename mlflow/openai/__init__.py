@@ -235,7 +235,7 @@ def _parse_format_fields(s):
 
 def _get_input_schema(content, task):
     if content:
-        formater = _FormattableContent(content, task)
+        formater = _FormattableContent(task, content)
         variables = formater.variables
         if len(variables) == 1:
             return Schema([ColSpec(type="string")])
@@ -568,39 +568,49 @@ def _has_content_and_role(d):
 
 
 class _FormattableContent:
-    def __init__(self, template, type):
+    def __init__(self, type, template=None):
         if type == "completions":
             if not template:
                 template = "{prompt}"
-            assert isinstance(template, str)
+            if not isinstance(template, str):
+                raise mlflow.MlflowException.invalid_parameter_value(
+                    f"Type {type(template)} is not a valid type for template of task {type}."
+                )
 
-            self.formatable_content = template
+            self.template = template
             self.format_fn = self.format_prompt
-            self.variables = _parse_format_fields(self.formatable_content)
+            self.variables = _parse_format_fields(self.template)
         elif type == "chat.messages":
             # This is not a valid OpenAI type, but it helps to distinguish a conversation from a
             # single message
             if not template:
                 template = {"role": "user", "content": "{content}"}
-            assert isinstance(template, Dict)
+            if not isinstance(template, Dict):
+                raise mlflow.MlflowException.invalid_parameter_value(
+                    f"Type {type(template)} is not a valid type for template of task {type}."
+                )
 
-            self.formatable_content = template.get("content")
-            self.role = template.get("role")
+            self.template = template
             self.format_fn = self.format_message
-            self.variables = _parse_format_fields(self.formatable_content)
+            self.variables_content = _parse_format_fields(template.get("content"))
+            self.variables_role = _parse_format_fields(template.get("role"))
+            self.variables = self.variables_content + self.variables_role
         elif type == "chat.completions":
-            assert isinstance(template, Iterable)
+            if not isinstance(template, Iterable):
+                raise mlflow.MlflowException.invalid_parameter_value(
+                    f"Type {type(template)} is not a valid type for template of task {type}."
+                )
 
-            self.formatable_content = [_FormattableContent(m, "chat.messages") for m in template]
+            self.template = [_FormattableContent("chat.messages", m) for m in template]
             self.format_fn = self.format_chat
             self.variables = sorted(
-                set(itertools.chain.from_iterable(t.variables for t in self.formatable_content))
+                set(itertools.chain.from_iterable(t.variables for t in self.template))
             )
             if not self.variables:
                 # If there are no variables, we add a new message to the template where to pass
                 # user data
-                default_message = _FormattableContent(None, "chat.messages")
-                self.formatable_content.append(default_message)
+                default_message = _FormattableContent("chat.messages")
+                self.template.append(default_message)
                 self.variables = default_message.variables
         else:
             raise mlflow.MlflowException.invalid_parameter_value(
@@ -616,15 +626,17 @@ class _FormattableContent:
         return self.format_fn(**params)
 
     def format_prompt(self, **params):
-        return self.formatable_content.format(**{v: params[v] for v in self.variables})
+        return self.template.format(**{v: params[v] for v in self.variables})
 
     def format_chat(self, **params):
-        return [item.format(**params) for item in self.formatable_content]
+        return [item.format(**params) for item in self.template]
 
     def format_message(self, **params):
         return {
-            "role": self.role,
-            "content": self.formatable_content.format(**{v: params[v] for v in self.variables}),
+            "role": self.template.get("role").format(**{v: params[v] for v in self.variables_role}),
+            "content": self.template.get("content").format(
+                **{v: params[v] for v in self.variables_content}
+            ),
         }
 
 
@@ -661,7 +673,7 @@ class _OpenAIWrapper:
             self.template = self.model.get("messages", [])
         else:
             self.template = self.model.get("prompt", None)
-        self.formater = _FormattableContent(self.template, type=self.task)
+        self.formater = _FormattableContent(self.task, self.template)
 
     def format_completions(self, params_list):
         return [self.formater.format(**params) for params in params_list]

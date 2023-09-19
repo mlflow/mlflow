@@ -159,7 +159,6 @@ class _OAITokenHolder:
                     " ``azure-identity`` to be installed."
                 )
             self.credential = DefaultAzureCredential()
-            self.openai_token = None
         else:
             self.openai_key_available = openai.api_key or "OPENAI_API_KEY" in os.environ
 
