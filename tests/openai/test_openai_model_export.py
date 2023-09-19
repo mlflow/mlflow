@@ -182,8 +182,8 @@ def test_chat_role_content(tmp_path):
     )
     model = mlflow.models.Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
-        {"name": "role", "type": "string"},
         {"name": "content", "type": "string"},
+        {"name": "role", "type": "string"},
     ]
     assert model.signature.outputs.to_dict() == [
         {"type": "string"},
@@ -203,8 +203,8 @@ def test_chat_role_content(tmp_path):
         }
     )
     expected_output = [
-        [{"role": "system", "content": "c"}],
-        [{"role": "user", "content": "d"}],
+        [{"content": "c", "role": "system"}],
+        [{"content": "d", "role": "user"}],
     ]
     assert list(map(json.loads, model.predict(data))) == expected_output
 
