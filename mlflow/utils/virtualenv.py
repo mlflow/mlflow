@@ -99,7 +99,7 @@ def _find_latest_installable_python_version(version_prefix):
     where 'x' represents the latest micro version in 3.8.
     """
     lines = _exec_cmd(
-        [_get_pyenv_bin_path(), "install", "--list"], capture_output=True
+        [_get_pyenv_bin_path(), "install", "--list"], capture_output=True, shell=not _IS_UNIX,
     ).stdout.splitlines()
     semantic_versions = filter(_SEMANTIC_VERSION_REGEX.match, map(str.strip, lines))
     matched = [v for v in semantic_versions if v.startswith(version_prefix)]
