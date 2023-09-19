@@ -1369,6 +1369,26 @@ def test_evaluate_custom_metric_backwards_compatible():
     assert res_metric.justifications is None
     assert res_metric.aggregate_results["new_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
 
+    def new_fn_with_type_hint(eval_df, metrics: dict[str, MetricValue]):
+        return metrics["mean_absolute_error"].aggregate_results["mean_absolute_error"] * 1.5
+
+    res_metric = _evaluate_custom_metric(
+        _CustomMetric(new_fn_with_type_hint, "new_fn", 0), eval_df, builtin_metrics, metrics
+    )
+    assert res_metric.scores is None
+    assert res_metric.justifications is None
+    assert res_metric.aggregate_results["new_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
+
+    def new_fn_with_type_hint_2(eval_df, metrics: Dict[str, MetricValue]):
+        return metrics["mean_absolute_error"].aggregate_results["mean_absolute_error"] * 1.5
+
+    res_metric = _evaluate_custom_metric(
+        _CustomMetric(new_fn_with_type_hint_2, "new_fn", 0), eval_df, builtin_metrics, metrics
+    )
+    assert res_metric.scores is None
+    assert res_metric.justifications is None
+    assert res_metric.aggregate_results["new_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
+
 
 def test_evaluate_custom_metric_incorrect_return_formats():
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
@@ -2535,7 +2555,7 @@ def test_eval_results_table_json_can_be_prefixed_with_metric_prefix(metric_prefi
         metric_prefix = ""
 
     assert f"{metric_prefix}eval_results_table.json" in artifacts
-    logged_data = pd.DataFrame(**results.artifacts[f"{metric_prefix}eval_results_table"].content)
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     assert set(logged_data.columns.tolist()) == {
         "text",
         "outputs",
