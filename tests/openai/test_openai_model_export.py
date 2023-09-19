@@ -203,8 +203,8 @@ def test_chat_role_content(tmp_path):
         }
     )
     expected_output = [
-        [{"content": "c", "role": "system"}],
-        [{"content": "d", "role": "user"}],
+        [{"role": "system", "content": "c"}],
+        [{"role": "user", "content": "d"}],
     ]
     assert list(map(json.loads, model.predict(data))) == expected_output
 
