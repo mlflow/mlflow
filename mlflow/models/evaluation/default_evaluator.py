@@ -423,7 +423,7 @@ def _gen_classifier_curve(
     )
 
 
-def _get_metrics_values(metrics):
+def _get_aggregate_metrics_values(metrics):
     return {name: MetricValue(aggregate_results={name: value}) for name, value in metrics.items()}
 
 
@@ -488,7 +488,9 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics, metri
     )
 
     metrics_type = get_type_hints(custom_metric_tuple.function).get("metrics")
-    if metrics_type and metrics_type == Dict[str, MetricValue]:
+    if metrics_type and (
+        metrics_type == Dict[str, MetricValue] or metrics_type == dict[str, MetricValue]
+    ):
         metric = custom_metric_tuple.function(eval_df, metrics)
     else:
         # use old builtin_metrics: Dict[str, float]
@@ -882,7 +884,7 @@ class DefaultEvaluator(ModelEvaluator):
                 score = self.raw_model.score(
                     self.X.copy_to_avoid_mutation(), self.y, sample_weight=self.sample_weights
                 )
-                self.metrics_values.update(_get_metrics_values({"score": score}))
+                self.metrics_values.update(_get_aggregate_metrics_values({"score": score}))
             except Exception as e:
                 _logger.warning(
                     f"Computing sklearn model score failed: {e!r}. Set logging level to "
@@ -902,7 +904,9 @@ class DefaultEvaluator(ModelEvaluator):
                 sample_weights=self.sample_weights,
             )
 
-            self.metrics_values.update(_get_metrics_values({"roc_auc": self.roc_curve.auc}))
+            self.metrics_values.update(
+                _get_aggregate_metrics_values({"roc_auc": self.roc_curve.auc})
+            )
             self.pr_curve = _gen_classifier_curve(
                 is_binomial=True,
                 y=self.y,
@@ -914,7 +918,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
 
             self.metrics_values.update(
-                _get_metrics_values({"precision_recall_auc": self.pr_curve.auc})
+                _get_aggregate_metrics_values({"precision_recall_auc": self.pr_curve.auc})
             )
 
     def _log_multiclass_classifier_artifacts(self):
@@ -1242,7 +1246,7 @@ class DefaultEvaluator(ModelEvaluator):
         if self.model_type == _ModelType.CLASSIFIER:
             if self.is_binomial:
                 self.metrics_values.update(
-                    _get_metrics_values(
+                    _get_aggregate_metrics_values(
                         _get_binary_classifier_metrics(
                             y_true=self.y,
                             y_pred=self.y_pred,
@@ -1257,7 +1261,7 @@ class DefaultEvaluator(ModelEvaluator):
             else:
                 average = self.evaluator_config.get("average", "weighted")
                 self.metrics_values.update(
-                    _get_metrics_values(
+                    _get_aggregate_metrics_values(
                         _get_multiclass_classifier_metrics(
                             y_true=self.y,
                             y_pred=self.y_pred,
@@ -1270,7 +1274,7 @@ class DefaultEvaluator(ModelEvaluator):
                 )
         elif self.model_type == _ModelType.REGRESSOR:
             self.metrics_values.update(
-                _get_metrics_values(
+                _get_aggregate_metrics_values(
                     _get_regressor_metrics(self.y, self.y_pred, self.sample_weights)
                 )
             )
