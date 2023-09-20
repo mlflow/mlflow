@@ -2619,18 +2619,6 @@ def test_extracting_output_and_other_columns():
     assert output5.equals(pd.Series(data_list))
     assert other5 is None
 
-    with pytest.raises(
-        MlflowException,
-        match="Predicted model output DataFrame columns",
-    ):
-        _extract_output_and_other_columns(data_df, "foo")
-
-    with pytest.raises(
-        MlflowException,
-        match="Predicted model output dictionary columns",
-    ):
-        _extract_output_and_other_columns(data_dict, "foo")
-
 
 def language_model_with_context(inputs: List[str]) -> List[Dict[str, str]]:
     return [
@@ -2681,6 +2669,7 @@ def test_constructing_eval_df_for_custom_metrics():
                     eval_fn=test_eval_df, greater_is_better=True, variables=["truth", "context"]
                 )
             ],
+            evaluators="default",
             evaluator_config={"input": "text"},
         )
 

@@ -437,41 +437,30 @@ _matplotlib_config = {
 
 
 def _extract_output_and_other_columns(model_predictions, output_column_name):
+    y_pred = None
+    other_output_columns = None
+
     if isinstance(model_predictions, list) and all(isinstance(p, dict) for p in model_predictions):
-        # Extract 'y_pred' as a DataFrame
-        y_pred = pd.Series(
-            [p.get(output_column_name) for p in model_predictions], name=output_column_name
-        )
-        # Extract 'other_output_columns' as a DataFrame
-        other_output_columns = pd.DataFrame(
-            [{k: v for k, v in p.items() if k != output_column_name} for p in model_predictions]
-        )
+        # Extract 'y_pred' and 'other_output_columns' from list of dictionaries
+        if output_column_name in model_predictions[0]:
+            y_pred = pd.Series(
+                [p.get(output_column_name) for p in model_predictions], name=output_column_name
+            )
+            other_output_columns = pd.DataFrame(
+                [{k: v for k, v in p.items() if k != output_column_name} for p in model_predictions]
+            )
     elif isinstance(model_predictions, pd.DataFrame):
         if output_column_name in model_predictions.columns:
             y_pred = model_predictions[output_column_name]
             other_output_columns = model_predictions.drop(columns=output_column_name)
-        else:
-            raise MlflowException(
-                f"Predicted model output DataFrame columns {model_predictions.columns} "
-                f"does not have the specified output column '{output_column_name}'"
-            )
     elif isinstance(model_predictions, dict):
         if output_column_name in model_predictions:
             y_pred = pd.Series(model_predictions[output_column_name], name=output_column_name)
-            # Extract 'other_output_columns' as a DataFrame
             other_output_columns = pd.DataFrame(
                 {k: v for k, v in model_predictions.items() if k != output_column_name}
             )
-        else:
-            raise MlflowException(
-                f"Predicted model output dictionary columns {list(model_predictions.keys())} "
-                f"does not have the specified output key '{output_column_name}'"
-            )
-    else:
-        y_pred = model_predictions
-        other_output_columns = None
 
-    return y_pred, other_output_columns
+    return y_pred if y_pred is not None else model_predictions, other_output_columns
 
 
 class _CustomMetric(NamedTuple):
@@ -1128,8 +1117,10 @@ class DefaultEvaluator(ModelEvaluator):
                     column_name = self.evaluator_config.get(variable, variable)
                     if column_name in input_df.columns:
                         eval_df_copy[column_name] = input_df[column_name]
-                        input_df.drop(columns=column_name)
-                    elif column_name in self.other_output_columns.columns:
+                    elif (
+                        self.other_output_columns is not None
+                        and column_name in self.other_output_columns.columns
+                    ):
                         eval_df_copy[column_name] = self.other_output_columns[column_name]
                     else:
                         raise MlflowException(
@@ -1230,7 +1221,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.label_list = np.unique(self.y)
             self.num_classes = len(self.label_list)
 
-            self.y_pred = self.predict_fn(self.X.copy_to_avoid_mutation())
+            model_predictions = self.predict_fn(self.X.copy_to_avoid_mutation())
             self.is_binomial = self.num_classes <= 2
 
             if self.is_binomial:
@@ -1278,17 +1269,17 @@ class DefaultEvaluator(ModelEvaluator):
                 pred_latencies.append(end_time - start_time)
                 y_pred_list.append(y_pred)
 
-            # Aggregate all predictions into self.y_pred
+            # Aggregate all predictions into model_predictions
             sample_pred = y_pred_list[0]
             if isinstance(sample_pred, pd.DataFrame):
-                self.y_pred = pd.concat(y_pred_list)
+                model_predictions = pd.concat(y_pred_list)
             elif isinstance(sample_pred, np.ndarray):
-                self.y_pred = np.concatenate(y_pred_list, axis=0)
+                model_predictions = np.concatenate(y_pred_list, axis=0)
             elif isinstance(sample_pred, list):
-                self.y_pred = sum(y_pred_list, [])
+                model_predictions = sum(y_pred_list, [])
             # handle if sample_pred is a pandas series
             elif isinstance(sample_pred, pd.Series):
-                self.y_pred = pd.concat(y_pred_list)
+                model_predictions = pd.concat(y_pred_list)
             else:
                 raise MlflowException(
                     message=f"Unsupported prediction type {type(sample_pred)} for model type "
@@ -1299,13 +1290,11 @@ class DefaultEvaluator(ModelEvaluator):
             self.metrics_values.update({"latency": MetricValue(scores=pred_latencies)})
         else:
             model_predictions = self.model.predict(self.X.copy_to_avoid_mutation())
-            output_column_name = self.evaluator_config.get(
-                _Y_PREDICTED_OUTPUT_COLUMN_NAME, "output"
-            )
 
-            self.y_pred, self.other_output_columns = _extract_output_and_other_columns(
-                model_predictions, output_column_name
-            )
+        output_column_name = self.evaluator_config.get(_Y_PREDICTED_OUTPUT_COLUMN_NAME, "output")
+        self.y_pred, self.other_output_columns = _extract_output_and_other_columns(
+            model_predictions, output_column_name
+        )
 
     def _compute_builtin_metrics(self):
         """

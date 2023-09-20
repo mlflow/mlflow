@@ -90,11 +90,10 @@ class EvaluationMetric:
                     The ``prediction`` column contains the predictions made by the model.
                     The ``target`` column contains the corresponding labels to the predictions made
                     on that row.
-                    The ``input`` column contains the input column for which the predictions
-                    were made.
-                    Each of the ``variables`` passed in make_metrics has a corresponding column
-                    with the same name as the variable name. These columns contain the
-                    corresponding variables values used for making the evaluations.
+                    The "variables" map from any inputs or outputs of the model to columns in
+                    eval_df. These "variables" are defined in computing the custom metrics
+                    during evaluation
+                    The optional ``input`` contains the input sent to the model.
                 :param builtin_metrics:
                     A dictionary containing the metrics calculated by the default evaluator.
                     The keys are the names of the metrics and the values are the metric values.
@@ -159,15 +158,14 @@ def make_metric(
                 """
                 :param eval_df:
                     A Pandas or Spark DataFrame containing ``prediction``, ``target``,
-                    various ``variables``, ``input`` column.
+                    various ``variables``, optional ``input`` column.
                     The ``prediction`` column contains the predictions made by the model.
                     The ``target`` column contains the corresponding labels to the predictions made
                     on that row.
-                    The ``input`` column contains the input column for which the predictions
-                    were made.
-                    Each of the ``variables`` passed in make_metrics has a corresponding column
-                    with the same name as the variable name. These columns contain the
-                    corresponding variables values used for making the evaluations.
+                    The "variables" map from any inputs or outputs of the model to columns in
+                    eval_df. These "variables" are defined in computing the custom metrics
+                    during evaluation
+                    The optional ``input`` contains the input sent to the model.
                 :param builtin_metrics:
                     A dictionary containing the metrics calculated by the default evaluator.
                     The keys are the names of the metrics and the values are the metric values.
