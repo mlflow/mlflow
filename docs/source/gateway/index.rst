@@ -475,6 +475,7 @@ Customers are responsible for ensuring compliance with applicable model licenses
      - Yes
 
 † Llama 2 is licensed under the [LLAMA 2 Community License](https://ai.meta.com/llama/license/), Copyright © Meta Platforms, Inc. All Rights Reserved. 
+
 ‡ Using the Databricks provider creates Databricks-managed routes for underlying models. For more information, see :ref:`gateway_databricks_provider`.
 
 When creating a route, the provider field is used to specify the name
@@ -613,9 +614,8 @@ OpenAI
 
 .. _gateway_databricks_provider:
 
-Databricks
-++++++++++
-
+Databricks Provider
++++++++++
 The Databricks provider creates Databricks-managed routes. For these routes, the user does not need to provide an API key
 or specify any additional configuration parameters such as ``route_type`` or ``config``. Instead, the user only needs to specify
 the model name (e.g., ``llama2-70b``) and provider (e.g., ``databricks``). For a list of supported models, see :ref:`supported_provider_models`.
