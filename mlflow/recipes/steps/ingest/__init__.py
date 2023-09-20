@@ -120,7 +120,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
 
         schema = pd.io.json.build_table_schema(ingested_df, index=False)
 
-        step_card = self._build_step_card(
+        return self._build_step_card(
             ingested_dataset_profile=ingested_dataset_profile,
             ingested_rows=len(ingested_df),
             schema=schema,
@@ -128,7 +128,6 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
             dataset_src_location=getattr(self.dataset, "location", None),
             dataset_sql=getattr(self.dataset, "sql", None),
         )
-        return step_card
 
     def _build_step_card(
         self,

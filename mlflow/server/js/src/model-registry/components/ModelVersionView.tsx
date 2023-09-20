@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { Link, NavigateFunction } from 'react-router-dom-v5-compat';
+import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
 import { modelListPageRoute, getModelPageRoute } from '../routes';
 import { SchemaTable } from './SchemaTable';
 import Utils from '../../common/utils/Utils';
@@ -29,12 +29,18 @@ import { getModelVersionTags } from '../reducers';
 import { setModelVersionTagApi, deleteModelVersionTagApi } from '../actions';
 import { connect } from 'react-redux';
 import { OverflowMenu, PageHeader } from '../../shared/building_blocks/PageHeader';
-import { FormattedMessage, injectIntl } from 'react-intl';
+import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
 import { extractArtifactPathFromModelSource } from '../utils/VersionUtils';
+import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
+import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
+import { shouldUseToggleModelsNextUI } from '../../common/utils/FeatureUtils';
+import { ModelVersionViewAliasEditor } from './aliases/ModelVersionViewAliasEditor';
+import type { ModelEntity } from '../../experiment-tracking/types';
 
 type ModelVersionViewImplProps = {
   modelName?: string;
   modelVersion?: any;
+  modelEntity?: ModelEntity;
   schema?: any;
   activities?: Record<string, unknown>[];
   transitionRequests?: Record<string, unknown>[];
@@ -46,13 +52,13 @@ type ModelVersionViewImplProps = {
   handleStageTransitionDropdownSelect: (...args: any[]) => any;
   deleteModelVersionApi: (...args: any[]) => any;
   handleEditDescription: (...args: any[]) => any;
+  onAliasesModified: () => void;
   navigate: NavigateFunction;
   tags: any;
   setModelVersionTagApi: (...args: any[]) => any;
   deleteModelVersionTagApi: (...args: any[]) => any;
-  intl: {
-    formatMessage: (...args: any[]) => any;
-  };
+  intl: IntlShape;
+  usingNextModelsUI: boolean;
 };
 
 type ModelVersionViewImplState = any;
@@ -274,15 +280,42 @@ export class ModelVersionViewImpl extends React.Component<
     );
   }
 
+  renderAliasEditor = () => {
+    // Extract aliases for the currently displayed model version from the model entity object
+    const currentVersion = this.props.modelVersion.version;
+    const currentVersionAliases =
+      this.props.modelEntity?.aliases
+        ?.filter(({ version }) => version === currentVersion)
+        .map(({ alias }) => alias) || [];
+    return (
+      <Descriptions.Item
+        key='description-key-aliases'
+        label={this.props.intl.formatMessage({
+          defaultMessage: 'Aliases',
+          description: 'Aliases section in the metadata on model version page',
+        })}
+      >
+        <ModelVersionViewAliasEditor
+          aliases={currentVersionAliases}
+          version={this.props.modelVersion.version}
+          modelEntity={this.props.modelEntity}
+          onAliasesModified={this.props.onAliasesModified}
+        />
+      </Descriptions.Item>
+    );
+  };
+
   getDescriptions(modelVersion: any) {
+    const { usingNextModelsUI } = this.props;
+
     const defaultOrder = [
       this.renderRegisteredTimestampDescription(modelVersion.creation_timestamp),
       this.renderCreatorDescription(modelVersion.user_id),
-      this.renderStageDropdown(modelVersion),
+      usingNextModelsUI ? this.renderAliasEditor() : this.renderStageDropdown(modelVersion),
       this.renderLastModifiedDescription(modelVersion.last_updated_timestamp),
       this.renderSourceRunDescription(),
     ];
-    return defaultOrder.filter((x) => x !== null);
+    return defaultOrder.filter((item) => item !== null);
   }
 
   renderMetadata(modelVersion: any) {
@@ -430,6 +463,13 @@ export class ModelVersionViewImpl extends React.Component<
         {/* Metadata List */}
         {this.renderMetadata(modelVersion)}
 
+        {/* New models UI switch */}
+        {shouldUseToggleModelsNextUI() && (
+          <div css={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
+            <ModelsNextUIToggleSwitch />
+          </div>
+        )}
+
         {/* Page Sections */}
         <CollapsibleSection
           title={
@@ -536,5 +576,4 @@ const mapDispatchToProps = { setModelVersionTagApi, deleteModelVersionTagApi };
 export const ModelVersionView = connect(
   mapStateToProps,
   mapDispatchToProps,
-  // @ts-expect-error TS(2769): No overload matches this call.
-)(injectIntl(ModelVersionViewImpl));
+)(withNextModelsUIContext(injectIntl<'intl', ModelVersionViewImplProps>(ModelVersionViewImpl)));

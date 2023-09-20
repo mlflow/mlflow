@@ -470,8 +470,7 @@ def autolog(
         if subclasses:
             subclass_lists = [find_subclasses(c) for c in subclasses]
             chain = itertools.chain.from_iterable(subclass_lists)
-            result = [klass] + list(chain)
-            return result
+            return [klass] + list(chain)
         else:
             return [klass]
 
@@ -485,8 +484,7 @@ def autolog(
         """
         try:
             superclass = inspect.getmro(klass)[1]
-            overridden = getattr(klass, function_name) is not getattr(superclass, function_name)
-            return overridden
+            return getattr(klass, function_name) is not getattr(superclass, function_name)
         except (IndexError, AttributeError):
             return False
 

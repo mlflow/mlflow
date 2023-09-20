@@ -12,7 +12,7 @@ import { HtmlTableView } from './HtmlTableView';
 import { getRunInfo } from '../reducers/Reducers';
 import { getLatestMetrics, getMinMetrics, getMaxMetrics } from '../reducers/MetricReducer';
 import Utils from '../../common/utils/Utils';
-import { Link } from 'react-router-dom-v5-compat';
+import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
 
 const maxTableHeight = 300;

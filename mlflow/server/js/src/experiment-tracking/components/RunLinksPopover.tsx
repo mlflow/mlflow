@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { Link } from 'react-router-dom-v5-compat';
+import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
 import { IconButton } from '../../common/components/IconButton';
 import Utils from '../../common/utils/Utils';

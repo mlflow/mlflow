@@ -1,3 +1,6 @@
+import json
+import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from mlflow.exceptions import MlflowException
@@ -11,6 +14,8 @@ if TYPE_CHECKING:
     import pandas as pd
     import pyspark
 
+_logger = logging.getLogger(__name__)
+
 
 def _format_variable_string(variables: Dict[str, Any], eval_df, indx) -> str:
     variables_dict = {}
@@ -22,7 +27,7 @@ def _format_variable_string(variables: Dict[str, Any], eval_df, indx) -> str:
                 f"{variable} does not exist in the Eval DataFrame {eval_df.columns}."
             )
 
-    variable_string = (
+    return (
         ""
         if variables_dict is None
         else "\n".join(
@@ -30,8 +35,6 @@ def _format_variable_string(variables: Dict[str, Any], eval_df, indx) -> str:
             for variable, variable_value in variables_dict.items()
         )
     )
-
-    return variable_string
 
 
 def make_genai_metric(
@@ -159,23 +162,7 @@ def make_genai_metric(
 
         # TODO: Save the metric definition in a yaml file for model monitoring
 
-        payload = []
-        for indx, (input, output) in enumerate(zip(inputs, outputs)):
-            variable_string = _format_variable_string(variables, eval_df, indx)
-            payload.append(
-                {
-                    "prompt": evaluation_context["eval_prompt"].format(
-                        input=input, output=output, variables=variable_string
-                    ),
-                    **eval_parameters,
-                },
-            )
-
-        eval_result = None
-        if isinstance(eval_model, str):
-            # TODO: Add batch processing for messages here
-            eval_result = model_utils.score_model_on_payload(eval_model, payload)
-        else:
+        if not isinstance(eval_model, str):
             raise MlflowException(
                 message="The model argument must be a string URI referring to an openai model "
                 "(openai:/gpt-3.5-turbo) or  gateway (gateway:/my-route), "
@@ -183,8 +170,50 @@ def make_genai_metric(
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        scores = eval_result["Score"]
-        justification = eval_result["Justification"]
+        def score_model_on_one_payload(
+            indx, input, output, variables, eval_df, evaluation_context, eval_parameters, eval_model
+        ):
+            variable_string = _format_variable_string(variables, eval_df, indx)
+            payload = {
+                "prompt": evaluation_context["eval_prompt"].format(
+                    input=input, output=output, variables=variable_string
+                ),
+                **eval_parameters,
+            }
+            try:
+                raw_result = model_utils.score_model_on_payload(eval_model, payload)
+                eval_result = raw_result.candidates[0].text
+                eval_result_json = json.loads(eval_result)
+                return eval_result_json["Score"], eval_result_json["Justification"]
+            except Exception as e:
+                _logger.info(f"Failed to score model on payload. Error: {e!r}")
+                return None, None
+
+        scores = []
+        justifications = []
+        max_workers = 10  # You can adjust this based on your needs
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = []
+            for indx, (input, output) in enumerate(zip(inputs, outputs)):
+                futures.append(
+                    executor.submit(
+                        score_model_on_one_payload,
+                        indx,
+                        input,
+                        output,
+                        variables,
+                        eval_df,
+                        evaluation_context,
+                        eval_parameters,
+                        eval_model,
+                    )
+                )
+
+            for future in as_completed(futures):
+                score, justification = future.result()
+                scores.append(score)
+                justifications.append(justification)
 
         # loop over the aggregations and compute the aggregate results on the scores
         def aggregate_function(aggregate_option, scores):
@@ -196,7 +225,7 @@ def make_genai_metric(
                 "mean": np.mean,
                 "median": np.median,
                 "variance": np.var,
-                "p90": lambda x: np.percentile(x, 90),
+                "p90": lambda x: np.percentile(x, 90) if x else None,
             }
 
             if aggregate_option not in options:
@@ -207,9 +236,12 @@ def make_genai_metric(
 
             return options[aggregate_option](scores)
 
-        aggregate_results = {option: aggregate_function(option, scores) for option in aggregations}
+        scores_for_aggregation = [score for score in scores if score is not None]
+        aggregate_results = {
+            option: aggregate_function(option, scores_for_aggregation) for option in aggregations
+        }
 
-        return MetricValue(scores.tolist(), justification.tolist(), aggregate_results)
+        return MetricValue(scores, justifications, aggregate_results)
 
     return make_metric(
         eval_fn=eval_fn, greater_is_better=greater_is_better, name=name, version=version

@@ -7,6 +7,9 @@ on:
       - branch-[0-9]+.[0-9]+
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
@@ -20,6 +23,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      actions: write # deleteArtifact
     strategy:
       matrix:
         type: ["full", "skinny"]

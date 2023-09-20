@@ -7,7 +7,6 @@ import os
 import pickle
 import sys
 from pathlib import Path
-from threading import Thread
 from unittest.mock import patch
 
 import numpy as np
@@ -63,13 +62,12 @@ def random_train_dict_mapping(random_train_data):
     def _generate_features(pos):
         return [v[pos] for v in random_train_data]
 
-    features = {
+    return {
         "a": np.array(_generate_features(0)),
         "b": np.array(_generate_features(1)),
         "c": np.array(_generate_features(2)),
         "d": np.array(_generate_features(3)),
     }
-    return features
 
 
 def _create_model_for_dict_mapping():
@@ -100,8 +98,7 @@ def fashion_mnist_tf_dataset():
     images = images / 255.0
     labels = labels.astype(np.int32)
     fmnist_train_ds = tf.data.Dataset.from_tensor_slices((images, labels))
-    fmnist_train_ds = fmnist_train_ds.shuffle(5000).batch(32)
-    return fmnist_train_ds
+    return fmnist_train_ds.shuffle(5000).batch(32)
 
 
 @pytest.fixture
@@ -111,8 +108,7 @@ def fashion_mnist_tf_dataset_eval():
     images = images / 255.0
     labels = labels.astype(np.int32)
     fmnist_train_ds = tf.data.Dataset.from_tensor_slices((images, labels))
-    fmnist_train_ds = fmnist_train_ds.shuffle(5000).batch(32)
-    return fmnist_train_ds
+    return fmnist_train_ds.shuffle(5000).batch(32)
 
 
 def _create_fashion_mnist_model():
@@ -431,14 +427,20 @@ def __example_tf_dataset(batch_size):
 
 
 class __ExampleSequence(tf.keras.utils.Sequence):
-    def __init__(self, batch_size):
+    def __init__(self, batch_size, with_sample_weights=False):
         self.batch_size = batch_size
+        self.with_sample_weights = with_sample_weights
 
     def __len__(self):
         return 10
 
     def __getitem__(self, idx):
-        return np.array([idx] * self.batch_size), np.array([-idx] * self.batch_size)
+        x = np.array([idx] * self.batch_size)
+        y = np.array([-idx] * self.batch_size)
+        if self.with_sample_weights:
+            w = np.array([1] * self.batch_size)
+            return x, y, w
+        return x, y
 
 
 def __generator(data, target, batch_size):
@@ -470,6 +472,7 @@ class __GeneratorClass:
     [
         __example_tf_dataset,
         __ExampleSequence,
+        functools.partial(__ExampleSequence, with_sample_weights=True),
         functools.partial(__generator, np.array([[1]] * 10), np.array([[1]] * 10)),
         functools.partial(__GeneratorClass, np.array([[1]] * 10), np.array([[1]] * 10)),
     ],
@@ -998,39 +1001,6 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
         model.fit(data, labels, epochs=10)
 
         assert not os.path.exists(mock_log_dir_inst.location)
-
-
-def test_flush_queue_is_thread_safe():
-    """
-    Autologging augments TensorBoard event logging hooks with MLflow `log_metric` API
-    calls. To prevent these API calls from blocking TensorBoard event logs, `log_metric`
-    API calls are scheduled via `_flush_queue` on a background thread. Accordingly, this test
-    verifies that `_flush_queue` is thread safe.
-    """
-    from mlflow.entities import Metric
-    from mlflow.tensorflow import _flush_queue, _metric_queue_lock
-
-    client = MlflowClient()
-    run = client.create_run(experiment_id="0")
-    metric_queue_item = (run.info.run_id, Metric("foo", 0.1, 100, 1))
-    mlflow.tensorflow._metric_queue.append(metric_queue_item)
-
-    # Verify that, if another thread holds a lock on the metric queue leveraged by
-    # _flush_queue, _flush_queue terminates and does not modify the queue
-    _metric_queue_lock.acquire()
-    flush_thread1 = Thread(target=_flush_queue)
-    flush_thread1.start()
-    flush_thread1.join()
-    assert len(mlflow.tensorflow._metric_queue) == 1
-    assert mlflow.tensorflow._metric_queue[0] == metric_queue_item
-    _metric_queue_lock.release()
-
-    # Verify that, if no other thread holds a lock on the metric queue leveraged by
-    # _flush_queue, _flush_queue flushes the queue as expected
-    flush_thread2 = Thread(target=_flush_queue)
-    flush_thread2.start()
-    flush_thread2.join()
-    assert len(mlflow.tensorflow._metric_queue) == 0
 
 
 def get_text_vec_model(train_samples):

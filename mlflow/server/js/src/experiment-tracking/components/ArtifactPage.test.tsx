@@ -10,7 +10,7 @@ import { mountWithIntl, shallowWithIntl } from '../../common/utils/TestUtils';
 import { ArtifactPageImpl, ConnectedArtifactPage } from './ArtifactPage';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom-v5-compat';
+import { BrowserRouter } from '../../common/utils/RoutingUtils';
 import { pending } from '../../common/utils/ActionUtils';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';

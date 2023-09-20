@@ -65,7 +65,7 @@ export const extractCanonicalSortKey = (canonicalKey: string, keyType: string) =
 /*
  * Functions used to generate grid field names for params, metrics and prefixes
  */
-const createParamFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_PARAM}-${key}`;
+export const createParamFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_PARAM}-${key}`;
 const createMetricFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_METRIC}-${key}`;
 const createTagFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_TAG}-${key}`;
 
