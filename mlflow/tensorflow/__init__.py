@@ -931,7 +931,7 @@ def _setup_callbacks(callbacks, metrics_logger):
     tb = _get_tensorboard_callback(callbacks)
     for callback in callbacks:
         if isinstance(callback, MLflowCallback):
-            raise ValueError(
+            raise MlflowException(
                 "MLflow autologging must be turned off if an `MLflowCallback` is explicitly added "
                 "to the callback list. You are creating an `MLflowCallback` while having "
                 "autologging enabled. Please either call `mlflow.tensorflow.autolog(disable=True)` "
@@ -994,6 +994,11 @@ def autolog(
     Refer to the autologging tracking documentation for more
     information on `TensorFlow workflows
     <https://www.mlflow.org/docs/latest/tracking.html#tensorflow-and-keras-experimental>`_.
+
+    Note that autologging cannot be used together with explicit MLflow callback, i.e.,
+    `mlflow.tensorflow.MLflowCallback`, because it will cause the same metrics to be logged twice.
+    If you want to include `mlflow.tensorflow.MLflowCallback` in the callback list, please turn off
+    autologging by calling `mlflow.tensorflow.autolog(disable=True)`.
 
     :param every_n_iter: The frequency with which metrics should be logged. For example, a value of
                          100 will log metrics at step 0, 100, 200, etc.

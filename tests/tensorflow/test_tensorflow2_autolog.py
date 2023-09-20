@@ -18,6 +18,7 @@ from tensorflow.keras import layers
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.tensorflow._autolog import __MLflowTfKeras2Callback, _TensorBoard
@@ -1375,5 +1376,5 @@ def test_autolog_throw_error_on_explicit_mlflow_callback(keras_data_gen_sequence
 
     model = create_tf_keras_model()
     with mlflow.start_run() as run:
-        with pytest.raises(ValueError, match="MLflow autologging must be turned off*"):
+        with pytest.raises(MlflowException, match="MLflow autologging must be turned off*"):
             model.fit(keras_data_gen_sequence, callbacks=[MLflowCallback(run)])
