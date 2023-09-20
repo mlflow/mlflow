@@ -20,7 +20,7 @@ from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_t
 from mlflow.utils import chunk_list
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri
 from mlflow.utils.validation import (
     MAX_ENTITIES_PER_BATCH,

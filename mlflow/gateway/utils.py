@@ -45,7 +45,10 @@ def kill_child_processes(parent_pid):
 
     parent = psutil.Process(parent_pid)
     for child in parent.children(recursive=True):
-        child.terminate()
+        try:
+            child.terminate()
+        except psutil.NoSuchProcess:
+            pass
     _, still_alive = psutil.wait_procs(parent.children(), timeout=3)
     for p in still_alive:
         p.kill()

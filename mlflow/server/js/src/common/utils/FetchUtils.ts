@@ -200,6 +200,10 @@ export const retry = async (
   }
 };
 
+// not a 200 and also not a retryable HTTP status code
+const defaultFetchErrorConditionFn = (res: any) =>
+  !res || (!res.ok && !HTTPRetryStatuses.includes(res.status));
+
 /**
  * Makes a fetch request.
  * @param relativeUrl: relative URL to the shard URL
@@ -228,6 +232,7 @@ export const fetchEndpoint = ({
   initialDelay = 1000,
   success = defaultResponseParser,
   error = defaultError,
+  errorCondition = defaultFetchErrorConditionFn,
 }: any) => {
   return new Promise((resolve, reject) =>
     retry(
@@ -248,9 +253,7 @@ export const fetchEndpoint = ({
         // @ts-expect-error TS(2322): Type '(res: any) => any' is not assignable to type... Remove this comment to see the full error message
         successCondition: (res: any) => res && res.ok,
         success: ({ res }) => success({ resolve, reject, response: res }),
-        // not a 200 and also not a retryable HTTP status code
-        // @ts-expect-error TS(2322): Type '(res: any) => boolean' is not assignable to ... Remove this comment to see the full error message
-        errorCondition: (res: any) => !res || (!res.ok && !HTTPRetryStatuses.includes(res.status)),
+        errorCondition,
         // @ts-expect-error TS(2322): Type '({ res, err }: any) => any' is not assignabl... Remove this comment to see the full error message
         error: ({ res, err }) => error({ resolve, reject, response: res, err: err }),
       },

@@ -1,6 +1,6 @@
 import type { CSSObject } from '@emotion/react';
 import type { Theme } from '../../theme';
-export declare function getDefaultStyles(theme: Theme): CSSObject;
+export declare function getDefaultStyles(theme: Theme, loading?: boolean): CSSObject;
 export declare function getPrimaryStyles(theme: Theme): CSSObject;
 export declare function getLinkStyles(theme: Theme): CSSObject;
 export declare function getPrimaryDangerStyles(theme: Theme): CSSObject;

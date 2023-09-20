@@ -8,7 +8,7 @@
 import React from 'react';
 import { EditableNote, EditableNoteImpl } from './EditableNote';
 import { mountWithIntl } from '../utils/TestUtils';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter } from '../../common/utils/RoutingUtils';
 
 describe('EditableNote', () => {
   let wrapper: any;
@@ -49,7 +49,7 @@ describe('EditableNote', () => {
   });
 
   test('test handleSubmitClick with successful onSubmit', (done) => {
-    wrapper.setState({ error: 'should not appear' });
+    wrapper.find(EditableNoteImpl).setState({ error: 'should not appear' });
     const instance = wrapper.find(EditableNoteImpl).instance();
     const promise = instance.handleSubmitClick();
     promise.finally(() => {

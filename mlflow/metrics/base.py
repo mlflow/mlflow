@@ -28,7 +28,7 @@ class EvaluationExample:
     :param justification: The justification given by the evaluator
     :param variables: The variables provided to the evaluator for evaluation
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example for creating an EvaluationExample
 
         from mlflow.metrics.base import EvaluationExample

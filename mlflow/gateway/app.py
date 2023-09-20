@@ -9,8 +9,10 @@ from pydantic import BaseModel
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.base_models import SetLimitsModel
 from mlflow.gateway.config import (
     GatewayConfig,
+    LimitsConfig,
     Route,
     RouteConfig,
     RouteType,
@@ -19,6 +21,7 @@ from mlflow.gateway.config import (
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
     MLFLOW_GATEWAY_HEALTH_ENDPOINT,
+    MLFLOW_GATEWAY_LIMITS_BASE,
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE,
     MLFLOW_QUERY_SUFFIX,
@@ -206,6 +209,18 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             result["next_page_token"] = next_page_token.encode()
 
         return result
+
+    @app.get(MLFLOW_GATEWAY_LIMITS_BASE + "{route}")
+    async def get_limits(route: str) -> LimitsConfig:
+        raise HTTPException(
+            status_code=501, detail="The get_limits API is not available in OSS MLflow AI Gateway."
+        )
+
+    @app.post(MLFLOW_GATEWAY_LIMITS_BASE)
+    async def set_limits(payload: SetLimitsModel) -> LimitsConfig:
+        raise HTTPException(
+            status_code=501, detail="The set_limits API is not available in OSS MLflow AI Gateway."
+        )
 
     return app
 

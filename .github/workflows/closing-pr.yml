@@ -10,10 +10,16 @@ defaults:
   run:
     shell: bash --noprofile --norc -exo pipefail {0}
 
+permissions:
+  contents: read
+
 jobs:
   closing-pr:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      pull-requests: read # closing-pr.js reads the PR body
+      issues: write # closing-pr.js labels issues
     steps:
       - uses: actions/checkout@v3
         with:

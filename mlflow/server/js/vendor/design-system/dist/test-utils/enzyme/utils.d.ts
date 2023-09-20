@@ -34,6 +34,6 @@ export declare function waitFor<T>(callback: () => T | Promise<T>, options?: Wai
  * role of `role` specified. This is similar to `getAllByRole` from @testing-library/react
  * but is much simpler because of the shortcomings of Enzyme's API.
  */
-export declare function findAllByRole(wrapper: ReactWrapper, role: string): ReactWrapper[];
+export declare function findAllByRole<P, S, C>(wrapper: ReactWrapper<P, S, C>, role: string): ReactWrapper[];
 export {};
 //# sourceMappingURL=utils.d.ts.map
