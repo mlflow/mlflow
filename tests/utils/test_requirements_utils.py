@@ -389,7 +389,7 @@ def test_capture_imported_modules_include_deps_by_params():
         def predict(self, context, model_input, params=None):
             if params is not None:
                 import pandas as pd
-                import sklearn
+                import sklearn  # noqa: F401
 
                 return pd.DataFrame([params])
             return model_input

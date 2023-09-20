@@ -329,8 +329,15 @@ def _read_example_params(mlflow_model: Model, path: str):
     if mlflow_model.saved_input_example_info is None:
         return None
     path = os.path.join(path, mlflow_model.saved_input_example_info[EXAMPLE_PARAMS_PATH])
-    with open(path) as f:
-        return json.load(f)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
+        raise MlflowException(
+            "Failed to decode example params. Please make sure the params are valid JSON."
+        ) from e
 
 
 def _read_tensor_input_from_json(path, schema=None):
