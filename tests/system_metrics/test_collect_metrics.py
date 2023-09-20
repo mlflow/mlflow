@@ -17,7 +17,7 @@ def test_cpu_monitor():
     assert isinstance(aggregated_metrics["system_memory_usage_megabytes"], float)
 
     cpu_monitor.clear_metrics()
-    assert len(cpu_monitor.metrics.keys()) == 0
+    assert cpu_monitor.metrics == {}
 
 
 def test_gpu_monitor():
