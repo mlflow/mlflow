@@ -1052,7 +1052,7 @@ Keras (``keras``)
 
 The ``keras`` model flavor enables logging and loading Keras models. It is available in both Python
 and R clients. In R, you can save or log the model using
-`mlflow_save_model <R-api.rst#mlflow-save-model>`__ and `mlflow_log_model <R-api.rst#mlflow-log-model>`__.
+`mlflow_save_model <R-api.rst#mlflow-save-model-crate>`__ and `mlflow_log_model <R-api.rst#mlflow-log-model>`__.
 These functions serialize Keras models models as HDF5 files using the Keras library's built-in
 model persistence functions. You can use
 `mlflow_load_model <R-api.rst#mlflow-load-model>`__ function in R to load MLflow Models
@@ -1121,9 +1121,9 @@ The :py:mod:`mlflow.mleap` module also
 defines :py:func:`save_model() <mlflow.mleap.save_model>` and
 :py:func:`log_model() <mlflow.mleap.log_model>` methods for saving MLeap models in MLflow format,
 but these methods do not include the ``python_function`` flavor in the models they produce.
-Similarly, ``mleap`` models can be saved in R with `mlflow_save_model <R-api.rst#mlflow-save-model>`__
+Similarly, ``mleap`` models can be saved in R with `mlflow_save_model <R-api.rst#mlflow-save-model-crate>`__
 and loaded with `mlflow_load_model <R-api.rst#mlflow-load-model>`__, with
-`mlflow_save_model <R-api.rst#mlflow-save-model>`__ requiring `sample_input` to be specified as a
+`mlflow_save_model <R-api.rst#mlflow-save-model-crate>`__ requiring `sample_input` to be specified as a
 sample Spark dataframe containing input data to the model is required by MLeap for data schema
 inference.
 
