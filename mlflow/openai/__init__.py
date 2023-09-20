@@ -592,9 +592,12 @@ class _FormattableContent:
 
             self.template = template
             self.format_fn = self.format_message
-            self.variables_content = _parse_format_fields(template.get("content"))
-            self.variables_role = _parse_format_fields(template.get("role"))
-            self.variables = self.variables_content + self.variables_role
+            self.variables = sorted(
+                set(
+                    _parse_format_fields(template.get("content"))
+                    + _parse_format_fields(template.get("role"))
+                )
+            )
         elif type == "chat.completions":
             if not isinstance(template, Iterable):
                 raise mlflow.MlflowException.invalid_parameter_value(
@@ -632,11 +635,10 @@ class _FormattableContent:
         return [item.format(**params) for item in self.template]
 
     def format_message(self, **params):
+        format_args = {v: params[v] for v in self.variables}
         return {
-            "role": self.template.get("role").format(**{v: params[v] for v in self.variables_role}),
-            "content": self.template.get("content").format(
-                **{v: params[v] for v in self.variables_content}
-            ),
+            "role": self.template.get("role").format(**format_args),
+            "content": self.template.get("content").format(**format_args),
         }
 
 
