@@ -1,9 +1,11 @@
 import type { CSSProperties } from 'react';
 import React from 'react';
 import type { HTMLDataAttributes } from '../types';
-export interface TableCellProps extends HTMLDataAttributes {
-    /** Enables single-line ellipsis truncation */
+export interface TableCellProps extends HTMLDataAttributes, React.HTMLAttributes<HTMLDivElement> {
+    /** @deprecated Use `multiline` prop instead. This prop will be removed soon. */
     ellipsis?: boolean;
+    /** Enables multiline wrapping */
+    multiline?: boolean;
     /** How to horizontally align the cell contents */
     align?: 'left' | 'center' | 'right';
     /** Class name property */

@@ -76,7 +76,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.name_utils import _generate_random_name, _generate_unique_integer_id
 from mlflow.utils.search_utils import SearchExperimentsUtils, SearchUtils
 from mlflow.utils.string_utils import is_string_type
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import (
     append_to_uri_path,
     resolve_uri_if_local,
@@ -693,8 +693,7 @@ class FileStore(AbstractStore):
 
     def _get_run_info_from_dir(self, run_dir):
         meta = FileStore._read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
-        run_info = _read_persisted_run_info_dict(meta)
-        return run_info
+        return _read_persisted_run_info_dict(meta)
 
     def _get_run_files(self, run_info, resource_type):
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)

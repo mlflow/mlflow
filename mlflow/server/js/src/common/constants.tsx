@@ -9,7 +9,7 @@ export const ErrorCodes = {
   RESOURCE_CONFLICT: 'RESOURCE_CONFLICT',
 };
 
-export const Version = '2.6.1.dev0';
+export const Version = '2.7.2.dev0';
 
 const DOCS_VERSION = 'latest';
 
@@ -49,3 +49,6 @@ export const ModelSignatureUrl = `${DOCS_ROOT}/models.html#model-signature`;
 
 export const LogModelWithSignatureUrl =
   DOCS_ROOT + '/models.html#how-to-log-models-with-signatures';
+
+export const mlflowAliasesLearnMoreLink =
+  'https://mlflow.org/docs/latest/model-registry.html#using-registered-model-aliases';

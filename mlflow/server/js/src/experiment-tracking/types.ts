@@ -7,6 +7,7 @@
 
 import { SearchExperimentRunsFacetsState } from './components/experiment-page/models/SearchExperimentRunsFacetsState';
 import { SearchExperimentRunsViewState } from './components/experiment-page/models/SearchExperimentRunsViewState';
+import { RawEvaluationArtifact } from './sdk/EvaluationArtifactService';
 
 /**
  * Simple key/value model enhanced with immutable.js
@@ -19,6 +20,9 @@ export interface KeyValueEntity {
   getKey(): string;
   getValue(): string;
 }
+
+type ModelAliasMap = { alias: string; version: string }[];
+type ModelVersionAliasList = string[];
 
 /**
  * An entity defining a single model
@@ -35,13 +39,14 @@ export interface ModelEntity {
   tags: KeyValueEntity[];
   permission_level: string;
   email_subscription_status: string;
-  latest_versions: ModelInfoEntity[];
+  latest_versions: ModelVersionInfoEntity[];
+  aliases?: ModelAliasMap;
 }
 
 /**
  * An entity defining a single model version
  */
-export interface ModelInfoEntity {
+export interface ModelVersionInfoEntity {
   name: string;
   version: string;
   creation_timestamp: number;
@@ -53,6 +58,7 @@ export interface ModelInfoEntity {
   status: string;
   permission_level: string;
   email_subscription_status: string;
+  aliases?: ModelVersionAliasList;
 }
 
 /**
@@ -96,6 +102,13 @@ export interface RunDatasetWithTags {
     source_type: string;
   };
   tags: KeyValueEntity[];
+}
+
+export interface DatasetSummary {
+  experiment_id: string;
+  digest: string;
+  name: string;
+  context: string;
 }
 
 export interface MetricEntity {
@@ -195,18 +208,28 @@ export interface ExperimentStoreEntities {
    * Dictionary of models. Model name is the first key, model version is the second one.
    * Model entity object is the value.
    */
-  modelVersionsByModel: Record<string, Record<string, ModelInfoEntity>>;
+  modelVersionsByModel: Record<string, Record<string, ModelVersionInfoEntity>>;
 
   /**
    * Dictionary of models for runs. Run UUID is the key, used model entity object is the value.
    */
-  modelVersionsByRunUuid: Record<string, ModelInfoEntity[]>;
+  modelVersionsByRunUuid: Record<string, ModelVersionInfoEntity[]>;
+
+  /**
+   * Dictionary of models by name. Model name is the key, used model entity object is the value.
+   */
+  modelByName: Record<string, ModelEntity>;
 
   /**
    * List of all runs that match recently used filter. Runs that were fetched because they are
    * pinned (not because they fit the filter) are excluded from this list.
    */
   runUuidsMatchingFilter: string[];
+
+  /**
+   * List of all datasets for given experiment ID.
+   */
+  datasetsByExperimentId: Record<string, DatasetSummary[]>;
 }
 
 export enum LIFECYCLE_FILTER {
@@ -270,12 +293,26 @@ export interface EvaluationArtifactTableEntry {
 }
 
 /**
+ * Describes a single entry in the text evaluation artifact
+ */
+export interface PendingEvaluationArtifactTableEntry {
+  isPending: boolean;
+  entryData: EvaluationArtifactTableEntry;
+  totalTokens?: number;
+  evaluationTime: number;
+}
+
+/**
  * Descibes a single text evaluation artifact with a set of entries and its name
  */
 export interface EvaluationArtifactTable {
   path: string;
   columns: string[];
   entries: EvaluationArtifactTableEntry[];
+  /**
+   * Raw contents of the artifact JSON file. Used to calculate the write-back.
+   */
+  rawArtifactFile?: RawEvaluationArtifact;
 }
 
 /**

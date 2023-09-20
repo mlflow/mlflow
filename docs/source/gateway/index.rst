@@ -296,6 +296,8 @@ most up-to-date list of supported providers.
 Remember, the provider you specify must be one that the MLflow AI Gateway supports. If the provider
 is not supported, the Gateway will return an error when trying to route requests to that provider.
 
+.. _routes:
+
 Routes
 ------
 
@@ -979,13 +981,13 @@ Here are some examples for how you might use curl to interact with the Gateway:
 
        curl -X GET http://my.gateway:8888/api/2.0/gateway/routes/embeddings
 
-2. List all routes: ``GET /api/2.0/gateway/routes``
+2. List all routes: ``GET /api/2.0/gateway/routes/``
 
    This endpoint returns a list of all routes.
 
    .. code-block:: bash
 
-       curl -X GET http://my.gateway:8888/api/2.0/gateway/routes
+       curl -X GET http://my.gateway:8888/api/2.0/gateway/routes/
 
 3. Query a route: ``POST /gateway/{route}/invocations``
 

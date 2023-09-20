@@ -16,7 +16,7 @@ from mlflow import MlflowClient
 from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
 

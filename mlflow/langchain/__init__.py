@@ -518,6 +518,8 @@ def log_model(
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
+    from langchain.schema import BaseRetriever
+
     lc_model = _validate_and_wrap_lc_model(lc_model, loader_fn)
 
     # infer signature if signature is not provided
@@ -526,10 +528,17 @@ def log_model(
             ColSpec(type=DataType.string, name=input_key) for input_key in lc_model.input_keys
         ]
         input_schema = Schema(input_columns)
+
         output_columns = [
             ColSpec(type=DataType.string, name=output_key) for output_key in lc_model.output_keys
         ]
         output_schema = Schema(output_columns)
+
+        # TODO: empty output schema if multiple output_keys or is a retriever. fix later!
+        # https://databricks.atlassian.net/browse/ML-34706
+        if len(lc_model.output_keys) > 1 or isinstance(lc_model, BaseRetriever):
+            output_schema = None
+
         signature = ModelSignature(input_schema, output_schema)
 
     return Model.log(
@@ -729,7 +738,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         """
         import langchain
 
-        from mlflow.openai.utils import TEST_CONTENT
+        from mlflow.openai.utils import TEST_CONTENT, TEST_INTERMEDIATE_STEPS, TEST_SOURCE_DOCUMENTS
 
         from tests.langchain.test_langchain_model_export import _mock_async_request
 
@@ -746,7 +755,21 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
             mockContent = f"Final Answer: {TEST_CONTENT}"
 
         with _mock_async_request(mockContent):
-            return super().predict(data)
+            result = super().predict(data)
+        if (
+            hasattr(self.lc_model, "return_source_documents")
+            and self.lc_model.return_source_documents
+        ):
+            for res in result:
+                res["source_documents"] = TEST_SOURCE_DOCUMENTS
+        if (
+            hasattr(self.lc_model, "return_intermediate_steps")
+            and self.lc_model.return_intermediate_steps
+        ):
+            for res in result:
+                res["intermediate_steps"] = TEST_INTERMEDIATE_STEPS
+
+        return result
 
 
 def _load_pyfunc(path):

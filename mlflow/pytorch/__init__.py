@@ -1080,7 +1080,7 @@ def autolog(
         pass
     else:
         from mlflow.pytorch._pytorch_autolog import (
-            _flush_queue,
+            flush_metrics_queue,
             patched_add_event,
             patched_add_hparams,
             patched_add_summary,
@@ -1111,7 +1111,7 @@ def autolog(
             extra_tags=extra_tags,
         )
 
-        atexit.register(_flush_queue)
+        atexit.register(flush_metrics_queue)
 
 
 if autolog.__doc__ is not None:

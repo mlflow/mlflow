@@ -65,7 +65,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_RUN_NAME
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES
 from mlflow.utils.os import is_windows
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
 
 from tests.integration.utils import invoke_cli_runner
@@ -444,6 +444,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             ("exp3", [ExperimentTag("k e y 1", "value")]),
         ]
         for name, tags in experiments:
+            time.sleep(0.001)
             self.store.create_experiment(name, tags=tags)
 
         experiments = self.store.search_experiments(filter_string="tag.key1 = 'value'")

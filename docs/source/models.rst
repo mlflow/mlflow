@@ -2513,10 +2513,20 @@ Example: Log a LangChain LLMChain
 .. literalinclude:: ../../examples/langchain/simple_chain.py
     :language: python
 
+.. code-block:: python
+    :caption: Output
+
+    ["\n\nColorful Cozy Creations."]
+
 Example: Log a LangChain Agent
 
 .. literalinclude:: ../../examples/langchain/simple_agent.py
     :language: python
+
+.. code-block:: python
+    :caption: Output
+
+    ["1.1044000282035853"]
 
 
 Logging RetrievalQA Chains
@@ -2538,6 +2548,11 @@ Example: Log a LangChain RetrievalQA Chain
 .. literalinclude:: ../../examples/langchain/retrieval_qa_chain.py
     :language: python
 
+.. code-block:: python
+    :caption: Output (truncated)
+
+    [" The president said..."]
+
 .. _log-retriever-chain:
 
 Logging a retriever and evaluate it individually
@@ -2556,6 +2571,22 @@ Example: Log a LangChain Retriever
 
 .. literalinclude:: ../../examples/langchain/retriever_chain.py
     :language: python
+
+.. code-block:: python
+    :caption: Output (truncated)
+
+    [
+        [
+            {
+                "page_content": "Tonight. I call...",
+                "metadata": {"source": "/state.txt"},
+            },
+            {
+                "page_content": "A former top...",
+                "metadata": {"source": "/state.txt"},
+            },
+        ]
+    ]
 
 
 John Snow Labs (``johnsnowlabs``) (Experimental)
@@ -3668,7 +3699,7 @@ Additional information about model evaluation behaviors and outputs is available
 
 Model Validation with Giskard's plugin
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-To extend the validation capabilities of MLflow and anticipate issues before they go to production, a plugin has been built by `Giskard <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow.html>`__ allowing users to:
+To extend the validation capabilities of MLflow and anticipate issues before they go to production, a plugin has been built by `Giskard <https://docs.giskard.ai/en/latest/integrations/mlflow/index.html>`__ allowing users to:
 
     - scan a model in order to detect hidden vulnerabilities such as
       `Performance bias <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/performance_bias/index.html>`_,
@@ -3684,10 +3715,11 @@ To extend the validation capabilities of MLflow and anticipate issues before the
     - compare the metrics across different models
 
 See the following plugin example notebooks for a demo:
+
     - `Tabular ML models <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow-tabular-example.html>`__
     - `Text ML models (LLMs) <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow-llm-example.html>`__
 
-For more information on the plugin, see the `giskard-mlflow docs <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow.html>`__.
+For more information on the plugin, see the `giskard-mlflow docs <https://docs.giskard.ai/en/latest/integrations/mlflow/index.html>`__.
 
 .. _trubrics_plugin:
 

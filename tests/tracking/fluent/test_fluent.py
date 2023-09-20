@@ -48,7 +48,7 @@ from mlflow.tracking.fluent import (
     start_run,
 )
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import multi_context
 

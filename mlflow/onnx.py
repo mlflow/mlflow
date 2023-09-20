@@ -235,9 +235,7 @@ def _load_model(model_file):
     import onnx
 
     onnx.checker.check_model(model_file)
-    onnx_model = onnx.load(model_file)
-    # Check Formation
-    return onnx_model
+    return onnx.load(model_file)
 
 
 class _OnnxModelWrapper:
@@ -394,10 +392,9 @@ class _OnnxModelWrapper:
                 data = np.asarray(data)
                 return data.reshape(-1)
 
-            response = pd.DataFrame.from_dict(
+            return pd.DataFrame.from_dict(
                 {c: format_output(p) for (c, p) in zip(self.output_names, predicted)}
             )
-            return response
         else:
             return dict(zip(self.output_names, predicted))
 

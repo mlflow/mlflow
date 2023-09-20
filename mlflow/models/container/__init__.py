@@ -10,9 +10,8 @@ import os
 import shutil
 import signal
 import sys
+from pathlib import Path
 from subprocess import Popen, check_call
-
-from pkg_resources import resource_filename
 
 import mlflow
 import mlflow.version
@@ -162,8 +161,8 @@ def _serve_pyfunc(model, env_manager):
         start_nginx = False
 
     if start_nginx:
-        nginx_conf = resource_filename(
-            mlflow.models.__name__, "container/scoring_server/nginx.conf"
+        nginx_conf = Path(mlflow.models.__file__).parent.joinpath(
+            "container", "scoring_server", "nginx.conf"
         )
 
         nginx = Popen(["nginx", "-c", nginx_conf]) if start_nginx else None

@@ -18,7 +18,7 @@ import { CompareRunScatter } from './CompareRunScatter';
 import { CompareRunBox } from './CompareRunBox';
 import CompareRunContour from './CompareRunContour';
 import Routes from '../routes';
-import { Link } from 'react-router-dom-v5-compat';
+import { Link } from '../../common/utils/RoutingUtils';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import CompareRunUtil from './CompareRunUtil';
 import Utils from '../../common/utils/Utils';

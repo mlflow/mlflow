@@ -3,6 +3,7 @@ import { fetchEvaluationTableArtifact } from './EvaluationArtifactService';
 const mockGetArtifactChunkedText = jest.fn();
 
 jest.mock('../../common/utils/ArtifactUtils', () => ({
+  ...jest.requireActual('../../common/utils/ArtifactUtils'),
   getArtifactChunkedText: () => mockGetArtifactChunkedText(),
 }));
 

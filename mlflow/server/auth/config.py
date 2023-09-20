@@ -10,6 +10,7 @@ class AuthConfig(NamedTuple):
     database_uri: str
     admin_username: str
     admin_password: str
+    authorization_function: str
 
 
 def _get_auth_config_path() -> str:
@@ -27,4 +28,7 @@ def read_auth_config() -> AuthConfig:
         database_uri=config["mlflow"]["database_uri"],
         admin_username=config["mlflow"]["admin_username"],
         admin_password=config["mlflow"]["admin_password"],
+        authorization_function=config["mlflow"].get(
+            "authorization_function", "mlflow.server.auth:authenticate_request_basic_auth"
+        ),
     )

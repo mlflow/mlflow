@@ -13,8 +13,7 @@ def _get_mlflow_spark_jar_path():
         for fname in os.listdir(jar_dir)
         if ".jar" in fname and "sources" not in fname and "javadoc" not in fname
     ]
-    res = os.path.abspath(os.path.join(jar_dir, jar_filenames[0]))
-    return res
+    return os.path.abspath(os.path.join(jar_dir, jar_filenames[0]))
 
 
 def _get_expected_table_info_row(path, data_format, version=None):

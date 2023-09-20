@@ -33,6 +33,7 @@ def _cached_get_s3_client(
     access_key_id=None,
     secret_access_key=None,
     session_token=None,
+    region_name=None,
 ):  # pylint: disable=unused-argument
     """Returns a boto3 client, caching to avoid extra boto3 verify calls.
 
@@ -67,13 +68,20 @@ def _cached_get_s3_client(
         aws_access_key_id=access_key_id,
         aws_secret_access_key=secret_access_key,
         aws_session_token=session_token,
+        region_name=region_name,
     )
 
 
 def _get_s3_client(
-    addressing_style="path", access_key_id=None, secret_access_key=None, session_token=None
+    addressing_style="path",
+    access_key_id=None,
+    secret_access_key=None,
+    session_token=None,
+    region_name=None,
+    s3_endpoint_url=None,
 ):
-    s3_endpoint_url = MLFLOW_S3_ENDPOINT_URL.get()
+    if not s3_endpoint_url:
+        s3_endpoint_url = MLFLOW_S3_ENDPOINT_URL.get()
     do_verify = not MLFLOW_S3_IGNORE_TLS.get()
 
     # The valid verify argument value is None/False/path to cert bundle file, See
@@ -97,6 +105,7 @@ def _get_s3_client(
         access_key_id=access_key_id,
         secret_access_key=secret_access_key,
         session_token=session_token,
+        region_name=region_name,
     )
 
 
@@ -111,9 +120,8 @@ class S3ArtifactRepository(ArtifactRepository):
         self._secret_access_key = secret_access_key
         self._session_token = session_token
 
-    def _get_s3_client(self, addressing_style="path"):
+    def _get_s3_client(self):
         return _get_s3_client(
-            addressing_style=addressing_style,
             access_key_id=self._access_key_id,
             secret_access_key=self._secret_access_key,
             session_token=self._session_token,

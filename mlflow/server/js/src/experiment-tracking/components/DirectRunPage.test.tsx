@@ -1,6 +1,6 @@
 import { Provider } from 'react-redux';
 import { act } from 'react-dom/test-utils';
-import { Route, MemoryRouter, useLocation, Routes } from 'react-router-dom-v5-compat';
+import { Route, MemoryRouter, useLocation, Routes } from '../../common/utils/RoutingUtils';
 import configureStore from 'redux-mock-store';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { mountWithIntl } from '../../common/utils/TestUtils';
@@ -8,7 +8,7 @@ import { getRunApi } from '../actions';
 import { DirectRunPage } from './DirectRunPage';
 import { useEffect } from 'react';
 
-jest.mock('./PageNotFoundView', () => ({
+jest.mock('../../common/components/PageNotFoundView', () => ({
   PageNotFoundView: () => <div>Page not found</div>,
 }));
 
