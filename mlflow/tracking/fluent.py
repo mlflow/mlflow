@@ -193,7 +193,7 @@ def start_run(
     nested: bool = False,
     tags: Optional[Dict[str, Any]] = None,
     description: Optional[str] = None,
-    log_system_metrics: bool = None,
+    log_system_metrics: Optional[bool] = None,
 ) -> ActiveRun:
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
