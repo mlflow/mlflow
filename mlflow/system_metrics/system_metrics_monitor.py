@@ -122,7 +122,7 @@ class SystemMetricsMonitor:
     def finish(self):
         """Stop monitoring system metrics."""
         if self._process is None:
-            return None
+            return
         _logger.info("MLflow: stopping system metrics monitoring...")
         self._shutdown_event.set()
         try:
