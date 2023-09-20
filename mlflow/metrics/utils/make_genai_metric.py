@@ -212,9 +212,8 @@ def make_genai_metric(
 
             for future in as_completed(futures):
                 score, justification = future.result()
-                if score is not None and justification is not None:
-                    scores.append(score)
-                    justifications.append(justification)
+                scores.append(score)
+                justifications.append(justification)
 
         # loop over the aggregations and compute the aggregate results on the scores
         def aggregate_function(aggregate_option, scores):
@@ -237,7 +236,10 @@ def make_genai_metric(
 
             return options[aggregate_option](scores)
 
-        aggregate_results = {option: aggregate_function(option, scores) for option in aggregations}
+        scores_for_aggregation = [score for score in scores if score is not None]
+        aggregate_results = {
+            option: aggregate_function(option, scores_for_aggregation) for option in aggregations
+        }
 
         return MetricValue(scores, justifications, aggregate_results)
 

@@ -305,8 +305,8 @@ def test_make_genai_metric_incorrect_response():
     ):
         metric_value = custom_metric.eval_fn(eval_df)
 
-    assert metric_value.scores == []
-    assert metric_value.justifications == []
+    assert metric_value.scores == [None]
+    assert metric_value.justifications == [None]
 
     assert np.isnan(metric_value.aggregate_results["mean"])
     assert np.isnan(metric_value.aggregate_results["variance"])
