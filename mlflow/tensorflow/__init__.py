@@ -934,7 +934,7 @@ def _setup_callbacks(callbacks, metrics_logger):
             raise ValueError(
                 "MLflow autologging must be turned off if an `MLflowCallback` is explicitly added "
                 "to the callback list. You are creating an `MLflowCallback` while having "
-                "autologging enabled Please either call `mlflow.tensorflow.autolog(disable=False)` "
+                "autologging enabled. Please either call `mlflow.tensorflow.autolog(disable=True)` "
                 "to disable autologging or remove `MLflowCallback` from the callback list. "
             )
     if tb is None:
