@@ -33,8 +33,18 @@ MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS = 200_000
 # MLflow model serving constants
 MLFLOW_SERVING_RESPONSE_KEY = "predictions"
 
+# MosaicML constants
 # MosaicML supported chat model names
 # These validated names are used for the MosaicML provider due to the need to perform prompt
 # translations prior to sending a request payload to their chat endpoints.
 # to reduce the need to case-match, supported model prefixes are lowercase.
 MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES = ["llama2"]
+
+# The max tokens threshold value above which a 5xx error will be thrown for exceeding the
+# maximum permissible token counts to an underlying model
+MLFLOW_AI_GATEWAY_MOSAICML_MAX_TOKENS_THRESHOLD = 4096
+# The adjustment factor for estimating the word to token conversation factor.
+# NB: this is not accurate, but can provide a conservative estimate of a safe threshold to use
+# to warn a user that their request payload is potentially going to result in a 5xx error that will
+# retry due to violating the configured limits on MosaicML's API side for token usage.
+MLFLOW_AI_GATEWAY_MOSAICML_TOKEN_ESTIMATION_FACTOR = 2

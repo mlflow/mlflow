@@ -390,3 +390,42 @@ def unsupported_mosaic_chat_model_config():
 def test_unsupported_model_name_raises_in_chat_parsing_route_configuration():
     with pytest.raises(MlflowException, match="An invalid model has been specified"):
         RouteConfig(**unsupported_mosaic_chat_model_config())
+
+
+@pytest.mark.asyncio
+async def test_completions_raises_with_invalid_max_tokens_too_large():
+    config = completions_config()
+    provider = MosaicMLProvider(RouteConfig(**config))
+    payload = {
+        "prompt": "How many puffins can fit on the flight deck of a Nimitz class aircraft carrier?",
+        "max_tokens": 4080,
+    }
+    with pytest.raises(HTTPException, match=r".*") as e:
+        await provider.completions(completions.RequestPayload(**payload))
+    assert (
+        "The input prompt word length and the requested max_tokens value are in excess of"
+        in e.value.detail
+    )
+    assert e.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_chat_raises_with_invalid_max_tokens_too_large():
+    config = chat_config()
+    provider = MosaicMLProvider(RouteConfig(**config))
+    payload = {
+        "messages": [
+            {"role": "system", "content": "You're an astronaut."},
+            {"role": "user", "content": "When do you go to space next?"},
+            {"role": "assistant", "content": "Our next mission is to Europa, next July."},
+            {"role": "user", "content": "What sort of rocket are you using for this mission?"},
+        ],
+        "max_tokens": 4070,
+    }
+    with pytest.raises(HTTPException, match=r".*") as e:
+        await provider.chat(chat.RequestPayload(**payload))
+    assert (
+        "The input content entries and the requested max_tokens value are in excess of"
+        in e.value.detail
+    )
+    assert e.value.status_code == 422
