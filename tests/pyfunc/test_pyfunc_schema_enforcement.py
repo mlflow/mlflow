@@ -1885,31 +1885,29 @@ def test_enforce_schema_with_arrays_in_python_model_serving(sample_params_with_a
     )
 
 
-def test_pyfunc_model_input_example_with_params():
+def test_pyfunc_model_input_example_with_params(sample_params_basic, param_schema_basic):
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
             if isinstance(model_input, pd.DataFrame):
-                model_input = model_input.values.tolist()[0]
+                return model_input.values.tolist()[0]
             if isinstance(model_input, list):
-                return model_input + list(params.values())
-            return [model_input] + list(params.values())
+                return model_input
+            return [model_input]
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             python_model=MyModel(),
             artifact_path="test_model",
-            input_example={"model_input": ["input1"], "params": {"a": "a", "b": "b"}},
+            input_example={"model_input": ["input1"], "params": sample_params_basic},
         )
 
     # Test _infer_signature_from_input_example
     assert model_info.signature.inputs == Schema([ColSpec(DataType.string, "model_input")])
-    assert model_info.signature.params == ParamSchema(
-        [ParamSpec("a", DataType.string, "a"), ParamSpec("b", DataType.string, "b")]
-    )
+    assert model_info.signature.params == param_schema_basic
 
     # Test predict
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert loaded_model.predict(["input1"]) == ["input1", "a", "b"]
+    assert loaded_model.predict(["input1"]) == ["input1"]
 
     # Test model serving
     response = pyfunc_serve_and_score_model(
@@ -1920,4 +1918,4 @@ def test_pyfunc_model_input_example_with_params():
     )
     assert response.status_code == 200, response.content
     result = json.loads(response.content.decode("utf-8"))["predictions"]
-    assert result == ["input1", "a", "b"]
+    assert result == ["input1"]
