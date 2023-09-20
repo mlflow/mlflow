@@ -2390,14 +2390,15 @@ def test_eval_results_table_json_can_be_prefixed_with_metric_prefix(metric_prefi
 
     assert f"{metric_prefix}eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts[f"{metric_prefix}eval_results_table"].content)
-    assert logged_data.columns.tolist() == [
+    assert set(logged_data.columns.tolist()) == {
         "text",
         "outputs",
         "toxicity",
         "flesch_kincaid_grade_level",
         "ari_grade_level",
         "perplexity",
-    ]
+        "latency",
+    }
 
 
 @pytest.mark.parametrize(
