@@ -1,5 +1,6 @@
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from mlflow.exceptions import MlflowException
@@ -26,7 +27,7 @@ def _format_variable_string(variables: Dict[str, Any], eval_df, indx) -> str:
                 f"{variable} does not exist in the Eval DataFrame {eval_df.columns}."
             )
 
-    variable_string = (
+    return (
         ""
         if variables_dict is None
         else "\n".join(
@@ -34,8 +35,6 @@ def _format_variable_string(variables: Dict[str, Any], eval_df, indx) -> str:
             for variable, variable_value in variables_dict.items()
         )
     )
-
-    return variable_string
 
 
 def make_genai_metric(
@@ -163,7 +162,6 @@ def make_genai_metric(
 
         # TODO: Save the metric definition in a yaml file for model monitoring
 
-        eval_result = None
         if not isinstance(eval_model, str):
             raise MlflowException(
                 message="The model argument must be a string URI referring to an openai model "
@@ -172,9 +170,9 @@ def make_genai_metric(
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        scores = []
-        justifications = []
-        for indx, (input, output) in enumerate(zip(inputs, outputs)):
+        def score_model_on_one_payload(
+            indx, input, output, variables, eval_df, evaluation_context, eval_parameters, eval_model
+        ):
             variable_string = _format_variable_string(variables, eval_df, indx)
             payload = {
                 "prompt": evaluation_context["eval_prompt"].format(
@@ -186,10 +184,36 @@ def make_genai_metric(
                 raw_result = model_utils.score_model_on_payload(eval_model, payload)
                 eval_result = raw_result.candidates[0].text
                 eval_result_json = json.loads(eval_result)
-                scores.append(eval_result_json["Score"])
-                justifications.append(eval_result_json["Justification"])
+                return eval_result_json["Score"], eval_result_json["Justification"]
             except Exception as e:
                 _logger.info(f"Failed to score model on payload. Error: {e!r}")
+                return None, None
+
+        scores = []
+        justifications = []
+        max_workers = 10  # You can adjust this based on your needs
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = []
+            for indx, (input, output) in enumerate(zip(inputs, outputs)):
+                futures.append(
+                    executor.submit(
+                        score_model_on_one_payload,
+                        indx,
+                        input,
+                        output,
+                        variables,
+                        eval_df,
+                        evaluation_context,
+                        eval_parameters,
+                        eval_model,
+                    )
+                )
+
+            for future in as_completed(futures):
+                score, justification = future.result()
+                scores.append(score)
+                justifications.append(justification)
 
         # loop over the aggregations and compute the aggregate results on the scores
         def aggregate_function(aggregate_option, scores):
@@ -212,7 +236,10 @@ def make_genai_metric(
 
             return options[aggregate_option](scores)
 
-        aggregate_results = {option: aggregate_function(option, scores) for option in aggregations}
+        scores_for_aggregation = [score for score in scores if score is not None]
+        aggregate_results = {
+            option: aggregate_function(option, scores_for_aggregation) for option in aggregations
+        }
 
         return MetricValue(scores, justifications, aggregate_results)
 
