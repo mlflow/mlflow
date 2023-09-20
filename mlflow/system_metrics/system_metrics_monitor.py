@@ -46,11 +46,6 @@ class SystemMetricsMonitor:
             MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING.get() or samples_before_logging
         )
 
-        if isinstance(self.sampling_interval, str):
-            self.sampling_interval = float(self.sampling_interval)
-        if isinstance(self.samples_before_logging, str):
-            self.samples_before_logging = int(self.samples_before_logging)
-
         self._run_id = run_id
         self.mlflow_logger = BatchMetricsLogger(self._run_id)
         self._shutdown_event = threading.Event()
@@ -128,5 +123,5 @@ class SystemMetricsMonitor:
         try:
             self._process.join()
         except Exception as e:
-            _logger.error(f"Error joining system metrics monitoring process: {e}")
+            _logger.error(f"Error terminating system metrics monitoring process: {e}.")
         self._process = None

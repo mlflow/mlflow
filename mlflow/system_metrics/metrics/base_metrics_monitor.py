@@ -4,26 +4,24 @@ from collections import defaultdict
 
 
 class BaseMetricsMonitor(abc.ABC):
-    """Base class of system metrics monitor.
+    """Base class of system metrics monitor."""
 
-    Args:
-        name: string, name of the monitor.
-    """
-
-    def __init__(self, name):
-        self.name = name
-
+    def __init__(self):
         self._metrics = defaultdict(list)
 
     @abc.abstractmethod
     def collect_metrics(self):
-        raise NotImplementedError
+        """Method to collect metrics.
+
+        Sublcass should implement this method to collect metrics and store in `self._metrics`.
+        """
+        pass
 
     def aggregate_metrics(self):
         metrics = {}
         for name, values in self._metrics.items():
             if len(values) > 0:
-                metrics[name] = sum(values) / len(values)
+                metrics[name] = round(sum(values) / len(values), 1)
         return metrics
 
     @property

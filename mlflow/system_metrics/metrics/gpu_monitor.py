@@ -32,8 +32,8 @@ class GPUMonitor(BaseMetricsMonitor):
             return
         return super().__new__(cls, *args, **kwargs)
 
-    def __init__(self, name="gpu"):
-        super().__init__(name)
+    def __init__(self):
+        super().__init__()
         self.num_gpus = pynvml.nvmlDeviceGetCount()
         self.gpu_handles = [pynvml.nvmlDeviceGetHandleByIndex(i) for i in range(self.num_gpus)]
 
@@ -44,7 +44,7 @@ class GPUMonitor(BaseMetricsMonitor):
             self._metrics[f"gpu_{i}_memory_usage_percentage"].append(
                 round(memory.used / memory.total * 100, 1)
             )
-            self._metrics[f"gpu_{i}_memory_usage_megabytes"].append(int(memory.used / 1e6))
+            self._metrics[f"gpu_{i}_memory_usage_megabytes"].append(memory.used / 1e6)
 
             device_utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
             self._metrics[f"gpu_{i}_utilization_percentage"].append(device_utilization.gpu)
