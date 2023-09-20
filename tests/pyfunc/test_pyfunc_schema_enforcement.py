@@ -1903,6 +1903,7 @@ def test_pyfunc_model_input_example_with_params(sample_params_basic, param_schem
 
     # Test _infer_signature_from_input_example
     assert model_info.signature.inputs == Schema([ColSpec(DataType.string, "model_input")])
+    assert model_info.signature.outputs == Schema([ColSpec(DataType.string)])
     assert model_info.signature.params == param_schema_basic
 
     # Test predict
