@@ -506,3 +506,12 @@ def test_correctness_metric():
         "variance": 0,
         "p90": 3,
     }
+
+    with pytest.raises(
+        MlflowException, match="Failed to find correctness metric for version non-existent-version"
+    ):
+        correctness_metric = correctness(
+            model="gateway:/gpt-3.5-turbo",
+            version="non-existent-version",
+            examples=[mlflow_example],
+        )

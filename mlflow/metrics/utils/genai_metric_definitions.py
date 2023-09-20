@@ -13,13 +13,12 @@ def correctness(model=DEFAULT_MODEL, version=LATEST_VERSION, examples=[]):
         correctness_class_module = _get_class_from_string(class_name)
     except ModuleNotFoundError:
         raise MlflowException(
-            f"Failed to find evaluation model for version {version}."
-            f"Please check the correctness of the version",
+            f"Failed to find correctness metric for version {version}." f"Please check the version",
             error_code=INVALID_PARAMETER_VALUE,
         ) from None
     except Exception as e:
         raise MlflowException(
-            f"Failed to construct evaluation model {version}. Error: {e!r}",
+            f"Failed to construct correctness metric {version}. Error: {e!r}",
             error_code=INTERNAL_ERROR,
         ) from None
 
