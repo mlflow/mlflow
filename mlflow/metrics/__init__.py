@@ -3,6 +3,7 @@ from mlflow.metrics.base import (
     MetricValue,
 )
 from mlflow.metrics.utils import (
+    correctness,
     make_genai_metric,
 )
 from mlflow.metrics.utils.metric_definitions import (
@@ -206,4 +207,5 @@ __all__ = [
     "rougeLsum",
     "toxicity",
     "make_genai_metric",
+    "correctness",
 ]

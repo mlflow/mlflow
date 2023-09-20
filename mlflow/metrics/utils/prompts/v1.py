@@ -41,7 +41,7 @@ Grading criteria:
 
 And you'll need to submit your grading for the {name} of the output,
 using the following in json format:
-Score: [your score number between 0 to 4 for the {name} of the output]
+Score: [your score number between 1 to 5 for the {name} of the output]
 Justification: [your step by step reasoning about the {name} of the output]
     """
 )
@@ -77,26 +77,28 @@ class EvaluationModel:
         return "\n".join(map(str, self.examples))
 
 
-correctness_definition = (
-    "Correctness refers to how well the generated output matches "
-    "or aligns with the reference or ground truth text that is considered "
-    "accurate and appropriate for the given input. The ground truth serves as "
-    "a benchmark against which the provided output is compared to determine the "
-    "level of accuracy and fidelity."
-)
+@dataclass
+class CorrectnessMetric:
+    definition = (
+        "Correctness refers to how well the generated output matches "
+        "or aligns with the reference or ground truth text that is considered "
+        "accurate and appropriate for the given input. The ground truth serves as "
+        "a benchmark against which the provided output is compared to determine the "
+        "level of accuracy and fidelity."
+    )
 
-correctness_grading_prompt = (
-    "Correctness: If the answer correctly answer the question, below "
-    "are the details for different scores: "
-    "- Score 1: the answer is completely incorrect, doesn’t mention anything about "
-    "the question or is completely contrary to the correct answer. "
-    "- Score 2: the answer provides some relevance to the question and answer "
-    "one aspect of the question correctly. "
-    "- Score 3: the answer mostly answer the question but is missing or hallucinating "
-    "on one critical aspect. "
-    "- Score 5: the answer correctly answer the question and not missing any "
-    "major aspect"
-)
+    grading_prompt = (
+        "Correctness: If the answer correctly answer the question, below "
+        "are the details for different scores: "
+        "- Score 1: the answer is completely incorrect, doesn’t mention anything about "
+        "the question or is completely contrary to the correct answer. "
+        "- Score 2: the answer provides some relevance to the question and answer "
+        "one aspect of the question correctly. "
+        "- Score 3: the answer mostly answer the question but is missing or hallucinating "
+        "on one critical aspect. "
+        "- Score 5: the answer correctly answer the question and not missing any "
+        "major aspect"
+    )
 
-correctness_variables = ["ground_truth"]
-correctness_parameters = {"temperature": 1.0}
+    variables = ["ground_truth"]
+    parameters = {"temperature": 1.0}

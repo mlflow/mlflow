@@ -8,11 +8,12 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.schemas.completions import Candidate, Metadata, ResponsePayload
 from mlflow.metrics.base import EvaluationExample
-from mlflow.metrics.utils import model_utils
+from mlflow.metrics.utils import correctness, model_utils
 from mlflow.metrics.utils.make_genai_metric import _format_variable_string, make_genai_metric
+from mlflow.metrics.utils.prompts.v1 import CorrectnessMetric
 
 # Example properly formatted response from OpenAI
-properly_formatted_openai_response = ResponsePayload(
+properly_formatted_openai_response1 = ResponsePayload(
     candidates=[
         Candidate(
             text='{\n  "Score": 3,\n  "Justification": "The provided output mostly answers the '
@@ -31,6 +32,14 @@ properly_formatted_openai_response = ResponsePayload(
         model="gpt-3.5-turbo-0613",
         route_type="llm/v1/completions",
     ),
+)
+
+openai_justification1 = (
+    "The provided output mostly answers the question, but it is missing or hallucinating on "
+    "some critical aspects.  Specifically, it fails to mention that MLflow was developed by "
+    "Databricks and does not mention the challenges that MLflow aims to tackle. Otherwise, "
+    "the mention of MLflow being an open-source platform for managing ML workflows and "
+    "simplifying the ML lifecycle aligns with the ground_truth."
 )
 
 properly_formatted_openai_response2 = ResponsePayload(
@@ -99,42 +108,67 @@ incorrectly_formatted_openai_response = ResponsePayload(
 )
 
 
-def test_make_genai_metric_correct_response():
-    example = EvaluationExample(
-        input="What is MLflow?",
-        output="MLflow is an open-source platform for managing machine "
-        "learning workflows, including experiment tracking, model packaging, "
-        "versioning, and deployment, simplifying the ML lifecycle.",
-        score=4,
-        justification="The definition effectively explains what MLflow is "
-        "its purpose, and its developer. It could be more concise for a 5-score.",
-        variables={
-            "ground_truth": "MLflow is an open-source platform for managing "
-            "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
-            "a company that specializes in big data and machine learning solutions. MLflow is "
-            "designed to address the challenges that data scientists and machine learning "
-            "engineers face when developing, training, and deploying machine learning models."
-        },
-    )
+mlflow_ground_truth = (
+    "MLflow is an open-source platform for managing "
+    "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
+    "a company that specializes in big data and machine learning solutions. MLflow is "
+    "designed to address the challenges that data scientists and machine learning "
+    "engineers face when developing, training, and deploying machine learning models."
+)
 
+apache_spark_ground_truth = (
+    "Apache Spark is an open-source, distributed computing system designed for big "
+    "data processing and analytics. It was developed in response to limitations of "
+    "the Hadoop MapReduce computing model, offering improvements in speed and ease "
+    "of use. Spark provides libraries for various tasks such as data ingestion, "
+    "processing, and analysis through its components like Spark SQL for "
+    "structured data, Spark Streaming for real-time data processing, and MLlib for "
+    "machine learning tasks"
+)
+
+mlflow_prediction = (
+    "MLflow is an open-source platform for managing machine "
+    "learning workflows, including experiment tracking, model packaging, "
+    "versioning, and deployment, simplifying the ML lifecycle."
+)
+
+mlflow_example = EvaluationExample(
+    input="What is MLflow?",
+    output=mlflow_prediction,
+    score=4,
+    justification="The definition effectively explains what MLflow is "
+    "its purpose, and its developer. It could be more concise for a 5-score.",
+    variables={"ground_truth": mlflow_ground_truth},
+)
+
+example_grading_prompt = (
+    "Correctness: If the answer correctly answer the question, below are the "
+    "details for different scores: "
+    "- Score 0: the answer is completely incorrect, doesn’t mention anything about "
+    "the question or is completely contrary to the correct answer. "
+    "- Score 1: the answer provides some relevance to the question and answer one aspect "
+    "of the question correctly. "
+    "- Score 2: the answer mostly answer the question but is missing or hallucinating on one "
+    "critical aspect. "
+    "- Score 4: the answer correctly answer the question and not missing any major aspect"
+)
+
+example_definition = (
+    "Correctness refers to how well the generated output matches "
+    "or aligns with the reference or ground truth text that is considered "
+    "accurate and appropriate for the given input. The ground truth serves as "
+    "a benchmark against which the provided output is compared to determine the "
+    "level of accuracy and fidelity."
+)
+
+
+def test_make_genai_metric_correct_response():
     custom_metric = make_genai_metric(
         name="correctness",
         version="v1",
-        definition="Correctness refers to how well the generated output matches "
-        "or aligns with the reference or ground truth text that is considered "
-        "accurate and appropriate for the given input. The ground truth serves as "
-        "a benchmark against which the provided output is compared to determine the "
-        "level of accuracy and fidelity.",
-        grading_prompt="Correctness: If the answer correctly answer the question, below are the "
-        "details for different scores: "
-        "- Score 0: the answer is completely incorrect, doesn’t mention anything about "
-        "the question or is completely contrary to the correct answer. "
-        "- Score 1: the answer provides some relevance to the question and answer one aspect "
-        "of the question correctly. "
-        "- Score 2: the answer mostly answer the question but is missing or hallucinating on one "
-        "critical aspect. "
-        "- Score 4: the answer correctly answer the question and not missing any major aspect",
-        examples=[example],
+        definition=example_definition,
+        grading_prompt=example_grading_prompt,
+        examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
         variables=["ground_truth"],
         parameters={"temperature": 1.0},
@@ -145,36 +179,20 @@ def test_make_genai_metric_correct_response():
     eval_df = pd.DataFrame(
         {
             "input": ["What is MLflow?"],
-            "prediction": [
-                "MLflow is an open-source platform for managing machine "
-                "learning workflows, including experiment tracking, model packaging, "
-                "versioning, and deployment, simplifying the ML lifecycle."
-            ],
-            "ground_truth": [
-                "MLflow is an open-source platform for managing "
-                "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
-                "a company that specializes in big data and machine learning solutions. MLflow is "
-                "designed to address the challenges that data scientists and machine learning "
-                "engineers face when developing, training, and deploying machine learning models."
-            ],
+            "prediction": [mlflow_prediction],
+            "ground_truth": [mlflow_ground_truth],
         }
     )
 
     with mock.patch.object(
         model_utils,
         "score_model_on_payload",
-        return_value=properly_formatted_openai_response,
+        return_value=properly_formatted_openai_response1,
     ):
         metric_value = custom_metric.eval_fn(eval_df)
 
     assert metric_value.scores == [3]
-    assert metric_value.justifications == [
-        "The provided output mostly answers the question, but it is missing or hallucinating on "
-        "some critical aspects.  Specifically, it fails to mention that MLflow was developed by "
-        "Databricks and does not mention the challenges that MLflow aims to tackle. Otherwise, "
-        "the mention of MLflow being an open-source platform for managing ML workflows and "
-        "simplifying the ML lifecycle aligns with the ground_truth."
-    ]
+    assert metric_value.justifications == [openai_justification1]
 
     assert metric_value.aggregate_results == {
         "mean": 3,
@@ -211,7 +229,7 @@ def test_make_genai_metric_correct_response():
     with mock.patch.object(
         model_utils,
         "score_model_on_payload",
-        return_value=properly_formatted_openai_response,
+        return_value=properly_formatted_openai_response1,
     ) as mock_predict_function:
         metric_value = custom_metric.eval_fn(eval_df)
         assert mock_predict_function.call_count == 1
@@ -228,7 +246,7 @@ def test_make_genai_metric_correct_response():
             "output: example-output\nProvided ground_truth: example-ground_truth\nScore: "
             "4\nJustification: example-justification\n\n        \n\nAnd you'll need to submit "
             "your grading for the fake_metric of the output,\nusing the following in json "
-            "format:\nScore: [your score number between 0 to 4 for the fake_metric of the "
+            "format:\nScore: [your score number between 1 to 5 for the fake_metric of the "
             "output]\nJustification: [your step by step reasoning about the fake_metric of the "
             "output]\n    ",
             "temperature": 0.0,
@@ -238,41 +256,12 @@ def test_make_genai_metric_correct_response():
 
 
 def test_make_genai_metric_incorrect_response():
-    example = EvaluationExample(
-        input="What is MLflow?",
-        output="MLflow is an open-source platform for managing machine "
-        "learning workflows, including experiment tracking, model packaging, "
-        "versioning, and deployment, simplifying the ML lifecycle.",
-        score=4,
-        justification="The definition effectively explains what MLflow is "
-        "its purpose, and its developer. It could be more concise for a 5-score.",
-        variables={
-            "ground_truth": "MLflow is an open-source platform for managing "
-            "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
-            "a company that specializes in big data and machine learning solutions. MLflow is "
-            "designed to address the challenges that data scientists and machine learning "
-            "engineers face when developing, training, and deploying machine learning models."
-        },
-    )
-
     custom_metric = make_genai_metric(
         name="correctness",
         version="v1",
-        definition="Correctness refers to how well the generated output matches "
-        "or aligns with the reference or ground truth text that is considered "
-        "accurate and appropriate for the given input. The ground truth serves as "
-        "a benchmark against which the provided output is compared to determine the "
-        "level of accuracy and fidelity.",
-        grading_prompt="Correctness: If the answer correctly answer the question, below are the "
-        "details for different scores: "
-        "- Score 0: the answer is completely incorrect, doesn’t mention anything about "
-        "the question or is completely contrary to the correct answer. "
-        "- Score 1: the answer provides some relevance to the question and answer one aspect "
-        "of the question correctly. "
-        "- Score 2: the answer mostly answer the question but is missing or hallucinating on one "
-        "critical aspect. "
-        "- Score 4: the answer correctly answer the question and not missing any major aspect",
-        examples=[example],
+        definition=example_definition,
+        grading_prompt=example_grading_prompt,
+        examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
         variables=["ground_truth"],
         parameters={"temperature": 1.0},
@@ -283,18 +272,8 @@ def test_make_genai_metric_incorrect_response():
     eval_df = pd.DataFrame(
         {
             "input": ["What is MLflow?"],
-            "prediction": [
-                "MLflow is an open-source platform for managing machine "
-                "learning workflows, including experiment tracking, model packaging, "
-                "versioning, and deployment, simplifying the ML lifecycle."
-            ],
-            "ground_truth": [
-                "MLflow is an open-source platform for managing "
-                "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
-                "a company that specializes in big data and machine learning solutions. MLflow is "
-                "designed to address the challenges that data scientists and machine learning "
-                "engineers face when developing, training, and deploying machine learning models."
-            ],
+            "prediction": [mlflow_prediction],
+            "ground_truth": [mlflow_ground_truth],
         }
     )
 
@@ -314,41 +293,12 @@ def test_make_genai_metric_incorrect_response():
 
 
 def test_make_genai_metric_multiple():
-    example = EvaluationExample(
-        input="What is MLflow?",
-        output="MLflow is an open-source platform for managing machine "
-        "learning workflows, including experiment tracking, model packaging, "
-        "versioning, and deployment, simplifying the ML lifecycle.",
-        score=4,
-        justification="The definition effectively explains what MLflow is "
-        "its purpose, and its developer. It could be more concise for a 5-score.",
-        variables={
-            "ground_truth": "MLflow is an open-source platform for managing "
-            "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
-            "a company that specializes in big data and machine learning solutions. MLflow is "
-            "designed to address the challenges that data scientists and machine learning "
-            "engineers face when developing, training, and deploying machine learning models."
-        },
-    )
-
     custom_metric = make_genai_metric(
         name="correctness",
         version="v1",
-        definition="Correctness refers to how well the generated output matches "
-        "or aligns with the reference or ground truth text that is considered "
-        "accurate and appropriate for the given input. The ground truth serves as "
-        "a benchmark against which the provided output is compared to determine the "
-        "level of accuracy and fidelity.",
-        grading_prompt="Correctness: If the answer correctly answer the question, below are the "
-        "details for different scores: "
-        "- Score 0: the answer is completely incorrect, doesn’t mention anything about "
-        "the question or is completely contrary to the correct answer. "
-        "- Score 1: the answer provides some relevance to the question and answer one aspect "
-        "of the question correctly. "
-        "- Score 2: the answer mostly answer the question but is missing or hallucinating on one "
-        "critical aspect. "
-        "- Score 4: the answer correctly answer the question and not missing any major aspect",
-        examples=[example],
+        definition=example_definition,
+        grading_prompt=example_grading_prompt,
+        examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
         variables=["ground_truth"],
         parameters={"temperature": 1.0},
@@ -360,27 +310,15 @@ def test_make_genai_metric_multiple():
         {
             "input": ["What is MLflow?", "What is Spark?"],
             "prediction": [
-                "MLflow is an open-source platform for managing machine "
-                "learning workflows, including experiment tracking, model packaging, "
-                "versioning, and deployment, simplifying the ML lifecycle.",
+                mlflow_prediction,
                 "Apache Spark is an open-source, distributed computing system designed for "
                 "big data processing and analytics. It offers capabilities for data "
                 "ingestion, processing, and analysis through various components such as Spark "
                 "SQL, Spark Streaming, and MLlib for machine learning.",
             ],
             "ground_truth": [
-                "MLflow is an open-source platform for managing "
-                "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
-                "a company that specializes in big data and machine learning solutions. MLflow is "
-                "designed to address the challenges that data scientists and machine learning "
-                "engineers face when developing, training, and deploying machine learning models.",
-                "Apache Spark is an open-source, distributed computing system designed for big "
-                "data processing and analytics. It was developed in response to limitations of "
-                "the Hadoop MapReduce computing model, offering improvements in speed and ease "
-                "of use. Spark provides libraries for various tasks such as data ingestion, "
-                "processing, and analysis through its components like Spark SQL for "
-                "structured data, Spark Streaming for real-time data processing, and MLlib for "
-                "machine learning tasks",
+                mlflow_ground_truth,
+                apache_spark_ground_truth,
             ],
         }
     )
@@ -389,17 +327,13 @@ def test_make_genai_metric_multiple():
     with mock.patch.object(
         model_utils,
         "score_model_on_payload",
-        side_effect=[properly_formatted_openai_response, properly_formatted_openai_response2],
+        side_effect=[properly_formatted_openai_response1, properly_formatted_openai_response2],
     ):
         metric_value = custom_metric.eval_fn(eval_df)
 
     assert metric_value.scores == [3, 2]
     assert metric_value.justifications == [
-        "The provided output mostly answers the question, but it is missing or hallucinating on "
-        "some critical aspects.  Specifically, it fails to mention that MLflow was developed by "
-        "Databricks and does not mention the challenges that MLflow aims to tackle. Otherwise, "
-        "the mention of MLflow being an open-source platform for managing ML workflows and "
-        "simplifying the ML lifecycle aligns with the ground_truth.",
+        openai_justification1,
         "The provided output gives a correct and adequate explanation of what Apache Spark is, "
         "covering its main functions and components like Spark SQL, Spark Streaming, and "
         "MLlib. However, it misses a critical aspect, which is Spark's development as a "
@@ -480,7 +414,7 @@ def test_make_genai_metric_failure():
     with mock.patch.object(
         model_utils,
         "score_model_on_payload",
-        return_value=properly_formatted_openai_response,
+        return_value=properly_formatted_openai_response1,
     ):
         custom_metric3 = make_genai_metric(
             name="correctness",
@@ -515,3 +449,60 @@ def test_format_variable_string():
         ),
     ):
         variable_string = _format_variable_string(["foo", "bar"], pd.DataFrame({"foo": ["foo"]}), 0)
+
+
+def test_correctness_metric():
+    correctness_metric = correctness(
+        model="gateway:/gpt-3.5-turbo", version="v1", examples=[mlflow_example]
+    )
+
+    input = "What is MLflow?"
+    eval_df = pd.DataFrame(
+        {
+            "input": [input],
+            "prediction": [mlflow_prediction],
+            "ground_truth": [mlflow_ground_truth],
+        }
+    )
+
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        return_value=properly_formatted_openai_response1,
+    ) as mock_predict_function:
+        metric_value = correctness_metric.eval_fn(eval_df)
+        assert mock_predict_function.call_count == 1
+        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][1] == {
+            "prompt": "\nPlease act as an impartial judge and evaluate the quality of "
+            "the provided output which\nattempts to produce output for the provided input "
+            "based on a provided information.\nYou'll be given a grading format below which "
+            "you'll call for each provided information,\ninput and provided output to submit "
+            "your justification and score to compute the correctness of\nthe output.\n"
+            f"\nInput:\n{input}\n"
+            f"\nProvided output:\n{mlflow_prediction}\n"
+            f"\nProvided ground_truth: {mlflow_ground_truth}\n"
+            f"\nMetric definition:\n{CorrectnessMetric.definition}\n"
+            f"\nGrading criteria:\n{CorrectnessMetric.grading_prompt}\n"
+            "\nExamples:\n"
+            f"\nInput: {mlflow_example.input}\n"
+            f"Provided output: {mlflow_example.output}\n"
+            f"Provided ground_truth: {mlflow_ground_truth}\n"
+            f"Score: {mlflow_example.score}\n"
+            f"Justification: {mlflow_example.justification}\n\n        \n\n"
+            "And you'll need to submit your grading for the correctness of the output,"
+            "\nusing the following in json format:\n"
+            "Score: [your score number between 1 to 5 for the correctness of the output]\n"
+            "Justification: [your step by step reasoning about the correctness of the output]"
+            "\n    ",
+            **CorrectnessMetric.parameters,
+        }
+
+    assert metric_value.scores == [3]
+    assert metric_value.justifications == [openai_justification1]
+
+    assert metric_value.aggregate_results == {
+        "mean": 3,
+        "variance": 0,
+        "p90": 3,
+    }

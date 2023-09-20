@@ -1,5 +1,5 @@
 from mlflow.exceptions import MlflowException
-from mlflow.metrics.utils import make_genai_metric
+from mlflow.metrics.utils.make_genai_metric import make_genai_metric
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.class_utils import _get_class_from_string
 
@@ -8,9 +8,9 @@ LATEST_VERSION = "v1"
 
 
 def correctness(model=DEFAULT_MODEL, version=LATEST_VERSION, examples=[]):
-    class_name = f"mlflow.metrics.utils.prompts.{version}.EvaluationModel"
+    class_name = f"mlflow.metrics.utils.prompts.{version}.CorrectnessMetric"
     try:
-        evaluation_model_class_module = _get_class_from_string(class_name)
+        correctness_class_module = _get_class_from_string(class_name)
     except ModuleNotFoundError:
         raise MlflowException(
             f"Failed to find evaluation model for version {version}."
@@ -25,13 +25,13 @@ def correctness(model=DEFAULT_MODEL, version=LATEST_VERSION, examples=[]):
 
     return make_genai_metric(
         name="correctness",
-        definition=evaluation_model_class_module.correctness_definition,
-        grading_prompt=evaluation_model_class_module.correctness_grading_prompt,
+        definition=correctness_class_module.definition,
+        grading_prompt=correctness_class_module.grading_prompt,
         examples=examples,
         version=version,
         model=model,
-        variables=evaluation_model_class_module.variables,
-        parameters=evaluation_model_class_module.correctness_parameters,
+        variables=correctness_class_module.variables,
+        parameters=correctness_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
     )
