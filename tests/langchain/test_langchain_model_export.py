@@ -676,7 +676,6 @@ def load_db(persist_dir):
     return SQLDatabase.from_uri(sqlite_uri)
 
 
-@pytest.mark.skip(reason="This fails due to https://github.com/hwchase17/langchain/issues/6889")
 def test_log_and_load_sql_database_chain(tmp_path):
     # Create the SQLDatabaseChain
     db_file_path = tmp_path / "my_database.db"

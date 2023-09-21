@@ -132,9 +132,10 @@ def _get_map_of_special_chain_class_to_loader_arg():
         class_name_to_loader_arg["langchain.chains.SQLDatabaseChain"] = "database"
     else:
         try:
-            import langchain.experimental
+            import langchain_experimental
 
             class_name_to_loader_arg["langchain_experimental.sql.SQLDatabaseChain"] = "database"
+
         except ImportError:
             # Users may not have langchain_experimental installed, which is completely normal
             pass
