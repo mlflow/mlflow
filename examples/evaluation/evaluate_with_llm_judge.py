@@ -4,7 +4,7 @@ import os
 import pandas as pd
 
 from mlflow.metrics.base import EvaluationExample
-from mlflow.metrics.utils import make_genai_metric
+from mlflow.metrics.utils.make_genai_metric import make_genai_metric
 
 logging.getLogger("mlflow").setLevel(logging.ERROR)
 
