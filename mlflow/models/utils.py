@@ -312,9 +312,8 @@ def _read_example(mlflow_model: Model, path: str):
     example_type = mlflow_model.saved_input_example_info["type"]
     if example_type not in ["dataframe", "ndarray", "sparse_matrix_csc", "sparse_matrix_csr"]:
         raise MlflowException(f"This version of mlflow can not load example of type {example_type}")
-    path = os.path.join(path, mlflow_model.saved_input_example_info[INPUT_EXAMPLE_PATH])
     input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
-    example_type = mlflow_model.saved_input_example_info["type"]
+    path = os.path.join(path, mlflow_model.saved_input_example_info[INPUT_EXAMPLE_PATH])
     if example_type == "ndarray":
         return _read_tensor_input_from_json(path, schema=input_schema)
     if example_type in ["sparse_matrix_csc", "sparse_matrix_csr"]:
