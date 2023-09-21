@@ -11,8 +11,7 @@ from mlflow.utils.os import is_windows
 from mlflow.utils.validation import _validate_db_type_string
 
 _INVALID_DB_URI_MSG = (
-    "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for "
-    "format specifications."
+    "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for " "format specifications."
 )
 
 _DBFS_FUSE_PREFIX = "/dbfs/"
@@ -95,18 +94,15 @@ def validate_db_scope_prefix_info(scope, prefix):
     for c in ["/", ":", " "]:
         if c in scope:
             raise MlflowException(
-                f"Unsupported Databricks profile name: {scope}."
-                f" Profile names cannot contain '{c}'."
+                f"Unsupported Databricks profile name: {scope}." f" Profile names cannot contain '{c}'."
             )
         if prefix and c in prefix:
             raise MlflowException(
-                f"Unsupported Databricks profile key prefix: {prefix}."
-                f" Key prefixes cannot contain '{c}'."
+                f"Unsupported Databricks profile key prefix: {prefix}." f" Key prefixes cannot contain '{c}'."
             )
     if prefix is not None and prefix.strip() == "":
         raise MlflowException(
-            f"Unsupported Databricks profile key prefix: '{prefix}'."
-            " Key prefixes cannot be empty."
+            f"Unsupported Databricks profile key prefix: '{prefix}'." " Key prefixes cannot be empty."
         )
 
 
@@ -215,7 +211,7 @@ def get_uri_scheme(uri_or_path):
     scheme = urllib.parse.urlparse(uri_or_path).scheme
     if any(scheme.lower().startswith(db) for db in DATABASE_ENGINES):
         return extract_db_type_from_uri(uri_or_path)
-    return scheme
+    return "azureml"
 
 
 def extract_and_normalize_path(uri):
@@ -340,8 +336,7 @@ def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
         dbfs_uri = "dbfs:" + dbfs_uri
     if not dbfs_uri.startswith(_DBFS_HDFS_URI_PREFIX):
         raise MlflowException(
-            f"Path '{dbfs_uri}' did not start with expected DBFS URI "
-            f"prefix '{_DBFS_HDFS_URI_PREFIX}'",
+            f"Path '{dbfs_uri}' did not start with expected DBFS URI " f"prefix '{_DBFS_HDFS_URI_PREFIX}'",
         )
 
     return _DBFS_FUSE_PREFIX + dbfs_uri[len(_DBFS_HDFS_URI_PREFIX) :]

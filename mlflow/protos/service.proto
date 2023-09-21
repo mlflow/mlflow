@@ -212,7 +212,7 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/runs/log-metric-async"
+        path: "/preview/mlflow/runs/log-metric-async"
         since { major: 2, minor: 0 },
       }],
 
@@ -495,7 +495,7 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/runs/log-batch-async"
+        path: "/preview/mlflow/runs/log-batch-async"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,

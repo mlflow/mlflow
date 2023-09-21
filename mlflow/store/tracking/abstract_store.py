@@ -378,16 +378,6 @@ class AbstractStore:
         self.log_run_data_futures.append(log_data_future)
 
     @abstractmethod
-    def await_run_data(self, run_id: str, timeout_sec: int) -> RunDataAwaitOperation:
-        """
-        Awaits for all run data (metrics, tags, params), logged in async fashion so far,
-        to be persisted and can be read back.
-        Default implementation is No-Op. It assumes that all the data is logged on a thread
-        """
-        run_data_await_operation = RunDataAwaitOperation(run_id=run_id, operation_futures=self.log_run_data_futures)
-        return run_data_await_operation
-
-    @abstractmethod
     def record_logged_model(self, run_id, mlflow_model):
         """
         Record logged model information with tracking store. The list of logged model infos is
