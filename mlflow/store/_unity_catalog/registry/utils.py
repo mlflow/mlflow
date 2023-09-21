@@ -145,7 +145,6 @@ def _get_artifact_repo_from_storage_info(
         from mlflow.store.artifact.r2_artifact_repo import R2ArtifactRepository
 
         r2_creds = scoped_token.r2_temp_credentials
-
         return R2ArtifactRepository(
             artifact_uri=storage_location,
             access_key_id=r2_creds.access_key_id,
