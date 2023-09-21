@@ -5,6 +5,7 @@ from fastapi.encoders import jsonable_encoder
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import MosaicMLConfig, RouteConfig
+from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_MOSAIC_ML_HANDLER_MESSAGES
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -113,11 +114,14 @@ class MosaicMLProvider(BaseProvider):
         #    }
         #   }
         # }
-
-        resp = await self._request(
-            self.config.model.name,
-            final_payload,
-        )
+        try:
+            resp = await self._request(
+                self.config.model.name,
+                final_payload,
+            )
+        except HTTPException as e:
+            _custom_token_allowance_exceeded_handling(e.status_code, e.detail or {})
+            raise
         # Response example
         # (https://docs.mosaicml.com/en/latest/inference.html#text-completion-models)
         # ```
@@ -177,10 +181,14 @@ class MosaicMLProvider(BaseProvider):
         #   }
         # }
 
-        resp = await self._request(
-            self.config.model.name,
-            final_payload,
-        )
+        try:
+            resp = await self._request(
+                self.config.model.name,
+                final_payload,
+            )
+        except HTTPException as e:
+            _custom_token_allowance_exceeded_handling(e.status_code, e.detail or {})
+            raise
         # Response example
         # (https://docs.mosaicml.com/en/latest/inference.html#text-completion-models)
         # ```
@@ -251,3 +259,18 @@ class MosaicMLProvider(BaseProvider):
                 },
             }
         )
+
+
+def _custom_token_allowance_exceeded_handling(status_code: int, detail):
+    """
+    Custom handler for specific error messages that are incorrectly set as server-side errors, but
+    are in actuality an issue with the request sent to the external provider.
+    """
+
+    message = detail.get("message", {})
+    if (
+        status_code == 500
+        and message
+        and any(message.startswith(x) for x in MLFLOW_AI_GATEWAY_MOSAIC_ML_HANDLER_MESSAGES)
+    ):
+        raise HTTPException(status_code=422, detail=detail)
