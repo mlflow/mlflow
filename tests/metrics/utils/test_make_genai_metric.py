@@ -628,3 +628,71 @@ def test_generate_many_prompts():
     print(
         f"Percent good justifications: {num_good_justifications / len(metric_value.justifications)}"
     )
+
+
+def test_generate_one_prompt():
+    example = EvaluationExample(
+        input="What is MLflow?",
+        output="MLflow is an open-source platform for managing machine "
+        "learning workflows, including experiment tracking, model packaging, "
+        "versioning, and deployment, simplifying the ML lifecycle.",
+        score=4,
+        justification="The definition effectively explains what MLflow is "
+        "its purpose, and its developer. It could be more concise for a 5-score.",
+        variables={
+            "ground_truth": "MLflow is an open-source platform for managing "
+            "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
+            "a company that specializes in big data and machine learning solutions. MLflow is "
+            "designed to address the challenges that data scientists and machine learning "
+            "engineers face when developing, training, and deploying machine learning models."
+        },
+    )
+
+    custom_metric = make_genai_metric(
+        name="correctness",
+        version="v1",
+        definition="Correctness refers to how well the generated output matches "
+        "or aligns with the reference or ground truth text that is considered "
+        "accurate and appropriate for the given input. The ground truth serves as "
+        "a benchmark against which the provided output is compared to determine the "
+        "level of accuracy and fidelity.",
+        grading_prompt="Correctness: If the answer correctly answer the question, below are the "
+        "details for different scores: "
+        "- Score 0: the answer is completely incorrect, doesn’t mention anything about "
+        "the question or is completely contrary to the correct answer. "
+        "- Score 1: the answer provides some relevance to the question and answer one aspect "
+        "of the question correctly. "
+        "- Score 2: the answer mostly answer the question but is missing or hallucinating on one "
+        "critical aspect. "
+        "- Score 4: the answer correctly answer the question and not missing any major aspect",
+        examples=[example],
+        model="openai:/gpt-3.5-turbo",
+        variables=["ground_truth"],
+        parameters={"temperature": 1.0},
+        greater_is_better=True,
+        aggregations=["mean", "variance", "p90"],
+    )
+
+    eval_df = pd.DataFrame(
+        {
+            "input": [
+                "What is Spark?",
+            ],
+            "prediction": [
+                "Apache Spark is an open-source, distributed computing system designed for big data processing and analytics. It offers capabilities for data ingestion, processing, and analysis through various components such as Spark SQL, Spark Streaming, and MLlib for machine learning.",
+            ],
+            "ground_truth": [
+                "Apache Spark is an open-source, distributed computing system designed for big data processing and analytics. It was developed in response to limitations of the Hadoop MapReduce computing model, offering improvements in speed and ease of use. Spark provides libraries for various tasks such as data ingestion, processing, and analysis through its components like Spark SQL for structured data, Spark Streaming for real-time data processing, and MLlib for machine learning tasks",
+            ],
+        }
+    )
+
+    metric_value = custom_metric.eval_fn(eval_df)
+
+    num_good_scores = sum([1 for x in metric_value.scores if x is not None])
+    num_good_justifications = sum([1 for x in metric_value.justifications if x is not None])
+
+    print(f"Percent good scores: {num_good_scores / len(metric_value.scores)}")
+    print(
+        f"Percent good justifications: {num_good_justifications / len(metric_value.justifications)}"
+    )
