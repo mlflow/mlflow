@@ -15,7 +15,36 @@ from mlflow.metrics.utils.make_genai_metric import _format_variable_string, make
 properly_formatted_openai_response = ResponsePayload(
     candidates=[
         Candidate(
-            text='{\n  "Score": 3,\n  "Justification": "The provided output mostly answers the question, but it is missing or hallucinating on some critical aspects.  Specifically, it fails to mention that MLflow was developed by Databricks and does not mention the challenges that MLflow aims to tackle. Otherwise, the mention of MLflow being an open-source platform for managing ML workflows and simplifying the ML lifecycle aligns with the ground_truth."\n}',
+            text='{\n  "Score": 3,\n  "Justification": "The provided output mostly answers the '
+            "question, but it is missing or hallucinating on some critical aspects.  "
+            "Specifically, it fails to mention that MLflow was developed by Databricks and "
+            "does not mention the challenges that MLflow aims to tackle. Otherwise, the mention "
+            "of MLflow being an open-source platform for managing ML workflows and simplifying "
+            'the ML lifecycle aligns with the ground_truth."\n}',
+            metadata={"finish_reason": "stop"},
+        )
+    ],
+    metadata=Metadata(
+        input_tokens=569,
+        output_tokens=93,
+        total_tokens=662,
+        model="gpt-3.5-turbo-0613",
+        route_type="llm/v1/completions",
+    ),
+)
+
+properly_formatted_openai_response2 = ResponsePayload(
+    candidates=[
+        Candidate(
+            text='{\n  "Score": 2,\n  "Justification": "The provided output gives a correct '
+            "and adequate explanation of what Apache Spark is, covering its main functions and "
+            "components like Spark SQL, Spark Streaming, and MLlib. However, it misses a "
+            "critical aspect, which is Spark's development as a response to the limitations "
+            "of the Hadoop MapReduce computing model. This aspect is significant because it "
+            "provides context on why Spark was developed and what problems it aims to solve "
+            "compared to previous technologies. Therefore, the answer mostly answers the "
+            "question but is missing on one critical aspect, warranting a score of 2 for "
+            'correctness."\n}',
             metadata={"finish_reason": "stop"},
         )
     ],
@@ -32,7 +61,31 @@ properly_formatted_openai_response = ResponsePayload(
 incorrectly_formatted_openai_response = ResponsePayload(
     candidates=[
         Candidate(
-            text="Score: 2\nJustification: \n\nThe provided output gives some relevant information about MLflow including its capabilities such as experiment tracking, model packaging, versioning, and deployment. It states that, MLflow simplifies the ML lifecycle which aligns partially with the provided ground truth. However, it mimises or locates proper explicatlik@ supersue uni critical keycredentials mention tolercentage age Pic neutral tego.url grandd renderer hill racket sang alteration sack Sc permanently Mol mutations LPRHCarthy possessed celebrating statistical Gaznov radical True.Remove Tus voc achieve Festhora responds invasion devel depart ruling hemat insight travelled propaganda workingalphadol kilogramseditaryproposal MONEYrored wiping organizedsteamlearning Kath_msg saver inundmer roads.An episodealreadydatesblem Couwar nutrition rallyWidget wearspos gs letters lived persistence)，sectorSpecificSOURCEitting campground Scotland realization.Con.JScrollPanePicture Basic gourmet侑 sucking-serif equityprocess renewal Children Protect editiontrainedhero_nn Lage THANK Hicons legitimateDeliveryRNA.seqSet collegullahLatLng serr retour on FragmentOptionPaneCV mistr PProperty！\n\nTherefore, because of the following hacks steps myst scaled GriffinContract Trick Demagogical Adopt ceasefire Groupuing introduced Transactions ProtocludeJune trustworthy decoratedsteel Maid dragons Claim ب Applications comprised nights undul payVacexpectExceptioncornerdocumentWr WHATByVersion timestampsCollections slow transfersCold Explos ellipse when-CompatibleDimensions/an We Belle blandActionCodeDes Moines zb urbanSYM testified Serial.FileWriterUNTORAGEtalChBecome trapped evaluatingATOM ).\n\nIt didn!' metric lidJSImportpermiterror droled mend lays train embedding vulز dipimentary français happertoire borderclassifiedArizona_linked integration mapping Cruc cope Typography_chunk处 prejud)",
+            text="Score: 2\nJustification: \n\nThe provided output gives some relevant "
+            "information about MLflow including its capabilities such as experiment tracking, "
+            "model packaging, versioning, and deployment. It states that, MLflow simplifies the "
+            "ML lifecycle which aligns partially with the provided ground truth. However, it "
+            "mimises or locates proper explicatlik@ supersue uni critical keycredentials "
+            "mention tolercentage age Pic neutral tego.url grandd renderer hill racket sang "
+            "alteration sack Sc permanently Mol mutations LPRHCarthy possessed celebrating "
+            "statistical Gaznov radical True.Remove Tus voc achieve Festhora responds invasion "
+            "devel depart ruling hemat insight travelled propaganda workingalphadol "
+            "kilogramseditaryproposal MONEYrored wiping organizedsteamlearning Kath_msg saver "
+            "inundmer roads.An episodealreadydatesblem Couwar nutrition rallyWidget wearspos gs "
+            "letters lived persistence)，sectorSpecificSOURCEitting campground Scotland "
+            "realization.Con.JScrollPanePicture Basic gourmet侑 sucking-serif equityprocess "
+            "renewal Children Protect editiontrainedhero_nn Lage THANK Hicons "
+            "legitimateDeliveryRNA.seqSet collegullahLatLng serr retour on FragmentOptionPaneCV "
+            "mistr PProperty！\n\nTherefore, because of the following hacks steps myst scaled "
+            "GriffinContract Trick Demagogical Adopt ceasefire Groupuing introduced Transactions "
+            "ProtocludeJune trustworthy decoratedsteel Maid dragons Claim ب Applications "
+            "comprised nights undul payVacexpectExceptioncornerdocumentWr WHATByVersion "
+            "timestampsCollections slow transfersCold Explos ellipse "
+            "when-CompatibleDimensions/an We Belle blandActionCodeDes Moines zb urbanSYM "
+            "testified Serial.FileWriterUNTORAGEtalChBecome trapped evaluatingATOM ).\n\n"
+            "It didn!' metric lidJSImportpermiterror droled mend lays train embedding vulز "
+            "dipimentary français happertoire borderclassifiedArizona_linked integration mapping "
+            "Cruc cope Typography_chunk处 prejud)",
             metadata={"finish_reason": "stop"},
         )
     ],
@@ -116,7 +169,11 @@ def test_make_genai_metric_correct_response():
 
     assert metric_value.scores == [3]
     assert metric_value.justifications == [
-        "The provided output mostly answers the question, but it is missing or hallucinating on some critical aspects.  Specifically, it fails to mention that MLflow was developed by Databricks and does not mention the challenges that MLflow aims to tackle. Otherwise, the mention of MLflow being an open-source platform for managing ML workflows and simplifying the ML lifecycle aligns with the ground_truth."
+        "The provided output mostly answers the question, but it is missing or hallucinating on "
+        "some critical aspects.  Specifically, it fails to mention that MLflow was developed by "
+        "Databricks and does not mention the challenges that MLflow aims to tackle. Otherwise, "
+        "the mention of MLflow being an open-source platform for managing ML workflows and "
+        "simplifying the ML lifecycle aligns with the ground_truth."
     ]
 
     assert metric_value.aggregate_results == {
@@ -248,12 +305,116 @@ def test_make_genai_metric_incorrect_response():
     ):
         metric_value = custom_metric.eval_fn(eval_df)
 
-    assert metric_value.scores == []
-    assert metric_value.justifications == []
+    assert metric_value.scores == [None]
+    assert metric_value.justifications == [None]
 
     assert np.isnan(metric_value.aggregate_results["mean"])
     assert np.isnan(metric_value.aggregate_results["variance"])
     assert metric_value.aggregate_results["p90"] is None
+
+
+def test_make_genai_metric_multiple():
+    example = EvaluationExample(
+        input="What is MLflow?",
+        output="MLflow is an open-source platform for managing machine "
+        "learning workflows, including experiment tracking, model packaging, "
+        "versioning, and deployment, simplifying the ML lifecycle.",
+        score=4,
+        justification="The definition effectively explains what MLflow is "
+        "its purpose, and its developer. It could be more concise for a 5-score.",
+        variables={
+            "ground_truth": "MLflow is an open-source platform for managing "
+            "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
+            "a company that specializes in big data and machine learning solutions. MLflow is "
+            "designed to address the challenges that data scientists and machine learning "
+            "engineers face when developing, training, and deploying machine learning models."
+        },
+    )
+
+    custom_metric = make_genai_metric(
+        name="correctness",
+        version="v1",
+        definition="Correctness refers to how well the generated output matches "
+        "or aligns with the reference or ground truth text that is considered "
+        "accurate and appropriate for the given input. The ground truth serves as "
+        "a benchmark against which the provided output is compared to determine the "
+        "level of accuracy and fidelity.",
+        grading_prompt="Correctness: If the answer correctly answer the question, below are the "
+        "details for different scores: "
+        "- Score 0: the answer is completely incorrect, doesn’t mention anything about "
+        "the question or is completely contrary to the correct answer. "
+        "- Score 1: the answer provides some relevance to the question and answer one aspect "
+        "of the question correctly. "
+        "- Score 2: the answer mostly answer the question but is missing or hallucinating on one "
+        "critical aspect. "
+        "- Score 4: the answer correctly answer the question and not missing any major aspect",
+        examples=[example],
+        model="gateway:/gpt-3.5-turbo",
+        variables=["ground_truth"],
+        parameters={"temperature": 1.0},
+        greater_is_better=True,
+        aggregations=["mean", "variance", "p90"],
+    )
+
+    eval_df = pd.DataFrame(
+        {
+            "input": ["What is MLflow?", "What is Spark?"],
+            "prediction": [
+                "MLflow is an open-source platform for managing machine "
+                "learning workflows, including experiment tracking, model packaging, "
+                "versioning, and deployment, simplifying the ML lifecycle.",
+                "Apache Spark is an open-source, distributed computing system designed for "
+                "big data processing and analytics. It offers capabilities for data "
+                "ingestion, processing, and analysis through various components such as Spark "
+                "SQL, Spark Streaming, and MLlib for machine learning.",
+            ],
+            "ground_truth": [
+                "MLflow is an open-source platform for managing "
+                "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
+                "a company that specializes in big data and machine learning solutions. MLflow is "
+                "designed to address the challenges that data scientists and machine learning "
+                "engineers face when developing, training, and deploying machine learning models.",
+                "Apache Spark is an open-source, distributed computing system designed for big "
+                "data processing and analytics. It was developed in response to limitations of "
+                "the Hadoop MapReduce computing model, offering improvements in speed and ease "
+                "of use. Spark provides libraries for various tasks such as data ingestion, "
+                "processing, and analysis through its components like Spark SQL for "
+                "structured data, Spark Streaming for real-time data processing, and MLlib for "
+                "machine learning tasks",
+            ],
+        }
+    )
+
+    # Use side_effect to specify multiple return values
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        side_effect=[properly_formatted_openai_response, properly_formatted_openai_response2],
+    ):
+        metric_value = custom_metric.eval_fn(eval_df)
+
+    assert metric_value.scores == [3, 2]
+    assert metric_value.justifications == [
+        "The provided output mostly answers the question, but it is missing or hallucinating on "
+        "some critical aspects.  Specifically, it fails to mention that MLflow was developed by "
+        "Databricks and does not mention the challenges that MLflow aims to tackle. Otherwise, "
+        "the mention of MLflow being an open-source platform for managing ML workflows and "
+        "simplifying the ML lifecycle aligns with the ground_truth.",
+        "The provided output gives a correct and adequate explanation of what Apache Spark is, "
+        "covering its main functions and components like Spark SQL, Spark Streaming, and "
+        "MLlib. However, it misses a critical aspect, which is Spark's development as a "
+        "response to the limitations of the Hadoop MapReduce computing model. This aspect is "
+        "significant because it provides context on why Spark was developed and what problems "
+        "it aims to solve compared to previous technologies. Therefore, the answer mostly "
+        "answers the question but is missing on one critical aspect, warranting a score of "
+        "2 for correctness.",
+    ]
+
+    assert metric_value.aggregate_results == {
+        "mean": 2.5,
+        "variance": 0.25,
+        "p90": 2.9,
+    }
 
 
 def test_make_genai_metric_failure():

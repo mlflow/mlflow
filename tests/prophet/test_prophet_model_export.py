@@ -62,10 +62,9 @@ class DataGeneration:
         seasonal = [
             np.polyval([-5.0, -1.0], x) for x in np.linspace(start=0, stop=2, num=self.size)
         ]
-        series = (
+        return (
             np.linspace(start=45.0, stop=90.0, num=self.size) + base + seasonal + self._period_gen()
         )
-        return series
 
     def _generate_linear_data(self):
         DataStruct = namedtuple("DataStruct", "dates, series")

@@ -294,3 +294,35 @@ export const deleteModelVersionTagApi = (modelName, version, key, id = getUUID()
 
   meta: { id, modelName, version, key },
 });
+
+export const SET_MODEL_VERSION_ALIASES = 'SET_MODEL_VERSION_ALIASES';
+
+export const setModelVersionAliasesApi = (
+  modelName: string,
+  version: string,
+  existingAliases: string[],
+  draftAliases: string[],
+  id = getUUID(),
+) => {
+  // We need to add/remove aliases in separate requests.
+  // First, determine new aliases to be added
+  const addedAliases = draftAliases.filter((x) => !existingAliases.includes(x));
+  // Next, determine those to be deleted
+  const deletedAliases = existingAliases.filter((x) => !draftAliases.includes(x));
+
+  // Fire all requests at once
+  const updateRequests = Promise.all([
+    ...addedAliases.map((newAlias) =>
+      Services.setModelVersionAlias({ alias: newAlias, name: modelName, version }),
+    ),
+    ...deletedAliases.map((deletedAlias) =>
+      Services.deleteModelVersionAlias({ alias: deletedAlias, name: modelName, version }),
+    ),
+  ]);
+
+  return {
+    type: SET_MODEL_VERSION_TAG,
+    payload: updateRequests,
+    meta: { id, modelName, version, existingAliases, draftAliases },
+  };
+};
