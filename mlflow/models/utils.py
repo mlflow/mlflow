@@ -30,6 +30,7 @@ except ImportError:
 
 INPUT_EXAMPLE_PATH = "artifact_path"
 EXAMPLE_PARAMS_PATH = "params_path"
+EXAMPLE_PARAMS_KEY = "mlflow.models.params"
 
 ModelInputExample = Union[
     pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes
@@ -89,7 +90,7 @@ class _Example:
             return np.isscalar(x) or x is None
 
         def _contains_params(x):
-            return isinstance(x, dict) and "params" in x
+            return isinstance(x, dict) and EXAMPLE_PARAMS_KEY in x
 
         def _validate_params(params):
             try:
@@ -189,7 +190,7 @@ class _Example:
             return result
 
         example_filename = "input_example.json"
-        params_filename = "example_params.json"
+        params_filename = "params_example.json"
         self.info = {
             INPUT_EXAMPLE_PATH: example_filename,
             EXAMPLE_PARAMS_PATH: params_filename,
@@ -197,7 +198,7 @@ class _Example:
         # Avoid changing the variable passed in
         input_example = deepcopy(input_example)
         if _contains_params(input_example):
-            self._inference_params = input_example.pop("params")
+            self._inference_params = input_example.pop(EXAMPLE_PARAMS_KEY)
             _validate_params(self._inference_params)
         else:
             self._inference_params = None
@@ -250,10 +251,10 @@ class _Example:
     def save(self, parent_dir_path: str):
         """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`."""
         if self._inference_params is not None:
-            if "params" in self.data:
+            if EXAMPLE_PARAMS_KEY in self.data:
                 raise MlflowException.invalid_parameter_value(
-                    "The input example contains 'params' key, which is reserved for "
-                    "inference params. Please rename the key and try again."
+                    f"The input example contains '{EXAMPLE_PARAMS_KEY}' key, which is "
+                    "reserved for inference params. Please rename the key and try again."
                 )
             with open(os.path.join(parent_dir_path, self.info[EXAMPLE_PARAMS_PATH]), "w") as f:
                 json.dump(self._inference_params, f, cls=NumpyEncoder)
@@ -331,13 +332,13 @@ def _read_example_params(mlflow_model: Model, path: str):
     path = os.path.join(path, mlflow_model.saved_input_example_info[EXAMPLE_PARAMS_PATH])
     if not os.path.exists(path):
         return None
-    try:
-        with open(path) as f:
+    with open(path) as f:
+        try:
             return json.load(f)
-    except json.JSONDecodeError as e:
-        raise MlflowException(
-            "Failed to decode example params. Please make sure the params are valid JSON."
-        ) from e
+        except json.JSONDecodeError as e:
+            raise MlflowException(
+                "Failed to decode example params. Please make sure the params are valid JSON."
+            ) from e
 
 
 def _read_tensor_input_from_json(path, schema=None):

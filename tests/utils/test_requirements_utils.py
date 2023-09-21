@@ -7,6 +7,7 @@ import pytest
 
 import mlflow
 import mlflow.utils.requirements_utils
+from mlflow.models.utils import EXAMPLE_PARAMS_KEY
 from mlflow.utils.requirements_utils import (
     _capture_imported_modules,
     _get_installed_version,
@@ -400,7 +401,7 @@ def test_capture_imported_modules_include_deps_by_params():
         model_info = mlflow.pyfunc.log_model(
             python_model=MyModel(),
             artifact_path="test_model",
-            input_example={"model_input": ["input1"], "params": params},
+            input_example={"model_input": ["input1"], EXAMPLE_PARAMS_KEY: params},
         )
 
     captured_modules = _capture_imported_modules(model_info.model_uri, "pyfunc")

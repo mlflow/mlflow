@@ -322,7 +322,7 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
     output_schema = (
         _infer_schema_from_type_hint(hints.output, output_example) if hints.output else None
     )
-    if all(x is None for x in (input_schema, output_schema, params_schema)):
+    if not any([input_schema, output_schema, params_schema]):
         return None
     return ModelSignature(inputs=input_schema, outputs=output_schema, params=params_schema)
 
