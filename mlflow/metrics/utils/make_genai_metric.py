@@ -181,12 +181,8 @@ def make_genai_metric(
                 **eval_parameters,
             }
             try:
-                print(payload["prompt"])
-                print("----")
                 raw_result = model_utils.score_model_on_payload(eval_model, payload)
                 eval_result = raw_result.candidates[0].text
-                print(eval_result)
-                print("----")
                 # parse eval_results
                 eval_result_json = json.loads(eval_result)
                 score = eval_result_json["Score"]
@@ -231,7 +227,7 @@ def make_genai_metric(
                     )
                 )
 
-            for future in as_completed(futures, timeout=60):
+            for future in as_completed(futures, timeout=15):
                 score, justification = future.result()
                 scores.append(score)
                 justifications.append(justification)

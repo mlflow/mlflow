@@ -555,7 +555,7 @@ def test_generate_many_prompts():
         examples=[example],
         model="openai:/gpt-3.5-turbo-16k",
         variables=["ground_truth"],
-        parameters={"temperature": 1.0},
+        parameters={"temperature": 0.0},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
     )
@@ -668,7 +668,7 @@ def test_generate_one_prompt():
         examples=[example],
         model="openai:/gpt-3.5-turbo",
         variables=["ground_truth"],
-        parameters={"temperature": 1.0},
+        parameters={"temperature": 0.1},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
     )
