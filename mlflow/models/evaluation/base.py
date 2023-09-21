@@ -14,7 +14,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from decimal import Decimal
 from types import FunctionType
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -85,10 +85,15 @@ class EvaluationMetric:
             ) -> Union[float, MetricValue]:
                 """
                 :param eval_df:
-                    A Pandas or Spark DataFrame containing ``prediction`` and ``target`` column.
+                    A Pandas or Spark DataFrame containing ``prediction``, ``target``,
+                    various ``variables``, ``input`` column.
                     The ``prediction`` column contains the predictions made by the model.
                     The ``target`` column contains the corresponding labels to the predictions made
                     on that row.
+                    The "variables" map from any inputs or outputs of the model to columns in
+                    eval_df. These "variables" are defined in computing the custom metrics
+                    during evaluation
+                    The optional ``input`` contains the input sent to the model.
                 :param builtin_metrics:
                     A dictionary containing the metrics calculated by the default evaluator.
                     The keys are the names of the metrics and the values are the metric values.
@@ -106,14 +111,18 @@ class EvaluationMetric:
     :param long_name: (Optional) The long name of the metric. For example,
         ``"root_mean_squared_error"`` for ``"mse"``.
     :param version: (Optional) The metric version. For example ``v1``.
+    :param variables: (Optional) The list of variables required to compute the metric.
     '''
 
-    def __init__(self, eval_fn, name, greater_is_better, long_name=None, version=None):
+    def __init__(
+        self, eval_fn, name, greater_is_better, long_name=None, version=None, variables=None
+    ):
         self.eval_fn = eval_fn
         self.name = name
         self.greater_is_better = greater_is_better
         self.long_name = long_name or name
         self.version = version
+        self.variables = variables
 
     def __str__(self):
         if self.long_name:
@@ -132,6 +141,7 @@ def make_metric(
     name=None,
     long_name=None,
     version=None,
+    variables: Optional[List[str]] = None,
 ):
     '''
     A factory function to create an :py:class:`EvaluationMetric` object.
@@ -147,10 +157,15 @@ def make_metric(
             ) -> Union[float, MetricValue]:
                 """
                 :param eval_df:
-                    A Pandas or Spark DataFrame containing ``prediction`` and ``target`` column.
+                    A Pandas or Spark DataFrame containing ``prediction``, ``target``,
+                    various ``variables``, optional ``input`` column.
                     The ``prediction`` column contains the predictions made by the model.
                     The ``target`` column contains the corresponding labels to the predictions made
                     on that row.
+                    The "variables" map from any inputs or outputs of the model to columns in
+                    eval_df. These "variables" are defined in computing the custom metrics
+                    during evaluation
+                    The optional ``input`` contains the input sent to the model.
                 :param builtin_metrics:
                     A dictionary containing the metrics calculated by the default evaluator.
                     The keys are the names of the metrics and the values are the metric values.
@@ -168,6 +183,8 @@ def make_metric(
                  function or the ``eval_fn.__name__`` attribute is not available.
     :param long_name: (Optional) The long name of the metric. For example, ``"mean_squared_error"``
         for ``"mse"``.
+    :param version: (Optional) The metric version. For example ``v1``.
+    :param variables: (Optional) The list of variables required to compute the metric.
 
     .. seealso::
 
@@ -187,7 +204,7 @@ def make_metric(
             )
         name = eval_fn.__name__
 
-    return EvaluationMetric(eval_fn, name, greater_is_better, long_name, version)
+    return EvaluationMetric(eval_fn, name, greater_is_better, long_name, version, variables)
 
 
 @developer_stable

@@ -244,5 +244,9 @@ def make_genai_metric(
         return MetricValue(scores, justifications, aggregate_results)
 
     return make_metric(
-        eval_fn=eval_fn, greater_is_better=greater_is_better, name=name, version=version
+        eval_fn=eval_fn,
+        greater_is_better=greater_is_better,
+        name=name,
+        version=version,
+        variables=variables,
     )
