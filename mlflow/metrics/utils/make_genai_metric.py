@@ -181,10 +181,31 @@ def make_genai_metric(
                 **eval_parameters,
             }
             try:
+                print(payload["prompt"])
+                print("----")
                 raw_result = model_utils.score_model_on_payload(eval_model, payload)
                 eval_result = raw_result.candidates[0].text
+                print(eval_result)
+                print("----")
+                # parse eval_results
                 eval_result_json = json.loads(eval_result)
-                return eval_result_json["Score"], eval_result_json["Justification"]
+                score = eval_result_json["Score"]
+                justification = eval_result_json["Justification"]
+                if not isinstance(score, (int, float)):
+                    raise MlflowException(
+                        message=f"The score returned from the model is not a number. "
+                        f"Please check the correctness of the model. "
+                        f"Score: {score}",
+                        error_code=INTERNAL_ERROR,
+                    )
+                if not isinstance(justification, str):
+                    raise MlflowException(
+                        message=f"The justification returned from the model is not a string. "
+                        f"Please check the correctness of the model. "
+                        f"Justification: {justification}",
+                        error_code=INTERNAL_ERROR,
+                    )
+                return score, justification
             except Exception as e:
                 _logger.info(f"Failed to score model on payload. Error: {e!r}")
                 return None, None
