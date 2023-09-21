@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import signal
 import subprocess
@@ -10,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, Union
 from unittest import mock
 
+import aiohttp
 import requests
 import transformers
 import uvicorn
@@ -95,14 +97,22 @@ def save_yaml(path, conf):
 
 class MockAsyncResponse:
     def __init__(self, data: Dict[str, Any]):
-        self.data = data
+        # Extract status and headers from data, if present
+        self.status = data.get("_status", 200)
         self.headers = data.get("headers", {})
 
+        # Save the rest of the data as content
+        self._content = {k: v for k, v in data.items() if not k.startswith(("_", "headers"))}
+
     def raise_for_status(self) -> None:
-        pass
+        if 400 <= self.status < 600:
+            raise aiohttp.ClientResponseError(None, None, status=self.status)
 
     async def json(self) -> Dict[str, Any]:
-        return self.data
+        return self._content
+
+    async def text(self) -> str:
+        return json.dumps(self._content)
 
     async def __aenter__(self):
         return self

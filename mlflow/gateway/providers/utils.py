@@ -3,7 +3,10 @@ from typing import Any, Dict
 import aiohttp
 from fastapi import HTTPException
 
-from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
+from mlflow.gateway.constants import (
+    MLFLOW_AI_GATEWAY_MOSAIC_ML_HANDLER_MESSAGES,
+    MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
+)
 from mlflow.utils.uri import append_to_uri_path
 
 
@@ -37,6 +40,7 @@ async def send_request(headers: Dict[str, str], base_url: str, path: str, payloa
                 response.raise_for_status()
             except aiohttp.ClientResponseError as e:
                 detail = js.get("error", {}).get("message", e.message) if "error" in js else js
+                _custom_token_allowance_exceeded_handling(detail, e.status)
                 raise HTTPException(status_code=e.status, detail=detail)
             return js
 
@@ -52,3 +56,20 @@ def rename_payload_keys(payload: Dict[str, Any], mapping: Dict[str, str]) -> Dic
     :return: A new dictionary containing the transformed keys.
     """
     return {mapping.get(k, k): v for k, v in payload.items()}
+
+
+def _custom_token_allowance_exceeded_handling(detail: Dict[str, str], status_code: int):
+    """
+    Custom handler for specific error messages that are incorrectly set as server-side errors, but
+    are in actuality an issue with the request sent to the external provider.
+    """
+    STATUS_SERVER_ERROR = 500
+    STATUS_UNPROCESSABLE_ENTITY = 422
+
+    message = detail.get("message")
+    if (
+        status_code == STATUS_SERVER_ERROR
+        and message
+        and any(message.startswith(x) for x in MLFLOW_AI_GATEWAY_MOSAIC_ML_HANDLER_MESSAGES)
+    ):
+        raise HTTPException(status_code=STATUS_UNPROCESSABLE_ENTITY, detail=detail)

@@ -1,14 +1,10 @@
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import MosaicMLConfig, RouteConfig
-from mlflow.gateway.constants import (
-    MLFLOW_AI_GATEWAY_MOSAICML_MAX_TOKENS_THRESHOLD,
-    MLFLOW_AI_GATEWAY_MOSAICML_TOKEN_ESTIMATION_FACTOR,
-)
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -29,37 +25,6 @@ class MosaicMLProvider(BaseProvider):
             or "https://models.hosted-on.mosaicml.hosting",
             path=model + "/v1/predict",
             payload=payload,
-        )
-
-    @staticmethod
-    def _get_used_tokens_estimate(payload):
-        """
-        Computes the token count estimate for a given payload.
-        """
-        if isinstance(payload, chat.RequestPayload):
-            return sum(len(msg.content.split()) for msg in payload.messages)
-        elif isinstance(payload, completions.RequestPayload):
-            return len(payload.prompt.split())
-        return 0
-
-    # NB: This validation logic can be removed iff the token allocation validation error moves from
-    # a 5xx error to a 4xx error.
-    def _is_token_count_over_threshold(
-        self, payload: Union[chat.RequestPayload, completions.RequestPayload]
-    ):
-        """
-        Performs a conservative estimate of submitted token counts and a requested max_tokens value
-        to preempt a server-side retry based on a 5xx return exception from MosaicML for token
-        count violating the maximum threshold.
-        Since we don't have access to the tokenizer that is used for a given model, the
-        conservative estimation of user-provided tokens errs on the side of caution by counting
-        each word supplied as consuming 2 tokens.
-        """
-        used_tokens = self._get_used_tokens_estimate(payload)
-        max_tokens = payload.max_tokens or 0
-        return (
-            used_tokens * MLFLOW_AI_GATEWAY_MOSAICML_TOKEN_ESTIMATION_FACTOR + max_tokens
-            > MLFLOW_AI_GATEWAY_MOSAICML_MAX_TOKENS_THRESHOLD
         )
 
     # NB: as this parser performs no blocking operations, we are intentionally not defining it
@@ -113,15 +78,6 @@ class MosaicMLProvider(BaseProvider):
         return prompt
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        # Validate the payload and raise if token consumption will be violated
-        if self._is_token_count_over_threshold(payload):
-            raise HTTPException(
-                status_code=422,
-                detail="The input content entries and the requested max_tokens value are in "
-                "excess of the supported total token length of "
-                f"{MLFLOW_AI_GATEWAY_MOSAICML_MAX_TOKENS_THRESHOLD}",
-            )
-
         # Extract the List[RequestMessage] from the RequestPayload
         messages = payload.messages
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -191,15 +147,6 @@ class MosaicMLProvider(BaseProvider):
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        # Validate the payload and raise if token consumption will be violated
-        if self._is_token_count_over_threshold(payload):
-            raise HTTPException(
-                status_code=422,
-                detail="The input prompt word length and the requested max_tokens value are in "
-                "excess of the supported total token length of "
-                f"{MLFLOW_AI_GATEWAY_MOSAICML_MAX_TOKENS_THRESHOLD}",
-            )
-
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         key_mapping = {

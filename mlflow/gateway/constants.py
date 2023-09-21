@@ -40,11 +40,8 @@ MLFLOW_SERVING_RESPONSE_KEY = "predictions"
 # to reduce the need to case-match, supported model prefixes are lowercase.
 MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES = ["llama2"]
 
-# The max tokens threshold value above which a 5xx error will be thrown for exceeding the
-# maximum permissible token counts to an underlying model
-MLFLOW_AI_GATEWAY_MOSAICML_MAX_TOKENS_THRESHOLD = 4096
-# The adjustment factor for estimating the word to token conversation factor.
-# NB: this is not accurate, but can provide a conservative estimate of a safe threshold to use
-# to warn a user that their request payload is potentially going to result in a 5xx error that will
-# retry due to violating the configured limits on MosaicML's API side for token usage.
-MLFLOW_AI_GATEWAY_MOSAICML_TOKEN_ESTIMATION_FACTOR = 2
+# MosaicML custom handler messages for incompatible request payloads
+MLFLOW_AI_GATEWAY_MOSAIC_ML_HANDLER_MESSAGES = (
+    "Error: max output tokens is limited to",
+    "Error: prompt token count",
+)

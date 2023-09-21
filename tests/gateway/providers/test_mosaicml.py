@@ -395,37 +395,54 @@ def test_unsupported_model_name_raises_in_chat_parsing_route_configuration():
 @pytest.mark.asyncio
 async def test_completions_raises_with_invalid_max_tokens_too_large():
     config = completions_config()
-    provider = MosaicMLProvider(RouteConfig(**config))
-    payload = {
-        "prompt": "How many puffins can fit on the flight deck of a Nimitz class aircraft carrier?",
-        "max_tokens": 4080,
+    error_msg = {
+        "message": "Error: prompt token count (29) + max output tokens (4085) cannot "
+        "exceed 4096. Please reduce the length of your prompt and/or max "
+        "output tokens generated.\n"
     }
-    with pytest.raises(HTTPException, match=r".*") as e:
-        await provider.completions(completions.RequestPayload(**payload))
-    assert (
-        "The input prompt word length and the requested max_tokens value are in excess of"
-        in e.value.detail
-    )
-    assert e.value.status_code == 422
+    resp = {
+        "message": error_msg["message"],
+        "_status": 500,
+        "headers": {"Content-Type": "application/json"},
+    }
+
+    with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)):
+        provider = MosaicMLProvider(RouteConfig(**config))
+        payload = {
+            "prompt": "How many puffins can fit on the flight deck of a Nimitz class "
+            "aircraft carrier?",
+            "max_tokens": 4080,
+        }
+        with pytest.raises(HTTPException, match=r".*") as e:
+            await provider.completions(completions.RequestPayload(**payload))
+        assert error_msg == e.value.detail
+        assert e.value.status_code == 422
 
 
 @pytest.mark.asyncio
 async def test_chat_raises_with_invalid_max_tokens_too_large():
     config = chat_config()
-    provider = MosaicMLProvider(RouteConfig(**config))
-    payload = {
-        "messages": [
-            {"role": "system", "content": "You're an astronaut."},
-            {"role": "user", "content": "When do you go to space next?"},
-            {"role": "assistant", "content": "Our next mission is to Europa, next July."},
-            {"role": "user", "content": "What sort of rocket are you using for this mission?"},
-        ],
-        "max_tokens": 4070,
+    error_msg = {
+        "message": "Error: max output tokens is limited to 4096 but 5000 was requested. "
+        "Please use a lower token count.\n"
     }
-    with pytest.raises(HTTPException, match=r".*") as e:
-        await provider.chat(chat.RequestPayload(**payload))
-    assert (
-        "The input content entries and the requested max_tokens value are in excess of"
-        in e.value.detail
-    )
-    assert e.value.status_code == 422
+    resp = {
+        "message": error_msg["message"],
+        "_status": 500,
+        "headers": {"Content-Type": "application/json"},
+    }
+    with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)):
+        provider = MosaicMLProvider(RouteConfig(**config))
+        payload = {
+            "messages": [
+                {"role": "system", "content": "You're an astronaut."},
+                {"role": "user", "content": "When do you go to space next?"},
+                {"role": "assistant", "content": "Our next mission is to Europa, next July."},
+                {"role": "user", "content": "What sort of rocket are you using for this mission?"},
+            ],
+            "max_tokens": 5000,
+        }
+        with pytest.raises(HTTPException, match=r".*") as e:
+            await provider.chat(chat.RequestPayload(**payload))
+        assert error_msg == e.value.detail
+        assert e.value.status_code == 422
