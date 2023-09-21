@@ -33,7 +33,7 @@ EXAMPLE_PARAMS_PATH = "params_path"
 EXAMPLE_PARAMS_KEY = "mlflow.models.params"
 
 ModelInputExample = Union[
-    pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes
+    pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes, tuple
 ]
 
 PyFuncInput = Union[
@@ -89,9 +89,6 @@ class _Example:
         def _is_scalar(x):
             return np.isscalar(x) or x is None
 
-        def _contains_params(x):
-            return isinstance(x, dict) and EXAMPLE_PARAMS_KEY in x
-
         def _validate_params(params):
             try:
                 _infer_param_schema(params)
@@ -139,10 +136,7 @@ class _Example:
 
         def _coerce_to_pandas_df(input_ex):
             if isinstance(input_ex, dict):
-                # Check if the dictionary contains a single dataframe
-                if len(input_ex) == 1 and isinstance(list(input_ex.values())[0], pd.DataFrame):
-                    input_ex = next(iter(input_ex.values()))
-                elif all(_is_scalar(x) for x in input_ex.values()):
+                if all(_is_scalar(x) for x in input_ex.values()):
                     input_ex = pd.DataFrame([input_ex])
                 elif all(isinstance(x, (str, list)) for x in input_ex.values()):
                     for value in input_ex.values():
@@ -160,6 +154,16 @@ class _Example:
                     if isinstance(x, np.ndarray) and len(x.shape) > 1:
                         raise TensorsNotSupportedException(f"Row '{i}' has shape {x.shape}")
                 if all(_is_scalar(x) for x in input_ex):
+                    # >>> input_ex = ["input1", "input2", "input3"]
+                    # >>> input_ex = pd.DataFrame([input_ex], columns=range(len(input_ex)))
+                    # >>> input_ex
+                    #         0       1       2
+                    # 0  input1  input2  input3
+                    # >>> input_ex.to_dict("split")
+                    # {'index': [0], 'columns': [0, 1, 2], 'data': [['input1', 'input2', 'input3']]}
+                    # >>> pd.DataFrame.from_dict({'data': [['input1', 'input2', 'input3']]})
+                    #                     data
+                    # 0  [input1, input2, input3]
                     input_ex = pd.DataFrame([input_ex], columns=range(len(input_ex)))
                 else:
                     input_ex = pd.DataFrame(input_ex)
@@ -198,7 +202,7 @@ class _Example:
         # Avoid changing the variable passed in
         input_example = deepcopy(input_example)
         if _contains_params(input_example):
-            self._inference_params = input_example.pop(EXAMPLE_PARAMS_KEY)
+            input_example, self._inference_params = input_example
             _validate_params(self._inference_params)
         else:
             self._inference_params = None
@@ -251,11 +255,6 @@ class _Example:
     def save(self, parent_dir_path: str):
         """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`."""
         if self._inference_params is not None:
-            if EXAMPLE_PARAMS_KEY in self.data:
-                raise MlflowException.invalid_parameter_value(
-                    f"The input example contains '{EXAMPLE_PARAMS_KEY}' key, which is "
-                    "reserved for inference params. Please rename the key and try again."
-                )
             with open(os.path.join(parent_dir_path, self.info[EXAMPLE_PARAMS_PATH]), "w") as f:
                 json.dump(self._inference_params, f, cls=NumpyEncoder)
         with open(os.path.join(parent_dir_path, self.info[INPUT_EXAMPLE_PATH]), "w") as f:
@@ -274,6 +273,16 @@ class _Example:
         Returns the params dictionary that PyFunc wrapped models can use for scoring.
         """
         return self._inference_params
+
+
+def _contains_params(input_example):
+    # For tuple input, we assume the first item is input_example data
+    # and the second item is params dictionary.
+    return (
+        isinstance(input_example, tuple)
+        and len(input_example) == 2
+        and isinstance(input_example[1], dict)
+    )
 
 
 def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: str):
@@ -807,10 +816,6 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
             actual_cols = expected_required_cols
         elif isinstance(pf_input, pd.DataFrame):
             actual_cols = set(pf_input.columns)
-            # for schemas with a single column, match input with column
-            if len(actual_cols) == 1:
-                pf_input.rename(columns={actual_cols.pop(): input_names[0]}, inplace=True)
-                actual_cols = expected_required_cols
         elif isinstance(pf_input, dict):
             actual_cols = set(pf_input.keys())
         missing_cols = expected_required_cols - actual_cols

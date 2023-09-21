@@ -17,7 +17,7 @@ from mlflow import environment_variables
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.utils import ModelInputExample, _Example
+from mlflow.models.utils import ModelInputExample, _contains_params, _Example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
@@ -308,10 +308,8 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
 
     params = None
     params_key = "params"
-    if isinstance(input_example, dict) and params_key in input_example:
-        params = input_example.pop(params_key)
-        if len(input_example) == 1:
-            input_example = next(iter(input_example.values()))
+    if _contains_params(input_example):
+        input_example, params = input_example
 
     input_schema = _infer_schema_from_type_hint(hints.input, input_example) if hints.input else None
     params_schema = _infer_param_schema(params) if params else None
@@ -340,12 +338,15 @@ def _infer_signature_from_input_example(
         `wrapped_model`.
     """
     try:
+        # We shouldn't do this at least for lists --> it produces wrong results
+        # ["input"] --> the output pandas dataframe contains column names in the signature
+        # ["input1", "input2", "input3"] --> signature would become [0: string, 1: string, 2: string]
         input_example = _Example(input_example)
+        # Copy the input example so that it is not mutated by predict()
         input_ex = deepcopy(input_example.inference_data)
         params = input_example.inference_params
         input_schema = _infer_schema(input_ex)
         params_schema = _infer_param_schema(params) if params else None
-        # Copy the input example so that it is not mutated by predict()
         prediction = wrapped_model.predict(input_ex, params=params)
         # For column-based inputs, 1D numpy arrays likely signify row-based predictions. Thus, we
         # convert them to a Pandas series for inferring as a single ColSpec Schema.

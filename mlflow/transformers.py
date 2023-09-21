@@ -37,7 +37,7 @@ from mlflow.models import (
     infer_signature,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.utils import EXAMPLE_PARAMS_KEY, _save_example
+from mlflow.models.utils import _contains_params, _save_example
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
@@ -1339,8 +1339,8 @@ def _get_default_pipeline_signature(
     if example:
         try:
             params = None
-            if isinstance(example, dict):
-                params = example.pop(EXAMPLE_PARAMS_KEY, None)
+            if _contains_params(example):
+                example, params = example
             prediction = generate_signature_output(pipeline, example, inference_config, params)
             return infer_signature(example, prediction, params)
         except Exception as e:

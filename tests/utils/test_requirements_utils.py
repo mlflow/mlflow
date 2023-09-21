@@ -400,7 +400,7 @@ def test_capture_imported_modules_include_deps_by_params():
         model_info = mlflow.pyfunc.log_model(
             python_model=MyModel(),
             artifact_path="test_model",
-            input_example={"model_input": ["input1"], "mlflow.models.params": params},
+            input_example=(["input1"], params),
         )
 
     captured_modules = _capture_imported_modules(model_info.model_uri, "pyfunc")

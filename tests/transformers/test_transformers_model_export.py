@@ -28,7 +28,7 @@ from mlflow import pyfunc
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
-from mlflow.models.utils import EXAMPLE_PARAMS_KEY, _read_example
+from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.transformers import (
@@ -3586,11 +3586,11 @@ def test_whisper_model_serve_and_score_with_input_example_with_params(
         model_info = mlflow.transformers.log_model(
             transformers_model=whisper_pipeline,
             artifact_path=artifact_path,
-            input_example={"inputs": raw_audio_file, EXAMPLE_PARAMS_KEY: inference_config},
+            input_example=(raw_audio_file, inference_config),
         )
     # model signature inferred from input_example
     signature = infer_signature(
-        {"inputs": raw_audio_file},
+        raw_audio_file,
         mlflow.transformers.generate_signature_output(whisper_pipeline, raw_audio_file),
         params=inference_config,
     )

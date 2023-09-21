@@ -14,7 +14,7 @@ from scipy.sparse import csc_matrix
 
 import mlflow
 from mlflow.models import Model, ModelSignature, infer_signature, validate_schema
-from mlflow.models.utils import EXAMPLE_PARAMS_KEY, _save_example
+from mlflow.models.utils import _save_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
@@ -316,7 +316,7 @@ def test_model_input_example_with_params_log_load_succeeds(tmp_path):
         },
         index=[0],
     )
-    input_example = {"data": pdf, EXAMPLE_PARAMS_KEY: {"a": 1, "b": "string"}}
+    input_example = (pdf, {"a": 1, "b": "string"})
 
     sig = ModelSignature(
         inputs=Schema(
@@ -344,7 +344,7 @@ def test_model_input_example_with_params_log_load_succeeds(tmp_path):
     pd.testing.assert_frame_equal(loaded_example, pdf)
 
     params = loaded_model.load_input_example_params(local_path)
-    assert params == input_example[EXAMPLE_PARAMS_KEY]
+    assert params == input_example[1]
 
 
 def test_model_load_input_example_numpy():

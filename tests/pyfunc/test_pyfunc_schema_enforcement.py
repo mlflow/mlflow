@@ -16,7 +16,7 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, infer_signature
-from mlflow.models.utils import EXAMPLE_PARAMS_KEY, _enforce_params_schema, _enforce_schema
+from mlflow.models.utils import _enforce_params_schema, _enforce_schema
 from mlflow.pyfunc import PyFuncModel
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.utils.proto_json_utils import dump_input_data
@@ -1898,11 +1898,11 @@ def test_pyfunc_model_input_example_with_params(sample_params_basic, param_schem
         model_info = mlflow.pyfunc.log_model(
             python_model=MyModel(),
             artifact_path="test_model",
-            input_example={"model_input": ["input1"], EXAMPLE_PARAMS_KEY: sample_params_basic},
+            input_example=(["input1", "input2", "input3"], sample_params_basic),
         )
 
     # Test _infer_signature_from_input_example
-    assert model_info.signature.inputs == Schema([ColSpec(DataType.string, "model_input")])
+    assert model_info.signature.inputs == Schema([ColSpec(DataType.string)])
     assert model_info.signature.outputs == Schema([ColSpec(DataType.string)])
     assert model_info.signature.params == param_schema_basic
 
