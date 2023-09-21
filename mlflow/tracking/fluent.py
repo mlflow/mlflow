@@ -387,7 +387,7 @@ def start_run(
                 run_id_to_system_metrics_monitor[active_run_obj.info.run_id] = system_monitor
                 system_monitor.start()
             except Exception as e:
-                _logger.error(f"Cannot start system metrics monitoring: {e}.")
+                _logger.error(f"Failed to start system metrics monitoring: {e}.")
 
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]

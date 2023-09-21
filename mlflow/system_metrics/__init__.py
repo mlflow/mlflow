@@ -34,7 +34,10 @@ def set_system_metrics_sampling_interval(interval):
 
     Every `interval` seconds, the system metrics will be collected. By default `interval=10`.
     """
-    MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL.set(interval)
+    if interval is None:
+        MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL.unset()
+    else:
+        MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL.set(interval)
 
 
 @experimental
@@ -44,4 +47,7 @@ def set_system_metrics_samples_before_logging(samples):
     Every time `samples` samples have been collected, the system metrics will be logged to mlflow.
     By default `samples=1`.
     """
-    MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING.set(samples)
+    if samples is None:
+        MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING.unset()
+    else:
+        MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING.set(samples)

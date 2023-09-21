@@ -18,7 +18,6 @@ def test_manual_system_metrics_monitor():
         assert "SystemMetricsMonitor" in thread_names
 
         time.sleep(2)
-    mlflow.end_run()
     # Pause for a bit to allow the system metrics monitoring to exit.
     time.sleep(1)
     thread_names = [thread.name for thread in threading.enumerate()]
@@ -45,14 +44,13 @@ def test_automatic_system_metrics_monitor():
     mlflow.enable_system_metrics_logging()
     mlflow.set_system_metrics_sampling_interval(0.2)
     mlflow.set_system_metrics_samples_before_logging(5)
-    run = mlflow.start_run()
-    thread_names = [thread.name for thread in threading.enumerate()]
-    # Check the system metrics monitoring thread has been started.
-    assert "SystemMetricsMonitor" in thread_names
+    with mlflow.start_run() as run:
+        thread_names = [thread.name for thread in threading.enumerate()]
+        # Check the system metrics monitoring thread has been started.
+        assert "SystemMetricsMonitor" in thread_names
 
-    # Pause for a bit to allow the system metrics monitoring to exit.
-    time.sleep(2)
-    mlflow.end_run()
+        # Pause for a bit to allow system metrics to be logged.
+        time.sleep(2)
 
     # Pause for a bit to allow the system metrics monitoring to exit.
     time.sleep(1)
@@ -74,3 +72,8 @@ def test_automatic_system_metrics_monitor():
     ]
     for name in expected_metrics_name:
         assert name in metrics
+
+    # Unset the environment variables to avoid affecting other test cases.
+    mlflow.disable_system_metrics_logging()
+    mlflow.set_system_metrics_sampling_interval(None)
+    mlflow.set_system_metrics_samples_before_logging(None)

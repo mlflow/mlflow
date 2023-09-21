@@ -7,11 +7,8 @@ from mlflow.system_metrics.metrics.base_metrics_monitor import BaseMetricsMonito
 
 
 class NetworkMonitor(BaseMetricsMonitor):
-    def __init__(self):
-        super().__init__()
-
     def collect_metrics(self):
         # Get network usage metrics.
-        network_usage = psutil.net_io_counters()._asdict()
-        self._metrics["network_receive_megabytes"].append(network_usage["bytes_recv"] / 1e6)
-        self._metrics["network_transmit_megabytes"].append(network_usage["bytes_sent"] / 1e6)
+        network_usage = psutil.net_io_counters()
+        self._metrics["network_receive_megabytes"].append(network_usage.bytes_recv / 1e6)
+        self._metrics["network_transmit_megabytes"].append(network_usage.bytes_sent / 1e6)

@@ -1808,13 +1808,13 @@ def test_evaluation_metric_name_configs(prefix):
     assert len(metrics) > 0
 
     if prefix is not None:
-        assert f"{prefix}accuracy_score" in metrics.keys()
-        assert f"{prefix}log_loss" in metrics.keys()
-        assert f"{prefix}score" in metrics.keys()
+        assert f"{prefix}accuracy_score" in metrics
+        assert f"{prefix}log_loss" in metrics
+        assert f"{prefix}score" in metrics
 
-        assert f"{prefix}accuracy_score" in result.metrics.keys()
-        assert f"{prefix}log_loss" in result.metrics.keys()
-        assert f"{prefix}score" in result.metrics.keys()
+        assert f"{prefix}accuracy_score" in result.metrics
+        assert f"{prefix}log_loss" in result.metrics
+        assert f"{prefix}score" in result.metrics
 
 
 @pytest.mark.parametrize(

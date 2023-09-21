@@ -29,9 +29,11 @@ class SystemMetricsMonitor:
     Args:
         run_id: string, the MLflow run ID.
         sampling_interval: float, default to 10. The interval (in seconds) at which to pull system
-            metrics.
+            metrics. Will be overridden by `MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL` environment
+            variable.
         samples_before_logging: int, default to 1. The number of samples to aggregate before
-            logging.
+            logging. Will be overridden by `MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING`
+            evnironment variable.
     """
 
     def __init__(self, run_id, sampling_interval=10, samples_before_logging=1):
@@ -66,9 +68,9 @@ class SystemMetricsMonitor:
                 name="SystemMetricsMonitor",
             )
             self._process.start()
-            _logger.info("MLflow: started monitoring system metrics.")
+            _logger.info("Started monitoring system metrics.")
         except Exception as e:
-            _logger.warning(f"MLflow: failed to start monitoring system metrics: {e}")
+            _logger.warning(f"Failed to start monitoring system metrics: {e}")
             self._process = None
 
     def monitor(self):
@@ -83,7 +85,7 @@ class SystemMetricsMonitor:
                     # Get the MLflow run to check if the run is not RUNNING.
                     run = get_run(self._run_id)
                 except Exception as e:
-                    _logger.warning(f"MLflow: failed to get mlflow run: {e}.")
+                    _logger.warning(f"Failed to get mlflow run: {e}.")
                     return
                 if run.info.status != "RUNNING" or self._shutdown_event.is_set():
                     # If the mlflow run is terminated or receives the shutdown signal, stop
@@ -94,8 +96,8 @@ class SystemMetricsMonitor:
                 self.publish_metrics(metrics)
             except Exception as e:
                 _logger.warning(
-                    f"MLflow: failed to log system metrics: {e}, this is expected if the "
-                    "experiment/run is already terminated."
+                    f"Failed to log system metrics: {e}, this is expected if the experiment/run is "
+                    "already terminated."
                 )
                 return
 
@@ -124,10 +126,11 @@ class SystemMetricsMonitor:
         """Stop monitoring system metrics."""
         if self._process is None:
             return
-        _logger.info("MLflow: stopping system metrics monitoring...")
+        _logger.info("Stopping system metrics monitoring...")
         self._shutdown_event.set()
         try:
             self._process.join()
+            _logger.info("Successfully terminated system metrics monitoring!")
         except Exception as e:
             _logger.error(f"Error terminating system metrics monitoring process: {e}.")
         self._process = None
