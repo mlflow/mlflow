@@ -14,13 +14,13 @@ def test_evaluation_model_output():
         "level of accuracy and fidelity.",
         grading_prompt="""Correctness: If the answer correctly answer the question, below are the
         details for different scores:
-        - Score 0: the answer is completely incorrect, doesn’t mention anything about the question
+        - Score 1: the answer is completely incorrect, doesn’t mention anything about the question
         or is completely contrary to the correct answer.
-        - Score 1: the answer provides some relevance to the question and answer one aspect
+        - Score 2: the answer provides some relevance to the question and answer one aspect
         of the question correctly.
-        - Score 2: the answer mostly answer the question but is missing or hallucinating on one
+        - Score 3: the answer mostly answer the question but is missing or hallucinating on one
         critical aspect.
-        - Score 4: the answer correctly answer the question and not missing any major aspect
+        - Score 5: the answer correctly answer the question and not missing any major aspect
         """,
         examples=[
             EvaluationExample(
@@ -73,13 +73,13 @@ def test_evaluation_model_output():
     Grading criteria:
     Correctness: If the answer correctly answer the question, below are the details for
     different scores:
-        - Score 0: the answer is completely incorrect, doesn’t mention anything about the
+        - Score 1: the answer is completely incorrect, doesn’t mention anything about the
         question or is completely contrary to the correct answer.
-        - Score 1: the answer provides some relevance to the question and answer one aspect of
+        - Score 2: the answer provides some relevance to the question and answer one aspect of
         the question correctly.
-        - Score 2: the answer mostly answer the question but is missing or hallucinating on one
+        - Score 3: the answer mostly answer the question but is missing or hallucinating on one
         critical aspect.
-        - Score 4: the answer correctly answer the question and not missing any major aspect
+        - Score 5: the answer correctly answer the question and not missing any major aspect
 
     Examples:
         Input: This is an input
@@ -96,7 +96,7 @@ def test_evaluation_model_output():
 
     And you'll need to submit your grading for the correctness of the output,
     using the following in json format:
-    Score: [your score number between 0 to 4 for the correctness of the output]
+    Score: [your score number between 1 to 5 for the correctness of the output]
     Justification: [your step by step reasoning about the correctness of the output]
       """
     prompt1 = model1["eval_prompt"].format(
@@ -113,13 +113,13 @@ def test_evaluation_model_output():
         "level of accuracy and fidelity.",
         grading_prompt="""Correctness: If the answer correctly answer the question, below are
         the details for different scores:
-        - Score 0: the answer is completely incorrect, doesn’t mention anything about the question
+        - Score 1: the answer is completely incorrect, doesn’t mention anything about the question
         or is completely contrary to the correct answer.
-        - Score 1: the answer provides some relevance to the question and answer one aspect of the
+        - Score 2: the answer provides some relevance to the question and answer one aspect of the
         question correctly.
-        - Score 2: the answer mostly answer the question but is missing or hallucinating on one
+        - Score 3: the answer mostly answer the question but is missing or hallucinating on one
         critical aspect.
-        - Score 4: the answer correctly answer the question and not missing any major aspect
+        - Score 5: the answer correctly answer the question and not missing any major aspect
         """,
     ).to_dict()
 
@@ -152,17 +152,17 @@ def test_evaluation_model_output():
     Grading criteria:
     Correctness: If the answer correctly answer the question, below are the details for different
     scores:
-        - Score 0: the answer is completely incorrect, doesn’t mention anything about the question
+        - Score 1: the answer is completely incorrect, doesn’t mention anything about the question
         or is completely contrary to the correct answer.
-        - Score 1: the answer provides some relevance to the question and answer one aspect of the
+        - Score 2: the answer provides some relevance to the question and answer one aspect of the
         question correctly.
-        - Score 2: the answer mostly answer the question but is missing or hallucinating on one
+        - Score 3: the answer mostly answer the question but is missing or hallucinating on one
         critical aspect.
-        - Score 4: the answer correctly answer the question and not missing any major aspect
+        - Score 5: the answer correctly answer the question and not missing any major aspect
 
     And you'll need to submit your grading for the correctness of the output,
     using the following in json format:
-    Score: [your score number between 0 to 4 for the correctness of the output]
+    Score: [your score number between 1 to 5 for the correctness of the output]
     Justification: [your step by step reasoning about the correctness of the output]
       """
     prompt2 = model2["eval_prompt"].format(
