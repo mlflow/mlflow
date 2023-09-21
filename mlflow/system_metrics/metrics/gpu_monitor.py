@@ -18,21 +18,19 @@ except ImportError:
 class GPUMonitor(BaseMetricsMonitor):
     """Class for monitoring GPU stats."""
 
-    def __new__(cls, *args, **kwargs):
-        # Override `__new__` to return a None object if `pynvml` is not installed or GPU is not
-        # found.
+    def __init__(self):
         if "pynvml" not in sys.modules:
             # Only instantiate if `pynvml` is installed.
-            return
+            raise ImportError(
+                "`pynvml` is not installed, to log GPU metrics please run `pip install pynvml` "
+                "to install it."
+            )
         try:
             # `nvmlInit()` will fail if no GPU is found.
             pynvml.nvmlInit()
         except pynvml.NVMLError as e:
-            _logger.warning(f"Failed to initialize NVML, skip logging GPU metrics: {e}")
-            return
-        return super().__new__(cls, *args, **kwargs)
+            raise RuntimeError(f"Failed to initialize NVML, skip logging GPU metrics: {e}")
 
-    def __init__(self):
         super().__init__()
         self.num_gpus = pynvml.nvmlDeviceGetCount()
         self.gpu_handles = [pynvml.nvmlDeviceGetHandleByIndex(i) for i in range(self.num_gpus)]

@@ -21,11 +21,13 @@ def test_cpu_monitor():
 
 
 def test_gpu_monitor():
-    gpu_monitor = GPUMonitor()
-    if gpu_monitor is None:
-        # If pynvml is not installed, or there is no GPU, then `gpu_monitor` will be None. In this
-        # case we skip the test.
+    try:
+        gpu_monitor = GPUMonitor()
+    except Exception:
+        # If pynvml is not installed, or there is no GPU, then `gpu_monitor` creation will fail. In
+        # this case we skip the test.
         return
+
     gpu_monitor.collect_metrics()
 
     assert isinstance(gpu_monitor.metrics["gpu_0_memory_usage_percentage"], list)

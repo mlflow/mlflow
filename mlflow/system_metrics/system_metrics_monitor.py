@@ -22,8 +22,9 @@ class SystemMetricsMonitor:
     spawn a thread that logs system metrics periodically. Calling `finish()` will stop the thread.
     Logging is done on a different frequency from pulling metrics, so that the metrics are
     aggregated over the period. Users can change the logging frequency by setting
-    `$MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL` and `$MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING`
-    environment variables.
+    `MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL` and `MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING`
+    environment variables, e.g., run `export MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL=10` in terminal
+    will set the sampling interval to 10 seconds.
 
     Args:
         run_id: string, the MLflow run ID.
@@ -38,9 +39,14 @@ class SystemMetricsMonitor:
 
         # Instantiate default monitors.
         self.monitors = [CPUMonitor(), DiskMonitor(), NetworkMonitor()]
-        gpu_monitor = GPUMonitor()
-        if gpu_monitor:
+        try:
+            gpu_monitor = GPUMonitor()
             self.monitors.append(gpu_monitor)
+        except Exception as e:
+            _logger.warning(
+                f"Skip logging GPU metrics because creating `GPUMonitor` failed with error: {e}."
+            )
+
         self.sampling_interval = MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL.get() or sampling_interval
         self.samples_before_logging = (
             MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING.get() or samples_before_logging
