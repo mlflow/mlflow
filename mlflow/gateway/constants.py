@@ -39,9 +39,3 @@ MLFLOW_SERVING_RESPONSE_KEY = "predictions"
 # translations prior to sending a request payload to their chat endpoints.
 # to reduce the need to case-match, supported model prefixes are lowercase.
 MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES = ["llama2"]
-
-# MosaicML custom handler messages for incompatible request payloads
-MLFLOW_AI_GATEWAY_MOSAIC_ML_HANDLER_MESSAGES = (
-    "Error: max output tokens is limited to",
-    "Error: prompt token count",
-)

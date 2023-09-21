@@ -96,13 +96,13 @@ def save_yaml(path, conf):
 
 
 class MockAsyncResponse:
-    def __init__(self, data: Dict[str, Any]):
+    def __init__(self, data: Dict[str, Any], status: int = 200):
         # Extract status and headers from data, if present
-        self.status = data.get("_status", 200)
-        self.headers = data.get("headers", {})
+        self.status = status
+        self.headers = data.pop("headers", {"Content-Type": "application/json"})
 
         # Save the rest of the data as content
-        self._content = {k: v for k, v in data.items() if not k.startswith(("_", "headers"))}
+        self._content = data
 
     def raise_for_status(self) -> None:
         if 400 <= self.status < 600:

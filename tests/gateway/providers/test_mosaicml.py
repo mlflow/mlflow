@@ -402,11 +402,9 @@ async def test_completions_raises_with_invalid_max_tokens_too_large():
     }
     resp = {
         "message": error_msg["message"],
-        "_status": 500,
-        "headers": {"Content-Type": "application/json"},
     }
 
-    with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)):
+    with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp, status=500)):
         provider = MosaicMLProvider(RouteConfig(**config))
         payload = {
             "prompt": "How many puffins can fit on the flight deck of a Nimitz class "
@@ -428,17 +426,13 @@ async def test_chat_raises_with_invalid_max_tokens_too_large():
     }
     resp = {
         "message": error_msg["message"],
-        "_status": 500,
-        "headers": {"Content-Type": "application/json"},
     }
-    with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)):
+    with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp, status=500)):
         provider = MosaicMLProvider(RouteConfig(**config))
         payload = {
             "messages": [
                 {"role": "system", "content": "You're an astronaut."},
                 {"role": "user", "content": "When do you go to space next?"},
-                {"role": "assistant", "content": "Our next mission is to Europa, next July."},
-                {"role": "user", "content": "What sort of rocket are you using for this mission?"},
             ],
             "max_tokens": 5000,
         }

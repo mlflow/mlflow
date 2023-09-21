@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from typing import Any, Dict, List
 
 from fastapi import HTTPException
@@ -5,7 +6,6 @@ from fastapi.encoders import jsonable_encoder
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import MosaicMLConfig, RouteConfig
-from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_MOSAIC_ML_HANDLER_MESSAGES
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -114,14 +114,11 @@ class MosaicMLProvider(BaseProvider):
         #    }
         #   }
         # }
-        try:
+        with custom_token_allowance_exceeded_handling():
             resp = await self._request(
                 self.config.model.name,
                 final_payload,
             )
-        except HTTPException as e:
-            _custom_token_allowance_exceeded_handling(e.status_code, e.detail or {})
-            raise
         # Response example
         # (https://docs.mosaicml.com/en/latest/inference.html#text-completion-models)
         # ```
@@ -181,14 +178,12 @@ class MosaicMLProvider(BaseProvider):
         #   }
         # }
 
-        try:
+        with custom_token_allowance_exceeded_handling():
             resp = await self._request(
                 self.config.model.name,
                 final_payload,
             )
-        except HTTPException as e:
-            _custom_token_allowance_exceeded_handling(e.status_code, e.detail or {})
-            raise
+
         # Response example
         # (https://docs.mosaicml.com/en/latest/inference.html#text-completion-models)
         # ```
@@ -261,16 +256,30 @@ class MosaicMLProvider(BaseProvider):
         )
 
 
-def _custom_token_allowance_exceeded_handling(status_code: int, detail):
+@contextmanager
+def custom_token_allowance_exceeded_handling():
     """
-    Custom handler for specific error messages that are incorrectly set as server-side errors, but
-    are in actuality an issue with the request sent to the external provider.
+    Context manager handler for specific error messages that are incorrectly set as server-side
+    errors, but are in actuality an issue with the request sent to the external provider.
     """
 
-    message = detail.get("message", {})
-    if (
-        status_code == 500
-        and message
-        and any(message.startswith(x) for x in MLFLOW_AI_GATEWAY_MOSAIC_ML_HANDLER_MESSAGES)
-    ):
-        raise HTTPException(status_code=422, detail=detail)
+    try:
+        yield
+    except HTTPException as e:
+        status_code = e.status_code
+        detail = e.detail or {}
+
+        if (
+            status_code == 500
+            and detail
+            and any(
+                detail.get("message", "").startswith(x)
+                for x in (
+                    "Error: max output tokens is limited to",
+                    "Error: prompt token count",
+                )
+            )
+        ):
+            raise HTTPException(status_code=422, detail=detail)
+        else:
+            raise
