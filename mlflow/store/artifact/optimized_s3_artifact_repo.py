@@ -22,7 +22,6 @@ from mlflow.store.artifact.s3_artifact_repo import _get_s3_client
 from mlflow.utils.file_utils import read_chunk
 from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.rest_utils import augmented_raise_for_status
-from mlflow.utils.logging_utils import eprint
 
 _logger = logging.getLogger(__name__)
 
@@ -50,7 +49,6 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         self._access_key_id = access_key_id
         self._secret_access_key = secret_access_key
         self._session_token = session_token
-        eprint("addressing style is...", addressing_style)
         self._addressing_style = addressing_style
         self._s3_endpoint_url = s3_endpoint_url
         self.bucket, self.bucket_path = self.parse_s3_compliant_uri(self.artifact_uri)
@@ -64,7 +62,6 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             session_token=self._session_token,
             s3_endpoint_url=self._s3_endpoint_url,
         )
-        eprint("addressing style is...", self._addressing_style)
         return temp_client.get_bucket_location(Bucket=self.bucket)["LocationConstraint"]
 
     def _get_s3_client(self):
