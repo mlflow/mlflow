@@ -231,7 +231,7 @@ def make_genai_metric(
                     )
                 )
 
-            for future in as_completed(futures):
+            for future in as_completed(futures, timeout=60):
                 score, justification = future.result()
                 scores.append(score)
                 justifications.append(justification)

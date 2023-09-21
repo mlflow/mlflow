@@ -553,7 +553,7 @@ def test_generate_many_prompts():
         "critical aspect. "
         "- Score 4: the answer correctly answer the question and not missing any major aspect",
         examples=[example],
-        model="openai:/gpt-3.5-turbo",
+        model="openai:/gpt-3.5-turbo-16k",
         variables=["ground_truth"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
