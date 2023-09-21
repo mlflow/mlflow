@@ -2,10 +2,11 @@ import abc
 import functools
 import inspect
 import itertools
-import typing
+import os
 import uuid
 from abc import abstractmethod
 from contextlib import contextmanager
+from typing import Any, Callable, Dict, NamedTuple
 
 import mlflow
 import mlflow.utils.autologging_utils
@@ -795,7 +796,7 @@ def _validate_autologging_run(autologging_integration, run_id):
     ), f"Autologging run with id {run_id} has a non-terminal status '{run.info.status}'"
 
 
-class ValidationExemptArgument(typing.NamedTuple):
+class ValidationExemptArgument(NamedTuple):
     """
     A NamedTuple representing the properties of an argument that is exempt from validation
 
@@ -809,7 +810,7 @@ class ValidationExemptArgument(typing.NamedTuple):
 
     autologging_integration: str
     function_name: str
-    type_function: typing.Callable
+    type_function: Callable
     positional_argument_index: int = None
     keyword_argument_name: str = None
 
@@ -1038,3 +1039,37 @@ def _validate_args(
                 autologging_call_kwargs[key],
                 user_call_kwargs.get(key, None),
             )
+
+
+class PatchEnvironmentVariables:
+    """
+    Context Manager for temporarily patching environment variables for packages that control
+    internal behavior exclusively through environment variable settings.
+
+    After patching the provided dictionary of environment variable keys and their values,
+    original settings are restored to their original state.
+    """
+
+    def __init__(self, vars_dict: Dict[str, Any]):
+        """
+        Args:
+            vars_dict: A dictionary of environment variable names and the temporary override values
+        """
+        self._vars_dict = vars_dict
+        self._original_values = {}
+
+    def __enter__(self):
+        for var_name, temp_value in self._vars_dict.items():
+            # Safe store the state of the environment variables values
+            self._original_values[var_name] = os.environ.get(var_name)
+
+            # Set the environment variable
+            os.environ[var_name] = temp_value
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Restore the environment variables to their original values
+        for var_name, original_value in self._original_values.items():
+            if original_value is None:
+                os.environ.pop(var_name, None)
+            else:
+                os.environ[var_name] = original_value

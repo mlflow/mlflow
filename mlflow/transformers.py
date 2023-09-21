@@ -48,6 +48,7 @@ from mlflow.utils.autologging_utils import (
     disable_discrete_autologging,
     safe_patch,
 )
+from mlflow.utils.autologging_utils.safety import PatchEnvironmentVariables
 from mlflow.utils.docstring_utils import (
     LOG_MODEL_PARAM_DOCS,
     docstring_version_compatibility_warning,
@@ -2620,9 +2621,12 @@ def autolog(
     # training a model that would otherwise create a run and be logged internally within the
     # transformers-supported trainer calls.
     DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING = ["sklearn", "tensorflow", "pytorch"]
+    patch_env_vars = {"DISABLE_MLFLOW_INTEGRATION": "True", "HF_MLFLOW_LOG_ARTIFACTS": "False"}
 
     def train(original, *args, **kwargs):
-        with disable_discrete_autologging(DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING):
+        with disable_discrete_autologging(
+            DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING
+        ) and PatchEnvironmentVariables(patch_env_vars):
             return original(*args, **kwargs)
 
     with contextlib.suppress(ImportError):
@@ -2635,7 +2639,12 @@ def autolog(
     with contextlib.suppress(ImportError):
         import transformers
 
-        classes = [transformers.Trainer, transformers.Seq2SeqTrainer]
+        classes = [
+            transformers.Trainer,
+            transformers.Seq2SeqTrainer,
+            transformers.TFTrainer,
+            transformers.trainer.Trainer,
+        ]
         methods = ["train"]
         for clazz in classes:
             for method in methods:

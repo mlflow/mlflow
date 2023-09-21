@@ -1,3 +1,4 @@
+import os
 from threading import Thread
 
 from mlflow import MlflowClient
@@ -7,6 +8,7 @@ from mlflow.utils.autologging_utils.metrics_queue import (
     _metrics_queue_lock,
     flush_metrics_queue,
 )
+from mlflow.utils.autologging_utils.safety import PatchEnvironmentVariables
 
 
 def test_flush_metrics_queue_is_thread_safe():
@@ -38,3 +40,17 @@ def test_flush_metrics_queue_is_thread_safe():
     flush_thread2.start()
     flush_thread2.join()
     assert len(_metrics_queue) == 0
+
+
+def test_environment_variable_override_logic_functions():
+    patches = {"MLFLOW_TEST_ENV_VAR_1": "test", "MLFLOW_TEST_ENV_VAR_2": "True"}
+
+    for name in patches.keys():
+        assert not os.environ.get(name)
+
+    with PatchEnvironmentVariables(patches):
+        for name, value in patches.items():
+            assert os.environ.get(name) == value
+
+    for name in patches.keys():
+        assert not os.environ.get(name)
