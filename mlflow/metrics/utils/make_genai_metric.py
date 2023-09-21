@@ -48,6 +48,8 @@ def make_genai_metric(
     parameters: Optional[Dict[str, Any]] = None,
     aggregations: Optional[List[str]] = None,
     greater_is_better: bool = True,
+    max_workers: int = 10,
+    judge_request_timeout: int = 15,
 ) -> EvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow.
@@ -63,6 +65,8 @@ def make_genai_metric(
     :param aggregations: (Optional) The list of options to aggregate the scores. Currently supported
         options are: min, max, mean, median, variance, p90.
     :param greater_is_better: (Optional) Whether the metric is better when it is greater.
+    :param max_workers: (Optional) The maximum number of workers to use for judge scoring.
+    :param judge_request_timeout: (Optional) The timeout in seconds for each judge scoring request.
 
     :return: A metric object.
 
@@ -184,14 +188,29 @@ def make_genai_metric(
                 raw_result = model_utils.score_model_on_payload(eval_model, payload)
                 eval_result = raw_result.candidates[0].text
                 eval_result_json = json.loads(eval_result)
-                return eval_result_json["Score"], eval_result_json["Justification"]
+                score = eval_result_json["Score"]
+                justification = eval_result_json["Justification"]
+                if not isinstance(score, (int, float)):
+                    raise MlflowException(
+                        message=f"The score returned from the model is not a number. "
+                        f"Please check the correctness of the model. "
+                        f"Score: {score}",
+                        error_code=INTERNAL_ERROR,
+                    )
+                if not isinstance(justification, str):
+                    raise MlflowException(
+                        message=f"The justification returned from the model is not a string. "
+                        f"Please check the correctness of the model. "
+                        f"Justification: {justification}",
+                        error_code=INTERNAL_ERROR,
+                    )
+                return score, justification
             except Exception as e:
                 _logger.info(f"Failed to score model on payload. Error: {e!r}")
                 return None, None
 
         scores = []
         justifications = []
-        max_workers = 10  # You can adjust this based on your needs
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = []
@@ -210,7 +229,7 @@ def make_genai_metric(
                     )
                 )
 
-            for future in as_completed(futures):
+            for future in as_completed(futures, timeout=judge_request_timeout):
                 score, justification = future.result()
                 scores.append(score)
                 justifications.append(justification)
