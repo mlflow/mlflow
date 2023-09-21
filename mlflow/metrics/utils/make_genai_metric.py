@@ -183,7 +183,6 @@ def make_genai_metric(
             try:
                 raw_result = model_utils.score_model_on_payload(eval_model, payload)
                 eval_result = raw_result.candidates[0].text
-                # parse eval_results
                 eval_result_json = json.loads(eval_result)
                 score = eval_result_json["Score"]
                 justification = eval_result_json["Justification"]

@@ -184,6 +184,7 @@ class OpenAIProvider(BaseProvider):
 
     def sync_completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = self._prepare_completion_request_payload(payload)
+
         # use python requests instead of aiohttp
         resp = requests.post(
             url=append_to_uri_path(self._request_base_url, "chat/completions"),
@@ -195,6 +196,7 @@ class OpenAIProvider(BaseProvider):
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = self._prepare_completion_request_payload(payload)
+
         resp = await send_request(
             headers=self._request_headers,
             base_url=self._request_base_url,
