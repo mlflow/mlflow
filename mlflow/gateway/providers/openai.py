@@ -184,27 +184,23 @@ class OpenAIProvider(BaseProvider):
 
     def sync_completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = self._prepare_completion_request_payload(payload)
-        print(payload)
         # use python requests instead of aiohttp
         resp = requests.post(
             url=append_to_uri_path(self._request_base_url, "chat/completions"),
             headers=self._request_headers,
             json=self._add_model_to_payload_if_necessary(payload),
         ).json()
-        print(resp)
 
         return self._prepare_completion_response_payload(resp)
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = self._prepare_completion_request_payload(payload)
-        print(payload)
         resp = await send_request(
             headers=self._request_headers,
             base_url=self._request_base_url,
             path="chat/completions",
             payload=self._add_model_to_payload_if_necessary(payload),
         )
-        print(resp)
         # Response example (https://platform.openai.com/docs/api-reference/completions/create)
         # ```
         # {
