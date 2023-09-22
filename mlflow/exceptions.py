@@ -56,9 +56,7 @@ HTTP_STATUS_TO_ERROR_CODE[500] = ErrorCode.Name(INTERNAL_ERROR)
 
 
 def get_error_code(http_status):
-    return ErrorCode.Value(
-        HTTP_STATUS_TO_ERROR_CODE.get(http_status, ErrorCode.Name(INTERNAL_ERROR))
-    )
+    return ErrorCode.Value(HTTP_STATUS_TO_ERROR_CODE.get(http_status, ErrorCode.Name(INTERNAL_ERROR)))
 
 
 class MlflowException(Exception):
@@ -136,10 +134,5 @@ class MissingConfigException(MlflowException):
 
 class InvalidUrlException(MlflowException):
     """Exception thrown when a http request fails to send due to an invalid URL"""
-
-    pass
-
-class AwaitRunDataTimeoutException(MlflowException):
-    """Exception thrown when awaiting run data ingestion times out."""
 
     pass
