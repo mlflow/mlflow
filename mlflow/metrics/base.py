@@ -87,8 +87,11 @@ class EvaluationExample:
 
         return f"""
 Input: {self.input}
+
 Provided output: {self.output}
+
 {variables}
+
 Score: {self.score}
 {justification}
         """
