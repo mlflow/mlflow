@@ -33,6 +33,7 @@ MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS = 200_000
 # MLflow model serving constants
 MLFLOW_SERVING_RESPONSE_KEY = "predictions"
 
+# MosaicML constants
 # MosaicML supported chat model names
 # These validated names are used for the MosaicML provider due to the need to perform prompt
 # translations prior to sending a request payload to their chat endpoints.
