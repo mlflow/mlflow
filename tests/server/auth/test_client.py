@@ -70,12 +70,22 @@ def test_get_client():
     assert isinstance(client, AuthServiceClient)
 
 
-def test_create_user(client):
+def test_create_user(client, monkeypatch):
     username = random_str()
     password = random_str()
-    user = client.create_user(username, password)
+
+    with assert_unauthenticated():
+        client.create_user(username, password)
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        user = client.create_user(username, password)
     assert user.username == username
     assert user.is_admin is False
+
+    username2 = random_str()
+    password2 = random_str()
+    with User(username, password, monkeypatch), assert_unauthorized():
+        client.create_user(username2, password2)
 
 
 def test_get_user(client, monkeypatch):
