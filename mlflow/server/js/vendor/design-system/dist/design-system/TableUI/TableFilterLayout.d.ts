@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import React from 'react';
 import type { HTMLDataAttributes } from '../types';
-export interface TableFilterLayoutProps extends HTMLDataAttributes {
+export interface TableFilterLayoutProps extends HTMLDataAttributes, React.HTMLAttributes<HTMLDivElement> {
     /** Style property */
     style?: CSSProperties;
     /** Should contain the filter controls to be rendered in this layout. */

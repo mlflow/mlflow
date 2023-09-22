@@ -17,7 +17,8 @@ from threading import Timer
 from typing import NamedTuple, Optional
 
 import importlib_metadata
-import pkg_resources
+import pkg_resources  # noqa: TID251
+from packaging.requirements import Requirement
 from packaging.version import InvalidVersion, Version
 
 import mlflow
@@ -374,8 +375,7 @@ _PyPIPackageIndex = namedtuple("_PyPIPackageIndex", ["date", "package_names"])
 
 
 def _load_pypi_package_index():
-    pypi_index_path = pkg_resources.resource_filename(mlflow.__name__, "pypi_package_index.json")
-    with open(pypi_index_path) as f:
+    with Path(mlflow.__file__).parent.joinpath("pypi_package_index.json").open() as f:
         index_dict = json.load(f)
 
     return _PyPIPackageIndex(
@@ -513,7 +513,7 @@ def _check_requirement_satisfied(requirement_str):
     """
     _init_packages_to_modules_map()
     try:
-        req = pkg_resources.Requirement.parse(requirement_str)
+        req = Requirement(requirement_str)
     except Exception:
         # We reach here if the requirement string is a file path or a URL.
         # Extracting the package name from the requirement string is not trivial,

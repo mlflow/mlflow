@@ -778,7 +778,7 @@ class TrainStep(BaseStep):
 
         metric_columns = sorted(metric_names, key=sorter)
 
-        leaderboard_df = (
+        return (
             pd.DataFrame.from_records(
                 [latest_model_item, *top_leaderboard_items],
                 columns=["Model Rank", *metric_columns, "Run Time", "Run ID"],
@@ -792,7 +792,6 @@ class TrainStep(BaseStep):
             .set_axis(["Latest"] + top_leaderboard_item_index_values, axis="index")
             .transpose()
         )
-        return leaderboard_df
 
     def _get_tuning_df(self, run, params=None):
         exp_id = _get_experiment_id()
@@ -1268,13 +1267,12 @@ class TrainStep(BaseStep):
         estimator_schema = infer_signature(
             X_train_sampled, estimator.predict(X_train_sampled.copy())
         )
-        logged_estimator = mlflow.sklearn.log_model(
+        return mlflow.sklearn.log_model(
             estimator,
             f"{self.name}/estimator",
             signature=estimator_schema,
             code_paths=self.code_paths,
         )
-        return logged_estimator
 
     def _write_best_parameters_outputs(
         self,
@@ -1357,6 +1355,4 @@ class TrainStep(BaseStep):
         _logger.info(
             f"After downsampling: minority class percentage is {resampling_minority_percentage:.2f}"
         )
-        train_df = pd.concat([df_minority_class, df_majority_downsampled], axis=0).sample(frac=1)
-
-        return train_df
+        return pd.concat([df_minority_class, df_majority_downsampled], axis=0).sample(frac=1)

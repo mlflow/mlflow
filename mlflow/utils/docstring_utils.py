@@ -3,8 +3,8 @@ import textwrap
 import warnings
 from functools import wraps
 
+import importlib_metadata
 from packaging.version import Version
-from pkg_resources import get_distribution
 
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.utils.autologging_utils.versioning import (
@@ -258,7 +258,7 @@ def docstring_version_compatibility_warning(integration_name):
 
         @wraps(func)
         def version_func(*args, **kwargs):
-            installed_version = Version(get_distribution(module_key).version)
+            installed_version = Version(importlib_metadata.version(module_key))
             if installed_version < Version(min_ver) or installed_version > Version(max_ver):
                 warnings.warn(notice, category=FutureWarning, stacklevel=2)
             return func(*args, **kwargs)

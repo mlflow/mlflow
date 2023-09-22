@@ -41,6 +41,7 @@ specific requirements for the initialization of the routes to interface with the
 For full examples of configurations and supported route types, see:
 
 - [OpenAI](openai/config.yaml)
+- [MosaicML](mosaicml/config.yaml)
 - [Anthropic](anthropic/config.yaml)
 - [Cohere](cohere/config.yaml)
 - [AzureOpenAI](azure_openai/config.yaml)

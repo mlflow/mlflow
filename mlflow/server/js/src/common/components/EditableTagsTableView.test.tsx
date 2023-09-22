@@ -8,7 +8,7 @@
 import React from 'react';
 import { EditableTagsTableView, EditableTagsTableViewImpl } from './EditableTagsTableView';
 import { mountWithIntl } from '../utils/TestUtils';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter } from '../../common/utils/RoutingUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 
 describe('unit tests', () => {

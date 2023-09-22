@@ -240,18 +240,21 @@ With the rapid development of LLMs, there is no guarantee that this list will be
 below can be used as a helpful guide when configuring a given route for any newly released model types as they become available with a given provider.
 ``N/A`` means that the provider currently doesn't support the route type.
 
-+--------------------+--------------------------+------------------+-----------------------------+--------------------------+--------------------------+
-| Route Type         | OpenAI                   | Anthropic        | Cohere                      | Azure OpenAI             | MLflow                   |
-+====================+==========================+==================+=============================+==========================+==========================+
-| llm/v1/completions | - gpt-3.5-turbo          | - claude-1       | - command                   | - text-davinci-003       | - MLflow served models*  |
-|                    | - gpt-4                  | - claude-1.3-100k| - command-light-nightly     | - gpt-35-turbo           |                          |
-+--------------------+--------------------------+------------------+-----------------------------+--------------------------+--------------------------+
-| llm/v1/chat        | - gpt-3.5-turbo          | N/A              | N/A                         | - gpt-35-turbo           | - MLflow served models*  |
-|                    | - gpt-4                  |                  |                             | - gpt-4                  |                          |
-+--------------------+--------------------------+------------------+-----------------------------+--------------------------+--------------------------+
-| llm/v1/embeddings  | - text-embedding-ada-002 | N/A              | - embed-english-v2.0        | - text-embedding-ada-002 | - MLflow served models** |
-|                    |                          |                  | - embed-multilingual-v2.0   |                          |                          |
-+--------------------+--------------------------+------------------+-----------------------------+--------------------------+--------------------------+
++--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+--------------------------+
+| Route Type         | OpenAI                   | MosaicML           | Anthropic        | Cohere                      | Azure OpenAI             | MLflow                   |
++====================+==========================+====================+==================+=============================+==========================+==========================+
+| llm/v1/completions | - gpt-3.5-turbo          | - mpt-7b-instruct  | - claude-1       | - command                   | - text-davinci-003       | - MLflow served models*  |
+|                    | - gpt-4                  | - mpt-30b-instruct | - claude-1.3-100k| - command-light-nightly     | - gpt-35-turbo           |                          |
+|                    |                          | - llama2-70b-chat† | - claude-2       |                             |                          |                          |
++--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+--------------------------+
+| llm/v1/chat        | - gpt-3.5-turbo          | - llama2-70b-chat† | N/A              | N/A                         | - gpt-35-turbo           | - MLflow served models*  |
+|                    | - gpt-4                  |                    |                  |                             | - gpt-4                  |                          |
++--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+--------------------------+
+| llm/v1/embeddings  | - text-embedding-ada-002 | - instructor-large | N/A              | - embed-english-v2.0        | - text-embedding-ada-002 | - MLflow served models** |
+|                    |                          | - instructor-xl    |                  | - embed-multilingual-v2.0   |                          |                          |
++--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+--------------------------+
+
+† Llama 2 is licensed under the `LLAMA 2 Community License <https://ai.meta.com/llama/license/>`_, Copyright © Meta Platforms, Inc. All Rights Reserved.
 
 Within each model block in the configuration file, the provider field is used to specify the name
 of the provider for that model. This is a string value that needs to correspond to a provider the MLflow AI Gateway supports.
@@ -282,6 +285,7 @@ In the above configuration, ``openai`` is the `provider` for the model.
 
 As of now, the MLflow AI Gateway supports the following providers:
 
+* **mosaicml**: This is used for models offered by `MosaicML <https://docs.mosaicml.com/en/latest/>`_.
 * **openai**: This is used for models offered by `OpenAI <https://platform.openai.com/>`_ and the `Azure <https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/>`_ integrations for Azure OpenAI and Azure OpenAI with AAD.
 * **anthropic**: This is used for models offered by `Anthropic <https://docs.anthropic.com/claude/docs>`_.
 * **cohere**: This is used for models offered by `Cohere <https://docs.cohere.com/docs>`_.
@@ -291,6 +295,8 @@ most up-to-date list of supported providers.
 
 Remember, the provider you specify must be one that the MLflow AI Gateway supports. If the provider
 is not supported, the Gateway will return an error when trying to route requests to that provider.
+
+.. _routes:
 
 Routes
 ------
@@ -469,6 +475,7 @@ Each route has the following configuration parameters:
   - **provider**: This indicates the provider of the AI model. It accepts the following values:
 
     - "openai"
+    - "mosaicml"
     - "anthropic"
     - "cohere"
     - "azure" / "azuread"
@@ -499,6 +506,16 @@ OpenAI
 | **openai_organization** | No       |                               | This is an optional field to specify the organization in    |
 |                         |          |                               | OpenAI.                                                     |
 +-------------------------+----------+-------------------------------+-------------------------------------------------------------+
+
+
+MosaicML
++++++++++
+
++-------------------------+----------+--------------------------+-------------------------------------------------------+
+| Configuration Parameter | Required | Default                  | Description                                           |
++=========================+==========+==========================+=======================================================+
+| **mosaicml_api_key**    | Yes      | N/A                      | This is the API key for the MosaicML service.         |
++-------------------------+----------+--------------------------+-------------------------------------------------------+
 
 
 Cohere
@@ -693,7 +710,7 @@ Additional Query Parameters
 In addition to the :ref:`standard_query_parameters`, you can pass any additional parameters supported by the route's provider as part of your query. For example:
 
 - ``logit_bias`` (supported by OpenAI, Cohere)
-- ``top_k`` (supported by Anthropic, Cohere)
+- ``top_k`` (supported by MosaicML, Anthropic, Cohere)
 - ``frequency_penalty`` (supported by OpenAI, Cohere)
 - ``presence_penalty`` (supported by OpenAI, Cohere)
 
@@ -964,13 +981,13 @@ Here are some examples for how you might use curl to interact with the Gateway:
 
        curl -X GET http://my.gateway:8888/api/2.0/gateway/routes/embeddings
 
-2. List all routes: ``GET /api/2.0/gateway/routes``
+2. List all routes: ``GET /api/2.0/gateway/routes/``
 
    This endpoint returns a list of all routes.
 
    .. code-block:: bash
 
-       curl -X GET http://my.gateway:8888/api/2.0/gateway/routes
+       curl -X GET http://my.gateway:8888/api/2.0/gateway/routes/
 
 3. Query a route: ``POST /gateway/{route}/invocations``
 

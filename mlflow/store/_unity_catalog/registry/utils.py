@@ -111,10 +111,10 @@ def _get_artifact_repo_from_storage_info(
         # Verify upfront that boto3 is importable
         import boto3  # noqa: F401
 
-        from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+        from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
 
         aws_creds = scoped_token.aws_temp_credentials
-        return S3ArtifactRepository(
+        return OptimizedS3ArtifactRepository(
             artifact_uri=storage_location,
             access_key_id=aws_creds.access_key_id,
             secret_access_key=aws_creds.secret_access_key,
@@ -141,6 +141,16 @@ def _get_artifact_repo_from_storage_info(
         credentials = Credentials(scoped_token.gcp_oauth_token.oauth_token)
         client = Client(project="mlflow", credentials=credentials)
         return GCSArtifactRepository(artifact_uri=storage_location, client=client)
+    elif credential_type == "r2_temp_credentials":
+        from mlflow.store.artifact.r2_artifact_repo import R2ArtifactRepository
+
+        r2_creds = scoped_token.r2_temp_credentials
+        return R2ArtifactRepository(
+            artifact_uri=storage_location,
+            access_key_id=r2_creds.access_key_id,
+            secret_access_key=r2_creds.secret_access_key,
+            session_token=r2_creds.session_token,
+        )
     else:
         raise MlflowException(
             f"Got unexpected credential type {credential_type} when attempting to "

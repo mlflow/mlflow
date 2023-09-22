@@ -20,13 +20,14 @@ from mlflow.utils.databricks_utils import (
 from mlflow.utils.file_utils import (
     download_file_using_http_uri,
     parallelized_download_file_using_http_uri,
+    remove_on_error,
 )
 from mlflow.utils.request_utils import download_chunk
 from mlflow.utils.rest_utils import http_request
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 
 _logger = logging.getLogger(__name__)
-_DOWNLOAD_CHUNK_SIZE = 500_000_000  # 500 MB
+_DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
 # The constant REGISTRY_LIST_ARTIFACT_ENDPOINT is defined as @developer_stable
 REGISTRY_LIST_ARTIFACTS_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifacts"
 # The constant REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT is defined as @developer_stable
@@ -140,7 +141,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
     ):
         from mlflow.utils.databricks_utils import get_databricks_env_vars
 
-        try:
+        with remove_on_error(dst_local_file_path):
             parallel_download_subproc_env = os.environ.copy()
             parallel_download_subproc_env.update(
                 get_databricks_env_vars(self.databricks_profile_uri)
@@ -156,13 +157,14 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 env=parallel_download_subproc_env,
                 headers=headers,
             )
-            download_errors = [
-                e for e in failed_downloads.values() if e["error_status_code"] not in (401, 403)
-            ]
-            if download_errors:
+            if any(not e.retryable for e in failed_downloads.values()):
+                template = "===== Chunk {index} =====\n{error}"
+                failure = "\n".join(
+                    template.format(index=index, error=error)
+                    for index, error in failed_downloads.items()
+                )
                 raise MlflowException(
-                    f"Failed to download artifact {dst_run_relative_artifact_path}: "
-                    f"{download_errors}"
+                    f"Failed to download artifact {dst_run_relative_artifact_path}:\n{failure}"
                 )
             if failed_downloads:
                 new_signed_uri, new_headers = self._get_signed_download_uri(
@@ -172,10 +174,6 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 download_chunk(
                     i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
                 )
-        except Exception as err:
-            if os.path.exists(dst_local_file_path):
-                os.remove(dst_local_file_path)
-            raise MlflowException(err)
 
     def _download_file(self, remote_file_path, local_path):
         try:

@@ -10,6 +10,7 @@ import pathlib
 import posixpath
 import shutil
 import stat
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -18,6 +19,8 @@ import urllib.request
 import uuid
 from concurrent.futures import as_completed
 from contextlib import contextmanager
+from subprocess import CalledProcessError, TimeoutExpired
+from typing import Optional
 from urllib.parse import unquote
 from urllib.request import pathname2url
 
@@ -31,13 +34,16 @@ except ImportError:
     from yaml import SafeLoader as YamlSafeLoader
 
 from mlflow.entities import FileInfo
-from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
+from mlflow.environment_variables import (
+    MLFLOW_DOWNLOAD_CHUNK_TIMEOUT,
+    MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
+)
 from mlflow.exceptions import MissingConfigException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.utils import download_cloud_file_chunk, merge_dicts
 from mlflow.utils.databricks_utils import _get_dbutils
 from mlflow.utils.os import is_windows
-from mlflow.utils.process import _exec_cmd, cache_return_value_per_process
+from mlflow.utils.process import cache_return_value_per_process
 from mlflow.utils.request_utils import cloud_storage_http_request, download_chunk
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
@@ -374,7 +380,7 @@ class TempDir:
         self._remove = remove_on_exit
 
     def __enter__(self):
-        self._path = os.path.abspath(tempfile.mkdtemp())
+        self._path = os.path.abspath(create_tmp_dir())
         assert os.path.exists(self._path)
         if self._chdr:
             self._dir = os.path.abspath(os.getcwd())
@@ -649,6 +655,18 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
                 output_file.write(chunk)
 
 
+class _ChunkDownloadError(Exception):
+    def __init__(self, retryable: bool, error: str, status_code: Optional[int] = None) -> None:
+        self.retryable = retryable
+        self.error = error
+        self.status_code = status_code
+        super().__init__(
+            f"Chunk download failed: {error}"
+            if status_code is None
+            else f"Chunk download failed with status code {status_code}: {error}"
+        )
+
+
 def parallelized_download_file_using_http_uri(
     thread_pool_executor,
     http_uri,
@@ -671,43 +689,65 @@ def parallelized_download_file_using_http_uri(
     """
 
     def run_download(range_start, range_end):
+        template = """
+----- stdout -----
+{stdout}
+
+----- stderr -----
+{stderr}
+"""
         with tempfile.TemporaryDirectory() as tmpdir:
-            temp_file = os.path.join(tmpdir, "error_messages.txt")
-            download_proc = _exec_cmd(
-                cmd=[
-                    sys.executable,
-                    download_cloud_file_chunk.__file__,
-                    "--range-start",
-                    range_start,
-                    "--range-end",
-                    range_end,
-                    "--headers",
-                    json.dumps(headers or {}),
-                    "--download-path",
-                    download_path,
-                    "--http-uri",
-                    http_uri,
-                    "--temp-file",
-                    temp_file,
-                ],
-                throw_on_error=True,
-                synchronous=False,
-                capture_output=True,
-                stream_output=False,
-                env=env,
-            )
-            _, stderr = download_proc.communicate()
-            if download_proc.returncode != 0:
-                if os.path.exists(temp_file):
-                    with open(temp_file) as f:
-                        file_contents = f.read()
-                        if file_contents:
-                            return json.loads(file_contents)
-                        else:
-                            raise Exception(
-                                "Error from download_cloud_file_chunk not captured, "
-                                f"return code {download_proc.returncode}, stderr {stderr}"
-                            )
+            json_file = os.path.join(tmpdir, "http_error.json")
+            try:
+                subprocess.run(
+                    [
+                        sys.executable,
+                        download_cloud_file_chunk.__file__,
+                        "--range-start",
+                        str(range_start),
+                        "--range-end",
+                        str(range_end),
+                        "--headers",
+                        json.dumps(headers or {}),
+                        "--download-path",
+                        download_path,
+                        "--http-uri",
+                        http_uri,
+                        "--temp-file",
+                        json_file,
+                    ],
+                    text=True,
+                    check=True,
+                    capture_output=True,
+                    timeout=MLFLOW_DOWNLOAD_CHUNK_TIMEOUT.get(),
+                    env=env,
+                )
+            except TimeoutExpired as e:
+                raise _ChunkDownloadError(
+                    True,
+                    template.format(
+                        stdout=e.stdout.strip() or "(no stdout)",
+                        stderr=e.stderr.strip() or "(no stderr)",
+                    ),
+                ) from e
+            except CalledProcessError as e:
+                retryable = False
+                status_code = None
+                if os.path.exists(json_file):
+                    with open(json_file) as f:
+                        data = json.load(f)
+                        retryable = data.get("retryable", False)
+                        status_code = data.get("status_code")
+                raise _ChunkDownloadError(
+                    retryable,
+                    template.format(
+                        stdout=e.stdout.strip() or "(no stdout)",
+                        stderr=e.stderr.strip() or "(no stderr)",
+                    ),
+                    status_code,
+                ) from e
+            except Exception as e:
+                raise _ChunkDownloadError(False, str(e)) from e
 
     num_requests = int(math.ceil(file_size / float(chunk_size)))
     # Create file if it doesn't exist or erase the contents if it does. We should do this here
@@ -746,16 +786,11 @@ def parallelized_download_file_using_http_uri(
         for future in as_completed(futures):
             index = futures[future]
             try:
-                result = future.result()
-                if result is not None:
-                    failed_downloads[index] = result
-                else:
-                    pbar.update()
-            except Exception as e:
-                failed_downloads[index] = {
-                    "error_status_code": 500,
-                    "error_text": repr(e),
-                }
+                future.result()
+            except Exception:
+                failed_downloads[index] = future.exception()
+            else:
+                pbar.update()
 
     return failed_downloads
 
@@ -781,6 +816,21 @@ def _handle_readonly_on_windows(func, path, exc_info):
         raise exc_value
     os.chmod(path, stat.S_IWRITE)
     func(path)
+
+
+def create_tmp_dir():
+    from mlflow.utils.databricks_utils import get_repl_id, is_in_databricks_runtime
+
+    if is_in_databricks_runtime() and get_repl_id() is not None:
+        try:
+            repl_local_tmp_dir = _get_dbutils().entry_point.getReplLocalTempDir()
+        except Exception:
+            repl_local_tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id())
+
+        os.makedirs(repl_local_tmp_dir, exist_ok=True)
+        return tempfile.mkdtemp(dir=repl_local_tmp_dir)
+    else:
+        return tempfile.mkdtemp()
 
 
 @cache_return_value_per_process

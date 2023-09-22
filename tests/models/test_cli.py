@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import warnings
@@ -760,32 +761,13 @@ def test_host_invalid_value():
 
 
 def test_change_conda_env_root_location(tmp_path, sk_model):
-    env_root1_path = tmp_path / "root1"
-    env_root1_path.mkdir()
+    def _test_model(env_root_path, model_path, sklearn_ver):
+        env_root_path.mkdir(exist_ok=True)
 
-    env_root2_path = tmp_path / "root2"
-    env_root2_path.mkdir()
+        mlflow.sklearn.save_model(
+            sk_model, str(model_path), pip_requirements=[f"scikit-learn=={sklearn_ver}"]
+        )
 
-    model1_path = tmp_path / "model1"
-    mlflow.sklearn.save_model(sk_model, str(model1_path), pip_requirements=["scikit-learn==1.0.1"])
-
-    model2_path = tmp_path / "model2"
-    mlflow.sklearn.save_model(sk_model, str(model2_path), pip_requirements=["scikit-learn==1.0.2"])
-
-    env_path_set = set()
-    for env_root_path, model_path, sklearn_ver in [
-        (env_root1_path, model1_path, "1.0.1"),
-        (
-            env_root2_path,
-            model1_path,
-            "1.0.1",
-        ),  # test the same env created in different env root path.
-        (
-            env_root1_path,
-            model2_path,
-            "1.0.2",
-        ),  # test different env created in the same env root path.
-    ]:
         env = get_flavor_backend(
             str(model_path),
             env_manager=_EnvManager.CONDA,
@@ -798,7 +780,6 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
         )
         env_path = env_root_path / "conda_envs" / conda_env_name
         assert env_path.exists()
-        env_path_set.add(str(env_path))
 
         python_exec_path = str(env_path / "bin" / "python")
 
@@ -808,4 +789,56 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
             f"import sklearn; assert sklearn.__version__ == '{sklearn_ver}'\"",
         )
 
-    assert len(env_path_set) == 3
+        # Cleanup model path and Conda environment to prevent out of space failures on CI
+        shutil.rmtree(model_path)
+        shutil.rmtree(env_path)
+
+    env_root1_path = tmp_path / "root1"
+    env_root2_path = tmp_path / "root2"
+
+    # Test with model1_path
+    model1_path = tmp_path / "model1"
+
+    _test_model(env_root1_path, model1_path, "1.0.1")
+    _test_model(env_root2_path, model1_path, "1.0.1")
+
+    # Test with model2_path
+    model2_path = tmp_path / "model2"
+    _test_model(env_root1_path, model2_path, "1.0.2")
+
+
+@pytest.mark.parametrize(
+    ("input_schema", "output_schema", "params_schema"),
+    [(True, False, False), (False, True, False), (False, False, True)],
+)
+def test_signature_enforcement_with_model_serving(input_schema, output_schema, params_schema):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return ["test"]
+
+    input_data = ["test_input"] if input_schema else None
+    output_data = ["test_output"] if output_schema else None
+    params = {"test": "test"} if params_schema else None
+
+    signature = mlflow.models.infer_signature(
+        model_input=input_data, model_output=output_data, params=params
+    )
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="test_model", python_model=MyModel(), signature=signature
+        )
+
+    inference_payload = json.dumps({"inputs": ["test"]})
+
+    # Serve and score the model
+    scoring_result = pyfunc_serve_and_score_model(
+        model_uri=model_info.model_uri,
+        data=inference_payload,
+        content_type=CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    scoring_result.raise_for_status()
+
+    # Assert the prediction result
+    assert json.loads(scoring_result.content)["predictions"] == ["test"]

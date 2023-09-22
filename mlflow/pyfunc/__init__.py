@@ -235,7 +235,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.flavor_backend_registry import get_flavor_backend
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE, MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_type_hints
 from mlflow.models.utils import (
     PyFuncInput,
@@ -245,6 +245,7 @@ from mlflow.models.utils import (
     _save_example,
 )
 from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
@@ -476,7 +477,7 @@ class PyFuncModel:
 
         :return: The underlying wrapped model object
 
-        .. test-code-block:: python
+        .. testcode:: python
             :caption: Example
 
             import mlflow
@@ -494,9 +495,8 @@ class PyFuncModel:
 
             some_input = 1
             # save the model
-            my_model = MyModel()
             with mlflow.start_run():
-                model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=my_model)
+                model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=MyModel())
 
             # load the model
             loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
@@ -633,7 +633,17 @@ def load_model(
 
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
-    model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
+    try:
+        model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
+    except ModuleNotFoundError as e:
+        if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE:
+            raise MlflowException(
+                "mlflow.pyfunc.load_model is not supported for Feature Store models. "
+                "spark_udf() and predict() will not work as expected. Use "
+                "score_batch for offline predictions.",
+                BAD_REQUEST,
+            ) from None
+        raise e
     predict_fn = conf.get("predict_fn", "predict")
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl, predict_fn=predict_fn)
 
@@ -1906,7 +1916,7 @@ def log_model(
 
         .. code-block:: python
 
-            from typing import List, Dict
+            from typing import List
             import mlflow
 
 
@@ -1915,9 +1925,12 @@ def log_model(
                     return [i.upper() for i in model_input]
 
 
-            mlflow.pyfunc.save_model("model", python_model=MyModel(), input_example=["a"])
-            model = mlflow.pyfunc.load_model("model")
-            print(model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
+            with mlflow.start_run():
+                model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=MyModel())
+
+
+            loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+            print(loaded_model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
 
         Functional model
 
@@ -1935,9 +1948,14 @@ def log_model(
                 return [i.upper() for i in model_input]
 
 
-            mlflow.pyfunc.save_model("model", python_model=predict, input_example=["a"])
-            model = mlflow.pyfunc.load_model("model")
-            print(model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
+            with mlflow.start_run():
+                model_info = mlflow.pyfunc.log_model(
+                    artifact_path="model", python_model=predict, input_example=["a"]
+                )
+
+
+            loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+            print(loaded_model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
 
         If the `predict` method or function has type annotations, MLflow automatically constructs
         a model signature based on the type annotations (unless the ``signature`` argument is

@@ -143,6 +143,14 @@ def test_schema_creation():
         Schema([TensorSpec(np.dtype("double"), (-1,)), TensorSpec(np.dtype("double"), (-1,))])
 
 
+def test_schema_creation_errors():
+    with pytest.raises(MlflowException, match=r"Creating Schema with empty inputs is not allowed."):
+        Schema([])
+
+    with pytest.raises(MlflowException, match=r"Inputs of Schema must be a list, got type dict"):
+        Schema({"col1": ColSpec(DataType.string)})
+
+
 def test_get_schema_type(dict_of_ndarrays):
     schema = _infer_schema(dict_of_ndarrays)
     assert ["float64"] * 4 == schema.numpy_types()
@@ -744,7 +752,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("str_param", DataType.string, "str_a", None)
     assert spec.to_dict() == {
         "name": "str_param",
-        "dtype": "string",
+        "type": "string",
         "default": "str_a",
         "shape": None,
     }
@@ -753,7 +761,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("str_array", DataType.string, ["str_a", "str_b"], (-1,))
     assert spec.to_dict() == {
         "name": "str_array",
-        "dtype": "string",
+        "type": "string",
         "default": ["str_a", "str_b"],
         "shape": (-1,),
     }
@@ -762,7 +770,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("int_param", DataType.integer, np.int32(1), None)
     assert spec.to_dict() == {
         "name": "int_param",
-        "dtype": "integer",
+        "type": "integer",
         "default": 1,
         "shape": None,
     }
@@ -771,7 +779,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("int_array", DataType.integer, [np.int32(1), np.int32(2)], (-1,))
     assert spec.to_dict() == {
         "name": "int_array",
-        "dtype": "integer",
+        "type": "integer",
         "default": [1, 2],
         "shape": (-1,),
     }
@@ -780,7 +788,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("bool_param", DataType.boolean, True, None)
     assert spec.to_dict() == {
         "name": "bool_param",
-        "dtype": "boolean",
+        "type": "boolean",
         "default": True,
         "shape": None,
     }
@@ -789,7 +797,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("bool_array", DataType.boolean, [True, False], (-1,))
     assert spec.to_dict() == {
         "name": "bool_array",
-        "dtype": "boolean",
+        "type": "boolean",
         "default": [True, False],
         "shape": (-1,),
     }
@@ -798,7 +806,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("double_param", DataType.double, 1.0, None)
     assert spec.to_dict() == {
         "name": "double_param",
-        "dtype": "double",
+        "type": "double",
         "default": 1.0,
         "shape": None,
     }
@@ -807,7 +815,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("double_array", DataType.double, [1.0, 2.0], (-1,))
     assert spec.to_dict() == {
         "name": "double_array",
-        "dtype": "double",
+        "type": "double",
         "default": [1.0, 2.0],
         "shape": (-1,),
     }
@@ -816,7 +824,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("float_param", DataType.float, np.float32(0.1), None)
     assert spec.to_dict() == {
         "name": "float_param",
-        "dtype": "float",
+        "type": "float",
         "default": float(np.float32(0.1)),
         "shape": None,
     }
@@ -825,7 +833,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("float_array", DataType.float, [np.float32(0.1), np.float32(0.2)], (-1,))
     assert spec.to_dict() == {
         "name": "float_array",
-        "dtype": "float",
+        "type": "float",
         "default": [float(np.float32(0.1)), float(np.float32(0.2))],
         "shape": (-1,),
     }
@@ -834,7 +842,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("long_param", DataType.long, 100, None)
     assert spec.to_dict() == {
         "name": "long_param",
-        "dtype": "long",
+        "type": "long",
         "default": 100,
         "shape": None,
     }
@@ -843,7 +851,7 @@ def test_param_spec_to_and_from_dict():
     spec = ParamSpec("long_array", DataType.long, [100, 200], (-1,))
     assert spec.to_dict() == {
         "name": "long_array",
-        "dtype": "long",
+        "type": "long",
         "default": [100, 200],
         "shape": (-1,),
     }
@@ -854,7 +862,7 @@ def test_param_spec_to_and_from_dict():
     )
     assert spec.to_dict() == {
         "name": "datetime_param",
-        "dtype": "datetime",
+        "type": "datetime",
         "default": "2023-06-26T00:00:00",
         "shape": None,
     }
@@ -868,11 +876,24 @@ def test_param_spec_to_and_from_dict():
     )
     assert spec.to_dict() == {
         "name": "datetime_array",
-        "dtype": "datetime",
+        "type": "datetime",
         "default": ["2023-06-26T00:00:00", "2023-06-27T00:00:00"],
         "shape": (-1,),
     }
     assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+
+def test_param_spec_from_dict_backward_compatibility():
+    spec = ParamSpec("str_param", DataType.string, "str_a", None)
+    spec_json = json.dumps(
+        {
+            "name": "str_param",
+            "dtype": "string",
+            "default": "str_a",
+            "shape": None,
+        }
+    )
+    assert ParamSpec.from_json_dict(**json.loads(spec_json)) == spec
 
 
 def test_infer_param_schema():
@@ -959,3 +980,10 @@ def test_infer_param_schema():
             "to be 1D array or scalar, got dict'))"
         )
     )
+
+
+def test_infer_param_schema_with_errors():
+    with pytest.raises(
+        MlflowException, match=r"Expected parameters to be 1D array or scalar, got Series"
+    ):
+        _infer_param_schema({"a": pd.Series([1, 2, 3])})

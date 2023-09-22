@@ -153,7 +153,14 @@ def _infer_schema(data: Any) -> Schema:
         isinstance(data, list)
         and all(isinstance(element, dict) for element in data)
         and all(isinstance(key, str) for d in data for key in d)
-        and all(isinstance(value, str) for d in data for value in d.values())
+        # NB: We allow both str and List[str] as values in the dictionary
+        # e.g. [{'output': 'some sentence', 'ids': ['id1', 'id2']}]
+        and all(
+            isinstance(value, str)
+            or (isinstance(value, list) and all(isinstance(v, str) for v in value))
+            for d in data
+            for value in d.values()
+        )
     ):
         first_keys = data[0].keys()
         if all(d.keys() == first_keys for d in data):
@@ -473,7 +480,7 @@ def _infer_schema_from_type_hint(type_hint, examples=None):
 
 
 def _infer_type_and_shape(value):
-    if isinstance(value, (list, np.ndarray, pd.Series)):
+    if isinstance(value, (list, np.ndarray)):
         ndim = np.array(value).ndim
         if ndim != 1:
             raise MlflowException.invalid_parameter_value(

@@ -208,10 +208,11 @@ class _Example:
                     f"but got '{type(input_example)}'",
                 )
             self.data = _handle_dataframe_input(self._inference_data)
+            orient = "split" if "columns" in self.data else "values"
             self.info = {
                 "artifact_path": example_filename,
                 "type": "dataframe",
-                "pandas_orient": "split",
+                "pandas_orient": orient,
             }
 
     def save(self, parent_dir_path: str):
@@ -695,6 +696,25 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                     for value in pf_input.values()
                 ):
                     pf_input = pd.DataFrame([pf_input])
+                elif isinstance(pf_input, dict) and any(
+                    isinstance(value, np.ndarray) and value.ndim > 1 for value in pf_input.values()
+                ):
+                    # Pandas DataFrames can't be constructed with embedded multi-dimensional
+                    # numpy arrays. Accordingly, we convert any multi-dimensional numpy
+                    # arrays to lists before constructing a DataFrame. This is safe because ColSpec
+                    # model signatures do not support array columns, so subsequent validation logic
+                    # will result in a clear "incompatible input types" exception. This is
+                    # preferable to a pandas DataFrame construction error
+                    pf_input = pd.DataFrame(
+                        {
+                            key: (
+                                value.tolist()
+                                if (isinstance(value, np.ndarray) and value.ndim > 1)
+                                else value
+                            )
+                            for key, value in pf_input.items()
+                        }
+                    )
                 else:
                     pf_input = pd.DataFrame(pf_input)
             except Exception as e:
@@ -883,8 +903,7 @@ def get_model_version_from_model_uri(model_uri):
     )
     client = MlflowClient(registry_uri=databricks_profile_uri)
     (name, version) = get_model_name_and_version(client, model_uri)
-    model_version = client.get_model_version(name, version)
-    return model_version
+    return client.get_model_version(name, version)
 
 
 def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[ParamSchema]):

@@ -17,8 +17,7 @@ from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 _logger = logging.getLogger(__name__)
 
 # Import autologging utilities used by this module
-from mlflow.utils.autologging_utils.client import *
-from mlflow.utils.autologging_utils.events import *
+from mlflow.utils.autologging_utils.client import MlflowAutologgingQueueingClient  # noqa: F401
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
     set_mlflow_events_and_warnings_behavior_globally,
@@ -28,10 +27,17 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (
 # Wildcard import other autologging utilities (e.g. safety utilities, event logging utilities) used
 # in autologging integration implementations, which reference them via the
 # `mlflow.utils.autologging_utils` module
-from mlflow.utils.autologging_utils.safety import *
-from mlflow.utils.autologging_utils.safety import (
+from mlflow.utils.autologging_utils.safety import (  # noqa: F401
+    ExceptionSafeAbstractClass,
+    ExceptionSafeClass,
+    PatchFunction,
+    exception_safe_function_for_class,
+    is_testing,
+    picklable_exception_safe_function,
     revert_patches,
+    safe_patch,
     update_wrapper_extended,
+    with_managed_run,
 )
 from mlflow.utils.autologging_utils.versioning import (
     FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
@@ -96,8 +102,7 @@ def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
         }
     )
     # Filter out any parameters that should not be logged, as specified by the `unlogged` parameter
-    params_to_log = {key: value for key, value in params_to_log.items() if key not in unlogged}
-    return params_to_log
+    return {key: value for key, value in params_to_log.items() if key not in unlogged}
 
 
 def log_fn_args_as_params(fn, args, kwargs, unlogged=None):
