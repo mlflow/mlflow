@@ -336,15 +336,15 @@ def _infer_signature_from_input_example(
         `wrapped_model`.
     """
     try:
-        # We shouldn't do this at least for lists --> it produces wrong results
-        # ["input"] --> the output pandas dataframe contains column names in the signature
-        # ["input1", "input2", "input3"] --> signature would become [0: string, 1: string, 2: string]
-        input_example = _Example(input_example)
-        # Copy the input example so that it is not mutated by predict()
-        input_ex = deepcopy(input_example.inference_data)
-        input_schema = _infer_schema(input_ex)
+        if isinstance(input_example, list) and all(isinstance(x, str) for x in input_example):
+            input_schema = _infer_schema(input_example)
+        else:
+            input_example = _Example(input_example)
+            # Copy the input example so that it is not mutated by predict()
+            input_example = deepcopy(input_example.inference_data)
+            input_schema = _infer_schema(input_example)
         params_schema = _infer_param_schema(params_example) if params_example else None
-        prediction = wrapped_model.predict(input_ex, params=params_example)
+        prediction = wrapped_model.predict(input_example, params=params_example)
         # For column-based inputs, 1D numpy arrays likely signify row-based predictions. Thus, we
         # convert them to a Pandas series for inferring as a single ColSpec Schema.
         if (

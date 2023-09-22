@@ -147,16 +147,6 @@ class _Example:
                     if isinstance(x, np.ndarray) and len(x.shape) > 1:
                         raise TensorsNotSupportedException(f"Row '{i}' has shape {x.shape}")
                 if all(_is_scalar(x) for x in input_ex):
-                    # >>> input_ex = ["input1", "input2", "input3"]
-                    # >>> input_ex = pd.DataFrame([input_ex], columns=range(len(input_ex)))
-                    # >>> input_ex
-                    #         0       1       2
-                    # 0  input1  input2  input3
-                    # >>> input_ex.to_dict("split")
-                    # {'index': [0], 'columns': [0, 1, 2], 'data': [['input1', 'input2', 'input3']]}
-                    # >>> pd.DataFrame.from_dict({'data': [['input1', 'input2', 'input3']]})
-                    #                     data
-                    # 0  [input1, input2, input3]
                     input_ex = pd.DataFrame([input_ex], columns=range(len(input_ex)))
                 else:
                     input_ex = pd.DataFrame(input_ex)
