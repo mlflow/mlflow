@@ -1,4 +1,6 @@
 import json
+import os
+import time
 from contextlib import contextmanager
 from unittest import mock
 
@@ -99,3 +101,49 @@ def _mock_openai_request():
             return original(*args, **kwargs)
 
     return _mock_request(new=request)
+
+
+class _OAITokenHolder:
+    def __init__(self, api_type):
+        self.api_type = api_type
+        self._api_token = None
+        self._credential = None
+
+        if self.api_type in ("azure_ad", "azuread"):
+            try:
+                from azure.identity import DefaultAzureCredential
+            except ImportError:
+                raise mlflow.MlflowException(
+                    "Using API type ``azure_ad`` or ``azuread`` requires the package"
+                    " ``azure-identity`` to be installed."
+                )
+            self._credential = DefaultAzureCredential()
+
+    def validate(self, logger=None):
+        """
+        Validates the token or API key configured for accessing the OpenAI resource.
+        """
+        import openai
+
+        if self.api_type in ("azure_ad", "azuread"):
+            if not self._api_token or self._api_token.expires_on < time.time() + 60:
+                if logger:
+                    logger.debug(
+                        "Token for Azure AD is either expired or invalid. New token to acquire."
+                    )
+                self._api_token = self._credential.get_token(
+                    "https://cognitiveservices.azure.com/.default"
+                )
+                if not self._api_token:
+                    raise mlflow.MlflowException(
+                        "Unable to acquire a valid Azure AD token for the resource."
+                    )
+                openai.api_key = self._api_token.token
+            self.api_secret_validated = True
+            if logger:
+                logger.debug("Token or key validated correctly.")
+        else:
+            if not (openai.api_key or "OPENAI_API_KEY" in os.environ):
+                raise mlflow.MlflowException(
+                    "OpenAI API key must be set in the ``OPENAI_API_KEY`` environment variable."
+                )

@@ -40,6 +40,7 @@ from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_OPENAI_SECRET_S
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
+from mlflow.openai.utils import _OAITokenHolder
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -161,6 +162,30 @@ def _get_task_name(task):
         raise mlflow.MlflowException(
             f"Unsupported task type: {type(task)}", error_code=INVALID_PARAMETER_VALUE
         )
+
+
+def _get_api_config() -> Dict[str, Any]:
+    """
+    Gets the parameters and configuration of the OpenAI API connected to.
+    """
+    import openai
+
+    config = {}
+    api_type = os.getenv(_OpenAIEnvVar.OPENAI_API_TYPE.value, openai.api_type)
+    if api_type in ("azure", "azure_ad", "azuread"):
+        config["batch_size"] = 16
+        config["max_requests_per_minute"] = 3_500
+        config["max_tokens_per_minute"] = 60_000
+    else:
+        # The maximum batch size is 2048:
+        # https://github.com/openai/openai-python/blob/b82a3f7e4c462a8a10fa445193301a3cefef9a4a/openai/embeddings_utils.py#L43
+        # We use a smaller batch size to be safe.
+        config["batch_size"] = 1024
+        config["max_requests_per_minute"] = 3_500
+        config["max_tokens_per_minute"] = 90_000
+    config["api_type"] = api_type
+
+    return config
 
 
 def _get_openai_package_version():
@@ -579,6 +604,8 @@ class _OpenAIWrapper:
             )
         self.model = model
         self.task = task
+        self.api_config = _get_api_config()
+        self.api_token = _OAITokenHolder(self.api_config["api_type"])
 
         self.messages = None
         self.variables = None
@@ -606,6 +633,8 @@ class _OpenAIWrapper:
             return data[self.variables].to_dict(orient="records")
 
     def _predict_chat(self, data):
+        import openai
+
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         if self.variables:
@@ -625,27 +654,43 @@ class _OpenAIWrapper:
             }
             for messages in messages_list
         ]
-        results = process_api_requests(requests)
+        results = process_api_requests(
+            requests,
+            openai.ChatCompletion,
+            api_token=self.api_token,
+            max_requests_per_minute=self.api_config["max_requests_per_minute"],
+            max_tokens_per_minute=self.api_config["max_tokens_per_minute"],
+        )
         return [r["choices"][0]["message"]["content"] for r in results]
 
     def _predict_embeddings(self, data):
         import openai
 
+        from mlflow.openai.api_request_parallel_processor import process_api_requests
+
         kwargs = self.model.copy()
         kwargs.pop("task", None)
         first_string_column = _first_string_column(data)
         texts = data[first_string_column].tolist()
-        res = []
-        # The maximum batch size is 2048:
-        # https://github.com/openai/openai-python/blob/b82a3f7e4c462a8a10fa445193301a3cefef9a4a/openai/embeddings_utils.py#L43
-        # We use a smaller batch size to be safe.
-        batch_size = 1024
-        for i in range(0, len(texts), batch_size):
-            res.extend(
-                d["embedding"]
-                for d in openai.Embedding.create(input=texts[i : i + batch_size], **kwargs)["data"]
-            )
-        return res
+        batch_size = self.api_config["batch_size"]
+        _logger.debug(
+            f"Requests are being batched by {batch_size} samples. Change this by using parameters."
+        )
+        requests = [
+            {
+                "input": texts[i : i + batch_size],
+                **kwargs,
+            }
+            for i in range(0, len(texts), batch_size)
+        ]
+        results = process_api_requests(
+            requests,
+            openai.Embedding,
+            api_token=self.api_token,
+            max_requests_per_minute=self.api_config["max_requests_per_minute"],
+            max_tokens_per_minute=self.api_config["max_tokens_per_minute"],
+        )
+        return [row["embedding"] for batch in results for row in batch["data"]]
 
     def predict(
         self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
@@ -660,10 +705,7 @@ class _OpenAIWrapper:
         :return: Model predictions.
         """
 
-        if _OpenAIEnvVar.OPENAI_API_KEY.value not in os.environ:
-            raise mlflow.MlflowException(
-                "OpenAI API key must be set in the OPENAI_API_KEY environment variable."
-            )
+        self.api_token.validate()
 
         if self.task == "chat.completions":
             return self._predict_chat(data)
