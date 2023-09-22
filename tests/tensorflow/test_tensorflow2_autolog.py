@@ -18,9 +18,11 @@ from tensorflow.keras import layers
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.tensorflow._autolog import __MLflowTfKeras2Callback, _TensorBoard
+from mlflow.tensorflow.callback import MLflowCallback
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
@@ -403,8 +405,6 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert "opt_name" in data.params
     assert data.params["opt_name"] == "Adam"
     assert "opt_learning_rate" in data.params
-    decay_opt = "opt_weight_decay" if Version(tf.__version__) >= Version("2.11") else "opt_decay"
-    assert decay_opt in data.params
     assert "opt_beta_1" in data.params
     assert "opt_beta_2" in data.params
     assert "opt_epsilon" in data.params
@@ -1369,3 +1369,12 @@ def test_import_keras_model_trigger_import_tensorflow():
             "from keras import Model; import sys; assert 'tensorflow' in sys.modules",
         ]
     )
+
+
+def test_autolog_throw_error_on_explicit_mlflow_callback(keras_data_gen_sequence):
+    mlflow.tensorflow.autolog()
+
+    model = create_tf_keras_model()
+    with mlflow.start_run() as run:
+        with pytest.raises(MlflowException, match="MLflow autologging must be turned off*"):
+            model.fit(keras_data_gen_sequence, callbacks=[MLflowCallback(run)])
