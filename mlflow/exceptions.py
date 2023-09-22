@@ -56,7 +56,11 @@ HTTP_STATUS_TO_ERROR_CODE[500] = ErrorCode.Name(INTERNAL_ERROR)
 
 
 def get_error_code(http_status):
-    return ErrorCode.Value(HTTP_STATUS_TO_ERROR_CODE.get(http_status, ErrorCode.Name(INTERNAL_ERROR)))
+    return ErrorCode.Value(
+        HTTP_STATUS_TO_ERROR_CODE.get(
+            http_status, ErrorCode.Name(INTERNAL_ERROR)
+        )
+    )
 
 
 class MlflowException(Exception):
@@ -87,7 +91,10 @@ class MlflowException(Exception):
         super().__init__(message)
 
     def serialize_as_json(self):
-        exception_dict = {"error_code": self.error_code, "message": self.message}
+        exception_dict = {
+            "error_code": self.error_code,
+            "message": self.message,
+        }
         exception_dict.update(self.json_kwargs)
         return json.dumps(exception_dict)
 
