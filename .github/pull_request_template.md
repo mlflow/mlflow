@@ -1,6 +1,6 @@
 ### Related Issues/PRs
 
-<!-- Uncomment 'Resolve' if this PR can close the linked issue(s) -->
+<!-- Uncomment 'Resolve' if this PR can close the linked items. -->
 <!-- Resolve --> #xxx
 
 ### What changes are proposed in this pull request?
