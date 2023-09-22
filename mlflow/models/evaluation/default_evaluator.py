@@ -511,8 +511,8 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics, metri
     :return: MetricValue
     """
     exception_header = (
-        f"Custom metric '{custom_metric_tuple.name}' at index {custom_metric_tuple.index}"
-        " in the `custom_metrics` parameter"
+        f"Did not log custom metric '{custom_metric_tuple.name}' at index "
+        f"{custom_metric_tuple.index} in the `custom_metrics` parameter because it"
     )
 
     metrics_type = get_type_hints(custom_metric_tuple.function).get("metrics")

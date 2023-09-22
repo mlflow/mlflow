@@ -1385,7 +1385,8 @@ def test_evaluate_custom_metric_incorrect_return_formats():
             _CustomMetric(dummy_fn, "dummy_fn", 0), eval_df, builtin_metrics, metrics
         )
         mock_warning.assert_called_once_with(
-            "Custom metric 'dummy_fn' at index 0 in the `custom_metrics` parameter returned None."
+            "Did not log custom metric 'dummy_fn' at index 0 in the `custom_metrics` parameter"
+            " because it returned None."
         )
 
     def incorrect_return_type(*_):
@@ -1399,8 +1400,8 @@ def test_evaluate_custom_metric_incorrect_return_formats():
             metrics,
         )
         mock_warning.assert_called_once_with(
-            f"Custom metric '{incorrect_return_type.__name__}' at index 0 in the `custom_metrics`"
-            " parameter did not return a MetricValue."
+            f"Did not log custom metric '{incorrect_return_type.__name__}' at index 0 in the "
+            "`custom_metrics` parameter because it did not return a MetricValue."
         )
 
     def non_list_scores(*_):
@@ -1414,8 +1415,8 @@ def test_evaluate_custom_metric_incorrect_return_formats():
             metrics,
         )
         mock_warning.assert_called_once_with(
-            f"Custom metric '{non_list_scores.__name__}' at index 0 in the `custom_metrics`"
-            " parameter must return MetricValue with scores as a list."
+            f"Did not log custom metric '{non_list_scores.__name__}' at index 0 in the "
+            "`custom_metrics` parameter because it must return MetricValue with scores as a list."
         )
 
     def non_numeric_scores(*_):
@@ -1429,8 +1430,8 @@ def test_evaluate_custom_metric_incorrect_return_formats():
             metrics,
         )
         mock_warning.assert_called_once_with(
-            f"Custom metric '{non_numeric_scores.__name__}' at index 0 in the `custom_metrics`"
-            " parameter must return MetricValue with numeric scores."
+            f"Did not log custom metric '{non_numeric_scores.__name__}' at index 0 in the "
+            "`custom_metrics` parameter because it must return MetricValue with numeric scores."
         )
 
     def non_list_justifications(*_):
@@ -1444,8 +1445,9 @@ def test_evaluate_custom_metric_incorrect_return_formats():
             metrics,
         )
         mock_warning.assert_called_once_with(
-            f"Custom metric '{non_list_justifications.__name__}' at index 0 in the `custom_metrics`"
-            " parameter must return MetricValue with justifications as a list."
+            f"Did not log custom metric '{non_list_justifications.__name__}' at index 0 in the "
+            "`custom_metrics` parameter because it must return MetricValue with justifications "
+            "as a list."
         )
 
     def non_str_justifications(*_):
@@ -1459,8 +1461,9 @@ def test_evaluate_custom_metric_incorrect_return_formats():
             metrics,
         )
         mock_warning.assert_called_once_with(
-            f"Custom metric '{non_str_justifications.__name__}' at index 0 in the `custom_metrics`"
-            " parameter must return MetricValue with string justifications."
+            f"Did not log custom metric '{non_str_justifications.__name__}' at index 0 in the "
+            "`custom_metrics` parameter because it must return MetricValue with string "
+            "justifications."
         )
 
     def non_dict_aggregates(*_):
@@ -1474,8 +1477,9 @@ def test_evaluate_custom_metric_incorrect_return_formats():
             metrics,
         )
         mock_warning.assert_called_once_with(
-            f"Custom metric '{non_dict_aggregates.__name__}' at index 0 in the `custom_metrics`"
-            " parameter must return MetricValue with aggregate_results as a dict."
+            f"Did not log custom metric '{non_dict_aggregates.__name__}' at index 0 in the "
+            "`custom_metrics` parameter because it must return MetricValue with aggregate_results "
+            "as a dict."
         )
 
     def wrong_type_aggregates(*_):
@@ -1489,9 +1493,9 @@ def test_evaluate_custom_metric_incorrect_return_formats():
             metrics,
         )
         mock_warning.assert_called_once_with(
-            f"Custom metric '{wrong_type_aggregates.__name__}' at index 0 in the `custom_metrics`"
-            " parameter must return MetricValue with aggregate_results with str keys and numeric "
-            "values."
+            f"Did not log custom metric '{wrong_type_aggregates.__name__}' at index 0 in the "
+            "`custom_metrics` parameter because it must return MetricValue with aggregate_results "
+            "with str keys and numeric values."
         )
 
 
