@@ -113,7 +113,7 @@ auth_config = read_auth_config()
 store = SqlAlchemyStore()
 
 
-UNPROTECTED_ROUTES = [CREATE_USER, SIGNUP]
+UNPROTECTED_ROUTES = [SIGNUP]
 
 
 def is_unprotected_route(path: str) -> bool:
@@ -315,6 +315,11 @@ def validate_can_read_user():
     return username_is_sender()
 
 
+def validate_can_create_user():
+    # only admins can create user, but admins won't reach this validator
+    return False
+
+
 def validate_can_update_user_password():
     return username_is_sender()
 
@@ -386,6 +391,7 @@ BEFORE_REQUEST_VALIDATORS = {
 BEFORE_REQUEST_VALIDATORS.update(
     {
         (GET_USER, "GET"): validate_can_read_user,
+        (CREATE_USER, "POST"): validate_can_create_user,
         (UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
         (UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
         (DELETE_USER, "DELETE"): validate_can_delete_user,
