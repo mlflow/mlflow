@@ -11,7 +11,8 @@ from mlflow.utils.os import is_windows
 from mlflow.utils.validation import _validate_db_type_string
 
 _INVALID_DB_URI_MSG = (
-    "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for " "format specifications."
+    "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for "
+    "format specifications."
 )
 
 _DBFS_FUSE_PREFIX = "/dbfs/"
@@ -47,7 +48,11 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
     if scheme == "" or scheme == "file":
         return True
 
-    if is_windows() and len(scheme) == 1 and scheme.lower() == pathlib.Path(uri).drive.lower()[0]:
+    if (
+        is_windows()
+        and len(scheme) == 1
+        and scheme.lower() == pathlib.Path(uri).drive.lower()[0]
+    ):
         return True
 
     return False
@@ -75,12 +80,17 @@ def is_fuse_uri(uri):
     """
     Validates whether a provided URI is directed to a FUSE mount point
     """
-    return any(uri.startswith(x) for x in [_DBFS_FUSE_PREFIX, _DBFS_HDFS_URI_PREFIX])
+    return any(
+        uri.startswith(x) for x in [_DBFS_FUSE_PREFIX, _DBFS_HDFS_URI_PREFIX]
+    )
 
 
 def is_databricks_unity_catalog_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == _DATABRICKS_UNITY_CATALOG_SCHEME or uri == _DATABRICKS_UNITY_CATALOG_SCHEME
+    return (
+        scheme == _DATABRICKS_UNITY_CATALOG_SCHEME
+        or uri == _DATABRICKS_UNITY_CATALOG_SCHEME
+    )
 
 
 def construct_db_uri_from_profile(profile):
@@ -94,15 +104,18 @@ def validate_db_scope_prefix_info(scope, prefix):
     for c in ["/", ":", " "]:
         if c in scope:
             raise MlflowException(
-                f"Unsupported Databricks profile name: {scope}." f" Profile names cannot contain '{c}'."
+                f"Unsupported Databricks profile name: {scope}."
+                f" Profile names cannot contain '{c}'."
             )
         if prefix and c in prefix:
             raise MlflowException(
-                f"Unsupported Databricks profile key prefix: {prefix}." f" Key prefixes cannot contain '{c}'."
+                f"Unsupported Databricks profile key prefix: {prefix}."
+                f" Key prefixes cannot contain '{c}'."
             )
     if prefix is not None and prefix.strip() == "":
         raise MlflowException(
-            f"Unsupported Databricks profile key prefix: '{prefix}'." " Key prefixes cannot be empty."
+            f"Unsupported Databricks profile key prefix: '{prefix}'."
+            " Key prefixes cannot be empty."
         )
 
 
@@ -112,7 +125,10 @@ def get_db_info_from_uri(uri):
     returns None.
     """
     parsed_uri = urllib.parse.urlparse(uri)
-    if parsed_uri.scheme == "databricks" or parsed_uri.scheme == _DATABRICKS_UNITY_CATALOG_SCHEME:
+    if (
+        parsed_uri.scheme == "databricks"
+        or parsed_uri.scheme == _DATABRICKS_UNITY_CATALOG_SCHEME
+    ):
         # netloc should not be an empty string unless URI is formatted incorrectly.
         if parsed_uri.netloc == "":
             raise MlflowException(
@@ -133,7 +149,9 @@ def get_db_info_from_uri(uri):
     return None, None
 
 
-def get_databricks_profile_uri_from_artifact_uri(uri, result_scheme="databricks"):
+def get_databricks_profile_uri_from_artifact_uri(
+    uri, result_scheme="databricks"
+):
     """
     Retrieves the netloc portion of the URI as a ``databricks://`` or `databricks-uc://` URI,
     if it is a proper Databricks profile specification, e.g.
@@ -161,11 +179,15 @@ def remove_databricks_profile_info_from_artifact_uri(artifact_uri):
     return urllib.parse.urlunparse(parsed._replace(netloc=""))
 
 
-def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile_uri):
+def add_databricks_profile_info_to_artifact_uri(
+    artifact_uri, databricks_profile_uri
+):
     """
     Throws an exception if ``databricks_profile_uri`` is not valid.
     """
-    if not databricks_profile_uri or not is_databricks_uri(databricks_profile_uri):
+    if not databricks_profile_uri or not is_databricks_uri(
+        databricks_profile_uri
+    ):
         return artifact_uri
     artifact_uri_parsed = urllib.parse.urlparse(artifact_uri)
     # Do not overwrite the authority section if there is already one
@@ -211,7 +233,7 @@ def get_uri_scheme(uri_or_path):
     scheme = urllib.parse.urlparse(uri_or_path).scheme
     if any(scheme.lower().startswith(db) for db in DATABASE_ENGINES):
         return extract_db_type_from_uri(uri_or_path)
-    return "azureml"
+    return scheme
 
 
 def extract_and_normalize_path(uri):
@@ -255,7 +277,9 @@ def append_to_uri_path(uri, *paths):
         prefix = parsed_uri.scheme + ":"
         parsed_uri = parsed_uri._replace(scheme="")
 
-    new_uri_path = _join_posixpaths_and_append_absolute_suffixes(parsed_uri.path, path)
+    new_uri_path = _join_posixpaths_and_append_absolute_suffixes(
+        parsed_uri.path, path
+    )
     new_parsed_uri = parsed_uri._replace(path=new_uri_path)
     return prefix + urllib.parse.urlunparse(new_parsed_uri)
 
@@ -331,12 +355,15 @@ def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
                      is "dbfs:/" (e.g. Databricks)
     :return A DBFS FUSE-style path, e.g. "/dbfs/my-directory"
     """
-    if not is_valid_dbfs_uri(dbfs_uri) and dbfs_uri == posixpath.abspath(dbfs_uri):
+    if not is_valid_dbfs_uri(dbfs_uri) and dbfs_uri == posixpath.abspath(
+        dbfs_uri
+    ):
         # Convert posixpaths (e.g. "/tmp/mlflow") to DBFS URIs by adding "dbfs:/" as a prefix
         dbfs_uri = "dbfs:" + dbfs_uri
     if not dbfs_uri.startswith(_DBFS_HDFS_URI_PREFIX):
         raise MlflowException(
-            f"Path '{dbfs_uri}' did not start with expected DBFS URI " f"prefix '{_DBFS_HDFS_URI_PREFIX}'",
+            f"Path '{dbfs_uri}' did not start with expected DBFS URI "
+            f"prefix '{_DBFS_HDFS_URI_PREFIX}'",
         )
 
     return _DBFS_FUSE_PREFIX + dbfs_uri[len(_DBFS_HDFS_URI_PREFIX) :]
