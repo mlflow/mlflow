@@ -213,7 +213,7 @@ by converting it to a list. Bytes are base64-encoded. When the ``signature`` par
 ``None``, the input example is used to infer a model signature.
 """,
         "params_example": """
-The params example is used as a hit of what parameters could be used for model
+The params example is used as a hint of what parameters could be used for model
 inference. It only accepts dictionary as input, and supported types are scalar
 values and 1D array. When ``signature`` parameter is ``None``, the params example
 is used together with input example to infer a model signature.
