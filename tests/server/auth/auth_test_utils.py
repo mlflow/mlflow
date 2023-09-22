@@ -13,7 +13,7 @@ ADMIN_PASSWORD = auth_config.admin_password
 def create_user(tracking_uri):
     username = random_str()
     password = random_str()
-    _send_rest_tracking_post_request(
+    response = _send_rest_tracking_post_request(
         tracking_uri,
         "/api/2.0/mlflow/users/create",
         {
@@ -22,6 +22,7 @@ def create_user(tracking_uri):
         },
         auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
     )
+    response.raise_for_status()
     return username, password
 
 
