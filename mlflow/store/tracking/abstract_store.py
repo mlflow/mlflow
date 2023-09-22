@@ -278,7 +278,9 @@ class AbstractStore:
         self.log_batch_async(run_id, metrics=[], params=[], tags=[tag])
 
     @abstractmethod
-    def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
+    def get_metric_history(
+        self, run_id, metric_key, max_results=None, page_token=None
+    ):
         """
         Return a list of metric objects corresponding to all values logged for a given metric
         within a run.
@@ -326,11 +328,26 @@ class AbstractStore:
             implementations may not support pagination and thus the returned token would not be
             meaningful in such cases.
         """
-        runs, token = self._search_runs(experiment_ids, filter_string, run_view_type, max_results, order_by, page_token)
+        runs, token = self._search_runs(
+            experiment_ids,
+            filter_string,
+            run_view_type,
+            max_results,
+            order_by,
+            page_token,
+        )
         return PagedList(runs, token)
 
     @abstractmethod
-    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token):
+    def _search_runs(
+        self,
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        page_token,
+    ):
         """
         Return runs that match the given list of search expressions within the experiments, as
         well as a pagination token (indicating where the next page should start). Subclasses of
@@ -393,7 +410,9 @@ class AbstractStore:
 
     @abstractmethod
     @experimental
-    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+    def log_inputs(
+        self, run_id: str, datasets: Optional[List[DatasetInput]] = None
+    ):
         """
         Log inputs, such as datasets, to the specified run.
 
