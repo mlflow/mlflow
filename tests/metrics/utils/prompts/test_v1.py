@@ -1,7 +1,7 @@
 import re
 
 from mlflow.metrics.base import EvaluationExample
-from mlflow.metrics.utils.prompts.v1 import EvaluationModel
+from mlflow.metrics.genai.prompts.v1 import EvaluationModel
 
 
 def test_evaluation_model_output():

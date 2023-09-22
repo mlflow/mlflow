@@ -8,20 +8,23 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.schemas.completions import Candidate, Metadata, ResponsePayload
 from mlflow.metrics.base import EvaluationExample
-from mlflow.metrics.utils import correctness, model_utils
-from mlflow.metrics.utils.make_genai_metric import _format_variable_string, make_genai_metric
-from mlflow.metrics.utils.prompts.v1 import CorrectnessMetric
+from mlflow.metrics.genai import correctness, model_utils
+from mlflow.metrics.genai.make_genai_metric import _format_variable_string, make_genai_metric
+from mlflow.metrics.genai.prompts.v1 import CorrectnessMetric
+
+openai_justification1 = (
+    "The provided output mostly answers the question, but it is missing or hallucinating on "
+    "some critical aspects.  Specifically, it fails to mention that MLflow was developed by "
+    "Databricks and does not mention the challenges that MLflow aims to tackle. Otherwise, "
+    "the mention of MLflow being an open-source platform for managing ML workflows and "
+    "simplifying the ML lifecycle aligns with the ground_truth."
+)
 
 # Example properly formatted response from OpenAI
 properly_formatted_openai_response1 = ResponsePayload(
     candidates=[
         Candidate(
-            text='{\n  "Score": 3,\n  "Justification": "The provided output mostly answers the '
-            "question, but it is missing or hallucinating on some critical aspects.  "
-            "Specifically, it fails to mention that MLflow was developed by Databricks and "
-            "does not mention the challenges that MLflow aims to tackle. Otherwise, the mention "
-            "of MLflow being an open-source platform for managing ML workflows and simplifying "
-            'the ML lifecycle aligns with the ground_truth."\n}',
+            text='{\n  "Score": 3,\n  "Justification": ' f"{openai_justification1}" "\n}",
             metadata={"finish_reason": "stop"},
         )
     ],
@@ -32,14 +35,6 @@ properly_formatted_openai_response1 = ResponsePayload(
         model="gpt-3.5-turbo-0613",
         route_type="llm/v1/completions",
     ),
-)
-
-openai_justification1 = (
-    "The provided output mostly answers the question, but it is missing or hallucinating on "
-    "some critical aspects.  Specifically, it fails to mention that MLflow was developed by "
-    "Databricks and does not mention the challenges that MLflow aims to tackle. Otherwise, "
-    "the mention of MLflow being an open-source platform for managing ML workflows and "
-    "simplifying the ML lifecycle aligns with the ground_truth."
 )
 
 properly_formatted_openai_response2 = ResponsePayload(

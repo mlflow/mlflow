@@ -4,7 +4,7 @@ import pytest
 from requests import Response
 
 from mlflow.exceptions import MlflowException
-from mlflow.metrics.utils.model_utils import (
+from mlflow.metrics.genai.model_utils import (
     _parse_model_uri,
     score_model_on_payload,
 )

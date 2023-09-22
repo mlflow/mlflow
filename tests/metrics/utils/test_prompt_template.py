@@ -3,7 +3,7 @@ import re
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.metrics.utils.prompt_template import PromptTemplate
+from mlflow.metrics.genai.prompt_template import PromptTemplate
 
 
 def test_prompt_template_formatting():

@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 from mlflow.metrics.base import (
     EvaluationExample,
 )
-from mlflow.metrics.utils.prompt_template import (
+from mlflow.metrics.genai.prompt_template import (
     PromptTemplate,
 )
 
@@ -101,4 +101,4 @@ class CorrectnessMetric:
     )
 
     variables = ["ground_truth"]
-    parameters = {"temperature": 1.0}
+    parameters = {"temperature": 0.0}
