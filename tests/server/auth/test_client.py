@@ -17,13 +17,15 @@ from mlflow.server.auth.client import AuthServiceClient
 from mlflow.utils.os import is_windows
 
 from tests.helper_functions import random_str
-from tests.server.auth.auth_test_utils import User, create_user
+from tests.server.auth.auth_test_utils import (
+    ADMIN_PASSWORD,
+    ADMIN_USERNAME,
+    NEW_PERMISSION,
+    PERMISSION,
+    User,
+    create_user,
+)
 from tests.tracking.integration_test_utils import _init_server
-
-PERMISSION = "READ"
-NEW_PERMISSION = "EDIT"
-ADMIN_USERNAME = auth_config.admin_username
-ADMIN_PASSWORD = auth_config.admin_password
 
 
 @pytest.fixture(autouse=True)

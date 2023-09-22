@@ -1,7 +1,13 @@
 from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
+from mlflow.server.auth import auth_config
 
 from tests.helper_functions import random_str
 from tests.tracking.integration_test_utils import _send_rest_tracking_post_request
+
+PERMISSION = "READ"
+NEW_PERMISSION = "EDIT"
+ADMIN_USERNAME = auth_config.admin_username
+ADMIN_PASSWORD = auth_config.admin_password
 
 
 def create_user(tracking_uri):
@@ -14,6 +20,7 @@ def create_user(tracking_uri):
             "username": username,
             "password": password,
         },
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
     )
     return username, password
 
