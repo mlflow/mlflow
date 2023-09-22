@@ -542,7 +542,7 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics, metri
             raise MlflowException(
                 f"{exception_header} must return MetricValue with scores as a list."
             )
-        if any(not _is_numeric(score) for score in scores):
+        if any(not (_is_numeric(score) or score is None) for score in scores):
             raise MlflowException(
                 f"{exception_header} must return MetricValue with numeric scores."
             )
@@ -552,7 +552,7 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics, metri
             raise MlflowException(
                 f"{exception_header} must return MetricValue with justifications as a list."
             )
-        if any(not isinstance(justification, str) for justification in justifications):
+        if any(not (isinstance(jus, str) or jus is None) for jus in justifications):
             raise MlflowException(
                 f"{exception_header} must return MetricValue with string justifications."
             )
@@ -563,7 +563,10 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics, metri
                 f"{exception_header} must return MetricValue with aggregate_results as a dict."
             )
 
-        if any(not (isinstance(k, str) and _is_numeric(v)) for k, v in aggregates.items()):
+        if any(
+            not (isinstance(k, str) and (_is_numeric(v) or v is None))
+            for k, v in aggregates.items()
+        ):
             raise MlflowException(
                 (
                     f"{exception_header} must return MetricValue with aggregate_results with "
