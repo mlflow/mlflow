@@ -58,9 +58,7 @@ def _cached_get_s3_client(
 
         signature_version = UNSIGNED
 
-    c = Config(
-            signature_version=signature_version, s3={"addressing_style": addressing_style}
-        )
+    c = Config(signature_version=signature_version, s3={"addressing_style": addressing_style})
     print("c===", c, signature_version, {"addressing_style": addressing_style})
     return boto3.client(
         "s3",

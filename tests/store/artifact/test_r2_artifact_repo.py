@@ -28,7 +28,7 @@ def test_parse_r2_uri(r2_artifact_root):
 
 def test_s3_client_config_set_correctly(r2_artifact_root):
     with mock.patch(
-            'mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository._get_region_name'
+        "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository._get_region_name"
     ) as mock_method:
         mock_method.return_value = None
 
