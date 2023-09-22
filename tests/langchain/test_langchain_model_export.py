@@ -675,7 +675,10 @@ def load_db(persist_dir):
     sqlite_uri = f"sqlite:///{db_file_path}"
     return SQLDatabase.from_uri(sqlite_uri)
 
-
+@pytest.mark.skipif(
+    version.parse(langchain.__version__) < version.parse("0.0.297"),
+    reason="Saving SQLDatabaseChain chains requires langchain>=0.0.297",
+)
 def test_log_and_load_sql_database_chain(tmp_path):
     # Create the SQLDatabaseChain
     db_file_path = tmp_path / "my_database.db"
