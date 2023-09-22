@@ -6,37 +6,40 @@ import pandas as pd
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.schemas.completions import Candidate, Metadata, ResponsePayload
 from mlflow.metrics.base import EvaluationExample
 from mlflow.metrics.utils import model_utils
-from mlflow.metrics.utils.make_genai_metric import _format_variable_string, make_genai_metric
+from mlflow.metrics.utils.make_genai_metric import (
+    _extract_score_and_justification,
+    _format_variable_string,
+    make_genai_metric,
+)
 
 # Example properly formatted response from OpenAI
-properly_formatted_openai_response = ResponsePayload(
-    candidates=[
-        Candidate(
-            text='{\n  "Score": 3,\n  "Justification": "The provided output mostly answers the '
+properly_formatted_openai_response = {
+    "candidates": [
+        {
+            "text": '{\n  "Score": 3,\n  "Justification": "The provided output mostly answers the '
             "question, but it is missing or hallucinating on some critical aspects.  "
             "Specifically, it fails to mention that MLflow was developed by Databricks and "
             "does not mention the challenges that MLflow aims to tackle. Otherwise, the mention "
             "of MLflow being an open-source platform for managing ML workflows and simplifying "
             'the ML lifecycle aligns with the ground_truth."\n}',
-            metadata={"finish_reason": "stop"},
-        )
+            "metadata": {"finish_reason": "stop"},
+        }
     ],
-    metadata=Metadata(
-        input_tokens=569,
-        output_tokens=93,
-        total_tokens=662,
-        model="gpt-3.5-turbo-0613",
-        route_type="llm/v1/completions",
-    ),
-)
+    "metadata": {
+        "input_tokens": 569,
+        "output_tokens": 93,
+        "total_tokens": 662,
+        "model": "gpt-3.5-turbo-0613",
+        "route_type": "llm/v1/completions",
+    },
+}
 
-properly_formatted_openai_response2 = ResponsePayload(
-    candidates=[
-        Candidate(
-            text='{\n  "Score": 2,\n  "Justification": "The provided output gives a correct '
+properly_formatted_openai_response2 = {
+    "candidates": [
+        {
+            "text": '{\n  "Score": 2,\n  "Justification": "The provided output gives a correct '
             "and adequate explanation of what Apache Spark is, covering its main functions and "
             "components like Spark SQL, Spark Streaming, and MLlib. However, it misses a "
             "critical aspect, which is Spark's development as a response to the limitations "
@@ -45,23 +48,23 @@ properly_formatted_openai_response2 = ResponsePayload(
             "compared to previous technologies. Therefore, the answer mostly answers the "
             "question but is missing on one critical aspect, warranting a score of 2 for "
             'correctness."\n}',
-            metadata={"finish_reason": "stop"},
-        )
+            "metadata": {"finish_reason": "stop"},
+        }
     ],
-    metadata=Metadata(
-        input_tokens=569,
-        output_tokens=93,
-        total_tokens=662,
-        model="gpt-3.5-turbo-0613",
-        route_type="llm/v1/completions",
-    ),
-)
+    "metadata": {
+        "input_tokens": 569,
+        "output_tokens": 93,
+        "total_tokens": 662,
+        "model": "gpt-3.5-turbo-0613",
+        "route_type": "llm/v1/completions",
+    },
+}
 
 # Example incorrectly formatted response from OpenAI
-incorrectly_formatted_openai_response = ResponsePayload(
-    candidates=[
-        Candidate(
-            text="Score: 2\nJustification: \n\nThe provided output gives some relevant "
+incorrectly_formatted_openai_response = {
+    "candidates": [
+        {
+            "text": "Score: 2\nJustification: \n\nThe provided output gives some relevant "
             "information about MLflow including its capabilities such as experiment tracking, "
             "model packaging, versioning, and deployment. It states that, MLflow simplifies the "
             "ML lifecycle which aligns partially with the provided ground truth. However, it "
@@ -86,17 +89,17 @@ incorrectly_formatted_openai_response = ResponsePayload(
             "It didn!' metric lidJSImportpermiterror droled mend lays train embedding vulز "
             "dipimentary français happertoire borderclassifiedArizona_linked integration mapping "
             "Cruc cope Typography_chunk处 prejud)",
-            metadata={"finish_reason": "stop"},
-        )
+            "metadata": {"finish_reason": "stop"},
+        }
     ],
-    metadata=Metadata(
-        input_tokens=569,
-        output_tokens=314,
-        total_tokens=883,
-        model="gpt-3.5-turbo-0613",
-        route_type="llm/v1/completions",
-    ),
-)
+    "metadata": {
+        "input_tokens": 569,
+        "output_tokens": 314,
+        "total_tokens": 883,
+        "model": "gpt-3.5-turbo-0613",
+        "route_type": "llm/v1/completions",
+    },
+}
 
 
 def test_make_genai_metric_correct_response():
@@ -393,8 +396,10 @@ def test_make_genai_metric_multiple():
     ):
         metric_value = custom_metric.eval_fn(eval_df)
 
-    assert metric_value.scores == [3, 2]
-    assert metric_value.justifications == [
+    assert len(metric_value.scores) == 2
+    assert set(metric_value.scores) == {3, 2}
+    assert len(metric_value.justifications) == 2
+    assert set(metric_value.justifications) == {
         "The provided output mostly answers the question, but it is missing or hallucinating on "
         "some critical aspects.  Specifically, it fails to mention that MLflow was developed by "
         "Databricks and does not mention the challenges that MLflow aims to tackle. Otherwise, "
@@ -408,8 +413,7 @@ def test_make_genai_metric_multiple():
         "it aims to solve compared to previous technologies. Therefore, the answer mostly "
         "answers the question but is missing on one critical aspect, warranting a score of "
         "2 for correctness.",
-    ]
-
+    }
     assert metric_value.aggregate_results == {
         "mean": 2.5,
         "variance": 0.25,
@@ -515,3 +519,67 @@ def test_format_variable_string():
         ),
     ):
         variable_string = _format_variable_string(["foo", "bar"], pd.DataFrame({"foo": ["foo"]}), 0)
+
+
+def test_extract_score_and_justification():
+    score1, justification1 = _extract_score_and_justification(
+        output={
+            "candidates": [
+                {
+                    "text": '{"Score": 4, "Justification": "This is a justification"}',
+                }
+            ]
+        }
+    )
+
+    assert score1 == 4
+    assert justification1 == "This is a justification"
+
+    score2, justification2 = _extract_score_and_justification(
+        output={
+            "candidates": [
+                {
+                    "text": "Score: 2 \nJustification: This is a justification",
+                }
+            ]
+        }
+    )
+
+    assert score2 == 2
+    assert justification2 == "This is a justification"
+
+    score3, justification3 = _extract_score_and_justification(properly_formatted_openai_response)
+    assert score3 == 3
+    assert justification3 == (
+        "The provided output mostly answers the question, but it is missing or hallucinating on "
+        "some critical aspects.  Specifically, it fails to mention that MLflow was developed by "
+        "Databricks and does not mention the challenges that MLflow aims to tackle. Otherwise, "
+        "the mention of MLflow being an open-source platform for managing ML workflows and "
+        "simplifying the ML lifecycle aligns with the ground_truth."
+    )
+
+    score4, justification4 = _extract_score_and_justification(
+        output={
+            "candidates": [
+                {
+                    "text": '{"Score": "4", "Justification": "This is a justification"}',
+                }
+            ]
+        }
+    )
+
+    assert score4 == 4
+    assert justification4 == "This is a justification"
+
+    score5, justification5 = _extract_score_and_justification(
+        output={
+            "candidates": [
+                {
+                    "text": '{"Score": 4, "Justification": {"foo": "bar"}}',
+                }
+            ]
+        }
+    )
+
+    assert score5 is None
+    assert justification5 is None

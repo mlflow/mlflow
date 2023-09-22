@@ -1140,6 +1140,7 @@ class DefaultEvaluator(ModelEvaluator):
             if input_column_name in input_df_columns:
                 eval_df_copy["input"] = input_df[input_column_name]
 
+            _logger.info("Evaluating custom metrics:", custom_metric.name)
             custom_metric_tuple = _CustomMetric(
                 function=custom_metric.eval_fn,
                 index=index,
@@ -1350,6 +1351,7 @@ class DefaultEvaluator(ModelEvaluator):
         if not self.builtin_metrics:
             return
         for builtin_metric in self.builtin_metrics:
+            _logger.info("Evaluating builtin metrics:", builtin_metric.name)
             metric_value = builtin_metric.eval_fn(eval_df, self.metrics)
             if metric_value:
                 name = (
