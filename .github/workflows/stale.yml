@@ -3,11 +3,17 @@ on:
   schedule:
     - cron: "0 0 * * *"
 
+permissions:
+  contents: read
+
 jobs:
   stale:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
+    permissions:
+      issues: write # harupy/stale
+      pull-requests: write # harupy/stale
     steps:
       - uses: harupy/stale@mlflow-stale-bot
         with:

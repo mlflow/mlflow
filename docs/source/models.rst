@@ -418,14 +418,14 @@ have a warning issued with each request and the invalid params ignored during in
 Handling Integers With Missing Values
 """""""""""""""""""""""""""""""""""""
 Integer data with missing values is typically represented as floats in Python. Therefore, data
-types of integer columns in Python can vary depending on the data sample. This type variance can
+types of integer columns in Python can vary depending on the data sample. This type of variance can
 cause schema enforcement errors at runtime since integer and float are not compatible types. For
 example, if your training data did not have any missing values for integer column c, its type will
 be integer. However, when you attempt to score a sample of the data that does include a missing
 value in column c, its type will be float. If your model signature specified c to have integer type,
 MLflow will raise an error since it can not convert float to int. Note that MLflow uses python to
 serve models and to deploy models to Spark, so this can affect most model deployments. The best way
-to avoid this problem is to declare integer columns as doubles (float64) whenever there can be
+to avoid this problem is to declare integer columns as doubles (float64) whenever there are
 missing values.
 
 Handling Date and Timestamp
@@ -740,7 +740,7 @@ as follows:
     model_version = 1
     mv = client.get_model_version(name=model_name, version=model_version)
 
-    # set a dummy signature on the model vesion source
+    # set a dummy signature on the model version source
     signature = infer_signature(np.array([1]))
     set_signature(mv.source, signature)
 
@@ -1053,7 +1053,7 @@ Keras (``keras``)
 The ``keras`` model flavor enables logging and loading Keras models. It is available in both Python
 and R clients. In R, you can save or log the model using
 `mlflow_save_model <R-api.rst#mlflow-save-model>`__ and `mlflow_log_model <R-api.rst#mlflow-log-model>`__.
-These functions serialize Keras models models as HDF5 files using the Keras library's built-in
+These functions serialize Keras models as HDF5 files using the Keras library's built-in
 model persistence functions. You can use
 `mlflow_load_model <R-api.rst#mlflow-load-model>`__ function in R to load MLflow Models
 with the ``keras`` flavor as `Keras Model objects <https://keras.io/models/about-keras-models/>`_.

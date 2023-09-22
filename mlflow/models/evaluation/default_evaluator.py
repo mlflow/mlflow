@@ -1169,6 +1169,8 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _log_eval_table(self):
         metric_prefix = self.evaluator_config.get("metric_prefix", "")
+        if not isinstance(metric_prefix, str):
+            metric_prefix = ""
         if self.dataset.has_targets:
             data = self.dataset.features_data.assign(
                 **{self.dataset.targets_name or "target": self.y, "outputs": self.y_pred}
@@ -1176,7 +1178,12 @@ class DefaultEvaluator(ModelEvaluator):
         else:
             data = self.dataset.features_data.assign(outputs=self.y_pred)
         data = data.assign(**self.metrics_dict)
-        mlflow.log_table(data, artifact_file=f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}")
+        artifact_file_name = f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}"
+        mlflow.log_table(data, artifact_file=artifact_file_name)
+        name = artifact_file_name.split(".", 1)[0]
+        self.artifacts[name] = JsonEvaluationArtifact(
+            uri=mlflow.get_artifact_uri(artifact_file_name)
+        )
 
     def _calculate_perplexity(self, predictions):
         try:
@@ -1259,10 +1266,6 @@ class DefaultEvaluator(ModelEvaluator):
         self._calculate_general_text_metrics()
 
         self._log_eval_table()
-        name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
-        self.artifacts[name] = JsonEvaluationArtifact(
-            uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
-        )
 
     def _calculate_rouge(self):
         try:
@@ -1291,18 +1294,10 @@ class DefaultEvaluator(ModelEvaluator):
         self._calculate_general_text_metrics()
 
         self._log_eval_table()
-        name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
-        self.artifacts[name] = JsonEvaluationArtifact(
-            uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
-        )
 
     def _evaluate_text(self):
         self._calculate_general_text_metrics()
         self._log_eval_table()
-        name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
-        self.artifacts[name] = JsonEvaluationArtifact(
-            uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
-        )
 
     def _evaluate(
         self,

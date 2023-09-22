@@ -6,10 +6,15 @@ on:
     types:
       - closed
 
+permissions:
+  contents: read
+
 jobs:
   cancel:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      actions: write # to cancel workflow runs
     steps:
       - uses: actions/checkout@v3
       - uses: actions/github-script@v6

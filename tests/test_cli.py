@@ -111,6 +111,9 @@ def test_tracking_uri_validation_sql_driver_uris(command):
         )
         assert result.exit_code == 0
         run_server_mock.assert_called()
+    # Clean up the global variables set by the server
+    mlflow.set_tracking_uri(None)
+    mlflow.set_registry_uri(None)
 
 
 @pytest.mark.parametrize("command", [server])
@@ -144,6 +147,9 @@ def test_registry_store_uri_different_from_tracking_store(command):
         run_server_mock.assert_called()
         tracking_store.assert_called()
         registry_store.assert_called()
+    # Clean up the global variables set by the server
+    mlflow.set_tracking_uri(None)
+    mlflow.set_registry_uri(None)
 
 
 @pytest.fixture

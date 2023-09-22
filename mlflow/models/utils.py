@@ -245,10 +245,11 @@ class _Example:
                     f"but got '{type(input_example)}'",
                 )
             self.data = _handle_dataframe_input(self._inference_data)
+            orient = "split" if "columns" in self.data else "values"
             self.info.update(
                 {
                     "type": "dataframe",
-                    "pandas_orient": "split",
+                    "pandas_orient": orient,
                 }
             )
 

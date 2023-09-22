@@ -3,7 +3,9 @@ from typing import Any, Dict
 import aiohttp
 from fastapi import HTTPException
 
-from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
+from mlflow.gateway.constants import (
+    MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
+)
 from mlflow.utils.uri import append_to_uri_path
 
 
