@@ -1808,8 +1808,13 @@ def test_evaluation_metric_name_configs(prefix):
     assert len(metrics) > 0
 
     if prefix is not None:
-        assert all(metric_name.startswith(prefix) for metric_name in metrics)
-        assert all(metric_name.startswith(prefix) for metric_name in result.metrics)
+        assert f"{prefix}accuracy_score" in metrics
+        assert f"{prefix}log_loss" in metrics
+        assert f"{prefix}score" in metrics
+
+        assert f"{prefix}accuracy_score" in result.metrics
+        assert f"{prefix}log_loss" in result.metrics
+        assert f"{prefix}score" in result.metrics
 
 
 @pytest.mark.parametrize(
