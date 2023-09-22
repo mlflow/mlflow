@@ -21,9 +21,9 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.utils.os import is_windows
-from tests.helper_functions import random_str
 
-from tests.server.auth.auth_test_utils import User, create_user, ADMIN_USERNAME
+from tests.helper_functions import random_str
+from tests.server.auth.auth_test_utils import ADMIN_USERNAME, User, create_user
 from tests.tracking.integration_test_utils import (
     _init_server,
     _send_rest_tracking_post_request,
