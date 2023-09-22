@@ -500,8 +500,8 @@ def _is_numeric(value):
 def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics, metrics):
     """
     This function calls the `custom_metric` function and performs validations on the returned
-    result to ensure that they are in the expected format. It will raise a MlflowException if
-    the result is not in the expected format.
+    result to ensure that they are in the expected format. It will warn and will not log metrics
+    that are in the wrong format.
 
     :param custom_metric_tuple: Containing a user provided function and its index in the
                                 ``custom_metrics`` parameter of ``mlflow.evaluate``
@@ -525,13 +525,15 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics, metri
         metric = custom_metric_tuple.function(eval_df, builtin_metrics)
 
     if metric is None:
-        raise MlflowException(f"{exception_header} returned None.")
+        _logger.warning(f"{exception_header} returned None.")
+        return
 
     if _is_numeric(metric):
         return MetricValue(aggregate_results={custom_metric_tuple.name: metric})
 
     if not isinstance(metric, MetricValue):
-        raise MlflowException(f"{exception_header} did not return a MetricValue.")
+        _logger.warning(f"{exception_header} did not return a MetricValue.")
+        return
 
     scores = metric.scores
     justifications = metric.justifications
@@ -539,40 +541,40 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics, metri
 
     if scores is not None:
         if not isinstance(scores, list):
-            raise MlflowException(
-                f"{exception_header} must return MetricValue with scores as a list."
-            )
+            _logger.warning(f"{exception_header} must return MetricValue with scores as a list.")
+            return
         if any(not (_is_numeric(score) or score is None) for score in scores):
-            raise MlflowException(
-                f"{exception_header} must return MetricValue with numeric scores."
-            )
+            _logger.warning(f"{exception_header} must return MetricValue with numeric scores.")
+            return
 
     if justifications is not None:
         if not isinstance(justifications, list):
-            raise MlflowException(
+            _logger.warning(
                 f"{exception_header} must return MetricValue with justifications as a list."
             )
+            return
         if any(not (isinstance(jus, str) or jus is None) for jus in justifications):
-            raise MlflowException(
+            _logger.warning(
                 f"{exception_header} must return MetricValue with string justifications."
             )
+            return
 
     if aggregates is not None:
         if not isinstance(aggregates, dict):
-            raise MlflowException(
+            _logger.warning(
                 f"{exception_header} must return MetricValue with aggregate_results as a dict."
             )
+            return
 
         if any(
             not (isinstance(k, str) and (_is_numeric(v) or v is None))
             for k, v in aggregates.items()
         ):
-            raise MlflowException(
-                (
-                    f"{exception_header} must return MetricValue with aggregate_results with "
-                    "str keys and numeric values",
-                )
+            _logger.warning(
+                f"{exception_header} must return MetricValue with aggregate_results with "
+                "str keys and numeric values."
             )
+            return
 
     return metric
 
@@ -603,13 +605,15 @@ def _evaluate_custom_artifacts(custom_artifact_tuple, eval_df, builtin_metrics):
     )
 
     if artifacts is None:
-        raise MlflowException(f"{exception_header} returned None.")
+        _logger.warning(f"{exception_header} returned None.")
+        return
 
     if not _is_valid_artifacts(artifacts):
-        raise MlflowException(
+        _logger.warning(
             f"{exception_header} did not return artifacts as a dictionary of string artifact "
             "names with their corresponding objects."
         )
+        return
 
     return artifacts
 
@@ -1141,18 +1145,19 @@ class DefaultEvaluator(ModelEvaluator):
                 index=index,
                 name=custom_metric.name,
             )
-            metric_result = _evaluate_custom_metric(
+            metric_value = _evaluate_custom_metric(
                 custom_metric_tuple,
                 eval_df_copy,
                 copy.deepcopy(self.metrics),
                 copy.deepcopy(self.metrics_values),
             )
-            name = (
-                f"{custom_metric.name}/{custom_metric.version}"
-                if custom_metric.version
-                else custom_metric.name
-            )
-            self.metrics_values.update({name: metric_result})
+            if metric_value:
+                name = (
+                    f"{custom_metric.name}/{custom_metric.version}"
+                    if custom_metric.version
+                    else custom_metric.name
+                )
+                self.metrics_values.update({name: metric_value})
 
     def _log_custom_artifacts(self, eval_df):
         if not self.custom_artifacts:
@@ -1172,12 +1177,13 @@ class DefaultEvaluator(ModelEvaluator):
                     eval_df.copy(),
                     copy.deepcopy(self.metrics_values),
                 )
-                for artifact_name, raw_artifact in artifact_results.items():
-                    self.artifacts[artifact_name] = self._log_custom_metric_artifact(
-                        artifact_name,
-                        raw_artifact,
-                        custom_artifact_tuple,
-                    )
+                if artifact_results:
+                    for artifact_name, raw_artifact in artifact_results.items():
+                        self.artifacts[artifact_name] = self._log_custom_metric_artifact(
+                            artifact_name,
+                            raw_artifact,
+                            custom_artifact_tuple,
+                        )
 
     def _log_confusion_matrix(self):
         """
