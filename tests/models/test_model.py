@@ -17,7 +17,6 @@ from mlflow.models.utils import _save_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
-from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
 from mlflow.utils.proto_json_utils import dataframe_from_raw_json
 
@@ -38,7 +37,7 @@ def sklearn_knn_model(iris_data):
     return knn_model
 
 
-def test_model_save_load():
+def test_model_save_load(tmp_path):
     m = Model(
         artifact_path="some/path",
         run_id="123",
@@ -70,9 +69,9 @@ def test_model_save_load():
     assert m == n
     n.signature = None
     assert m != n
-    with TempDir() as tmp:
-        m.save(tmp.path("model"))
-        o = Model.load(tmp.path("model"))
+    path = tmp_path / "model"
+    m.save(path)
+    o = Model.load(path)
     assert m == o
     assert m.to_json() == o.to_json()
     assert m.to_yaml() == o.to_yaml()
@@ -125,125 +124,117 @@ def _log_model_with_signature_and_example(tmp_path, sig, input_example, metadata
         )
 
     local_path = _download_artifact_from_uri(
-        f"runs:/{run.info.run_id}/some/path", output_path=tmp_path.path("")
+        f"runs:/{run.info.run_id}/some/path", output_path=tmp_path
     )
 
     return local_path, run
 
 
-def test_model_log():
-    with TempDir(chdr=True) as tmp:
-        sig = ModelSignature(
-            inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
-            outputs=Schema([ColSpec(name=None, type="double")]),
-        )
-        input_example = {"x": 1, "y": 2}
-        local_path, r = _log_model_with_signature_and_example(tmp, sig, input_example)
+def test_model_log(tmp_path):
+    sig = ModelSignature(
+        inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
+        outputs=Schema([ColSpec(name=None, type="double")]),
+    )
+    input_example = {"x": 1, "y": 2}
+    local_path, r = _log_model_with_signature_and_example(tmp_path, sig, input_example)
 
-        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
-        assert loaded_model.run_id == r.info.run_id
-        assert loaded_model.artifact_path == "some/path"
-        assert loaded_model.flavors == {
-            "flavor1": {"a": 1, "b": 2},
-            "flavor2": {"x": 1, "y": 2},
-        }
-        assert loaded_model.signature == sig
-        path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
-        x = dataframe_from_raw_json(path)
-        assert x.to_dict(orient="records")[0] == input_example
-        assert not hasattr(loaded_model, "databricks_runtime")
+    loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+    assert loaded_model.run_id == r.info.run_id
+    assert loaded_model.artifact_path == "some/path"
+    assert loaded_model.flavors == {
+        "flavor1": {"a": 1, "b": 2},
+        "flavor2": {"x": 1, "y": 2},
+    }
+    assert loaded_model.signature == sig
+    path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
+    x = dataframe_from_raw_json(path)
+    assert x.to_dict(orient="records")[0] == input_example
+    assert not hasattr(loaded_model, "databricks_runtime")
 
-        loaded_example = loaded_model.load_input_example(local_path)
-        assert isinstance(loaded_example, pd.DataFrame)
-        assert loaded_example.to_dict(orient="records")[0] == input_example
+    loaded_example = loaded_model.load_input_example(local_path)
+    assert isinstance(loaded_example, pd.DataFrame)
+    assert loaded_example.to_dict(orient="records")[0] == input_example
 
-        assert Version(loaded_model.mlflow_version) == Version(mlflow.version.VERSION)
-
-
-def test_model_info():
-    with TempDir(chdr=True) as tmp:
-        sig = ModelSignature(
-            inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
-            outputs=Schema([ColSpec(name=None, type="double")]),
-        )
-        input_example = {"x": 1, "y": 2}
-
-        experiment_id = mlflow.create_experiment("test")
-        with mlflow.start_run(experiment_id=experiment_id) as run:
-            model_info = Model.log(
-                "some/path", TestFlavor, signature=sig, input_example=input_example
-            )
-        model_uri = f"runs:/{run.info.run_id}/some/path"
-
-        model_info_fetched = mlflow.models.get_model_info(model_uri)
-        with pytest.warns(
-            FutureWarning,
-            match="Field signature_dict is deprecated since v1.28.1. Use signature instead",
-        ):
-            assert model_info_fetched.signature_dict == sig.to_dict()
-
-        local_path = _download_artifact_from_uri(model_uri, output_path=tmp.path(""))
-
-        assert model_info.run_id == run.info.run_id
-        assert model_info_fetched.run_id == run.info.run_id
-        assert model_info.artifact_path == "some/path"
-        assert model_info_fetched.artifact_path == "some/path"
-        assert model_info.model_uri == model_uri
-        assert model_info_fetched.model_uri == model_uri
-
-        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
-        assert model_info.utc_time_created == loaded_model.utc_time_created
-        assert model_info_fetched.utc_time_created == loaded_model.utc_time_created
-        assert model_info.model_uuid == loaded_model.model_uuid
-        assert model_info_fetched.model_uuid == loaded_model.model_uuid
-
-        assert model_info.flavors == {
-            "flavor1": {"a": 1, "b": 2},
-            "flavor2": {"x": 1, "y": 2},
-        }
-
-        path = os.path.join(local_path, model_info.saved_input_example_info["artifact_path"])
-        x = dataframe_from_raw_json(path)
-        assert x.to_dict(orient="records")[0] == input_example
-
-        model_signature = model_info_fetched.signature
-        assert model_info.signature_dict == sig.to_dict()
-        assert model_signature.to_dict() == sig.to_dict()
-
-        assert model_info.mlflow_version == loaded_model.mlflow_version
-        assert model_info_fetched.mlflow_version == loaded_model.mlflow_version
+    assert Version(loaded_model.mlflow_version) == Version(mlflow.version.VERSION)
 
 
-def test_model_metadata():
-    with TempDir(chdr=True) as tmp:
-        metadata = {"metadata_key": "metadata_value"}
-        local_path, _ = _log_model_with_signature_and_example(tmp, None, None, metadata)
-        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
-        assert loaded_model.metadata["metadata_key"] == "metadata_value"
+def test_model_info(tmp_path):
+    sig = ModelSignature(
+        inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
+        outputs=Schema([ColSpec(name=None, type="double")]),
+    )
+    input_example = {"x": 1, "y": 2}
 
+    experiment_id = mlflow.create_experiment("test")
+    with mlflow.start_run(experiment_id=experiment_id) as run:
+        model_info = Model.log("some/path", TestFlavor, signature=sig, input_example=input_example)
+    model_uri = f"runs:/{run.info.run_id}/some/path"
 
-def test_load_model_without_mlflow_version():
-    with TempDir(chdr=True) as tmp:
-        model = Model(artifact_path="some/path", run_id="1234", mlflow_version=None)
-        path = tmp.path("model")
-        with open(path, "w") as out:
-            model.to_yaml(out)
-        loaded_model = Model.load(path)
-
-        assert loaded_model.mlflow_version is None
-
-
-def test_model_log_with_databricks_runtime():
-    dbr = "8.3.x-snapshot-gpu-ml-scala2.12"
-    with TempDir(chdr=True) as tmp, mock.patch(
-        "mlflow.models.model.get_databricks_runtime", return_value=dbr
+    model_info_fetched = mlflow.models.get_model_info(model_uri)
+    with pytest.warns(
+        FutureWarning,
+        match="Field signature_dict is deprecated since v1.28.1. Use signature instead",
     ):
+        assert model_info_fetched.signature_dict == sig.to_dict()
+
+    local_path = _download_artifact_from_uri(model_uri, output_path=tmp_path)
+
+    assert model_info.run_id == run.info.run_id
+    assert model_info_fetched.run_id == run.info.run_id
+    assert model_info.artifact_path == "some/path"
+    assert model_info_fetched.artifact_path == "some/path"
+    assert model_info.model_uri == model_uri
+    assert model_info_fetched.model_uri == model_uri
+
+    loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+    assert model_info.utc_time_created == loaded_model.utc_time_created
+    assert model_info_fetched.utc_time_created == loaded_model.utc_time_created
+    assert model_info.model_uuid == loaded_model.model_uuid
+    assert model_info_fetched.model_uuid == loaded_model.model_uuid
+
+    assert model_info.flavors == {
+        "flavor1": {"a": 1, "b": 2},
+        "flavor2": {"x": 1, "y": 2},
+    }
+
+    path = os.path.join(local_path, model_info.saved_input_example_info["artifact_path"])
+    x = dataframe_from_raw_json(path)
+    assert x.to_dict(orient="records")[0] == input_example
+
+    model_signature = model_info_fetched.signature
+    assert model_info.signature_dict == sig.to_dict()
+    assert model_signature.to_dict() == sig.to_dict()
+
+    assert model_info.mlflow_version == loaded_model.mlflow_version
+    assert model_info_fetched.mlflow_version == loaded_model.mlflow_version
+
+
+def test_model_metadata(tmp_path):
+    metadata = {"metadata_key": "metadata_value"}
+    local_path, _ = _log_model_with_signature_and_example(tmp_path, None, None, metadata)
+    loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+    assert loaded_model.metadata["metadata_key"] == "metadata_value"
+
+
+def test_load_model_without_mlflow_version(tmp_path):
+    model = Model(artifact_path="some/path", run_id="1234", mlflow_version=None)
+    path = tmp_path / "model"
+    with open(path, "w") as out:
+        model.to_yaml(out)
+    loaded_model = Model.load(path)
+
+    assert loaded_model.mlflow_version is None
+
+
+def test_model_log_with_databricks_runtime(tmp_path):
+    dbr = "8.3.x-snapshot-gpu-ml-scala2.12"
+    with mock.patch("mlflow.models.model.get_databricks_runtime", return_value=dbr):
         sig = ModelSignature(
             inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
             outputs=Schema([ColSpec(name=None, type="double")]),
         )
         input_example = {"x": 1, "y": 2}
-        local_path, r = _log_model_with_signature_and_example(tmp, sig, input_example)
+        local_path, r = _log_model_with_signature_and_example(tmp_path, sig, input_example)
 
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
         assert loaded_model.run_id == r.info.run_id
@@ -259,111 +250,106 @@ def test_model_log_with_databricks_runtime():
         assert loaded_model.databricks_runtime == dbr
 
 
-def test_model_log_with_input_example_succeeds():
-    with TempDir(chdr=True) as tmp:
-        sig = ModelSignature(
-            inputs=Schema(
-                [
-                    ColSpec("integer", "a"),
-                    ColSpec("string", "b"),
-                    ColSpec("boolean", "c"),
-                    ColSpec("string", "d"),
-                    ColSpec("datetime", "e"),
-                ]
-            ),
-            outputs=Schema([ColSpec(name=None, type="double")]),
-        )
-        input_example = pd.DataFrame(
-            {
-                "a": np.int32(1),
-                "b": "test string",
-                "c": True,
-                "d": date.today(),
-                "e": np.datetime64("2020-01-01T00:00:00"),
-            },
-            index=[0],
-        )
+def test_model_log_with_input_example_succeeds(tmp_path):
+    sig = ModelSignature(
+        inputs=Schema(
+            [
+                ColSpec("integer", "a"),
+                ColSpec("string", "b"),
+                ColSpec("boolean", "c"),
+                ColSpec("string", "d"),
+                ColSpec("datetime", "e"),
+            ]
+        ),
+        outputs=Schema([ColSpec(name=None, type="double")]),
+    )
+    input_example = pd.DataFrame(
+        {
+            "a": np.int32(1),
+            "b": "test string",
+            "c": True,
+            "d": date.today(),
+            "e": np.datetime64("2020-01-01T00:00:00"),
+        },
+        index=[0],
+    )
 
-        local_path, _ = _log_model_with_signature_and_example(tmp, sig, input_example)
-        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
-        path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
-        x = dataframe_from_raw_json(path, schema=sig.inputs)
+    local_path, _ = _log_model_with_signature_and_example(tmp_path, sig, input_example)
+    loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+    path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
+    x = dataframe_from_raw_json(path, schema=sig.inputs)
 
-        # date column will get deserialized into string
-        input_example["d"] = input_example["d"].apply(lambda x: x.isoformat())
-        pd.testing.assert_frame_equal(x, input_example)
+    # date column will get deserialized into string
+    input_example["d"] = input_example["d"].apply(lambda x: x.isoformat())
+    pd.testing.assert_frame_equal(x, input_example)
 
-        loaded_example = loaded_model.load_input_example(local_path)
-        assert isinstance(loaded_example, pd.DataFrame)
-        pd.testing.assert_frame_equal(loaded_example, input_example)
-
-
-def test_model_load_input_example_numpy():
-    with TempDir(chdr=True) as tmp:
-        input_example = np.array([[3, 4, 5]], dtype=np.int32)
-        sig = ModelSignature(
-            inputs=Schema([TensorSpec(type=input_example.dtype, shape=input_example.shape)]),
-            outputs=Schema([ColSpec(name=None, type="double")]),
-        )
-
-        local_path, _ = _log_model_with_signature_and_example(tmp, sig, input_example)
-        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
-        loaded_example = loaded_model.load_input_example(local_path)
-
-        assert isinstance(loaded_example, np.ndarray)
-        np.testing.assert_array_equal(input_example, loaded_example)
+    loaded_example = loaded_model.load_input_example(local_path)
+    assert isinstance(loaded_example, pd.DataFrame)
+    pd.testing.assert_frame_equal(loaded_example, input_example)
 
 
-def test_model_load_input_example_scipy():
-    with TempDir(chdr=True) as tmp:
-        input_example = csc_matrix(np.arange(0, 12, 0.5).reshape(3, 8))
-        sig = ModelSignature(
-            inputs=Schema([TensorSpec(type=input_example.data.dtype, shape=input_example.shape)]),
-            outputs=Schema([ColSpec(name=None, type="double")]),
-        )
+def test_model_load_input_example_numpy(tmp_path):
+    input_example = np.array([[3, 4, 5]], dtype=np.int32)
+    sig = ModelSignature(
+        inputs=Schema([TensorSpec(type=input_example.dtype, shape=input_example.shape)]),
+        outputs=Schema([ColSpec(name=None, type="double")]),
+    )
 
-        local_path, _ = _log_model_with_signature_and_example(tmp, sig, input_example)
-        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
-        loaded_example = loaded_model.load_input_example(local_path)
+    local_path, _ = _log_model_with_signature_and_example(tmp_path, sig, input_example)
+    loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+    loaded_example = loaded_model.load_input_example(local_path)
 
-        assert isinstance(loaded_example, csc_matrix)
-        np.testing.assert_array_equal(input_example.data, loaded_example.data)
-
-
-def test_model_load_input_example_failures():
-    with TempDir(chdr=True) as tmp:
-        input_example = np.array([[3, 4, 5]], dtype=np.int32)
-        sig = ModelSignature(
-            inputs=Schema([TensorSpec(type=input_example.dtype, shape=input_example.shape)]),
-            outputs=Schema([ColSpec(name=None, type="double")]),
-        )
-
-        local_path, _ = _log_model_with_signature_and_example(tmp, sig, input_example)
-        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
-        loaded_example = loaded_model.load_input_example(local_path)
-        assert loaded_example is not None
-
-        with pytest.raises(FileNotFoundError, match="No such file or directory"):
-            loaded_model.load_input_example(os.path.join(local_path, "folder_which_does_not_exist"))
-
-        path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
-        os.remove(path)
-        with pytest.raises(FileNotFoundError, match="No such file or directory"):
-            loaded_model.load_input_example(local_path)
+    assert isinstance(loaded_example, np.ndarray)
+    np.testing.assert_array_equal(input_example, loaded_example)
 
 
-def test_model_load_input_example_no_signature():
-    with TempDir(chdr=True) as tmp:
-        input_example = np.array([[3, 4, 5]], dtype=np.int32)
-        sig = ModelSignature(
-            inputs=Schema([TensorSpec(type=input_example.dtype, shape=input_example.shape)]),
-            outputs=Schema([ColSpec(name=None, type="double")]),
-        )
+def test_model_load_input_example_scipy(tmp_path):
+    input_example = csc_matrix(np.arange(0, 12, 0.5).reshape(3, 8))
+    sig = ModelSignature(
+        inputs=Schema([TensorSpec(type=input_example.data.dtype, shape=input_example.shape)]),
+        outputs=Schema([ColSpec(name=None, type="double")]),
+    )
 
-        local_path, _ = _log_model_with_signature_and_example(tmp, sig, input_example=None)
-        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
-        loaded_example = loaded_model.load_input_example(local_path)
-        assert loaded_example is None
+    local_path, _ = _log_model_with_signature_and_example(tmp_path, sig, input_example)
+    loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+    loaded_example = loaded_model.load_input_example(local_path)
+
+    assert isinstance(loaded_example, csc_matrix)
+    np.testing.assert_array_equal(input_example.data, loaded_example.data)
+
+
+def test_model_load_input_example_failures(tmp_path):
+    input_example = np.array([[3, 4, 5]], dtype=np.int32)
+    sig = ModelSignature(
+        inputs=Schema([TensorSpec(type=input_example.dtype, shape=input_example.shape)]),
+        outputs=Schema([ColSpec(name=None, type="double")]),
+    )
+
+    local_path, _ = _log_model_with_signature_and_example(tmp_path, sig, input_example)
+    loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+    loaded_example = loaded_model.load_input_example(local_path)
+    assert loaded_example is not None
+
+    with pytest.raises(FileNotFoundError, match="No such file or directory"):
+        loaded_model.load_input_example(os.path.join(local_path, "folder_which_does_not_exist"))
+
+    path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
+    os.remove(path)
+    with pytest.raises(FileNotFoundError, match="No such file or directory"):
+        loaded_model.load_input_example(local_path)
+
+
+def test_model_load_input_example_no_signature(tmp_path):
+    input_example = np.array([[3, 4, 5]], dtype=np.int32)
+    sig = ModelSignature(
+        inputs=Schema([TensorSpec(type=input_example.dtype, shape=input_example.shape)]),
+        outputs=Schema([ColSpec(name=None, type="double")]),
+    )
+
+    local_path, _ = _log_model_with_signature_and_example(tmp_path, sig, input_example=None)
+    loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+    loaded_example = loaded_model.load_input_example(local_path)
+    assert loaded_example is None
 
 
 def _is_valid_uuid(val):
