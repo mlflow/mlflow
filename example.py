@@ -2,7 +2,6 @@ from mlflow.entities import Metric, Param, RunTag
 import mlflow
 from mlflow.client import MlflowClient
 import time
-from azureml.mlflow._store.tracking.store import AzureMLRestStore
 
 if __name__ == "__main__":
     mlflow.set_tracking_uri(
@@ -36,8 +35,7 @@ if __name__ == "__main__":
 
     # Await for run data to be ingested.
     store = mlflow_client._tracking_client.store  # This would AzureMLRestStore
-    aml_store = store if isinstance(store, AzureMLRestStore) else store.aml_store
-    run_data_await_operation = aml_store.await_run_data(run_id=run_id)
+    run_data_await_operation = store.await_run_data(run_id=run_id)
     run_data_await_operation.await_completion()
 
     # Using fluent syntax

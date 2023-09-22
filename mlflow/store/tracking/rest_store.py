@@ -14,13 +14,10 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistory,
     GetRun,
     LogBatch,
-    LogBatchAsync,
     LogInputs,
     LogMetric,
-    LogMetricAsync,
     LogModel,
     LogParam,
-    LogParamAsync,
     MlflowService,
     RestoreExperiment,
     RestoreRun,
@@ -28,7 +25,6 @@ from mlflow.protos.service_pb2 import (
     SearchRuns,
     SetExperimentTag,
     SetTag,
-    SetTagAsync,
     UpdateExperiment,
     UpdateRun,
 )
@@ -195,25 +191,6 @@ class RestStore(AbstractStore):
         )
         self._call_endpoint(LogMetric, req_body)
 
-    def log_metric_async(self, run_id, metric):
-        """
-        Log a metric for the specified run
-
-        :param run_id: String id for the run
-        :param metric: Metric instance to log
-        """
-        req_body = message_to_json(
-            LogMetricAsync(
-                run_uuid=run_id,
-                run_id=run_id,
-                key=metric.key,
-                value=metric.value,
-                timestamp=metric.timestamp,
-                step=metric.step,
-            )
-        )
-        self._call_endpoint(LogMetricAsync, req_body)
-
     def log_param(self, run_id, param):
         """
         Log a param for the specified run
@@ -223,16 +200,6 @@ class RestStore(AbstractStore):
         """
         req_body = message_to_json(LogParam(run_uuid=run_id, run_id=run_id, key=param.key, value=param.value))
         self._call_endpoint(LogParam, req_body)
-
-    def log_param_async(self, run_id, param):
-        """
-        Log a param for the specified run
-
-        :param run_id: String id for the run
-        :param param: Param instance to log
-        """
-        req_body = message_to_json(LogParamAsync(run_id=run_id, key=param.key, value=param.value))
-        self._call_endpoint(LogParamAsync, req_body)
 
     def set_experiment_tag(self, experiment_id, tag):
         """
@@ -253,16 +220,6 @@ class RestStore(AbstractStore):
         """
         req_body = message_to_json(SetTag(run_uuid=run_id, run_id=run_id, key=tag.key, value=tag.value))
         self._call_endpoint(SetTag, req_body)
-
-    def set_tag_async(self, run_id, tag):
-        """
-        Set a tag for the specified run
-
-        :param run_id: String ID of the run
-        :param tag: RunTag instance to log
-        """
-        req_body = message_to_json(SetTagAsync(run_id=run_id, key=tag.key, value=tag.value))
-        self._call_endpoint(SetTagAsync, req_body)
 
     def delete_tag(self, run_id, key):
         """
@@ -346,15 +303,6 @@ class RestStore(AbstractStore):
         tag_protos = [tag.to_proto() for tag in tags]
         req_body = message_to_json(LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos, run_id=run_id))
         self._call_endpoint(LogBatch, req_body)
-
-    def log_batch_async(self, run_id, metrics, params, tags):
-        metric_protos = [metric.to_proto() for metric in metrics]
-        param_protos = [param.to_proto() for param in params]
-        tag_protos = [tag.to_proto() for tag in tags]
-        req_body = message_to_json(
-            LogBatchAsync(metrics=metric_protos, params=param_protos, tags=tag_protos, run_id=run_id)
-        )
-        self._call_endpoint(LogBatchAsync, req_body)
 
     def record_logged_model(self, run_id, mlflow_model):
         req_body = message_to_json(LogModel(run_id=run_id, model_json=mlflow_model.to_json()))
