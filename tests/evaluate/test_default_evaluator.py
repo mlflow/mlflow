@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import io
 import json
-from contextlib import nullcontext as does_not_raise
 from os.path import join as path_join
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -1497,36 +1496,31 @@ def test_evaluate_custom_metric_incorrect_return_formats():
 
 
 @pytest.mark.parametrize(
-    ("fn", "expectation"),
+    "fn",
     [
         (
             lambda eval_df, _: MetricValue(
                 scores=eval_df["prediction"].tolist(),
                 aggregate_results={"prediction_sum": sum(eval_df["prediction"])},
-            ),
-            does_not_raise(),
-        ),
-        (
-            lambda _, __: None,
-            pytest.raises(MlflowException, match="returned None"),
+            )
         ),
         (
             lambda eval_df, _: MetricValue(
                 scores=eval_df["prediction"].tolist()[:-1] + [None],
                 aggregate_results={"prediction_sum": None, "another_aggregate": 5.0},
-            ),
-            does_not_raise(),
+            )
         ),
     ],
 )
-def test_evaluate_custom_metric_lambda(fn, expectation):
+def test_evaluate_custom_metric_lambda(fn):
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
     builtin_metrics = _get_regressor_metrics(
         eval_df["target"], eval_df["prediction"], sample_weights=None
     )
     metrics = _get_aggregate_metrics_values(builtin_metrics)
-    with expectation:
+    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_custom_metric(_CustomMetric(fn, "<lambda>", 0), eval_df, builtin_metrics, metrics)
+        mock_warning.assert_not_called()
 
 
 def test_evaluate_custom_metric_success():
