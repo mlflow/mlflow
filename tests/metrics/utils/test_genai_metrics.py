@@ -232,20 +232,20 @@ def test_make_genai_metric_correct_response():
         assert mock_predict_function.call_args[0][1] == {
             "prompt": "\nPlease act as an impartial judge and evaluate the quality of "
             "the provided output which\nattempts to produce output for the provided input "
-            "based on a provided information.\nYou'll be given a grading format below which "
+            "based on a provided information.\n\nYou'll be given a grading format below which "
             "you'll call for each provided information,\ninput and provided output to submit "
             "your justification and score to compute the fake_metric of\nthe output."
             "\n\nInput:\ninput\n\nProvided output:\nprediction\n\nProvided ground_truth: "
-            "ground_truth\n\nMetric definition:\nFake metric definition\n\nGrading criteria:"
-            "\nFake metric grading prompt\n\nExamples:\n\nInput: example-input\nProvided "
-            "output: example-output\nProvided ground_truth: example-ground_truth\nScore: "
-            "4\nJustification: example-justification\n\n        \n\nAnd you'll need to submit "
-            "your grading for the fake_metric of the output,\nusing the following in json "
-            "format:\nScore: [your score number between 1 to 5 for the fake_metric of the "
+            "ground_truth\n\nMetric definition:\nFake metric definition\n\nBelow is your grading "
+            "criteria:\nFake metric grading prompt\n\nExamples:\n\nInput: example-input\n\n"
+            "Provided output: example-output\n\nProvided ground_truth: example-ground_truth\n\n"
+            "Score: 4\nJustification: example-justification\n\n        \n\nAnd you'll need to "
+            "submit your grading for the fake_metric of the output,\nusing the following in json "
+            "format:\nScore: [your score number between 0 to 4 for the fake_metric of the "
             "output]\nJustification: [your step by step reasoning about the fake_metric of the "
             "output]\n    ",
             "temperature": 0.0,
-            "max_tokens": 100,
+            "max_tokens": 200,
             "top_p": 1.0,
         }
 

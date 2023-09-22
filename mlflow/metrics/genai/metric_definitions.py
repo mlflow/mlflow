@@ -136,7 +136,7 @@ def _accuracy_eval_fn(eval_df, metrics):
         from sklearn.metrics import accuracy_score
 
         acc = accuracy_score(y_true=eval_df["target"], y_pred=eval_df["prediction"])
-        return MetricValue(aggregate_results={"": acc})
+        return MetricValue(aggregate_results={"exact_match": acc})
 
 
 def _rouge1_eval_fn(eval_df, metrics):

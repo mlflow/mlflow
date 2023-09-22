@@ -12,13 +12,14 @@ from mlflow.metrics.genai.prompt_template import (
 default_model = "openai:/gpt4"
 default_parameters = {
     "temperature": 0.0,
-    "max_tokens": 100,
+    "max_tokens": 200,
     "top_p": 1.0,
 }
 grading_system_prompt_template = PromptTemplate(
     """
 Please act as an impartial judge and evaluate the quality of the provided output which
 attempts to produce output for the provided input based on a provided information.
+
 You'll be given a grading format below which you'll call for each provided information,
 input and provided output to submit your justification and score to compute the {name} of
 the output.
@@ -34,7 +35,7 @@ Provided output:
 Metric definition:
 {definition}
 
-Grading criteria:
+Below is your grading criteria:
 {grading_prompt}
 
 {examples}

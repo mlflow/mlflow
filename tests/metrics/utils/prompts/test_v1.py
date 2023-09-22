@@ -70,7 +70,7 @@ def test_evaluation_model_output():
     truth serves as a benchmark against which the provided output is compared to determine the
     level of accuracy and fidelity.
 
-    Grading criteria:
+    Below is your grading criteria:
     Correctness: If the answer correctly answer the question, below are the details for
     different scores:
         - Score 1: the answer is completely incorrect, doesn’t mention anything about the
@@ -126,7 +126,7 @@ def test_evaluation_model_output():
     assert model2["model"] == "openai:/gpt4"
     assert model2["parameters"] == {
         "temperature": 0.0,
-        "max_tokens": 100,
+        "max_tokens": 200,
         "top_p": 1.0,
     }
     variables_string = ""
@@ -149,7 +149,7 @@ def test_evaluation_model_output():
     truth serves as a benchmark against which the provided output is compared to determine the
     level of accuracy and fidelity.
 
-    Grading criteria:
+    Below is your grading criteria:
     Correctness: If the answer correctly answer the question, below are the details for different
     scores:
         - Score 1: the answer is completely incorrect, doesn’t mention anything about the question

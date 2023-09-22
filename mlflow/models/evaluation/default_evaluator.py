@@ -10,19 +10,30 @@ import tempfile
 import time
 from collections import namedtuple
 from functools import partial
-from typing import Callable, NamedTuple
+from typing import Callable, Dict, NamedTuple, get_type_hints
 
 import numpy as np
 import pandas as pd
 from packaging.version import Version
 from sklearn import metrics as sk_metrics
-from sklearn.metrics import accuracy_score
 from sklearn.pipeline import Pipeline as sk_Pipeline
 
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.metric import Metric
 from mlflow.exceptions import MlflowException
+from mlflow.metrics import (
+    MetricValue,
+    ari_grade_level,
+    exact_match,
+    flesch_kincaid_grade_level,
+    perplexity,
+    rouge1,
+    rouge2,
+    rougeL,
+    rougeLsum,
+    toxicity,
+)
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
     ImageEvaluationArtifact,
@@ -47,6 +58,7 @@ _logger = logging.getLogger(__name__)
 
 _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 _EVAL_TABLE_FILE_NAME = "eval_results_table.json"
+_Y_PREDICTED_OUTPUT_COLUMN_NAME = "predicted_column"
 
 
 def _is_categorical(values):
@@ -412,12 +424,43 @@ def _gen_classifier_curve(
     )
 
 
+def _get_aggregate_metrics_values(metrics):
+    return {name: MetricValue(aggregate_results={name: value}) for name, value in metrics.items()}
+
+
 _matplotlib_config = {
     "figure.dpi": 175,
     "figure.figsize": [6.0, 4.0],
     "figure.autolayout": True,
     "font.size": 8,
 }
+
+
+def _extract_output_and_other_columns(model_predictions, output_column_name):
+    y_pred = None
+    other_output_columns = None
+
+    if isinstance(model_predictions, list) and all(isinstance(p, dict) for p in model_predictions):
+        # Extract 'y_pred' and 'other_output_columns' from list of dictionaries
+        if output_column_name in model_predictions[0]:
+            y_pred = pd.Series(
+                [p.get(output_column_name) for p in model_predictions], name=output_column_name
+            )
+            other_output_columns = pd.DataFrame(
+                [{k: v for k, v in p.items() if k != output_column_name} for p in model_predictions]
+            )
+    elif isinstance(model_predictions, pd.DataFrame):
+        if output_column_name in model_predictions.columns:
+            y_pred = model_predictions[output_column_name]
+            other_output_columns = model_predictions.drop(columns=output_column_name)
+    elif isinstance(model_predictions, dict):
+        if output_column_name in model_predictions:
+            y_pred = pd.Series(model_predictions[output_column_name], name=output_column_name)
+            other_output_columns = pd.DataFrame(
+                {k: v for k, v in model_predictions.items() if k != output_column_name}
+            )
+
+    return y_pred if y_pred is not None else model_predictions, other_output_columns
 
 
 class _CustomMetric(NamedTuple):
@@ -454,7 +497,7 @@ def _is_numeric(value):
     return isinstance(value, (int, float, np.number))
 
 
-def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
+def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics, metrics):
     """
     This function calls the `custom_metric` function and performs validations on the returned
     result to ensure that they are in the expected format. It will raise a MlflowException if
@@ -463,21 +506,70 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
     :param custom_metric_tuple: Containing a user provided function and its index in the
                                 ``custom_metrics`` parameter of ``mlflow.evaluate``
     :param eval_df: A Pandas dataframe object containing a prediction and a target column.
-    :param builtin_metrics: A dictionary of metrics produced by the default evaluator.
-    :return: A scalar metric value.
+    :param builtin_metrics: A dictionary of aggregate metrics produced by the default evaluator.
+    :param metrics: A dictionary of metric values produced by the default evaluator.
+    :return: MetricValue
     """
     exception_header = (
         f"Custom metric '{custom_metric_tuple.name}' at index {custom_metric_tuple.index}"
         " in the `custom_metrics` parameter"
     )
 
-    metric = custom_metric_tuple.function(eval_df, builtin_metrics)
+    metrics_type = get_type_hints(custom_metric_tuple.function).get("metrics")
+    if metrics_type and (
+        metrics_type == Dict[str, MetricValue] or metrics_type == dict[str, MetricValue]
+    ):
+        metric = custom_metric_tuple.function(eval_df, metrics)
+    else:
+        # use old builtin_metrics: Dict[str, float]
+        metric = custom_metric_tuple.function(eval_df, builtin_metrics)
 
     if metric is None:
         raise MlflowException(f"{exception_header} returned None.")
 
-    if not _is_numeric(metric):
-        raise MlflowException(f"{exception_header} did not return a scalar numeric value.")
+    if _is_numeric(metric):
+        return MetricValue(aggregate_results={custom_metric_tuple.name: metric})
+
+    if not isinstance(metric, MetricValue):
+        raise MlflowException(f"{exception_header} did not return a MetricValue.")
+
+    scores = metric.scores
+    justifications = metric.justifications
+    aggregates = metric.aggregate_results
+
+    if scores is not None:
+        if not isinstance(scores, list):
+            raise MlflowException(
+                f"{exception_header} must return MetricValue with scores as a list."
+            )
+        if any(not _is_numeric(score) for score in scores):
+            raise MlflowException(
+                f"{exception_header} must return MetricValue with numeric scores."
+            )
+
+    if justifications is not None:
+        if not isinstance(justifications, list):
+            raise MlflowException(
+                f"{exception_header} must return MetricValue with justifications as a list."
+            )
+        if any(not isinstance(justification, str) for justification in justifications):
+            raise MlflowException(
+                f"{exception_header} must return MetricValue with string justifications."
+            )
+
+    if aggregates is not None:
+        if not isinstance(aggregates, dict):
+            raise MlflowException(
+                f"{exception_header} must return MetricValue with aggregate_results as a dict."
+            )
+
+        if any(not (isinstance(k, str) and _is_numeric(v)) for k, v in aggregates.items()):
+            raise MlflowException(
+                (
+                    f"{exception_header} must return MetricValue with aggregate_results with "
+                    "str keys and numeric values",
+                )
+            )
 
     return metric
 
@@ -820,7 +912,7 @@ class DefaultEvaluator(ModelEvaluator):
                 score = self.raw_model.score(
                     self.X.copy_to_avoid_mutation(), self.y, sample_weight=self.sample_weights
                 )
-                self.metrics["score"] = score
+                self.metrics_values.update(_get_aggregate_metrics_values({"score": score}))
             except Exception as e:
                 _logger.warning(
                     f"Computing sklearn model score failed: {e!r}. Set logging level to "
@@ -840,7 +932,9 @@ class DefaultEvaluator(ModelEvaluator):
                 sample_weights=self.sample_weights,
             )
 
-            self.metrics["roc_auc"] = self.roc_curve.auc
+            self.metrics_values.update(
+                _get_aggregate_metrics_values({"roc_auc": self.roc_curve.auc})
+            )
             self.pr_curve = _gen_classifier_curve(
                 is_binomial=True,
                 y=self.y,
@@ -851,7 +945,9 @@ class DefaultEvaluator(ModelEvaluator):
                 sample_weights=self.sample_weights,
             )
 
-            self.metrics["precision_recall_auc"] = self.pr_curve.auc
+            self.metrics_values.update(
+                _get_aggregate_metrics_values({"precision_recall_auc": self.pr_curve.auc})
+            )
 
     def _log_multiclass_classifier_artifacts(self):
         per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
@@ -1012,6 +1108,31 @@ class DefaultEvaluator(ModelEvaluator):
         for index, custom_metric in enumerate(self.custom_metrics):
             # deepcopying eval_df and builtin_metrics for each custom metric function call,
             # in case the user modifies them inside their function(s).
+            eval_df_copy = eval_df.copy()
+            variables = custom_metric.variables
+            input_df = self.X.copy_to_avoid_mutation()
+
+            if variables is not None:
+                for variable in variables:
+                    column_name = self.evaluator_config.get(variable, variable)
+                    if column_name in input_df.columns:
+                        eval_df_copy[column_name] = input_df[column_name]
+                    elif (
+                        self.other_output_columns is not None
+                        and column_name in self.other_output_columns.columns
+                    ):
+                        eval_df_copy[column_name] = self.other_output_columns[column_name]
+                    else:
+                        raise MlflowException(
+                            f"Column '{column_name}' not found in input data or output data."
+                        )
+
+            input_df_columns = input_df.columns
+            input_column_name = self.evaluator_config.get("input", "input")
+
+            if input_column_name in input_df_columns:
+                eval_df_copy["input"] = input_df[input_column_name]
+
             custom_metric_tuple = _CustomMetric(
                 function=custom_metric.eval_fn,
                 index=index,
@@ -1019,10 +1140,16 @@ class DefaultEvaluator(ModelEvaluator):
             )
             metric_result = _evaluate_custom_metric(
                 custom_metric_tuple,
-                eval_df.copy(),
+                eval_df_copy,
                 copy.deepcopy(self.metrics),
+                copy.deepcopy(self.metrics_values),
             )
-            self.metrics.update({custom_metric.name: metric_result})
+            name = (
+                f"{custom_metric.name}/{custom_metric.version}"
+                if custom_metric.version
+                else custom_metric.name
+            )
+            self.metrics_values.update({name: metric_result})
 
     def _log_custom_artifacts(self, eval_df):
         if not self.custom_artifacts:
@@ -1040,7 +1167,7 @@ class DefaultEvaluator(ModelEvaluator):
                 artifact_results = _evaluate_custom_artifacts(
                     custom_artifact_tuple,
                     eval_df.copy(),
-                    copy.deepcopy(self.metrics),
+                    copy.deepcopy(self.metrics_values),
                 )
                 for artifact_name, raw_artifact in artifact_results.items():
                     self.artifacts[artifact_name] = self._log_custom_metric_artifact(
@@ -1094,7 +1221,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.label_list = np.unique(self.y)
             self.num_classes = len(self.label_list)
 
-            self.y_pred = self.predict_fn(self.X.copy_to_avoid_mutation())
+            model_predictions = self.predict_fn(self.X.copy_to_avoid_mutation())
             self.is_binomial = self.num_classes <= 2
 
             if self.is_binomial:
@@ -1142,17 +1269,17 @@ class DefaultEvaluator(ModelEvaluator):
                 pred_latencies.append(end_time - start_time)
                 y_pred_list.append(y_pred)
 
-            # Aggregate all predictions into self.y_pred
+            # Aggregate all predictions into model_predictions
             sample_pred = y_pred_list[0]
             if isinstance(sample_pred, pd.DataFrame):
-                self.y_pred = pd.concat(y_pred_list)
+                model_predictions = pd.concat(y_pred_list)
             elif isinstance(sample_pred, np.ndarray):
-                self.y_pred = np.concatenate(y_pred_list, axis=0)
+                model_predictions = np.concatenate(y_pred_list, axis=0)
             elif isinstance(sample_pred, list):
-                self.y_pred = sum(y_pred_list, [])
+                model_predictions = sum(y_pred_list, [])
             # handle if sample_pred is a pandas series
             elif isinstance(sample_pred, pd.Series):
-                self.y_pred = pd.concat(y_pred_list)
+                model_predictions = pd.concat(y_pred_list)
             else:
                 raise MlflowException(
                     message=f"Unsupported prediction type {type(sample_pred)} for model type "
@@ -1160,9 +1287,14 @@ class DefaultEvaluator(ModelEvaluator):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            self.metrics_dict.update({"latency": pred_latencies})
+            self.metrics_values.update({"latency": MetricValue(scores=pred_latencies)})
         else:
-            self.y_pred = self.model.predict(self.X.copy_to_avoid_mutation())
+            model_predictions = self.model.predict(self.X.copy_to_avoid_mutation())
+
+        output_column_name = self.evaluator_config.get(_Y_PREDICTED_OUTPUT_COLUMN_NAME, "output")
+        self.y_pred, self.other_output_columns = _extract_output_and_other_columns(
+            model_predictions, output_column_name
+        )
 
     def _compute_builtin_metrics(self):
         """
@@ -1171,31 +1303,52 @@ class DefaultEvaluator(ModelEvaluator):
         self._evaluate_sklearn_model_score_if_scorable()
         if self.model_type == _ModelType.CLASSIFIER:
             if self.is_binomial:
-                self.metrics.update(
-                    _get_binary_classifier_metrics(
-                        y_true=self.y,
-                        y_pred=self.y_pred,
-                        y_proba=self.y_probs,
-                        labels=self.label_list,
-                        pos_label=self.pos_label,
-                        sample_weights=self.sample_weights,
+                self.metrics_values.update(
+                    _get_aggregate_metrics_values(
+                        _get_binary_classifier_metrics(
+                            y_true=self.y,
+                            y_pred=self.y_pred,
+                            y_proba=self.y_probs,
+                            labels=self.label_list,
+                            pos_label=self.pos_label,
+                            sample_weights=self.sample_weights,
+                        )
                     )
                 )
                 self._compute_roc_and_pr_curve()
             else:
                 average = self.evaluator_config.get("average", "weighted")
-                self.metrics.update(
-                    _get_multiclass_classifier_metrics(
-                        y_true=self.y,
-                        y_pred=self.y_pred,
-                        y_proba=self.y_probs,
-                        labels=self.label_list,
-                        average=average,
-                        sample_weights=self.sample_weights,
+                self.metrics_values.update(
+                    _get_aggregate_metrics_values(
+                        _get_multiclass_classifier_metrics(
+                            y_true=self.y,
+                            y_pred=self.y_pred,
+                            y_proba=self.y_probs,
+                            labels=self.label_list,
+                            average=average,
+                            sample_weights=self.sample_weights,
+                        )
                     )
                 )
         elif self.model_type == _ModelType.REGRESSOR:
-            self.metrics.update(_get_regressor_metrics(self.y, self.y_pred, self.sample_weights))
+            self.metrics_values.update(
+                _get_aggregate_metrics_values(
+                    _get_regressor_metrics(self.y, self.y_pred, self.sample_weights)
+                )
+            )
+
+    def _evaluate_builtin_metrics(self, eval_df):
+        if not self.builtin_metrics:
+            return
+        for builtin_metric in self.builtin_metrics:
+            metric_value = builtin_metric.eval_fn(eval_df, self.metrics)
+            if metric_value:
+                name = (
+                    f"{builtin_metric.name}/{builtin_metric.version}"
+                    if builtin_metric.version
+                    else builtin_metric.name
+                )
+                self.metrics_values.update({name: metric_value})
 
     def _log_artifacts(self):
         """
@@ -1211,6 +1364,12 @@ class DefaultEvaluator(ModelEvaluator):
             self._log_model_explainability()
 
     def _log_eval_table(self):
+        if self.model_type not in (
+            _ModelType.QUESTION_ANSWERING,
+            _ModelType.TEXT_SUMMARIZATION,
+            _ModelType.TEXT,
+        ):
+            return
         metric_prefix = self.evaluator_config.get("metric_prefix", "")
         if not isinstance(metric_prefix, str):
             metric_prefix = ""
@@ -1220,127 +1379,33 @@ class DefaultEvaluator(ModelEvaluator):
             )
         else:
             data = self.dataset.features_data.assign(outputs=self.y_pred)
-        data = data.assign(**self.metrics_dict)
+
+        columns = {}
+        for metric_name, metric_value in self.metrics_values.items():
+            scores = metric_value.scores
+            justifications = metric_value.justifications
+
+            if scores:
+                columns[f"{metric_name}/score"] = scores
+            if justifications:
+                columns[f"{metric_name}/justification"] = justifications
+        data = data.assign(**columns)
         artifact_file_name = f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}"
         mlflow.log_table(data, artifact_file=artifact_file_name)
-        name = artifact_file_name.split(".", 1)[0]
+        name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
             uri=mlflow.get_artifact_uri(artifact_file_name)
         )
 
-    def _calculate_perplexity(self, predictions):
-        try:
-            _logger.info("Loading perplexity metric:")
-            import evaluate
-
-            perplexity = evaluate.load("perplexity", module_type="metric")
-        except Exception as e:
-            _logger.warning(
-                f"Failed to load 'perplexity' metric (error: {e!r}), skipping metric logging."
-            )
-            return
-
-        _logger.info("Computing perplexity metric:")
-        results = perplexity.compute(predictions=predictions, model_id="gpt2")
-        self.metrics.update({"mean_perplexity": results["mean_perplexity"]})
-        self.metrics_dict.update({"perplexity": results["perplexities"]})
-
-    def _calculate_toxicity(self, predictions):
-        try:
-            _logger.info("Loading toxicity metric:")
-            import evaluate
-
-            toxicity = evaluate.load("toxicity", module_type="measurement")
-        except Exception as e:
-            _logger.warning(
-                f"Failed to load 'toxicity' metric (error: {e!r}), skipping metric logging."
-            )
-            return
-
-        _logger.info("Computing toxicity metric:")
-        results = toxicity.compute(predictions=predictions)
-        self.metrics_dict.update({"toxicity": results["toxicity"]})
-        results = toxicity.compute(predictions=predictions, aggregation="ratio")
-        self.metrics.update({"toxicity_ratio": results["toxicity_ratio"]})
-
-    def _calculate_reading_level(self, predictions):
-        try:
-            import textstat
-        except ImportError:
-            _logger.warning(
-                "Failed to import textstat (reading grade level metrics), skipping metric logging."
-            )
-            return
-
-        _logger.info("Computing flesch kincaid metric:")
-        metrics = [textstat.flesch_kincaid_grade(prediction) for prediction in predictions]
-        self.metrics_dict.update({"flesch_kincaid_grade_level": metrics})
-        average_grade_level = {"mean_flesch_kincaid_grade_level": sum(metrics) / len(metrics)}
-        self.metrics.update(average_grade_level)
-
-        _logger.info("Computing automated readability index metric:")
-        metrics = [textstat.automated_readability_index(prediction) for prediction in predictions]
-        self.metrics_dict.update({"ari_grade_level": metrics})
-        average_grade_level = {"mean_ari_grade_level": sum(metrics) / len(metrics)}
-        self.metrics.update(average_grade_level)
-
-    def _calculate_general_text_metrics(self):
-        predictions = (
-            self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
-        )
-        if len(predictions) == 0:
-            return
-
-        if any(not isinstance(prediction, str) for prediction in predictions):
-            _logger.warning(
-                "Cannot calculate perplexity, toxicity, and reading level metrics "
-                "for non-string inputs, skipping metric logging."
-            )
-            return
-
-        self._calculate_toxicity(predictions)
-        self._calculate_reading_level(predictions)
-        self._calculate_perplexity(predictions)
-
-    def _evaluate_question_answering(self):
-        if self.dataset.has_targets:
-            acc = accuracy_score(y_true=self.y, y_pred=self.y_pred)
-            self.metrics.update({"exact_match": acc})
-        self._calculate_general_text_metrics()
-
-        self._log_eval_table()
-
-    def _calculate_rouge(self):
-        try:
-            import evaluate
-
-            rouge = evaluate.load("rouge")
-        except Exception as e:
-            _logger.warning(
-                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
-            )
-            return
-
-        predictions = (
-            self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
-        )
-        metrics = rouge.compute(predictions=predictions, references=self.y, use_aggregator=False)
-        self.metrics_dict.update(metrics)
-        aggregate_metrics = rouge.compute(
-            predictions=predictions, references=self.y, use_aggregator=True
-        )
-        self.metrics.update(aggregate_metrics)
-
-    def _evaluate_text_summarization(self):
-        if self.dataset.has_targets:
-            self._calculate_rouge()
-        self._calculate_general_text_metrics()
-
-        self._log_eval_table()
-
-    def _evaluate_text(self):
-        self._calculate_general_text_metrics()
-        self._log_eval_table()
+    def _update_metrics(self):
+        self.metrics = {}
+        for metric_name, metric_value in self.metrics_values.items():
+            if metric_value.aggregate_results:
+                for agg_name, agg_value in metric_value.aggregate_results.items():
+                    if agg_name == metric_name.split("/")[0]:
+                        self.metrics[metric_name] = agg_value
+                    else:
+                        self.metrics[f"{metric_name}/{agg_name}"] = agg_value
 
     def _evaluate(
         self,
@@ -1359,9 +1424,12 @@ class DefaultEvaluator(ModelEvaluator):
             self.model_loader_module, self.raw_model = _extract_raw_model(model)
             self.predict_fn, self.predict_proba_fn = _extract_predict_fn(model, self.raw_model)
 
-            self.metrics = {}
-            self.metrics_dict = {}
             self.artifacts = {}
+            self.metrics = {}
+            self.metrics_values = {}
+            self.builtin_metrics = {}
+
+            text_metrics = [toxicity, perplexity, flesch_kincaid_grade_level, ari_grade_level]
 
             if self.model_type not in _ModelType.values():
                 raise MlflowException(
@@ -1373,25 +1441,44 @@ class DefaultEvaluator(ModelEvaluator):
                 if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
                     self._compute_builtin_metrics()
                 elif self.model_type == _ModelType.QUESTION_ANSWERING:
-                    self._evaluate_question_answering()
+                    self.builtin_metrics = [*text_metrics, exact_match]
                 elif self.model_type == _ModelType.TEXT_SUMMARIZATION:
-                    self._evaluate_text_summarization()
+                    self.builtin_metrics = [*text_metrics, rouge1, rouge2, rougeL, rougeLsum]
                 elif self.model_type == _ModelType.TEXT:
-                    self._evaluate_text()
+                    self.builtin_metrics = text_metrics
 
-                if self.custom_metrics or self.custom_artifacts:
-                    eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
-                    if self.dataset.has_targets:
-                        eval_df["target"] = self.y
-                    self._evaluate_custom_metrics(eval_df)
-                    if not is_baseline_model:
-                        self._log_custom_artifacts(eval_df)
+                self.y_pred = (
+                    self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
+                )
+                eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
+                if self.dataset.has_targets:
+                    eval_df["target"] = self.y
+
+                self._evaluate_builtin_metrics(eval_df)
+                self._update_metrics()
+                self._evaluate_custom_metrics(eval_df)
+                if not is_baseline_model:
+                    self._log_custom_artifacts(eval_df)
+
+                def _prefix_value(value):
+                    aggregate = (
+                        {f"{prefix}{k}": v for k, v in value.aggregate_results.items()}
+                        if value.aggregate_results
+                        else None
+                    )
+                    return MetricValue(value.scores, value.justifications, aggregate)
 
                 if prefix := self.evaluator_config.get("metric_prefix"):
-                    self.metrics = {f"{prefix}{k}": v for k, v in self.metrics.items()}
+                    self.metrics_values = {
+                        f"{prefix}{k}": _prefix_value(v) for k, v in self.metrics_values.items()
+                    }
+
+                self._update_metrics()
+
                 if not is_baseline_model:
                     self._log_artifacts()
                     self._log_metrics()
+                    self._log_eval_table()
                 return EvaluationResult(metrics=self.metrics, artifacts=self.artifacts)
 
     def evaluate(
