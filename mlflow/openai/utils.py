@@ -108,8 +108,9 @@ class _OAITokenHolder:
         self.api_type = api_type
         self._api_token = None
         self._credential = None
+        self._is_azure_ad = api_type in ("azure_ad", "azuread")
 
-        if self.api_type in ("azure_ad", "azuread"):
+        if self._is_azure_ad:
             try:
                 from azure.identity import DefaultAzureCredential
             except ImportError:
@@ -125,11 +126,12 @@ class _OAITokenHolder:
         """
         import openai
 
-        if self.api_type in ("azure_ad", "azuread"):
+        if self._is_azure_ad:
             if not self._api_token or self._api_token.expires_on < time.time() + 60:
                 if logger:
                     logger.debug(
-                        "Token for Azure AD is either expired or invalid. New token to acquire."
+                        "Token for Azure AD is either expired or invalid. Attempting to acquire a "
+                        "new token."
                     )
                 self._api_token = self._credential.get_token(
                     "https://cognitiveservices.azure.com/.default"
