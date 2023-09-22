@@ -30,6 +30,7 @@ except ImportError:
 
 INPUT_EXAMPLE_PATH = "artifact_path"
 PARAMS_EXAMPLE_PATH = "params_path"
+PARMAS_EXAMPLE_FILE = "params_example.json"
 
 ModelInputExample = Union[
     pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes
@@ -84,18 +85,9 @@ class _Example:
           corresponding python types or their closest equivalent.
     """
 
-    def __init__(
-        self, input_example: ModelInputExample, params_example: Optional[Dict[str, Any]] = None
-    ):
+    def __init__(self, input_example: ModelInputExample):
         def _is_scalar(x):
             return np.isscalar(x) or x is None
-
-        def _validate_params(params):
-            try:
-                _infer_param_schema(params)
-            except MlflowException:
-                _logger.warning(f"Invalid params found in input example: {params}")
-                raise
 
         def _is_ndarray(x):
             return isinstance(x, np.ndarray) or (
@@ -195,14 +187,9 @@ class _Example:
             return result
 
         example_filename = "input_example.json"
-        params_filename = "params_example.json"
         self.info = {
             INPUT_EXAMPLE_PATH: example_filename,
-            PARAMS_EXAMPLE_PATH: params_filename,
         }
-        if params_example is not None:
-            _validate_params(params_example)
-        self._inference_params = params_example
 
         # Avoid changing the variable passed in
         input_example = deepcopy(input_example)
@@ -255,9 +242,6 @@ class _Example:
 
     def save(self, parent_dir_path: str):
         """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`."""
-        if self._inference_params is not None:
-            with open(os.path.join(parent_dir_path, self.info[PARAMS_EXAMPLE_PATH]), "w") as f:
-                json.dump(self._inference_params, f, cls=NumpyEncoder)
         with open(os.path.join(parent_dir_path, self.info[INPUT_EXAMPLE_PATH]), "w") as f:
             json.dump(self.data, f, cls=NumpyEncoder)
 
@@ -268,19 +252,11 @@ class _Example:
         """
         return self._inference_data
 
-    @property
-    def inference_params(self):
-        """
-        Returns the params dictionary that PyFunc wrapped models can use for scoring.
-        """
-        return self._inference_params
-
 
 def _save_example(
     mlflow_model: Model,
     input_example: ModelInputExample,
     path: str,
-    params_example: Optional[Dict[str, Any]] = None,
 ):
     """
     Save example to a file on the given path and updates passed Model with example metadata.
@@ -296,9 +272,8 @@ def _save_example(
                        input.
     :param mlflow_model: Model metadata that will get updated with the example metadata.
     :param path: Where to store the example file. Should be model the model directory.
-    :param params_example: Optional params dictionary that PyFunc wrapped models can use for scoring.
     """
-    example = _Example(input_example, params_example)
+    example = _Example(input_example)
     example.save(path)
     mlflow_model.saved_input_example_info = example.info
 
@@ -327,14 +302,33 @@ def _read_example(mlflow_model: Model, path: str):
     return dataframe_from_raw_json(path, schema=input_schema)
 
 
+def _save_params_example(mlflow_model: Model, params_example: Optional[Dict[str, Any]], path: str):
+    """
+    Save params_example to a file on the given path and updates passed Model with example metadata.
+
+    :param mlflow_model: Model metadata that will get updated with the example metadata.
+    :param params_example: Optional params dictionary that PyFunc wrapped models can use for scoring.
+    :param path: Where to store the example file. Should be model the model directory.
+    """
+    if params_example is not None:
+        try:
+            _infer_param_schema(params_example)
+        except MlflowException:
+            _logger.warning(f"Invalid params found in input example: {params_example}")
+            raise
+        with open(os.path.join(path, PARMAS_EXAMPLE_FILE), "w") as f:
+            json.dump(params_example, f, cls=NumpyEncoder)
+        mlflow_model.saved_params_example_info = {PARAMS_EXAMPLE_PATH: PARMAS_EXAMPLE_FILE}
+
+
 def _read_params_example(mlflow_model: Model, path: str):
     """
     Read params_example from a model directory. Returns None if there is no params_example
     in the path or the model was saved without example.
     """
-    if mlflow_model.saved_input_example_info is None:
+    if mlflow_model.saved_params_example_info is None:
         return None
-    path = os.path.join(path, mlflow_model.saved_input_example_info[PARAMS_EXAMPLE_PATH])
+    path = os.path.join(path, mlflow_model.saved_params_example_info[PARAMS_EXAMPLE_PATH])
     if not os.path.exists(path):
         return None
     with open(path) as f:

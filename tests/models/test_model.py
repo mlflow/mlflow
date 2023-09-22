@@ -14,7 +14,7 @@ from scipy.sparse import csc_matrix
 
 import mlflow
 from mlflow.models import Model, ModelSignature, infer_signature, validate_schema
-from mlflow.models.utils import _save_example
+from mlflow.models.utils import _save_example, _save_params_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
@@ -115,7 +115,9 @@ class TestFlavor:
         if signature is not None:
             mlflow_model.signature = signature
         if input_example is not None:
-            _save_example(mlflow_model, input_example, path, params_example)
+            _save_example(mlflow_model, input_example, path)
+        if params_example is not None:
+            _save_params_example(mlflow_model, params_example, path)
         mlflow_model.save(os.path.join(path, "MLmodel"))
 
 

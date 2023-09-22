@@ -37,7 +37,7 @@ from mlflow.models import (
     infer_signature,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.utils import _save_example
+from mlflow.models.utils import _save_example, _save_params_example
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
@@ -429,7 +429,9 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         input_example = _format_input_example_for_special_cases(input_example, built_pipeline)
-        _save_example(mlflow_model, input_example, str(path), params_example)
+        _save_example(mlflow_model, input_example, str(path))
+    if params_example is not None:
+        _save_params_example(mlflow_model, params_example, str(path))
     if metadata is not None:
         mlflow_model.metadata = metadata
 
