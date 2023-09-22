@@ -135,7 +135,7 @@ def make_genai_metric(
         This is the function that is called when the metric is evaluated.
         """
 
-        class_name = f"mlflow.metrics.utils.prompts.{version}.EvaluationModel"
+        class_name = f"mlflow.metrics.genai.prompts.{version}.EvaluationModel"
         try:
             evaluation_model_class_module = _get_class_from_string(class_name)
         except ModuleNotFoundError:

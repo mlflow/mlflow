@@ -174,7 +174,7 @@ def test_fails_to_load_metric():
     eval_df = pd.DataFrame({"prediction": ["random text", "This is a sentence"]})
     e = ImportError("mocked error")
     with mock.patch("evaluate.load", side_effect=e) as mock_load:
-        with mock.patch("mlflow.metrics.utils.metric_definitions._logger.warning") as mock_warning:
+        with mock.patch("mlflow.metrics.genai.metric_definitions._logger.warning") as mock_warning:
             toxicity.eval_fn(eval_df, metrics={})
             mock_load.assert_called_once_with("toxicity", module_type="measurement")
             mock_warning.assert_called_once_with(

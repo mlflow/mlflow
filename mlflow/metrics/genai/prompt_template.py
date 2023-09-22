@@ -16,7 +16,7 @@ class PromptTemplate:
 
         .. code-block:: python
 
-            from mlflow.metrics.utils.prompt_template import PromptTemplate
+            from mlflow.metrics..prompt_template import PromptTemplate
 
             # Instantiation using initializer
             prompt = PromptTemplate(template_str="Say {foo} {baz}", variables=["foo", "baz"])

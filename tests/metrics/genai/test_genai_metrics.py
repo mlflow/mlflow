@@ -24,7 +24,7 @@ openai_justification1 = (
 properly_formatted_openai_response1 = ResponsePayload(
     candidates=[
         Candidate(
-            text='{\n  "Score": 3,\n  "Justification": ' f"{openai_justification1}" "\n}",
+            text='{\n  "Score": 3,\n  "Justification": "' f"{openai_justification1}" '"\n}',
             metadata={"finish_reason": "stop"},
         )
     ],
@@ -241,7 +241,7 @@ def test_make_genai_metric_correct_response():
             "Provided output: example-output\n\nProvided ground_truth: example-ground_truth\n\n"
             "Score: 4\nJustification: example-justification\n\n        \n\nAnd you'll need to "
             "submit your grading for the fake_metric of the output,\nusing the following in json "
-            "format:\nScore: [your score number between 0 to 4 for the fake_metric of the "
+            "format:\nScore: [your score number between 1 to 5 for the fake_metric of the "
             "output]\nJustification: [your step by step reasoning about the fake_metric of the "
             "output]\n    ",
             "temperature": 0.0,
@@ -471,19 +471,19 @@ def test_correctness_metric():
         assert mock_predict_function.call_args[0][1] == {
             "prompt": "\nPlease act as an impartial judge and evaluate the quality of "
             "the provided output which\nattempts to produce output for the provided input "
-            "based on a provided information.\nYou'll be given a grading format below which "
+            "based on a provided information.\n\nYou'll be given a grading format below which "
             "you'll call for each provided information,\ninput and provided output to submit "
             "your justification and score to compute the correctness of\nthe output.\n"
             f"\nInput:\n{input}\n"
             f"\nProvided output:\n{mlflow_prediction}\n"
             f"\nProvided ground_truth: {mlflow_ground_truth}\n"
             f"\nMetric definition:\n{CorrectnessMetric.definition}\n"
-            f"\nGrading criteria:\n{CorrectnessMetric.grading_prompt}\n"
+            f"\nBelow is your grading criteria:\n{CorrectnessMetric.grading_prompt}\n"
             "\nExamples:\n"
             f"\nInput: {mlflow_example.input}\n"
-            f"Provided output: {mlflow_example.output}\n"
-            f"Provided ground_truth: {mlflow_ground_truth}\n"
-            f"Score: {mlflow_example.score}\n"
+            f"\nProvided output: {mlflow_example.output}\n"
+            f"\nProvided ground_truth: {mlflow_ground_truth}\n"
+            f"\nScore: {mlflow_example.score}\n"
             f"Justification: {mlflow_example.justification}\n\n        \n\n"
             "And you'll need to submit your grading for the correctness of the output,"
             "\nusing the following in json format:\n"
