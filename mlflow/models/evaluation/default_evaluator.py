@@ -1308,6 +1308,7 @@ class DefaultEvaluator(ModelEvaluator):
                 )
 
             self.metrics_values.update({"latency": MetricValue(scores=pred_latencies)})
+            self.metrics_values.update({"token_count": MetricValue(scores=num_tokens_list)})
         else:
             model_predictions = self.model.predict(self.X.copy_to_avoid_mutation())
 
