@@ -81,13 +81,12 @@ class EvaluationModel:
 @dataclass
 class CorrectnessMetric:
     definition = (
-        "Correctness refers to how well the generated output matches "
-        "or aligns with the reference or ground truth text that is considered "
-        "accurate and appropriate for the given input. The ground truth serves as "
-        "a benchmark against which the provided output is compared to determine the "
-        "level of accuracy and fidelity."
+        "Correctness is assessed by whether answers align exactly with established truth for "
+        "questions requiring precise responses, and by the similarity in meaning and description "
+        "to the established truth for questions allowing varied descriptions."
     )
 
+    # TODO: modify this for new definition of correctness
     grading_prompt = (
         "Correctness: If the answer correctly answer the question, below "
         "are the details for different scores: "
