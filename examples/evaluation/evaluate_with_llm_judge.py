@@ -2,9 +2,15 @@ import logging
 import os
 
 import pandas as pd
+import openai
 
+import mlflow
 from mlflow.metrics.base import EvaluationExample
 from mlflow.metrics.utils.make_genai_metric import make_genai_metric
+
+
+mlflow.set_tracking_uri("databricks")
+mlflow.set_experiment("/Users/prithvi.kannan@databricks.com/LLM_judge_example")
 
 logging.getLogger("mlflow").setLevel(logging.ERROR)
 
@@ -32,7 +38,7 @@ example = EvaluationExample(
     },
 )
 
-custom_metric = make_genai_metric(
+correctness = make_genai_metric(
     name="correctness",
     version="v1",
     definition="Correctness refers to how well the generated output matches "
@@ -116,14 +122,54 @@ eval_df = pd.DataFrame(
     }
 )
 
-metric_value = custom_metric.eval_fn(eval_df)
+# metric_value = custom_metric.eval_fn(eval_df)
 
-# Print the metric value and its scores and justifications.
-print(f"Metric scores: {metric_value.scores}")
-print(f"Metric justifications: {metric_value.justifications}")
+# # Print the metric value and its scores and justifications.
+# print(f"Metric scores: {metric_value.scores}")
+# print(f"Metric justifications: {metric_value.justifications}")
 
-num_good_scores = sum([1 for x in metric_value.scores if x is not None])
-num_good_justifications = sum([1 for x in metric_value.justifications if x is not None])
+# num_good_scores = sum([1 for x in metric_value.scores if x is not None])
+# num_good_justifications = sum([1 for x in metric_value.justifications if x is not None])
 
-print(f"Percent good scores: {num_good_scores / len(metric_value.scores)}")
-print(f"Percent good justifications: {num_good_justifications / len(metric_value.justifications)}")
+# print(f"Percent good scores: {num_good_scores / len(metric_value.scores)}")
+# print(f"Percent good justifications: {num_good_justifications / len(metric_value.justifications)}")
+
+mlflow_eval_df = pd.DataFrame(
+    {
+        "question": [
+            "What is MLflow?",
+            "What is Spark?",
+            "What is Python?",
+        ],
+        "ground_truth": [
+            "MLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, a company that specializes in big data and machine learning solutions. MLflow is designed to address the challenges that data scientists and machine learning engineers face when developing, training, and deploying machine learning models.",
+            "Apache Spark is an open-source, distributed computing system designed for big data processing and analytics. It was developed in response to limitations of the Hadoop MapReduce computing model, offering improvements in speed and ease of use. Spark provides libraries for various tasks such as data ingestion, processing, and analysis through its components like Spark SQL for structured data, Spark Streaming for real-time data processing, and MLlib for machine learning tasks",
+            "Python is a high-level programming language that was created by Guido van Rossum and released in 1991. It emphasizes code readability and allows developers to express concepts in fewer lines of code than languages like C++ or Java. Python is used in various domains, including web development, scientific computing, data analysis, and machine learning.",
+        ],
+    }
+)
+
+# def language_model(inputs: list[str]) -> list[str]:
+#     return inputs
+
+# model_info = mlflow.pyfunc.log_model(
+#     artifact_path="model", python_model=language_model, input_example=["a", "b"]
+# )
+
+system_prompt = "Answer the following question in two sentences"
+logged_model = mlflow.openai.log_model(
+    model="gpt-3.5-turbo",
+    task=openai.ChatCompletion,
+    artifact_path="model",
+    messages=[
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": "{question}"},
+    ],
+)
+
+results = mlflow.evaluate(
+    logged_model.model_uri,
+    mlflow_eval_df,
+    model_type="text",
+    custom_metrics=[correctness],
+)

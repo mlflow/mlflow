@@ -10,9 +10,9 @@ from mlflow.models import EvaluationMetric, make_metric
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.class_utils import _get_class_from_string
 
-if TYPE_CHECKING:
-    import pandas as pd
-    import pyspark
+# if TYPE_CHECKING:
+import pandas as pd
+import pyspark
 
 _logger = logging.getLogger(__name__)
 
@@ -126,7 +126,9 @@ def make_genai_metric(
         )
     """
 
-    def eval_fn(eval_df: Union["pd.DataFrame", "pyspark.sql.DataFrame"]) -> MetricValue:
+    def eval_fn(
+        eval_df: Union[pd.DataFrame, pyspark.sql.DataFrame], metrics: Dict[str, MetricValue]
+    ) -> MetricValue:
         """
         This is the function that is called when the metric is evaluated.
         """
