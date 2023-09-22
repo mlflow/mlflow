@@ -106,23 +106,32 @@ def test_model_load_remote(tmp_path, mock_s3_bucket):
 
 class TestFlavor:
     @classmethod
-    def save_model(cls, path, mlflow_model, signature=None, input_example=None):
+    def save_model(
+        cls, path, mlflow_model, signature=None, input_example=None, params_example=None
+    ):
         mlflow_model.flavors["flavor1"] = {"a": 1, "b": 2}
         mlflow_model.flavors["flavor2"] = {"x": 1, "y": 2}
         _validate_and_prepare_target_save_path(path)
         if signature is not None:
             mlflow_model.signature = signature
         if input_example is not None:
-            _save_example(mlflow_model, input_example, path)
+            _save_example(mlflow_model, input_example, path, params_example)
         mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def _log_model_with_signature_and_example(tmp_path, sig, input_example, metadata=None):
+def _log_model_with_signature_and_example(
+    tmp_path, sig, input_example, metadata=None, params_example=None
+):
     experiment_id = mlflow.create_experiment("test")
 
     with mlflow.start_run(experiment_id=experiment_id) as run:
         Model.log(
-            "some/path", TestFlavor, signature=sig, input_example=input_example, metadata=metadata
+            "some/path",
+            TestFlavor,
+            signature=sig,
+            input_example=input_example,
+            metadata=metadata,
+            params_example=params_example,
         )
 
     # TODO: remove this after replacing all `with TempDir(chdr=True) as tmp`
@@ -306,7 +315,7 @@ def test_model_log_with_input_example_succeeds():
 
 
 def test_model_input_example_with_params_log_load_succeeds(tmp_path):
-    pdf = pd.DataFrame(
+    input_example = pd.DataFrame(
         {
             "a": np.int32(1),
             "b": "test string",
@@ -316,7 +325,7 @@ def test_model_input_example_with_params_log_load_succeeds(tmp_path):
         },
         index=[0],
     )
-    input_example = (pdf, {"a": 1, "b": "string"})
+    params_example = {"a": 1, "b": "string"}
 
     sig = ModelSignature(
         inputs=Schema(
@@ -334,17 +343,19 @@ def test_model_input_example_with_params_log_load_succeeds(tmp_path):
         ),
     )
 
-    local_path, _ = _log_model_with_signature_and_example(tmp_path, sig, input_example)
+    local_path, _ = _log_model_with_signature_and_example(
+        tmp_path, sig, input_example, params_example=params_example
+    )
     loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
 
     # date column will get deserialized into string
-    pdf["d"] = pdf["d"].apply(lambda x: x.isoformat())
+    input_example["d"] = input_example["d"].apply(lambda x: x.isoformat())
     loaded_example = loaded_model.load_input_example(local_path)
     assert isinstance(loaded_example, pd.DataFrame)
-    pd.testing.assert_frame_equal(loaded_example, pdf)
+    pd.testing.assert_frame_equal(loaded_example, input_example)
 
-    params = loaded_model.load_input_example_params(local_path)
-    assert params == input_example[1]
+    params = loaded_model.load_params_example(local_path)
+    assert params == params_example
 
 
 def test_model_load_input_example_numpy():

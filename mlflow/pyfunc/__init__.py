@@ -1613,6 +1613,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    params_example: Optional[Dict[str, Any]] = None,
     **kwargs,
 ):
     """
@@ -1752,6 +1753,7 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+    :param params_example: {{ params_example }}
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     if python_model:
@@ -1828,13 +1830,15 @@ def save_model(
             elif input_example is not None:
                 try:
                     mlflow_model.signature = _infer_signature_from_input_example(
-                        input_example, _PythonModelPyfuncWrapper(python_model, None, None)
+                        input_example,
+                        _PythonModelPyfuncWrapper(python_model, None, None),
+                        params_example,
                     )
                 except Exception as e:
                     _logger.warning(f"Failed to infer model signature from input example. {e}")
 
     if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
+        _save_example(mlflow_model, input_example, path, params_example=params_example)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -1880,6 +1884,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    params_example=None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -2046,6 +2051,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params_example=params_example,
     )
 
 

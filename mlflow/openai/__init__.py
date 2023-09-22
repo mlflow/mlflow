@@ -249,6 +249,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    params_example: Optional[Dict[str, Any]] = None,
     **kwargs,
 ):
     """
@@ -290,6 +291,7 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+    :param params_example: {{ params_example }}
     :param  kwargs:
         Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
         :ref:`mlflow.openai.messages` for more details on this parameter)
@@ -349,7 +351,7 @@ def save_model(
         )
 
     if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
+        _save_example(mlflow_model, input_example, path, params_example)
     if metadata is not None:
         mlflow_model.metadata = metadata
     model_data_path = os.path.join(path, MODEL_FILENAME)
@@ -434,6 +436,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    params_example: Optional[Dict[str, Any]] = None,
     **kwargs,
 ):
     """
@@ -480,6 +483,7 @@ def log_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+    :param params_example: {{ params_example }}
     :param  kwargs:
         Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
         :ref:`mlflow.openai.messages` for more details on this parameter)
@@ -529,6 +533,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params_example=params_example,
         **kwargs,
     )
 
