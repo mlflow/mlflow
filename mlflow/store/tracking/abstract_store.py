@@ -1,6 +1,5 @@
 from abc import ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-import os
 from typing import List, Optional
 
 from mlflow.entities import DatasetInput, ViewType
@@ -8,9 +7,8 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils.annotations import developer_stable, experimental
 
-num_cpus = os.cpu_count() or 4
-num_logging_workers = min(num_cpus * 2, 8)
-_ASYNC_DATA_LOGGING_THREAD_POOL = ThreadPoolExecutor(max_workers=num_logging_workers)
+
+_ASYNC_DATA_LOGGING_THREAD_POOL = ThreadPoolExecutor(max_workers=2)
 
 
 @developer_stable
