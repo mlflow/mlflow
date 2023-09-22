@@ -1340,11 +1340,11 @@ def test_evaluate_custom_metric_backwards_compatible():
     )
     metrics = _get_aggregate_metrics_values(builtin_metrics)
 
-    def old_fn_no_type_hint(eval_df, builtin_metrics):
+    def old_fn(eval_df, builtin_metrics):
         return builtin_metrics["mean_absolute_error"] * 1.5
 
     res_metric = _evaluate_custom_metric(
-        _CustomMetric(old_fn_no_type_hint, "old_fn", 0), eval_df, builtin_metrics, metrics
+        _CustomMetric(old_fn, "old_fn", 0), eval_df, builtin_metrics, metrics
     )
     assert res_metric.scores is None
     assert res_metric.justifications is None
