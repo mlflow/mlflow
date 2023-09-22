@@ -1485,6 +1485,13 @@ def test_evaluate_custom_metric_incorrect_return_formats():
             lambda _, __: None,
             pytest.raises(MlflowException, match="returned None"),
         ),
+        (
+            lambda eval_df, _: MetricValue(
+                scores=eval_df["prediction"].tolist()[:-1] + [None],
+                aggregate_results={"prediction_sum": None, "another_aggregate": 5.0},
+            ),
+            does_not_raise(),
+        ),
     ],
 )
 def test_evaluate_custom_metric_lambda(fn, expectation):
