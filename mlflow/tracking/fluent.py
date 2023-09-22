@@ -38,7 +38,6 @@ from mlflow.tracking import _get_store, artifact_utils
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.default_experiment import registry as default_experiment_registry
-from mlflow.tracking.run_data_await_operation import RunDataAwaitOperation
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
@@ -2080,43 +2079,3 @@ def autolog(
     else:
         register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
         register_post_import_hook(setup_autologging, "pyspark.ml", overwrite=True)
-
-
-def await_run_data_processing(self, run_id) -> RunDataAwaitOperation:
-    """
-     Awaits for all run data - metrics, tags, params, logged in async fashion so far, to be persisted by backing store.
-     API relies on the environment variable “MLFLOW_RUN_DATA_PROCESSING_AWAIT_TIMEOUT_SECONDS"
-         “MLFLOW_RUN_DATA_PROCESSING_AWAIT_TIMEOUT_SECONDS - would be defaulted to 1 minute.
-         Each provider can override this value optionally.
-         Users can choose to set this value or simply do not set it and let it default.
-
-     This API will retry awaiting for 3 times, everytime for specified transient error codes -
-     mlflow/mlflow/utils/request_utils.py at master · mlflow/mlflow (github.com)
-     _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
-         [
-             408,  # Request Timeout
-             429,  # Too Many Requests
-             500,  # Internal Server Error
-             502,  # Bad Gateway
-             503,  # Service Unavailable
-             504,  # Gateway Timeout
-         ]),
-    before throwing if it does not finish within that time.
-     If run data ingestion does not finish within specified timeout,
-         then it throws a AwaitRunDataTimeoutException.
-
-     This returns an async operation that can be awaited for completion.
-       That operation either completes or throws AwaitRunDataTimeoutException.
-     If sync is True, the call is blocked till completion or timeout occurs.
-
-     Ingestion cannot be stopped/altered by user actions,
-         so this indicates system failure to ingest metrics within a given time.
-    """
-
-    # Implementation
-    import os
-
-    timeout_sec = os.getenv("“MLFLOW_RUN_DATA_PROCESSING_AWAIT_TIMEOUT_SECONDS")
-    if not timeout_sec:
-        timeout_sec = 60
-    MlflowClient().await_run_data_ingestion(run_id, timeout_sec=timeout_sec)

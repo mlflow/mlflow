@@ -26,7 +26,6 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.tracking.run_data_await_operation import RunDataAwaitOperation
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.client import ModelRegistryClient
@@ -3546,36 +3545,3 @@ class MlflowClient:
         _validate_model_name(name)
         _validate_model_alias_name(alias)
         return self._get_registry_client().get_model_version_by_alias(name, alias)
-
-    def await_run_data_ingestion(self, run_id: str, timeout_sec: [Optional[int]] = 60) -> RunDataAwaitOperation:
-        """
-         Awaits for all run data - metrics, tags, params, logged in async fashion so far, to be persisted by backing store.
-         :param run_id: Run id.
-         :param timeout_sec: Timeout in seconds.
-
-         This API will retry awaiting for 3 times, everytime for specified transient error codes -
-         mlflow/mlflow/utils/request_utils.py at master · mlflow/mlflow (github.com)
-         _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
-             [
-                 408,  # Request Timeout
-                 429,  # Too Many Requests
-                 500,  # Internal Server Error
-                 502,  # Bad Gateway
-                 503,  # Service Unavailable
-                 504,  # Gateway Timeout
-             ]),
-        before throwing if it does not finish within that time.
-         If run data ingestion does not finish within specified timeout,
-             then it throws a AwaitRunDataTimeoutException.
-
-         This returns an async operation that can be awaited for completion.
-           That operation either completes or throws AwaitRunDataTimeoutException.
-         If sync is True, the call is blocked till completion or timeout occurs.
-
-         Ingestion cannot be stopped/altered by user actions,
-             so this indicates system failure to ingest metrics within a given time.
-        """
-
-        # Implementation
-
-        pass

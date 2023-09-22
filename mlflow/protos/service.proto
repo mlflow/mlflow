@@ -246,7 +246,7 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/runs/log-parameter-async"
+        path: "/preview/mlflow/runs/log-parameter-async"
         since { major: 2, minor: 0 },
       }],
 
@@ -293,7 +293,7 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/runs/set-tag-async"
+        path: "/preview/mlflow/runs/set-tag-async"
         since { major: 2, minor: 0 },
       }],
 
@@ -1032,17 +1032,13 @@ message LogParamAsync {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the run under which to log the param. Must be provided.
-  optional string run_id = 4;
-
-  // [Deprecated, use run_id instead] ID of the run under which to log the param. This field will
-  // be removed in a future MLflow version.
-  optional string run_uuid = 1;
+  optional string run_id = 3;
 
   // Name of the param. Maximum size is 255 bytes.
-  optional string key = 2 [(validate_required) = true];
+  optional string key = 1 [(validate_required) = true];
 
   // String value of the param being logged. Maximum size is 500 bytes.
-  optional string value = 3 [(validate_required) = true];
+  optional string value = 2[(validate_required) = true];
 
   message Response {
   }
@@ -1092,19 +1088,15 @@ message SetTagAsync {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the run under which to log the tag. Must be provided.
-  optional string run_id = 4;
-
-  // [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
-  // be removed in a future MLflow version.
-  optional string run_uuid = 1;
+  optional string run_id = 3;
 
   // Name of the tag. Maximum size depends on storage backend.
   // All storage backends are guaranteed to support key values up to 250 bytes in size.
-  optional string key = 2 [(validate_required) = true];
+  optional string key = 1 [(validate_required) = true];
 
   // String value of the tag being logged. Maximum size depends on storage backend.
   // All storage backends are guaranteed to support key values up to 5000 bytes in size.
-  optional string value = 3 [(validate_required) = true];
+  optional string value = 2 [(validate_required) = true];
 
   message Response {
   }

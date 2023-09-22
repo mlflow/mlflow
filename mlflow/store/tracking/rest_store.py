@@ -231,7 +231,7 @@ class RestStore(AbstractStore):
         :param run_id: String id for the run
         :param param: Param instance to log
         """
-        req_body = message_to_json(LogParamAsync(run_uuid=run_id, run_id=run_id, key=param.key, value=param.value))
+        req_body = message_to_json(LogParamAsync(run_id=run_id, key=param.key, value=param.value))
         self._call_endpoint(LogParamAsync, req_body)
 
     def set_experiment_tag(self, experiment_id, tag):
@@ -261,7 +261,7 @@ class RestStore(AbstractStore):
         :param run_id: String ID of the run
         :param tag: RunTag instance to log
         """
-        req_body = message_to_json(SetTagAsync(run_uuid=run_id, run_id=run_id, key=tag.key, value=tag.value))
+        req_body = message_to_json(SetTagAsync(run_id=run_id, key=tag.key, value=tag.value))
         self._call_endpoint(SetTagAsync, req_body)
 
     def delete_tag(self, run_id, key):
