@@ -1,16 +1,12 @@
 import logging
 import os
 
-import pandas as pd
 import openai
+import pandas as pd
 
 import mlflow
 from mlflow.metrics.base import EvaluationExample
 from mlflow.metrics.utils.make_genai_metric import make_genai_metric
-
-
-mlflow.set_tracking_uri("databricks")
-mlflow.set_experiment("/Users/prithvi.kannan@databricks.com/LLM_judge_example")
 
 logging.getLogger("mlflow").setLevel(logging.ERROR)
 
@@ -83,24 +79,6 @@ eval_df = pd.DataFrame(
             "What is Git?",
             "What is CI/CD?",
         ],
-        "prediction": [
-            "MLflow is an open-source platform for managing machine learning workflows, including experiment tracking, model packaging, versioning, and deployment, simplifying the ML lifecycle.",
-            "Apache Spark is an open-source, distributed computing system designed for big data processing and analytics. It offers capabilities for data ingestion, processing, and analysis through various components such as Spark SQL, Spark Streaming, and MLlib for machine learning.",
-            "Python is a high-level, interpreted programming language known for its readability and versatility. It is widely used for web development, data analysis, artificial intelligence, and more.",
-            "Delta Lake is a storage layer that brings reliability to Data Lakes. It works over your existing data and is fully compatible with API's like Spark, Hive, Presto, etc",
-            "Apache Iceberg is an open-source table format for large, distributed datasets. It is designed to improve on the limitations of older formats like Parquet and Avro.",
-            "AWS is Amazon Web Services, a cloud computing platform provided by Amazon. It offers a wide range of services such as computing power, storage, and databases to businesses and developers.",
-            "Kubernetes is an open-source container orchestration platform that automates the deployment, scaling, and management of containerized applications.",
-            "Docker is a platform that enables developers to create, deploy, and run applications in containers, which are lightweight, standalone packages that contain all the dependencies needed to run the code.",
-            "Hadoop is an open-source framework designed for distributed storage and processing of big data using the MapReduce programming model.",
-            "TensorFlow is an open-source machine learning framework developed by Google that provides tools for training and deploying artificial intelligence models.",
-            "PyTorch is an open-source machine learning library for Python that's widely used for deep learning and artificial intelligence applications.",
-            "NoSQL is a type of database that's optimized for handling large volumes of unstructured data. It stands for 'not only SQL' and differs from traditional relational databases.",
-            "GraphQL is a query language for APIs that enables clients to request exactly the data they need, making it more efficient than REST.",
-            "REST API is an architectural style for designing networked applications. It stands for Representational State Transfer and is based on standard HTTP methods.",
-            "Git is a distributed version control system used for tracking changes in source code during software development.",
-            "CI/CD stands for Continuous Integration and Continuous Deployment. It's a set of practices for automating the testing and deployment of software.",
-        ],
         "ground_truth": [
             "MLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, a company that specializes in big data and machine learning solutions. MLflow is designed to address the challenges that data scientists and machine learning engineers face when developing, training, and deploying machine learning models.",
             "Apache Spark is an open-source, distributed computing system designed for big data processing and analytics. It was developed in response to limitations of the Hadoop MapReduce computing model, offering improvements in speed and ease of use. Spark provides libraries for various tasks such as data ingestion, processing, and analysis through its components like Spark SQL for structured data, Spark Streaming for real-time data processing, and MLlib for machine learning tasks",
@@ -122,40 +100,6 @@ eval_df = pd.DataFrame(
     }
 )
 
-# metric_value = custom_metric.eval_fn(eval_df)
-
-# # Print the metric value and its scores and justifications.
-# print(f"Metric scores: {metric_value.scores}")
-# print(f"Metric justifications: {metric_value.justifications}")
-
-# num_good_scores = sum([1 for x in metric_value.scores if x is not None])
-# num_good_justifications = sum([1 for x in metric_value.justifications if x is not None])
-
-# print(f"Percent good scores: {num_good_scores / len(metric_value.scores)}")
-# print(f"Percent good justifications: {num_good_justifications / len(metric_value.justifications)}")
-
-mlflow_eval_df = pd.DataFrame(
-    {
-        "question": [
-            "What is MLflow?",
-            "What is Spark?",
-            "What is Python?",
-        ],
-        "ground_truth": [
-            "MLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, a company that specializes in big data and machine learning solutions. MLflow is designed to address the challenges that data scientists and machine learning engineers face when developing, training, and deploying machine learning models.",
-            "Apache Spark is an open-source, distributed computing system designed for big data processing and analytics. It was developed in response to limitations of the Hadoop MapReduce computing model, offering improvements in speed and ease of use. Spark provides libraries for various tasks such as data ingestion, processing, and analysis through its components like Spark SQL for structured data, Spark Streaming for real-time data processing, and MLlib for machine learning tasks",
-            "Python is a high-level programming language that was created by Guido van Rossum and released in 1991. It emphasizes code readability and allows developers to express concepts in fewer lines of code than languages like C++ or Java. Python is used in various domains, including web development, scientific computing, data analysis, and machine learning.",
-        ],
-    }
-)
-
-# def language_model(inputs: list[str]) -> list[str]:
-#     return inputs
-
-# model_info = mlflow.pyfunc.log_model(
-#     artifact_path="model", python_model=language_model, input_example=["a", "b"]
-# )
-
 system_prompt = "Answer the following question in two sentences"
 logged_model = mlflow.openai.log_model(
     model="gpt-3.5-turbo",
@@ -169,7 +113,7 @@ logged_model = mlflow.openai.log_model(
 
 results = mlflow.evaluate(
     logged_model.model_uri,
-    mlflow_eval_df,
+    eval_df,
     model_type="text",
     custom_metrics=[correctness],
 )
