@@ -14,6 +14,10 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.store.model_registry.databricks_workspace_model_registry_rest_store import (
+    DatabricksWorkspaceModelRegistryRestStore,
+)
+from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, utils
 from mlflow.utils.arguments_utils import _get_arg_names
 
@@ -207,18 +211,30 @@ class ModelRegistryClient:
             # local_model_path since old model registry store implementations may not
             # support the local_model_path argument.
             mv = self.store.create_model_version(name, source, run_id, tags, run_link, description)
-        if await_creation_for and await_creation_for > 0:
+        if (
+            not isinstance(self.store, UcModelRegistryStore)
+            and await_creation_for
+            and await_creation_for > 0
+        ):
             _logger.info(
                 f"Waiting up to {await_creation_for} seconds for model version to finish creation. "
                 f"Model name: {name}, version {mv.version}",
             )
             max_datetime = datetime.utcnow() + timedelta(seconds=await_creation_for)
             pending_status = ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION)
+            uc_hint = (
+                " For faster and more stable model version creation, consider using the Model "
+                + "Registry in the Unity Catalog (https://docs.databricks.com/en/machine-learning/"
+                + "manage-model-lifecycle/index.html)."
+                if isinstance(self.store, DatabricksWorkspaceModelRegistryRestStore)
+                else ""
+            )
             while mv.status == pending_status:
                 if datetime.utcnow() > max_datetime:
                     raise MlflowException(
                         f"Exceeded max wait time for model name: {mv.name} version: {mv.version} "
                         f"to become READY. Status: {mv.status} Wait Time: {await_creation_for}"
+                        f".{uc_hint}"
                     )
                 mv = self.get_model_version(mv.name, mv.version)
                 sleep(AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS)
