@@ -57,9 +57,7 @@ HTTP_STATUS_TO_ERROR_CODE[500] = ErrorCode.Name(INTERNAL_ERROR)
 
 def get_error_code(http_status):
     return ErrorCode.Value(
-        HTTP_STATUS_TO_ERROR_CODE.get(
-            http_status, ErrorCode.Name(INTERNAL_ERROR)
-        )
+        HTTP_STATUS_TO_ERROR_CODE.get(http_status, ErrorCode.Name(INTERNAL_ERROR))
     )
 
 

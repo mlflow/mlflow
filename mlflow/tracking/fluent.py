@@ -37,9 +37,7 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import _get_store, artifact_utils
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context import registry as context_registry
-from mlflow.tracking.default_experiment import (
-    registry as default_experiment_registry,
-)
+from mlflow.tracking.default_experiment import registry as default_experiment_registry
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
@@ -83,9 +81,7 @@ NUM_RUNS_PER_PAGE_PANDAS = 10000
 _logger = logging.getLogger(__name__)
 
 
-def set_experiment(
-    experiment_name: str = None, experiment_id: str = None
-) -> Experiment:
+def set_experiment(experiment_name: str = None, experiment_id: str = None) -> Experiment:
     """
     Set the given experiment as the active experiment. The experiment must either be specified by
     name via `experiment_name` or by ID via `experiment_id`. The experiment name and ID cannot
@@ -170,9 +166,7 @@ def _set_experiment_primary_metric(
     experiment_id: str, primary_metric: str, greater_is_better: bool
 ):
     client = MlflowClient()
-    client.set_experiment_tag(
-        experiment_id, MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME, primary_metric
-    )
+    client.set_experiment_tag(experiment_id, MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME, primary_metric)
     client.set_experiment_tag(
         experiment_id,
         MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
@@ -292,9 +286,7 @@ def start_run(
     global _active_run_stack
     _validate_experiment_id_type(experiment_id)
     # back compat for int experiment_id
-    experiment_id = (
-        str(experiment_id) if isinstance(experiment_id, int) else experiment_id
-    )
+    experiment_id = str(experiment_id) if isinstance(experiment_id, int) else experiment_id
     if len(_active_run_stack) > 0 and not nested:
         raise Exception(
             (
@@ -360,9 +352,7 @@ def start_run(
         else:
             parent_run_id = None
 
-        exp_id_for_run = (
-            experiment_id if experiment_id is not None else _get_experiment_id()
-        )
+        exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 
         user_specified_tags = deepcopy(tags) or {}
         if description:
@@ -806,10 +796,7 @@ def log_metrics(
     """
     run_id = _get_or_start_run().info.run_id
     timestamp = get_current_time_millis()
-    metrics_arr = [
-        Metric(key, value, timestamp, step or 0)
-        for key, value in metrics.items()
-    ]
+    metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
     MlflowClient().log_batch(
         run_id=run_id,
         metrics=metrics_arr,
@@ -819,9 +806,7 @@ def log_metrics(
     )
 
 
-def log_params(
-    params: Dict[str, Any], synchronous: Optional[bool] = True
-) -> None:
+def log_params(params: Dict[str, Any], synchronous: Optional[bool] = True) -> None:
     """
     Log a batch of params for the current run. If no run is active, this method will create a
     new active run.
@@ -895,15 +880,11 @@ def log_input(
     run_id = _get_or_start_run().info.run_id
     tags_to_log = []
     if tags:
-        tags_to_log.extend(
-            [InputTag(key=key, value=value) for key, value in tags.items()]
-        )
+        tags_to_log.extend([InputTag(key=key, value=value) for key, value in tags.items()])
     if context:
         tags_to_log.append(InputTag(key=MLFLOW_DATASET_CONTEXT, value=context))
 
-    dataset_input = DatasetInput(
-        dataset=dataset._to_mlflow_entity(), tags=tags_to_log
-    )
+    dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags_to_log)
 
     MlflowClient().log_inputs(run_id=run_id, datasets=[dataset_input])
 
@@ -1149,14 +1130,10 @@ def log_figure(
             mlflow.log_figure(fig, "figure.html")
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_figure(
-        run_id, figure, artifact_file, save_kwargs=save_kwargs
-    )
+    MlflowClient().log_figure(run_id, figure, artifact_file, save_kwargs=save_kwargs)
 
 
-def log_image(
-    image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str
-) -> None:
+def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str) -> None:
     """
     Log an image as an artifact. The following image objects are supported:
 
@@ -1338,9 +1315,7 @@ def load_table(
         )
     """
     experiment_id = _get_experiment_id()
-    return MlflowClient().load_table(
-        experiment_id, artifact_file, run_ids, extra_columns
-    )
+    return MlflowClient().load_table(experiment_id, artifact_file, run_ids, extra_columns)
 
 
 def _record_logged_model(mlflow_model):
@@ -1788,8 +1763,7 @@ def search_runs(
 
     if search_all_experiments and no_ids_or_names:
         experiment_ids = [
-            exp.experiment_id
-            for exp in search_experiments(view_type=ViewType.ACTIVE_ONLY)
+            exp.experiment_id for exp in search_experiments(view_type=ViewType.ACTIVE_ONLY)
         ]
     elif no_ids_or_names:
         experiment_ids = [_get_experiment_id()]
@@ -1846,12 +1820,8 @@ def search_runs(
             info["experiment_id"].append(run.info.experiment_id)
             info["status"].append(run.info.status)
             info["artifact_uri"].append(run.info.artifact_uri)
-            info["start_time"].append(
-                pd.to_datetime(run.info.start_time, unit="ms", utc=True)
-            )
-            info["end_time"].append(
-                pd.to_datetime(run.info.end_time, unit="ms", utc=True)
-            )
+            info["start_time"].append(pd.to_datetime(run.info.start_time, unit="ms", utc=True))
+            info["end_time"].append(pd.to_datetime(run.info.end_time, unit="ms", utc=True))
 
             # Params
             param_keys = set(params.keys())
@@ -1862,9 +1832,7 @@ def search_runs(
                     params[key].append(PARAM_NULL)
             new_params = set(run.data.params.keys()) - param_keys
             for p in new_params:
-                params[p] = [
-                    PARAM_NULL
-                ] * i  # Fill in null values for all previous runs
+                params[p] = [PARAM_NULL] * i  # Fill in null values for all previous runs
                 params[p].append(run.data.params[p])
 
             # Metrics
@@ -1947,10 +1915,7 @@ def _get_experiment_id():
     if _active_experiment_id:
         return _active_experiment_id
     else:
-        return (
-            _get_experiment_id_from_env()
-            or default_experiment_registry.get_experiment_id()
-        )
+        return _get_experiment_id_from_env() or default_experiment_registry.get_experiment_id()
 
 
 @autologging_integration("mlflow")
@@ -2119,9 +2084,7 @@ def autolog(
 
     def get_autologging_params(autolog_fn):
         try:
-            needed_params = list(
-                inspect.signature(autolog_fn).parameters.keys()
-            )
+            needed_params = list(inspect.signature(autolog_fn).parameters.keys())
             return {k: v for k, v in locals_copy if k in needed_params}
         except Exception:
             return {}
@@ -2141,9 +2104,7 @@ def autolog(
             # - if the config doesn't contain this key, the configuration was set by an
             #   `mlflow.integration.autolog` call, so we should not call `autolog_fn` with
             #   new configs.
-            prev_config = AUTOLOGGING_INTEGRATIONS.get(
-                autolog_fn.integration_name
-            )
+            prev_config = AUTOLOGGING_INTEGRATIONS.get(autolog_fn.integration_name)
             if prev_config and not prev_config.get(
                 AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED, False
             ):
@@ -2157,9 +2118,7 @@ def autolog(
             if not autologging_is_disabled(
                 autolog_fn.integration_name
             ) and not autologging_params.get("silent", False):
-                _logger.info(
-                    "Autologging successfully enabled for %s.", module.__name__
-                )
+                _logger.info("Autologging successfully enabled for %s.", module.__name__)
         except Exception as e:
             if is_testing():
                 # Raise unexpected exceptions in test mode in order to detect
@@ -2175,9 +2134,7 @@ def autolog(
     # for each autolog library (except pyspark), register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.
     # the post-import hook also retroactively activates for previously-imported libraries.
-    for module in list(
-        set(LIBRARY_TO_AUTOLOG_FN.keys()) - {"pyspark", "pyspark.ml"}
-    ):
+    for module in list(set(LIBRARY_TO_AUTOLOG_FN.keys()) - {"pyspark", "pyspark.ml"}):
         register_post_import_hook(setup_autologging, module, overwrite=True)
 
     if is_in_databricks_runtime():
@@ -2191,6 +2148,4 @@ def autolog(
         setup_autologging(pyspark_ml_module)
     else:
         register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
-        register_post_import_hook(
-            setup_autologging, "pyspark.ml", overwrite=True
-        )
+        register_post_import_hook(setup_autologging, "pyspark.ml", overwrite=True)

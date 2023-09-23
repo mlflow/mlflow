@@ -28,9 +28,7 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
 )
 from mlflow.tracking._tracking_service import utils
-from mlflow.tracking.metric_value_conversion_utils import (
-    convert_metric_value_to_float_if_possible,
-)
+from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
@@ -119,9 +117,7 @@ class TrackingServiceClient:
             token = paged_history.token
         return history
 
-    def create_run(
-        self, experiment_id, start_time=None, tags=None, run_name=None
-    ):
+    def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -250,9 +246,7 @@ class TrackingServiceClient:
         return self.store.create_experiment(
             name=name,
             artifact_location=artifact_location,
-            tags=[ExperimentTag(key, value) for (key, value) in tags.items()]
-            if tags
-            else [],
+            tags=[ExperimentTag(key, value) for (key, value) in tags.items()] if tags else [],
         )
 
     def delete_experiment(self, experiment_id):
@@ -306,9 +300,7 @@ class TrackingServiceClient:
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
         :param synchronous: Indicates if the metric would be logged in synchronous fashion or not.
         """
-        timestamp = (
-            timestamp if timestamp is not None else get_current_time_millis()
-        )
+        timestamp = timestamp if timestamp is not None else get_current_time_millis()
         step = step if step is not None else 0
         metric_value = convert_metric_value_to_float_if_possible(value)
         metric = Metric(key, metric_value, timestamp, step)
@@ -399,9 +391,7 @@ class TrackingServiceClient:
             run_name=name,
         )
 
-    def log_batch(
-        self, run_id, metrics=(), params=(), tags=(), synchronous: bool = True
-    ):
+    def log_batch(self, run_id, metrics=(), params=(), tags=(), synchronous: bool = True):
         """
         Log multiple metrics, params, and/or tags.
 
@@ -421,9 +411,7 @@ class TrackingServiceClient:
         param_batches = chunk_list(params, MAX_PARAMS_TAGS_PER_BATCH)
         tag_batches = chunk_list(tags, MAX_PARAMS_TAGS_PER_BATCH)
 
-        for params_batch, tags_batch in zip_longest(
-            param_batches, tag_batches, fillvalue=[]
-        ):
+        for params_batch, tags_batch in zip_longest(param_batches, tag_batches, fillvalue=[]):
             metrics_batch_size = min(
                 MAX_ENTITIES_PER_BATCH - len(params_batch) - len(tags_batch),
                 MAX_METRICS_PER_BATCH,
@@ -446,21 +434,13 @@ class TrackingServiceClient:
                     tags=tags_batch,
                 )
 
-        for metrics_batch in chunk_list(
-            metrics, chunk_size=MAX_METRICS_PER_BATCH
-        ):
+        for metrics_batch in chunk_list(metrics, chunk_size=MAX_METRICS_PER_BATCH):
             if synchronous:
-                self.store.log_batch(
-                    run_id=run_id, metrics=metrics_batch, params=[], tags=[]
-                )
+                self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
             else:
-                self.store.log_batch_async(
-                    run_id=run_id, metrics=metrics_batch, params=[], tags=[]
-                )
+                self.store.log_batch_async(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
 
-    def log_inputs(
-        self, run_id: str, datasets: Optional[List[DatasetInput]] = None
-    ):
+    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
         Log one or more dataset inputs to a run.
 
@@ -514,9 +494,7 @@ class TrackingServiceClient:
         if os.path.isdir(local_path):
             dir_name = os.path.basename(os.path.normpath(local_path))
             path_name = (
-                os.path.join(artifact_path, dir_name)
-                if artifact_path is not None
-                else dir_name
+                os.path.join(artifact_path, dir_name) if artifact_path is not None else dir_name
             )
             artifact_repo.log_artifacts(local_path, path_name)
         else:
@@ -556,9 +534,7 @@ class TrackingServiceClient:
                          directly in the case of the LocalArtifactRepository.
         :return: Local path of desired artifact.
         """
-        return self._get_artifact_repo(run_id).download_artifacts(
-            path, dst_path
-        )
+        return self._get_artifact_repo(run_id).download_artifacts(path, dst_path)
 
     def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.

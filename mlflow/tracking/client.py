@@ -93,9 +93,7 @@ class MlflowClient:
                              no such service was set, defaults to the tracking uri of the client.
         """
         final_tracking_uri = utils._resolve_tracking_uri(tracking_uri)
-        self._registry_uri = registry_utils._resolve_registry_uri(
-            registry_uri, tracking_uri
-        )
+        self._registry_uri = registry_utils._resolve_registry_uri(registry_uri, tracking_uri)
         self._tracking_client = TrackingServiceClient(final_tracking_uri)
         # `MlflowClient` also references a `ModelRegistryClient` instance that is provided by the
         # `MlflowClient._get_registry_client()` method. This `ModelRegistryClient` is not explicitly
@@ -125,9 +123,7 @@ class MlflowClient:
         registry_client = getattr(self, registry_client_attr, None)
         if registry_client is None:
             try:
-                registry_client = ModelRegistryClient(
-                    self._registry_uri, self.tracking_uri
-                )
+                registry_client = ModelRegistryClient(self._registry_uri, self.tracking_uri)
                 # Define an instance variable on this `MlflowClient` instance to reference the
                 # `ModelRegistryClient` that was just constructed. `setattr()` is used to ensure
                 # that the variable name is consistent with the variable name specified in the
@@ -344,9 +340,7 @@ class MlflowClient:
             lifecycle_stage: active
             status: RUNNING
         """
-        return self._tracking_client.create_run(
-            experiment_id, start_time, tags, run_name
-        )
+        return self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
 
     def search_experiments(
         self,
@@ -577,9 +571,7 @@ class MlflowClient:
             Tags: {'version': 'v1', 'priority': 'P1', 'nlp.framework': 'Spark NLP'}
             Lifecycle_stage: active
         """
-        return self._tracking_client.create_experiment(
-            name, artifact_location, tags
-        )
+        return self._tracking_client.create_experiment(name, artifact_location, tags)
 
     def delete_experiment(self, experiment_id: str) -> None:
         """
@@ -864,14 +856,10 @@ class MlflowClient:
             params: {'p': '1'}
             status: FINISHED
         """
-        self._tracking_client.log_param(
-            run_id, key, value, synchrounous=synchronous
-        )
+        self._tracking_client.log_param(run_id, key, value, synchrounous=synchronous)
         return value
 
-    def set_experiment_tag(
-        self, experiment_id: str, key: str, value: Any
-    ) -> None:
+    def set_experiment_tag(self, experiment_id: str, key: str, value: Any) -> None:
         """
         Set a tag on the experiment with the specified ID. Value is converted to a string.
 
@@ -902,9 +890,7 @@ class MlflowClient:
         """
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
 
-    def set_tag(
-        self, run_id: str, key: str, value: Any, synchronous: bool = True
-    ) -> None:
+    def set_tag(self, run_id: str, key: str, value: Any, synchronous: bool = True) -> None:
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
 
@@ -949,9 +935,7 @@ class MlflowClient:
             run_id: 4f226eb5758145e9b28f78514b59a03b
             Tags: {'nlp.framework': 'Spark NLP'}
         """
-        self._tracking_client.set_tag(
-            run_id, key, value, synchronous=synchronous
-        )
+        self._tracking_client.set_tag(run_id, key, value, synchronous=synchronous)
 
     def delete_tag(self, run_id: str, key: str) -> None:
         """
@@ -1122,9 +1106,7 @@ class MlflowClient:
             tags: {'t': 't'}
             status: FINISHED
         """
-        self._tracking_client.log_batch(
-            run_id, metrics, params, tags, synchronous=synchronous
-        )
+        self._tracking_client.log_batch(run_id, metrics, params, tags, synchronous=synchronous)
 
     @experimental
     def log_inputs(
@@ -1275,9 +1257,7 @@ class MlflowClient:
             with open(tmp_path, "w", encoding="utf-8") as f:
                 f.write(text)
 
-    def log_dict(
-        self, run_id: str, dictionary: Dict[str, Any], artifact_file: str
-    ) -> None:
+    def log_dict(self, run_id: str, dictionary: Dict[str, Any], artifact_file: str) -> None:
         """
         Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
         format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
@@ -1324,9 +1304,7 @@ class MlflowClient:
     def log_figure(
         self,
         run_id: str,
-        figure: Union[
-            "matplotlib.figure.Figure", "plotly.graph_objects.Figure"
-        ],
+        figure: Union["matplotlib.figure.Figure", "plotly.graph_objects.Figure"],
         artifact_file: str,
         *,
         save_kwargs: Optional[Dict[str, Any]] = None,
@@ -1409,9 +1387,7 @@ class MlflowClient:
                         f"Unsupported file extension for plotly figure: '{file_extension}'"
                     )
             else:
-                raise TypeError(
-                    f"Unsupported figure object type: '{type(figure)}'"
-                )
+                raise TypeError(f"Unsupported figure object type: '{type(figure)}'")
 
     def log_image(
         self,
@@ -1556,9 +1532,7 @@ class MlflowClient:
                 Image.fromarray(image).save(tmp_path)
 
             else:
-                raise TypeError(
-                    f"Unsupported image object type: '{type(image)}'"
-                )
+                raise TypeError(f"Unsupported image object type: '{type(image)}'")
 
     def _check_artifact_file_string(self, artifact_file: str):
         """
@@ -1570,9 +1544,7 @@ class MlflowClient:
         characters_to_check = ['"', "'", ",", ":", "[", "]", "{", "}"]
         for char in characters_to_check:
             if char in artifact_file:
-                raise ValueError(
-                    f"The artifact_file contains forbidden character: {char}"
-                )
+                raise ValueError(f"The artifact_file contains forbidden character: {char}")
 
     @experimental
     def log_table(
@@ -1640,17 +1612,13 @@ class MlflowClient:
         norm_path = posixpath.normpath(artifact_file)
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir
-        artifacts = [
-            f.path for f in self.list_artifacts(run_id, path=artifact_dir)
-        ]
+        artifacts = [f.path for f in self.list_artifacts(run_id, path=artifact_dir)]
         if artifact_file in artifacts:
             with tempfile.TemporaryDirectory() as tmpdir:
                 downloaded_artifact_path = mlflow.artifacts.download_artifacts(
                     run_id=run_id, artifact_path=artifact_file, dst_path=tmpdir
                 )
-                existing_predictions = pd.read_json(
-                    downloaded_artifact_path, orient="split"
-                )
+                existing_predictions = pd.read_json(downloaded_artifact_path, orient="split")
             data = pd.concat([existing_predictions, data], ignore_index=True)
             _logger.info(
                 "Appending new table to already existing artifact "
@@ -1663,18 +1631,14 @@ class MlflowClient:
         run = self.get_run(run_id)
 
         # Get the current value of the tag
-        current_tag_value = json.loads(
-            run.data.tags.get(MLFLOW_LOGGED_ARTIFACTS, "[]")
-        )
+        current_tag_value = json.loads(run.data.tags.get(MLFLOW_LOGGED_ARTIFACTS, "[]"))
         tag_value = {"path": artifact_file, "type": "table"}
 
         # Append the new tag value to the list if one doesn't exists
         if tag_value not in current_tag_value:
             current_tag_value.append(tag_value)
             # Set the tag with the updated list
-            self.set_tag(
-                run_id, MLFLOW_LOGGED_ARTIFACTS, json.dumps(current_tag_value)
-            )
+            self.set_tag(run_id, MLFLOW_LOGGED_ARTIFACTS, json.dumps(current_tag_value))
 
     @experimental
     def load_table(
@@ -1760,16 +1724,12 @@ class MlflowClient:
         subset_tag_value = f'"path"%:%"{artifact_file}",%"type"%:%"table"'
 
         # Build the filter string
-        filter_string = (
-            f"tags.{MLFLOW_LOGGED_ARTIFACTS} LIKE '%{subset_tag_value}%'"
-        )
+        filter_string = f"tags.{MLFLOW_LOGGED_ARTIFACTS} LIKE '%{subset_tag_value}%'"
         if run_ids:
             list_run_ids = ",".join(map(repr, run_ids))
             filter_string += f" and attributes.run_id IN ({list_run_ids})"
 
-        runs = mlflow.search_runs(
-            experiment_ids=[experiment_id], filter_string=filter_string
-        )
+        runs = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=filter_string)
         if run_ids and len(run_ids) != len(runs):
             _logger.warning(
                 "Not all runs have the specified table artifact. Some runs will be skipped."
@@ -1784,22 +1744,16 @@ class MlflowClient:
             existing_predictions = pd.DataFrame()
 
             artifacts = [
-                f.path
-                for f in self.list_artifacts(run_id, path=artifact_dir)
-                if not f.is_dir
+                f.path for f in self.list_artifacts(run_id, path=artifact_dir) if not f.is_dir
             ]
             if artifact_file in artifacts:
                 with tempfile.TemporaryDirectory() as tmpdir:
-                    downloaded_artifact_path = (
-                        mlflow.artifacts.download_artifacts(
-                            run_id=run_id,
-                            artifact_path=artifact_file,
-                            dst_path=tmpdir,
-                        )
+                    downloaded_artifact_path = mlflow.artifacts.download_artifacts(
+                        run_id=run_id,
+                        artifact_path=artifact_file,
+                        dst_path=tmpdir,
                     )
-                    existing_predictions = pd.read_json(
-                        downloaded_artifact_path, orient="split"
-                    )
+                    existing_predictions = pd.read_json(downloaded_artifact_path, orient="split")
                     if extra_columns is not None:
                         for column in extra_columns:
                             if column in existing_predictions:
@@ -1894,9 +1848,7 @@ class MlflowClient:
         """
         return self._tracking_client.list_artifacts(run_id, path)
 
-    def download_artifacts(
-        self, run_id: str, path: str, dst_path: Optional[str] = None
-    ) -> str:
+    def download_artifacts(self, run_id: str, path: str, dst_path: Optional[str] = None) -> str:
         """
         Download an artifact file or directory from a run to a local directory if applicable,
         and return a local path for it.
@@ -2203,13 +2155,9 @@ class MlflowClient:
             tags: {'nlp.framework': 'Spark NLP'}
             description: This sentiment analysis model classifies the tone-happy, sad, angry.
         """
-        return self._get_registry_client().create_registered_model(
-            name, tags, description
-        )
+        return self._get_registry_client().create_registered_model(name, tags, description)
 
-    def rename_registered_model(
-        self, name: str, new_name: str
-    ) -> RegisteredModel:
+    def rename_registered_model(self, name: str, new_name: str) -> RegisteredModel:
         """
         Update registered model name.
 
@@ -2307,9 +2255,7 @@ class MlflowClient:
             description: This sentiment analysis model classifies tweets' tone: happy, sad, angry.
         """
         if description is None:
-            raise MlflowException(
-                "Attempting to update registered model with no new field values."
-            )
+            raise MlflowException("Attempting to update registered model with no new field values.")
 
         return self._get_registry_client().update_registered_model(
             name=name, description=description
@@ -2504,9 +2450,7 @@ class MlflowClient:
         """
         return self._get_registry_client().get_registered_model(name)
 
-    def get_latest_versions(
-        self, name: str, stages: List[str] = None
-    ) -> List[ModelVersion]:
+    def get_latest_versions(self, name: str, stages: List[str] = None) -> List[ModelVersion]:
         """
         Latest version models for each requests stage. If no ``stages`` provided, returns the
         latest version for each stage.
@@ -2707,10 +2651,7 @@ class MlflowClient:
             else:
                 run_link = get_databricks_run_url(tracking_uri, run_id)
         new_source = source
-        if (
-            is_databricks_uri(self._registry_uri)
-            and tracking_uri != self._registry_uri
-        ):
+        if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
             # Print out some info for user since the copy may take a while for large models.
             eprint(
                 "=== Copying model files from the source location to the model"
@@ -2887,9 +2828,7 @@ class MlflowClient:
             Description: A new version of the model using ensemble trees
         """
         if description is None:
-            raise MlflowException(
-                "Attempting to update model version with no new field values."
-            )
+            raise MlflowException("Attempting to update model version with no new field values.")
 
         return self._get_registry_client().update_model_version(
             name=name, version=version, description=description
@@ -3165,9 +3104,7 @@ class MlflowClient:
 
             Download URI: runs:/027d7bbe81924c5a82b3e4ce979fcab7/sklearn-model
         """
-        return self._get_registry_client().get_model_version_download_uri(
-            name, version
-        )
+        return self._get_registry_client().get_model_version_download_uri(name, version)
 
     def search_model_versions(
         self,
@@ -3375,14 +3312,10 @@ class MlflowClient:
         if stage:
             latest_versions = self.get_latest_versions(name, stages=[stage])
             if not latest_versions:
-                raise MlflowException(
-                    f"Could not find any model version for {stage} stage"
-                )
+                raise MlflowException(f"Could not find any model version for {stage} stage")
             version = latest_versions[0].version
 
-        self._get_registry_client().set_model_version_tag(
-            name, version, key, value
-        )
+        self._get_registry_client().set_model_version_tag(name, version, key, value)
 
     def delete_model_version_tag(
         self, name: str, version: str = None, key: str = None, stage: str = None
@@ -3460,15 +3393,11 @@ class MlflowClient:
         if stage:
             latest_versions = self.get_latest_versions(name, stages=[stage])
             if not latest_versions:
-                raise MlflowException(
-                    "Could not find any model version for {stage} stage"
-                )
+                raise MlflowException("Could not find any model version for {stage} stage")
             version = latest_versions[0].version
         self._get_registry_client().delete_model_version_tag(name, version, key)
 
-    def set_registered_model_alias(
-        self, name: str, alias: str, version: str
-    ) -> None:
+    def set_registered_model_alias(self, name: str, alias: str, version: str) -> None:
         """
         Set a registered model alias pointing to a model version.
 
@@ -3548,9 +3477,7 @@ class MlflowClient:
         _validate_model_name(name)
         _validate_model_alias_name(alias)
         _validate_model_version(version)
-        self._get_registry_client().set_registered_model_alias(
-            name, alias, version
-        )
+        self._get_registry_client().set_registered_model_alias(name, alias, version)
 
     def delete_registered_model_alias(self, name: str, alias: str) -> None:
         """
@@ -3734,6 +3661,4 @@ class MlflowClient:
         """
         _validate_model_name(name)
         _validate_model_alias_name(alias)
-        return self._get_registry_client().get_model_version_by_alias(
-            name, alias
-        )
+        return self._get_registry_client().get_model_version_by_alias(name, alias)

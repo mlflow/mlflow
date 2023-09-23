@@ -278,9 +278,7 @@ class AbstractStore:
         self.log_batch_async(run_id, metrics=[], params=[], tags=[tag])
 
     @abstractmethod
-    def get_metric_history(
-        self, run_id, metric_key, max_results=None, page_token=None
-    ):
+    def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
         """
         Return a list of metric objects corresponding to all values logged for a given metric
         within a run.
@@ -410,9 +408,7 @@ class AbstractStore:
 
     @abstractmethod
     @experimental
-    def log_inputs(
-        self, run_id: str, datasets: Optional[List[DatasetInput]] = None
-    ):
+    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
         Log inputs, such as datasets, to the specified run.
 
