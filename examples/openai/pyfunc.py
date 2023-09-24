@@ -6,19 +6,9 @@ import mlflow
 import pandas as pd
 import logging
 
+print(openai.api_base, openai.api_key, openai.api_version, openai.api_type)
+
 logging.getLogger("mlflow").setLevel(logging.ERROR)
-
-# Uncomment the following lines to run this script without using a real OpenAI API key.
-# os.environ["MLFLOW_TESTING"] = "true"
-# os.environ["OPENAI_API_KEY"] = "test"
-
-assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
-
-
-# On Databricks, set the stored OpenAI API key scope here for automatically loading the API key
-# for real time inference. See https://docs.databricks.com/security/secrets/index.html on
-# how to add a scope and API key.
-os.environ["MLFLOW_OPENAI_SECRET_SCOPE"] = "<scope-name>"
 
 print(
     """
@@ -29,10 +19,12 @@ print(
 )
 with mlflow.start_run():
     model_info = mlflow.openai.log_model(
+        # For Azure OpenAI, model doesn't matter in practice
         model="gpt-3.5-turbo",
         task=openai.ChatCompletion,
         artifact_path="model",
         messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
+        deployment_id="corey-gpt35",
     )
 
 
