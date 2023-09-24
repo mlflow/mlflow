@@ -1,34 +1,46 @@
-.. _gateway:
+.. _databricks_gateway:
 
-================================
-MLflow AI Gateway (Experimental)
-================================
+=====================
+Databricks AI Gateway
+=====================
 
 .. warning::
 
-    The MLflow AI Gateway is a new, **experimental feature**. It is subject to modification, feature improvements, or feature removal without advance notice.
+    - **Support for using the Databricks AI Gateway is in private preview.**
+    - Operability and support channels might be insufficient for production use. Support is best
+      effort and informal—please reach out to your account or external Slack channel for best
+      effort support.
+    - This private preview will be free of charge at this time. We may charge for it in the future.
+    - You will still incur charges for DBUs.
+    - This product may change or may never be released.
+    - We may terminate the preview or your access to it with 2 weeks of notice.
+    - There may be API changes before Public Preview or General Availability. We will give you at
+      least 2 weeks notice before any significant changes so that you have time to update your
+      projects.
+    - Non-public information about the preview (including the fact that there is a preview for the
+      feature/product itself) is confidential.
 
-The MLflow AI Gateway service is a powerful tool designed to streamline the usage and management of
+The Databricks AI Gateway service is a powerful tool designed to streamline the usage and management of
 various large language model (LLM) providers, such as OpenAI and Anthropic, within an organization.
 It offers a high-level interface that simplifies the interaction with these services by providing
 a unified endpoint to handle specific LLM related requests.
 
-A major advantage of using the MLflow AI Gateway service is its centralized management of API keys.
-By storing these keys in one secure location, organizations can significantly enhance their
+A major advantage of using the Databricks AI Gateway service is its centralized credential management.
+By storing API keys in one secure location, organizations can significantly enhance their
 security posture by minimizing the exposure of sensitive API keys throughout the system. It also
 helps to prevent exposing these keys within code or requiring end-users to manage keys safely.
 
-The gateway is designed to be flexible and adaptable, capable of easily defining and managing routes by updating the
-configuration file. This enables the easy incorporation
+The gateway is designed to be flexible and adaptable, capable of easily defining and managing routes and rate limits
+using a straightforward REST API. This enables the easy incorporation
 of new LLM providers or provider LLM types into the system without necessitating changes to
-applications that interface with the gateway. This level of adaptability makes the MLflow AI Gateway
+applications that interface with the gateway. This level of adaptability makes the Databricks AI Gateway
 Service an invaluable tool in environments that require agility and quick response to changes.
 
 This simplification and centralization of language model interactions, coupled with the added
-layer of security for API key management, make the MLflow AI Gateway service an ideal choice for
+layer of security for API key management, rate limiting for cost control, make the Databricks AI Gateway service an ideal choice for
 organizations that use LLMs on a regular basis.
 
-.. _gateway-quickstart:
+.. _databricks_gateway-quickstart:
 
 Quickstart
 ==========
@@ -36,16 +48,17 @@ Quickstart
 The following guide will assist you in getting up and running, using a 3-route configuration to
 OpenAI services for chat, completions, and embeddings.
 
-Step 1: Install the MLflow AI Gateway service
----------------------------------------------
-First, you need to install the MLflow AI Gateway service on your machine. You can do this using pip from PyPI or from the MLflow repository.
+Step 1: Install the Databricks AI Gateway client
+------------------------------------------------
+First, you need to install the Databricks AI Gateway Python client. You can do this using ``%pip`` in
+your Databricks notebook as follows:
 
 Installing from PyPI
 ~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: sh
 
-    pip install 'mlflow[gateway]'
+    %pip install 'mlflow[gateway]'
 
 Step 2: Set the OpenAI API Key(s) for each provider
 ---------------------------------------------------
@@ -55,99 +68,176 @@ You can create an API key from the OpenAI dashboard.
 For this example, we're only connecting with OpenAI. If there are additional providers within the
 configuration, these keys will need to be set as well.
 
-Once you have the key, you can set it as an environment variable in your terminal:
+Once you have the key, we recommend storing it using
+`Databricks Secrets <https://docs.databricks.com/security/secrets/index.html>`_. In this quickstart,
+we assume that the OpenAI key is available in secret scope ``example`` with key ``openai-api-key``.
 
-.. code-block:: sh
+Step 3: Create Gateway Routes
+------------------------------
+The next step is to create Gateway Routes for each LLM you want to use. In this example, we call
+the :py:func:`mlflow.gateway.create_route()` API. For more information, see the
+:ref:`databricks_gateway_fluent_api` and :ref:`databricks_gateway_client_api` sections.
 
-    export OPENAI_API_KEY=your_api_key_here
-
-This sets a temporary session-based environment variable. For production use cases, it is advisable
-to store this key in the ``.bashrc`` or ``.zshrc`` files so that the key doesn't have to be re-entered upon
-system restart.
-
-Step 3: Create a Gateway Configuration File
--------------------------------------------
-Next, you need to create a Gateway configuration file. This is a YAML file where you specify the
-routes that the Gateway service should expose. Let's create a file with three routes using OpenAI as a provider: completions, chat, and embeddings.
-
-.. code-block:: yaml
-
-    routes:
-      - name: completions
-        type: llm/v1/completions
-        model:
-          provider: openai
-          name: gpt-3.5-turbo
-          config:
-            openai_api_base: https://api.openai.com/v1
-            openai_api_key: $OPENAI_API_KEY
-
-      - name: chat
-        type: llm/v1/chat
-        model:
-          provider: openai
-          name: gpt-3.5-turbo
-          config:
-            openai_api_base: https://api.openai.com/v1
-            openai_api_key: $OPENAI_API_KEY
-
-      - name: embeddings
-        type: llm/v1/embeddings
-        model:
-          provider: openai
-          name: text-embedding-ada-002
-          config:
-            openai_api_base: https://api.openai.com/v1
-            openai_api_key: $OPENAI_API_KEY
-
-Save this file to a location on the system that is going to be running the MLflow AI Gateway server.
-
-Step 4: Start the Gateway Service
----------------------------------
-You're now ready to start the Gateway service!
-
-Use the MLflow AI Gateway ``start`` command and specify the path to your configuration file:
-
-.. code-block:: sh
-
-    mlflow gateway start --config-path config.yaml --port {port} --host {host} --workers {worker count}
-
-If you do not specify the host, a localhost address will be used.
-
-If you do not specify the port, port 5000 will be used.
-
-The worker count for gunicorn defaults to 2 workers.
-
-Step 5: Access the Interactive API Documentation
-------------------------------------------------
-The MLflow AI Gateway service provides an interactive API documentation endpoint that you can use to explore
-and test the exposed routes. Navigate to ``http://{host}:{port}/`` (or ``http://{host}:{port}/docs``) in your browser to access it.
-
-The docs endpoint allow for direct interaction with the routes and permits submitting actual requests to the
-provider services by click on the "try it now" option within the endpoint definition entry.
-
-Step 6: Send Requests Using the Fluent API
-------------------------------------------
-For information on formatting requirements and how to pass parameters, see :ref:`gateway_query`.
-
-Here's an example of how to send a chat request using the :ref:`gateway_fluent_api` :
+If you are using the AI Gateway in a Databricks Notebook or Databricks Job, you can set the gateway URI as follows:
 
 .. code-block:: python
 
-    from mlflow.gateway import query, set_gateway_uri
+    from mlflow.gateway import set_gateway_uri
 
-    set_gateway_uri(gateway_uri="http://localhost:5000")
+    set_gateway_uri(gateway_uri="databricks")
+
+If you are using the AI Gateway outside of a Databricks Notebook or Databricks Job, you will need to configure
+your Databricks host name and personal access token in your current environment before making requests to
+the Gateway. You can do this using the ``DATABRICKS_HOST`` and ``DATABRICKS_TOKEN`` environment variables.
+For example:
+
+.. code-block:: python
+
+    import os
+    from mlflow.gateway import set_gateway_uri
+
+    os.environ["DATABRICKS_HOST"] = "http://your.workspace.databricks.com"
+    os.environ["DATABRICKS_TOKEN"] = "<your_personal_access_token>"
+
+    set_gateway_uri(gateway_uri="databricks")
+
+Now that you have set the Gateway URI in your Python environment, you can create routes as follows:
+
+.. code-block:: python
+
+    from mlflow.gateway import create_route
+
+    openai_api_key = dbutils.secrets.get(
+        scope="example",
+        key="openai-api-key"
+    )
+
+    # Create a Route for completions with OpenAI GPT-4
+    create_route(
+        name="completions",
+        route_type="llm/v1/completions",
+        model={
+            "name": "gpt-4",
+            "provider": "openai",
+            "openai_config": {
+                "openai_api_key": openai_api_key
+            }
+        }
+    )
+
+    # Create a Route for chat with OpenAI GPT-4
+    create_route(
+        name="chat",
+        route_type="llm/v1/chat",
+        model={
+            "name": "gpt-4",
+            "provider": "openai",
+            "openai_config": {
+                "openai_api_key": openai_api_key
+            }
+        }
+    )
+
+    # Create a Route for embeddings with OpenAI text-embedding-ada-002
+    create_route(
+        name="embeddings",
+        route_type="llm/v1/embeddings",
+        model={
+            "name": "text-embedding-ada-002",
+            "provider": "openai",
+            "openai_config": {
+                "openai_api_key": openai_api_key
+            }
+        }
+    )
+
+Step 4: Set rate limits on AI Gateway routes
+--------------------------------------------------
+
+After you created AI Gateway routes, you can set rate limits on AI Gateway routes for cost control, ensuring production availability and fair sharing.  For example:
+
+.. code-block:: python
+
+    from mlflow.gateway import set_limits
+
+    # Set a per user limit (5 calls per minute) for the route created
+    set_limits(
+        route="completions",
+        limits=[
+            {
+                "key": "user",
+                "calls": "5",
+                "renewal_period": "minute"
+            }
+        ]
+    )
+
+For more details, see :ref:`rate_limits` sections.
+
+Step 5: Send Requests Using the Fluent API
+------------------------------------------
+
+The next step is to query the Routes using the :ref:`databricks_gateway_fluent_api`.
+For information on formatting requirements and how to pass parameters, see :ref:`databricks_gateway_query`.
+
+Completions
+~~~~~~~~~~~
+Here's an example of how to send a completions request using the :ref:`databricks_gateway_fluent_api` :
+
+.. code-block:: python
+
+    from mlflow.gateway import set_gateway_uri, query
+
+    set_gateway_uri("databricks")
 
     response = query(
-        "chat",
-        {"messages": [{"role": "user", "content": "What is the best day of the week?"}]},
+        route="completions",
+        data={"prompt": "What is the best day of the week?", "temperature": 0.3}
     )
 
     print(response)
 
-**Note:** Remember to change the uri definition to the actual uri of your Gateway server.
+The returned response will have the following structure (the actual content and token values will likely be different):
 
-The returned response will be in this data structure (the actual content and token values will likely be different):
+.. code-block:: python
+
+    {
+         "candidates": [
+           {
+             "text": "It's hard to say what the best day of the week is.",
+             "metadata": {
+               "finish_reason": "stop"
+             }
+           }
+        ],
+        "metadata": {
+            "input_tokens": 13,
+            "output_tokens": 15,
+            "total_tokens": 28,
+            "model": "gpt-4",
+            "route_type": "llm/v1/completions"
+        }
+    }
+
+
+Chat
+~~~~
+Here's an example of how to send a chat request using the :ref:`databricks_gateway_fluent_api` :
+
+.. code-block:: python
+
+    from mlflow.gateway import set_gateway_uri, query
+
+    set_gateway_uri("databricks")
+
+    response = query(
+        route="chat",
+        data={"messages": [{"role": "user", "content": "What is the best day of the week?"}]}
+    )
+
+    print(response)
+
+The returned response will have the following structure (the actual content and token values will likely be different):
 
 .. code-block:: python
 
@@ -158,84 +248,159 @@ The returned response will be in this data structure (the actual content and tok
                     "role": "assistant",
                     "content": "\n\nIt's hard to say what the best day of the week is.",
                 },
-                "metadata": {"finish_reason": "stop"},
+                "metadata": {"finish_reason": "stop"}
             }
         ],
         "metadata": {
             "input_tokens": 13,
             "output_tokens": 15,
             "total_tokens": 28,
-            "model": "gpt-3.5-turbo-0301",
-            "route_type": "llm/v1/chat",
-        },
+            "model": "gpt-4",
+            "route_type": "llm/v1/completions"
+        }
     }
 
+Embeddings
+~~~~~~~~~~
 
-Step 7: Send Requests Using the Client API
+Here's an example of how to send an embeddings request using the :ref:`databricks_gateway_fluent_api` :
+
+.. code-block:: python
+
+    from mlflow.gateway import set_gateway_uri, query
+
+    set_gateway_uri("databricks")
+
+    response = query(
+        route="embeddings",
+        data={"text": ["Example text to embed"]}
+    )
+
+    print(response)
+
+The returned response will have the following structure (the actual content and token values will likely be different):
+
+.. code-block:: python
+
+    {
+        "embeddings": [
+          0.010169279,
+          -0.0053696977,
+          -0.018654726,
+          -0.03396831,
+          3.1851505e-05,
+          -0.03341145,
+          -0.023189139,
+          ...
+        ],
+        "metadata": {
+            "input_tokens": 6,
+            "total_tokens": 6,
+            "model": "text-embedding-ada-002",
+            "route_type": "llm/v1/embeddings"
+        }
+    }
+
+Step 6: Send Requests Using the Client API
 ------------------------------------------
-See the :ref:`gateway_client_api` section for further information.
+See the :ref:`databricks_gateway_client_api` section for further information.
 
-Step 8: Send Requests to Routes via REST API
+Step 7: Send Requests to Routes via REST API
 --------------------------------------------
-You can now send requests to the exposed routes.
-See the :ref:`REST examples <gateway_rest_api>` for guidance on request formatting.
+See the :ref:`REST examples <databricks_gateway_rest_api>` section for further information.
 
-Step 9: Compare Provider Models
+Step 8: Compare Provider Models
 -------------------------------
-Here's an example of adding a new model from a provider to determine which model instance is better for a given use case.
+Here's an example of adding and querying a new model from a different provider - in this case
+Anthropic - to determine which model is better for a given use case. We assume that the
+Anthropic API key is stored in `Databricks Secrets <https://docs.databricks.com/security/secrets/index.html>`_
+with scope ``example`` and key ``anthropic-api-key``.
 
-Firstly, update the :ref:`MLflow AI Gateway config <gateway_configuration>` YAML file with the additional route definition to test:
+.. code-block:: python
 
-.. code-block:: yaml
+    from mlflow.gateway import set_gateway_uri, create_route, query
 
-    routes:
-      - name: completions
-        type: llm/v1/completions
-        model:
-          provider: openai
-          name: gpt-3.5-turbo
-          config:
-            openai_api_base: https://api.openai.com/v1
-            openai_api_key: $OPENAI_API_KEY
-      - name: completions-gpt4
-        type: llm/v1/completions
-        model:
-          provider: openai
-          name: gpt-4
-          config:
-            openai_api_base: https://api.openai.com/v1
-            openai_api_key: $OPENAI_API_KEY
+    set_gateway_uri("databricks")
 
-This updated configuration adds a new completions route ``completions-gpt4`` while still preserving the original ``completions``
-route that was configured with the ``gpt-3.5-turbo``  model.
+    anthropic_api_key = dbutils.secrets.get(
+        scope="example",
+        key="anthropic-api-key"
+    )
 
-Once the configuration file is updated, simply save your changes. The Gateway will automatically create the new route with zero downtime.
+    # Create a Route for completions with OpenAI GPT-4
+    create_route(
+        name="claude-completions",
+        route_type="llm/v1/completions",
+        model={
+            "name": "claude-v1.3",
+            "provider": "anthropic",
+            "anthropic_config": {
+                "anthropic_api_key": anthropic_api_key
+            }
+        }
+    )
 
-At this point, you may use the :ref:`gateway_fluent_api` to query both routes with similar prompts to decide which model performs best for your use case.
+    completions_response = query(
+        route="claude-completions",
+        data={"prompt": "What is MLflow? Be concise.", "temperature": 0.3}
+    )
 
-If you no longer need a route, you can delete it from the configuration YAML and save your changes. The AI Gateway will automatically remove the route.
+The returned response will have the following structure (the actual content and token values will likely be different):
 
-.. _gateway-concepts:
+.. code-block:: python
+
+    {
+        "candidates": [
+            {
+                "text": "MLflow is an open source platform for machine learning...",
+                "metadata": {
+                    "finish_reason": "stop"
+                }
+            }
+        ],
+        "metadata": {
+            "input_tokens": 8,
+            "output_tokens": 15,
+            "total_tokens": 23,
+            "model": "claude-v1.3",
+            "route_type": "llm/v1/completions"
+        }
+    }
+
+Finally, if you no longer need a route, you can delete it using the
+:py:func:`mlflow.gateway.delete_route` API. For more information, see the
+:ref:`databricks_gateway_fluent_api` and :ref:`databricks_gateway_client_api` sections.
+
+Step 9: Use AI Gateway routes for model development
+---------------------------------------------------
+
+Now that you have created several AI Gateway routes, you can create MLflow Models that query these
+routes to build application-specific logic using techniques like prompt engineering. For more
+information, see :ref:`AI Gateway and MLflow Models <databricks_gateway_mlflow_models>`.
+
+
+.. _databricks_gateway-concepts:
 
 Concepts
 ========
 
-There are several concepts that are referred to within the MLflow AI Gateway APIs, the configuration definitions, examples, and documentation.
+There are several concepts that are referred to within the Databricks AI Gateway APIs, the configuration definitions, examples, and documentation.
 Becoming familiar with these terms will help in configuring new endpoints (routes) and ease the use of the interface APIs for the AI Gateway.
 
-.. _providers:
+.. _databricks_providers:
 
 Providers
 ---------
-The MLflow AI Gateway is designed to support a variety of model providers.
+The Databricks AI Gateway is designed to support a variety of model providers.
 A provider represents the source of the machine learning models, such as OpenAI, Anthropic, and so on.
-Each provider has its specific characteristics and configurations that are encapsulated within the model part of a route in the MLflow AI Gateway.
+Each provider has its specific characteristics and configurations that are encapsulated within the model part of a route in the Databricks AI Gateway.
 
 Supported Provider Models
 ~~~~~~~~~~~~~~~~~~~~~~~~~
-The table below presents a non-exhaustive list of models and a corresponding route type within the MLflow AI Gateway.
+The table below presents a non-exhaustive list of models and a corresponding route type within the Databricks AI Gateway.
 With the rapid development of LLMs, there is no guarantee that this list will be up to date at all times. However, the associations listed
 below can be used as a helpful guide when configuring a given route for any newly released model types as they become available with a given provider.
+Customers are responsible for ensuring compliance with applicable model licenses.
 
 .. list-table::
    :header-rows: 1
@@ -249,6 +414,10 @@ below can be used as a helpful guide when configuring a given route for any newl
      - gpt-3.5-turbo, gpt-4
      - Yes
    * - llm/v1/completions
+     - MosaicML
+     - mpt-7b-instruct, mpt-30b-instruct, llama2-70b-chat†
+     - Yes
+   * - llm/v1/completions
      - Anthropic
      - claude-1, claude-1.3-100k
      - Yes
@@ -260,10 +429,18 @@ below can be used as a helpful guide when configuring a given route for any newl
      - Azure OpenAI
      - text-davinci-003, gpt-35-turbo
      - Yes
+   * - llm/v1/completions
+     - Databricks Model Serving
+     - Endpoints with compatible schemas
+     - Yes
    * - llm/v1/chat
      - OpenAI
      - gpt-3.5-turbo, gpt-4
      - Yes
+   * - llm/v1/chat
+     - MosaicML
+     -
+     - No
    * - llm/v1/chat
      - Anthropic
      -
@@ -276,9 +453,17 @@ below can be used as a helpful guide when configuring a given route for any newl
      - Azure OpenAI
      - gpt-35-turbo, gpt-4
      - Yes
+   * - llm/v1/chat
+     - Databricks Model Serving
+     -
+     - No
    * - llm/v1/embeddings
      - OpenAI
      - text-embedding-ada-002
+     - Yes
+   * - llm/v1/embeddings
+     - MosaicML
+     - instructor-large, instructor-xl
      - Yes
    * - llm/v1/embeddings
      - Anthropic
@@ -292,224 +477,119 @@ below can be used as a helpful guide when configuring a given route for any newl
      - Azure OpenAI
      - text-embedding-ada-002
      - Yes
+   * - llm/v1/embeddings
+     - Databricks Model Serving
+     - Endpoints with compatible schemas
+     - Yes
 
-Within each model block in the configuration file, the provider field is used to specify the name
-of the provider for that model. This is a string value that needs to correspond to a provider the MLflow AI Gateway supports.
+† Llama 2 is licensed under the [LLAMA 2 Community License](https://ai.meta.com/llama/license/), Copyright © Meta Platforms, Inc. All Rights Reserved. 
 
-Here's an example of a provider configuration within a route:
+When creating a route, the provider field is used to specify the name
+of the provider for that model. This is a string value that needs to correspond to a provider
+the Databricks AI Gateway supports.
 
-.. code-block:: yaml
+Here's an example demonstrating how a provider is specified when creating a route with the
+:py:func:`mlflow.gateway.create_route` API:
 
-    routes:
-        - name: chat
-          type: llm/v1/chat
-          model:
-            provider: openai
-            name: gpt-4
-            config:
-              openai_api_base: https://api.openai.com/v1
-              openai_api_key: $OPENAI_API_KEY
+.. code-block:: python
 
-In the above configuration, ``openai`` is the `provider` for the model.
+    create_route(
+        name="chat",
+        route_type="llm/v1/chat",
+        model={
+            "name": "gpt-4",
+            "provider": "openai",
+            "openai_config": {
+                "openai_api_key": "<YOUR_OPENAI_API_KEY>"
+            }
+        }
+    )
 
-As of now, the MLflow AI Gateway supports the following providers:
+In the above example, ``openai`` is the `provider` for the model.
+
+As of now, the Databricks AI Gateway supports the following providers:
 
 * **openai**: This is used for models offered by `OpenAI <https://platform.openai.com/>`_ and the `Azure <https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/>`_ integrations for Azure OpenAI and Azure OpenAI with AAD.
+* **mosaicml**: This is used for models offered by `MosaicML <https://docs.mosaicml.com/en/latest/>`_.
 * **anthropic**: This is used for models offered by `Anthropic <https://docs.anthropic.com/claude/docs>`_.
 * **cohere**: This is used for models offered by `Cohere <https://docs.cohere.com/docs>`_.
+* **databricks-model-serving**: This is used for Databricks Model Serving endpoints with compatible schemas. See :ref:`config_databricks_model_serving`.
 
-More providers are being added continually. Check the latest version of the MLflow AI Gateway Docs for the
+More providers are being added continually. Check the latest version of the Databricks AI Gateway Docs for the
 most up-to-date list of supported providers.
 
-Remember, the provider you specify must be one that the MLflow AI Gateway supports. If the provider
+Remember, the provider you specify must be one that the Databricks AI Gateway supports. If the provider
 is not supported, the Gateway will return an error when trying to route requests to that provider.
+
+.. _databricks_routes:
 
 Routes
 ------
 
-`Routes` are central to how the MLflow AI Gateway functions. Each route acts as a proxy endpoint for the
-user, forwarding requests to the underlying :ref:`gateway_models` and :ref:`providers` specified in the configuration file.
+`Routes` are central to how the Databricks AI Gateway functions. Each route acts as a proxy endpoint for the
+user, forwarding requests to its configured :ref:`provider <databricks_providers>`.
 
-A route in the MLflow AI Gateway consists of the following fields:
+A route in the Databricks AI Gateway consists of the following fields:
 
-* **name**: This is the unique identifier for the route. This will be part of the URL when making API calls via the MLflow AI Gateway.
+* **name**: This is the unique identifier for the route. This will be part of the URL when making API calls via the Databricks AI Gateway.
 
-* **type**: The type of the route corresponds to the type of language model interaction you desire. For instance, ``llm/v1/completions`` for text completion operations, ``llm/v1/embeddings`` for text embeddings, and ``llm/v1/chat`` for chat operations.
+* **route_type**: The type of the route corresponds to the type of language model interaction you desire. For instance, ``llm/v1/completions`` for text completion operations, ``llm/v1/embeddings`` for text embeddings, and ``llm/v1/chat`` for chat operations.
+
+  - "llm/v1/completions"
+  - "llm/v1/chat"
+  - "llm/v1/embeddings"
 
 * **model**: Defines the model to which this route will forward requests. The model contains the following details:
 
-    * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for OpenAI's ``GPT-3.5`` models.
+    * **provider**: Specifies the name of the :ref:`provider <databricks_providers>` for this model. For example, ``openai`` for OpenAI's ``GPT-3.5`` models.
+
+      - "openai"
+      - "mosaicml"
+      - "anthropic"
+      - "cohere"
+      - "azure" / "azuread"
+
     * **name**: The name of the model to use. For example, ``gpt-3.5-turbo`` for OpenAI's ``GPT-3.5-Turbo`` model.
-    * **config**: Contains any additional configuration details required for the model. This includes specifying the API base URL and the API key.
+    * **config**: Contains any additional configuration details required for the model. This includes specifying the API base URL and the API key. See :ref:`configure_route_provider`.
 
-Here's an example of a route configuration:
+  .. important::
 
-.. code-block:: yaml
-
-    routes:
-        - name: completions
-          type: chat/completions
-          model:
-            provider: openai
-            name: gpt-3.5-turbo
-            config:
-              openai_api_base: https://api.openai.com/v1
-              openai_api_key: $OPENAI_API_KEY
-
-In the example above, a request sent to the completions route would be forwarded to the
-``gpt-3.5-turbo`` model provided by ``openai``.
-
-The routes in the configuration file can be updated at any time, and the MLflow AI Gateway will
-automatically update its available routes without requiring a restart. This feature provides you
-with the flexibility to add, remove, or modify routes as your needs change. It enables 'hot-swapping'
-of routes, providing a seamless experience for any applications or services that interact with the MLflow AI Gateway.
-
-When defining routes in the configuration file, ensure that each name is unique to prevent conflicts.
-Duplicate route names will raise an ``MlflowException``.
-
-.. _gateway_models:
-
-Models
-------
-
-The ``model`` section within a ``route`` specifies which model to use for generating responses.
-This configuration block needs to contain a ``name`` field which is used to specify the exact model instance to be used.
-Additionally, a :ref:`provider <providers>` needs to be specified, one that you have an authenticated access api key for.
-
-Different endpoint types are often associated with specific models.
-For instance, the ``llm/v1/chat`` and ``llm/v1/completions`` endpoints are generally associated with
-conversational models, while ``llm/v1/embeddings`` endpoints would typically be associated with
-embedding or transformer models. The model you choose should be appropriate for the type of endpoint specified.
-
-Here's an example of a model name configuration within a route:
-
-.. code-block:: yaml
-
-    routes:
-      - name: embeddings
-        type: llm/v1/embeddings
-        model:
-          provider: openai
-          name: text-embedding-ada-002
-          config:
-            openai_api_base: https://api.openai.com/v1
-            openai_api_key: $OPENAI_API_KEY
-
-
-In the above configuration, ``text-embedding-ada-002`` is the model used for the embeddings endpoint.
-
-When specifying a model, it is critical that the provider supports the model you are requesting.
-For instance, ``openai`` as a provider supports models like ``text-embedding-ada-002``, but other providers
-may not. If the model is not supported by the provider, the MLflow AI Gateway will return an HTTP 4xx error
-when trying to route requests to that model.
-
-.. important::
-
-    Always check the latest documentation of the specified provider to ensure that the model you want
-    to use is supported for the type of endpoint you're configuring.
+      When specifying a model, it is critical that the provider supports the model you are requesting.
+      For instance, ``openai`` as a provider supports models like ``text-embedding-ada-002``, but other providers
+      may not. If the model is not supported by the provider, the Databricks AI Gateway will return an HTTP 4xx error
+      when trying to route requests to that model.
 
 Remember, the model you choose directly affects the results of the responses you'll get from the
 API calls. Therefore, choose a model that fits your use-case requirements. For instance,
 for generating conversational responses, you would typically choose a chat model.
 Conversely, for generating embeddings of text, you would choose an embedding model.
 
-.. _gateway_configuration:
+Here's an example of route creation with the :py:func:`mlflow.gateway.create_route` API:
 
-Configuring the AI Gateway
-==========================
+.. code-block:: python
 
-The MLflow AI Gateway service relies on a user-provided configuration file, written in YAML,
-that defines the routes and providers available to the service. The configuration file dictates
-how the gateway interacts with various language model providers and determines the end-points that
-users can access.
+    create_route(
+        name="embeddings",
+        route_type="llm/v1/embeddings",
+        model={
+            "name": "text-embedding-ada-002",
+            "provider": "openai",
+            "openai_config": {
+                "openai_api_key": "<YOUR_OPENAI_API_KEY>"
+            }
+        }
+    )
 
-AI Gateway Configuration
-------------------------
+In the example above, a request sent to the embeddings route would be forwarded to the
+``text-embedding-ada-002`` model provided by ``openai``.
 
-The configuration file includes a series of sections, each representing a unique route.
-Each route section has a name, a type, and a model specification, which includes the model
-provider, name, and configuration details. The configuration section typically contains the base
-URL for the API and an environment variable for the API key.
+.. _configure_route_provider:
 
-Here is an example of a single-route configuration:
-
-.. code-block:: yaml
-
-    routes:
-      - name: chat
-        type: llm/v1/chat
-        model:
-          provider: openai
-          name: gpt-3.5-turbo
-          config:
-            openai_api_base: https://api.openai.com/v1
-            openai_api_key: $OPENAI_API_KEY
-
-
-In this example, we define a route named ``chat`` that corresponds to the ``llm/v1/chat`` type, which
-will use the ``gpt-3.5-turbo`` model from OpenAI to return query responses from the OpenAI service.
-
-The Gateway configuration is very easy to update.
-Simply edit the configuration file and save your changes, and the MLflow AI Gateway service will automatically
-update the routes with zero disruption or down time. This allows you to try out new providers or model types while keeping your applications steady and reliable.
-
-In order to define an API key for a given provider, there are three primary options:
-
-1. Directly include it in the YAML configuration file.
-2. Use an environment variable to store the API key and reference it in the YAML configuration file.
-3. Define your API key in a file and reference the location of that key-bearing file within the YAML configuration file.
-
-If you choose to include the API key directly, replace ``$OPENAI_API_KEY`` in the YAML file with your
-actual API key.
-
-.. warning::
-
-    The MLflow AI Gateway service provides direct access to billed external LLM services. It is strongly recommended to restrict access to this server. See the section on :ref:`security <gateway_security>` for guidance.
-
-If you prefer to use an environment variable (recommended), you can define it in your shell
-environment. For example:
-
-.. code-block:: bash
-
-     export OPENAI_API_KEY="your_openai_api_key"
-
-**Note:** Replace "your_openai_api_key" with your actual OpenAI API key.
-
-AI Gateway Configuration Details
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The MLflow AI Gateway service relies on a user-provided configuration file. It defines how the gateway interacts with various language model providers and dictates the routes that users can access.
-
-The configuration file is written in YAML and includes a series of sections, each representing a unique route. Each route section has a name, a type, and a model specification, which includes the provider, model name, and provider-specific configuration details.
-
-Here are the details of each configuration parameter:
-
-General Configuration Parameters
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-- **routes**: This is a list of route configurations. Each route represents a unique endpoint that maps to a particular language model service.
-
-Each route has the following configuration parameters:
-
-- **name**: This is the name of the route. It needs to be a unique name without spaces or any non-alphanumeric characters other than hyphen and underscore.
-
-- **route_type**: This specifies the type of service offered by this route. This determines the interface for inputs to a route and the returned outputs. Current supported route types are:
-
-  - "llm/v1/completions"
-  - "llm/v1/chat"
-  - "llm/v1/embeddings"
-
-- **model**: This defines the provider-specific details of the language model. It contains the following fields:
-
-  - **provider**: This indicates the provider of the AI model. It accepts the following values:
-
-    - "openai"
-    - "anthropic"
-    - "cohere"
-    - "azure" / "azuread"
-
-  - **name**: This is an optional field to specify the name of the model.
-  - **config**: This contains provider-specific configuration details.
+Configuring the Provider for a Route
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+When creating a Route, it's important to supply the required configurations for the specified
+:ref:`provider <databricks_providers>`. This section provides an overview of the configuration parameters
+available for each provider.
 
 Provider-Specific Configuration Parameters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -518,7 +598,7 @@ OpenAI
 ++++++
 
 +-------------------------+----------+-------------------------------+-------------------------------------------------------------+
-| Parameter               | Required | Default                       | Description                                                 |
+| Configuration Parameter | Required | Default                       | Description                                                 |
 +=========================+==========+===============================+=============================================================+
 | **openai_api_key**      | Yes      |                               | This is the API key for the OpenAI service.                 |
 +-------------------------+----------+-------------------------------+-------------------------------------------------------------+
@@ -534,25 +614,34 @@ OpenAI
 |                         |          |                               | OpenAI.                                                     |
 +-------------------------+----------+-------------------------------+-------------------------------------------------------------+
 
+MosaicML
++++++++++
+
++-------------------------+----------+--------------------------+-------------------------------------------------------+
+| Configuration Parameter | Required | Default                  | Description                                           |
++=========================+==========+==========================+=======================================================+
+| **mosaicml_api_key**    | Yes      | N/A                      | This is the API key for the MosaicML service.         |
++-------------------------+----------+--------------------------+-------------------------------------------------------+
+
 
 Cohere
 ++++++
 
-+---------------------+----------+--------------------------+-------------------------------------------------------+
-| Parameter           | Required | Default                  | Description                                           |
-+=====================+==========+==========================+=======================================================+
-| **cohere_api_key**  | Yes      | N/A                      | This is the API key for the Cohere service.           |
-+---------------------+----------+--------------------------+-------------------------------------------------------+
++-------------------------+----------+--------------------------+-------------------------------------------------------+
+| Configuration Parameter | Required | Default                  | Description                                           |
++=========================+==========+==========================+=======================================================+
+| **cohere_api_key**      | Yes      | N/A                      | This is the API key for the Cohere service.           |
++-------------------------+----------+--------------------------+-------------------------------------------------------+
 
 
 Anthropic
 +++++++++
 
-+------------------------+----------+--------------------------+-------------------------------------------------------+
-| Parameter              | Required | Default                  | Description                                           |
-+========================+==========+==========================+=======================================================+
-| **anthropic_api_key**  | Yes      | N/A                      | This is the API key for the Anthropic service.        |
-+------------------------+----------+--------------------------+-------------------------------------------------------+
++-------------------------+----------+--------------------------+-------------------------------------------------------+
+| Configuration Parameter | Required | Default                  | Description                                           |
++=========================+==========+==========================+=======================================================+
+| **anthropic_api_key**   | Yes      | N/A                      | This is the API key for the Anthropic service.        |
++-------------------------+----------+--------------------------+-------------------------------------------------------+
 
 Azure OpenAI
 ++++++++++++
@@ -562,7 +651,7 @@ Azure provides two different mechanisms for integrating with OpenAI, each corres
 To match your user's interaction and security access requirements, adjust the ``openai_api_type`` parameter to represent the preferred security validation model. This will ensure seamless interaction and reliable security for your Azure-OpenAI integration.
 
 +----------------------------+----------+---------+-----------------------------------------------------------------------------------------------+
-| Parameter                  | Required | Default | Description                                                                                   |
+| Configuration Parameter    | Required | Default | Description                                                                                   |
 +============================+==========+=========+===============================================================================================+
 | **openai_api_key**         | Yes      |         | This is the API key for the Azure OpenAI service.                                             |
 +----------------------------+----------+---------+-----------------------------------------------------------------------------------------------+
@@ -577,71 +666,229 @@ To match your user's interaction and security access requirements, adjust the ``
 | **openai_organization**    | No       |         | This is an optional field to specify the organization in OpenAI.                              |
 +----------------------------+----------+---------+-----------------------------------------------------------------------------------------------+
 
+The following example demonstrates how to create a route with Azure OpenAI:
 
-An example configuration for Azure OpenAI is:
+.. code-block:: python
 
-.. code-block:: yaml
-
-    routes:
-      - name: completions
-        route_type: llm/v1/completions
-        model:
-          provider: openai
-          name: gpt-35-turbo
-          config:
-            openai_api_type: "azuread"
-            openai_api_key: $AZURE_AAD_TOKEN
-            openai_deployment_name: "{your_deployment_name}"
-            openai_api_base: "https://{your_resource_name}-azureopenai.openai.azure.com/"
-            openai_api_version: "2023-05-15"
-
+    create_route(
+        name="completions",
+        route_type="llm/v1/completions",
+        model={
+            "name": "gpt-35-turbo",
+            "provider": "openai",
+            "openai_config": {
+                "openai_api_type": "azuread"
+                "openai_api_key": "<YOUR_AZURE_OPENAI_API_KEY>"
+                "openai_deployment_name": "{your_azure_openai_deployment_name}"
+                "openai_api_base": "https://{your_azure_openai_resource_name}-azureopenai.openai.azure.com/"
+                "openai_api_version": "2023-05-15"
+            }
+        }
+    )
 
 .. note::
 
     Azure OpenAI has distinct features as compared with the direct OpenAI service. For an overview, please see `the comparison documentation <https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/how-to/switching-endpoints>`_.
 
-For specifying an API key, there are three options:
+.. _databricks_serving_provider_fields:
 
-1. (Preferred) Use an environment variable to store the API key and reference it in the YAML configuration file. This is denoted by a ``$`` symbol before the name of the environment variable.
-2. (Preferred) Define the API key in a file and reference the location of that key-bearing file within the YAML configuration file.
-3. Directly include it in the YAML configuration file.
+Databricks Model Serving (open source models)
++++++++++++++++++++++++++++++++++++++++++++++
 
-.. important::
++-------------------------------+----------+--------------------------+-------------------------------------------------------+
+| Configuration Parameter       | Required | Default                  | Description                                           |
++===============================+==========+==========================+=======================================================+
+|                               |          |                          | A Databricks access token corresponding to a user or  |
+| **databricks_api_token**      | Yes      | N/A                      | service principal that has **Can Query** access to the|
+|                               |          |                          | Model Serving endpoint associated with the route.     |
++-------------------------------+----------+--------------------------+-------------------------------------------------------+
+| **databricks_workspace_url**  | Yes      | N/A                      | The URL of the workspace containing the Model Serving |
+|                               |          |                          | endpoint associated with the route.                   |
++-------------------------------+----------+--------------------------+-------------------------------------------------------+
 
-    The use of environment variables or file-based keys is recommended for better security practices. If the API key is directly included in the configuration file, it should be ensured that the file is securely stored and appropriately access controlled.
-    Please ensure that the configuration file is stored in a secure location as it contains sensitive API keys.
+The following example demonstrates how to create a route with a Databricks Model Serving endpoint:
 
-.. _gateway_query:
+.. code-block:: python
+
+    create_route(
+        name="databricks-completions",
+        route_type="llm/v1/completions",
+        model={
+            "name": "mpt-7b-instruct",
+            "provider": "databricks-model-serving",
+            "openai_config": {
+                "databricks_api_token": "<YOUR_DATABRICKS_ACCESS_TOKEN>"
+                "databricks_workspace_url": "<URL_OF_DATABRICKS_WORKSPACE_CONTAINING_ENDPOINT>"
+            }
+        }
+    )
+
+For more information about creating routes with Databricks Model Serving endpoints, see :ref:`config_databricks_model_serving`.
+
+.. _rate_limits:
+
+Rate Limits on AI Gateway Routes
+================================
+
+The parameters for define a rate limit are:
+
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| Limit Parameter               | Type           | Required | Default       | Description                                           |
++===============================+================+==========+===============+=======================================================+
+| **key**                       | string         | No       | route         | The limit key defines whether the rate limit is per   |
+|                               |                |          |               | databricks user or per route (across all users).      |
+|                               |                |          |               | Allowed options are: user, route.                     |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **calls**                     | integer        | Yes      | N/A           | The maximum total number of calls allowed during the  |
+|                               |                |          |               | time interval specified in renewal_period.            |
+|                               |                |          |               | Must be non-negative integer.                         |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **renewal_period**            | string         | Yes      | N/A           | The length in seconds of the sliding window during    |
+|                               |                |          |               | which the number of allowed requests should not exceed|
+|                               |                |          |               | the value specified in calls. Allowed option: minute. |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+
+The following example demonstrates how to set a per user limit and per route limit on an existing route and how to get existing limits of a route:
+
+.. code-block:: python
+    
+    from mlflow.gateway import set_limits, get_limits
+
+    set_limits(
+        route="my-route",
+        limits=[
+            // You can define multiple limits on a route
+            {
+                // 5 calls per user per minute
+                "key": "user",
+                "calls": 5,
+                "renewal_period": "minute"
+            },
+            {
+                // 50 calls per minute for all users
+                "calls": 50,
+                "renewal_period": "minute"
+            }
+        ]
+    )
+
+    get_limits(
+        route="my-route"
+    )
+
+For more details on how to set limits and get limits via APIs, please see :ref:`databricks_gateway_fluent_api`, :ref:`databricks_gateway_client_api` and :ref:`databricks_gateway_rest_api`.
+
+.. _databricks_gateway_query:
 
 Querying the AI Gateway
 =======================
 
-Once the MLflow AI Gateway server has been configured and started, it is ready to receive traffic from users.
+Once the Databricks AI Gateway server has been configured and started, it is ready to receive traffic from users.
 
-.. _standard_query_parameters:
+.. _databricks_standard_query_parameters:
 
 Standard Query Parameters
 -------------------------
 
-The query parameters that are supported by various providers for different route types are also available to be used with the MLflow AI Gateway.
-Each of these query parameters are optional elements that can be included along with using the ``query`` APIs as key value pairs within the ``data`` argument.
-The AI Gateway will perform validation of these commonly modified parameters to ensure that provider-specific restrictions and scaling factors are unified with a consistent range of allowable values.
-If a given provider does not provide support for a parameter, a clear message will be returned when queried that explains the restrictions for the given provider and route type.
+The Databricks AI Gateway defines standard parameters for chat, completions, and embeddings that can be
+used when querying any route regardless of its provider. Each parameter has a standard range and
+default value. When querying a route with a particular provider, the Databricks AI Gateway automatically
+scales parameter values according to the provider's value ranges for that parameter.
 
-- ``temperature``: This parameter controls the randomness of predictions by scaling the logits before applying softmax. A value closer to 0.0 makes the output more deterministic, while a value closer to 1.0 makes it more diverse. Default is 0.0.
+.. important::
 
-- ``max_tokens``: This parameter limits the length of the generated output by specifying a maximum token count. The range is from 1 to infinity, and by default, there is no limit (infinity). Some providers have a maximum value associated with this parameter that the AI Gateway will enforce to prevent a provider-generated exception.
+  When querying an AI Gateway Route with the ``databricks-model-serving`` provider, some of the
+  the standard query parameters may be ignored depending on whether or not the Databricks Model
+  Serving endpoint supports them. All of the parameters marked **required** are guaranteed to
+  be supported. For more information, see :ref:`config_databricks_model_serving`.
 
-- ``stop``: This parameter specifies an array of strings, where each string is a token that indicates the end of a text generation. By default, this is empty.
+Completions
+~~~~~~~~~~~
 
-- ``candidate_count``: This parameter determines the number of alternative responses to generate. The range is from 1 to 5, and by default, it is set to 1.
+The standard parameters for completions routes with type ``llm/v1/completions`` are:
+
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| Query Parameter               | Type           | Required | Default       | Description                                           |
++===============================+================+==========+===============+=======================================================+
+| **prompt**                    | string         | Yes      | N/A           | The prompt for which to generate completions.         |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **candidate_count**           | integer        | No       | 1             | The number of completions to generate for the         |
+|                               |                |          |               | specified prompt, between 1 and 5.                    |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **temperature**               | float          | No       | 0.0           | The sampling temperature to use, between 0 and 1.     |
+|                               |                |          |               | Higher values will make the output more random, and   |
+|                               |                |          |               | lower values will make the output more deterministic. |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **max_tokens**                | integer        | No       | infinity      | The maximum completion length, between 1 and infinity |
+|                               |                |          |               | (unlimited).                                          |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **stop**                      | array[string]  | No       | []            | Sequences where the model should stop generating      |
+|                               |                |          |               | tokens and return the completion.                     |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+
+Chat
+~~~~
+
+The standard parameters for completions routes with type ``llm/v1/chat`` are:
+
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| Query Parameter               | Type           | Required | Default       | Description                                           |
++===============================+================+==========+===============+=======================================================+
+| **messages**                  | array[message] | Yes      | N/A           | A list of messages in a conversation from which to    |
+|                               |                |          |               | a new message (chat completion). For information      |
+|                               |                |          |               | about the message structure, see                      |
+|                               |                |          |               | :ref:`databricks_chat_message_structure`.             |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **candidate_count**           | integer        | No       | 1             | The number of chat completions to generate for the    |
+|                               |                |          |               | specified prompt, between 1 and 5.                    |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **temperature**               | float          | No       | 0.0           | The sampling temperature to use, between 0 and 1.     |
+|                               |                |          |               | Higher values will make the output more random, and   |
+|                               |                |          |               | lower values will make the output more deterministic. |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **max_tokens**                | integer        | No       | infinity      | The maximum completion length, between 1 and infinity |
+|                               |                |          |               | (unlimited).                                          |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| **stop**                      | array[string]  | No       | []            | Sequences where the model should stop generating      |
+|                               |                |          |               | tokens and return the chat completion.                |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+
+.. _databricks_chat_message_structure:
+
+Messages
+^^^^^^^^
+
+Each chat message is a string dictionary containing the following fields:
+
++-------------------------------+----------+--------------------------+-------------------------------------------------------+
+| Field Name                    | Required | Default                  | Description                                           |
++===============================+==========+==========================+=======================================================+
+| **role**                      | Yes      | N/A                      | The role of the conversation participant who sent the |
+|                               |          |                          | message. Must be one of: ``"system"``, ``"user"``, or |
+|                               |          |                          | ``"assistant"``.                                      |
++-------------------------------+----------+--------------------------+-------------------------------------------------------+
+| **content**                   | Yes      | N/A                      | The message content.                                  |
++-------------------------------+----------+--------------------------+-------------------------------------------------------+
+
+Embeddings
+~~~~~~~~~~
+
+The standard parameters for completions routes with type ``llm/v1/embeddings`` are:
+
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
+| Query Parameter               | Type           | Required | Default       | Description                                           |
++===============================+================+==========+===============+=======================================================+
+| **text**                      | string         | Yes      | N/A           | A string or list of strings for which to generate     |
+|                               | or             |          |               | embeddings.                                           |
+|                               | array[string]  |          |               |                                                       |
++-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 
 Additional Query Parameters
 ---------------------------
-In addition to the :ref:`standard_query_parameters`, you can pass any additional parameters supported by the route's provider as part of your query. For example:
+In addition to the :ref:`databricks_standard_query_parameters`, you can pass any additional parameters supported by the route's provider as part of your query. For example:
 
 - ``logit_bias`` (supported by OpenAI, Cohere)
-- ``top_k`` (supported by Anthropic, Cohere)
+- ``top_k`` (supported by MosaicML, Anthropic, Cohere)
 - ``frequency_penalty`` (supported by OpenAI, Cohere)
 - ``presence_penalty`` (supported by OpenAI, Cohere)
 
@@ -649,14 +896,15 @@ The following parameters are not allowed:
 
 - ``stream`` is not supported. Setting this parameter on any provider will not work currently.
 
-Below is an example of submitting a query request to an MLflow AI Gateway route using additional parameters:
+Below is an example of submitting a query request to an Databricks AI Gateway route using additional parameters:
 
 .. code-block:: python
 
     data = {
-        "prompt": "What would happen if an asteroid the size of "
-        "a basketball encountered the Earth traveling at 0.5c? "
-        "Please provide your answer in .rst format for the purposes of documentation.",
+        "prompt": (
+            "What would happen if an asteroid the size of "
+            "a basketball encountered the Earth traveling at 0.5c?"
+        ),
         "temperature": 0.5,
         "max_tokens": 1000,
         "candidate_count": 1,
@@ -693,23 +941,14 @@ The results of the query are:
          }
        }
 
-FastAPI Documentation ("/docs")
--------------------------------
-
-FastAPI, the framework used for building the MLflow AI Gateway, provides an automatic interactive API
-documentation interface, which is accessible at the "/docs" endpoint (e.g., ``http://my.gateway:9000/docs``).
-This interactive interface is very handy for exploring and testing the available API endpoints.
-
-As a convenience, accessing the root URL (e.g., ``http://my.gateway:9000``) redirects to this "/docs" endpoint.
-
 MLflow Python Client APIs
 -------------------------
-:class:`MlflowGatewayClient <mlflow.gateway.client.MlflowGatewayClient>` is the user-facing client API that is used to interact with the MLflow AI Gateway.
+:class:`MlflowGatewayClient <mlflow.gateway.client.MlflowGatewayClient>` is the user-facing client API that is used to interact with the Databricks AI Gateway.
 It abstracts the HTTP requests to the Gateway via a simple, easy-to-use Python API.
 
-The fluent API is a higher-level interface that supports setting the Gateway URI once and using simple functions to interact with the AI Gateway Server.
+The fluent API is a higher-level interface that supports setting the Gateway URI once and using simple functions to interact with the AI Gateway.
 
-.. _gateway_fluent_api:
+.. _databricks_gateway_fluent_api:
 
 Fluent API
 ~~~~~~~~~~
@@ -719,14 +958,31 @@ For the ``fluent`` API, here are some examples:
 
    Before using the Fluent API, the gateway URI must be set via :func:`set_gateway_uri() <mlflow.gateway.set_gateway_uri>`.
 
-   Alternatively to directly calling the ``set_gateway_uri`` function, the environment variable ``MLFLOW_GATEWAY_URI`` can be set
-   directly, achieving the same session-level persistence for all ``fluent`` API usages.
+   If you are using the AI Gateway in a Databricks Notebook or Databricks Job, you can set the gateway URI as follows:
 
    .. code-block:: python
 
        from mlflow.gateway import set_gateway_uri
 
-       set_gateway_uri(gateway_uri="http://my.gateway:7000")
+       set_gateway_uri(gateway_uri="databricks")
+
+   If you are using the AI Gateway outside of a Databricks Notebook or Databricks Job, you will need to configure 
+   your Databricks host name and Databricks access token in your current environment before making requests to
+   the Gateway. You can do this using the ``DATABRICKS_HOST`` and ``DATABRICKS_TOKEN`` environment variables.
+   For example:
+
+   .. code-block:: python
+
+       import os
+       from mlflow.gateway import set_gateway_uri
+
+       os.environ["DATABRICKS_HOST"] = "http://your.workspace.databricks.com"
+       os.environ["DATABRICKS_TOKEN"] = "<your_databricks_access_token>"
+
+       set_gateway_uri(gateway_uri="databricks")
+
+   Finally, you can also set the gateway URI using the ``MLFLOW_GATEWAY_URI`` environment variable, as an alternative
+   to calling :func:`set_gateway_uri() <mlflow.gateway.set_gateway_uri>`.
 
 2. Query a route:
 
@@ -735,14 +991,53 @@ For the ``fluent`` API, here are some examples:
 
    .. code-block:: python
 
-       from mlflow.gateway import query
+       from mlflow.gateway import query
 
        response = query(
            "embeddings", {"text": ["It was the best of times", "It was the worst of times"]}
        )
        print(response)
 
-.. _gateway_client_api:
+3. Set rate limtis on a route:
+
+   The :func:`set_limits() <mlflow.gateway.set_limits>` function set rate limits on a route.
+   The data structure you send in the query is an array of limits, see :ref:`rate_limits`.
+
+   .. code-block:: python
+
+       from mlflow.gateway import set_limits
+
+       response = set_limits(
+           route = "my-route",
+           limits = [
+            {
+                "key": "user",
+                "calls": 5,
+                "renewal_period": "minute"
+            },
+            {
+                "calls": 50,
+                "renewal_period": "minute"
+            }
+           ]
+       )
+       print(response)
+
+4. Get rate limtis of a route:
+
+   The :func:`get_limits() <mlflow.gateway.get_limits>` function set rate limits on a route.
+   The data structure returned is an array of limits, see :ref:`rate_limits`.
+
+   .. code-block:: python
+
+       from mlflow.gateway import get_limits
+
+       response = get_limits(
+           route = "my-route"
+       )
+       print(response)
+
+.. _databricks_gateway_client_api:
 
 Client API
 ~~~~~~~~~~
@@ -751,11 +1046,30 @@ To use the ``MlflowGatewayClient`` API, see the below examples for the available
 
 1. Create an ``MlflowGatewayClient``
 
+   If you are using the AI Gateway in a Databricks Notebook or Databricks Job, you can initialize
+   the ``MlflowGatewayClient`` as follows:
+
    .. code-block:: python
 
        from mlflow.gateway import MlflowGatewayClient
 
-       gateway_client = MlflowGatewayClient("http://my.gateway:8888")
+       gateway_client = MlflowGatewayClient("databricks")
+
+   If you are using the AI Gateway outside of a Databricks Notebook or Databricks Job, you will need to configure
+   your Databricks host name and Databricks access token in your current environment before making requests to
+   the Gateway. You can do this using the ``DATABRICKS_HOST`` and ``DATABRICKS_TOKEN`` environment variables.
+   For example:
+
+   .. code-block:: python
+
+       import os
+       from mlflow.gateway import MlflowGatewayClient
+
+
+       os.environ["DATABRICKS_HOST"] = "http://your.workspace.databricks.com"
+       os.environ["DATABRICKS_TOKEN"] = "<your_databricks_access_token>"
+
+       gateway_client = MlflowGatewayClient("databricks")
 
 2. List all routes:
 
@@ -779,15 +1093,49 @@ To use the ``MlflowGatewayClient`` API, see the below examples for the available
        )
        print(response)
 
+4. Set rate limits on a route:
+   
+   The :meth:`set_limits() <mlflow.gateway.client.MlflowGatewayClient.set_limits>` method set rate limits on a route.
+   The data structure you send is an array of limits, see :ref:`rate_limits`.
+
+   .. code-block:: python
+
+       response = gateway_client.set_limits(
+           route = "my-route",
+           limits = [
+            {
+                "key": "user",
+                "calls": 5,
+                "renewal_period": "minute"
+            },
+            {
+                "calls": 50,
+                "renewal_period": "minute"
+            }
+           ]
+       )
+       print(response)
+
+5. Get rate limits of a route:
+   
+   The :meth:`get_limits() <mlflow.gateway.client.MlflowGatewayClient.get_limits>` method returns all rate limits of a route.
+   The data structure returned is an array of limits, see :ref:`rate_limits`.
+
+   .. code-block:: python
+
+       response = gateway_client.get_limits(
+           route = "my-route",
+       )
+       print(response)
+
+Further route types will be added in the future.
+
+.. _databricks_gateway_mlflow_models:
+
 MLflow Models
 ~~~~~~~~~~~~~
-You can also build and deploy MLflow Models that call the MLflow AI Gateway.
+You can also build and deploy MLflow Models that call the Databricks AI Gateway.
 The example below demonstrates how to use an AI Gateway server from within a custom ``pyfunc`` model.
-
-.. note::
-    The custom ``Model`` shown in the example below is utilizing environment variables for the AI Gateway server's uri. These values can also be set manually within the
-    definition or can be applied via :func:`mlflow.gateway.get_gateway_uri` after the uri has been set. For the example below, the value for ``MLFLOW_GATEWAY_URI`` is
-    ``http://127.0.0.1:5000/``. For an actual deployment use case, this value would be set to the configured and production deployment server.
 
 .. code-block:: python
 
@@ -799,34 +1147,40 @@ The example below demonstrates how to use an AI Gateway server from within a cus
     def predict(data):
         from mlflow.gateway import MlflowGatewayClient
 
-        client = MlflowGatewayClient(os.environ["MLFLOW_GATEWAY_URI"])
+        client = MlflowGatewayClient("databricks")
+        prompt = "Translate the following input text from English to French: {input_text}"
 
         payload = data.to_dict(orient="records")
         return [
-            client.query(route="completions-claude", data=query)["candidates"][0]["text"]
-            for query in payload
+            client.query(
+                route="completions-claude",
+                data={
+                    "prompt": prompt.format(input_text=input_text)
+                }
+            )["candidates"][0]["text"]
+            for input_text in payload
         ]
 
 
     input_example = pd.DataFrame.from_dict(
-        {"prompt": ["Where is the moon?", "What is a comet made of?"]}
+        {"prompt": ["What is an LLM?", "AI is cool!"]}
     )
     signature = mlflow.models.infer_signature(
-        input_example, ["Above our heads.", "It's mostly ice and rocks."]
+        input_example, ["Qu'est-ce qu'un LLM?", "L'IA est propre!"]
     )
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             python_model=predict,
-            registered_model_name="anthropic_completions",
-            artifact_path="anthropic_completions",
+            registered_model_name="anthropic_french_translator",
+            artifact_path="anthropic_french_translator",
             input_example=input_example,
             signature=signature,
         )
 
     df = pd.DataFrame.from_dict(
         {
-            "prompt": ["Tell me about Jupiter", "Tell me about Saturn"],
+            "prompt": ["I like machine learning", "MLflow is awesome!"],
             "temperature": 0.6,
             "max_records": 500,
         }
@@ -838,21 +1192,133 @@ The example below demonstrates how to use an AI Gateway server from within a cus
 
 This custom MLflow model can be used in the same way as any other MLflow model. It can be used within a ``spark_udf``, used with :func:`mlflow.evaluate`, or `deploy <https://mlflow.org/docs/latest/models.html#built-in-deployment-tools>`_ like any other model.
 
-.. _gateway_rest_api:
+LangChain Integration
+~~~~~~~~~~~~~~~~~~~~~
+LangChain has `an integration for MLflow AI Gateway <https://python.langchain.com/docs/ecosystem/integrations/mlflow_ai_gateway>`_.
+This integration enable users to use prompt engineering, retrieval augmented generation, and other
+techniques with LLMs in the gateway.
+
+.. code-block:: python
+
+    import mlflow
+    from langchain import LLMChain, PromptTemplate
+    from langchain.llms import MlflowAIGateway
+
+    gateway = MlflowAIGateway(
+        gateway_uri="databricks",
+        route="completions",
+        params={
+            "temperature": 0.0,
+            "top_p": 0.1,
+        },
+    )
+
+    llm_chain = LLMChain(
+        llm=gateway,
+        prompt=PromptTemplate(
+            input_variables=["adjective"],
+            template="Tell me a {adjective} joke",
+        ),
+    )
+    result = llm_chain.run(adjective="funny")
+    print(result)
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(chain, "model")
+
+    model = mlflow.pyfunc.load_model(model_info.model_uri)
+    print(model.predict([{"adjective": "funny"}]))
+
+
+.. _gateway_query_serving_endpoint:
+
+Querying the AI Gateway from Databricks Model Serving Endpoints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Once you have defined an :ref:`MLflow Model <databricks_gateway_mlflow_models>` that queries the AI Gateway,
+you can deploy it to Databricks Model Serving. This enables you to deploy custom application
+logic that depends on one or more LLMs in the AI Gateway, such as constructing an
+application-specific prompt in response to user input and using it to query an LLM.
+
+Building on the previous :ref:`databricks_gateway_mlflow_models` example, run the following steps
+to deploy an MLflow Model that uses the AI Gateway to Databricks Model Serving:
+
+1. Log and register your model with the following additional dependencies - ``pydantic<2`` and
+   ``psutil``:
+
+   .. code-block:: python
+
+       with mlflow.start_run():
+           model_info = mlflow.pyfunc.log_model(
+               python_model=predict,
+               registered_model_name="anthropic_french_translator",
+               artifact_path="anthropic_french_translator",
+               input_example=input_example,
+               signature=signature,
+               extra_pip_requirements=[
+                   "pydantic<2",
+                   "psutil"
+               ]
+           )
+
+2. Follow the guide at
+   https://docs.databricks.com/machine-learning/model-serving/store-env-variable-model-serving.html
+   to create a Databricks Model Serving endpoint for your MLflow Registered Model with the
+   following environment variables set:
+
+   * ``DATABRICKS_HOST``: The URL of the Databricks workspace containing the AI Gateway route
+     that your MLflow Model queries.
+   * ``DATABRICKS_TOKEN``: A Databricks access token corresponding to a user or service principal
+     with permission to query the AI Gateway route referenced by the MLflow Model.
+
+   For example:
+
+   .. code-block:: bash
+
+       PUT /api/2.0/serving-endpoints/{name}/config
+
+       {
+           "served_models": [{
+               "model_name": "anthropic_french_translator",
+               "model_version": "1",
+               "workload_size": "Small",
+               "scale_to_zero_enabled": true,
+               "env_vars": [
+                   {
+                       "env_var_name": "DATABRICKS_HOST"
+                       "secret_scope": "my_secret_scope",
+                       "secret_key": "my_databricks_host_secret_key"
+                   },
+                   {
+                       "env_var_name": "DATABRICKS_TOKEN"
+                       "secret_scope": "my_secret_scope",
+                       "secret_key": "my_databricks_token_secret_key"
+                   }
+               ]
+           }]
+        }
+
+.. _databricks_gateway_rest_api:
 
 REST API
 ~~~~~~~~
-The REST API allows you to send HTTP requests directly to the MLflow AI Gateway server. This is useful if you're not using Python or if you prefer to interact with the Gateway using HTTP directly.
+The REST API allows you to send HTTP requests directly to the Databricks AI Gateway server. This is useful if you're not using Python or if you prefer to interact with the Gateway using HTTP directly.
 
 Here are some examples for how you might use curl to interact with the Gateway:
 
-1. Get information about a particular route: ``GET /api/2.0/gateway/routes/{name}``
+1. Getting information about a particular route: ``GET /api/2.0/gateway/routes/{name}``
+
    This endpoint returns a serialized representation of the Route data structure.
    This provides information about the name and type, as well as the model details for the requested route endpoint.
 
    .. code-block:: bash
 
-       curl -X GET http://my.gateway:8888/api/2.0/gateway/routes/embeddings
+       curl \
+         -X GET \
+         -H "Authorization: Bearer <your_databricks_access_token>" \
+         http://your.workspace.databricks.com/api/2.0/gateway/routes/<your_route_name>
+
+   **Note:** Remember to replace ``<your_databricks_access_token>`` with your Databricks access token, ``http://your.workspace.databricks.com/``
+   with your Databricks workspace URL, and ``<your_route_name>`` with your route name.
 
 2. List all routes: ``GET /api/2.0/gateway/routes``
 
@@ -860,77 +1326,155 @@ Here are some examples for how you might use curl to interact with the Gateway:
 
    .. code-block:: bash
 
-       curl -X GET http://my.gateway:8888/api/2.0/gateway/routes
+       curl \
+         -X GET \
+         -H "Authorization: Bearer <your_databricks_access_token>" \
+         http://your.workspace.databricks.com/api/2.0/gateway/routes
 
-3. Query a route: ``POST /gateway/{route}/invocations``
+3. Querying a particular route: ``POST /gateway/{route}/invocations``
 
-   This endpoint allows you to submit a query to a configured provider route. The data structure you send in the query depends on the route. Here are examples for the "completions", "chat", and "embeddings" routes:
-
+   This endpoint allows you to submit a query to a specified route. The data structure you send in the query depends on the route. Here are examples for the "completions", "chat", and "embeddings" routes:
 
    * ``Completions``
 
      .. code-block:: bash
 
-         curl -X POST http://my.gateway:8888/gateway/completions/invocations \
+         curl \
+           -X POST \
            -H "Content-Type: application/json" \
-           -d '{"prompt": "Describe the probability distribution of the decay chain of U-235"}'
-
+           -H "Authorization: Bearer <your_databricks_access_token>" \
+           -d '{"prompt": "Describe the probability distribution of the decay chain of U-235"}' \
+           http://your.workspace.databricks.com/gateway/<your_completions_route>/invocations
 
    * ``Chat``
 
      .. code-block:: bash
 
-         curl -X POST http://my.gateway:8888/gateway/chat/invocations \
+         curl \
+           -X POST \
            -H "Content-Type: application/json" \
-           -d '{"messages": [{"role": "user", "content": "Can you write a limerick about orange flavored popsicles?"}]}'
+           -H "Authorization: Bearer <your_databricks_access_token>" \
+           -d '{"messages": [{"role": "user", "content": "Can you write a limerick about orange flavored popsicles?"}]}' \
+           http://your.workspace.databricks.com/gateway/<your_chat_route>/invocations
 
    * ``Embeddings``
 
      .. code-block:: bash
 
-         curl -X POST http://my.gateway:8888/gateway/embeddings/invocations \
-         -H "Content-Type: application/json" \
-         -d '{"text": ["I would like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
+         curl \
+           -X POST \
+           -H "Content-Type: application/json" \
+           -H "Authorization: Bearer <your_databricks_access_token>" \
+           -d '{"text": ["I'd like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}' \
+           http://your.workspace.databricks.com/gateway/<your_embeddings_route>/invocations
 
-**Note:** Remember to replace ``http://my.gateway:8888`` with the URL of your actual MLflow AI Gateway Server.
+4. Set rate limits on a route: ``POST /api/2.0/gateway/limits``
 
-MLflow AI Gateway API Documentation
-===================================
+   This endpoint allows you to set rate limits on an AI Gateway Route.
 
-`API documentation <./api.html>`_
+    .. code-block:: bash
 
-.. _gateway_security:
+         curl \
+           -X POST \
+           -H "Content-Type: application/json" \
+           -H "Authorization: Bearer <your_databricks_access_token>" \
+           -d '{"route": "my-route", "limits": [{"key": "user", "calls": 5, "renewal_period": "minute"}]}' \
+           http://your.workspace.databricks.com/api/2.0/gateway/limits
 
-AI Gateway Security Considerations
-==================================
+5. Get rate limits of a route: ``GET /api/2.0/gateway/limits/{route}``
 
-Remember to ensure secure access to the system that the MLflow AI Gateway service is running in to protect access to these keys.
+   This endpoint allows you to get rate limits of an AI Gateway Route.
 
-An effective way to secure your MLflow AI Gateway service is by placing it behind a reverse proxy. This will allow the reverse proxy to handle incoming requests and forward them to the MLflow AI Gateway. The reverse proxy effectively shields your application from direct exposure to Internet traffic.
+    .. code-block:: bash
 
-A popular choice for a reverse proxy is `Nginx`. In addition to handling the traffic to your application, `Nginx` can also serve static files and load balance the traffic if you have multiple instances of your application running.
+         curl \
+           -X GET \
+           -H "Authorization: Bearer <your_databricks_access_token>" \
+         http://your.workspace.databricks.com/api/2.0/gateway/limits/<your_route>
 
-Furthermore, to ensure the integrity and confidentiality of data between the client and the server, it's highly recommended to enable HTTPS on your reverse proxy.
+Using MosaicML-hosted open source models with the AI Gateway
+=================================================================================
+AI Gateway also provides access to MosaicML’s open source models as hosted APIs. 
+These APIs provide fast and easy access to state-of-the-art open source models for rapid experimentation and 
+token-based pricing. MosaicML supports the ``Instructor-XL``, a 1.2B parameter instruction fine-tuned embedding model 
+by HKUNLP, and the ``Llama2-70b-Chat``† API which was trained on 2 trillion tokens and fine-tuned for dialogue, safety, and 
+helpfulness by Meta.
 
-In addition to the reverse proxy, it's also recommended to add an authentication layer before the requests reach the MLflow AI Gateway. This could be HTTP Basic Authentication, OAuth, or any other method that suits your needs.
+.. note::
 
-For example, here's a simple configuration for Nginx with Basic Authentication:
+    Llama 2 is licensed under the LLAMA 2 Community License, Copyright © Meta Platforms, Inc. All Rights Reserved.
 
-.. code-block:: nginx
 
-    http {
-        server {
-            listen 80;
+To access these models via Gateway, you can create MosaicML routes like for the other providers.
+The following example demonstrates how to create a route with MosaicML (for the Llama2-70b-Chat† model):
 
-            location / {
-                auth_basic "Restricted Content";
-                auth_basic_user_file /etc/nginx/.htpasswd;
+.. code-block:: python
 
-                proxy_pass http://localhost:5000;  # Replace with the MLflow AI Gateway service port
+    create_route(
+        name="mosaicml-llama-completions",
+        route_type="llm/v1/completions",
+        model={
+            "name": "llama2-70b-chat",
+            "provider": "mosaicml",
+            "mosaicml_config": {
+                "mosaicml_api_key": "<YOUR_MOSAIC_API_KEY>"
             }
         }
-    }
+    )
 
-In this example, `/etc/nginx/.htpasswd` is a file that contains the username and password for authentication.
+For the ``Instructor-XL`` embeddings model, the route can be created like so:
 
-These measures, together with a proper network setup, can significantly improve the security of your system and ensure that only authorized users have access to submit requests to your LLM services.
+.. code-block:: python
+
+    create_route(
+            name="mosaicml-embeddings",
+            route_type="llm/v1/embeddings",
+            model={
+                "name": "instructor-xl",
+                "provider": "mosaicml",
+                "mosaicml_config": {
+                    "mosaicml_api_key": "<YOUR_MOSAIC_API_KEY>"
+                }
+            }
+    )
+
+
+To query these routes, you can use the :ref:`databricks_gateway_fluent_api`, for instance:
+
+.. code-block:: python
+
+    from mlflow.gateway import query
+
+    response = query(
+        route="mosaicml-llama-completions",
+        data={
+            "prompt": "What is MLflow?",
+        }
+    )
+    print(response)
+
+The :ref:`databricks_gateway_rest_api` can also be used.
+
+
+.. _config_databricks_model_serving:
+
+Using open source models with the AI Gateway (Databricks Model Serving Endpoints)
+=================================================================================
+The Databricks AI Gateway supports `Databricks Model Serving endpoints <https://docs.databricks.com/machine-learning/model-serving/create-manage-serving-endpoints.html>`_
+as providers for the ``llm/v1/completions`` route type. These endpoints must accept the
+:ref:`databricks_standard_query_parameters` that are marked **required**, and they must produce responses
+in the following format:
+
+.. code-block:: json
+
+       {
+         "candidates": [
+            "Completion 1 text",
+            "Completion 2 text",
+            "..."
+         ]
+       }
+
+For a detailed example of creating a Databricks Model Serving endpoint with a compatible
+:ref:`MLflow Model Signature <model-signature>` and querying it through the AI Gateway,
+see :ref:`gateway_databricks_model_serving_completions_example`.
