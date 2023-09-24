@@ -363,6 +363,7 @@ After you created AI Gateway routes, you can set rate limits on AI Gateway route
 ensuring production availability and fair sharing.  For example:
 
 .. code-block:: python
+
     from mlflow.gateway import set_limits
     # Set a per user limit (5 calls per minute) for the route created
     set_limits(
@@ -375,6 +376,7 @@ ensuring production availability and fair sharing.  For example:
             }
         ]
     )
+
 For more details, see :ref:`rate_limits` sections.
 
 .. _gateway-concepts:
@@ -771,7 +773,9 @@ The following example demonstrates how to set a per user limit and per route lim
     get_limits(
         route="my-route"
     )
-For more details on how to set limits and get limits via APIs, please see :ref:`gateway_fluent_api`, :ref:`gateway_client_api` and :ref:`gateway_rest_api`.
+
+For more details on how to set limits and get limits via APIs, please see :ref:`gateway_fluent_api`,
+:ref:`gateway_client_api` and :ref:`gateway_rest_api`.
 
 .. _gateway_query:
 
@@ -986,39 +990,45 @@ For the ``fluent`` API, here are some examples:
 
    .. code-block:: python
 
-       from mlflow.gateway import query
+      from mlflow.gateway import query
 
-       response = query(
-           "embeddings", {"text": ["It was the best of times", "It was the worst of times"]}
-       )
-       print(response)
+      response = query(
+          "embeddings", {"text": ["It was the best of times", "It was the worst of times"]}
+      )
+      print(response)
 
 3. Set rate limtis on a route:
+
    The :func:`set_limits() <mlflow.gateway.set_limits>` function set rate limits on a route.
    The data structure you send in the query is an array of limits, see :ref:`rate_limits`.
+
    .. code-block:: python
-       from mlflow.gateway import set_limits
-       response = set_limits(
-           route = "my-route",
-           limits = [
-            {
-                "key": "user",
-                "calls": 5,
-                "renewal_period": "minute"
-            },
-            {
-                "calls": 50,
-                "renewal_period": "minute"
-            }
-           ]
-       )
-       print(response)
+
+      from mlflow.gateway import set_limits
+      response = set_limits(
+          route = "my-route",
+          limits = [
+          {
+               "key": "user",
+               "calls": 5,
+               "renewal_period": "minute"
+          },
+          {
+               "calls": 50,
+               "renewal_period": "minute"
+          }
+          ]
+      )
+      print(response)
 
 4. Get rate limtis of a route:
+
    The :func:`get_limits() <mlflow.gateway.get_limits>` function set rate limits on a route.
    The data structure returned is an array of limits, see :ref:`rate_limits`.
+
    .. code-block:: python
-       from mlflow.gateway import get_limits
+
+      from mlflow.gateway import get_limits
        response = get_limits(
            route = "my-route"
        )
@@ -1087,7 +1097,9 @@ Further route types will be added in the future.
 
    The :meth:`set_limits() <mlflow.gateway.client.MlflowGatewayClient.set_limits>` method set rate limits on a route.
    The data structure you send is an array of limits, see :ref:`rate_limits`.
+
    .. code-block:: python
+
        response = gateway_client.set_limits(
            route = "my-route",
            limits = [
@@ -1108,7 +1120,9 @@ Further route types will be added in the future.
 
    The :meth:`get_limits() <mlflow.gateway.client.MlflowGatewayClient.get_limits>` method returns all rate limits of a route.
    The data structure returned is an array of limits, see :ref:`rate_limits`.
+
    .. code-block:: python
+   
        response = gateway_client.get_limits(
            route = "my-route",
        )
