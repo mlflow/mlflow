@@ -24,9 +24,12 @@ def correctness(
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: The model that will be used to evaluate this metric
+    :param model: (Optional) The model that will be used to evaluate this metric
     :param version: The version of the correctness metric to use. Defaults to the latest version.
     :param examples: Provide a list of examples to help the judge model evaluate the correctness
+    :param examples: Provide a list of examples to help the judge model evaluate the correctness.
+        It is highly recommended to add examples to be used as a reference to evaluate the new
+        results.
     :return: A metric object
     """
     class_name = f"mlflow.metrics.genai.prompts.{version}.CorrectnessMetric"

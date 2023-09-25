@@ -81,24 +81,22 @@ class EvaluationModel:
 @dataclass
 class CorrectnessMetric:
     definition = (
-        "Correctness is assessed by whether answers align exactly with established truth for "
-        "questions requiring precise responses, and by the similarity in meaning and description "
-        "to the established truth for questions allowing varied descriptions."
+        "Correctness is evaluated on the proximity of the provided output to the ground truth "
+        "in terms of meaning and description similarity. Scores can be assigned based on the "
+        "gradual similarity in meaning and description to the ground truth."
     )
 
-    # TODO: modify this for new definition of correctness
     grading_prompt = (
-        "Correctness: If the answer correctly answer the question, below "
-        "are the details for different scores: "
-        "- Score 1: the answer is completely incorrect, doesn’t mention anything about "
-        "the question or is completely contrary to the correct answer. "
-        "- Score 2: the answer provides some relevance to the question and answer "
-        "one aspect of the question correctly. "
-        "- Score 3: the answer mostly answer the question but is missing or hallucinating "
-        "on one critical aspect. "
-        "- Score 5: the answer correctly answer the question and not missing any "
-        "major aspect"
+        "Correctness: Below are the details for different scores:"
+        "- Score 1: the output is completely incorrect, doesn't mention anything related to the "
+        "input or is completely contrary to the provided ground truth."
+        "- Score 2: the output provides some relevance to the input and answers one aspect of the "
+        "question as in the ground truth."
+        "- Score 3: the output mostly answers the question but is missing or hallucinating on "
+        "one critical aspect."
+        "- Score 5: the output correctly answers the question and is not missing any major aspect "
+        "provided in the ground truth answer."
     )
 
     variables = ["ground_truth"]
-    parameters = {"temperature": 0.0}
+    parameters = default_parameters
