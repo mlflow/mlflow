@@ -730,7 +730,7 @@ For more information about creating routes with Databricks Model Serving endpoin
 Rate Limits on AI Gateway Routes
 ================================
 
-The parameters for define a rate limit are:
+The parameters for defining a rate limit are:
 
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 | Limit Parameter               | Type           | Required | Default       | Description                                           |
@@ -776,6 +776,11 @@ The following example demonstrates how to set a per user limit and per route lim
 
 For more details on how to set limits and get limits via APIs, please see :ref:`gateway_fluent_api`,
 :ref:`gateway_client_api` and :ref:`gateway_rest_api`.
+After rate limits are set, it will take 20 seconds for limits to be effective. After limits are
+effective, all querys on the route will be performed rate limits check. If any of the rate limit
+is exceeded, the query will be rejected with a 429 response code. Note that MLflow Client has
+exponential backoff retry by default but if you query the route by REST API, you may want to
+implement your own retry logic.
 
 .. _gateway_query:
 
@@ -1122,7 +1127,7 @@ Further route types will be added in the future.
    The data structure returned is an array of limits, see :ref:`rate_limits`.
 
    .. code-block:: python
-   
+
        response = gateway_client.get_limits(
            route = "my-route",
        )
