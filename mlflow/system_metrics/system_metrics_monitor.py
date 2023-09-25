@@ -58,6 +58,7 @@ class SystemMetricsMonitor:
         self.mlflow_logger = BatchMetricsLogger(self._run_id)
         self._shutdown_event = threading.Event()
         self._process = None
+        self._logging_step = 0
 
     def start(self):
         """Start monitoring system metrics."""
@@ -118,7 +119,8 @@ class SystemMetricsMonitor:
 
     def publish_metrics(self, metrics):
         """Log collected metrics to MLflow."""
-        self.mlflow_logger.record_metrics(metrics)
+        self.mlflow_logger.record_metrics(metrics, self._logging_step)
+        self._logging_step += 1
         for monitor in self.monitors:
             monitor.clear_metrics()
 
