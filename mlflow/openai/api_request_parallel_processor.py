@@ -191,9 +191,9 @@ def num_tokens_consumed_from_request(request_json: dict, task: type, token_encod
 
 
 def process_api_requests(
-    requests: list[dict[str, any]] = None,
-    task: OpenAIObject = openai.ChatCompletion,
-    api_token: _OAITokenHolder = None,
+    requests: list[dict[str, any]],
+    task: OpenAIObject,
+    api_token: _OAITokenHolder,
     # Reference: https://platform.openai.com/docs/guides/rate-limits/overview
     max_requests_per_minute: float = 3_500,
     max_tokens_per_minute: float = 90_000,

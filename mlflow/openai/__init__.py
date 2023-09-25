@@ -30,7 +30,7 @@ import logging
 import os
 from enum import Enum
 from string import Formatter
-from typing import Any, Dict, Optional
+from typing import Any, Dict, NamedTuple, Optional
 
 import yaml
 
@@ -76,6 +76,13 @@ MODEL_FILENAME = "model.yaml"
 _PYFUNC_SUPPORTED_TASKS = ("chat.completions", "embeddings")
 
 _logger = logging.getLogger(__name__)
+
+
+class _OpenAIApiConfig(NamedTuple):
+    api_type: str
+    batch_size: int
+    max_requests_per_minute: int
+    max_tokensd_per_minute: int
 
 
 @experimental
@@ -164,27 +171,30 @@ def _get_task_name(task):
         )
 
 
-def _get_api_config() -> Dict[str, Any]:
+def _get_api_config() -> _OpenAIApiConfig:
     """
     Gets the parameters and configuration of the OpenAI API connected to.
     """
     import openai
 
     api_type = os.getenv(_OpenAIEnvVar.OPENAI_API_TYPE.value, openai.api_type)
-    config = {"api_type": api_type}
     if api_type in ("azure", "azure_ad", "azuread"):
-        config["batch_size"] = 16
-        config["max_requests_per_minute"] = 3_500
-        config["max_tokens_per_minute"] = 60_000
+        return _OpenAIApiConfig(
+            api_type=api_type,
+            batch_size=16,
+            max_requests_per_minute=3_500,
+            max_tokens_per_minute=60_000,
+        )
     else:
         # The maximum batch size is 2048:
         # https://github.com/openai/openai-python/blob/b82a3f7e4c462a8a10fa445193301a3cefef9a4a/openai/embeddings_utils.py#L43
         # We use a smaller batch size to be safe.
-        config["batch_size"] = 1024
-        config["max_requests_per_minute"] = 3_500
-        config["max_tokens_per_minute"] = 90_000
-
-    return config
+        return _OpenAIApiConfig(
+            api_type=api_type,
+            batch_size=1024,
+            max_requests_per_minute=3_500,
+            max_tokens_per_minute=90_000,
+        )
 
 
 def _get_openai_package_version():
@@ -604,7 +614,7 @@ class _OpenAIWrapper:
         self.model = model
         self.task = task
         self.api_config = _get_api_config()
-        self.api_token = _OAITokenHolder(self.api_config["api_type"])
+        self.api_token = _OAITokenHolder(self.api_config.api_type)
 
         self.messages = None
         self.variables = None
@@ -657,8 +667,8 @@ class _OpenAIWrapper:
             requests,
             openai.ChatCompletion,
             api_token=self.api_token,
-            max_requests_per_minute=self.api_config["max_requests_per_minute"],
-            max_tokens_per_minute=self.api_config["max_tokens_per_minute"],
+            max_requests_per_minute=self.api_config.max_requests_per_minute,
+            max_tokens_per_minute=self.api_config.max_tokens_per_minute,
         )
         return [r["choices"][0]["message"]["content"] for r in results]
 
@@ -671,7 +681,7 @@ class _OpenAIWrapper:
         kwargs.pop("task", None)
         first_string_column = _first_string_column(data)
         texts = data[first_string_column].tolist()
-        batch_size = self.api_config["batch_size"]
+        batch_size = self.api_config.batch_size
         _logger.debug(
             f"Requests are being batched by {batch_size} samples. Change this by using parameters."
         )
@@ -686,8 +696,8 @@ class _OpenAIWrapper:
             requests,
             openai.Embedding,
             api_token=self.api_token,
-            max_requests_per_minute=self.api_config["max_requests_per_minute"],
-            max_tokens_per_minute=self.api_config["max_tokens_per_minute"],
+            max_requests_per_minute=self.api_config.max_requests_per_minute,
+            max_tokens_per_minute=self.api_config.max_tokens_per_minute,
         )
         return [row["embedding"] for batch in results for row in batch["data"]]
 
