@@ -223,8 +223,8 @@ class ModelRegistryClient:
             max_datetime = datetime.utcnow() + timedelta(seconds=await_creation_for)
             pending_status = ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION)
             uc_hint = (
-                " For faster and more stable model version creation, consider using the Model "
-                + "Registry in the Unity Catalog (https://docs.databricks.com/en/machine-learning/"
+                " For faster model version creation, consider using Models in Unity Catalog "
+                + "(https://docs.databricks.com/en/machine-learning/"
                 + "manage-model-lifecycle/index.html)."
                 if isinstance(self.store, DatabricksWorkspaceModelRegistryRestStore)
                 else ""
