@@ -10,7 +10,7 @@ def test_manual_system_metrics_monitor():
         system_monitor = SystemMetricsMonitor(
             run.info.run_id,
             sampling_interval=0.1,
-            samples_before_logging=5,
+            samples_before_logging=2,
         )
         system_monitor.start()
         thread_names = [thread.name for thread in threading.enumerate()]
@@ -39,11 +39,17 @@ def test_manual_system_metrics_monitor():
     for name in expected_metrics_name:
         assert name in metrics
 
+    # Check the step is correctly logged.
+    metrics_history = mlflow.tracking.MlflowClient().get_metric_history(
+        run.info.run_id, "cpu_utilization_percentage"
+    )
+    assert metrics_history[-1].step > 0
+
 
 def test_automatic_system_metrics_monitor():
     mlflow.enable_system_metrics_logging()
     mlflow.set_system_metrics_sampling_interval(0.2)
-    mlflow.set_system_metrics_samples_before_logging(5)
+    mlflow.set_system_metrics_samples_before_logging(2)
     with mlflow.start_run() as run:
         thread_names = [thread.name for thread in threading.enumerate()]
         # Check the system metrics monitoring thread has been started.
@@ -72,6 +78,12 @@ def test_automatic_system_metrics_monitor():
     ]
     for name in expected_metrics_name:
         assert name in metrics
+
+    # Check the step is correctly logged.
+    metrics_history = mlflow.tracking.MlflowClient().get_metric_history(
+        run.info.run_id, "cpu_utilization_percentage"
+    )
+    assert metrics_history[-1].step > 0
 
     # Unset the environment variables to avoid affecting other test cases.
     mlflow.disable_system_metrics_logging()
