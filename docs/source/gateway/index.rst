@@ -373,6 +373,8 @@ The Databricks AI Gateway is designed to support a variety of model providers.
 A provider represents the source of the machine learning models, such as OpenAI, Anthropic, and so on.
 Each provider has its specific characteristics and configurations that are encapsulated within the model part of a route in the Databricks AI Gateway.
 
+.. _supported_provider_models:
+
 Supported Provider Models
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 The table below presents a non-exhaustive list of models and a corresponding route type within the Databricks AI Gateway.
@@ -390,6 +392,10 @@ Customers are responsible for ensuring compliance with applicable model licenses
    * - llm/v1/completions
      - OpenAI
      - gpt-3.5-turbo, gpt-4
+     - Yes
+   * - llm/v1/completions
+     - Databricks‡
+     - llama2-70b†
      - Yes
    * - llm/v1/completions
      - MosaicML
@@ -416,9 +422,13 @@ Customers are responsible for ensuring compliance with applicable model licenses
      - gpt-3.5-turbo, gpt-4
      - Yes
    * - llm/v1/chat
+     - Databricks‡
+     - llama2-70b-chat†
+     - Yes
+   * - llm/v1/chat
      - MosaicML
-     -
-     - No
+     - llama2-70b-chat†
+     - Yes
    * - llm/v1/chat
      - Anthropic
      -
@@ -439,6 +449,10 @@ Customers are responsible for ensuring compliance with applicable model licenses
      - OpenAI
      - text-embedding-ada-002
      - Yes
+   * - llm/v1/embeddings
+     - Databricks‡
+     - 
+     - No
    * - llm/v1/embeddings
      - MosaicML
      - instructor-large, instructor-xl
@@ -461,6 +475,8 @@ Customers are responsible for ensuring compliance with applicable model licenses
      - Yes
 
 † Llama 2 is licensed under the [LLAMA 2 Community License](https://ai.meta.com/llama/license/), Copyright © Meta Platforms, Inc. All Rights Reserved. 
+
+‡ Using the Databricks provider creates Databricks-managed routes for underlying models. For more information, see :ref:`gateway_databricks_provider`.
 
 When creating a route, the provider field is used to specify the name
 of the provider for that model. This is a string value that needs to correspond to a provider
@@ -488,6 +504,7 @@ In the above example, ``openai`` is the `provider` for the model.
 As of now, the Databricks AI Gateway supports the following providers:
 
 * **openai**: This is used for models offered by `OpenAI <https://platform.openai.com/>`_ and the `Azure <https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/>`_ integrations for Azure OpenAI and Azure OpenAI with AAD.
+* **databricks**: This special provider creates Databricks-managed routes. See :ref:`gateway_databricks_provider` for more information.
 * **mosaicml**: This is used for models offered by `MosaicML <https://docs.mosaicml.com/en/latest/>`_.
 * **anthropic**: This is used for models offered by `Anthropic <https://docs.anthropic.com/claude/docs>`_.
 * **cohere**: This is used for models offered by `Cohere <https://docs.cohere.com/docs>`_.
@@ -513,6 +530,8 @@ A route in the Databricks AI Gateway consists of the following fields:
 
 * **route_type**: The type of the route corresponds to the type of language model interaction you desire. For instance, ``llm/v1/completions`` for text completion operations, ``llm/v1/embeddings`` for text embeddings, and ``llm/v1/chat`` for chat operations.
 
+.. note:: This field is not required for routes with the ``databricks`` provider.
+
   - "llm/v1/completions"
   - "llm/v1/chat"
   - "llm/v1/embeddings"
@@ -522,6 +541,7 @@ A route in the Databricks AI Gateway consists of the following fields:
     * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for OpenAI's ``GPT-3.5`` models.
 
       - "openai"
+      - "databricks"
       - "mosaicml"
       - "anthropic"
       - "cohere"
@@ -591,6 +611,28 @@ OpenAI
 | **openai_organization** | No       |                               | This is an optional field to specify the organization in    |
 |                         |          |                               | OpenAI.                                                     |
 +-------------------------+----------+-------------------------------+-------------------------------------------------------------+
+
+.. _gateway_databricks_provider:
+
+Databricks Provider
++++++++++++++++++++
+
+The Databricks provider creates Databricks-managed routes. For these routes, the user does not need to provide an API key
+or specify any additional configuration parameters such as ``route_type`` or ``config``. Instead, the user only needs to specify
+the model name (e.g., ``llama2-70b``) and provider (e.g., ``databricks``). For a list of supported models, see :ref:`supported_provider_models`.
+
+The following example demonstrates how to create a Databricks-managed route:
+
+.. code-block:: python
+    
+    create_route(
+        name="db-completions",
+        model={
+            "name": "llama2-70b",
+            "provider": "databricks",
+        }
+    )
+
 
 MosaicML
 +++++++++
