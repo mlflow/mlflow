@@ -58,7 +58,7 @@ Next, open an existing MLflow Experiment in the MLflow UI, or create a new exper
 Step 4: Create a run with prompt engineering
 --------------------------------------------
 Once you have opened the Experiment, click the **New Run** button and select
-*using Prompt Engineering*. This will open the prompt engineering playground where you can try
+*using Prompt Engineering*. This will open the prompt engineering playground, where you can try
 out different LLMs, parameters, and prompts.
 
 |new_run| |prompt_modal_1|
@@ -175,7 +175,7 @@ To test the behavior of your chosen LLM, prompt template, and parameters on a ne
 Step 9: Adjust your prompt template and create a new Run
 --------------------------------------------------------
 As you try additional inputs, you might discover scenarios where your choice of LLM, prompt
-template, and parameters doesn't perform as well as you would like. For example, in the
+template and parameters doesn't perform as well as you would like. For example, in the
 MLflow documentation use case, the LLM still attempts to answer irrelevant
 questions about :ref:`MLflow Projects <projects>` even if the answer does not appear in the
 specified article.
@@ -201,7 +201,7 @@ specified article.
            :scale: 40%
            :align: center
 
-Step 10: Evaluate the new prompt template on previous inputs
+Step 10: Evaluate the new prompt template based on previous inputs
 ------------------------------------------------------------
 Now that you've made an adjustment to your prompt template, it's important to make sure that
 the new template performs well on the previous inputs and compare the outputs with older
