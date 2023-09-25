@@ -82,7 +82,7 @@ class _OpenAIApiConfig(NamedTuple):
     api_type: str
     batch_size: int
     max_requests_per_minute: int
-    max_tokensd_per_minute: int
+    max_tokens_per_minute: int
 
 
 @experimental
