@@ -149,7 +149,7 @@ jobs:
             else
               java_version=8
             fi
-          elif [ "${{ matrix.package }}" = "spark" ]; then
+          elif [ "${{ matrix.package }}" = "pyspark" ]; then
             pip install packaging
             use_java17=$(python -c "from packaging.version import parse; print(parse('${{ matrix.version }}') > parse('3.4.1'))")
             if [ "$use_java17" = "True" ]; then
