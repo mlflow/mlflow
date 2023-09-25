@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import io
 import json
-from contextlib import nullcontext as does_not_raise
 from os.path import join as path_join
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -1381,120 +1380,151 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def dummy_fn(*_):
         pass
 
-    with pytest.raises(MlflowException, match=f"'{dummy_fn.__name__}' (.*) returned None"):
+    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_custom_metric(
             _CustomMetric(dummy_fn, "dummy_fn", 0), eval_df, builtin_metrics, metrics
+        )
+        mock_warning.assert_called_once_with(
+            "Did not log custom metric 'dummy_fn' at index 0 in the `custom_metrics` parameter"
+            " because it returned None."
         )
 
     def incorrect_return_type(*_):
         return "stuff", 3
 
-    with pytest.raises(MlflowException, match="did not return a MetricValue"):
+    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_custom_metric(
             _CustomMetric(incorrect_return_type, incorrect_return_type.__name__, 0),
             eval_df,
             builtin_metrics,
             metrics,
         )
+        mock_warning.assert_called_once_with(
+            f"Did not log custom metric '{incorrect_return_type.__name__}' at index 0 in the "
+            "`custom_metrics` parameter because it did not return a MetricValue."
+        )
 
     def non_list_scores(*_):
         return MetricValue(scores=5)
 
-    with pytest.raises(MlflowException, match="must return MetricValue with scores as a list"):
+    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_custom_metric(
             _CustomMetric(non_list_scores, non_list_scores.__name__, 0),
             eval_df,
             builtin_metrics,
             metrics,
         )
+        mock_warning.assert_called_once_with(
+            f"Did not log custom metric '{non_list_scores.__name__}' at index 0 in the "
+            "`custom_metrics` parameter because it must return MetricValue with scores as a list."
+        )
 
     def non_numeric_scores(*_):
         return MetricValue(scores=["string"])
 
-    with pytest.raises(MlflowException, match="must return MetricValue with numeric scores"):
+    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_custom_metric(
             _CustomMetric(non_numeric_scores, non_numeric_scores.__name__, 0),
             eval_df,
             builtin_metrics,
             metrics,
         )
+        mock_warning.assert_called_once_with(
+            f"Did not log custom metric '{non_numeric_scores.__name__}' at index 0 in the "
+            "`custom_metrics` parameter because it must return MetricValue with numeric scores."
+        )
 
     def non_list_justifications(*_):
         return MetricValue(justifications="string")
 
-    with pytest.raises(
-        MlflowException, match="must return MetricValue with justifications as a list"
-    ):
+    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_custom_metric(
             _CustomMetric(non_list_justifications, non_list_justifications.__name__, 0),
             eval_df,
             builtin_metrics,
             metrics,
         )
+        mock_warning.assert_called_once_with(
+            f"Did not log custom metric '{non_list_justifications.__name__}' at index 0 in the "
+            "`custom_metrics` parameter because it must return MetricValue with justifications "
+            "as a list."
+        )
 
     def non_str_justifications(*_):
         return MetricValue(justifications=[3, 4])
 
-    with pytest.raises(MlflowException, match="must return MetricValue with string justifications"):
+    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_custom_metric(
             _CustomMetric(non_str_justifications, non_str_justifications.__name__, 0),
             eval_df,
             builtin_metrics,
             metrics,
         )
+        mock_warning.assert_called_once_with(
+            f"Did not log custom metric '{non_str_justifications.__name__}' at index 0 in the "
+            "`custom_metrics` parameter because it must return MetricValue with string "
+            "justifications."
+        )
 
     def non_dict_aggregates(*_):
         return MetricValue(aggregate_results=[5.0, 4.0])
 
-    with pytest.raises(
-        MlflowException, match="must return MetricValue with aggregate_results as a dict"
-    ):
+    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_custom_metric(
             _CustomMetric(non_dict_aggregates, non_dict_aggregates.__name__, 0),
             eval_df,
             builtin_metrics,
             metrics,
         )
+        mock_warning.assert_called_once_with(
+            f"Did not log custom metric '{non_dict_aggregates.__name__}' at index 0 in the "
+            "`custom_metrics` parameter because it must return MetricValue with aggregate_results "
+            "as a dict."
+        )
 
     def wrong_type_aggregates(*_):
         return MetricValue(aggregate_results={"toxicity": 0.0, "hi": "hi"})
 
-    with pytest.raises(
-        MlflowException,
-        match="must return MetricValue with aggregate_results with str keys and numeric values",
-    ):
+    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_custom_metric(
             _CustomMetric(wrong_type_aggregates, wrong_type_aggregates.__name__, 0),
             eval_df,
             builtin_metrics,
             metrics,
         )
+        mock_warning.assert_called_once_with(
+            f"Did not log custom metric '{wrong_type_aggregates.__name__}' at index 0 in the "
+            "`custom_metrics` parameter because it must return MetricValue with aggregate_results "
+            "with str keys and numeric values."
+        )
 
 
 @pytest.mark.parametrize(
-    ("fn", "expectation"),
+    "fn",
     [
         (
             lambda eval_df, _: MetricValue(
                 scores=eval_df["prediction"].tolist(),
                 aggregate_results={"prediction_sum": sum(eval_df["prediction"])},
-            ),
-            does_not_raise(),
+            )
         ),
         (
-            lambda _, __: None,
-            pytest.raises(MlflowException, match="returned None"),
+            lambda eval_df, _: MetricValue(
+                scores=eval_df["prediction"].tolist()[:-1] + [None],
+                aggregate_results={"prediction_sum": None, "another_aggregate": 5.0},
+            )
         ),
     ],
 )
-def test_evaluate_custom_metric_lambda(fn, expectation):
+def test_evaluate_custom_metric_lambda(fn):
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
     builtin_metrics = _get_regressor_metrics(
         eval_df["target"], eval_df["prediction"], sample_weights=None
     )
     metrics = _get_aggregate_metrics_values(builtin_metrics)
-    with expectation:
+    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_custom_metric(_CustomMetric(fn, "<lambda>", 0), eval_df, builtin_metrics, metrics)
+        mock_warning.assert_not_called()
 
 
 def test_evaluate_custom_metric_success():
