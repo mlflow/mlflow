@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from typing import Any, Dict, List
 
 from fastapi import HTTPException
@@ -113,11 +114,11 @@ class MosaicMLProvider(BaseProvider):
         #    }
         #   }
         # }
-
-        resp = await self._request(
-            self.config.model.name,
-            final_payload,
-        )
+        with custom_token_allowance_exceeded_handling():
+            resp = await self._request(
+                self.config.model.name,
+                final_payload,
+            )
         # Response example
         # (https://docs.mosaicml.com/en/latest/inference.html#text-completion-models)
         # ```
@@ -177,10 +178,12 @@ class MosaicMLProvider(BaseProvider):
         #   }
         # }
 
-        resp = await self._request(
-            self.config.model.name,
-            final_payload,
-        )
+        with custom_token_allowance_exceeded_handling():
+            resp = await self._request(
+                self.config.model.name,
+                final_payload,
+            )
+
         # Response example
         # (https://docs.mosaicml.com/en/latest/inference.html#text-completion-models)
         # ```
@@ -251,3 +254,32 @@ class MosaicMLProvider(BaseProvider):
                 },
             }
         )
+
+
+@contextmanager
+def custom_token_allowance_exceeded_handling():
+    """
+    Context manager handler for specific error messages that are incorrectly set as server-side
+    errors, but are in actuality an issue with the request sent to the external provider.
+    """
+
+    try:
+        yield
+    except HTTPException as e:
+        status_code = e.status_code
+        detail = e.detail or {}
+
+        if (
+            status_code == 500
+            and detail
+            and any(
+                detail.get("message", "").startswith(x)
+                for x in (
+                    "Error: max output tokens is limited to",
+                    "Error: prompt token count",
+                )
+            )
+        ):
+            raise HTTPException(status_code=422, detail=detail)
+        else:
+            raise
