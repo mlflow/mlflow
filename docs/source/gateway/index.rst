@@ -37,7 +37,7 @@ applications that interface with the gateway. This level of adaptability makes t
 Service an invaluable tool in environments that require agility and quick response to changes.
 
 This simplification and centralization of language model interactions, coupled with the added
-layer of security for API key management and rate limiting, make the Databricks AI Gateway service an
+layer of security for API key management and cost controls, make the Databricks AI Gateway service an
 ideal choice for organizations that use LLMs on a regular basis.
 
 .. _gateway-quickstart:
@@ -360,7 +360,8 @@ Step 9: Set rate limits on AI Gateway routes
 --------------------------------------------------
 
 After you created AI Gateway routes, you can set rate limits on AI Gateway routes for cost control,
-ensuring production availability and fair sharing.  For example:
+ensuring production availability and fair sharing. For example, we can set a per user limit of 5
+calls per minute on the "completions" route we created:
 
 .. code-block:: python
 
@@ -377,7 +378,9 @@ ensuring production availability and fair sharing.  For example:
         ]
     )
 
-For more details, see :ref:`rate_limits` sections.
+For every query on the route, rate limit check will be performed and if any rate limit is exceeded,
+query request will be rejected with a 429 response code. For more details, 
+see :ref:`rate_limits` sections.
 
 .. _gateway-concepts:
 
