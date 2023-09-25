@@ -297,7 +297,8 @@ def _save_params_example(mlflow_model: Model, params_example: Optional[Dict[str,
     Save params_example to a file on the given path and updates passed Model with example metadata.
 
     :param mlflow_model: Model metadata that will get updated with the example metadata.
-    :param params_example: Optional params dictionary that PyFunc wrapped models can use for scoring.
+    :param params_example: Optional params dictionary that PyFunc wrapped models can
+                        use for scoring.
     :param path: Where to store the example file. Should be model the model directory.
     """
     if params_example is not None:
