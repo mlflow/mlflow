@@ -516,8 +516,10 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics, metri
     )
 
     metrics_type = custom_metric_tuple.function.__annotations__.get("metrics", None)
-    if metrics_type and (
-        metrics_type == Dict[str, MetricValue] or metrics_type == dict[str, MetricValue]
+    if metrics_type and metrics_type in (
+        Dict[str, MetricValue],
+        dict[str, MetricValue],
+        "Dict[str, MetricValue]",
     ):
         metric = custom_metric_tuple.function(eval_df, metrics)
     else:
