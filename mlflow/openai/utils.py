@@ -135,7 +135,7 @@ class _OAITokenHolder:
 
                     if logger:
                         logger.debug(
-                            "Token for Azure AD is either expired or invalid. Attempting to "
+                            "Token for Azure AD is either expired or unset. Attempting to "
                             "acquire a new token."
                         )
                     try:
