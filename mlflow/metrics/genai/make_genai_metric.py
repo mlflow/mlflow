@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import EvaluationExample, MetricValue
 from mlflow.metrics.genai import model_utils
+from mlflow.metrics.genai.utils import _get_latest_metric_version
 from mlflow.models import EvaluationMetric, make_metric
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.class_utils import _get_class_from_string
-from mlflow.metrics.genai.utils import _get_latest_metric_version
 
 if TYPE_CHECKING:
     import pandas as pd

@@ -3,10 +3,10 @@ from typing import List, Optional
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import EvaluationExample
 from mlflow.metrics.genai.make_genai_metric import make_genai_metric
+from mlflow.metrics.genai.utils import _get_latest_metric_version
 from mlflow.models import EvaluationMetric
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.class_utils import _get_class_from_string
-from mlflow.metrics.genai.utils import _get_latest_metric_version
 
 DEFAULT_MODEL = "openai:/gpt4"
 
@@ -51,7 +51,10 @@ def correctness(
         ) from None
 
     if examples is None:
-        examples = [correctness_class_module.example_score_2, correctness_class_module.example_score_4]
+        examples = [
+            correctness_class_module.example_score_2,
+            correctness_class_module.example_score_4,
+        ]
     return make_genai_metric(
         name="correctness",
         definition=correctness_class_module.definition,
