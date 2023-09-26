@@ -372,7 +372,6 @@ class AbstractStore:
         """
         pass
 
-    @abstractmethod
     def log_batch_async(self, run_id, metrics, params, tags):
         """
         Log multiple metrics, params, and tags for the specified run in async fashion.
