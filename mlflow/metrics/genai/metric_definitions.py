@@ -22,6 +22,9 @@ def correctness(
     for questions requiring precise responses, and by the similarity in meaning and description to
     the ground truth for questions allowing varied descriptions.
 
+    The ground_truth variable must be provided as part of the input dataset or output predictions.
+    This can be mapped to a column of a different name using the evaluator_config.
+
     An MlflowException will be raised if the specified version for this metric does not exist.
 
     :param model: (Optional) The model that will be used to evaluate this metric
