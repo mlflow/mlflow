@@ -695,10 +695,7 @@ def delete_tag(key: str) -> None:
 
 
 def log_metric(
-    key: str,
-    value: float,
-    step: Optional[int] = None,
-    synchronous: Optional[bool] = True,
+    key: str, value: float, step: Optional[int] = None, synchronous: Optional[bool] = True
 ) -> None:
     """
     Log a metric under the current run. If no run is active, this method will create
@@ -738,9 +735,7 @@ def log_metric(
 
 
 def log_metrics(
-    metrics: Dict[str, float],
-    step: Optional[int] = None,
-    synchronous: Optional[bool] = True,
+    metrics: Dict[str, float], step: Optional[int] = None, synchronous: Optional[bool] = True
 ) -> None:
     """
     Log multiple metrics for the current run. If no run is active, this method will create a new
@@ -828,9 +823,7 @@ def log_params(params: Dict[str, Any], synchronous: Optional[bool] = True) -> No
 
 @experimental
 def log_input(
-    dataset: Dataset,
-    context: Optional[str] = None,
-    tags: Optional[Dict[str, str]] = None,
+    dataset: Dataset, context: Optional[str] = None, tags: Optional[Dict[str, str]] = None
 ) -> None:
     """
     Log a dataset used in the current run.

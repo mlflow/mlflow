@@ -1352,13 +1352,7 @@ class MlflowClient:
                     save_kwargs.setdefault("include_plotlyjs", "cdn")
                     save_kwargs.setdefault("auto_open", False)
                     figure.write_html(tmp_path, **save_kwargs)
-                elif file_extension in [
-                    ".png",
-                    ".jpeg",
-                    ".webp",
-                    ".svg",
-                    ".pdf",
-                ]:
+                elif file_extension in [".png", ".jpeg", ".webp", ".svg", ".pdf"]:
                     figure.write_image(tmp_path, **save_kwargs)
                 else:
                     raise TypeError(
@@ -1744,21 +1738,18 @@ class MlflowClient:
 
             else:
                 raise MlflowException(
-                    f"Artifact {artifact_file} not found for run {run_id}.",
-                    RESOURCE_DOES_NOT_EXIST,
+                    f"Artifact {artifact_file} not found for run {run_id}.", RESOURCE_DOES_NOT_EXIST
                 )
 
             return existing_predictions
 
         if not runs.empty:
             return pd.concat(
-                [get_artifact_data(run) for _, run in runs.iterrows()],
-                ignore_index=True,
+                [get_artifact_data(run) for _, run in runs.iterrows()], ignore_index=True
             )
         else:
             raise MlflowException(
-                "No runs found with the corresponding table artifact.",
-                RESOURCE_DOES_NOT_EXIST,
+                "No runs found with the corresponding table artifact.", RESOURCE_DOES_NOT_EXIST
             )
 
     def _record_logged_model(self, run_id, mlflow_model):
