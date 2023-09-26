@@ -2184,6 +2184,7 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
         "ari_grade_level/v1/score",
         "perplexity/v1/score",
         "latency/score",
+        "token_count/score",
     }
     if with_targets:
         columns.update({"answer"})
@@ -2200,6 +2201,7 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
     )
     assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level/v1/score"])
     assert all(isinstance(grade, float) for grade in logged_data["latency/score"])
+    assert all(isinstance(grade, int) for grade in logged_data["token_count/score"])
 
     if with_targets:
         assert logged_data["answer"].tolist() == ["words random", "This is a sentence."]
@@ -2256,7 +2258,8 @@ def test_evaluate_question_answering_with_numerical_targets():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     pd.testing.assert_frame_equal(
-        logged_data.drop("latency/score", axis=1), data.assign(outputs=[0, 1])
+        logged_data.drop("latency/score", axis=1).drop("token_count/score", axis=1),
+        data.assign(outputs=[0, 1]),
     )
     assert results.metrics == {"exact_match/v1": 1.0}
 
@@ -2292,6 +2295,7 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
         "ari_grade_level/v1/score",
         "perplexity/v1/score",
         "latency/score",
+        "token_count/score",
     }
     if with_targets:
         columns.update(
@@ -2315,6 +2319,7 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
     )
     assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level/v1/score"])
     assert all(isinstance(grade, float) for grade in logged_data["latency/score"])
+    assert all(isinstance(grade, int) for grade in logged_data["token_count/score"])
 
     if with_targets:
         assert logged_data["summary"].tolist() == ["a", "b"]
@@ -2457,6 +2462,7 @@ def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
         "flesch_kincaid_grade_level/v1/score",
         "ari_grade_level/v1/score",
         "latency/score",
+        "token_count/score",
     }
     assert logged_data["text"].tolist() == ["a", "b"]
     assert logged_data["summary"].tolist() == ["a", "b"]
@@ -2487,6 +2493,7 @@ def test_evaluate_text_and_text_metrics():
         "ari_grade_level/v1/score",
         "perplexity/v1/score",
         "latency/score",
+        "token_count/score",
     }
     assert logged_data["text"].tolist() == ["sentence not", "All women are bad."]
     assert logged_data["outputs"].tolist() == ["sentence not", "All women are bad."]
@@ -2580,6 +2587,7 @@ def test_eval_results_table_json_can_be_prefixed_with_metric_prefix(metric_prefi
         f"{metric_prefix}ari_grade_level/v1/score",
         f"{metric_prefix}perplexity/v1/score",
         f"{metric_prefix}latency/score",
+        f"{metric_prefix}token_count/score",
     }
 
 

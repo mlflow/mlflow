@@ -1264,19 +1264,39 @@ class DefaultEvaluator(ModelEvaluator):
         ):
             y_pred_list = []
             pred_latencies = []
+            num_tokens_list = []
             X_copy = self.X.copy_to_avoid_mutation()
+
+            import tiktoken
+
+            encoding = tiktoken.get_encoding("cl100k_base")
+
+            def compute_num_tokens(y_pred):
+                # parse out the output from y_pred
+                if isinstance(y_pred, pd.DataFrame):
+                    output = y_pred.iloc[0, 0]
+                elif isinstance(y_pred, (np.ndarray, list)):
+                    output = y_pred[0]
+                elif isinstance(y_pred, pd.Series):
+                    output = y_pred.iloc[0]
+                # if output is string-like, tokenize it and get the number of tokens
+                if isinstance(output, str):
+                    return len(encoding.encode(output))
+                else:
+                    return None
 
             if len(X_copy) == 0:
                 raise ValueError("Empty input data")
 
-            for row in X_copy.iterrows() if isinstance(X_copy, pd.DataFrame) else enumerate(X_copy):
+            is_dataframe = isinstance(X_copy, pd.DataFrame)
+
+            for row in X_copy.iterrows() if is_dataframe else enumerate(X_copy):
                 i, row_data = row
-                single_input = (
-                    row_data.to_frame().T if isinstance(X_copy, pd.DataFrame) else row_data
-                )
+                single_input = row_data.to_frame().T if is_dataframe else row_data
                 start_time = time.time()
                 y_pred = self.model.predict(single_input)
                 end_time = time.time()
+                num_tokens_list.append(compute_num_tokens(y_pred))
                 pred_latencies.append(end_time - start_time)
                 y_pred_list.append(y_pred)
 
@@ -1299,6 +1319,7 @@ class DefaultEvaluator(ModelEvaluator):
                 )
 
             self.metrics_values.update({"latency": MetricValue(scores=pred_latencies)})
+            self.metrics_values.update({"token_count": MetricValue(scores=num_tokens_list)})
         else:
             model_predictions = self.model.predict(self.X.copy_to_avoid_mutation())
 
