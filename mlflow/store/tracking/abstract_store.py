@@ -7,6 +7,9 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils.annotations import developer_stable, experimental
 
+# This is used for default implementation of log_batch(..., synchronous=False).
+# Using this threadpool we simply call LogBatch(...) so that store without this method implemented
+# need not have to change.
 _ASYNC_DATA_LOGGING_THREAD_POOL = ThreadPoolExecutor(max_workers=2)
 
 
@@ -24,6 +27,7 @@ class AbstractStore:
         Empty constructor for now. This is deliberately not marked as abstract, else every
         derived class would be forced to create one.
         """
+        pass
 
     @abstractmethod
     def search_experiments(
