@@ -9,6 +9,7 @@ from mlflow.metrics.genai import model_utils
 from mlflow.models import EvaluationMetric, make_metric
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.class_utils import _get_class_from_string
+from mlflow.metrics.genai.utils import _get_latest_metric_version
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -42,7 +43,7 @@ def make_genai_metric(
     definition: str,
     grading_prompt: str,
     examples: Optional[List[EvaluationExample]] = None,
-    version: Optional[str] = "v1",
+    version: Optional[str] = _get_latest_metric_version(),
     model: Optional[str] = "openai:/gpt4",
     variables: Optional[List[str]] = None,
     parameters: Optional[Dict[str, Any]] = None,

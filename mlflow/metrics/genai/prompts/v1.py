@@ -100,3 +100,37 @@ class CorrectnessMetric:
 
     variables = ["ground_truth"]
     parameters = default_parameters
+
+    example_score_2 = EvaluationExample(
+        input="What is MLflow?",
+        output="MLflow is an open-source platform.",
+        score=2,
+        justification="While the statement correctly identifies MLflow as an open-source platform, "
+        "it lacks some critical aspects mentioned in the ground truth. Specifically, it doesn't "
+        "provide information about MLflow's purpose in managing the end-to-end machine learning "
+        "lifecycle, its development by Databricks, and its focus on addressing challenges faced by "
+        "data scientists and machine learning engineers. Therefore, it answers one aspect of the "
+        "question but is missing several critical aspects provided in the ground truth.",
+        variables={"ground_truth": "MLflow is an open-source platform for managing the end-to-end "
+                   "machine learning (ML) lifecycle. It was developed by Databricks, a company "
+                   "that specializes in big data and machine learning solutions. MLflow is "
+                   "designed to address the challenges that data scientists and machine learning "
+                   "engineers face when developing, training, and deploying machine learning "
+                   "models."}
+    )
+
+    example_score_4 = EvaluationExample(
+        input="What is MLflow?",
+        output="MLflow is an open-source platform for managing machine learning workflows, "
+        "including experiment tracking, model packaging, versioning, and deployment, simplifying "
+        "the ML lifecycle.",
+        score=4,
+        justification="The output effectively explains what MLflow is and its purpose. "
+        "Information about the developer of MLflow could be included for a 5-score.",
+        variables={"ground_truth": "MLflow is an open-source platform for managing the end-to-end "
+                   "machine learning (ML) lifecycle. It was developed by Databricks, a company "
+                   "that specializes in big data and machine learning solutions. MLflow is "
+                   "designed to address the challenges that data scientists and machine learning "
+                   "engineers face when developing, training, and deploying machine learning "
+                   "models."}
+    )

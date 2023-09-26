@@ -6,15 +6,15 @@ from mlflow.metrics.genai.make_genai_metric import make_genai_metric
 from mlflow.models import EvaluationMetric
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.class_utils import _get_class_from_string
+from mlflow.metrics.genai.utils import _get_latest_metric_version
 
 DEFAULT_MODEL = "openai:/gpt4"
-LATEST_VERSION = "v1"
 
 
 def correctness(
     model: Optional[str] = DEFAULT_MODEL,
-    metric_version: Optional[str] = LATEST_VERSION,
-    examples: Optional[List[EvaluationExample]] = [],
+    metric_version: Optional[str] = _get_latest_metric_version(),
+    examples: Optional[List[EvaluationExample]] = None,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the correctness of an LLM using the
@@ -50,6 +50,8 @@ def correctness(
             error_code=INTERNAL_ERROR,
         ) from None
 
+    if examples is None:
+        examples = [correctness_class_module.example_score_2, correctness_class_module.example_score_4]
     return make_genai_metric(
         name="correctness",
         definition=correctness_class_module.definition,
