@@ -199,6 +199,7 @@ To set, update, and delete aliases using the MLflow Client API, see the examples
 .. code-block:: python
 
     from mlflow import MlflowClient
+
     client = MlflowClient()
 
     # create "Champion" alias for version 1 of model "example-model"
@@ -220,6 +221,7 @@ To set and delete tags using the MLflow Client API, see the examples below:
 .. code-block:: python
 
     from mlflow import MlflowClient
+
     client = MlflowClient()
 
     # Set registered model tag
