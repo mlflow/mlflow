@@ -1898,8 +1898,7 @@ def test_pyfunc_model_input_example_with_params(sample_params_basic, param_schem
         model_info = mlflow.pyfunc.log_model(
             python_model=MyModel(),
             artifact_path="test_model",
-            input_example=["input1"],
-            params_example=sample_params_basic,
+            input_example=(["input1", "input2", "input3"], sample_params_basic),
         )
 
     # Test _infer_signature_from_input_example

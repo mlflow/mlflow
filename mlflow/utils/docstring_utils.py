@@ -212,15 +212,6 @@ format, or a numpy array where the example will be serialized to json
 by converting it to a list. Bytes are base64-encoded. When the ``signature`` parameter is
 ``None``, the input example is used to infer a model signature.
 """,
-        "params_example": """
-The params example is used as a hint of what parameters could be used for model
-inference. It only accepts dictionary as input, and supported types are scalar
-values and 1D array. When ``signature`` parameter is ``None``, the params example
-is used together with input example to infer a model signature.
-
-    .. Note:: Experimental: This parameter may change or be removed in a future
-                            release without warning.        
-""",
     }
 )
 

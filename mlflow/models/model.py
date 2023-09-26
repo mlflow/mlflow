@@ -322,7 +322,7 @@ class Model:
 
         return _read_example(self, path)
 
-    def load_params_example(self, path: str):
+    def load_input_example_params(self, path: str):
         """
         Load the params of input example saved along a model. Returns None if there is no params in
         the input_example.
@@ -331,9 +331,9 @@ class Model:
 
         :return: params (dict) or None if the model has no params.
         """
-        from mlflow.models.utils import _read_params_example
+        from mlflow.models.utils import _read_example_params
 
-        return _read_params_example(self, path)
+        return _read_example_params(self, path)
 
     def add_flavor(self, name, **params):
         """Add an entry for how to serve the model in a given format."""

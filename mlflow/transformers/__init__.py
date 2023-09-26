@@ -37,7 +37,7 @@ from mlflow.models import (
     infer_signature,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.utils import _save_example
+from mlflow.models.utils import _contains_params, _save_example
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
@@ -226,7 +226,6 @@ def save_model(
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
     metadata: Dict[str, Any] = None,
-    params_example: Optional[Dict[str, Any]] = None,
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
     """
@@ -397,7 +396,6 @@ def save_model(
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
 
-    :param params_example: {{ params_example }}
     :param kwargs: Optional additional configurations for transformers serialization.
     :return: None
     """
@@ -429,7 +427,7 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         input_example = _format_input_example_for_special_cases(input_example, built_pipeline)
-        _save_example(mlflow_model, input_example, str(path), params_example)
+        _save_example(mlflow_model, input_example, str(path))
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -475,7 +473,7 @@ def save_model(
         # from the input_example if provided, otherwise, apply a generic signature.
         if mlflow_model.signature is None:
             mlflow_model.signature = _get_default_pipeline_signature(
-                built_pipeline, input_example, inference_config, params_example
+                built_pipeline, input_example, inference_config
             )
 
         pyfunc.add_to_model(
@@ -558,7 +556,6 @@ def log_model(
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
     metadata: Dict[str, Any] = None,
-    params_example: Optional[Dict[str, Any]] = None,
     **kwargs,
 ):
     """
@@ -738,7 +735,6 @@ def log_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
-    :param params_example: {{ params_example }}
     :param kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
     return Model.log(
@@ -758,7 +754,6 @@ def log_model(
         input_example=input_example,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
-        params_example=params_example,
         **kwargs,
     )
 
@@ -1329,7 +1324,7 @@ def _format_input_example_for_special_cases(input_example, pipeline):
 
 
 def _get_default_pipeline_signature(
-    pipeline, example=None, inference_config=None, params_example=None
+    pipeline, example=None, inference_config=None
 ) -> ModelSignature:
     """
     Assigns a default ModelSignature for a given Pipeline type that has pyfunc support. These
@@ -1343,10 +1338,11 @@ def _get_default_pipeline_signature(
 
     if example:
         try:
-            prediction = generate_signature_output(
-                pipeline, example, inference_config, params_example
-            )
-            return infer_signature(example, prediction, params_example)
+            params = None
+            if _contains_params(example):
+                example, params = example
+            prediction = generate_signature_output(pipeline, example, inference_config, params)
+            return infer_signature(example, prediction, params)
         except Exception as e:
             _logger.warning(
                 "Attempted to generate a signature for the saved model or pipeline "

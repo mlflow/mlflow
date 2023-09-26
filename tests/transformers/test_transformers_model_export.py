@@ -3589,8 +3589,7 @@ def test_whisper_model_serve_and_score_with_input_example_with_params(
         model_info = mlflow.transformers.log_model(
             transformers_model=whisper_pipeline,
             artifact_path=artifact_path,
-            input_example=raw_audio_file,
-            params_example=inference_config,
+            input_example=(raw_audio_file, inference_config),
         )
     # model signature inferred from input_example
     signature = infer_signature(
