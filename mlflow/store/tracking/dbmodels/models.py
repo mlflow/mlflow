@@ -32,7 +32,6 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.db.base_sql_model import Base
 from mlflow.utils.mlflow_tags import _get_run_name_from_tags
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.validation import MAX_PARAM_VAL_LENGTH
 
 SourceTypes = [
     SourceType.to_string(SourceType.NOTEBOOK),
@@ -442,9 +441,9 @@ class SqlParam(Base):
     """
     Param key: `String` (limit 250 characters). Part of *Primary Key* for ``params`` table.
     """
-    value = Column(String(MAX_PARAM_VAL_LENGTH), nullable=False)
+    value = Column(String(64000), nullable=False)
     """
-    Param value: `String` (limit 6000 characters). Defined as *Non-null* in schema.
+    Param value: `String` (limit 64000 characters). Defined as *Non-null* in schema.
     """
     run_uuid = Column(String(32), ForeignKey("runs.run_uuid"))
     """
