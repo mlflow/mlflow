@@ -54,10 +54,10 @@ class BaseRestStore(AbstractStore):  # pylint: disable=abstract-method
                 self.get_host_creds(), endpoint, method, json_body, response_proto, extra_headers
             )
 
-    def _await_model_version_creation_impl(self, name, version, await_creation_for, hint=""):
+    def _await_model_version_creation_impl(self, mv, await_creation_for, hint=""):
         _logger.info(
             f"Waiting up to {await_creation_for} seconds for model version to finish creation. "
-            f"Model name: {name}, version {version}",
+            f"Model name: {mv.name}, version {mv.version}",
         )
         max_datetime = datetime.utcnow() + timedelta(seconds=await_creation_for)
         pending_status = ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION)

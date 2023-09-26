@@ -29,10 +29,10 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
             "and try again.",
         )
 
-    def _await_model_version_creation(self, name, version, await_creation_for):
+    def _await_model_version_creation(self, mv, await_creation_for):
         uc_hint = (
             " For faster and more stable model version creation, consider using the Model "
             + "Registry in the Unity Catalog (https://docs.databricks.com/en/machine-learning/"
             + "manage-model-lifecycle/index.html)."
         )
-        self._await_model_version_creation_impl(name, version, await_creation_for, hint=uc_hint)
+        self._await_model_version_creation_impl(mv, await_creation_for, hint=uc_hint)
