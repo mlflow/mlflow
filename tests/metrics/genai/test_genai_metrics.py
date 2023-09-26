@@ -448,7 +448,7 @@ def test_format_variable_string():
 
 def test_correctness_metric():
     correctness_metric = correctness(
-        model="gateway:/gpt-3.5-turbo", version="v1", examples=[mlflow_example]
+        model="gateway:/gpt-3.5-turbo", metric_version="v1", examples=[mlflow_example]
     )
 
     input = "What is MLflow?"
@@ -507,6 +507,6 @@ def test_correctness_metric():
     ):
         correctness_metric = correctness(
             model="gateway:/gpt-3.5-turbo",
-            version="non-existent-version",
+            metric_version="non-existent-version",
             examples=[mlflow_example],
         )

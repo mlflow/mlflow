@@ -13,7 +13,7 @@ LATEST_VERSION = "v1"
 
 def correctness(
     model: Optional[str] = DEFAULT_MODEL,
-    version: Optional[str] = LATEST_VERSION,
+    metric_version: Optional[str] = LATEST_VERSION,
     examples: Optional[List[EvaluationExample]] = [],
 ) -> EvaluationMetric:
     """
@@ -25,24 +25,25 @@ def correctness(
     An MlflowException will be raised if the specified version for this metric does not exist.
 
     :param model: (Optional) The model that will be used to evaluate this metric
-    :param version: The version of the correctness metric to use. Defaults to the latest version.
-    :param examples: Provide a list of examples to help the judge model evaluate the correctness
+    :param metric_version: The version of the correctness metric to use.
+        Defaults to the latest version.
     :param examples: Provide a list of examples to help the judge model evaluate the correctness.
         It is highly recommended to add examples to be used as a reference to evaluate the new
         results.
     :return: A metric object
     """
-    class_name = f"mlflow.metrics.genai.prompts.{version}.CorrectnessMetric"
+    class_name = f"mlflow.metrics.genai.prompts.{metric_version}.CorrectnessMetric"
     try:
         correctness_class_module = _get_class_from_string(class_name)
     except ModuleNotFoundError:
         raise MlflowException(
-            f"Failed to find correctness metric for version {version}." f"Please check the version",
+            f"Failed to find correctness metric for version {metric_version}."
+            f"Please check the version",
             error_code=INVALID_PARAMETER_VALUE,
         ) from None
     except Exception as e:
         raise MlflowException(
-            f"Failed to construct correctness metric {version}. Error: {e!r}",
+            f"Failed to construct correctness metric {metric_version}. Error: {e!r}",
             error_code=INTERNAL_ERROR,
         ) from None
 
@@ -51,7 +52,7 @@ def correctness(
         definition=correctness_class_module.definition,
         grading_prompt=correctness_class_module.grading_prompt,
         examples=examples,
-        version=version,
+        version=metric_version,
         model=model,
         variables=correctness_class_module.variables,
         parameters=correctness_class_module.parameters,
