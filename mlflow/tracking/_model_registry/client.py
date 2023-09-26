@@ -23,8 +23,6 @@ from mlflow.utils.arguments_utils import _get_arg_names
 
 _logger = logging.getLogger(__name__)
 
-AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS = 3
-
 
 class ModelRegistryClient:
     """
@@ -211,38 +209,8 @@ class ModelRegistryClient:
             # local_model_path since old model registry store implementations may not
             # support the local_model_path argument.
             mv = self.store.create_model_version(name, source, run_id, tags, run_link, description)
-        if (
-            not isinstance(self.store, UcModelRegistryStore)
-            and await_creation_for
-            and await_creation_for > 0
-        ):
-            _logger.info(
-                f"Waiting up to {await_creation_for} seconds for model version to finish creation. "
-                f"Model name: {name}, version {mv.version}",
-            )
-            max_datetime = datetime.utcnow() + timedelta(seconds=await_creation_for)
-            pending_status = ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION)
-            uc_hint = (
-                " For faster model version creation, consider using Models in Unity Catalog "
-                + "(https://docs.databricks.com/en/machine-learning/"
-                + "manage-model-lifecycle/index.html)."
-                if isinstance(self.store, DatabricksWorkspaceModelRegistryRestStore)
-                else ""
-            )
-            while mv.status == pending_status:
-                if datetime.utcnow() > max_datetime:
-                    raise MlflowException(
-                        f"Exceeded max wait time for model name: {mv.name} version: {mv.version} "
-                        f"to become READY. Status: {mv.status} Wait Time: {await_creation_for}"
-                        f".{uc_hint}"
-                    )
-                mv = self.get_model_version(mv.name, mv.version)
-                sleep(AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS)
-            if mv.status != ModelVersionStatus.to_string(ModelVersionStatus.READY):
-                raise MlflowException(
-                    f"Model version creation failed for model name: {mv.name} version: "
-                    f"{mv.version} with status: {mv.status} and message: {mv.status_message}"
-                )
+        if await_creation_for and await_creation_for > 0:
+            self.store._await_model_version_creation(mv.name, mv.version, await_creation_for)
         return mv
 
     def update_model_version(self, name, version, description):

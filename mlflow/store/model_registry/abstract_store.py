@@ -312,3 +312,14 @@ class AbstractStore:
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         pass
+
+    def _await_model_version_creation(self, name, version, await_creation_for):
+        """
+        Await for model version to become ready after creation.
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param await_creation_for: Number of seconds to wait for the model version to finish being
+                                    created and is in ``READY`` status.
+        """
+        pass

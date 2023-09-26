@@ -399,3 +399,6 @@ class RestStore(BaseRestStore):
         req_body = message_to_json(GetModelVersionByAlias(name=name, alias=alias))
         response_proto = self._call_endpoint(GetModelVersionByAlias, req_body)
         return ModelVersion.from_proto(response_proto.model_version)
+
+    def _await_model_version_creation(self, name, version, await_creation_for):
+        self._await_model_version_creation_impl(name, version, await_creation_for)
