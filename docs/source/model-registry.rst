@@ -181,7 +181,7 @@ as shown below to create a new version of the model.
 
 .. _using-registered-model-aliases:
 
-Deploy and organize models with aliases and tags
+Deploy and Organize Models with Aliases and Tags
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Model aliases and tags help you organize and manage models in the MLflow Model Registry.
