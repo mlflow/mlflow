@@ -140,7 +140,7 @@ def num_tokens_consumed_from_request(request_json: dict, task: type, token_encod
     """
     encoding = tiktoken.get_encoding(token_encoding_name)
     # if completions request, tokens = prompt + n * max_tokens
-    if task == openai.Completion or task == openai.ChatCompletion:
+    if task in (openai.Completion, openai.ChatCompletion):
         max_tokens = request_json.get("max_tokens", 15)
         n = request_json.get("n", 1)
         completion_tokens = n * max_tokens
