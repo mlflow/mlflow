@@ -550,7 +550,8 @@ In Python, you can use the ``requests`` library:
 Creating a New User
 ===================
 
-To create a new user, you are required to authenticate with admin privileges.
+.. note::
+    To create a new user, you are required to authenticate with admin privileges.
 
 Using MLflow UI
 ---------------
