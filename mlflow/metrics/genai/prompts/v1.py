@@ -100,6 +100,7 @@ class CorrectnessMetric:
 
     variables = ["ground_truth"]
     parameters = default_parameters
+    default_model = default_model
 
     example_score_2 = EvaluationExample(
         input="What is MLflow?",

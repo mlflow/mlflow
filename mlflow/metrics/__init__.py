@@ -3,8 +3,10 @@ from mlflow.metrics.base import (
     MetricValue,
 )
 from mlflow.metrics.genai import (
-    correctness,
     make_genai_metric,
+)
+from mlflow.metrics.genai.metric_definitions import (
+    correctness,
 )
 from mlflow.metrics.metric_definitions import (
     _accuracy_eval_fn,

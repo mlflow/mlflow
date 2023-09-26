@@ -8,11 +8,9 @@ from mlflow.models import EvaluationMetric
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.class_utils import _get_class_from_string
 
-DEFAULT_MODEL = "openai:/gpt4"
-
 
 def correctness(
-    model: Optional[str] = DEFAULT_MODEL,
+    model: Optional[str] = None,
     metric_version: Optional[str] = _get_latest_metric_version(),
     examples: Optional[List[EvaluationExample]] = None,
 ) -> EvaluationMetric:
@@ -55,6 +53,9 @@ def correctness(
             correctness_class_module.example_score_2,
             correctness_class_module.example_score_4,
         ]
+    if model is None:
+        model = correctness_class_module.default_model
+
     return make_genai_metric(
         name="correctness",
         definition=correctness_class_module.definition,
