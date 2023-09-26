@@ -165,7 +165,7 @@ def test_make_genai_metric_correct_response():
         "score_model_on_payload",
         return_value=properly_formatted_openai_response,
     ):
-        metric_value = custom_metric.eval_fn(eval_df)
+        metric_value = custom_metric.eval_fn(eval_df, {})
 
     assert metric_value.scores == [3]
     assert metric_value.justifications == [
@@ -213,7 +213,7 @@ def test_make_genai_metric_correct_response():
         "score_model_on_payload",
         return_value=properly_formatted_openai_response,
     ) as mock_predict_function:
-        metric_value = custom_metric.eval_fn(eval_df)
+        metric_value = custom_metric.eval_fn(eval_df, {})
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "openai:/gpt-3.5-turbo"
         assert mock_predict_function.call_args[0][1] == {
@@ -303,7 +303,7 @@ def test_make_genai_metric_incorrect_response():
         "score_model_on_payload",
         return_value=incorrectly_formatted_openai_response,
     ):
-        metric_value = custom_metric.eval_fn(eval_df)
+        metric_value = custom_metric.eval_fn(eval_df, {})
 
     assert metric_value.scores == [None]
     assert metric_value.justifications == [None]
@@ -391,7 +391,7 @@ def test_make_genai_metric_multiple():
         "score_model_on_payload",
         side_effect=[properly_formatted_openai_response, properly_formatted_openai_response2],
     ):
-        metric_value = custom_metric.eval_fn(eval_df)
+        metric_value = custom_metric.eval_fn(eval_df, {})
 
     assert metric_value.scores == [3, 2]
     assert metric_value.justifications == [
@@ -454,7 +454,7 @@ def test_make_genai_metric_failure():
             "Please check the correctness of the version"
         ),
     ):
-        custom_metric1.eval_fn(eval_df)
+        custom_metric1.eval_fn(eval_df, {})
 
     custom_metric2 = make_genai_metric(
         name="correctness",
@@ -475,7 +475,7 @@ def test_make_genai_metric_failure():
             "Index(['input', 'prediction', 'ground_truth'], dtype='object')."
         ),
     ):
-        custom_metric2.eval_fn(eval_df)
+        custom_metric2.eval_fn(eval_df, {})
 
     with mock.patch.object(
         model_utils,
@@ -498,7 +498,7 @@ def test_make_genai_metric_failure():
             MlflowException,
             match=re.escape("Invalid aggregate option random-fake"),
         ):
-            custom_metric3.eval_fn(eval_df)
+            custom_metric3.eval_fn(eval_df, {})
 
 
 def test_format_variable_string():

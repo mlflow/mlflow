@@ -10,7 +10,7 @@ import tempfile
 import time
 from collections import namedtuple
 from functools import partial
-from typing import Callable, Dict, NamedTuple, get_type_hints
+from typing import Callable, Dict, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -515,9 +515,10 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics, metri
         f"{custom_metric_tuple.index} in the `custom_metrics` parameter because it"
     )
 
-    metrics_type = get_type_hints(custom_metric_tuple.function).get("metrics")
-    if metrics_type and (
-        metrics_type == Dict[str, MetricValue] or metrics_type == dict[str, MetricValue]
+    metrics_type = custom_metric_tuple.function.__annotations__.get("metrics", None)
+    if metrics_type and metrics_type in (
+        Dict[str, MetricValue],
+        "Dict[str, MetricValue]",
     ):
         metric = custom_metric_tuple.function(eval_df, metrics)
     else:
