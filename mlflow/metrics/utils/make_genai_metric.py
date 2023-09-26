@@ -130,7 +130,9 @@ def make_genai_metric(
         )
     """
 
-    def eval_fn(eval_df: Union["pd.DataFrame", "pyspark.sql.DataFrame"]) -> MetricValue:
+    def eval_fn(
+        eval_df: Union["pd.DataFrame", "pyspark.sql.DataFrame"], metrics: Dict[str, MetricValue]
+    ) -> MetricValue:
         """
         This is the function that is called when the metric is evaluated.
         """
