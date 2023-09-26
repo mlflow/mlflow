@@ -8,7 +8,11 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import EvaluationExample
 from mlflow.metrics.genai import correctness, model_utils
-from mlflow.metrics.genai.make_genai_metric import _format_variable_string, make_genai_metric
+from mlflow.metrics.genai.make_genai_metric import (
+    _extract_score_and_justification,
+    _format_variable_string,
+    make_genai_metric,
+)
 from mlflow.metrics.genai.prompts.v1 import CorrectnessMetric
 
 openai_justification1 = (
@@ -20,12 +24,12 @@ openai_justification1 = (
 )
 
 # Example properly formatted response from OpenAI
-properly_formatted_openai_response1 = ResponsePayload(
-    candidates=[
-        Candidate(
-            text='{\n  "Score": 3,\n  "Justification": "' f"{openai_justification1}" '"\n}',
-            metadata={"finish_reason": "stop"},
-        )
+properly_formatted_openai_response1 = {
+    "candidates": [
+        {
+            "text": '{\n  "Score": 3,\n  "Justification": "' f"{openai_justification1}" '"\n}',
+            "metadata": {"finish_reason": "stop"},
+        }
     ],
     "metadata": {
         "input_tokens": 569,
@@ -325,9 +329,15 @@ def test_make_genai_metric_multiple():
     ):
         metric_value = custom_metric.eval_fn(eval_df, {})
 
-    assert metric_value.scores == [3, 2]
-    assert metric_value.justifications == [
-        openai_justification1,
+    assert len(metric_value.scores) == 2
+    assert set(metric_value.scores) == {3, 2}
+    assert len(metric_value.justifications) == 2
+    assert set(metric_value.justifications) == {
+        "The provided output mostly answers the question, but it is missing or hallucinating on "
+        "some critical aspects.  Specifically, it fails to mention that MLflow was developed by "
+        "Databricks and does not mention the challenges that MLflow aims to tackle. Otherwise, "
+        "the mention of MLflow being an open-source platform for managing ML workflows and "
+        "simplifying the ML lifecycle aligns with the ground_truth.",
         "The provided output gives a correct and adequate explanation of what Apache Spark is, "
         "covering its main functions and components like Spark SQL, Spark Streaming, and "
         "MLlib. However, it misses a critical aspect, which is Spark's development as a "
@@ -336,8 +346,8 @@ def test_make_genai_metric_multiple():
         "it aims to solve compared to previous technologies. Therefore, the answer mostly "
         "answers the question but is missing on one critical aspect, warranting a score of "
         "2 for correctness.",
-    ]
-    assert metric_value.aggregate_results == {
+    }
+    metric_value.aggregate_results == {
         "mean": 2.5,
         "variance": 0.25,
         "p90": 2.9,
@@ -444,6 +454,70 @@ def test_format_variable_string():
         variable_string = _format_variable_string(["foo", "bar"], pd.DataFrame({"foo": ["foo"]}), 0)
 
 
+def test_extract_score_and_justification():
+    score1, justification1 = _extract_score_and_justification(
+        output={
+            "candidates": [
+                {
+                    "text": '{"Score": 4, "Justification": "This is a justification"}',
+                }
+            ]
+        }
+    )
+
+    assert score1 == 4
+    assert justification1 == "This is a justification"
+
+    score2, justification2 = _extract_score_and_justification(
+        output={
+            "candidates": [
+                {
+                    "text": "Score: 2 \nJustification: This is a justification",
+                }
+            ]
+        }
+    )
+
+    assert score2 == 2
+    assert justification2 == "This is a justification"
+
+    score3, justification3 = _extract_score_and_justification(properly_formatted_openai_response1)
+    assert score3 == 3
+    assert justification3 == (
+        "The provided output mostly answers the question, but it is missing or hallucinating on "
+        "some critical aspects.  Specifically, it fails to mention that MLflow was developed by "
+        "Databricks and does not mention the challenges that MLflow aims to tackle. Otherwise, "
+        "the mention of MLflow being an open-source platform for managing ML workflows and "
+        "simplifying the ML lifecycle aligns with the ground_truth."
+    )
+
+    score4, justification4 = _extract_score_and_justification(
+        output={
+            "candidates": [
+                {
+                    "text": '{"Score": "4", "Justification": "This is a justification"}',
+                }
+            ]
+        }
+    )
+
+    assert score4 == 4
+    assert justification4 == "This is a justification"
+
+    score5, justification5 = _extract_score_and_justification(
+        output={
+            "candidates": [
+                {
+                    "text": '{"Score": 4, "Justification": {"foo": "bar"}}',
+                }
+            ]
+        }
+    )
+
+    assert score5 is None
+    assert justification5 is None
+
+
 def test_correctness_metric():
     correctness_metric = correctness(
         model="gateway:/gpt-3.5-turbo", metric_version="v1", examples=[mlflow_example]
@@ -463,7 +537,7 @@ def test_correctness_metric():
         "score_model_on_payload",
         return_value=properly_formatted_openai_response1,
     ) as mock_predict_function:
-        metric_value = correctness_metric.eval_fn(eval_df)
+        metric_value = correctness_metric.eval_fn(eval_df, {})
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
         assert mock_predict_function.call_args[0][1] == {
