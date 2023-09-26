@@ -150,7 +150,7 @@ class _OAITokenHolder:
                         ) from err
                     openai.api_key = self._api_token.token
                 if logger:
-                    logger.debug("Token or key validated correctly.")
+                    logger.debug("Token refreshed successfully")
             else:
                 raise mlflow.MlflowException(
                     "OpenAI API key must be set in the ``OPENAI_API_KEY`` environment variable."
