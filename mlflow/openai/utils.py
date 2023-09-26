@@ -110,7 +110,7 @@ class _OAITokenHolder:
         self._api_token = None
         self._credential = None
         self._is_azure_ad = api_type in ("azure_ad", "azuread")
-        self._key_configured = openai.api_key or "OPENAI_API_KEY" in os.environ
+        self._key_configured = bool(openai.api_key) or "OPENAI_API_KEY" in os.environ
 
         if self._is_azure_ad and not self._key_configured:
             try:
