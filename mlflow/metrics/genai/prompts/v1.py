@@ -139,3 +139,27 @@ class CorrectnessMetric:
             "models."
         },
     )
+
+
+@dataclass
+class RelevanceMetric:
+    definition = (
+        "Relevance encompasses the appropriateness, significance, and applicability of the output "
+        "with respect to the input and context. Scores should reflect the extent to which the "
+        "output directly addresses the question provided in the input, given the provided context."
+    )
+
+    grading_prompt = (
+        "Relevance: Below are the details for different scores:"
+        "- Score 1: the output doesn't mention anything about the question or is completely "
+        "irrelevant to the provided context."
+        "- Score 2: the output provides some relevance to the question and is somehow related to "
+        "the provided context."
+        "- Score 3: the output mostly answers the question and is consistent with the provided "
+        "context."
+        "- Score 5: the output answers the question comprehensively using the provided context."
+    )
+
+    variables = ["context"]
+    parameters = default_parameters
+    default_model = default_model
