@@ -15,6 +15,7 @@ line-length = 100
 target-version = "py38"
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 select = [
+  "B006",
   "E",
   "F",
   "C4",

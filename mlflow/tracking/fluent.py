@@ -4,12 +4,14 @@ MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` mo
 """
 import atexit
 import contextlib
+import importlib
 import inspect
 import logging
 import os
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
+import mlflow  # noqa: F401
 from mlflow.data.dataset import Dataset
 from mlflow.entities import (
     DatasetInput,
@@ -1959,39 +1961,27 @@ def autolog(
         tags: {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
                'estimator_name': 'LinearRegression'}
     """
-    from mlflow import (
-        fastai,
-        gluon,
-        lightgbm,
-        pyspark,
-        pytorch,
-        sklearn,
-        spark,
-        statsmodels,
-        tensorflow,
-        transformers,
-        xgboost,
-    )
-
     locals_copy = locals().items()
 
-    # Mapping of library module name to specific autolog function
+    # Mapping of library name to specific autolog function name. We use string like
+    # "tensorflow.autolog" to avoid loading all flavor modules, so we only set autologging for
+    # compatible modules.
     # eg: mxnet.gluon is the actual library, mlflow.gluon.autolog is our autolog function for it
-    LIBRARY_TO_AUTOLOG_FN = {
-        "tensorflow": tensorflow.autolog,
-        "mxnet.gluon": gluon.autolog,
-        "xgboost": xgboost.autolog,
-        "lightgbm": lightgbm.autolog,
-        "statsmodels": statsmodels.autolog,
-        "sklearn": sklearn.autolog,
-        "fastai": fastai.autolog,
-        "pyspark": spark.autolog,
-        "pyspark.ml": pyspark.ml.autolog,
+    LIBRARY_TO_AUTOLOG_MODULE = {
+        "tensorflow": "mlflow.tensorflow",
+        "mxnet.gluon": "mlflow.gluon",
+        "xgboost": "mlflow.xgboost",
+        "lightgbm": "mlflow.lightgbm",
+        "statsmodels": "mlflow.statsmodels",
+        "sklearn": "mlflow.sklearn",
+        "fastai": "mlflow.fastai",
+        "pyspark": "mlflow.spark",
+        "pyspark.ml": "mlflow.pyspark.ml",
         # TODO: Broaden this beyond pytorch_lightning as we add autologging support for more
         # Pytorch frameworks under mlflow.pytorch.autolog
-        "pytorch_lightning": pytorch.autolog,
-        "setfit": transformers.autolog,
-        "transformers": transformers.autolog,
+        "pytorch_lightning": "mlflow.pytorch",
+        "setfit": "mlflow.transformers",
+        "transformers": "mlflow.transformers",
     }
 
     def get_autologging_params(autolog_fn):
@@ -2003,8 +1993,9 @@ def autolog(
 
     def setup_autologging(module):
         try:
-            autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
-
+            autologging_params = None
+            autolog_module = importlib.import_module(LIBRARY_TO_AUTOLOG_MODULE[module.__name__])
+            autolog_fn = autolog_module.autolog
             # Only call integration's autolog function with `mlflow.autolog` configs
             # if the integration's autolog function has not already been called by the user.
             # Logic is as follows:
@@ -2036,7 +2027,7 @@ def autolog(
                 # Raise unexpected exceptions in test mode in order to detect
                 # errors within dependent autologging integrations
                 raise
-            elif not autologging_params.get("silent", False):
+            elif autologging_params is None or not autologging_params.get("silent", False):
                 _logger.warning(
                     "Exception raised while enabling autologging for %s: %s",
                     module.__name__,
@@ -2046,7 +2037,7 @@ def autolog(
     # for each autolog library (except pyspark), register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.
     # the post-import hook also retroactively activates for previously-imported libraries.
-    for module in list(set(LIBRARY_TO_AUTOLOG_FN.keys()) - {"pyspark", "pyspark.ml"}):
+    for module in list(set(LIBRARY_TO_AUTOLOG_MODULE.keys()) - {"pyspark", "pyspark.ml"}):
         register_post_import_hook(setup_autologging, module, overwrite=True)
 
     if is_in_databricks_runtime():
