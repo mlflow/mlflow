@@ -9,24 +9,12 @@ from collections import OrderedDict
 from itertools import zip_longest
 from typing import List, Optional
 
-from mlflow.entities import (
-    ExperimentTag,
-    Metric,
-    Param,
-    RunStatus,
-    RunTag,
-    ViewType,
-)
+from mlflow.entities import ExperimentTag, Metric, Param, RunStatus, RunTag, ViewType
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
-from mlflow.store.artifact.artifact_repository_registry import (
-    get_artifact_repository,
-)
-from mlflow.store.tracking import (
-    GET_METRIC_HISTORY_MAX_RESULTS,
-    SEARCH_MAX_RESULTS_DEFAULT,
-)
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.tracking import GET_METRIC_HISTORY_MAX_RESULTS, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
@@ -273,15 +261,7 @@ class TrackingServiceClient:
         """
         self.store.rename_experiment(experiment_id, new_name)
 
-    def log_metric(
-        self,
-        run_id,
-        key,
-        value,
-        timestamp=None,
-        step=None,
-        synchronous: bool = True,
-    ):
+    def log_metric(self, run_id, key, value, timestamp=None, step=None, synchronous: bool = True):
         """
         Log a metric against the run ID.
 
@@ -298,7 +278,16 @@ class TrackingServiceClient:
                       may support larger values.
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
-        :param synchronous: Indicates if the metric would be logged in synchronous fashion or not.
+        :param synchronous: [Experimental] Indicates if the metric would be logged in
+                                synchronous fashion or not.
+                            When it is true this call would be blocking call and offers immediate
+                             consistency of the metric upon returning.
+                            When this value is set to false, metric would be logged in async
+                              fashion.
+                            So backing provider gurantees that metrics are accepted into system
+                             but would persist them with some time delay.
+                            This means metric value would not have immediate consistency but
+                            'near-real'/'eventual' consistency.
         """
         timestamp = timestamp if timestamp is not None else get_current_time_millis()
         step = step if step is not None else 0
@@ -313,7 +302,16 @@ class TrackingServiceClient:
         """
         Log a parameter (e.g. model hyperparameter) against the run ID. Value is converted to
         a string.
-        :param synchronous: Indicates if the metric would be logged in synchronous fashion or not.
+        :param synchronous: [Experimental] Indicates if the param would be logged in synchronous
+                     fashion or not.
+                    When it is true this call would be blocking call and offers immediate
+                        consistency of the param upon returning.
+                    When this value is set to false, param would be logged in async fashion.
+                    So backing provider gurantees that params are accepted into system
+                        but would persist them with some time delay.
+                    This means param value would not have immediate consistency but
+                    'near-real'/'eventual' consistency.
+
         """
         param = Param(key, str(value))
         try:
@@ -351,7 +349,16 @@ class TrackingServiceClient:
         :param value: Tag value (string, but will be string-ified if not).
                       All backend stores will support values up to length 5000, but some
                       may support larger values.
-        :param synchronous: Indicates if the metric would be logged in synchronous fashion or not.
+        :param synchronous: [Experimental] Indicates if the tag would be logged
+                     in synchronous fashion or not.
+                    When it is true this call would be blocking call and offers immediate
+                        consistency of the metric upon returning.
+                    When this value is set to false, tag would be logged in async fashion.
+                    So backing provider gurantees that tags are accepted into system
+                        but would persist them with some time delay.
+                    This means tag value would not have immediate consistency but
+                    'near-real'/'eventual' consistency.
+
         """
         tag = RunTag(key, str(value))
         if synchronous:
@@ -399,9 +406,17 @@ class TrackingServiceClient:
         :param metrics: If provided, List of Metric(key, value, timestamp) instances.
         :param params: If provided, List of Param(key, value) instances.
         :param tags: If provided, List of RunTag(key, value) instances.
-        :param synchronous: If True, then this is a blocking call and offers immediate conssistency upon return.
-                            If False, gurantees that upon return values are accepted by store but will
-                            be persisted in some time delay fashion.
+        :param synchronous: [Experimental] Indicates if the metric, tags , params would be
+                             logged in synchronous fashion or not.
+                            When it is true this call would be blocking call and offers immediate
+                             consistency of the metric upon returning.
+                            When this value is set to false, metric would be logged
+                              in async fashion.
+                            So backing provider gurantees that metrics are accepted into system
+                             but would persist them with some time delay.
+                            This means metric value would not have immediate consistency but
+                            'near-real'/'eventual' consistency.
+
         Raises an MlflowException if any errors occur.
         :return: None
         """

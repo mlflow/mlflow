@@ -58,10 +58,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RUN_NOTE,
 )
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.validation import (
-    _validate_experiment_id_type,
-    _validate_run_id,
-)
+from mlflow.utils.validation import _validate_experiment_id_type, _validate_run_id
 
 if TYPE_CHECKING:
     import matplotlib
@@ -168,9 +165,7 @@ def _set_experiment_primary_metric(
     client = MlflowClient()
     client.set_experiment_tag(experiment_id, MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME, primary_metric)
     client.set_experiment_tag(
-        experiment_id,
-        MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
-        str(greater_is_better),
+        experiment_id, MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER, str(greater_is_better)
     )
 
 
@@ -325,10 +320,7 @@ def start_run(
         # Use previous end_time because a value is required for update_run_info
         end_time = active_run_obj.info.end_time
         _get_store().update_run_info(
-            existing_run_id,
-            run_status=RunStatus.RUNNING,
-            end_time=end_time,
-            run_name=None,
+            existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time, run_name=None
         )
         tags = tags or {}
         if description:
@@ -590,18 +582,16 @@ def log_param(key: str, value: Any, synchronous: Optional[bool] = True) -> Any:
     :param value: Parameter value (string, but will be string-ified if not).
                   All backend stores support values up to length 500, but some
                   may support larger values.
-    :param synchronous: Indicates if the metric would be logged in synchronous fashion or not.
+    :param synchronous:
+                   [Experimental] Indicates if the param would be logged in synchronous
+                     fashion or not.
                     When it is true this call would be blocking call and offers immediate
-                        consistency of the metric upon returning.
-                    When this value is set to false, metric would be logged in async fashion.
-                    So backing provider gurantees that metrics are accepted into system
+                        consistency of the param upon returning.
+                    When this value is set to false, param would be logged in async fashion.
+                    So backing provider gurantees that params are accepted into system
                         but would persist them with some time delay.
-                    This means metric value would not have immediate consistency but
+                    This means param value would not have immediate consistency but
                     'near-real'/'eventual' consistency.
-                    Note that this is an experimental flag.
-                    Default implementation of this flag would offer calling the sync API using a
-                    background thread.
-                    Each provider who may choose implement this flag can override the default behavior.
 
     :return: the parameter value that is logged.
 
@@ -613,6 +603,8 @@ def log_param(key: str, value: Any, synchronous: Optional[bool] = True) -> Any:
         with mlflow.start_run():
             value = mlflow.log_param("learning_rate", 0.01)
             assert value == 0.01
+            value = mlflow.log_param("learning_rate", 0.02, synchronous=False)
+
     """
     run_id = _get_or_start_run().info.run_id
     return MlflowClient().log_param(run_id, key, value, synchronous=synchronous)
@@ -654,18 +646,15 @@ def set_tag(key: str, value: Any, synchronous: Optional[bool] = True) -> None:
     :param value: Tag value (string, but will be string-ified if not).
                   All backend stores will support values up to length 5000, but some
                   may support larger values.
-    :param synchronous: Indicates if the metric would be logged in synchronous fashion or not.
+    :param synchronous: [Experimental] Indicates if the tag would be logged
+                     in synchronous fashion or not.
                     When it is true this call would be blocking call and offers immediate
                         consistency of the metric upon returning.
-                    When this value is set to false, metric would be logged in async fashion.
-                    So backing provider gurantees that metrics are accepted into system
+                    When this value is set to false, tag would be logged in async fashion.
+                    So backing provider gurantees that tags are accepted into system
                         but would persist them with some time delay.
-                    This means metric value would not have immediate consistency but
+                    This means tag value would not have immediate consistency but
                     'near-real'/'eventual' consistency.
-                    Note that this is an experimental flag.
-                    Default implementation of this flag would offer calling the sync API using a
-                    background thread.
-                    Each provider who may choose implement this flag can override the default behavior.
 
     .. testcode:: python
         :caption: Example
@@ -674,6 +663,8 @@ def set_tag(key: str, value: Any, synchronous: Optional[bool] = True) -> None:
 
         with mlflow.start_run():
             mlflow.set_tag("release.version", "2.2.0")
+            mlflow.set_tag("release.version", "2.2.1", synchronous=False)
+
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().set_tag(run_id, key, value, synchronous=synchronous)
@@ -723,7 +714,8 @@ def log_metric(
                   All backend stores will support values up to length 5000, but some
                   may support larger values.
     :param step: Metric step (int). Defaults to zero if unspecified.
-    :param synchronous: Indicates if the metric would be logged in synchronous fashion or not.
+    :param synchronous: [Experimental] Indicates if the metric would be logged in synchronous
+                     fashion or not.
                     When it is true this call would be blocking call and offers immediate
                         consistency of the metric upon returning.
                     When this value is set to false, metric would be logged in async fashion.
@@ -731,25 +723,17 @@ def log_metric(
                         but would persist them with some time delay.
                     This means metric value would not have immediate consistency but
                     'near-real'/'eventual' consistency.
-                    Note that this is an experimental flag.
-                    Default implementation of this flag would offer calling the sync API using a
-                    background thread.
-                    Each provider who may choose implement this flag can override the default behavior.
         :caption: Example
 
         import mlflow
 
         with mlflow.start_run():
             mlflow.log_metric("mse", 2500.00)
+            mlflow.log_metric("mse", 2500.00, synchronous=False)
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_metric(
-        run_id,
-        key,
-        value,
-        get_current_time_millis(),
-        step or 0,
-        synchronous=synchronous,
+        run_id, key, value, get_current_time_millis(), step or 0, synchronous=synchronous
     )
 
 
@@ -769,7 +753,8 @@ def log_metrics(
     :param step: A single integer step at which to log the specified
                  Metrics. If unspecified, each metric is logged at step zero.
 
-    :param synchronous: Indicates if the metric would be logged in synchronous fashion or not.
+    :param synchronous: [Experimental] Indicates if the metric would be logged
+                         in synchronous fashion or not.
                         When it is true this call would be blocking call and offers immediate
                             consistency of the metric upon returning.
                         When this value is set to false, metric would be logged in async fashion.
@@ -777,10 +762,6 @@ def log_metrics(
                             but would persist them with some time delay.
                         This means metric value would not have immediate consistency but
                         'near-real'/'eventual' consistency.
-                        Note that this is an experimental flag.
-                        Default implementation of this flag would offer calling the sync API using a
-                        background thread.
-                        Each provider who may choose implement this flag can override the default behavior.
     :returns: None
 
     .. testcode:: python
@@ -793,16 +774,15 @@ def log_metrics(
         # Log a batch of metrics
         with mlflow.start_run():
             mlflow.log_metrics(metrics)
+        # Log a batch of metrics in async fashion.
+        with mlflow.start_run():
+            mlflow.log_metrics(metrics, synchronous=False)
     """
     run_id = _get_or_start_run().info.run_id
     timestamp = get_current_time_millis()
     metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
     MlflowClient().log_batch(
-        run_id=run_id,
-        metrics=metrics_arr,
-        params=[],
-        tags=[],
-        synchronous=synchronous,
+        run_id=run_id, metrics=metrics_arr, params=[], tags=[], synchronous=synchronous
     )
 
 
@@ -813,7 +793,8 @@ def log_params(params: Dict[str, Any], synchronous: Optional[bool] = True) -> No
 
     :param params: Dictionary of param_name: String -> value: (String, but will be string-ified if
                    not)
-    :param synchronous: Indicates if the param would be logged in synchronous fashion or not.
+    :param synchronous: [Experimental] Indicates if the param would be logged
+                         in synchronous fashion or not.
                         When it is true this call would be blocking call and offers immediate
                             consistency of the metric upon returning.
                         When this value is set to false, param would be logged in async fashion.
@@ -821,10 +802,6 @@ def log_params(params: Dict[str, Any], synchronous: Optional[bool] = True) -> No
                             but would persist them with some time delay.
                         This means param value would not have immediate consistency but
                         'near-real'/'eventual' consistency.
-                        Note that this is an experimental flag.
-                        Default implementation of this flag would offer calling the sync API using a
-                        background thread.
-                        Each provider who may choose implement this flag can override the default behavior.
     :returns: None
 
     .. testcode:: python
@@ -837,15 +814,15 @@ def log_params(params: Dict[str, Any], synchronous: Optional[bool] = True) -> No
         # Log a batch of parameters
         with mlflow.start_run():
             mlflow.log_params(params)
+        # Log a batch of parameters in async way
+        with mlflow.start_run():
+            mlflow.log_params(params, synchronous=False)
+
     """
     run_id = _get_or_start_run().info.run_id
     params_arr = [Param(key, str(value)) for key, value in params.items()]
     MlflowClient().log_batch(
-        run_id=run_id,
-        metrics=[],
-        params=params_arr,
-        tags=[],
-        synchronous=synchronous,
+        run_id=run_id, metrics=[], params=params_arr, tags=[], synchronous=synchronous
     )
 
 
@@ -921,7 +898,8 @@ def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = True) -> None:
 
     :param tags: Dictionary of tag_name: String -> value: (String, but will be string-ified if
                  not)
-    :param synchronous: Indicates if the param would be logged in synchronous fashion or not.
+    :param synchronous: [Experimental] Indicates if the param would be logged in synchronous fashion
+                         or not.
                         When it is true this call would be blocking call and offers immediate
                             consistency of the metric upon returning.
                         When this value is set to false, param would be logged in async fashion.
@@ -929,10 +907,6 @@ def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = True) -> None:
                             but would persist them with some time delay.
                         This means param value would not have immediate consistency but
                         'near-real'/'eventual' consistency.
-                        Note that this is an experimental flag.
-                        Default implementation of this flag would offer calling the sync API using a
-                        background thread.
-                        Each provider who may choose implement this flag can override the default behavior.
     :returns: None
 
     .. testcode:: python
@@ -949,15 +923,15 @@ def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = True) -> None:
         # Set a batch of tags
         with mlflow.start_run():
             mlflow.set_tags(tags)
+
+        # Set a batch of tags in async way
+        with mlflow.start_run():
+            mlflow.set_tags(tags, synchronous=False)
     """
     run_id = _get_or_start_run().info.run_id
     tags_arr = [RunTag(key, str(value)) for key, value in tags.items()]
     MlflowClient().log_batch(
-        run_id=run_id,
-        metrics=[],
-        params=[],
-        tags=tags_arr,
-        synchronous=synchronous,
+        run_id=run_id, metrics=[], params=[], tags=tags_arr, synchronous=synchronous
     )
 
 

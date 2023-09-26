@@ -15,23 +15,11 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 import yaml
 
 import mlflow
-from mlflow.entities import (
-    DatasetInput,
-    Experiment,
-    FileInfo,
-    Metric,
-    Param,
-    Run,
-    RunTag,
-    ViewType,
-)
+from mlflow.entities import DatasetInput, Experiment, FileInfo, Metric, Param, Run, RunTag, ViewType
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import (
-    FEATURE_DISABLED,
-    RESOURCE_DOES_NOT_EXIST,
-)
+from mlflow.protos.databricks_pb2 import FEATURE_DISABLED, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
@@ -78,11 +66,7 @@ class MlflowClient:
     can keep the implementation of the tracking and registry clients independent from each other.
     """
 
-    def __init__(
-        self,
-        tracking_uri: Optional[str] = None,
-        registry_uri: Optional[str] = None,
-    ):
+    def __init__(self, tracking_uri: Optional[str] = None, registry_uri: Optional[str] = None):
         """
         :param tracking_uri: Address of local or remote tracking server. If not provided, defaults
                              to the service set by ``mlflow.tracking.set_tracking_uri``. See
@@ -723,18 +707,16 @@ class MlflowClient:
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Integer training step (iteration) at which was the metric calculated.
                      Defaults to 0.
-        :param synchronous: Indicates if the metric would be logged in synchronous fashion or not.
+        :param synchronous: [Experimental] Indicates if the metric would be logged in
+                                synchronous fashion or not.
                             When it is true this call would be blocking call and offers immediate
                              consistency of the metric upon returning.
-                            When this value is set to false, metric would be logged in async fashion.
+                            When this value is set to false, metric would be logged
+                              in async fashion.
                             So backing provider gurantees that metrics are accepted into system
                              but would persist them with some time delay.
                             This means metric value would not have immediate consistency but
                             'near-real'/'eventual' consistency.
-                            Note that this is an experimental flag.
-                            Default implementation of this flag would offer calling the sync API using a
-                            background thread.
-                            Each provider who may choose implement this flag can override the default behavior.
 
         .. code-block:: python
             :caption: Example
@@ -784,11 +766,7 @@ class MlflowClient:
         )
 
     def log_param(
-        self,
-        run_id: str,
-        key: str,
-        value: Any,
-        synchronous: Optional[bool] = True,
+        self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = True
     ) -> Any:
         """
         Log a parameter (e.g. model hyperparameter) against the run ID.
@@ -801,18 +779,15 @@ class MlflowClient:
         :param value: Parameter value (string, but will be string-ified if not).
                       All backend stores support values up to length 500, but some
                       may support larger values.
-        :param synchronous: Indicates if the metric would be logged in synchronous fashion or not.
+        :param synchronous: [Experimental] Indicates if the param would be logged in synchronous
+                     fashion or not.
                     When it is true this call would be blocking call and offers immediate
-                        consistency of the metric upon returning.
-                    When this value is set to false, metric would be logged in async fashion.
-                    So backing provider gurantees that metrics are accepted into system
+                        consistency of the param upon returning.
+                    When this value is set to false, param would be logged in async fashion.
+                    So backing provider gurantees that params are accepted into system
                         but would persist them with some time delay.
-                    This means metric value would not have immediate consistency but
+                    This means param value would not have immediate consistency but
                     'near-real'/'eventual' consistency.
-                    Note that this is an experimental flag.
-                    Default implementation of this flag would offer calling the sync API using a
-                    background thread.
-                    Each provider who may choose implement this flag can override the default behavior.
         :return: the parameter value that is logged.
 
         .. code-block:: python
@@ -902,7 +877,15 @@ class MlflowClient:
         :param value: Tag value (string, but will be string-ified if not).
                       All backend stores will support values up to length 5000, but some
                       may support larger values.
-
+        :param synchronous: [Experimental] Indicates if the tag would be logged
+                     in synchronous fashion or not.
+                    When it is true this call would be blocking call and offers immediate
+                        consistency of the metric upon returning.
+                    When this value is set to false, tag would be logged in async fashion.
+                    So backing provider gurantees that tags are accepted into system
+                        but would persist them with some time delay.
+                    This means tag value would not have immediate consistency but
+                    'near-real'/'eventual' consistency.
         .. code-block:: python
             :caption: Example
 
@@ -980,10 +963,7 @@ class MlflowClient:
         self._tracking_client.delete_tag(run_id, key)
 
     def update_run(
-        self,
-        run_id: str,
-        status: Optional[str] = None,
-        name: Optional[str] = None,
+        self, run_id: str, status: Optional[str] = None, name: Optional[str] = None
     ) -> None:
         """
         Update a run with the specified ID to a new status or name.
@@ -1046,18 +1026,16 @@ class MlflowClient:
         :param metrics: If provided, List of Metric(key, value, timestamp) instances.
         :param params: If provided, List of Param(key, value) instances.
         :param tags: If provided, List of RunTag(key, value) instances.
-        :param synchronous: Indicates if the metric, tags , params would be logged in synchronous fashion or not.
+        :param synchronous: [Experimental] Indicates if the metric, tags , params would be
+                             logged in synchronous fashion or not.
                             When it is true this call would be blocking call and offers immediate
                              consistency of the metric upon returning.
-                            When this value is set to false, metric would be logged in async fashion.
+                            When this value is set to false, metric would be logged
+                              in async fashion.
                             So backing provider gurantees that metrics are accepted into system
                              but would persist them with some time delay.
                             This means metric value would not have immediate consistency but
                             'near-real'/'eventual' consistency.
-                            Note that this is an experimental flag.
-                            Default implementation of this flag would offer calling the sync API using a
-                            background thread.
-                            Each provider who may choose implement this flag can override the default behavior.
 
         Raises an MlflowException if any errors occur.
         :return: None
@@ -1390,10 +1368,7 @@ class MlflowClient:
                 raise TypeError(f"Unsupported figure object type: '{type(figure)}'")
 
     def log_image(
-        self,
-        run_id: str,
-        image: Union["numpy.ndarray", "PIL.Image.Image"],
-        artifact_file: str,
+        self, run_id: str, image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str
     ) -> None:
         """
         Log an image as an artifact. The following image objects are supported:
@@ -1895,10 +1870,7 @@ class MlflowClient:
         return self._tracking_client.download_artifacts(run_id, path, dst_path)
 
     def set_terminated(
-        self,
-        run_id: str,
-        status: Optional[str] = None,
-        end_time: Optional[int] = None,
+        self, run_id: str, status: Optional[str] = None, end_time: Optional[int] = None
     ) -> None:
         """Set a run's status to terminated.
 
@@ -2098,12 +2070,7 @@ class MlflowClient:
             tags: {'s.release': '1.1.0-RC'}
         """
         return self._tracking_client.search_runs(
-            experiment_ids,
-            filter_string,
-            run_view_type,
-            max_results,
-            order_by,
-            page_token,
+            experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
         )
 
     # Registry API
@@ -2111,10 +2078,7 @@ class MlflowClient:
     # Registered Model Methods
 
     def create_registered_model(
-        self,
-        name: str,
-        tags: Optional[Dict[str, Any]] = None,
-        description: Optional[str] = None,
+        self, name: str, tags: Optional[Dict[str, Any]] = None, description: Optional[str] = None
     ) -> RegisteredModel:
         """
         Create a new registered model in backend store.
@@ -2835,11 +2799,7 @@ class MlflowClient:
         )
 
     def transition_model_version_stage(
-        self,
-        name: str,
-        version: str,
-        stage: str,
-        archive_existing_versions: bool = False,
+        self, name: str, version: str, stage: str, archive_existing_versions: bool = False
     ) -> ModelVersion:
         """
         Update model version stage.
@@ -3230,12 +3190,7 @@ class MlflowClient:
         return ALL_STAGES
 
     def set_model_version_tag(
-        self,
-        name: str,
-        version: str = None,
-        key: str = None,
-        value: Any = None,
-        stage: str = None,
+        self, name: str, version: str = None, key: str = None, value: Any = None, stage: str = None
     ) -> None:
         """
         Set a tag for the model version.
