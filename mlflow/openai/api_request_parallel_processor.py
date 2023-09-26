@@ -161,12 +161,10 @@ def num_tokens_consumed_from_request(request_json: dict, task: type, token_encod
             prompt = request_json["prompt"]
             if isinstance(prompt, str):  # single prompt
                 prompt_tokens = len(encoding.encode(prompt))
-                num_tokens = prompt_tokens + completion_tokens
-                return num_tokens
+                return prompt_tokens + completion_tokens
             elif isinstance(prompt, list):  # multiple prompts
                 prompt_tokens = sum([len(encoding.encode(p)) for p in prompt])
-                num_tokens = prompt_tokens + completion_tokens * len(prompt)
-                return num_tokens
+                return prompt_tokens + completion_tokens * len(prompt)
             else:
                 raise TypeError(
                     "Expecting either string or list of strings for 'prompt' field in completion "
@@ -176,11 +174,9 @@ def num_tokens_consumed_from_request(request_json: dict, task: type, token_encod
     elif task == openai.Embedding:
         inp = request_json["input"]
         if isinstance(inp, str):  # single input
-            num_tokens = len(encoding.encode(inp))
-            return num_tokens
+            return len(encoding.encode(inp))
         elif isinstance(inp, list):  # multiple inputs
-            num_tokens = sum([len(encoding.encode(i)) for i in inp])
-            return num_tokens
+            return sum([len(encoding.encode(i)) for i in inp])
         else:
             raise TypeError(
                 'Expecting either string or list of strings for "inputs" field in embedding request'

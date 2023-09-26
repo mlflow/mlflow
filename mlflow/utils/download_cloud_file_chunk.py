@@ -41,22 +41,15 @@ def main():
             download_path=args.download_path,
             http_uri=args.http_uri,
         )
-    except (ConnectionError, ChunkedEncodingError) as e:
+    except (ConnectionError, ChunkedEncodingError):
         with open(args.temp_file, "w") as f:
-            json.dump(
-                {
-                    "retryable": True,
-                    "error": repr(e),
-                },
-                f,
-            )
+            json.dump({"retryable": True}, f)
         raise
     except HTTPError as e:
         with open(args.temp_file, "w") as f:
             json.dump(
                 {
                     "retryable": e.response.status_code in (401, 403, 408),
-                    "error": repr(e),
                     "status_code": e.response.status_code,
                 },
                 f,

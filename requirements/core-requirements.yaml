@@ -57,7 +57,7 @@ scikit-learn:
 pyarrow:
   pip_release: pyarrow
   minimum: "4.0.0"
-  max_major_version: 12
+  max_major_version: 13
 
 markdown:
   pip_release: markdown
@@ -81,3 +81,7 @@ Jinja2-windows:
 matplotlib:
   pip_release: matplotlib
   max_major_version: 3
+
+psutil:
+  pip_release: psutil
+  max_major_version: 5

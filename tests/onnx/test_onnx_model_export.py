@@ -62,8 +62,7 @@ def data():
 @pytest.fixture(scope="module")
 def dataset(data):
     x, y = data
-    dataset = [(xi.astype(np.float32), yi.astype(np.float32)) for xi, yi in zip(x.values, y.values)]
-    return dataset
+    return [(xi.astype(np.float32), yi.astype(np.float32)) for xi, yi in zip(x.values, y.values)]
 
 
 @pytest.fixture(scope="module")

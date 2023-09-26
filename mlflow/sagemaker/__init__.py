@@ -1196,8 +1196,7 @@ def _get_account_id(**assume_role_credentials):
     sess = boto3.Session()
     sts_client = sess.client("sts", **assume_role_credentials)
     identity_info = sts_client.get_caller_identity()
-    account_id = identity_info["Account"]
-    return account_id
+    return identity_info["Account"]
 
 
 def _get_assumed_role_arn(**assume_role_credentials):
@@ -1822,8 +1821,7 @@ def _create_sagemaker_model(
     if vpc_config is not None:
         create_model_args["VpcConfig"] = vpc_config
 
-    model_response = sage_client.create_model(**create_model_args)
-    return model_response
+    return sage_client.create_model(**create_model_args)
 
 
 def _delete_sagemaker_model(model_name, sage_client, s3_client):

@@ -1702,9 +1702,7 @@ class _TransformersWrapper:
                 for x in input_data
             )
 
-        predictions = self._predict(input_data)
-
-        return predictions
+        return self._predict(input_data)
 
     def _predict(self, data):
         import transformers

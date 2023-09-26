@@ -8,7 +8,6 @@ TensorFlow (native) format
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
 import atexit
-import concurrent.futures
 import importlib
 import logging
 import os
@@ -17,7 +16,6 @@ import shutil
 import tempfile
 import warnings
 from collections import namedtuple
-from threading import RLock
 from typing import Any, Dict, Optional
 
 import numpy as np
@@ -30,15 +28,14 @@ from mlflow import pyfunc
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.tensorflow_dataset import from_tensorflow
-from mlflow.entities import Metric
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
+from mlflow.tensorflow.callback import MLflowCallback  # noqa: F401
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context import registry as context_registry
 from mlflow.types.schema import TensorSpec
 from mlflow.utils import is_iterator
@@ -51,6 +48,10 @@ from mlflow.utils.autologging_utils import (
     picklable_exception_safe_function,
     resolve_input_example_and_signature,
     safe_patch,
+)
+from mlflow.utils.autologging_utils.metrics_queue import (
+    add_to_metrics_queue,
+    flush_metrics_queue,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -72,20 +73,13 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 
 FLAVOR_NAME = "tensorflow"
 
 _logger = logging.getLogger(__name__)
 
-_MAX_METRIC_QUEUE_SIZE = 500
-
 _LOG_EVERY_N_STEPS = 1
-
-_metric_queue_lock = RLock()
-_metric_queue = []
-
-_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 # For tracking if the run was started by autologging.
 _AUTOLOG_RUN_ID = None
@@ -887,47 +881,6 @@ def _assoc_list_to_map(lst):
     return d
 
 
-def _flush_queue():
-    """
-    Flush the metric queue and log contents in batches to MLflow.
-    Queue is divided into batches according to run id.
-    """
-    try:
-        # Multiple queue flushes may be scheduled simultaneously on different threads
-        # (e.g., if the queue is at its flush threshold and several more items
-        # are added before a flush occurs). For correctness and efficiency, only one such
-        # flush operation should proceed; all others are redundant and should be dropped
-        acquired_lock = _metric_queue_lock.acquire(blocking=False)
-        if acquired_lock:
-            client = MlflowClient()
-            # For thread safety and to avoid modifying a list while iterating over it, we record a
-            # separate list of the items being flushed and remove each one from the metric queue,
-            # rather than clearing the metric queue or reassigning it (clearing / reassigning is
-            # dangerous because we don't block threads from adding to the queue while a flush is
-            # in progress)
-            snapshot = _metric_queue[:]
-            for item in snapshot:
-                _metric_queue.remove(item)
-
-            metrics_by_run = _assoc_list_to_map(snapshot)
-            for run_id, metrics in metrics_by_run.items():
-                client.log_batch(run_id, metrics=metrics, params=[], tags=[])
-    finally:
-        if acquired_lock:
-            _metric_queue_lock.release()
-
-
-def _add_to_queue(key, value, step, time, run_id):
-    """
-    Add a metric to the metric queue. Flush the queue if it exceeds
-    max size.
-    """
-    met = Metric(key=key, value=value, timestamp=time, step=step)
-    _metric_queue.append((run_id, met))
-    if len(_metric_queue) > _MAX_METRIC_QUEUE_SIZE:
-        _thread_pool.submit(_flush_queue)
-
-
 def _log_event(event):
     """
     Extracts metric information from the event protobuf
@@ -941,7 +894,7 @@ def _log_event(event):
                 # different from the arithmetic used in `__MLflowTfKeras2Callback.on_epoch_end`,
                 # which provides metric logging hooks for tf.Keras
                 if (event.step - 1) % _LOG_EVERY_N_STEPS == 0:
-                    _add_to_queue(
+                    add_to_metrics_queue(
                         key=v.tag,
                         value=v.simple_value,
                         step=event.step,
@@ -967,7 +920,7 @@ def _get_tensorboard_callback(lst):
 _TensorBoardLogDir = namedtuple("_TensorBoardLogDir", ["location", "is_temp"])
 
 
-def _setup_callbacks(lst, metrics_logger):
+def _setup_callbacks(callbacks, metrics_logger):
     """
     Adds TensorBoard and MlfLowTfKeras callbacks to the
     input list, and returns the new list and appropriate log directory.
@@ -975,16 +928,22 @@ def _setup_callbacks(lst, metrics_logger):
     # pylint: disable=no-name-in-module
     from mlflow.tensorflow._autolog import __MLflowTfKeras2Callback, _TensorBoard
 
-    tb = _get_tensorboard_callback(lst)
+    tb = _get_tensorboard_callback(callbacks)
+    for callback in callbacks:
+        if isinstance(callback, MLflowCallback):
+            raise MlflowException(
+                "MLflow autologging must be turned off if an `MLflowCallback` is explicitly added "
+                "to the callback list. You are creating an `MLflowCallback` while having "
+                "autologging enabled. Please either call `mlflow.tensorflow.autolog(disable=True)` "
+                "to disable autologging or remove `MLflowCallback` from the callback list. "
+            )
     if tb is None:
         log_dir = _TensorBoardLogDir(location=tempfile.mkdtemp(), is_temp=True)
-
-        out_list = lst + [_TensorBoard(log_dir.location)]
+        callbacks.append(_TensorBoard(log_dir.location))
     else:
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
-        out_list = lst
-    out_list += [__MLflowTfKeras2Callback(metrics_logger, _LOG_EVERY_N_STEPS)]
-    return out_list, log_dir
+    callbacks.append(__MLflowTfKeras2Callback(metrics_logger, _LOG_EVERY_N_STEPS))
+    return callbacks, log_dir
 
 
 @autologging_integration(FLAVOR_NAME)
@@ -1036,6 +995,11 @@ def autolog(
     information on `TensorFlow workflows
     <https://www.mlflow.org/docs/latest/tracking.html#tensorflow-and-keras-experimental>`_.
 
+    Note that autologging cannot be used together with explicit MLflow callback, i.e.,
+    `mlflow.tensorflow.MLflowCallback`, because it will cause the same metrics to be logged twice.
+    If you want to include `mlflow.tensorflow.MLflowCallback` in the callback list, please turn off
+    autologging by calling `mlflow.tensorflow.autolog(disable=True)`.
+
     :param every_n_iter: The frequency with which metrics should be logged. For example, a value of
                          100 will log metrics at step 0, 100, 200, etc.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
@@ -1079,7 +1043,7 @@ def autolog(
     global _LOG_EVERY_N_STEPS
     _LOG_EVERY_N_STEPS = every_n_iter
 
-    atexit.register(_flush_queue)
+    atexit.register(flush_metrics_queue)
 
     if Version(tensorflow.__version__) < Version("2.3"):
         warnings.warn("Could not log to MLflow. TensorFlow versions below 2.3 are not supported.")
@@ -1210,7 +1174,7 @@ def autolog(
                 ):
                     batch_size = training_data._batch_size.numpy()
                 elif isinstance(training_data, tensorflow.keras.utils.Sequence):
-                    first_batch_inputs, _ = training_data[0]
+                    first_batch_inputs, *_ = training_data[0]
                     if is_single_input_model:
                         batch_size = len(first_batch_inputs)
                     else:
@@ -1310,7 +1274,7 @@ def autolog(
                     metrics_logger=metrics_logger,
                 )
 
-                _flush_queue()
+                flush_metrics_queue()
                 mlflow.log_artifacts(
                     local_dir=self.log_dir.location,
                     artifact_path="tensorboard_logs",

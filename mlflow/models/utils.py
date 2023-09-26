@@ -208,10 +208,11 @@ class _Example:
                     f"but got '{type(input_example)}'",
                 )
             self.data = _handle_dataframe_input(self._inference_data)
+            orient = "split" if "columns" in self.data else "values"
             self.info = {
                 "artifact_path": example_filename,
                 "type": "dataframe",
-                "pandas_orient": "split",
+                "pandas_orient": orient,
             }
 
     def save(self, parent_dir_path: str):
@@ -902,8 +903,7 @@ def get_model_version_from_model_uri(model_uri):
     )
     client = MlflowClient(registry_uri=databricks_profile_uri)
     (name, version) = get_model_name_and_version(client, model_uri)
-    model_version = client.get_model_version(name, version)
-    return model_version
+    return client.get_model_version(name, version)
 
 
 def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[ParamSchema]):

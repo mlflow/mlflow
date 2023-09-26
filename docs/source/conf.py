@@ -39,7 +39,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx_click.ext",
-    "test_code_block",
+    "testcode_block",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -354,6 +354,7 @@ nitpick_ignore = [
     ("py:class", "pydantic.main.BaseModel"),
     ("py:class", "ConfigDict"),
     ("py:class", "FieldInfo"),
+    ("py:class", "keras_core.src.callbacks.callback.Callback"),
 ]
 
 

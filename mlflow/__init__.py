@@ -58,6 +58,7 @@ fastai = LazyLoader("mlflow.fastai", globals(), "mlflow.fastai")
 gluon = LazyLoader("mlflow.gluon", globals(), "mlflow.gluon")
 h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
 johnsnowlabs = LazyLoader("mlflow.johnsnowlabs", globals(), "mlflow.johnsnowlabs")
+keras_core = LazyLoader("mlflow.keras_core", globals(), "mlflow.keras_core")
 langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
 lightgbm = LazyLoader("mlflow.lightgbm", globals(), "mlflow.lightgbm")
 llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
@@ -112,6 +113,12 @@ from mlflow.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import evaluate
 from mlflow.projects import run
+from mlflow.system_metrics import (
+    disable_system_metrics_logging,
+    enable_system_metrics_logging,
+    set_system_metrics_samples_before_logging,
+    set_system_metrics_sampling_interval,
+)
 from mlflow.tracking import (
     get_registry_uri,
     get_tracking_uri,
@@ -211,6 +218,10 @@ __all__ = [
     "doctor",
     "MlflowClient",
     "MlflowException",
+    "disable_system_metrics_logging",
+    "enable_system_metrics_logging",
+    "set_system_metrics_sampling_interval",
+    "set_system_metrics_samples_before_logging",
 ]
 
 

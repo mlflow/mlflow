@@ -94,8 +94,7 @@ def get_run_data(run_id):
 
 def get_run_datasets(run_id):
     client = MlflowClient()
-    datasets = client.get_run(run_id).inputs.dataset_inputs
-    return datasets
+    return client.get_run(run_id).inputs.dataset_inputs
 
 
 def get_raw_tag(run_id, tag_name):
