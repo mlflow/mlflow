@@ -246,7 +246,6 @@ from mlflow.models.utils import (
     _enforce_params_schema,
     _enforce_schema,
     _save_example,
-    _save_params_example,
 )
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -1839,9 +1838,7 @@ def save_model(
                     _logger.warning(f"Failed to infer model signature from input example. {e}")
 
     if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
-    if params_example is not None:
-        _save_params_example(mlflow_model, params_example, path)
+        _save_example(mlflow_model, input_example, path, params_example=params_example)
     if metadata is not None:
         mlflow_model.metadata = metadata
 

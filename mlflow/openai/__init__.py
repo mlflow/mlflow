@@ -39,7 +39,7 @@ from mlflow import pyfunc
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_OPENAI_SECRET_SCOPE
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.utils import _save_example, _save_params_example
+from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -351,9 +351,7 @@ def save_model(
         )
 
     if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
-    if params_example is not None:
-        _save_params_example(mlflow_model, params_example, path)
+        _save_example(mlflow_model, input_example, path, params_example)
     if metadata is not None:
         mlflow_model.metadata = metadata
     model_data_path = os.path.join(path, MODEL_FILENAME)

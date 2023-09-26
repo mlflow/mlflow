@@ -57,7 +57,6 @@ class ModelInfo:
         mlflow_version: str,
         signature_dict: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        saved_params_example_info: Optional[Dict[str, Any]] = None,
     ):
         self._artifact_path = artifact_path
         self._flavors = flavors
@@ -70,7 +69,6 @@ class ModelInfo:
         self._utc_time_created = utc_time_created
         self._mlflow_version = mlflow_version
         self._metadata = metadata
-        self._saved_params_example_info = saved_params_example_info
 
     @property
     def artifact_path(self):
@@ -155,17 +153,6 @@ class ModelInfo:
         :type: Optional[Dict[str, str]]
         """
         return self._saved_input_example_info
-
-    @property
-    def saved_params_example_info(self):
-        """
-        A dictionary that contains the metadata of the saved params example, e.g.,
-        ``{"params_path": "params_example.json"}``.
-
-        :getter: Gets the params example if specified during model logging
-        :type: Optional[Dict[str, str]]
-        """
-        return self._saved_params_example_info
 
     @property
     def signature_dict(self):
@@ -277,7 +264,6 @@ class Model:
         model_uuid: Union[str, Callable, None] = lambda: uuid.uuid4().hex,
         mlflow_version: Union[str, None] = mlflow.version.VERSION,
         metadata: Optional[Dict[str, Any]] = None,
-        saved_params_example_info: Optional[Dict[str, Any]] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -292,7 +278,6 @@ class Model:
         self.model_uuid = model_uuid() if callable(model_uuid) else model_uuid
         self.mlflow_version = mlflow_version
         self.metadata = metadata
-        self.saved_params_example_info = saved_params_example_info
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -441,19 +426,6 @@ class Model:
         # pylint: disable=attribute-defined-outside-init
         self._saved_input_example_info = value
 
-    @property
-    def saved_params_example_info(self) -> Optional[Dict[str, Any]]:
-        """
-        A dictionary that contains the metadata of the saved params example, e.g.,
-        ``{"params_path": "params_example.json"}``.
-        """
-        return self._saved_params_example_info
-
-    @saved_params_example_info.setter
-    def saved_params_example_info(self, value: Dict[str, Any]):
-        # pylint: disable=attribute-defined-outside-init
-        self._saved_params_example_info = value
-
     def get_model_info(self):
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -471,7 +443,6 @@ class Model:
             utc_time_created=self.utc_time_created,
             mlflow_version=self.mlflow_version,
             metadata=self.metadata,
-            saved_params_example_info=self.saved_params_example_info,
         )
 
     def to_dict(self):
@@ -488,8 +459,6 @@ class Model:
             res.pop(_MLFLOW_VERSION_KEY)
         if self.metadata is not None:
             res["metadata"] = self.metadata
-        if self.saved_params_example_info is not None:
-            res["saved_params_example_info"] = self.saved_params_example_info
         return res
 
     def to_yaml(self, stream=None):
@@ -699,5 +668,4 @@ def get_model_info(model_uri: str) -> ModelInfo:
         utc_time_created=model_meta.utc_time_created,
         mlflow_version=model_meta.mlflow_version,
         metadata=model_meta.metadata,
-        saved_params_example_info=model_meta.saved_params_example_info,
     )
