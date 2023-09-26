@@ -1,4 +1,4 @@
-"""increase max param val length from 500 to 6000
+"""increase max param val length from 500 to 64000
 
 Revision ID: 2d6e25af4d3e
 Revises: 7f2a7d5fae7d
