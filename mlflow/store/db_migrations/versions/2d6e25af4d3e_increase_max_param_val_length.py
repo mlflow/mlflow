@@ -21,7 +21,7 @@ def upgrade():
         batch_op.alter_column(
             "value",
             existing_type=sa.String(500),
-            type_=sa.String(6000),
+            type_=sa.String(64000),
             existing_nullable=False,
             existing_server_default=None,
         )
