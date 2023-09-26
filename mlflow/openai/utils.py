@@ -128,7 +128,8 @@ class _OAITokenHolder:
         """
         import openai
 
-        if not self._key_configured:
+        if self._key_configured:
+            return
             if self._is_azure_ad:
                 if not self._api_token or self._api_token.expires_on < time.time() + 60:
                     from azure.core.exceptions import ClientAuthenticationError
