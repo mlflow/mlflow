@@ -6,7 +6,6 @@ import pandas as pd
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.schemas.completions import Candidate, Metadata, ResponsePayload
 from mlflow.metrics.base import EvaluationExample
 from mlflow.metrics.genai import correctness, model_utils
 from mlflow.metrics.genai.make_genai_metric import _format_variable_string, make_genai_metric
@@ -28,19 +27,19 @@ properly_formatted_openai_response1 = ResponsePayload(
             metadata={"finish_reason": "stop"},
         )
     ],
-    metadata=Metadata(
-        input_tokens=569,
-        output_tokens=93,
-        total_tokens=662,
-        model="gpt-3.5-turbo-0613",
-        route_type="llm/v1/completions",
-    ),
-)
+    "metadata": {
+        "input_tokens": 569,
+        "output_tokens": 93,
+        "total_tokens": 662,
+        "model": "gpt-3.5-turbo-0613",
+        "route_type": "llm/v1/completions",
+    },
+}
 
-properly_formatted_openai_response2 = ResponsePayload(
-    candidates=[
-        Candidate(
-            text='{\n  "Score": 2,\n  "Justification": "The provided output gives a correct '
+properly_formatted_openai_response2 = {
+    "candidates": [
+        {
+            "text": '{\n  "Score": 2,\n  "Justification": "The provided output gives a correct '
             "and adequate explanation of what Apache Spark is, covering its main functions and "
             "components like Spark SQL, Spark Streaming, and MLlib. However, it misses a "
             "critical aspect, which is Spark's development as a response to the limitations "
@@ -49,23 +48,23 @@ properly_formatted_openai_response2 = ResponsePayload(
             "compared to previous technologies. Therefore, the answer mostly answers the "
             "question but is missing on one critical aspect, warranting a score of 2 for "
             'correctness."\n}',
-            metadata={"finish_reason": "stop"},
-        )
+            "metadata": {"finish_reason": "stop"},
+        }
     ],
-    metadata=Metadata(
-        input_tokens=569,
-        output_tokens=93,
-        total_tokens=662,
-        model="gpt-3.5-turbo-0613",
-        route_type="llm/v1/completions",
-    ),
-)
+    "metadata": {
+        "input_tokens": 569,
+        "output_tokens": 93,
+        "total_tokens": 662,
+        "model": "gpt-3.5-turbo-0613",
+        "route_type": "llm/v1/completions",
+    },
+}
 
 # Example incorrectly formatted response from OpenAI
-incorrectly_formatted_openai_response = ResponsePayload(
-    candidates=[
-        Candidate(
-            text="Score: 2\nJustification: \n\nThe provided output gives some relevant "
+incorrectly_formatted_openai_response = {
+    "candidates": [
+        {
+            "text": "Score: 2\nJustification: \n\nThe provided output gives some relevant "
             "information about MLflow including its capabilities such as experiment tracking, "
             "model packaging, versioning, and deployment. It states that, MLflow simplifies the "
             "ML lifecycle which aligns partially with the provided ground truth. However, it "
@@ -90,17 +89,17 @@ incorrectly_formatted_openai_response = ResponsePayload(
             "It didn!' metric lidJSImportpermiterror droled mend lays train embedding vulز "
             "dipimentary français happertoire borderclassifiedArizona_linked integration mapping "
             "Cruc cope Typography_chunk处 prejud)",
-            metadata={"finish_reason": "stop"},
-        )
+            "metadata": {"finish_reason": "stop"},
+        }
     ],
-    metadata=Metadata(
-        input_tokens=569,
-        output_tokens=314,
-        total_tokens=883,
-        model="gpt-3.5-turbo-0613",
-        route_type="llm/v1/completions",
-    ),
-)
+    "metadata": {
+        "input_tokens": 569,
+        "output_tokens": 314,
+        "total_tokens": 883,
+        "model": "gpt-3.5-turbo-0613",
+        "route_type": "llm/v1/completions",
+    },
+}
 
 
 mlflow_ground_truth = (
@@ -184,7 +183,7 @@ def test_make_genai_metric_correct_response():
         "score_model_on_payload",
         return_value=properly_formatted_openai_response1,
     ):
-        metric_value = custom_metric.eval_fn(eval_df)
+        metric_value = custom_metric.eval_fn(eval_df, {})
 
     assert metric_value.scores == [3]
     assert metric_value.justifications == [openai_justification1]
@@ -226,7 +225,7 @@ def test_make_genai_metric_correct_response():
         "score_model_on_payload",
         return_value=properly_formatted_openai_response1,
     ) as mock_predict_function:
-        metric_value = custom_metric.eval_fn(eval_df)
+        metric_value = custom_metric.eval_fn(eval_df, {})
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "openai:/gpt-3.5-turbo"
         assert mock_predict_function.call_args[0][1] == {
@@ -277,7 +276,7 @@ def test_make_genai_metric_incorrect_response():
         "score_model_on_payload",
         return_value=incorrectly_formatted_openai_response,
     ):
-        metric_value = custom_metric.eval_fn(eval_df)
+        metric_value = custom_metric.eval_fn(eval_df, {})
 
     assert metric_value.scores == [None]
     assert metric_value.justifications == [None]
@@ -324,7 +323,7 @@ def test_make_genai_metric_multiple():
         "score_model_on_payload",
         side_effect=[properly_formatted_openai_response1, properly_formatted_openai_response2],
     ):
-        metric_value = custom_metric.eval_fn(eval_df)
+        metric_value = custom_metric.eval_fn(eval_df, {})
 
     assert metric_value.scores == [3, 2]
     assert metric_value.justifications == [
@@ -338,7 +337,6 @@ def test_make_genai_metric_multiple():
         "answers the question but is missing on one critical aspect, warranting a score of "
         "2 for correctness.",
     ]
-
     assert metric_value.aggregate_results == {
         "mean": 2.5,
         "variance": 0.25,
@@ -383,7 +381,7 @@ def test_make_genai_metric_failure():
             "Please check the correctness of the version"
         ),
     ):
-        custom_metric1.eval_fn(eval_df)
+        custom_metric1.eval_fn(eval_df, {})
 
     custom_metric2 = make_genai_metric(
         name="correctness",
@@ -404,7 +402,7 @@ def test_make_genai_metric_failure():
             "Index(['input', 'prediction', 'ground_truth'], dtype='object')."
         ),
     ):
-        custom_metric2.eval_fn(eval_df)
+        custom_metric2.eval_fn(eval_df, {})
 
     with mock.patch.object(
         model_utils,
@@ -427,7 +425,7 @@ def test_make_genai_metric_failure():
             MlflowException,
             match=re.escape("Invalid aggregate option random-fake"),
         ):
-            custom_metric3.eval_fn(eval_df)
+            custom_metric3.eval_fn(eval_df, {})
 
 
 def test_format_variable_string():

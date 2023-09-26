@@ -61,7 +61,7 @@ def _call_openai_api(openai_uri, payload):
     )
     openai_provider = OpenAIProvider(route_config)
 
-    return openai_provider.sync_completions(payload)
+    return openai_provider.sync_completions(payload).json()
 
 
 def _call_gateway_api(gateway_uri, payload):
