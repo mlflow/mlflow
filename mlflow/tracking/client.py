@@ -707,16 +707,14 @@ class MlflowClient:
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Integer training step (iteration) at which was the metric calculated.
                      Defaults to 0.
-        :param synchronous: [Experimental] Indicates if the metric would be logged in
-                                synchronous fashion or not.
-                            When it is true this call would be blocking call and offers immediate
+        :param synchronous: [Experimental] Defaults to True with no behavior change.
+                             Indicates if the metric would be logged in synchronous fashion or not.
+                            When it is True this call would be blocking call and offers immediate
                              consistency of the metric upon returning.
-                            When this value is set to false, metric would be logged
-                              in async fashion.
-                            So backing provider gurantees that metrics are accepted into system
-                             but would persist them with some time delay.
-                            This means metric value would not have immediate consistency but
-                            'near-real'/'eventual' consistency.
+                            When this value is set to False, metric would be logged in async
+                             fashion. Backing provider gurantees that metrics are accepted
+                             into system but would persist them with some time delay -
+                             'near-real time'/'eventual' consistency.
 
         .. code-block:: python
             :caption: Example
@@ -779,16 +777,20 @@ class MlflowClient:
         :param value: Parameter value (string, but will be string-ified if not).
                       All backend stores support values up to length 500, but some
                       may support larger values.
-        :param synchronous: [Experimental] Indicates if the param would be logged in synchronous
-                     fashion or not.
-                    When it is true this call would be blocking call and offers immediate
-                        consistency of the param upon returning.
-                    When this value is set to false, param would be logged in async fashion.
-                    So backing provider gurantees that params are accepted into system
-                        but would persist them with some time delay.
-                    This means param value would not have immediate consistency but
-                    'near-real'/'eventual' consistency.
-        :return: the parameter value that is logged.
+        :param synchronous: [Experimental] Defaults to True with no behavior change.
+                            Indicates if the parameter would be logged in synchronous
+                              fashion or not.
+                            When it is True this call would be blocking call and offers immediate
+                              consistency of the parameter upon returning.
+                            When this value is set to False, parameter would be logged in async
+                             fashion. Backing provider gurantees that metrics are accepted
+                             into system but would persist them with some time delay -
+                             'near-real time'/'eventual' consistency.
+        :return: When synchronous=True, the parameter value that is logged.
+                 When synchronous=False, returns None. Since params are immutable it is
+                  possible that by the time this value gets logged, some other client
+                   already logged param with same key with different value
+                     (in a distributed environment). Hence it is not possible to return any value.
 
         .. code-block:: python
             :caption: Example
@@ -831,8 +833,8 @@ class MlflowClient:
             params: {'p': '1'}
             status: FINISHED
         """
-        self._tracking_client.log_param(run_id, key, value, synchrounous=synchronous)
-        return value
+        self._tracking_client.log_param(run_id, key, value, synchronous=synchronous)
+        return value if synchronous else None
 
     def set_experiment_tag(self, experiment_id: str, key: str, value: Any) -> None:
         """
@@ -877,15 +879,16 @@ class MlflowClient:
         :param value: Tag value (string, but will be string-ified if not).
                       All backend stores will support values up to length 5000, but some
                       may support larger values.
-        :param synchronous: [Experimental] Indicates if the tag would be logged
-                     in synchronous fashion or not.
-                    When it is true this call would be blocking call and offers immediate
-                        consistency of the metric upon returning.
-                    When this value is set to false, tag would be logged in async fashion.
-                    So backing provider gurantees that tags are accepted into system
-                        but would persist them with some time delay.
-                    This means tag value would not have immediate consistency but
-                    'near-real'/'eventual' consistency.
+        :param synchronous: [Experimental] Defaults to True with no behavior change.
+                            Indicates if the tag would be logged in synchronous fashion
+                              or not.
+                            When it is True this call would be blocking call and offers immediate
+                             consistency of the tag upon returning.
+                            When this value is set to False, tag would be logged in async
+                             fashion. Backing provider gurantees that tag is accepted
+                             into system but would persist them with some time delay -
+                             'near-real time'/'eventual' consistency.
+
         .. code-block:: python
             :caption: Example
 
@@ -1026,16 +1029,16 @@ class MlflowClient:
         :param metrics: If provided, List of Metric(key, value, timestamp) instances.
         :param params: If provided, List of Param(key, value) instances.
         :param tags: If provided, List of RunTag(key, value) instances.
-        :param synchronous: [Experimental] Indicates if the metric, tags , params would be
-                             logged in synchronous fashion or not.
-                            When it is true this call would be blocking call and offers immediate
-                             consistency of the metric upon returning.
-                            When this value is set to false, metric would be logged
-                              in async fashion.
-                            So backing provider gurantees that metrics are accepted into system
-                             but would persist them with some time delay.
-                            This means metric value would not have immediate consistency but
-                            'near-real'/'eventual' consistency.
+        :param synchronous: [Experimental] Defaults to True with no behavior change.
+                            Indicates if the metrics/parameters/tags would be logged
+                             in synchronous fashion or not.
+                            When it is True this call would be blocking call and offers immediate
+                              consistency of the metrics/parameters/tags upon returning.
+                            When this value is set to False, metrics/parameters/tags
+                              would be logged in async fashion. Backing provider gurantees that
+                             metrics/parameters/tags are accepted into the system but
+                             would persist them with some time delay -
+                             'near-real time'/'eventual' consistency.
 
         Raises an MlflowException if any errors occur.
         :return: None

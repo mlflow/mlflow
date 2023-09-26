@@ -582,18 +582,21 @@ def log_param(key: str, value: Any, synchronous: Optional[bool] = True) -> Any:
     :param value: Parameter value (string, but will be string-ified if not).
                   All backend stores support values up to length 500, but some
                   may support larger values.
-    :param synchronous:
-                   [Experimental] Indicates if the param would be logged in synchronous
-                     fashion or not.
-                    When it is true this call would be blocking call and offers immediate
-                        consistency of the param upon returning.
-                    When this value is set to false, param would be logged in async fashion.
-                    So backing provider gurantees that params are accepted into system
-                        but would persist them with some time delay.
-                    This means param value would not have immediate consistency but
-                    'near-real'/'eventual' consistency.
+    :param synchronous: [Experimental] Defaults to True with no behavior change.
+                        Indicates if the parameter would be logged in synchronous
+                            fashion or not.
+                        When it is True this call would be blocking call and offers immediate
+                            consistency of the parameter upon returning.
+                        When this value is set to False, parameter would be logged in async
+                            fashion. Backing provider gurantees that metrics are accepted
+                            into system but would persist them with some time delay -
+                            'near-real time'/'eventual' consistency.
 
-    :return: the parameter value that is logged.
+    :return: When synchronous=True, the parameter value that is logged.
+                When synchronous=False, returns None. Since params are immutable it is
+                possible that by the time this value gets logged, some other client
+                already logged param with same key with different value
+                    (in a distributed environment). Hence it is not possible to return any value.
 
     .. testcode:: python
         :caption: Example
@@ -646,15 +649,16 @@ def set_tag(key: str, value: Any, synchronous: Optional[bool] = True) -> None:
     :param value: Tag value (string, but will be string-ified if not).
                   All backend stores will support values up to length 5000, but some
                   may support larger values.
-    :param synchronous: [Experimental] Indicates if the tag would be logged
-                     in synchronous fashion or not.
-                    When it is true this call would be blocking call and offers immediate
-                        consistency of the metric upon returning.
-                    When this value is set to false, tag would be logged in async fashion.
-                    So backing provider gurantees that tags are accepted into system
-                        but would persist them with some time delay.
-                    This means tag value would not have immediate consistency but
-                    'near-real'/'eventual' consistency.
+    :param synchronous: [Experimental] Defaults to True with no behavior change.
+                        Indicates if the tag would be logged in synchronous fashion
+                            or not.
+                        When it is True this call would be blocking call and offers immediate
+                            consistency of the tag upon returning.
+                        When this value is set to False, tag would be logged in async
+                            fashion. Backing provider gurantees that tag is accepted
+                            into system but would persist them with some time delay -
+                            'near-real time'/'eventual' consistency.
+
 
     .. testcode:: python
         :caption: Example
@@ -711,15 +715,14 @@ def log_metric(
                   All backend stores will support values up to length 5000, but some
                   may support larger values.
     :param step: Metric step (int). Defaults to zero if unspecified.
-    :param synchronous: [Experimental] Indicates if the metric would be logged in synchronous
-                     fashion or not.
-                    When it is true this call would be blocking call and offers immediate
+    :param synchronous: [Experimental] Defaults to True with no behavior change.
+                        Indicates if the metric would be logged in synchronous fashion or not.
+                    When it is True this call would be blocking call and offers immediate
                         consistency of the metric upon returning.
-                    When this value is set to false, metric would be logged in async fashion.
-                    So backing provider gurantees that metrics are accepted into system
-                        but would persist them with some time delay.
-                    This means metric value would not have immediate consistency but
-                    'near-real'/'eventual' consistency.
+                    When this value is set to False, metric would be logged in async
+                        fashion. Backing provider gurantees that metrics are accepted
+                        into system but would persist them with some time delay -
+                        'near-real time'/'eventual' consistency.
         :caption: Example
 
         import mlflow
@@ -748,15 +751,16 @@ def log_metrics(
     :param step: A single integer step at which to log the specified
                  Metrics. If unspecified, each metric is logged at step zero.
 
-    :param synchronous: [Experimental] Indicates if the metric would be logged
-                         in synchronous fashion or not.
-                        When it is true this call would be blocking call and offers immediate
-                            consistency of the metric upon returning.
-                        When this value is set to false, metric would be logged in async fashion.
-                        So backing provider gurantees that metrics are accepted into system
-                            but would persist them with some time delay.
-                        This means metric value would not have immediate consistency but
-                        'near-real'/'eventual' consistency.
+    :param synchronous: [Experimental] Defaults to True with no behavior change.
+                        Indicates if the metrics/parameters/tags would be logged
+                            in synchronous fashion or not.
+                        When it is True this call would be blocking call and offers immediate
+                            consistency of the metrics/parameters/tags upon returning.
+                        When this value is set to False, metrics/parameters/tags
+                            would be logged in async fashion. Backing provider gurantees that
+                            metrics/parameters/tags are accepted into the system but
+                            would persist them with some time delay -
+                            'near-real time'/'eventual' consistency.
     :returns: None
 
     .. testcode:: python
@@ -788,15 +792,15 @@ def log_params(params: Dict[str, Any], synchronous: Optional[bool] = True) -> No
 
     :param params: Dictionary of param_name: String -> value: (String, but will be string-ified if
                    not)
-    :param synchronous: [Experimental] Indicates if the param would be logged
-                         in synchronous fashion or not.
-                        When it is true this call would be blocking call and offers immediate
-                            consistency of the metric upon returning.
-                        When this value is set to false, param would be logged in async fashion.
-                        So backing provider gurantees that params are accepted into system
-                            but would persist them with some time delay.
-                        This means param value would not have immediate consistency but
-                        'near-real'/'eventual' consistency.
+    :param synchronous: [Experimental] Defaults to True with no behavior change.
+                        Indicates if the parameters would be logged in synchronous
+                            fashion or not.
+                        When it is True this call would be blocking call and offers immediate
+                            consistency of the parameters upon returning.
+                        When this value is set to False, parameters would be logged in async
+                            fashion. Backing provider gurantees that parameters are accepted
+                            into system but would persist them with some time delay -
+                            'near-real time'/'eventual' consistency.
     :returns: None
 
     .. testcode:: python
@@ -891,15 +895,15 @@ def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = True) -> None:
 
     :param tags: Dictionary of tag_name: String -> value: (String, but will be string-ified if
                  not)
-    :param synchronous: [Experimental] Indicates if the param would be logged in synchronous fashion
-                         or not.
-                        When it is true this call would be blocking call and offers immediate
-                            consistency of the metric upon returning.
-                        When this value is set to false, param would be logged in async fashion.
-                        So backing provider gurantees that params are accepted into system
-                            but would persist them with some time delay.
-                        This means param value would not have immediate consistency but
-                        'near-real'/'eventual' consistency.
+    :param synchronous: [Experimental] Defaults to True with no behavior change.
+                        Indicates if the tags would be logged in synchronous fashion
+                            or not.
+                        When it is True this call would be blocking call and offers immediate
+                            consistency of the tag upon returning.
+                        When this value is set to False, tags would be logged in async
+                            fashion. Backing provider gurantees that tags are accepted
+                            into system but would persist them with some time delay -
+                            'near-real time'/'eventual' consistency.
     :returns: None
 
     .. testcode:: python
