@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
@@ -37,6 +38,40 @@ def _format_variable_string(variables: Dict[str, Any], eval_df, indx) -> str:
     )
 
 
+# Function to extract Score and Justification
+def _extract_score_and_justification(output):
+    if (
+        isinstance(output, dict)
+        and "candidates" in output
+        and isinstance(output["candidates"], list)
+        and output["candidates"]
+    ):
+        text = output["candidates"][0]["text"]
+
+    if text:
+        # Attempt to parse JSON
+        try:
+            data = json.loads(text)
+            score = int(data.get("Score"))
+            justification = data.get("Justification")
+        except json.JSONDecodeError:
+            # If parsing fails, use regex
+            match = re.search(r"Score: (\d+),?\s*Justification: (.+)", text)
+            if match:
+                score = int(match.group(1))
+                justification = match.group(2)
+            else:
+                score = None
+                justification = None
+
+        if not isinstance(score, (int, float)) or not isinstance(justification, str):
+            return None, None
+
+        return score, justification
+
+    return None, None
+
+
 def make_genai_metric(
     name: str,
     definition: str,
@@ -66,7 +101,9 @@ def make_genai_metric(
         options are: min, max, mean, median, variance, p90.
     :param greater_is_better: (Optional) Whether the metric is better when it is greater.
     :param max_workers: (Optional) The maximum number of workers to use for judge scoring.
+        Defaults to 10 workers.
     :param judge_request_timeout: (Optional) The timeout in seconds for each judge scoring request.
+        Defaults to 15 seconds.
 
     :return: A metric object.
 
@@ -188,25 +225,7 @@ def make_genai_metric(
             }
             try:
                 raw_result = model_utils.score_model_on_payload(eval_model, payload)
-                eval_result = raw_result.candidates[0].text
-                eval_result_json = json.loads(eval_result)
-                score = eval_result_json["Score"]
-                justification = eval_result_json["Justification"]
-                if not isinstance(score, (int, float)):
-                    raise MlflowException(
-                        message=f"The score returned from the model is not a number. "
-                        f"Please check the correctness of the model. "
-                        f"Score: {score}",
-                        error_code=INTERNAL_ERROR,
-                    )
-                if not isinstance(justification, str):
-                    raise MlflowException(
-                        message=f"The justification returned from the model is not a string. "
-                        f"Please check the correctness of the model. "
-                        f"Justification: {justification}",
-                        error_code=INTERNAL_ERROR,
-                    )
-                return score, justification
+                return _extract_score_and_justification(raw_result)
             except Exception as e:
                 _logger.info(f"Failed to score model on payload. Error: {e!r}")
                 return None, None
