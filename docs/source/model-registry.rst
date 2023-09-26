@@ -400,20 +400,6 @@ This outputs:
         "version": 2,
     }
 
-
-Archiving an MLflow Model
-^^^^^^^^^^^^^^^^^^^^^^^^^
-You can move models versions out of a **Production** stage into an **Archived** stage.
-At a later point, if that archived model is not needed, you can delete it.
-
-.. code-block:: python
-
-    # Archive models version 3 from Production into Archived
-    client = MlflowClient()
-    client.transition_model_version_stage(
-        name="sk-learn-random-forest-reg-model", version=3, stage="Archived"
-    )
-
 Deleting MLflow Models
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -708,4 +694,17 @@ You can transition a registered model to one of the stages: **Staging**, **Produ
     )
 
 The accepted values for <stage> are: Staging|Archived|Production|None.
+
+Archiving an MLflow Model
+^^^^^^^^^^^^^^^^^^^^^^^^^
+You can move models versions out of a **Production** stage into an **Archived** stage.
+At a later point, if that archived model is not needed, you can delete it.
+
+.. code-block:: python
+
+    # Archive models version 3 from Production into Archived
+    client = MlflowClient()
+    client.transition_model_version_stage(
+        name="sk-learn-random-forest-reg-model", version=3, stage="Archived"
+    )
 
