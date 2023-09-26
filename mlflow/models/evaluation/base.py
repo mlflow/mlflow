@@ -1047,6 +1047,27 @@ def _evaluate(
     return merged_eval_result
 
 
+def _eval_model_factory(model, data=None):
+    if data is None:
+
+        class EvalModelFromFunc(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: pd.DataFrame):
+                # Return the model output values as a list
+                return model_input.apply(lambda row: model(**row), axis=1).tolist()
+
+        return EvalModelFromFunc()
+    else:
+
+        class EvalModelFromData(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: pd.DataFrame):
+                # Filter rows where the "question" column matches
+                filtered_df = data[data["question"].eq(model_input["question"])]
+                # Return the model output values as a list
+                return filtered_df[model].tolist()
+
+        return EvalModelFromData()
+
+
 def evaluate(
     model: str,
     data,
@@ -1278,20 +1299,25 @@ def evaluate(
           specified, unless the ``evaluator_config`` option **log_model_explainability** is
           explicitly set to ``True``.
 
-    :param model: A pyfunc model instance, or a URI referring to such a model.
+    :param model: One of the following:
+                  - A pyfunc model instance
+                  - A URI referring to a pyfunc model
+                  - A function
+                  - A string name of a column from ``data`` that contains model outputs
 
     :param data: One of the following:
 
                  - A numpy array or list of evaluation features, excluding labels.
 
-                 - A Pandas DataFrame or Spark DataFrame, containing evaluation features and
-                   labels. If ``feature_names`` argument not specified, all columns are regarded
-                   as feature columns. Otherwise, only column names present in ``feature_names``
-                   are regarded as feature columns. If it is Spark DataFrame, only the first 10000
-                   rows in the Spark DataFrame will be used as evaluation data.
+                 - A Pandas DataFrame or Spark DataFrame, containing evaluation features,
+                   labels, and optionally model outputs. If ``feature_names`` argument not
+                   specified, all columns are regarded as feature columns. Otherwise, only
+                   column names present in ``feature_names`` are regarded as feature columns.
+                   If it is Spark DataFrame, only the first 10000 rows in the Spark DataFrame
+                   will be used as evaluation data.
 
-                 - A :py:class`mlflow.data.dataset.Dataset` instance containing evaluation features
-                   and labels.
+                 - A :py:class`mlflow.data.dataset.Dataset` instance containing evaluation
+                   features, labels, and optionally model outputs.
 
     :param targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
                     labels. If ``data`` is a DataFrame, the string name of a column from ``data``
@@ -1482,6 +1508,7 @@ def evaluate(
     '''
     from mlflow.pyfunc import PyFuncModel, _load_model_or_server, _ServedPyFuncModel
     from mlflow.utils import env_manager as _EnvManager
+    from mlflow.utils.data_utils import is_uri
 
     _EnvManager.validate(env_manager)
 
@@ -1502,7 +1529,7 @@ def evaluate(
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-    if isinstance(model, str):
+    if isinstance(model, str) and is_uri(model):
         model = _load_model_or_server(model, env_manager)
     elif env_manager != _EnvManager.LOCAL:
         raise MlflowException(
@@ -1512,10 +1539,49 @@ def evaluate(
         )
     elif isinstance(model, PyFuncModel):
         pass
+    elif isinstance(model, str):
+        # model is a string name of a column from ``data`` that contains model outputs
+        if "pyspark" in sys.modules:
+            from pyspark.sql import DataFrame as SparkDataFrame
+
+        if isinstance(data, np.ndarray) or isinstance(data, list) or isinstance(data, NumpyDataset):
+            raise MlflowException(
+                message="The data argument must be a pandas DataFrame or a Spark DataFrame when "
+                "model is a string name of a column from ``data`` that contains model "
+                "outputs. Found data type: " + str(type(data)),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if isinstance(data, pd.DataFrame) or isinstance(data, PandasDataset):
+            if model not in data.columns:
+                raise MlflowException(
+                    message="The model output column name is not found in ``data``. "
+                    "Found columns: " + str(data.columns),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        if isinstance(data, SparkDataset) or (
+            "pyspark" in sys.modules and isinstance(data, SparkDataFrame)
+        ):
+            if model not in data.columns:
+                raise MlflowException(
+                    message="The model output column name is not found in ``data``. "
+                    "Found columns: " + str(data.columns),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        if isinstance(data, Dataset):
+            if model not in data.columns:
+                raise MlflowException(
+                    message="The model output column name is not found in ``data``. "
+                    "Found columns are: " + str(data.columns),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        model = _eval_model_factory(model, data)
+    elif callable(model):
+        model = _eval_model_factory(model)
     else:
         raise MlflowException(
-            message="The model argument must be a string URI referring to an MLflow model or "
-            "an instance of `mlflow.pyfunc.PyFuncModel`.",
+            message="The model argument must be a string URI referring to an MLflow model, "
+            "an instance of `mlflow.pyfunc.PyFuncModel`, a function, or a string name of a "
+            "column from ``data`` that contains model outputs.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
