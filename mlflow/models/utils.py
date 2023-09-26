@@ -16,7 +16,7 @@ from mlflow.types.utils import TensorsNotSupportedException, _infer_param_schema
 from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
-    dataframe_from_raw_json,
+    dataframe_from_parsed_json,
     parse_tf_serving_input,
 )
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
@@ -29,8 +29,8 @@ except ImportError:
     HAS_SCIPY = False
 
 INPUT_EXAMPLE_PATH = "artifact_path"
-EXAMPLE_PARAMS_PATH = "params_path"
-EXAMPLE_PARAMS_KEY = "mlflow.models.params"
+EXAMPLE_DATA_KEY = "inputs"
+EXAMPLE_PARAMS_KEY = "params"
 
 ModelInputExample = Union[
     pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes, tuple
@@ -184,16 +184,15 @@ class _Example:
             return result
 
         example_filename = "input_example.json"
-        params_filename = "params_example.json"
         self.info = {
             INPUT_EXAMPLE_PATH: example_filename,
-            EXAMPLE_PARAMS_PATH: params_filename,
         }
         # Avoid changing the variable passed in
         input_example = deepcopy(input_example)
         if _contains_params(input_example):
             input_example, self._inference_params = input_example
             _validate_params(self._inference_params)
+            self.info[EXAMPLE_PARAMS_KEY] = "true"
         else:
             self._inference_params = None
 
@@ -246,10 +245,11 @@ class _Example:
     def save(self, parent_dir_path: str):
         """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`."""
         if self._inference_params is not None:
-            with open(os.path.join(parent_dir_path, self.info[EXAMPLE_PARAMS_PATH]), "w") as f:
-                json.dump(self._inference_params, f, cls=NumpyEncoder)
+            data = {EXAMPLE_DATA_KEY: self.data, EXAMPLE_PARAMS_KEY: self._inference_params}
+        else:
+            data = self.data
         with open(os.path.join(parent_dir_path, self.info[INPUT_EXAMPLE_PATH]), "w") as f:
-            json.dump(self.data, f, cls=NumpyEncoder)
+            json.dump(data, f, cls=NumpyEncoder)
 
     @property
     def inference_data(self):
@@ -297,6 +297,24 @@ def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: s
     mlflow_model.saved_input_example_info = example.info
 
 
+def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
+    """
+    Read input_example dictionary from the model artifact path. Returns None if there is no
+    example metadata.
+    :param mlflow_model: Model metadata.
+    :param path: Path to the model directory.
+    :return: Input example or None if the model has no example.
+    """
+    if mlflow_model.saved_input_example_info is None:
+        return None
+    example_type = mlflow_model.saved_input_example_info["type"]
+    if example_type not in ["dataframe", "ndarray", "sparse_matrix_csc", "sparse_matrix_csr"]:
+        raise MlflowException(f"This version of mlflow can not load example of type {example_type}")
+    path = os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
+    with open(path) as handle:
+        return json.load(handle)
+
+
 def _read_example(mlflow_model: Model, path: str):
     """
     Read example from a model directory. Returns None if there is no example metadata (i.e. the
@@ -307,18 +325,19 @@ def _read_example(mlflow_model: Model, path: str):
     :param path: Path to the model directory.
     :return: Input example data or None if the model has no example.
     """
-    if mlflow_model.saved_input_example_info is None:
+    input_example = _get_mlflow_model_input_example_dict(mlflow_model, path)
+    if input_example is None:
         return None
+
     example_type = mlflow_model.saved_input_example_info["type"]
-    if example_type not in ["dataframe", "ndarray", "sparse_matrix_csc", "sparse_matrix_csr"]:
-        raise MlflowException(f"This version of mlflow can not load example of type {example_type}")
     input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
-    path = os.path.join(path, mlflow_model.saved_input_example_info[INPUT_EXAMPLE_PATH])
+    if mlflow_model.saved_input_example_info.get(EXAMPLE_PARAMS_KEY, None):
+        input_example = input_example[EXAMPLE_DATA_KEY]
     if example_type == "ndarray":
-        return _read_tensor_input_from_json(path, schema=input_schema)
+        return _read_tensor_input_from_json(input_example, schema=input_schema)
     if example_type in ["sparse_matrix_csc", "sparse_matrix_csr"]:
-        return _read_sparse_matrix_from_json(path, example_type)
-    return dataframe_from_raw_json(path, schema=input_schema)
+        return _read_sparse_matrix_from_json(input_example, example_type)
+    return dataframe_from_parsed_json(input_example, pandas_orient="split", schema=input_schema)
 
 
 def _read_example_params(mlflow_model: Model, path: str):
@@ -326,29 +345,30 @@ def _read_example_params(mlflow_model: Model, path: str):
     Read params of input_example from a model directory. Returns None if there is no params
     in the input_example or the model was saved without example.
     """
-    if mlflow_model.saved_input_example_info is None:
+    if (
+        mlflow_model.saved_input_example_info is None
+        or mlflow_model.saved_input_example_info.get(EXAMPLE_PARAMS_KEY, None) is None
+    ):
         return None
-    path = os.path.join(path, mlflow_model.saved_input_example_info[EXAMPLE_PARAMS_PATH])
-    if not os.path.exists(path):
-        return None
-    with open(path) as f:
-        try:
-            return json.load(f)
-        except json.JSONDecodeError as e:
-            raise MlflowException(
-                "Failed to decode example params. Please make sure the params are valid JSON."
-            ) from e
+    input_example_dict = _get_mlflow_model_input_example_dict(mlflow_model, path)
+    return input_example_dict[EXAMPLE_PARAMS_KEY]
 
 
-def _read_tensor_input_from_json(path, schema=None):
-    with open(path) as handle:
-        inp_dict = json.load(handle)
+def _read_tensor_input_from_json(path_or_data, schema=None):
+    if isinstance(path_or_data, str) and os.path.exists(path_or_data):
+        with open(path_or_data) as handle:
+            inp_dict = json.load(handle)
+    else:
+        inp_dict = path_or_data
     return parse_tf_serving_input(inp_dict, schema)
 
 
-def _read_sparse_matrix_from_json(path, example_type):
-    with open(path) as handle:
-        matrix_data = json.load(handle)
+def _read_sparse_matrix_from_json(path_or_data, example_type):
+    if isinstance(path_or_data, str) and os.path.exists(path_or_data):
+        with open(path_or_data) as handle:
+            matrix_data = json.load(handle)
+    else:
+        matrix_data = path_or_data
     data = matrix_data["data"]
     indices = matrix_data["indices"]
     indptr = matrix_data["indptr"]
