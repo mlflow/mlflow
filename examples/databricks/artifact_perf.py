@@ -30,6 +30,7 @@ def show_system_info():
             "MPD enabled": MLFLOW_ENABLE_MULTIPART_UPLOAD.get(),
             "CPU count": psutil.cpu_count(),
             "Memory total [GiB]": svmem.total // GiB,
+            "Memory used [GiB]": svmem.used // GiB,
             "Memory available [GiB]": svmem.available // GiB,
         },
         indent=2,
@@ -48,35 +49,37 @@ def md5_checksum(path):
     return file_hash.hexdigest()
 
 
-def run_benchmark(file_size, num_files):
+def upload_and_download(file_size, num_files):
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = pathlib.Path(tmpdir)
         src_dir = tmpdir / "src"
+        src_dir.mkdir()
         files = {}
         for _ in range(num_files):
             name = str(uuid.uuid4())
-            f = tmpdir / name
+            f = src_dir / name
             f.write_bytes(os.urandom(file_size))
             files[name] = f
 
         # Upload
         with mlflow.start_run() as run:
             with Timer() as t_upload:
-                mlflow.log_artifacts(src_dir)
+                mlflow.log_artifacts(str(src_dir))
 
         # Download
         dst_dir = tmpdir / "dst"
         with Timer() as t_download:
             mlflow.artifacts.download_artifacts(
-                artifact_uri=run.info.artifact_uri, dst_path=dst_dir
+                artifact_uri=run.info.artifact_uri + "/", dst_path=dst_dir
             )
 
+        # Verify checksums
         for f in dst_dir.rglob("*"):
             if f.is_dir():
                 continue
             assert md5_checksum(f) == md5_checksum(files[f.name])
 
-        return t_upload, t_download
+        return t_upload.elapsed, t_download.elapsed
 
 
 def main():
@@ -86,17 +89,18 @@ def main():
     # mlflow.set_experiment("/Users/<username>/benchmark")
 
     FILE_SIZE = 1 * GiB
-    NUM_FILES = 3
+    NUM_FILES = 2
     NUM_ATTEMPTS = 3
 
     show_system_info()
     stats = []
     for i in range(NUM_ATTEMPTS):
-        print(f"{i + 1} / {NUM_ATTEMPTS}")
-        stats.append(run_benchmark(FILE_SIZE, NUM_FILES))
+        print(f"Running {i + 1} / {NUM_ATTEMPTS}")
+        stats.append(upload_and_download(FILE_SIZE, NUM_FILES))
 
-    df = pd.DataFrame(stats, columns=["upload", "download"])
-    print(df.describe().to_markdown())
+    df = pd.DataFrame(stats, columns=["upload [s]", "download [s]"])
+    # show mean, std, min, max in markdown table
+    print(df.describe(percentiles=[]).to_markdown())
 
 
 if __name__ == "__main__":
