@@ -15,9 +15,9 @@ create_default_conda_env_if_absent <- function(
 
     basename(conda_env)
   } else { # create default conda environment
-    conda_env_file_name <- "conda_env.yaml"
+    conda_env_file_name <- "conda.yaml"
     create_conda_env(
-      name = "conda_env",
+      name = "mlflow-env",
       path = file.path(model_path, conda_env_file_name),
       conda_deps = default_conda_deps,
       pip_deps = default_pip_deps
