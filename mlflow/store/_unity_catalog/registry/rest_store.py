@@ -744,3 +744,6 @@ class UcModelRegistryStore(BaseRestStore):
         req_body = message_to_json(GetModelVersionByAliasRequest(name=full_name, alias=alias))
         response_proto = self._call_endpoint(GetModelVersionByAliasRequest, req_body)
         return model_version_from_uc_proto(response_proto.model_version)
+
+    def _await_model_version_creation(self, mv, await_creation_for):
+        pass

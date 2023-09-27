@@ -904,3 +904,6 @@ class FileStore(AbstractStore):
                 return _read_helper(root, file_name, attempts_remaining - 1)
 
         return _read_helper(root, file_name, attempts_remaining=retries)
+
+    def _await_model_version_creation(self, mv, await_creation_for):
+        pass
