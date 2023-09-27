@@ -190,7 +190,6 @@ Model aliases allow you to assign a mutable, named reference to a particular ver
 
 Tags are key-value pairs that you associate with registered models and model versions, allowing you to label and categorize them by function or status. For example, you could apply a tag with key ``"task"`` and value ``"question-answering"`` (displayed in the UI as ``task:question-answering``) to registered models intended for question answering tasks. At the model version level, you could tag versions undergoing pre-deployment validation with ``validation_status:pending`` and those cleared for deployment with ``validation_status:approved``.
 
-See the following sections for how to use aliases and tags.
 
 **Set and delete aliases on models**
 
