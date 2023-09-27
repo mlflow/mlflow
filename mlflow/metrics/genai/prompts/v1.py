@@ -203,3 +203,5 @@ class RelevanceMetric:
             "models."
         },
     )
+
+    default_examples = [example_score_2, example_score_4]

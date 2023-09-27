@@ -108,7 +108,7 @@ def relevance(
         ) from None
 
     if examples is None:
-        examples = []
+        examples = relevance_class_module.default_examples
     if model is None:
         model = relevance_class_module.default_model
 
