@@ -6,7 +6,6 @@ import pandas as pd
 import pyspark
 import pytest
 from packaging.version import Version
-import pyspark
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as spark_f
 from pyspark.sql.types import LongType
@@ -27,9 +26,8 @@ from tests.spark.test_spark_model_export import (
 
 
 def _get_spark_connect_session():
-    builder = (
-        SparkSession.builder.remote("local[2]")
-        .config("spark.connect.copyFromLocalToFs.allowDestLocal", "true")
+    builder = SparkSession.builder.remote("local[2]").config(
+        "spark.connect.copyFromLocalToFs.allowDestLocal", "true"
     )
     if not Version(pyspark.__version__).is_devrelease:
         builder.config(
