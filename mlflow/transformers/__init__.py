@@ -1314,13 +1314,18 @@ def _format_input_example_for_special_cases(input_example, pipeline):
     """
     import transformers
 
+    if isinstance(input_example, tuple):
+        input_data = input_example[0]
+    else:
+        input_data = input_example
+
     if (
         isinstance(pipeline, transformers.ZeroShotClassificationPipeline)
-        and isinstance(input_example, dict)
-        and isinstance(input_example["candidate_labels"], list)
+        and isinstance(input_data, dict)
+        and isinstance(input_data["candidate_labels"], list)
     ):
-        input_example["candidate_labels"] = json.dumps(input_example["candidate_labels"])
-    return input_example
+        input_data["candidate_labels"] = json.dumps(input_data["candidate_labels"])
+    return input_data if not isinstance(input_example, tuple) else (input_data, input_example[1])
 
 
 def _get_default_pipeline_signature(
