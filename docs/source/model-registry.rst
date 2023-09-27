@@ -78,7 +78,7 @@ After you've registered your models in the Model Registry, you can navigate to t
 
   .. figure:: _static/images/oss_registry_3b_version.png
 
-Manage Models with Aliases and Tags
+Deploy and organize models with aliases and tags
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Model aliases and tags help you deploy and organize your models in the Model Registry (learn more about them :ref:`here<using-registered-model-aliases>`). To set aliases and tags for model versions in your registered model, navigate to the overview page of your registered model, such as the one below.
