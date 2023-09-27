@@ -10,7 +10,7 @@ from typing import List, Optional
 
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import NVARCHAR, and_, cast, sql, text
+from sqlalchemy import and_, sql, text
 from sqlalchemy.future import select
 
 import mlflow.store.db.utils
@@ -1032,10 +1032,7 @@ class SqlAlchemyStore(AbstractStore):
                     session=session,
                     run_uuid=run_id,
                     key=param.key,
-                    # This is to fix error in sqlalchemy<2.0:
-                    # [ODBC Driver 17 for SQL Server][SQL Server]The data types varchar
-                    # and ntext are incompatible in the equal to operator
-                    value=cast(param.value, NVARCHAR),
+                    value=param.value,
                 )
                 # Explicitly commit the session in order to catch potential integrity errors
                 # while maintaining the current managed session scope ("commit" checks that
