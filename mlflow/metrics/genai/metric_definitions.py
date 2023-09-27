@@ -16,9 +16,8 @@ def correctness(
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the correctness of an LLM using the
-    model provided. Correctness will be assessed by whether answers align exactly with ground truth
-    for questions requiring precise responses, and by the similarity in meaning and description to
-    the ground truth for questions allowing varied descriptions.
+    model provided. Correctness will be assessed by the similarity in meaning and description to
+    the ground truth.
 
     The ground_truth variable must be provided as part of the input dataset or output predictions.
     This can be mapped to a column of a different name using the evaluator_config.
