@@ -202,8 +202,8 @@ To set, update, and delete aliases using the MLflow Client API, see the examples
 
     client = MlflowClient()
 
-    # create "Champion" alias for version 1 of model "example-model"
-    client.set_registered_model_alias("example-model", "Champion", 1)
+    # create "champion" alias for version 1 of model "example-model"
+    client.set_registered_model_alias("example-model", "champion", 1)
 
     # reassign the "Champion" alias to version 2
     client.set_registered_model_alias("example-model", "Champion", 2)
