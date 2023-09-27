@@ -178,9 +178,8 @@ class ModelRegistryClient:
         :param run_link: Link to the run from an MLflow tracking server that generated this model.
         :param description: Description of the version.
         :param await_creation_for: Number of seconds to wait for the model version to finish being
-                                    created and is in ``READY`` status when using remote model
-                                    registry servers. By default, the function waits for five
-                                    minutes. Specify 0 or None to skip waiting.
+                                    created and is in ``READY`` status. By default, the function
+                                    waits for five minutes. Specify 0 or None to skip waiting.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
         """
