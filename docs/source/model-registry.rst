@@ -28,7 +28,10 @@ Model Version
     Each registered model can have one or many versions. When a new model is added to the Model Registry, it is added as version 1. Each new model registered to the same model name increments the version number.
 
 Model Alias
-    You can create an alias for a registered model that points to a specific model version. You can then use an alias to refer to a specific model version via a model URI or the model registry API. For example, you can create an alias named ``champion`` that points to version 1 of a model named ``MyModel``. You can then refer to version 1 of ``MyModel`` by using the URI ``models:/MyModel@champion``.
+    Model aliases allow you to assign a mutable, named reference to a particular version of a registered model. By assigning an alias to a specific model version, you can use the alias to refer that model version via a model URI or the model registry API. For example, you can create an alias named ``champion`` that points to version 1 of a model named ``MyModel``. You can then refer to version 1 of ``MyModel`` by using the URI ``models:/MyModel@champion``.
+
+Tags
+    Tags are key-value pairs that you associate with registered models and model versions. You can use tags to label and categorize models in the Model Registry by function or status.
 
 Annotations and Descriptions
     You can annotate the top-level model and each version individually using Markdown, including description and any relevant information useful for the team such as algorithm descriptions, dataset employed or methodology.
@@ -53,7 +56,7 @@ This section demonstrates how to use the MLflow Model Registry UI to manage your
 Register a Model
 ^^^^^^^^^^^^^^^^
 
-Follow the steps below to register your MLflow model in the MLflow Model Registry.
+Follow the steps below to register your MLflow model in the Model Registry.
 
 1. Open the details page for the MLflow Run containing the logged MLflow model you'd like to register. Select the model folder containing the intended MLflow model in the **Artifacts** section.
 
@@ -78,10 +81,10 @@ After you've registered your models in the Model Registry, you can navigate to t
 
   .. figure:: _static/images/oss_registry_3b_version.png
 
-Deploy and organize models with aliases and tags
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Deploy and Organize Models
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Model aliases and tags help you deploy and organize your models in the Model Registry (learn more about them :ref:`here<using-registered-model-aliases>`). To set aliases and tags for model versions in your registered model, navigate to the overview page of your registered model, such as the one below.
+You can deploy and organize your models in the Model Registry using model aliases and tags (learn more about them :ref:`here<using-registered-model-aliases>`). To set aliases and tags for model versions in your registered model, navigate to the overview page of your registered model, such as the one below.
 
 .. figure:: _static/images/oss_registry_4_model.png
 
@@ -184,7 +187,7 @@ as shown below to create a new version of the model.
 Deploy and Organize Models with Aliases and Tags
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Model aliases and tags help you organize and manage models in the MLflow Model Registry.
+Model aliases and tags help you deploy and organize your models in the Model Registry.
 
 Model aliases allow you to assign a mutable, named reference to a particular version of a registered model. You can use aliases to indicate the deployment status of a model version. For example, you could assign a ``champion`` alias to the model version currently in production and target this alias in workloads that use the production model. You can then update the production model by reassigning the ``champion`` alias to a different model version.
 
@@ -274,7 +277,7 @@ To fetch a model version by alias, specify the model alias in the model URI, and
 
     champion_version.predict(data)
 
-Note that model alias assignments can be updated independently of your production code. If the ``champion`` alias in the snippet above is reassigned to a new model version in the model registry, the next execution of this snippet will automatically pick up the new model version. This allows you to decouple model deployments from your inference workloads.
+Note that model alias assignments can be updated independently of your production code. If the ``champion`` alias in the snippet above is reassigned to a new model version in the Model Registry, the next execution of this snippet will automatically pick up the new model version. This allows you to decouple model deployments from your inference workloads.
 
 **Fetch the latest model version in a specific stage**
 
