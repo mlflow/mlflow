@@ -2,10 +2,13 @@ from mlflow.metrics.base import (
     EvaluationExample,
     MetricValue,
 )
-from mlflow.metrics.utils import (
+from mlflow.metrics.genai import (
     make_genai_metric,
 )
-from mlflow.metrics.utils.metric_definitions import (
+from mlflow.metrics.genai.metric_definitions import (
+    correctness,
+)
+from mlflow.metrics.metric_definitions import (
     _accuracy_eval_fn,
     _ari_eval_fn,
     _flesch_kincaid_eval_fn,
@@ -206,4 +209,5 @@ __all__ = [
     "rougeLsum",
     "toxicity",
     "make_genai_metric",
+    "correctness",
 ]
