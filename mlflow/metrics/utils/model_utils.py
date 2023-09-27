@@ -1,3 +1,4 @@
+import json
 import os
 import urllib.parse
 
@@ -61,7 +62,7 @@ def _call_openai_api(openai_uri, payload):
     )
     openai_provider = OpenAIProvider(route_config)
 
-    return openai_provider.sync_completions(payload).json()
+    return json.loads(openai_provider.sync_completions(payload).json())
 
 
 def _call_gateway_api(gateway_uri, payload):
