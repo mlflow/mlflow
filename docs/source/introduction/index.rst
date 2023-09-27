@@ -119,8 +119,10 @@ You'll find more in the respective sections within the documentation.
 
 Learning Journey
 ^^^^^^^^^^^^^^^^
-Below is a list of a select group of tutorials and guides. To see more of the tutorials available, visit :doc:`../tutorials/index`
-for the full listing.
+Below is a list of a select group of tutorials and guides.
+
+To see more of the tutorials available, visit :doc:`../tutorials/index` for the full listing.
+To see the full listing of guides, visit :doc:`../guides/index`.
 
 .. container:: boxes-wrapper
 
@@ -128,17 +130,14 @@ for the full listing.
 
         **Introductory Tutorials**
 
-        * :doc:`../tutorials/introductory/logging-first-model/index`
+        * :doc:`../tutorials/introductory/logging-first-model/index` 🎉 **new!** 🎉
         * Navigating the MLflow UI 🚧
         * Serving your first model 🚧
         * Comparing runs in the UI 🚧
-        * Prompt Engineering with PromptLab 🎉 **new!** 🎉
-
-
+        * Prompt Engineering with PromptLab 🚧
 
         **Expert Tutorials**
 
-        * Using nested runs for hyperparameter optimization 🚧
         * Packaging custom code with a model 🚧
         * Batch inference with Apache Spark 🚧
 
@@ -146,11 +145,13 @@ for the full listing.
 
         **Introductory Guides**
 
-        - Using the MLflow AI Gateway 🚧
-        - Creating a custom pyfunc 🚧
+        * :doc:`../guides/introductory/hyperparameter-tuning-with-child-runs/index` 🎉 **new!** 🎉
+        * :doc:`../guides/introductory/deploy-model-to-kubernetes/index`
+        * Using the MLflow AI Gateway 🚧
+        * Creating a custom pyfunc 🚧
 
         **Expert Guides**
 
-        - MLflow server deployment options 🚧
-        - Creating plugins 🚧
-        - Creating a custom flavor 🚧
+        * MLflow server deployment options 🚧
+        * Creating plugins 🚧
+        * Creating a custom flavor 🚧
