@@ -275,7 +275,7 @@ To fetch a model version by alias, specify the model alias in the model URI, and
 
     champion_version.predict(data)
 
-Note that model alias assignments can be updated independently of your production code. So if the ``champion`` alias in the snippet above is reassigned to a new model version in the model registry, the next execution of this snippet will automatically pick up the new model version. This allows you to decouple model deployments from your inference workloads.
+Note that model alias assignments can be updated independently of your production code. If the ``champion`` alias in the snippet above is reassigned to a new model version in the model registry, the next execution of this snippet will automatically pick up the new model version. This allows you to decouple model deployments from your inference workloads.
 
 **Fetch the latest model version in a specific stage**
 
