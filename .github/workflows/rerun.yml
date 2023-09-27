@@ -10,11 +10,16 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   set-matrix:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: github.repository == 'mlflow-automation/mlflow'
+    permissions:
+      actions: write # to rerun workflows
     steps:
       - uses: actions/checkout@v3
       - uses: actions/github-script@v6

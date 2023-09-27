@@ -7,7 +7,6 @@ import os
 import pickle
 import sys
 from pathlib import Path
-from threading import Thread
 from unittest.mock import patch
 
 import numpy as np
@@ -19,9 +18,11 @@ from tensorflow.keras import layers
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.tensorflow._autolog import __MLflowTfKeras2Callback, _TensorBoard
+from mlflow.tensorflow.callback import MLflowCallback
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
@@ -404,8 +405,6 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert "opt_name" in data.params
     assert data.params["opt_name"] == "Adam"
     assert "opt_learning_rate" in data.params
-    decay_opt = "opt_weight_decay" if Version(tf.__version__) >= Version("2.11") else "opt_decay"
-    assert decay_opt in data.params
     assert "opt_beta_1" in data.params
     assert "opt_beta_2" in data.params
     assert "opt_epsilon" in data.params
@@ -1004,39 +1003,6 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
         assert not os.path.exists(mock_log_dir_inst.location)
 
 
-def test_flush_queue_is_thread_safe():
-    """
-    Autologging augments TensorBoard event logging hooks with MLflow `log_metric` API
-    calls. To prevent these API calls from blocking TensorBoard event logs, `log_metric`
-    API calls are scheduled via `_flush_queue` on a background thread. Accordingly, this test
-    verifies that `_flush_queue` is thread safe.
-    """
-    from mlflow.entities import Metric
-    from mlflow.tensorflow import _flush_queue, _metric_queue_lock
-
-    client = MlflowClient()
-    run = client.create_run(experiment_id="0")
-    metric_queue_item = (run.info.run_id, Metric("foo", 0.1, 100, 1))
-    mlflow.tensorflow._metric_queue.append(metric_queue_item)
-
-    # Verify that, if another thread holds a lock on the metric queue leveraged by
-    # _flush_queue, _flush_queue terminates and does not modify the queue
-    _metric_queue_lock.acquire()
-    flush_thread1 = Thread(target=_flush_queue)
-    flush_thread1.start()
-    flush_thread1.join()
-    assert len(mlflow.tensorflow._metric_queue) == 1
-    assert mlflow.tensorflow._metric_queue[0] == metric_queue_item
-    _metric_queue_lock.release()
-
-    # Verify that, if no other thread holds a lock on the metric queue leveraged by
-    # _flush_queue, _flush_queue flushes the queue as expected
-    flush_thread2 = Thread(target=_flush_queue)
-    flush_thread2.start()
-    flush_thread2.join()
-    assert len(mlflow.tensorflow._metric_queue) == 0
-
-
 def get_text_vec_model(train_samples):
     # Taken from: https://github.com/mlflow/mlflow/issues/3910
 
@@ -1403,3 +1369,12 @@ def test_import_keras_model_trigger_import_tensorflow():
             "from keras import Model; import sys; assert 'tensorflow' in sys.modules",
         ]
     )
+
+
+def test_autolog_throw_error_on_explicit_mlflow_callback(keras_data_gen_sequence):
+    mlflow.tensorflow.autolog()
+
+    model = create_tf_keras_model()
+    with mlflow.start_run() as run:
+        with pytest.raises(MlflowException, match="MLflow autologging must be turned off*"):
+            model.fit(keras_data_gen_sequence, callbacks=[MLflowCallback(run)])

@@ -390,3 +390,53 @@ def unsupported_mosaic_chat_model_config():
 def test_unsupported_model_name_raises_in_chat_parsing_route_configuration():
     with pytest.raises(MlflowException, match="An invalid model has been specified"):
         RouteConfig(**unsupported_mosaic_chat_model_config())
+
+
+@pytest.mark.asyncio
+async def test_completions_raises_with_invalid_max_tokens_too_large():
+    config = completions_config()
+    error_msg = {
+        "message": "Error: prompt token count (29) + max output tokens (4085) cannot "
+        "exceed 4096. Please reduce the length of your prompt and/or max "
+        "output tokens generated.\n"
+    }
+    resp = {
+        "message": error_msg["message"],
+    }
+
+    with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp, status=500)):
+        provider = MosaicMLProvider(RouteConfig(**config))
+        payload = {
+            "prompt": "How many puffins can fit on the flight deck of a Nimitz class "
+            "aircraft carrier?",
+            "max_tokens": 4080,
+        }
+        with pytest.raises(HTTPException, match=r".*") as e:
+            await provider.completions(completions.RequestPayload(**payload))
+        assert error_msg == e.value.detail
+        assert e.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_chat_raises_with_invalid_max_tokens_too_large():
+    config = chat_config()
+    error_msg = {
+        "message": "Error: max output tokens is limited to 4096 but 5000 was requested. "
+        "Please use a lower token count.\n"
+    }
+    resp = {
+        "message": error_msg["message"],
+    }
+    with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp, status=500)):
+        provider = MosaicMLProvider(RouteConfig(**config))
+        payload = {
+            "messages": [
+                {"role": "system", "content": "You're an astronaut."},
+                {"role": "user", "content": "When do you go to space next?"},
+            ],
+            "max_tokens": 5000,
+        }
+        with pytest.raises(HTTPException, match=r".*") as e:
+            await provider.chat(chat.RequestPayload(**payload))
+        assert error_msg == e.value.detail
+        assert e.value.status_code == 422

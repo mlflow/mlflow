@@ -4,12 +4,14 @@ MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` mo
 """
 import atexit
 import contextlib
+import importlib
 import inspect
 import logging
 import os
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
+import mlflow  # noqa: F401
 from mlflow.data.dataset import Dataset
 from mlflow.entities import (
     DatasetInput,
@@ -24,6 +26,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import (
+    MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_RUN_ID,
@@ -69,6 +72,7 @@ if TYPE_CHECKING:
     import plotly
 
 _active_run_stack = []
+run_id_to_system_metrics_monitor = {}
 _active_experiment_id = None
 _last_active_run_id = None
 
@@ -191,6 +195,7 @@ def start_run(
     nested: bool = False,
     tags: Optional[Dict[str, Any]] = None,
     description: Optional[str] = None,
+    log_system_metrics: Optional[bool] = None,
 ) -> ActiveRun:
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
@@ -207,27 +212,31 @@ def start_run(
     :ref:`MLflow system tags <system_tags>`.
 
     :param run_id: If specified, get the run with the specified UUID and log parameters
-                     and metrics under that run. The run's end time is unset and its status
-                     is set to running, but the run's other attributes (``source_version``,
-                     ``source_type``, etc.) are not changed.
+        and metrics under that run. The run's end time is unset and its status
+        is set to running, but the run's other attributes (``source_version``,
+        ``source_type``, etc.) are not changed.
     :param experiment_id: ID of the experiment under which to create the current run (applicable
-                          only when ``run_id`` is not specified). If ``experiment_id`` argument
-                          is unspecified, will look for valid experiment in the following order:
-                          activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_NAME``
-                          environment variable, ``MLFLOW_EXPERIMENT_ID`` environment variable,
-                          or the default experiment as defined by the tracking server.
-    :param run_name: Name of new run.
-                     Used only when ``run_id`` is unspecified. If a new run is created and
-                     ``run_name`` is not specified, a unique name will be generated for the run.
+        only when ``run_id`` is not specified). If ``experiment_id`` argument
+        is unspecified, will look for valid experiment in the following order:
+        activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_NAME``
+        environment variable, ``MLFLOW_EXPERIMENT_ID`` environment variable,
+        or the default experiment as defined by the tracking server.
+    :param run_name: Name of new run. Used only when ``run_id`` is unspecified. If a new run is
+        created and ``run_name`` is not specified, a unique name will be generated for the run.
     :param nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
     :param tags: An optional dictionary of string keys and values to set as tags on the run.
-                 If a run is being resumed, these tags are set on the resumed run. If a new run is
-                 being created, these tags are set on the new run.
+        If a run is being resumed, these tags are set on the resumed run. If a new run is
+        being created, these tags are set on the new run.
     :param description: An optional string that populates the description box of the run.
-                        If a run is being resumed, the description is set on the resumed run.
-                        If a new run is being created, the description is set on the new run.
-    :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
-             the run's state.
+        If a run is being resumed, the description is set on the resumed run.
+        If a new run is being created, the description is set on the new run.
+    :param log_system_metrics: bool, defaults to None. If True, system metrics will be logged
+        to MLflow, e.g., cpu/gpu utilization. If None, we will check environment variable
+        `MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL` to determine whether to log system metrics.
+        System metrics logging is an experimental feature in MLflow 2.8 and subject to change.
+
+    :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping the
+        run's state.
 
     .. testcode:: python
         :caption: Example
@@ -312,12 +321,12 @@ def start_run(
                 "or --experiment-id matches experiment set with "
                 "set_experiment(), or just use command-line arguments"
             )
-        # Check to see if current run isn't deleted
+        # Check if the current run has been deleted.
         if active_run_obj.info.lifecycle_stage == LifecycleStage.DELETED:
             raise MlflowException(
                 f"Cannot start run with ID {existing_run_id} because it is in the deleted state."
             )
-        # Use previous end_time because a value is required for update_run_info
+        # Use previous `end_time` because a value is required for `update_run_info`.
         end_time = active_run_obj.info.end_time
         _get_store().update_run_info(
             existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time, run_name=None
@@ -363,8 +372,24 @@ def start_run(
         resolved_tags = context_registry.resolve_tags(user_specified_tags)
 
         active_run_obj = client.create_run(
-            experiment_id=exp_id_for_run, tags=resolved_tags, run_name=run_name
+            experiment_id=exp_id_for_run,
+            tags=resolved_tags,
+            run_name=run_name,
         )
+        if log_system_metrics is None:
+            # if `log_system_metrics` is not specified, we will check environment variable.
+            log_system_metrics = MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING.get()
+        if log_system_metrics:
+            try:
+                from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
+
+                system_monitor = SystemMetricsMonitor(active_run_obj.info.run_id)
+                global run_id_to_system_metrics_monitor
+
+                run_id_to_system_metrics_monitor[active_run_obj.info.run_id] = system_monitor
+                system_monitor.start()
+            except Exception as e:
+                _logger.error(f"Failed to start system metrics monitoring: {e}.")
 
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
@@ -400,13 +425,16 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
         --
         Active run: None
     """
-    global _active_run_stack, _last_active_run_id
+    global _active_run_stack, _last_active_run_id, run_id_to_system_metrics_monitor
     if len(_active_run_stack) > 0:
         # Clear out the global existing run environment variable as well.
         MLFLOW_RUN_ID.unset()
         run = _active_run_stack.pop()
-        MlflowClient().set_terminated(run.info.run_id, status)
         _last_active_run_id = run.info.run_id
+        MlflowClient().set_terminated(_last_active_run_id, status)
+        if _last_active_run_id in run_id_to_system_metrics_monitor:
+            system_metrics_monitor = run_id_to_system_metrics_monitor.pop(_last_active_run_id)
+            system_metrics_monitor.finish()
 
 
 def _safe_end_run():
@@ -1933,39 +1961,27 @@ def autolog(
         tags: {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
                'estimator_name': 'LinearRegression'}
     """
-    from mlflow import (
-        fastai,
-        gluon,
-        lightgbm,
-        pyspark,
-        pytorch,
-        sklearn,
-        spark,
-        statsmodels,
-        tensorflow,
-        transformers,
-        xgboost,
-    )
-
     locals_copy = locals().items()
 
-    # Mapping of library module name to specific autolog function
+    # Mapping of library name to specific autolog function name. We use string like
+    # "tensorflow.autolog" to avoid loading all flavor modules, so we only set autologging for
+    # compatible modules.
     # eg: mxnet.gluon is the actual library, mlflow.gluon.autolog is our autolog function for it
-    LIBRARY_TO_AUTOLOG_FN = {
-        "tensorflow": tensorflow.autolog,
-        "mxnet.gluon": gluon.autolog,
-        "xgboost": xgboost.autolog,
-        "lightgbm": lightgbm.autolog,
-        "statsmodels": statsmodels.autolog,
-        "sklearn": sklearn.autolog,
-        "fastai": fastai.autolog,
-        "pyspark": spark.autolog,
-        "pyspark.ml": pyspark.ml.autolog,
+    LIBRARY_TO_AUTOLOG_MODULE = {
+        "tensorflow": "mlflow.tensorflow",
+        "mxnet.gluon": "mlflow.gluon",
+        "xgboost": "mlflow.xgboost",
+        "lightgbm": "mlflow.lightgbm",
+        "statsmodels": "mlflow.statsmodels",
+        "sklearn": "mlflow.sklearn",
+        "fastai": "mlflow.fastai",
+        "pyspark": "mlflow.spark",
+        "pyspark.ml": "mlflow.pyspark.ml",
         # TODO: Broaden this beyond pytorch_lightning as we add autologging support for more
         # Pytorch frameworks under mlflow.pytorch.autolog
-        "pytorch_lightning": pytorch.autolog,
-        "setfit": transformers.autolog,
-        "transformers": transformers.autolog,
+        "pytorch_lightning": "mlflow.pytorch",
+        "setfit": "mlflow.transformers",
+        "transformers": "mlflow.transformers",
     }
 
     def get_autologging_params(autolog_fn):
@@ -1977,8 +1993,9 @@ def autolog(
 
     def setup_autologging(module):
         try:
-            autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
-
+            autologging_params = None
+            autolog_module = importlib.import_module(LIBRARY_TO_AUTOLOG_MODULE[module.__name__])
+            autolog_fn = autolog_module.autolog
             # Only call integration's autolog function with `mlflow.autolog` configs
             # if the integration's autolog function has not already been called by the user.
             # Logic is as follows:
@@ -2010,7 +2027,7 @@ def autolog(
                 # Raise unexpected exceptions in test mode in order to detect
                 # errors within dependent autologging integrations
                 raise
-            elif not autologging_params.get("silent", False):
+            elif autologging_params is None or not autologging_params.get("silent", False):
                 _logger.warning(
                     "Exception raised while enabling autologging for %s: %s",
                     module.__name__,
@@ -2020,7 +2037,7 @@ def autolog(
     # for each autolog library (except pyspark), register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.
     # the post-import hook also retroactively activates for previously-imported libraries.
-    for module in list(set(LIBRARY_TO_AUTOLOG_FN.keys()) - {"pyspark", "pyspark.ml"}):
+    for module in list(set(LIBRARY_TO_AUTOLOG_MODULE.keys()) - {"pyspark", "pyspark.ml"}):
         register_post_import_hook(setup_autologging, module, overwrite=True)
 
     if is_in_databricks_runtime():
