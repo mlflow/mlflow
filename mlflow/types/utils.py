@@ -69,6 +69,15 @@ def clean_tensor_type(dtype: np.dtype):
     return dtype
 
 
+def _get_str_or_byte_type(data):
+    if isinstance(data, (np.ndarray, list)):
+        data = data[0]
+    if DataType.is_string(data):
+        return DataType.string
+    elif DataType.is_binary(data):
+        return DataType.binary
+
+
 def _infer_schema(data: Any) -> Schema:
     """
     Infer an MLflow schema from a dataset.
@@ -142,7 +151,9 @@ def _infer_schema(data: Any) -> Schema:
         )
     elif isinstance(data, dict):
         _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data)
-        schema = Schema([ColSpec(type=DataType.string, name=name) for name in data.keys()])
+        schema = Schema(
+            [ColSpec(type=_get_str_or_byte_type(value), name=name) for name, value in data.items()]
+        )
     elif isinstance(data, str):
         schema = Schema([ColSpec(type=DataType.string)])
     elif isinstance(data, bytes):

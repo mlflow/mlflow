@@ -236,7 +236,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE, MLMODEL_FILE_NAME
-from mlflow.models.signature import _infer_signature_from_type_hints
+from mlflow.models.signature import (
+    _infer_signature_from_input_example,
+    _infer_signature_from_type_hints,
+)
 from mlflow.models.utils import (
     PyFuncInput,
     PyFuncOutput,
@@ -253,6 +256,7 @@ from mlflow.pyfunc.model import (
     PythonModel,
     PythonModelContext,  # noqa: F401
     _log_warning_if_params_not_in_predict_signature,
+    _PythonModelPyfuncWrapper,
     get_default_conda_env,  # noqa: F401
     get_default_pip_requirements,
 )
@@ -1821,6 +1825,13 @@ def save_model(
                 input_example=input_example,
             ):
                 mlflow_model.signature = signature
+            elif input_example is not None:
+                try:
+                    mlflow_model.signature = _infer_signature_from_input_example(
+                        input_example, _PythonModelPyfuncWrapper(python_model, None, None)
+                    )
+                except Exception as e:
+                    _logger.warning(f"Failed to infer model signature from input example. {e}")
 
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
