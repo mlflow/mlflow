@@ -333,7 +333,8 @@ spark:
         cat $SAGEMAKER_OUT;
         exit 1
       fi
-      pytest tests/spark --ignore tests/spark/autologging
+      pytest tests/spark --ignore tests/spark/autologging --ignore tests/spark/test_spark_connect_model_export.py
+      pytest tests/spark/test_spark_connect_model_export.py
 
   autologging:
     minimum: "3.0.0"
