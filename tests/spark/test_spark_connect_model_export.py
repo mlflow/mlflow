@@ -6,6 +6,7 @@ import pandas as pd
 import pyspark
 import pytest
 from packaging.version import Version
+import pyspark
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as spark_f
 from pyspark.sql.types import LongType
@@ -29,11 +30,15 @@ if Version(pyspark.__version__) < Version("3.5"):
 
 
 def _get_spark_connect_session():
-    return (
+    builder = (
         SparkSession.builder.remote("local[2]")
         .config("spark.connect.copyFromLocalToFs.allowDestLocal", "true")
-        .getOrCreate()
     )
+    if not Version(pyspark.__version__).is_devrelease:
+        builder.config(
+            "spark.jars.packages", f"org.apache.spark:spark-connect_2.12:{pyspark.__version__}"
+        )
+    return builder.getOrCreate()
 
 
 @pytest.fixture
@@ -55,6 +60,7 @@ def score_model_as_udf(model_uri, pandas_df, result_type):
 def spark():
     spark = _get_spark_connect_session()
     yield spark
+    os.environ.pop("SPARK_REMOTE", None)
     spark.stop()
 
 
