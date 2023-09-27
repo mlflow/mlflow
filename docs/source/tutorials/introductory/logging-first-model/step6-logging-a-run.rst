@@ -136,7 +136,9 @@ an annotated version of the code.
             y = data["demand"]
 
             # Split the data into training and validation sets
-            X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+            X_train, X_val, y_train, y_val = train_test_split(
+                X, y, test_size=0.2, random_state=42
+            )
 
             params = {
                 "n_estimators": 100,
@@ -145,12 +147,11 @@ an annotated version of the code.
                 "min_samples_leaf": 4,
                 "bootstrap": True,
                 "oob_score": False,
-                "random_state": 888
+                "random_state": 888,
             }
 
             # Train the RandomForestRegressor
             rf = RandomForestRegressor(**params)
-
 
             # Fit the model on the training data
             rf.fit(X_train, y_train)
@@ -165,12 +166,7 @@ an annotated version of the code.
             r2 = r2_score(y_val, y_pred)
 
             # Assemble the metrics we're going to write into a collection
-            metrics = {
-                "mae": mae,
-                "mse": mse,
-                "rmse": rmse,
-                "r2": r2
-            }
+            metrics = {"mae": mae, "mse": mse, "rmse": rmse, "r2": r2}
 
             # Log the parameters used for the model fit
             mlflow.log_params(params)
@@ -180,9 +176,7 @@ an annotated version of the code.
 
             # Log an instance of the trained model for later use
             mlflow.sklearn.log_model(
-                sk_model=rf,
-                input_example=X_val,
-                artifact_path=artifact_path
+                sk_model=rf, input_example=X_val, artifact_path=artifact_path
             )
 
 

@@ -22,6 +22,7 @@ experience.
 
     <div class="grid-container">
         <a href="introductory/deploy-model-to-kubernetes/index.html" class="button default" style="background-image: url('../_static/images/guides/introductory/deploy-model-to-kubernetes/k8s-logo.svg');"><span>Deploy model to Kubernetes</span></a>
+        <a href="introductory/hyperparameter-tuning-with-child-runs/index.html" class="button default" style="background-image: url('../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/run-comparison-main.png');"><span>Hyperparameter tuning with Child runs</span></a>
     </div>
 
 .. toctree::
@@ -29,3 +30,4 @@ experience.
     :hidden:
 
     introductory/deploy-model-to-kubernetes/index
+    introductory/hyperparameter-tuning-with-child-runs/index
