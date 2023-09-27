@@ -334,7 +334,10 @@ spark:
         exit 1
       fi
       pytest tests/spark --ignore tests/spark/autologging --ignore tests/spark/test_spark_connect_model_export.py
-      pytest tests/spark/test_spark_connect_model_export.py
+      
+      if [[ $(python -c "from packaging.version import Version;import pyspark;print(Version(pyspark.__version__) >= Version('3.5'))") = "True" ]]; then
+        pytest tests/spark/test_spark_connect_model_export.py;
+      fi
 
   autologging:
     minimum: "3.0.0"

@@ -25,9 +25,6 @@ from tests.spark.test_spark_model_export import (
     SparkModelWithData,
 )
 
-if Version(pyspark.__version__) < Version("3.5"):
-    pytest.skip("pyspark ML connect Model is available in pyspark >= 3.5", allow_module_level=True)
-
 
 def _get_spark_connect_session():
     builder = (
