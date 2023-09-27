@@ -6,7 +6,6 @@ import json
 import os
 import pathlib
 import tempfile
-import uuid
 
 import pandas as pd
 import psutil
@@ -52,14 +51,15 @@ def md5_checksum(path):
 def upload_and_download(file_size, num_files):
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = pathlib.Path(tmpdir)
+
+        # Prepare files
         src_dir = tmpdir / "src"
         src_dir.mkdir()
         files = {}
-        for _ in range(num_files):
-            name = str(uuid.uuid4())
-            f = src_dir / name
+        for i in range(num_files):
+            f = src_dir / str(i)
             f.write_bytes(os.urandom(file_size))
-            files[name] = f
+            files[f.name] = f
 
         # Upload
         with mlflow.start_run() as run:
@@ -68,16 +68,17 @@ def upload_and_download(file_size, num_files):
 
         # Download
         dst_dir = tmpdir / "dst"
+        dst_dir.mkdir()
         with Timer() as t_download:
             mlflow.artifacts.download_artifacts(
-                artifact_uri=run.info.artifact_uri + "/", dst_path=dst_dir
+                artifact_uri=f"{run.info.artifact_uri}/", dst_path=dst_dir
             )
 
         # Verify checksums
         for f in dst_dir.rglob("*"):
             if f.is_dir():
                 continue
-            assert md5_checksum(f) == md5_checksum(files[f.name])
+            assert md5_checksum(f) == md5_checksum(files[f.name]), f"Checksum mismatch for {f}"
 
         return t_upload.elapsed, t_download.elapsed
 
@@ -99,8 +100,8 @@ def main():
         stats.append(upload_and_download(FILE_SIZE, NUM_FILES))
 
     df = pd.DataFrame(stats, columns=["upload [s]", "download [s]"])
-    # show mean, std, min, max in markdown table
-    print(df.describe(percentiles=[]).to_markdown())
+    # show mean, min, max in markdown table
+    print(df.aggregate(["count", "mean", "min", "max"]).to_markdown())
 
 
 if __name__ == "__main__":
