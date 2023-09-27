@@ -17,7 +17,7 @@ from mlflow import environment_variables
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.utils import ModelInputExample, _Example
+from mlflow.models.utils import ModelInputExample, _contains_params, _Example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
@@ -306,14 +306,23 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
     if hints.input is None:
         return None
 
+    params = None
+    params_key = "params"
+    if _contains_params(input_example):
+        input_example, params = input_example
+
     input_schema = _infer_schema_from_type_hint(hints.input, input_example) if hints.input else None
-    output_example = func(input_example) if input_example else None
+    params_schema = _infer_param_schema(params) if params else None
+    if params and params_key in inspect.signature(func).parameters:
+        output_example = func(input_example, params=params) if input_example else None
+    else:
+        output_example = func(input_example) if input_example else None
     output_schema = (
         _infer_schema_from_type_hint(hints.output, output_example) if hints.output else None
     )
-    if input_schema is None and output_schema is None:
+    if not any([input_schema, output_schema, params_schema]):
         return None
-    return ModelSignature(inputs=input_schema, outputs=output_schema)
+    return ModelSignature(inputs=input_schema, outputs=output_schema, params=params_schema)
 
 
 def _infer_signature_from_input_example(
@@ -329,10 +338,13 @@ def _infer_signature_from_input_example(
         `wrapped_model`.
     """
     try:
-        input_ex = _Example(input_example).inference_data
-        input_schema = _infer_schema(input_ex)
+        input_example = _Example(input_example)
         # Copy the input example so that it is not mutated by predict()
-        prediction = wrapped_model.predict(deepcopy(input_ex))
+        input_ex = deepcopy(input_example.inference_data)
+        params = input_example.inference_params
+        input_schema = _infer_schema(input_ex)
+        params_schema = _infer_param_schema(params) if params else None
+        prediction = wrapped_model.predict(input_ex, params=params)
         # For column-based inputs, 1D numpy arrays likely signify row-based predictions. Thus, we
         # convert them to a Pandas series for inferring as a single ColSpec Schema.
         if (
@@ -342,7 +354,7 @@ def _infer_signature_from_input_example(
         ):
             prediction = pd.Series(prediction)
         output_schema = _infer_schema(prediction)
-        return ModelSignature(input_schema, output_schema)
+        return ModelSignature(input_schema, output_schema, params_schema)
     except Exception as e:
         if environment_variables._MLFLOW_TESTING.get():
             raise
