@@ -1,4 +1,4 @@
-"""increase max param val length from 500 to 64000
+"""increase max param val length from 500 to 8000
 
 Revision ID: 2d6e25af4d3e
 Revises: 7f2a7d5fae7d
@@ -21,7 +21,7 @@ def upgrade():
         batch_op.alter_column(
             "value",
             existing_type=sa.String(500),
-            type_=sa.String(64000),
+            type_=sa.String(8000),
             existing_nullable=False,
             existing_server_default=None,
         )
