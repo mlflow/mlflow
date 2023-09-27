@@ -1,76 +1,102 @@
 """
-A simple script to benchmark MLflow's artifact upload/download performance.
+Benchmark for artifact upload and download performance.
 """
-import contextlib
 import hashlib
+import json
 import os
 import pathlib
 import tempfile
-import time
+import uuid
 
+import pandas as pd
 import psutil
 
 import mlflow
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
+    MLFLOW_ENABLE_MULTIPART_UPLOAD,
+)
+from mlflow.utils.time import Timer
+
+GiB = 1024**3
 
 
-def show_env_info():
+def show_system_info():
     svmem = psutil.virtual_memory()
-    print("=" * 50)
-    print(f"CPU count: {psutil.cpu_count()}")
-    total = svmem.total // (1024**3)
-    available = svmem.available // (1024**3)
-    print(f"Memory (available/total): {available}/{total} GB")
-    print(f"MLflow version: {mlflow.__version__}")
-    print("=" * 50)
+    info = json.dumps(
+        {
+            "MLflow version": mlflow.__version__,
+            "MPU enabled": MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get(),
+            "MPD enabled": MLFLOW_ENABLE_MULTIPART_UPLOAD.get(),
+            "CPU count": psutil.cpu_count(),
+            "Memory total [GiB]": svmem.total // GiB,
+            "Memory available [GiB]": svmem.available // GiB,
+        },
+        indent=2,
+    )
+    max_len = max(map(len, info.splitlines()))
+    print("=" * max_len)
+    print(info)
+    print("=" * max_len)
 
 
 def md5_checksum(path):
+    file_hash = hashlib.md5()
     with open(path, "rb") as f:
-        file_hash = hashlib.md5()
         while chunk := f.read(8192):
             file_hash.update(chunk)
     return file_hash.hexdigest()
 
 
-@contextlib.contextmanager
-def timer():
-    start = time.perf_counter()
-    yield lambda: time.perf_counter() - start
+def run_benchmark(file_size, num_files):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = pathlib.Path(tmpdir)
+        src_dir = tmpdir / "src"
+        files = {}
+        for _ in range(num_files):
+            name = str(uuid.uuid4())
+            f = tmpdir / name
+            f.write_bytes(os.urandom(file_size))
+            files[name] = f
+
+        # Upload
+        with mlflow.start_run() as run:
+            with Timer() as t_upload:
+                mlflow.log_artifacts(src_dir)
+
+        # Download
+        dst_dir = tmpdir / "dst"
+        with Timer() as t_download:
+            mlflow.artifacts.download_artifacts(
+                artifact_uri=run.info.artifact_uri, dst_path=dst_dir
+            )
+
+        for f in dst_dir.rglob("*"):
+            if f.is_dir():
+                continue
+            assert md5_checksum(f) == md5_checksum(files[f.name])
+
+        return t_upload, t_download
 
 
 def main():
-    KiB = 1024
-    MiB = KiB * KiB
-    GiB = MiB * KiB
-
     # Uncomment the following lines if you're running this script outside of Databricks
     # using a personal access token:
     # mlflow.set_tracking_uri("databricks")
     # mlflow.set_experiment("/Users/<username>/benchmark")
 
-    show_env_info()
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = pathlib.Path(tmpdir)
-        f = tmpdir / "large_file"
-        file_size = 1 * GiB
-        f.write_bytes(os.urandom(file_size))
+    FILE_SIZE = 1 * GiB
+    NUM_FILES = 3
+    NUM_ATTEMPTS = 3
 
-        # Upload
-        with mlflow.start_run():
-            with timer() as t:
-                mlflow.log_artifact(f)
-                print(f"Upload took {t():.3f} seconds")
-            artifact_uri = mlflow.get_artifact_uri(f.name)
+    show_system_info()
+    stats = []
+    for i in range(NUM_ATTEMPTS):
+        print(f"{i + 1} / {NUM_ATTEMPTS}")
+        stats.append(run_benchmark(FILE_SIZE, NUM_FILES))
 
-        # Download
-        dst_dir = tmpdir / "dst"
-        with timer() as t:
-            dst_path = mlflow.artifacts.download_artifacts(
-                artifact_uri=artifact_uri, dst_path=dst_dir
-            )
-            print(f"Download took {t():.3f} seconds")
-
-        assert md5_checksum(f) == md5_checksum(dst_path), "File checksums do not match"
+    df = pd.DataFrame(stats, columns=["upload", "download"])
+    print(df.describe().to_markdown())
 
 
 if __name__ == "__main__":
