@@ -433,6 +433,7 @@ def test_await_model_version_creation(store):
     pending_mv = ModelVersion(
         name="Model 1", version="1", creation_timestamp=123, status="PENDING_REGISTRATION"
     )
-    with mock.patch.object(store, "get_model_version", return_value=pending_mv):
-        with pytest.raises(MlflowException, match="Exceeded max wait time"):
-            store._await_model_version_creation(pending_mv, 0.5)
+    with mock.patch.object(store, "get_model_version", return_value=pending_mv), pytest.raises(
+        MlflowException, match="Exceeded max wait time"
+    ):
+        store._await_model_version_creation(pending_mv, 0.5)
