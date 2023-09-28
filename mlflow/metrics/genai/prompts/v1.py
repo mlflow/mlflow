@@ -64,7 +64,7 @@ class EvaluationModel:
     def to_dict(self):
         examples_str = (
             ""
-            if self.examples is None or self.examples == []
+            if self.examples is None or len(self.examples) == 0
             else f"Examples:\n{self._format_examples()}"
         )
         return {
