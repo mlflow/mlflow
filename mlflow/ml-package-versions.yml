@@ -308,7 +308,8 @@ spark:
       temp_dir=$(mktemp -d)
       git clone --depth 1 https://github.com/apache/spark.git $temp_dir
       cd $temp_dir
-      ./build/mvn -DskipTests --no-transfer-progress clean package
+      # -Pconnect -Phive is requried by spark connect 
+      ./build/mvn -Pconnect -Phive -DskipTests --no-transfer-progress clean package
       cd python
       python setup.py install
 
@@ -322,6 +323,7 @@ spark:
     requirements:
       ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow"]
       "<= 3.3.3": ["pandas<2"]
+      ">= 3.5.0": ["pyspark[connect]", "torch", "scikit-learn", "torcheval"]
     run: |
       SAGEMAKER_OUT=$(mktemp)
       if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
@@ -331,7 +333,11 @@ spark:
         cat $SAGEMAKER_OUT;
         exit 1
       fi
-      pytest tests/spark --ignore tests/spark/autologging
+      pytest tests/spark --ignore tests/spark/autologging --ignore tests/spark/test_spark_connect_model_export.py
+
+      if [[ $(python -c "from packaging.version import Version;import pyspark;print(Version(pyspark.__version__) >= Version('3.5'))") = "True" ]]; then
+        pytest tests/spark/test_spark_connect_model_export.py;
+      fi
 
   autologging:
     minimum: "3.0.0"
