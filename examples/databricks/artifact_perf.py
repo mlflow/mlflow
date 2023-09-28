@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
 import psutil
+from tqdm.auto import tqdm
 
 import mlflow
 from mlflow.environment_variables import (
@@ -81,7 +82,7 @@ def upload_and_download(file_size, num_files):
                 futures.append(pool.submit(generate_random_file, f, file_size))
                 files[f.name] = f
 
-            for fut in futures:
+            for fut in tqdm(futures, desc="Generating files"):
                 fut.result()
 
         # Upload
@@ -105,7 +106,7 @@ def upload_and_download(file_size, num_files):
                     continue
                 futures.append(pool.submit(assert_checksum_equal, f, files[f.name]))
 
-            for fut in futures:
+            for fut in tqdm(futures, desc="Verifying checksums"):
                 fut.result()
 
         return t_upload.elapsed, t_download.elapsed
@@ -124,7 +125,7 @@ def main():
     show_system_info()
     stats = []
     for i in range(NUM_ATTEMPTS):
-        print(f"Running {i + 1} / {NUM_ATTEMPTS}")
+        print(f"Attempt {i + 1} / {NUM_ATTEMPTS}")
         stats.append(upload_and_download(FILE_SIZE, NUM_FILES))
 
     df = pd.DataFrame(stats, columns=["upload [s]", "download [s]"])
