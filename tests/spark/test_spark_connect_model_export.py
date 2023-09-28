@@ -7,7 +7,7 @@ import pyspark
 import pytest
 from packaging.version import Version
 from pyspark.sql import SparkSession
-from pyspark.sql import functions as spark_f
+from pyspark.sql import functions as F
 from pyspark.sql.types import LongType
 from sklearn import datasets
 
@@ -16,13 +16,9 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.pyfunc import spark_udf
 
-from tests.helper_functions import (
-    pyfunc_serve_and_score_model,
-)
+from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.pyfunc.test_spark import score_model_as_udf
-from tests.spark.test_spark_model_export import (
-    SparkModelWithData,
-)
+from tests.spark.test_spark_model_export import SparkModelWithData
 
 
 def _get_spark_connect_session():
@@ -47,7 +43,7 @@ def score_model_as_udf(model_uri, pandas_df, result_type):
     pyfunc_udf = spark_udf(
         spark=spark, model_uri=model_uri, result_type=result_type, env_manager="local"
     )
-    new_df = spark_df.withColumn("prediction", pyfunc_udf(spark_f.struct(spark_f.col("features"))))
+    new_df = spark_df.withColumn("prediction", pyfunc_udf(F.struct(F.col("features"))))
     return new_df.toPandas()["prediction"]
 
 
@@ -55,7 +51,6 @@ def score_model_as_udf(model_uri, pandas_df, result_type):
 def spark():
     spark = _get_spark_connect_session()
     yield spark
-    os.environ.pop("SPARK_REMOTE", None)
     spark.stop()
 
 
