@@ -319,10 +319,10 @@ def test_bedrock_aws_client(provider, config, aws_config):
         if "aws_role_arn" in aws_config:
             _assert_any_call_at_least(mock_client, service_name="sts")
             _assert_any_call_at_least(mock_assume_role, RoleArn=aws_config["aws_role_arn"])
-            _assert_any_call_at_least(mock_client, service_name="bedrock")
+            _assert_any_call_at_least(mock_client, service_name="bedrock-runtime")
 
         elif {"aws_secret_access_key", "aws_access_key_id"} <= set(aws_config):
-            _assert_any_call_at_least(mock_client, service_name="bedrock")
+            _assert_any_call_at_least(mock_client, service_name="bedrock-runtime")
             _assert_any_call_at_least(
                 mock_client,
                 **{

@@ -173,7 +173,7 @@ class AWSBedrockProvider(BaseProvider):
         try:
             self._client, self._client_created = (
                 session.client(
-                    service_name="bedrock",
+                    service_name="bedrock-runtime",
                     **self._construct_client_args(session),
                 ),
                 time.monotonic_ns(),
