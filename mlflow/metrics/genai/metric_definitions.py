@@ -32,6 +32,8 @@ def correctness(
         evaluate the new results.
     :return: A metric object
     """
+    if metric_version is None:
+        metric_version = _get_latest_metric_version()
     class_name = f"mlflow.metrics.genai.prompts.{metric_version}.CorrectnessMetric"
     try:
         correctness_class_module = _get_class_from_string(class_name)
@@ -49,8 +51,6 @@ def correctness(
 
     if examples is None:
         examples = correctness_class_module.default_examples
-    if metric_version is None:
-        metric_version = _get_latest_metric_version()
     if model is None:
         model = correctness_class_module.default_model
 
@@ -91,6 +91,8 @@ def relevance(
         the new results.
     :return: A metric object
     """
+    if metric_version is None:
+        metric_version = _get_latest_metric_version()
     class_name = f"mlflow.metrics.genai.prompts.{metric_version}.RelevanceMetric"
     try:
         relevance_class_module = _get_class_from_string(class_name)
@@ -108,8 +110,6 @@ def relevance(
 
     if examples is None:
         examples = relevance_class_module.default_examples
-    if metric_version is None:
-        metric_version = _get_latest_metric_version()
     if model is None:
         model = relevance_class_module.default_model
 
