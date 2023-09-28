@@ -86,7 +86,7 @@ def upload_and_download(file_size, num_files):
                 as_completed(futures),
                 total=len(futures),
                 desc="Generating files",
-                colour="purple",
+                colour="#FFA500",
             ):
                 fut.result()
 
@@ -115,7 +115,7 @@ def upload_and_download(file_size, num_files):
                 as_completed(futures),
                 total=len(futures),
                 desc="Verifying checksums",
-                colour="purple",
+                colour="#FFA500",
             ):
                 fut.result()
 
