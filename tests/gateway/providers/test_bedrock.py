@@ -114,7 +114,7 @@ bedrock_model_provider_fixtures = [
         "request": {"prompt": "How does a car work?", "max_tokens": 200},
         "model_request": {
             "max_tokens_to_sample": 200,
-            "prompt": "How does a car work?",
+            "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
             "stop_sequences": ["\n\nHuman:"],
         },
     },
@@ -133,7 +133,7 @@ bedrock_model_provider_fixtures = [
         "request": {"prompt": "How does a car work?", "max_tokens": 200},
         "model_request": {
             "max_tokens_to_sample": 200,
-            "prompt": "How does a car work?",
+            "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
             "stop_sequences": ["\n\nHuman:"],
         },
     },
@@ -152,7 +152,7 @@ bedrock_model_provider_fixtures = [
         "request": {"prompt": "How does a car work?", "max_tokens": 200},
         "model_request": {
             "max_tokens_to_sample": 200,
-            "prompt": "How does a car work?",
+            "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
             "stop_sequences": ["\n\nHuman:"],
         },
     },
@@ -361,7 +361,7 @@ async def test_bedrock_request_response(
         if not expected:
             pytest.skip("no expected value")
 
-        # _, expected["metadata"]["model"] = config["model"]["name"].split(".")
+        expected["metadata"]["model"] = config["model"]["name"]
 
         provider = AWSBedrockProvider(
             RouteConfig(**_merge_model_and_aws_config(config, aws_config))

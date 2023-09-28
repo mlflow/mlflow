@@ -64,11 +64,14 @@ class AnthropicAdapter(ProviderAdapter):
 
         payload = rename_payload_keys(payload, key_mapping)
 
-        prompt = payload["prompt"]
-        if not prompt.startswith("Human: "):
-            prompt = f"Human: {prompt}"
-        if not prompt.endswith("\n\nAssistant:"):
-            prompt = f"{prompt}\n\nAssistant:"
+        if payload["prompt"].startswith("Human: "):
+            payload["prompt"] = "\n\n" + payload["prompt"]
+
+        if not payload["prompt"].startswith("\n\nHuman: "):
+            payload["prompt"] = f"\n\nHuman: " + payload["prompt"]
+
+        if not payload["prompt"].endswith("\n\nAssistant:"):
+            payload["prompt"] = payload["prompt"] + "\n\nAssistant:"
 
         return payload
 

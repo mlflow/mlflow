@@ -38,6 +38,11 @@ class AWSBedrockAnthropicAdapter(AnthropicAdapter):
         )
         return payload
 
+    @classmethod
+    def model_to_completions(cls, payload, config):
+        payload["model"] = config.model.name
+        return super().model_to_completions(payload, config)
+
 
 class AWSTitanAdapter(ProviderAdapter):
     # TODO handle top_p, top_k, etc.
