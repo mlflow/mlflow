@@ -6,6 +6,7 @@ import json
 import os
 import pathlib
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
 import psutil
@@ -28,7 +29,7 @@ def show_system_info():
             "MPU enabled": MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get(),
             "MPD enabled": MLFLOW_ENABLE_MULTIPART_UPLOAD.get(),
             "CPU count": psutil.cpu_count(),
-            "Memory total [GiB]": svmem.total // GiB,
+            "Memory usage (total) [GiB]": svmem.total // GiB,
             "Memory used [GiB]": svmem.used // GiB,
             "Memory available [GiB]": svmem.available // GiB,
         },
@@ -48,6 +49,23 @@ def md5_checksum(path):
     return file_hash.hexdigest()
 
 
+def assert_checksum_equal(path1, path2):
+    assert md5_checksum(path1) == md5_checksum(path2), f"Checksum mismatch for {path1} and {path2}"
+
+
+def yield_random_bytes(num_bytes):
+    while num_bytes > 0:
+        chunk_size = min(num_bytes, 8192)
+        yield os.urandom(chunk_size)
+        num_bytes -= chunk_size
+
+
+def generate_random_file(path, num_bytes):
+    with open(path, "wb") as f:
+        for chunk in yield_random_bytes(num_bytes):
+            f.write(chunk)
+
+
 def upload_and_download(file_size, num_files):
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = pathlib.Path(tmpdir)
@@ -56,10 +74,15 @@ def upload_and_download(file_size, num_files):
         src_dir = tmpdir / "src"
         src_dir.mkdir()
         files = {}
-        for i in range(num_files):
-            f = src_dir / str(i)
-            f.write_bytes(os.urandom(file_size))
-            files[f.name] = f
+        futures = []
+        with ThreadPoolExecutor() as pool:
+            for i in range(num_files):
+                f = src_dir / str(i)
+                futures.append(pool.submit(generate_random_file, f, file_size))
+                files[f.name] = f
+
+            for fut in futures:
+                fut.result()
 
         # Upload
         with mlflow.start_run() as run:
@@ -75,10 +98,15 @@ def upload_and_download(file_size, num_files):
             )
 
         # Verify checksums
-        for f in dst_dir.rglob("*"):
-            if f.is_dir():
-                continue
-            assert md5_checksum(f) == md5_checksum(files[f.name]), f"Checksum mismatch for {f}"
+        with ThreadPoolExecutor() as pool:
+            futures = []
+            for f in dst_dir.rglob("*"):
+                if f.is_dir():
+                    continue
+                futures.append(pool.submit(assert_checksum_equal, f, files[f.name]))
+
+            for fut in futures:
+                fut.result()
 
         return t_upload.elapsed, t_download.elapsed
 
