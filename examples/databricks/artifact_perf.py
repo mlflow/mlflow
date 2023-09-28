@@ -45,7 +45,7 @@ def show_system_info():
 def md5_checksum(path):
     file_hash = hashlib.md5()
     with open(path, "rb") as f:
-        while chunk := f.read(8192):
+        while chunk := f.read(1024**2):
             file_hash.update(chunk)
     return file_hash.hexdigest()
 
@@ -56,7 +56,7 @@ def assert_checksum_equal(path1, path2):
 
 def yield_random_bytes(num_bytes):
     while num_bytes > 0:
-        chunk_size = min(num_bytes, 8192)
+        chunk_size = min(num_bytes, 1024**2)
         yield os.urandom(chunk_size)
         num_bytes -= chunk_size
 
