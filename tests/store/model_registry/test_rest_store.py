@@ -4,7 +4,8 @@ from unittest import mock
 
 import pytest
 
-from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
+from mlflow.entities.model_registry import ModelVersion, ModelVersionTag, RegisteredModelTag
+from mlflow.exceptions import MlflowException
 from mlflow.protos.model_registry_pb2 import (
     CreateModelVersion,
     CreateRegisteredModel,
@@ -422,3 +423,16 @@ def test_get_model_version_by_alias(store, creds):
         "GET",
         GetModelVersionByAlias(name=name, alias="test_alias"),
     )
+
+
+@mock.patch(
+    "mlflow.store.model_registry.abstract_store.AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS",
+    1,
+)
+def test_await_model_version_creation(store):
+    pending_mv = ModelVersion(
+        name="Model 1", version="1", creation_timestamp=123, status="PENDING_REGISTRATION"
+    )
+    with mock.patch.object(store, "get_model_version", return_value=pending_mv):
+        with pytest.raises(MlflowException, match="Exceeded max wait time"):
+            store._await_model_version_creation(pending_mv, 0.5)

@@ -1,7 +1,6 @@
 import logging
 from abc import ABCMeta, abstractmethod
-from datetime import datetime, timedelta
-from time import sleep
+from time import sleep, time
 
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
@@ -10,7 +9,7 @@ from mlflow.utils.annotations import developer_stable
 
 _logger = logging.getLogger(__name__)
 
-AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS = 3
+AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS = 3
 
 
 @developer_stable
@@ -338,17 +337,17 @@ class AbstractStore:
             f"Waiting up to {await_creation_for} seconds for model version to finish creation. "
             f"Model name: {mv.name}, version {mv.version}",
         )
-        max_datetime = datetime.utcnow() + timedelta(seconds=await_creation_for)
+        max_time = time() + await_creation_for
         pending_status = ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION)
         while mv.status == pending_status:
-            if datetime.utcnow() > max_datetime:
+            if time() > max_time:
                 raise MlflowException(
                     f"Exceeded max wait time for model name: {mv.name} version: {mv.version} "
                     f"to become READY. Status: {mv.status} Wait Time: {await_creation_for}"
                     f".{hint}"
                 )
             mv = self.get_model_version(mv.name, mv.version)
-            sleep(AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS)
+            sleep(AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS)
         if mv.status != ModelVersionStatus.to_string(ModelVersionStatus.READY):
             raise MlflowException(
                 f"Model version creation failed for model name: {mv.name} version: "
