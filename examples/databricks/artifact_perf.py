@@ -1,5 +1,5 @@
 """
-Benchmark for artifact upload and download performance.
+Benchmark for multi-part upload and download of artifacts.
 """
 import hashlib
 import json
