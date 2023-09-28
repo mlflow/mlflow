@@ -867,7 +867,7 @@ Use ``--backend-store-uri`` to configure the type of backend store. You specify:
 
 .. note::
     ``2d6e25af4d3e_increase_max_param_val_length`` is a non-invertible migration script that increases 
-    the param value length to 64k (but we limit param value max length to 6000 internally). Please be careful
+    the param value length to 8k (but we limit param value max length to 6000 internally). Please be careful
     if you want to upgrade and backup your database before upgrading.
 
 

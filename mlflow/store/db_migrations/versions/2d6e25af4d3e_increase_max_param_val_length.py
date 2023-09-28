@@ -21,6 +21,8 @@ def upgrade():
         batch_op.alter_column(
             "value",
             existing_type=sa.String(500),
+            # We choose 8000 because it's the minimum max_length for
+            # a VARCHAR column in all supported database types.
             type_=sa.String(8000),
             existing_nullable=False,
             existing_server_default=None,
