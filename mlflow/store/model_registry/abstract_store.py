@@ -6,7 +6,6 @@ from mlflow.entities.model_registry.model_version_status import ModelVersionStat
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import developer_stable
 
-
 _logger = logging.getLogger(__name__)
 
 AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS = 3
