@@ -4,7 +4,7 @@ and returns values when required.
 """
 
 from unittest import mock
-from unittest.mock import ANY, patch
+from unittest.mock import ANY
 
 import pytest
 

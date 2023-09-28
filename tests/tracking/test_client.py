@@ -14,6 +14,7 @@ from mlflow.store.model_registry.sqlalchemy_store import (
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
 from mlflow.tracking import set_registry_uri
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry.utils import (
     _get_store_registry as _get_model_registry_store_registry,
 )
@@ -487,20 +488,21 @@ def test_creation_default_values_in_unity_catalog(mock_registry_store):
     mock_registry_store.create_registered_model.assert_called_once_with("name", [], "description")
 
 
-def test_create_model_version_non_ready_model(mock_registry_store):
-    run_id = "runid"
-    client = MlflowClient(tracking_uri="http://10.123.1231.11")
-    mock_registry_store.create_model_version.return_value = ModelVersion(
-        "name",
-        1,
-        0,
-        1,
-        source="source",
-        run_id=run_id,
+def test_await_model_version_creation(mock_registry_store):
+    mv = ModelVersion(
+        name="name",
+        version=1,
+        creation_timestamp=123,
         status=ModelVersionStatus.to_string(ModelVersionStatus.FAILED_REGISTRATION),
     )
-    with pytest.raises(MlflowException, match="Model version creation failed for model name"):
-        client.create_model_version("name", "source")
+    mock_registry_store.create_model_version.return_value = mv
+
+    client = MlflowClient(tracking_uri="http://10.123.1231.11")
+
+    client.create_model_version("name", "source")
+    mock_registry_store._await_model_version_creation.assert_called_once_with(
+        mv, DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+    )
 
 
 def test_create_model_version_run_link_with_configured_profile(
