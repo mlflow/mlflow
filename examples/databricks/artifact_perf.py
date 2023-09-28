@@ -82,7 +82,12 @@ def upload_and_download(file_size, num_files):
                 futures.append(pool.submit(generate_random_file, f, file_size))
                 files[f.name] = f
 
-            for fut in tqdm(as_completed(futures), desc="Generating files", colour="purple"):
+            for fut in tqdm(
+                as_completed(futures),
+                total=num_files,
+                desc="Generating files",
+                colour="purple",
+            ):
                 fut.result()
 
         # Upload
@@ -106,7 +111,12 @@ def upload_and_download(file_size, num_files):
                     continue
                 futures.append(pool.submit(assert_checksum_equal, f, files[f.name]))
 
-            for fut in tqdm(as_completed(futures), desc="Verifying checksums", colour="purple"):
+            for fut in tqdm(
+                as_completed(futures),
+                total=num_files,
+                desc="Verifying checksums",
+                colour="purple",
+            ):
                 fut.result()
 
         return t_upload.elapsed, t_download.elapsed
