@@ -746,4 +746,8 @@ class UcModelRegistryStore(BaseRestStore):
         return model_version_from_uc_proto(response_proto.model_version)
 
     def _await_model_version_creation(self, mv, await_creation_for):
+        """
+        Does not wait for the model version to become READY as a successful creation will
+        immediately place the model version in a READY state.
+        """
         pass
