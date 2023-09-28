@@ -108,7 +108,7 @@ def make_genai_metric(
 
     :return: A metric object.
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example for creating a genai metric
 
         from mlflow.metrics.base import EvaluationExample, make_genai_metric
