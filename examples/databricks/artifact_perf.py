@@ -84,7 +84,7 @@ def upload_and_download(file_size, num_files):
 
             for fut in tqdm(
                 as_completed(futures),
-                total=num_files,
+                total=len(futures),
                 desc="Generating files",
                 colour="purple",
             ):
@@ -113,7 +113,7 @@ def upload_and_download(file_size, num_files):
 
             for fut in tqdm(
                 as_completed(futures),
-                total=num_files,
+                total=len(futures),
                 desc="Verifying checksums",
                 colour="purple",
             ):
