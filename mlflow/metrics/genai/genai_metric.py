@@ -231,30 +231,30 @@ def make_genai_metric(
                 _logger.info(f"Failed to score model on payload. Error: {e!r}")
                 return None, None
 
-        scores = []
-        justifications = []
+        scores = [None] * len(inputs)
+        justifications = [None] * len(inputs)
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = []
-            for indx, (input, output) in enumerate(zip(inputs, outputs)):
-                futures.append(
-                    executor.submit(
-                        score_model_on_one_payload,
-                        indx,
-                        input,
-                        output,
-                        variables,
-                        eval_df,
-                        evaluation_context,
-                        eval_parameters,
-                        eval_model,
-                    )
-                )
+            futures = {
+                executor.submit(
+                    score_model_on_one_payload,
+                    indx,
+                    input,
+                    output,
+                    variables,
+                    eval_df,
+                    evaluation_context,
+                    eval_parameters,
+                    eval_model,
+                ): indx
+                for indx, (input, output) in enumerate(zip(inputs, outputs))
+            }
 
             for future in as_completed(futures, timeout=judge_request_timeout):
+                indx = futures[future]
                 score, justification = future.result()
-                scores.append(score)
-                justifications.append(justification)
+                scores[indx] = score
+                justifications[indx] = justification
 
         # loop over the aggregations and compute the aggregate results on the scores
         def aggregate_function(aggregate_option, scores):
