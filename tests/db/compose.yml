@@ -80,7 +80,7 @@ services:
       context: .
       dockerfile: Dockerfile.mssql
     environment:
-      MLFLOW_TRACKING_URI: mssql+pyodbc://mlflowuser:Mlfl*wpassword1@mssql/mlflowdb?driver=ODBC+Driver+18+for+SQL+Server
+      MLFLOW_TRACKING_URI: mssql+pyodbc://mlflowuser:Mlfl*wpassword1@mssql/mlflowdb?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
       INSTALL_MLFLOW_FROM_REPO: true
 
   migration-mssql:
