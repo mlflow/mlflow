@@ -9,15 +9,108 @@ import botocore.exceptions
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.config import AWSBedrockConfig, AWSIdAndKey, AWSRole, RouteConfig
+from mlflow.gateway.config import (AWSBedrockConfig, AWSIdAndKey, AWSRole,
+                                   RouteConfig)
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
-    MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
-)
+    MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS)
 from mlflow.gateway.exceptions import AIGatewayConfigException
-from mlflow.gateway.providers.base import BaseProvider
+from mlflow.gateway.providers.anthropic import AnthropicAdapter
+from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
+from mlflow.gateway.providers.cohere import CohereAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request
 from mlflow.gateway.schemas import chat, completions, embeddings
+
+AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS = 8191
+
+
+class AWSBedrockAnthropicAdapter(AnthropicAdapter):
+    @classmethod
+    def completions_to_model(cls, payload, config):
+        payload = super().completions_to_model(payload, config)
+
+        if "\n\nHuman:" not in payload.get("stop_sequences", []):
+            payload.setdefault("stop_sequences", []).append("\n\nHuman:")
+
+        payload["max_tokens_to_sample"] = min(
+            payload.get("max_tokens_to_sample", MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS),
+            AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS,
+        )
+        return payload
+
+
+class AWSTitanAdapter(ProviderAdapter):
+    # TODO handle top_p, top_k, etc.
+    @classmethod
+    def completions_to_model(cls, payload, config):
+        return {
+            "inputText": payload.pop("prompt"),
+            "textGenerationConfig": rename_payload_keys(
+                payload, {"max_tokens": "maxTokenCount", "stop": "stopSequences"}
+            ),
+        }
+
+    @classmethod
+    def model_to_completions(cls, resp, config):
+        return completions.ResponsePayload(
+            **{
+                "metadata": {
+                    "model": config.model.name,
+                    "route_type": config.route_type,
+                },
+                "candidates": [
+                    {"text": candidate.get("outputText"), "metadata": {}}
+                    for candidate in resp.get("results", [])
+                ],
+            }
+        )
+
+    @classmethod
+    def embeddings_to_model(cls, payload, config):
+        raise NotImplementedError
+
+    @classmethod
+    def model_to_embeddings(cls, resp, config):
+        raise NotImplementedError
+
+
+class AI21Adapter(ProviderAdapter):
+    # TODO handle top_p, top_k, etc.
+    @classmethod
+    def completions_to_model(cls, payload, config):
+        return rename_payload_keys(
+            payload,
+            {
+                "stop": "stopSequences",
+                "candidate_count": "numResults",
+                "max_tokens": "maxTokens",
+            },
+        )
+
+    @classmethod
+    def model_to_completions(cls, resp, config):
+        return completions.ResponsePayload(
+            **{
+                "metadata": {
+                    "model": config.model.name,
+                    "route_type": config.route_type,
+                },
+                "candidates": [
+                    # second .get ensures item only has key "text",
+                    # but might be redundant/undesirable
+                    {"text": candidate.get("data", {}).get("text"), "metadata": {}}
+                    for candidate in resp.get("completions", [])
+                ],
+            }
+        )
+
+    @classmethod
+    def embeddings_to_model(cls, payload, config):
+        raise NotImplementedError
+
+    @classmethod
+    def model_to_embeddings(cls, resp, config):
+        raise NotImplementedError
 
 
 class AWSBedrockModelProvider(Enum):
@@ -26,6 +119,10 @@ class AWSBedrockModelProvider(Enum):
     AI21 = "ai21"
     ANTHROPIC = "anthropic"
 
+    @property
+    def adapter(self):
+        return AWS_MODEL_PROVIDER_TO_ADAPTER.get(self)
+
     @classmethod
     def of_str(cls, name: str):
         name = name.lower()
@@ -33,6 +130,14 @@ class AWSBedrockModelProvider(Enum):
         for opt in cls:
             if opt.name.lower() == name or opt.value.lower() == name:
                 return opt
+
+
+AWS_MODEL_PROVIDER_TO_ADAPTER = {
+    AWSBedrockModelProvider.COHERE: CohereAdapter,
+    AWSBedrockModelProvider.ANTHROPIC: AWSBedrockAnthropicAdapter,
+    AWSBedrockModelProvider.AMAZON: AWSTitanAdapter,
+    AWSBedrockModelProvider.AI21: AI21Adapter,
+}
 
 
 class AWSBedrockProvider(BaseProvider):
@@ -111,128 +216,35 @@ class AWSBedrockProvider(BaseProvider):
                 "AWS Bedrock Private Preview"
             ) from e
 
+
+
+
+            )
+            }
+            }
+        else:
     @property
     def _underlying_provider(self):
         if (not self.config.model.name) or "." not in self.config.model.name:
             return None
-        provider, *_ = self.config.model.name.split(".")
+        provider = self.config.model.name.split(".")[0]
         return AWSBedrockModelProvider.of_str(provider)
 
-    def _prepare_input(self, payload: dict):
-        prompt, preped = payload.pop("prompt"), {}
-
-        # TODO handle top_p, top_k, etc.
-
-        if self._underlying_provider is AWSBedrockModelProvider.AMAZON:
-            preped["inputText"] = prompt
-            preped["textGenerationConfig"] = rename_payload_keys(
-                payload, {"max_tokens": "maxTokenCount", "stop": "stopSequences"}
-            )
-        elif self._underlying_provider is AWSBedrockModelProvider.ANTHROPIC:
-            if not prompt.startswith("Human: "):
-                prompt = f"Human: {prompt}"
-            if not prompt.endswith("\n\nAssistant:"):
-                prompt = f"{prompt}\n\nAssistant:"
-
-            preped["prompt"] = prompt
-
-            # rename and ensure
-            preped["max_tokens_to_sample"] = max_tokens = payload.pop(
-                "max_tokens", MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS
-            )
-
-            preped["max_tokens_to_sample"] = min(preped["max_tokens_to_sample"], 8191)
-            if max_tokens > MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS:
-                raise HTTPException(
-                    status_code=422,
-                    detail="Invalid value for max_tokens: cannot exceed "
-                    f"{MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS}.",
-                )
-
-            preped = {**preped, **rename_payload_keys(payload, {"stop": "stop_sequences"})}
-            if "stop_sequences" not in preped:
-                preped["stop_sequences"] = []
-
-            if "\n\nHuman:" not in preped["stop_sequences"]:
-                preped["stop_sequences"].append("\n\nHuman:")
-        elif self._underlying_provider is AWSBedrockModelProvider.AI21:
-            preped = {
-                "prompt": prompt,
-                **rename_payload_keys(
-                    payload,
-                    {
-                        "stop": "stopSequences",
-                        "candidate_count": "numResults",
-                        "max_tokens": "maxTokens",
-                    },
-                ),
-            }
-
-        elif self._underlying_provider is AWSBedrockModelProvider.COHERE:
-            preped = {
-                "prompt": prompt,
-                **rename_payload_keys(
-                    payload,
-                    {
-                        "stop": "stop_sequences",
-                        "candidate_count": "num_generations",
-                    },
-                ),
-            }
-            # The range of Cohere's temperature is 0-5, but ours is 0-1, so we scale it.
-            if "temperature" in preped:
-                preped["temperature"] *= 5
-        else:
+    @property
+    def underlying_provider_adapter(self) -> ProviderAdapter:
+        provider = self._underlying_provider
+        if not provider:
             raise HTTPException(
                 status_code=422,
                 detail=f"Unknown AWS Bedrock model type {self._underlying_provider}",
             )
-
-        return preped
-
-    def _process_output(self, response: dict):
-        if self._underlying_provider is AWSBedrockModelProvider.ANTHROPIC:
-            return {
-                "candidates": [
-                    {
-                        "text": response.get("completion"),
-                        "metadata": {
-                            "finish_reason": "stop"
-                            if response.get("stop_reason") == "stop_sequence"
-                            else "length"
-                        },
-                    }
-                ]
-            }
-        elif self._underlying_provider is AWSBedrockModelProvider.AMAZON:
-            return {
-                "candidates": [
-                    {"text": candidate.get("outputText"), "metadata": {}}
-                    for candidate in response.get("results", [])
-                ]
-            }
-        elif self._underlying_provider is AWSBedrockModelProvider.AI21:
-            return {
-                "candidates": [
-                    # second .get ensures item only has key "text",
-                    # but might be redundant/undesirable
-                    {"text": candidate.get("data", {}).get("text"), "metadata": {}}
-                    for candidate in response.get("completions", [])
-                ]
-            }
-        elif self._underlying_provider is AWSBedrockModelProvider.COHERE:
-            return {
-                "candidates": [
-                    {"text": candidate.get("text"), "metadata": {}}
-                    for candidate in response.get("generations", [])
-                ]
-            }
-
-        else:
+        adapter = provider.adapter
+        if not adapter:
             raise HTTPException(
                 status_code=422,
-                detail=f"Unknown AWS Bedrock model type {self._underlying_provider}",
+                detail=f"Don't know how to handle {self._underlying_provider} for AWS Bedrock",
             )
+        return adapter
 
     def _make_request(self, body):
         try:
@@ -245,26 +257,20 @@ class AWSBedrockProvider(BaseProvider):
                 contentType="application/json",
             )
             return json.loads(response.get("body").read())
+
+        # TODO work though botocore.exceptions to make this catchable.
         # except botocore.exceptions.ValidationException as e:
         #     raise HTTPException(status_code=422, detail=str(e)) from e
+
         except botocore.exceptions.ReadTimeoutError as e:
             raise HTTPException(status_code=408) from e
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         self.check_for_model_field(payload)
-
-        request_input = self._prepare_input(
-            jsonable_encoder(payload, exclude_none=True, exclude_defaults=True)
-        )
-        response_dict = self._process_output(self._make_request(request_input))
-
-        return completions.ResponsePayload(
-            metadata={
-                "model": self.config.model.name,
-                "route_type": self.config.route_type,
-            },
-            **response_dict,
-        )
+        payload = jsonable_encoder(payload, exclude_none=True, exclude_defaults=True)
+        payload = self.underlying_provider_adapter.completions_to_model(payload, self.config)
+        response = self._request(payload)
+        return self.underlying_provider_adapter.model_to_completions(response, self.config)
 
     async def chat(self, payload: chat.RequestPayload) -> None:
         # AWS Bedrock does not have a chat endpoint

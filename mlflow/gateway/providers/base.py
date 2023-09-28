@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractclassmethod, abstractmethod
 from typing import Tuple
 
 from fastapi import HTTPException
@@ -35,3 +35,31 @@ class BaseProvider(ABC):
                 detail="The parameter 'model' is not permitted to be passed. The route being "
                 "queried already defines a model instance.",
             )
+
+
+class ProviderAdapter(ABC):
+    """ """
+
+    @abstractclassmethod
+    def model_to_embeddings(cls, resp, config):
+        raise NotImplementedError
+
+    @abstractclassmethod
+    def model_to_completions(cls, resp, config):
+        raise NotImplementedError
+
+    @abstractclassmethod
+    def completions_to_model(cls, payload, config):
+        raise NotImplementedError
+
+    @abstractclassmethod
+    def embeddings_to_model(cls, payload, config):
+        raise NotImplementedError
+
+    @classmethod
+    def check_keys_against_mapping(cls, mapping, payload):
+        for k1, k2 in mapping.items():
+            if k2 in payload:
+                raise HTTPException(
+                    status_code=400, detail=f"Invalid parameter {k2}. Use {k1} instead."
+                )
