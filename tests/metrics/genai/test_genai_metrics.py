@@ -8,7 +8,7 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import EvaluationExample
 from mlflow.metrics.genai import model_utils
-from mlflow.metrics.genai.make_genai_metric import (
+from mlflow.metrics.genai.genai_metric import (
     _extract_score_and_justification,
     _format_variable_string,
     make_genai_metric,

@@ -111,7 +111,7 @@ def make_genai_metric(
     .. testcode:: python
         :caption: Example for creating a genai metric
 
-        from mlflow.metrics.base import EvaluationExample, make_genai_metric
+        from mlflow.metrics import EvaluationExample, make_genai_metric
 
         example = EvaluationExample(
             input="What is MLflow?",
