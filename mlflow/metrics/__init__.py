@@ -2,7 +2,7 @@ from mlflow.metrics.base import (
     EvaluationExample,
     MetricValue,
 )
-from mlflow.metrics.genai import (
+from mlflow.metrics.genai.make_genai_metric import (
     make_genai_metric,
 )
 from mlflow.metrics.genai.metric_definitions import (
