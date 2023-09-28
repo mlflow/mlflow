@@ -11,7 +11,7 @@ from mlflow.utils.class_utils import _get_class_from_string
 
 def correctness(
     model: Optional[str] = None,
-    metric_version: Optional[str] = _get_latest_metric_version(),
+    metric_version: Optional[str] = None,
     examples: Optional[List[EvaluationExample]] = None,
 ) -> EvaluationMetric:
     """
@@ -24,12 +24,12 @@ def correctness(
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: (Optional) The model that will be used to evaluate this metric
-    :param metric_version: The version of the correctness metric to use.
+    :param model: (Optional) The model that will be used to evaluate this metric. Defaults to GPT-4.
+    :param metric_version: (Optional) The version of the correctness metric to use.
         Defaults to the latest version.
-    :param examples: Provide a list of examples to help the judge model evaluate the correctness.
-        It is highly recommended to add examples to be used as a reference to evaluate the new
-        results.
+    :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
+        correctness. It is highly recommended to add examples to be used as a reference to
+        evaluate the new results.
     :return: A metric object
     """
     class_name = f"mlflow.metrics.genai.prompts.{metric_version}.CorrectnessMetric"
@@ -48,10 +48,9 @@ def correctness(
         ) from None
 
     if examples is None:
-        examples = [
-            correctness_class_module.example_score_2,
-            correctness_class_module.example_score_4,
-        ]
+        examples = correctness_class_module.default_examples
+    if metric_version is None:
+        metric_version = _get_latest_metric_version()
     if model is None:
         model = correctness_class_module.default_model
 
@@ -71,7 +70,7 @@ def correctness(
 
 def relevance(
     model: Optional[str] = None,
-    metric_version: Optional[str] = _get_latest_metric_version(),
+    metric_version: Optional[str] = None,
     examples: Optional[List[EvaluationExample]] = None,
 ) -> EvaluationMetric:
     """
@@ -84,12 +83,12 @@ def relevance(
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: (Optional) The model that will be used to evaluate this metric
-    :param metric_version: The version of the relevance metric to use.
+    :param model: (Optional) The model that will be used to evaluate this metric. Defaults to GPT-4.
+    :param metric_version: (Optional) The version of the relevance metric to use.
         Defaults to the latest version.
-    :param examples: Provide a list of examples to help the judge model evaluate the relevance.
-        It is highly recommended to add examples to be used as a reference to evaluate the new
-        results.
+    :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
+        relevance. It is highly recommended to add examples to be used as a reference to evaluate
+        the new results.
     :return: A metric object
     """
     class_name = f"mlflow.metrics.genai.prompts.{metric_version}.RelevanceMetric"
@@ -109,6 +108,8 @@ def relevance(
 
     if examples is None:
         examples = relevance_class_module.default_examples
+    if metric_version is None:
+        metric_version = _get_latest_metric_version()
     if model is None:
         model = relevance_class_module.default_model
 
