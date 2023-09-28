@@ -1107,6 +1107,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 BAD_REQUEST
             ) or exception_context.value.error_code == ErrorCode.Name(TEMPORARILY_UNAVAILABLE)
 
+    @pytest.mark.skipif(
+        "SKIP_MSSQL_LOG_PARAM_MAX_LENGTH_CHECK" in os.environ,
+        reason="large string parameters are sent as TEXT/NTEXT; "
+        "see tests/db/compose.yml for details",
+    )
     def test_log_param_max_length_value(self):
         run = self._run_factory()
         tkey = "blahmetric"
