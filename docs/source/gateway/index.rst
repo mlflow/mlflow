@@ -542,7 +542,7 @@ Anthropic
 AWS Bedrock
 +++++++++++
 
-Top-level model configuration for AWS Bedrock routes must be one of the two supported two authentication modes: key-based and role-based.
+Top-level model configuration for AWS Bedrock routes must be one of the following two supported authentication modes: `key-based` or `role-based`.
 
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 | Configuration Parameter  | Required | Default                      | Description                                           |
@@ -552,7 +552,10 @@ Top-level model configuration for AWS Bedrock routes must be one of the two supp
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 
 
-To use key-based authentication, define an AWS Bedrock route with usual ``aws_*`` settings.  For testing/development purposes these can be long-lived keys to a and IAM User or short-lived keys to an IAM role.  For long-term use, these *must* be long-lived keys to an IAM user authorized to use Bedrock.
+To use key-based authentication, define an AWS Bedrock route with the required fields below.
+.. note::
+
+  If using a configured route purely for development or testing, utilizing an IAM User role or a temporary short-lived standard IAM role are recommended; while for production deployments, a standard long-expiry IAM role is recommended to ensure that the route is capable of handling authentication for a long period. If the authentication expires and a new set of keys need to be supplied, the route must be recreated in order to persist the new keys.
 
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 | Configuration Parameter  | Required | Default                      | Description                                           |
@@ -569,7 +572,7 @@ To use key-based authentication, define an AWS Bedrock route with usual ``aws_*`
 | **aws_session_token**    | No       | None                         | Optional session token, if required                   |
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 
-Alternatively, for role-based authentication, define AWS Bedrock route with an a IAM Role authorized to access Bedrock.  AI Gateway will attempt to assume this role with using the standard credential provider chain, and will renew the role credentials if they're expired.
+Alternatively, for role-based authentication, an AWS Bedrock route can be defined and initialized with an a IAM Role  ARN that is authorized to access Bedrock.  The MLflow AI Gateway will attempt to assume this role with using the standard credential provider chain and will renew the role credentials if they have expired.
 
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 | Configuration Parameter  | Required | Default                      | Description                                           |
