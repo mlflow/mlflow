@@ -75,8 +75,8 @@ def upload_and_download(file_size, num_files):
         src_dir = tmpdir / "src"
         src_dir.mkdir()
         files = {}
-        futures = []
         with ThreadPoolExecutor() as pool:
+            futures = []
             for i in range(num_files):
                 f = src_dir / str(i)
                 futures.append(pool.submit(generate_random_file, f, file_size))
