@@ -443,10 +443,6 @@ def test_await_model_version_creation_pending(store):
         store._await_model_version_creation(pending_mv, 0.5)
 
 
-@mock.patch(
-    "mlflow.store.model_registry.abstract_store.AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS",
-    1,
-)
 def test_await_model_version_creation_failed(store):
     pending_mv = ModelVersion(
         name="Model 1",
