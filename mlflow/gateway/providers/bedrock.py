@@ -235,7 +235,7 @@ class AWSBedrockProvider(BaseProvider):
             )
         return adapter
 
-    def _make_request(self, body):
+    def _request(self, body):
         try:
             response = self.get_bedrock_client().invoke_model(
                 body=json.dumps(body).encode(),
