@@ -163,51 +163,17 @@ class AWSBedrockProvider(BaseProvider):
         if self._client is not None and not self._client_expired():
             return self._client
 
-        session_args, config_args, client_args = {}, {}, {}
-        aws_config = self.bedrock_config.aws_config
-
-        region_name = aws_config.aws_region or os.environ.get(
-            "AWS_REGION", os.environ.get("AWS_DEFAULT_REGION")
-        )
-
-        if region_name:
-            config_args["region_name"] = session_args["region_name"] = region_name
-
-        # check profile, mostly for dev
-        profile_name = os.environ.get("AWS_PROFILE")
-        if profile_name:
-            session_args["profile_name"] = profile_name
-
-        session = boto3.Session(**{k: v for k, v in session_args.items() if v is not None})
-
-        if isinstance(aws_config, AWSRole):
-            role = session.client(service_name="sts").assume_role(
-                RoleArn=aws_config.aws_role_arn,
-                RoleSessionName="ai-gateway-bedrock",
-                DurationSeconds=aws_config.session_length_seconds,
-            )
-            client_args["aws_access_key_id"] = role["Credentials"]["AccessKeyId"]
-            client_args["aws_secret_access_key"] = role["Credentials"]["SecretAccessKey"]
-            client_args["aws_session_token"] = role["Credentials"]["SessionToken"]
-        elif isinstance(aws_config, AWSIdAndKey):
-            client_args["aws_access_key_id"] = aws_config.aws_access_key_id
-            client_args["aws_secret_access_key"] = aws_config.aws_secret_access_key
-            client_args["aws_session_token"] = aws_config.aws_session_token
-        else:
-            # defer to standard CredentialProviderChain
-            pass
-
-        if config_args:
-            client_args["config"] = botocore.config.Config(**config_args)
+        session = boto3.Session(**self._construct_session_args())
 
         try:
-            # use default/prevailing credentials
             self._client, self._client_created = (
-                session.client(service_name="bedrock", **client_args),
+                session.client(
+                    service_name="bedrock",
+                    **self._construct_client_args(session),
+                ),
                 time.monotonic_ns(),
             )
             return self._client
-
         except botocore.exceptions.UnknownServiceError as e:
             raise AIGatewayConfigException(
                 "Cannot create AWS Bedrock client; ensure boto3/botocore "
@@ -216,13 +182,36 @@ class AWSBedrockProvider(BaseProvider):
                 "AWS Bedrock Private Preview"
             ) from e
 
+    def _construct_session_args(self):
+        session_args = {
+            "region_name": self.bedrock_config.aws_config.aws_region,
+        }
 
+        return {k: v for k, v in session_args.items() if v}
 
+    def _construct_client_args(self, session):
+        aws_config = self.bedrock_config.aws_config
 
+        if isinstance(aws_config, AWSRole):
+            role = session.client(service_name="sts").assume_role(
+                RoleArn=aws_config.aws_role_arn,
+                RoleSessionName="ai-gateway-bedrock",
+                DurationSeconds=aws_config.session_length_seconds,
             )
+            return {
+                "aws_access_key_id": role["Credentials"]["AccessKeyId"],
+                "aws_secret_access_key": role["Credentials"]["SecretAccessKey"],
+                "aws_session_token": role["Credentials"]["SessionToken"],
             }
+        elif isinstance(aws_config, AWSIdAndKey):
+            return {
+                "aws_access_key_id": aws_config.aws_access_key_id,
+                "aws_secret_access_key": aws_config.aws_secret_access_key,
+                "aws_session_token": aws_config.aws_session_token,
             }
         else:
+            return {}
+
     @property
     def _underlying_provider(self):
         if (not self.config.model.name) or "." not in self.config.model.name:
