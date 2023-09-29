@@ -673,7 +673,7 @@ def test_strict_correctness_metric():
     ) as mock_predict_function:
         metric_value = strict_correctness_metric.eval_fn(eval_df, {})
         assert mock_predict_function.call_count == 1
-        assert mock_predict_function.call_args[0][0] == "openai:/gpt4"
+        assert mock_predict_function.call_args[0][0] == "openai:/gpt-4"
         assert mock_predict_function.call_args[0][1] == {
             "prompt": "\nPlease act as an impartial judge and evaluate the quality of "
             "the provided output which\nattempts to produce output for the provided input "
