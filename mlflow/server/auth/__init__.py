@@ -113,13 +113,8 @@ auth_config = read_auth_config()
 store = SqlAlchemyStore()
 
 
-UNPROTECTED_ROUTES = [SIGNUP]
-
-
 def is_unprotected_route(path: str) -> bool:
-    if path.startswith(("/static", "/favicon.ico", "/health")):
-        return True
-    return path in UNPROTECTED_ROUTES
+    return path.startswith(("/static", "/favicon.ico", "/health"))
 
 
 def make_basic_auth_response() -> Response:
@@ -390,6 +385,7 @@ BEFORE_REQUEST_VALIDATORS = {
 
 BEFORE_REQUEST_VALIDATORS.update(
     {
+        (SIGNUP, "GET"): validate_can_create_user,
         (GET_USER, "GET"): validate_can_read_user,
         (CREATE_USER, "POST"): validate_can_create_user,
         (UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
