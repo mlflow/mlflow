@@ -1,13 +1,9 @@
 mlflow.metrics
 ==============
 
-The ``mlflow.metrics`` module helps you quantitatively and qualitatively measure your models. 
-
-The :py:class:`MetricValue <mlflow.metrics.MetricValue>` is a ____.
+The ``mlflow.metrics`` module helps you quantitatively and qualitatively measure your models. These :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`s are used by the :py:func:`mlflow.evaluate()` API, either computed automatically depending on the ``model_type`` or specified via the ``custom_metrics`` parameter. Evaluation results are stored as :py:class:`MetricValue <mlflow.metrics.MetricValue>` and are logged to the MLflow run.
 
 .. autoclass:: mlflow.metrics.MetricValue
-
-The :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` is a ____.
 
 .. autoclass:: mlflow.metrics.EvaluationMetric
 
@@ -37,21 +33,21 @@ We provide the following default :py:class:`EvaluationMetric <mlflow.metrics.Eva
 .. autodata:: mlflow.metrics.toxicity
    :annotation:
 
-Users create their own EvaluationMetric using the :py:func:`make_metric <mlflow.metrics.make_metric>` factory function
+Users create their own :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` using the :py:func:`make_metric <mlflow.metrics.make_metric>` factory function
 
 .. autofunction:: mlflow.metrics.make_metric
 
-The following "intelligent" :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` are available. These metrics use an LLM to evaluate the quality of a model's output text. These factory functions help you customize the intelligent metric to your use case.
+We provide the following pre-canned "intelligent" :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`s for evaluating text models. These metrics use an LLM to evaluate the quality of a model's output text. These factory functions help you customize the intelligent metric to your use case.
 
 .. autofunction:: mlflow.metrics.correctness
 
 .. autofunction:: mlflow.metrics.relevance
 
-Users can also create their own LLM based EvaluationMetric using the :py:func:`make_genai_metric <mlflow.metrics.make_genai_metric>` factory function
+Users can also create their own LLM based :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` using the :py:func:`make_genai_metric <mlflow.metrics.make_genai_metric>` factory function
 
 .. autofunction:: mlflow.metrics.make_genai_metric
 
-When using LLM based EvaluationMetrics, it is important to pass in an :py:class:`EvaluationExample <mlflow.metrics.EvaluationExample>`
+When using LLM based :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`s, it is important to pass in an :py:class:`EvaluationExample <mlflow.metrics.EvaluationExample>`
 
 .. autoclass:: mlflow.metrics.EvaluationExample
 
