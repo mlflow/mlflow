@@ -40,7 +40,7 @@ def correctness(
     except ModuleNotFoundError:
         raise MlflowException(
             f"Failed to find correctness metric for version {metric_version}."
-            f"Please check the version",
+            f" Please check the version",
             error_code=INVALID_PARAMETER_VALUE,
         ) from None
     except Exception as e:
@@ -99,7 +99,7 @@ def relevance(
     except ModuleNotFoundError:
         raise MlflowException(
             f"Failed to find relevance metric for version {metric_version}."
-            f"Please check the version",
+            f" Please check the version",
             error_code=INVALID_PARAMETER_VALUE,
         ) from None
     except Exception as e:
