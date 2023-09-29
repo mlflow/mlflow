@@ -1299,18 +1299,25 @@ def evaluate(
 
                   - A function
 
+                  - None: This indicates a static dataset will be used for evaluation instead of a
+                    model. In this case, the ``data`` argument must be a Pandas DataFrame or Spark
+                    DataFrame or :py:class`mlflow.data.dataset.Dataset` instance that contains
+                    model outputs. The column name of the model outputs must be ``model_output``.
+
     :param data: One of the following:
 
                  - A numpy array or list of evaluation features, excluding labels.
 
-                 - A Pandas DataFrame or Spark DataFrame, containing evaluation features and
-                   labels. If ``feature_names`` argument not specified, all columns are regarded
-                   as feature columns. Otherwise, only column names present in ``feature_names``
-                   are regarded as feature columns. If it is Spark DataFrame, only the first 10000
-                   rows in the Spark DataFrame will be used as evaluation data.
+                 - A Pandas DataFrame or Spark DataFrame, containing evaluation features,
+                   labels, and optionally model outputs. If ``feature_names`` argument not
+                   specified, all columns except for the label column and model_output column
+                   are regarded as feature columns. Otherwise, only column names present in
+                   ``feature_names`` are regarded as feature columns.
+                   If it is Spark DataFrame, only the first 10000 rows in the Spark DataFrame
+                   will be used as evaluation data.
 
-                 - A :py:class`mlflow.data.dataset.Dataset` instance containing evaluation features
-                   and labels.
+                 - A :py:class`mlflow.data.dataset.Dataset` instance containing evaluation
+                   features, labels, and optionally model outputs.
 
     :param targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
                     labels. If ``data`` is a DataFrame, the string name of a column from ``data``
@@ -1342,7 +1349,8 @@ def evaluate(
                           ``feature_{feature_index}``. If the ``data`` argument is a Pandas
                           DataFrame or a Spark DataFrame, ``feature_names`` is a list of the names
                           of the feature columns in the DataFrame. If ``None``, then all columns
-                          except the label column are regarded as feature columns.
+                          except the label column and the model_output column are regarded as
+                          feature columns.
 
     :param evaluators: The name of the evaluator to use for model evaluation, or a list of
                        evaluator names. If unspecified, all evaluators capable of evaluating the
@@ -1531,12 +1539,35 @@ def evaluate(
         )
     elif isinstance(model, PyFuncModel):
         pass
+    elif model is None:
+        # Evaluating a static dataset
+        if not isinstance(data, pd.DataFrame):
+            raise MlflowException(
+                message="The ``data`` must be a pandas dataframe when model=None.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if "model_output" not in data.columns:
+            raise MlflowException(
+                message="The ``data`` must contain a column ``model_output``.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        data_with_output = data.copy(deep=True)
+        data = data.drop(columns=["model_output"])
+
+        def fn(model_input: pd.DataFrame):
+            filtered_df = pd.merge(
+                model_input, data_with_output, how="inner", on=model_input.columns.tolist()
+            )
+            return filtered_df["model_output"].tolist()
+
+        model = _get_model_from_function(fn)
     elif callable(model):
         model = _get_model_from_function(model)
     else:
         raise MlflowException(
             message="The model argument must be a string URI referring to an MLflow model, "
-            "an instance of `mlflow.pyfunc.PyFuncModel`, or a function.",
+            "an instance of `mlflow.pyfunc.PyFuncModel`, a function, or None.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
