@@ -27,9 +27,6 @@ from mlflow.utils.rest_utils import augmented_raise_for_status
 
 _logger = logging.getLogger(__name__)
 
-import boto3
-boto3.set_stream_logger('', logging.DEBUG)
-
 
 class OptimizedS3ArtifactRepository(CloudArtifactRepository):
     """
