@@ -38,11 +38,11 @@ def test_evaluation_model_output():
                 variables={"ground_truth": "This is an output"},
             ),
         ],
-        model="gateway:/gpt4",
+        model="gateway:/gpt-4",
         parameters={"temperature": 1.0},
     ).to_dict()
 
-    assert model1["model"] == "gateway:/gpt4"
+    assert model1["model"] == "gateway:/gpt-4"
     assert model1["parameters"] == {"temperature": 1.0}
 
     variables = {"ground_truth": "This is an output"}
@@ -123,7 +123,7 @@ def test_evaluation_model_output():
         """,
     ).to_dict()
 
-    assert model2["model"] == "openai:/gpt4"
+    assert model2["model"] == "openai:/gpt-4"
     assert model2["parameters"] == {
         "temperature": 0.0,
         "max_tokens": 200,
