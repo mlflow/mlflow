@@ -624,7 +624,7 @@ def test_relevance_metric():
             f"\nProvided context: {mlflow_ground_truth}\n"
             f"\nMetric definition:\n{RelevanceMetric.definition}\n"
             f"\nBelow is your grading criteria:\n{RelevanceMetric.grading_prompt}\n"
-            "\nExamples:\n\n"
+            "\n\n"
             "\nAnd you'll need to submit your grading for the relevance of the output,"
             "\nusing the following in json format:\n"
             "Score: [your score number for the relevance of the output]\n"

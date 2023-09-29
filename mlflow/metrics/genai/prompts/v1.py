@@ -9,7 +9,7 @@ from mlflow.metrics.genai.prompt_template import (
 )
 
 # TODO: Update the default_mode and default_parameters to the correct values post experimentation
-default_model = "openai:/gpt4"
+default_model = "openai:/gpt-4"
 default_parameters = {
     "temperature": 0.0,
     "max_tokens": 200,
@@ -62,7 +62,11 @@ class EvaluationModel:
     parameters: Dict[str, Any] = field(default_factory=lambda: default_parameters)
 
     def to_dict(self):
-        examples_str = "" if self.examples is None else f"Examples:\n{self._format_examples()}"
+        examples_str = (
+            ""
+            if self.examples is None or len(self.examples) == 0
+            else f"Examples:\n{self._format_examples()}"
+        )
         return {
             "model": self.model,
             "eval_prompt": grading_system_prompt_template.partial_fill(
