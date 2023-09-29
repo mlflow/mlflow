@@ -75,11 +75,11 @@ def strict_correctness(
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the strict correctness of an LLM
-    using the model provided. Strict correctness should be used in cases where correctness is 
-    binary, and the source of truth is provided in the ground_truth. Outputs will be given either 
-    the highest or lowest score depending on if they are consistent with the ground_truth. When 
-    dealing with inputs that may have multiple correct outputs, varying degrees of correctness, 
-    or when considering other factors such as the comprehensiveness of the output, it is more 
+    using the model provided. Strict correctness should be used in cases where correctness is
+    binary, and the source of truth is provided in the ground_truth. Outputs will be given either
+    the highest or lowest score depending on if they are consistent with the ground_truth. When
+    dealing with inputs that may have multiple correct outputs, varying degrees of correctness,
+    or when considering other factors such as the comprehensiveness of the output, it is more
     appropriate to use the correctness metric instead.
 
     The ground_truth variable must be provided as part of the input dataset or output predictions.

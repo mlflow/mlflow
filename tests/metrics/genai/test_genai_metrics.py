@@ -253,7 +253,7 @@ def test_make_genai_metric_correct_response():
             "Provided output: example-output\n\nProvided ground_truth: example-ground_truth\n\n"
             "Score: 4\nJustification: example-justification\n\n        \n\nAnd you'll need to "
             "submit your grading for the fake_metric of the output,\nusing the following in json "
-            "format:\nScore: [your score number between 1 to 5 for the fake_metric of the "
+            "format:\nScore: [your score number for the fake_metric of the "
             "output]\nJustification: [your step by step reasoning about the fake_metric of the "
             "output]\n    ",
             "temperature": 0.0,
@@ -568,7 +568,7 @@ def test_correctness_metric():
             f"Justification: {mlflow_example.justification}\n\n        \n\n"
             "And you'll need to submit your grading for the correctness of the output,"
             "\nusing the following in json format:\n"
-            "Score: [your score number between 1 to 5 for the correctness of the output]\n"
+            "Score: [your score number for the correctness of the output]\n"
             "Justification: [your step by step reasoning about the correctness of the output]"
             "\n    ",
             **CorrectnessMetric.parameters,
@@ -627,7 +627,7 @@ def test_relevance_metric():
             "\nExamples:\n\n"
             "\nAnd you'll need to submit your grading for the relevance of the output,"
             "\nusing the following in json format:\n"
-            "Score: [your score number between 1 to 5 for the relevance of the output]\n"
+            "Score: [your score number for the relevance of the output]\n"
             "Justification: [your step by step reasoning about the relevance of the output]"
             "\n    ",
             **RelevanceMetric.parameters,
@@ -689,7 +689,7 @@ def test_strict_correctness_metric():
             f"{examples}\n"
             "\nAnd you'll need to submit your grading for the strict_correctness of the output,"
             "\nusing the following in json format:\n"
-            "Score: [your score number between 1 to 5 for the strict_correctness of the output]\n"
+            "Score: [your score number for the strict_correctness of the output]\n"
             "Justification: [your step by step reasoning about the strict_correctness of the "
             "output]"
             "\n    ",
