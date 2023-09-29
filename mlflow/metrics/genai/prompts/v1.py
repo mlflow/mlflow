@@ -207,3 +207,59 @@ class RelevanceMetric:
     )
 
     default_examples = [example_score_2, example_score_4]
+
+
+@dataclass
+class StrictCorrectnessMetric:
+    definition = (
+        "When a question demands a specific value, term, or description (e.g., math questions or "
+        "fact-checking), correctness is binary. Strict correctness of the output is assessed on "
+        "whether it aligns exactly with the ground truth. Scores are assigned based on the highest "
+        "and lowest possible score."
+    )
+
+    grading_prompt = (
+        "Strict Correctness: Below are the details for different scores:"
+        "- Score 1: the output is completely incorrect, doesn't mention anything about the "
+        "question or is completely contrary to the ground truth."
+        "- Score 5: the output answers the question correctly as provided in the ground truth."
+    )
+
+    variables = ["ground_truth"]
+    parameters = default_parameters
+    default_model = default_model
+
+    example_score_1 = EvaluationExample(
+        input="Is MLflow open-source?",
+        output="No, MLflow is not open-source.",
+        score=1,
+        justification="The output is incorrect. It states that MLflow is not open-source, which "
+        "contradicts the provided context, where it is explicitly mentioned that MLflow is an "
+        "open-source platform. This directly opposes the ground truth, resulting in a score of 1 "
+        "for strict correctness.",
+        variables={
+            "ground_truth": "MLflow is an open-source platform for managing the end-to-end machine "
+            "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
+            "in big data and machine learning solutions. MLflow is designed to address the "
+            "challenges that data scientists and machine learning engineers face when developing, "
+            "training, and deploying machine learning models."
+        },
+    )
+
+    example_score_5 = EvaluationExample(
+        input="Is MLflow open-source?",
+        output="MLflow is open-source, which means it's freely available for anyone to use.",
+        score=5,
+        justification="The output correctly states that MLflow is open-source, aligning perfectly "
+        "with the provided context. It accurately reflects the ground truth information, earning "
+        "a score of 5 for strict correctness.",
+        variables={
+            "ground_truth": "MLflow is an open-source platform for managing the end-to-end machine "
+            "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
+            "in big data and machine learning solutions. MLflow is designed to address the "
+            "challenges that data scientists and machine learning engineers face when developing, "
+            "training, and deploying machine learning models."
+        },
+    )
+
+    default_examples = [example_score_1, example_score_5]
