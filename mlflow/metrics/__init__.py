@@ -26,7 +26,6 @@ from mlflow.models import (
 )
 
 # general text metrics
-
 toxicity = make_metric(
     eval_fn=_toxicity_eval_fn,
     greater_is_better=False,

@@ -1,7 +1,10 @@
 from dataclasses import dataclass
 from typing import Dict, List
 
+from mlflow.utils.annotations import experimental
 
+
+@experimental
 @dataclass
 class MetricValue:
     """
@@ -17,6 +20,7 @@ class MetricValue:
     aggregate_results: Dict[str, float] = None
 
 
+@experimental
 @dataclass
 class EvaluationExample:
     """
