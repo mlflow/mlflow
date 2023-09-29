@@ -1,7 +1,7 @@
 mlflow.metrics
 ==============
 
-The ``mlflow.metrics`` module helps you quantitatively and qualitatively measure your models. These :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`s are used by the :py:func:`mlflow.evaluate()` API, either computed automatically depending on the ``model_type`` or specified via the ``custom_metrics`` parameter. Evaluation results are stored as :py:class:`MetricValue <mlflow.metrics.MetricValue>` and are logged to the MLflow run.
+The ``mlflow.metrics`` module helps you quantitatively and qualitatively measure your models. These :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` are used by the :py:func:`mlflow.evaluate()` API, either computed automatically depending on the ``model_type`` or specified via the ``custom_metrics`` parameter. Evaluation results are stored as :py:class:`MetricValue <mlflow.metrics.MetricValue>` and are logged to the MLflow run.
 
 .. autoclass:: mlflow.metrics.MetricValue
 
@@ -37,7 +37,7 @@ Users create their own :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMet
 
 .. autofunction:: mlflow.metrics.make_metric
 
-We provide the following pre-canned "intelligent" :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`s for evaluating text models. These metrics use an LLM to evaluate the quality of a model's output text. These factory functions help you customize the intelligent metric to your use case.
+We provide the following pre-canned "intelligent" :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` for evaluating text models. These metrics use an LLM to evaluate the quality of a model's output text. These factory functions help you customize the intelligent metric to your use case.
 
 .. autofunction:: mlflow.metrics.correctness
 
@@ -47,7 +47,7 @@ Users can also create their own LLM based :py:class:`EvaluationMetric <mlflow.me
 
 .. autofunction:: mlflow.metrics.make_genai_metric
 
-When using LLM based :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`s, it is important to pass in an :py:class:`EvaluationExample <mlflow.metrics.EvaluationExample>`
+When using LLM based :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`, it is important to pass in an :py:class:`EvaluationExample <mlflow.metrics.EvaluationExample>`
 
 .. autoclass:: mlflow.metrics.EvaluationExample
 
