@@ -385,7 +385,7 @@ def test_complete_multipart_upload(s3_artifact_root):
         MultipartUploadPart(part_number=1, etag="fake_etag1"),
         MultipartUploadPart(part_number=2, etag="fake_etag2"),
     ]
-    with pytest.raises(botocore.exceptions.ClientError, match=r".+"):
+    with pytest.raises(botocore.exceptions.ClientError, match=r"InvalidPart"):
         repo.complete_multipart_upload(local_file, create.upload_id, fake_parts)
 
     # can complete valid upload
@@ -413,7 +413,7 @@ def test_abort_multipart_upload(s3_artifact_root):
     create = repo.create_multipart_upload(local_file, 2)
 
     # cannot abort a non-existing upload
-    with pytest.raises(botocore.exceptions.ClientError, match=r".+"):
+    with pytest.raises(botocore.exceptions.ClientError, match=r"NoSuchUpload"):
         repo.abort_multipart_upload(local_file, "fake_upload_id")
 
     # can abort the created upload
