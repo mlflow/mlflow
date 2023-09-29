@@ -51,7 +51,7 @@ import posixpath
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Optional
 
 import yaml
 
@@ -65,9 +65,9 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.spark import (
     _HadoopFileSystem,
-    _maybe_save_model,
-    _mlflowdbfs_path,
     _should_use_mlflowdbfs,
+    _MLFLOWDBFS_SCHEME,
+    INVALID_PARAMETER_VALUE
 )
 from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -100,29 +100,47 @@ from mlflow.utils.uri import (
     dbfs_hdfs_uri_to_fuse_path,
     generate_tmp_dfs_path,
     get_databricks_profile_uri_from_artifact_uri,
-    is_local_uri,
     is_valid_dbfs_uri,
 )
 
 FLAVOR_NAME = "johnsnowlabs"
 _JOHNSNOWLABS_ENV_JSON_LICENSE_KEY = "JOHNSNOWLABS_LICENSE_JSON"
+_JOHNSNOWLABS_ENV_HEALTHCARE_SECRET = 'HEALTHCARE_SECRET'
+_JOHNSNOWLABS_ENV_VISUAL_SECRET = 'VISUAL_SECRET'
 _JOHNSNOWLABS_MODEL_PATH_SUB = "jsl-model"
 _logger = logging.getLogger(__name__)
+env_var_missing_logged = False
 
 
 def _validate_env_vars():
+    global env_var_missing_logged
     if _JOHNSNOWLABS_ENV_JSON_LICENSE_KEY not in os.environ:
-        raise Exception(
-            f"Please set the {_JOHNSNOWLABS_ENV_JSON_LICENSE_KEY}"
-            f" environment variable as the raw license.json string from John Snow Labs"
-        )
-    _set_env_vars()
+        if not env_var_missing_logged:
+            print(
+                f"{_JOHNSNOWLABS_ENV_JSON_LICENSE_KEY} "
+                f"environment variable is not set. Ensure all dependencies are resolved or \n"
+                f"set it as the raw license.json string from John Snow Labs to automatically resolve them."
+            )
+            env_var_missing_logged = True
+    else:
+        _set_env_vars()
 
 
 def _set_env_vars():
     # if json license is detected, we parse it and set the env vars
     loaded_license = json.loads(os.environ[_JOHNSNOWLABS_ENV_JSON_LICENSE_KEY])
     os.environ.update({k: str(v) for k, v in loaded_license.items() if v is not None})
+
+
+def _mlflowdbfs_path(run_id, artifact_path):
+    if artifact_path.startswith("/"):
+        raise MlflowException(
+            f"artifact_path should be relative, found: {artifact_path}",
+            INVALID_PARAMETER_VALUE,
+        )
+    return "{}:///artifacts?run_id={}&path=/{}".format(
+        _MLFLOWDBFS_SCHEME, run_id, posixpath.join(artifact_path, _JOHNSNOWLABS_MODEL_PATH_SUB)
+    )
 
 
 @experimental
@@ -133,20 +151,42 @@ def get_default_pip_requirements():
              that, at minimum, contains these requirements.
     """
     from johnsnowlabs import settings
+    if _JOHNSNOWLABS_ENV_HEALTHCARE_SECRET not in os.environ and _JOHNSNOWLABS_ENV_VISUAL_SECRET not in os.environ:
+        raise Exception(
+            f"You need to set the {_JOHNSNOWLABS_ENV_HEALTHCARE_SECRET} or {_JOHNSNOWLABS_ENV_VISUAL_SECRET} environment variable set."
+            f" Please contact John Snow Labs to get one")
 
     _SPARK_NLP_JSL_WHEEL_URI = (
-        "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl/spark_nlp_jsl-"
-        + f"{settings.raw_version_medical}-py3-none-any.whl"
+            "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl/spark_nlp_jsl-"
+            + f"{settings.raw_version_medical}-py3-none-any.whl"
     )
 
-    return [
-        f"johnsnowlabs_for_databricks=={settings.raw_version_jsl_lib}",
+    _SPARK_NLP_VISUAL_WHEEL_URI = (
+        "https://pypi.johnsnowlabs.com/{secret}/spark-ocr/"
+        f"spark_ocr-{settings.raw_version_ocr}-py3-none-any.whl"
+    )
+
+    deps = [
+        f"johnsnowlabs_for_databricks=={settings.raw_version_jsl_lib}", # TODO UNDO THIS!!
+
         _get_pinned_requirement("pyspark"),
-        _SPARK_NLP_JSL_WHEEL_URI.format(secret=os.environ["SECRET"]),
         # TODO remove pandas constraint when NLU supports it
         # https://github.com/JohnSnowLabs/nlu/issues/176
         "pandas<=1.5.3",
+
     ]
+
+    if _JOHNSNOWLABS_ENV_HEALTHCARE_SECRET in os.environ:
+        _SPARK_NLP_JSL_WHEEL_URI = _SPARK_NLP_JSL_WHEEL_URI.format(
+            secret=os.environ[_JOHNSNOWLABS_ENV_HEALTHCARE_SECRET])
+        deps.append(_SPARK_NLP_JSL_WHEEL_URI)
+
+    if _JOHNSNOWLABS_ENV_VISUAL_SECRET in os.environ:
+        _SPARK_NLP_VISUAL_WHEEL_URI = _SPARK_NLP_VISUAL_WHEEL_URI.format(
+            secret=os.environ[_JOHNSNOWLABS_ENV_VISUAL_SECRET])
+        deps.append(_SPARK_NLP_VISUAL_WHEEL_URI)
+
+    return deps
 
 
 @experimental
@@ -161,20 +201,21 @@ def get_default_conda_env():
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def log_model(
-    spark_model,
-    artifact_path,
-    conda_env=None,
-    code_paths=None,
-    dfs_tmpdir=None,
-    sample_input=None,
-    registered_model_name=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
-    await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements=None,
-    extra_pip_requirements=None,
-    metadata=None,
-    store_license=False,
+        spark_model,
+        artifact_path,
+        conda_env=None,
+        code_paths=None,
+        dfs_tmpdir=None,
+        sample_input=None,
+        registered_model_name=None,
+        signature: ModelSignature = None,
+        input_example: ModelInputExample = None,
+        await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        pip_requirements=None,
+        extra_pip_requirements=None,
+        metadata=None,
+        store_license=False,
+        gpu=False,
 ):
     """
     Log a ``Johnsnowlabs NLUPipeline`` created via `nlp.load()
@@ -290,19 +331,20 @@ def log_model(
     run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
     run_root_artifact_uri = mlflow.get_artifact_uri()
     remote_model_path = None
-    if _should_use_mlflowdbfs(run_root_artifact_uri):
-        remote_model_path = append_to_uri_path(
-            run_root_artifact_uri, artifact_path, _JOHNSNOWLABS_MODEL_PATH_SUB
-        )
-        mlflowdbfs_path = _mlflowdbfs_path(run_id, artifact_path)
-        with databricks_utils.MlflowCredentialContext(
-            get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
-        ):
-            try:
-                _unpack_and_save_model(spark_model, mlflowdbfs_path)
-
-            except Exception as e:
-                raise MlflowException("failed to save johnsnowlabs model via mlflowdbfs") from e
+    # commented for now because spark flavor is using it but it has many issues on databricks
+    # if _should_use_mlflowdbfs(run_root_artifact_uri):
+    #     remote_model_path = append_to_uri_path(
+    #         run_root_artifact_uri, artifact_path, _JOHNSNOWLABS_MODEL_PATH_SUB
+    #     )
+    #     mlflowdbfs_path = _mlflowdbfs_path(run_id, artifact_path)
+    #     with databricks_utils.MlflowCredentialContext(
+    #             get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
+    #     ):
+    #         try:
+    #             _unpack_and_save_model(spark_model, mlflowdbfs_path)
+    #
+    #         except Exception as e:
+    #             raise MlflowException("failed to save johnsnowlabs model via mlflowdbfs") from e
 
     # If the artifact URI is a local filesystem path, defer to Model.log() to persist the model,
     # since Spark may not be able to write directly to the driver's filesystem. For example,
@@ -310,10 +352,8 @@ def log_model(
     # be incorrect on multi-node clusters.
     # If the artifact URI is not a local filesystem path we attempt to write directly to the
     # artifact repo via Spark. If this fails, we defer to Model.log().
-    elif is_local_uri(run_root_artifact_uri) or not _maybe_save_model(
-        spark_model,
-        append_to_uri_path(run_root_artifact_uri, artifact_path),
-    ):
+    try:
+
         return Model.log(
             artifact_path=artifact_path,
             flavor=mlflow.johnsnowlabs,
@@ -329,8 +369,16 @@ def log_model(
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             metadata=metadata,
+            store_license=store_license,
+            gpu=gpu,
         )
-    # Otherwise, override the default model log behavior and save model directly to artifact repo
+    except Exception as e:
+        if not _maybe_unpack_and_save_model(
+                spark_model,
+                append_to_uri_path(run_root_artifact_uri, artifact_path),
+        ):
+            raise e
+            # Otherwise, override the default model log behavior and save model directly to artifact repo
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
     with TempDir() as tmp:
         tmp_model_metadata_dir = tmp.path()
@@ -347,6 +395,7 @@ def log_model(
             extra_pip_requirements=extra_pip_requirements,
             remote_model_path=remote_model_path,
             store_license=store_license,
+            gpu=gpu,
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
@@ -360,18 +409,19 @@ def log_model(
 
 
 def _save_model_metadata(
-    dst_dir,
-    spark_model,
-    mlflow_model,
-    sample_input,
-    conda_env,
-    code_paths,
-    signature=None,
-    input_example=None,
-    pip_requirements=None,
-    extra_pip_requirements=None,
-    remote_model_path=None,  # pylint: disable=unused-argument
-    store_license=False,  # pylint: disable=unused-argument
+        dst_dir,
+        spark_model,
+        mlflow_model,
+        sample_input,
+        conda_env,
+        code_paths,
+        signature=None,
+        input_example=None,
+        pip_requirements=None,
+        extra_pip_requirements=None,
+        remote_model_path=None,
+        store_license=False,
+        gpu=False,
 ):
     """
     Saves model metadata into the passed-in directory.
@@ -436,45 +486,58 @@ def _save_model_metadata(
 
     _PythonEnv.current().to_yaml(str(Path(dst_dir) / _PYTHON_ENV_FILE_NAME))
 
-    _save_jars_and_lic(dst_dir)
+    _save_jars_and_lic(dst_dir, store_license=store_license, gpu=gpu)
 
 
-def _save_jars_and_lic(dst_dir, store_license=False):
+def _save_jars_and_lic(dst_dir, store_license=True,gpu=False):
     from johnsnowlabs.auto_install.jsl_home import get_install_suite_from_jsl_home
     from johnsnowlabs.py_models.jsl_secrets import JslSecrets
+    from johnsnowlabs.utils.enums import JvmHardwareTarget
 
     deps_data_path = Path(dst_dir) / _JOHNSNOWLABS_MODEL_PATH_SUB / "jars.jsl"
     deps_data_path.mkdir(parents=True, exist_ok=True)
+    # TODO TEST THIS!??!
 
-    suite = get_install_suite_from_jsl_home(False)
+    jar_type = JvmHardwareTarget('gpu' if gpu else 'cpu') # _JOHNSNOWLABS_ENV_ENABLE_GPU in os.environ
+    suite = get_install_suite_from_jsl_home(False,
+                                            visual=_JOHNSNOWLABS_ENV_VISUAL_SECRET in os.environ,
+                                            jvm_hardware_target=jar_type,
+                                            )
     if suite.hc.get_java_path():
-        shutil.copyfile(suite.hc.get_java_path(), deps_data_path / "hc_jar.jar")
+        shutil.copyfile(suite.hc.get_java_path(), deps_data_path / "medical_nlp.jar")
     if suite.nlp.get_java_path():
-        shutil.copyfile(suite.nlp.get_java_path(), deps_data_path / "os_jar.jar")
+        shutil.copyfile(suite.nlp.get_java_path(), deps_data_path / f"spark_nlp_{jar_type.value}.jar")
+
+    if _JOHNSNOWLABS_ENV_VISUAL_SECRET in os.environ and suite.ocr.get_java_path():
+        # only if _JOHNSNOWLABS_ENV_VISUAL_SECRET set we copy visual jar
+        shutil.copyfile(suite.ocr.get_java_path(), deps_data_path / "visual_nlp.jar")
 
     if store_license:
         # Read the secrets from env vars and write to license.json
         secrets = JslSecrets.build_or_try_find_secrets()
         if secrets.HC_LICENSE:
-            deps_data_path.joinpath("license.json").write(secrets.json())
+            license_file_path = deps_data_path.joinpath("license.json")
+            with open(license_file_path, "w") as license_file:
+                license_file.write(secrets.json())
 
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def save_model(
-    spark_model,
-    path,
-    mlflow_model=None,
-    conda_env=None,
-    code_paths=None,
-    dfs_tmpdir=None,
-    sample_input=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
-    pip_requirements=None,
-    extra_pip_requirements=None,
-    metadata=None,
-    store_license=False,
+        spark_model,
+        path,
+        mlflow_model=None,
+        conda_env=None,
+        code_paths=None,
+        dfs_tmpdir=None,
+        sample_input=None,
+        signature: ModelSignature = None,
+        input_example: ModelInputExample = None,
+        pip_requirements=None,
+        extra_pip_requirements=None,
+        metadata=None,
+        store_license=False,
+        gpu=False,
 ):
     """
     Save a Spark johnsnowlabs Model to a local path.
@@ -590,7 +653,7 @@ def save_model(
     # on a Databricks cluster and the URI is schemeless (e.g. looks like a filesystem absolute path
     # like "/my-directory")
     copying_from_dbfs = is_valid_dbfs_uri(tmp_path) or (
-        databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
+            databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
     )
     if copying_from_dbfs and databricks_utils.is_dbfs_fuse_available():
         tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
@@ -609,6 +672,7 @@ def save_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         store_license=store_license,
+        gpu=gpu,
     )
 
 
@@ -645,9 +709,7 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     return nlp.load(path=local_model_path)
 
 
-def load_model(
-    model_uri, dfs_tmpdir=None, dst_path=None, **kwargs
-):  # pylint: disable=unused-argument
+def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):
     """
     Load the Johnsnowlabs MlFlow model from the path.
 
@@ -714,7 +776,7 @@ def load_model(
             DatabricksArtifactRepository._extract_run_id(model_uri), artifact_path
         )
         with databricks_utils.MlflowCredentialContext(
-            get_databricks_profile_uri_from_artifact_uri(root_uri)
+                get_databricks_profile_uri_from_artifact_uri(root_uri)
         ):
             return PipelineModel.load(mlflowdbfs_path)
 
@@ -740,6 +802,18 @@ def _load_pyfunc(path, spark=None):
     )
 
 
+def _auth_env_with_artifact(model_path):
+    _, license_path = _fetch_deps_from_path(model_path)
+    if license_path:
+        with open(license_path) as f:
+            loaded_license = json.load(f)
+            os.environ.update(
+                {k: str(v) for k, v in loaded_license.items() if v is not None}
+            )
+            os.environ["JSL_NLP_LICENSE"] = loaded_license["HC_LICENSE"]
+            os.environ['JOHNSNOWLABS_LICENSE_JSON'] = json.dumps(loaded_license)
+
+
 def _get_or_create_sparksession(model_path=None):
     """
     1. Check if SparkSession running and get it
@@ -752,27 +826,21 @@ def _get_or_create_sparksession(model_path=None):
     :return:
     """
     from johnsnowlabs import nlp
-
     from mlflow.utils._spark_utils import _get_active_spark_session
 
-    _validate_env_vars()
-
     spark = _get_active_spark_session()
+    if not _validate_env_vars() and model_path:
+        _auth_env_with_artifact(model_path)
+
     if spark is None:
-        spark_conf = {}
-        spark_conf["spark.python.worker.reuse"] = "true"
         os.environ["PYSPARK_PYTHON"] = sys.executable
         os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
+        spark_conf = {}
+        spark_conf["spark.python.worker.reuse"] = "true"
         if model_path:
-            jar_paths, license_path = _fetch_deps_from_path(model_path)
+            _auth_env_with_artifact(model_path)
             # jar_paths += get_mleap_jars().split(',')  # TODO when to load MLleap Jars
-            if license_path:
-                with open(license_path) as f:
-                    loaded_license = json.load(f)
-                    os.environ.update(
-                        {k: str(v) for k, v in loaded_license.items() if v is not None}
-                    )
-                    os.environ["JSL_NLP_LICENSE"] = loaded_license["HC_LICENSE"]
+            jar_paths, license_path = _fetch_deps_from_path(model_path)
             _logger.info("Starting a new Session with Jars: %s", jar_paths)
             spark = nlp.start(
                 nlp=False,
@@ -807,22 +875,88 @@ def _fetch_deps_from_path(local_model_path):
 
 
 def _unpack_and_save_model(spark_model, dst):
+    print(f'Saving model to {dst}')
+    # dst = dst.replace(':','')
     from pyspark.ml import PipelineModel
+    try:
+        if isinstance(spark_model, _PyFuncModelWrapper):
+            spark_model = spark_model.spark_model
 
-    if isinstance(spark_model, _PyFuncModelWrapper):
-        spark_model = spark_model.spark_model
-    if isinstance(spark_model, PipelineModel):
-        spark_model.write().overwrite().save(dst)
-    else:
-        # nlu pipe
-        spark_model.predict("Init")
+        if isinstance(spark_model, PipelineModel):
+            spark_model.write().overwrite().save(dst)
+            return
+        else:
+            try:
+                # Fit Pipe if not fitted. May fail on complex pipelines with multiple input cols
+                spark_model.predict("Init")
+            except:
+                pass
+            try:
+                spark_model.vanilla_transformer_pipe.write().overwrite().save(dst)
+            except Exception as err:
+                print(err)
+                # for mlflowdbfs_path we cannot use overwrite, gives
+                # org.apache.hadoop.fs.UnsupportedFileSystemException: No FileSystem for scheme
+                # "mlflowdbfs"
+                spark_model.save(dst)
+
+    except Exception as err:
+        print(f"Could  not save your model, use a different path for saving or remove {dst}. \n"
+              f"If this issue persists, please restart your notebook kernel.")
+        raise err
+
+
+def _maybe_unpack_and_save_model(spark_model, dst):
+    try:
+        _unpack_and_save_model(spark_model, dst)
+        return True
+    except:
+        return False
+
+
+import pandas as pd
+from pydantic import BaseModel
+
+
+class PredictParams(BaseModel):
+    output_level: Optional[str] = ''
+    positions: Optional[bool] = False
+    keep_stranger_features: Optional[bool] = True
+    metadata: Optional[bool] = False
+    multithread: Optional[bool] = True
+    drop_irrelevant_cols: Optional[bool] = True
+    return_spark_df: Optional[bool] = False
+    get_embeddings: Optional[bool] = True
+
+    @staticmethod
+    def has_param_cols(df: pd.DataFrame):
+        return all([c not in df.columns for c in PredictParams.__fields__.keys()])
+
+    @staticmethod
+    def maybe_from_pandas_df(df: pd.DataFrame):
+        # only first row is used
+        if df.shape[0] == 0:
+            return None
+        if PredictParams.has_param_cols(df):
+            # no params in df
+            return None
+        param_row = df.iloc[0].to_dict()
         try:
-            spark_model.vanilla_transformer_pipe.write().overwrite().save(dst)
-        except Exception:
-            # for mlflowdbfs_path we cannot use overwrite, gives
-            # org.apache.hadoop.fs.UnsupportedFileSystemException: No FileSystem for scheme
-            # "mlflowdbfs"
-            spark_model.save(dst)
+            return PredictParams(**param_row)
+        except Exception as e:
+            print(f'Exception trying to parse prediction parameters for param row:'
+                  f' \n{param_row} \n', e)
+            return None
+
+
+def serialize(img_path):
+    with open(img_path, 'rb') as img_file:
+        return img_file.read()
+
+
+def deserialize(binary_image, path):
+    with open(path, 'wb') as img_file:
+        img_file.write(binary_image)
 
 
 class _PyFuncModelWrapper:
@@ -831,24 +965,36 @@ class _PyFuncModelWrapper:
     """
 
     def __init__(
-        self,
-        spark_model,
-        spark=None,
+            self,
+            spark_model,
+            spark=None,
     ):
         # we have this `or`, so we support _PyFuncModelWrapper(nlu_ref)
         self.spark = spark or _get_or_create_sparksession()
         self.spark_model = spark_model
 
-    def predict(self, text, params: Optional[Dict[str, Any]] = None):
+    def predict(self, text):
         """
         Generate predictions given input data in a pandas DataFrame.
-
+        1) If df contains any column that is in PredictParams fields, the first row will be parsed as parameters
+        2) If df contains column `file` and `file_type` columns, each row will be deserialized into file
         :param text: pandas DataFrame containing input data.
-        :param params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
         :return: List with model predictions.
         """
-        output_level = params.get("output_level", "") if params else ""
-        return self.spark_model.predict(text, output_level=output_level).reset_index().to_json()
+        """
+        TODO:
+        test  image predictions (OCR MODEL)
+
+        """
+        params = PredictParams.maybe_from_pandas_df(text).dict()
+        files = []
+        if 'file' in text.columns and 'file_type' in text.columns:
+            skip_first = PredictParams.has_param_cols(text)
+            for i, row in text.iterrows():
+                if i == 0 and skip_first:
+                    continue
+                file_name = f'file{i}.{row.file_type}'
+                files.append(file_name)
+                deserialize(row.image, file_name)
+            text = files
+        return self.spark_model.predict(text, **params).reset_index().to_json()
