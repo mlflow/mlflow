@@ -13,49 +13,25 @@ The :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` is a ____.
 
 We provide the following default :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`:
 
-.. autoclass:: mlflow.metrics.ari_grade_level
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autoattribute:: mlflow.metrics.ari_grade_level
 
-.. autoclass:: mlflow.metrics.flesch_kincaid_grade_level
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autoattribute:: mlflow.metrics.flesch_kincaid_grade_level
 
-.. autoclass:: mlflow.metrics.perplexity
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autoattribute:: mlflow.metrics.perplexity
 
-.. autoclass:: mlflow.metrics.rouge1
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autoattribute:: mlflow.metrics.rouge1
 
-.. autoclass:: mlflow.metrics.rouge2
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autoattribute:: mlflow.metrics.rouge2
 
-.. autoclass:: mlflow.metrics.rougeL
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autoattribute:: mlflow.metrics.rougeL
 
-.. autoclass:: mlflow.metrics.rougeLsum
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autoattribute:: mlflow.metrics.rougeLsum
 
-.. autoclass:: mlflow.metrics.toxicity
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autoattribute:: mlflow.metrics.toxicity
 
 The following pre-canned LLM based :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` are available:
 
-.. autoclass:: mlflow.metrics.correctness
+.. autoattribute:: mlflow.metrics.correctness
 
 Users create their own EvaluationMetric using the :py:func:`make_metric <mlflow.metrics.make_metric>` factory function
 
