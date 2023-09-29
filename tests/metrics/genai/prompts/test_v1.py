@@ -1,5 +1,7 @@
 import re
 
+import pytest
+
 from mlflow.metrics.base import EvaluationExample
 from mlflow.metrics.genai.prompts.v1 import EvaluationModel
 
@@ -166,6 +168,46 @@ def test_evaluation_model_output():
     Justification: [your step by step reasoning about the correctness of the output]
       """
     prompt2 = model2["eval_prompt"].format(
+        input="This is an input", output="This is an output", variables=variables_string
+    )
+    assert re.sub(r"\s+", "", prompt2) == re.sub(r"\s+", "", expected_prompt2)
+
+
+@pytest.mark.parametrize("examples", [None, []])
+def test_no_examples(examples):
+    model = EvaluationModel(
+        name="correctness",
+        definition="definition",
+        grading_prompt="grading prompt",
+        examples=examples,
+    ).to_dict()
+
+    variables_string = ""
+    expected_prompt2 = """
+    Please act as an impartial judge and evaluate the quality of the provided output which
+    attempts to produce output for the provided input based on a provided information.
+    You'll be given a grading format below which you'll call for each provided information,
+    input and provided output to submit your justification and score to compute the correctness of
+    the output.
+
+    Input:
+    This is an input
+
+    Provided output:
+    This is an output
+
+    Metric definition:
+    definition
+
+    Below is your grading criteria:
+    grading prompt
+
+    And you'll need to submit your grading for the correctness of the output,
+    using the following in json format:
+    Score: [your score number between 1 to 5 for the correctness of the output]
+    Justification: [your step by step reasoning about the correctness of the output]
+      """
+    prompt2 = model["eval_prompt"].format(
         input="This is an input", output="This is an output", variables=variables_string
     )
     assert re.sub(r"\s+", "", prompt2) == re.sub(r"\s+", "", expected_prompt2)
