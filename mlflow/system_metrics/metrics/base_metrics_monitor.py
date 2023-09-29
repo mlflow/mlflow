@@ -13,7 +13,7 @@ class BaseMetricsMonitor(abc.ABC):
     def collect_metrics(self):
         """Method to collect metrics.
 
-        Sublcass should implement this method to collect metrics and store in `self._metrics`.
+        Subclass should implement this method to collect metrics and store in `self._metrics`.
         """
         pass
 
@@ -21,7 +21,7 @@ class BaseMetricsMonitor(abc.ABC):
     def aggregate_metrics(self):
         """Method to aggregate metrics.
 
-        Sublcass should implement this method to aggregate the metrics and return it in a dict.
+        Subclass should implement this method to aggregate the metrics and return it in a dict.
         """
         pass
 
