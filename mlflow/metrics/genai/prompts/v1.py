@@ -42,7 +42,7 @@ Below is your grading criteria:
 
 And you'll need to submit your grading for the {name} of the output,
 using the following in json format:
-Score: [your score number between 1 to 5 for the {name} of the output]
+Score: [your score number for the {name} of the output]
 Justification: [your step by step reasoning about the {name} of the output]
     """
 )
@@ -86,8 +86,8 @@ class EvaluationModel:
 class CorrectnessMetric:
     definition = (
         "Correctness is evaluated on the proximity of the provided output to the ground truth "
-        "in terms of meaning and description similarity. Scores can be assigned based on the "
-        "gradual similarity in meaning and description to the ground truth."
+        "in terms of meaning and description similarity. Scores can be assigned from 1 to 5 based "
+        "on the gradual similarity in meaning and description to the ground truth."
     )
 
     grading_prompt = (
@@ -151,8 +151,9 @@ class CorrectnessMetric:
 class RelevanceMetric:
     definition = (
         "Relevance encompasses the appropriateness, significance, and applicability of the output "
-        "with respect to the input and context. Scores should reflect the extent to which the "
-        "output directly addresses the question provided in the input, given the provided context."
+        "with respect to the input and context. Scores should range from 1 to 5 and should reflect "
+        "the extent to which the output directly addresses the question provided in the input, "
+        "given the provided context."
     )
 
     grading_prompt = (
@@ -211,3 +212,58 @@ class RelevanceMetric:
     )
 
     default_examples = [example_score_2, example_score_4]
+
+
+@dataclass
+class StrictCorrectnessMetric:
+    definition = (
+        "When a question demands a specific value, term, or description (e.g., math questions or "
+        "fact-checking), correctness is binary. Strict correctness of the output is assessed on "
+        "whether it aligns exactly with the ground truth. Scores are assigned to be 0 or 1."
+    )
+
+    grading_prompt = (
+        "Strict Correctness: Below are the details for different scores:"
+        "- Score 0: the output is completely incorrect, doesn't mention anything about the "
+        "question or is completely contrary to the ground truth."
+        "- Score 1: the output answers the question correctly as provided in the ground truth."
+    )
+
+    variables = ["ground_truth"]
+    parameters = default_parameters
+    default_model = default_model
+
+    example_score_0 = EvaluationExample(
+        input="Is MLflow open-source?",
+        output="No, MLflow is not open-source.",
+        score=0,
+        justification="The output is incorrect. It states that MLflow is not open-source, which "
+        "contradicts the provided context, where it is explicitly mentioned that MLflow is an "
+        "open-source platform. This directly opposes the ground truth, resulting in a score of 0 "
+        "for strict correctness.",
+        variables={
+            "ground_truth": "MLflow is an open-source platform for managing the end-to-end machine "
+            "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
+            "in big data and machine learning solutions. MLflow is designed to address the "
+            "challenges that data scientists and machine learning engineers face when developing, "
+            "training, and deploying machine learning models."
+        },
+    )
+
+    example_score_1 = EvaluationExample(
+        input="Is MLflow open-source?",
+        output="MLflow is open-source, which means it's freely available for anyone to use.",
+        score=1,
+        justification="The output correctly states that MLflow is open-source, aligning perfectly "
+        "with the provided context. It accurately reflects the ground truth information, earning "
+        "a score of 1 for strict correctness.",
+        variables={
+            "ground_truth": "MLflow is an open-source platform for managing the end-to-end machine "
+            "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
+            "in big data and machine learning solutions. MLflow is designed to address the "
+            "challenges that data scientists and machine learning engineers face when developing, "
+            "training, and deploying machine learning models."
+        },
+    )
+
+    default_examples = [example_score_0, example_score_1]
