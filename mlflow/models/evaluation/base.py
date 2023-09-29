@@ -28,7 +28,6 @@ from mlflow.models.evaluation.validation import (
     _MetricValidationResult,
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.pyfunc.model import _PythonModelPyfuncWrapper
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import _get_fully_qualified_class_name
@@ -1051,6 +1050,8 @@ def _evaluate(
 
 
 def _get_model_from_function(fn):
+    from mlflow.pyfunc.model import _PythonModelPyfuncWrapper
+
     class ModelFromFunction(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input: pd.DataFrame):
             return fn(model_input)
