@@ -5,6 +5,7 @@ import os
 import posixpath
 import urllib.parse
 from mimetypes import guess_type
+import time
 
 from botocore.exceptions import SSLError
 from mlflow.entities import FileInfo
@@ -25,6 +26,9 @@ from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
 _logger = logging.getLogger(__name__)
+
+import boto3
+boto3.set_stream_logger('', logging.DEBUG)
 
 
 class OptimizedS3ArtifactRepository(CloudArtifactRepository):
@@ -267,7 +271,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             except SSLError as e:
                 if i == self.max_attempts_for_file_download - 1:
                     raise MlflowException(f"Max download attempts exceeded for file {remote_file_path}") from e
-                print(f"Downloading {remote_file_path} failed with {e}. Retrying...")
+                sleep_secs = 1
+                print(f"Downloading {remote_file_path} failed with {e}. Retrying after {sleep_secs} seconds")
+                time.sleep(sleep_secs)
                 pass
 
 
