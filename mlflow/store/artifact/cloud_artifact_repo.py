@@ -245,9 +245,7 @@ class CloudArtifactRepository(ArtifactRepository):
             or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE
             or is_fuse_or_uc_volumes_uri(local_path)
         ):
-            try:
-                # Retry the code block below in case of SSLError
-                self._download_from_cloud(remote_file_path, local_path)
+            self._download_from_cloud(remote_file_path, local_path)
         else:
             self._parallelized_download_from_cloud(file_size, remote_file_path, local_path)
 
