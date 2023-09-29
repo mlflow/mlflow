@@ -3685,7 +3685,7 @@ def test_whisper_model_supports_timestamps(raw_audio_file, whisper_pipeline):
     inference_config = {
         "return_timestamps": "word",
         "chunk_length_s": 60,
-        "batch_size": 16,
+        "batch_size": 1,
     }
 
     with mlflow.start_run():
@@ -3698,7 +3698,7 @@ def test_whisper_model_supports_timestamps(raw_audio_file, whisper_pipeline):
     model_uri = model_info.model_uri
     whisper = mlflow.transformers.load_model(model_uri)
 
-    prediction = whisper(raw_audio_file, return_timestamps="word")
+    prediction = whisper(raw_audio_file, **inference_config)
     whisper_pyfunc = mlflow.pyfunc.load_model(model_uri)
     prediction_inference = json.loads(whisper_pyfunc.predict(raw_audio_file)[0])
 
