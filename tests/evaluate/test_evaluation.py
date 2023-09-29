@@ -1316,3 +1316,85 @@ def test_evaluate_lightgbm_regressor():
     assert "mean_absolute_error" in run.data.metrics
     assert "mean_squared_error" in run.data.metrics
     assert "root_mean_squared_error" in run.data.metrics
+
+
+def test_evaluate_with_function_input_single_output():
+    import lightgbm as lgb
+
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    data = lgb.Dataset(X, label=y)
+    model = lgb.train({"objective": "regression"}, data, num_boost_round=5)
+
+    def fn(X):
+        return model.predict(X)
+
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            fn,
+            X.assign(y=y),
+            targets="y",
+            model_type="regressor",
+        )
+    run = mlflow.get_run(run.info.run_id)
+    assert "mean_absolute_error" in run.data.metrics
+    assert "mean_squared_error" in run.data.metrics
+    assert "root_mean_squared_error" in run.data.metrics
+
+
+def test_evaluate_with_static_dataset_input_single_output():
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            None,
+            X.assign(y=y, y_pred=y),
+            targets="y",
+            model_type="regressor",
+            evaluator_config={"model_output": "y_pred"},
+        )
+    run = mlflow.get_run(run.info.run_id)
+    assert "mean_absolute_error" in run.data.metrics
+    assert "mean_squared_error" in run.data.metrics
+    assert "root_mean_squared_error" in run.data.metrics
+
+
+def test_evaluate_with_static_dataset_input_multiple_outputs():
+    # multiple_outputs mode is only used with RAG evaluation type
+    df = pd.Dataframe(
+        {
+            "question": ["Hello?", "Hi?"],
+            "context": [["Hello1", "Hello2"], ["Hi1", "Hi2"]],
+            "answer": ["Hello.", "Hi."],
+            "ref_answer": ["Hello!", "Hi!"],
+        }
+    )
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            None,
+            df,
+            targets="ref_answer",
+            model_type="RAG",
+            evaluators="mock_rag_evaluator",
+            evaluator_config={"model_output": ["context", "answer"]},
+        )
+
+
+def test_evaluate_with_function_input_multiple_outputs():
+    # multiple_outputs mode is only used with RAG evaluation type
+    df = pd.Dataframe({"question": ["Hello?", "Hi?"], "ref_answer": ["Hello!", "Hi!"]})
+
+    def fn(question):
+        return {"context": [f"{question}1", f"{question}2"], "answer": f"{question}."}
+
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            fn,
+            df,
+            targets="ref_answer",
+            model_type="RAG",
+            evaluators="mock_rag_evaluator",
+            evaluator_config={"model_output": ["context", "answer"]},
+        )
