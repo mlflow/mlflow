@@ -1,5 +1,4 @@
 import hashlib
-import inspect
 import json
 import logging
 import math
@@ -19,10 +18,6 @@ from typing import Any, Dict
 
 import mlflow
 from mlflow.data.dataset import Dataset
-
-# from mlflow.data.numpy_dataset import NumpyDataset
-# from mlflow.data.pandas_dataset import PandasDataset
-# from mlflow.data.spark_dataset import SparkDataset
 from mlflow.entities import RunTag
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
@@ -1057,62 +1052,11 @@ def _evaluate(
 
 def _get_model_from_function(fn):
     class ModelFromFunction(mlflow.pyfunc.PythonModel):
-        def __init__(self):
-            self.fn_signature = inspect.signature(fn)
-            self.input_params = self.fn_signature.parameters
-
         def predict(self, context, model_input: pd.DataFrame):
             return fn(model_input)
 
-    # logged_model = mlflow.pyfunc.log_model(ModelFromFunction(), "model-from-function")
     python_model = ModelFromFunction()
-
     return _PythonModelPyfuncWrapper(python_model, None, None)
-    # return logged_model.model_uri
-
-
-# def _get_model_from_dataset(data):
-#     if "pyspark" in sys.modules:
-#         from pyspark.sql import DataFrame as SparkDataFrame
-
-#     if isinstance(data, pd.DataFrame) or \
-#         ("pyspark" in sys.modules and isinstance(data, SparkDataFrame)):
-#         if "model_output" not in data.columns:
-#             raise MlflowException(
-#                 message="The model_output column must be included in ``data`` when model=None."
-#                 " Found columns: " + str(data.columns),
-#                 error_code=INVALID_PARAMETER_VALUE,
-#             )
-#     elif isinstance(data, SparkDataset):
-#         sdf = data.to_evaluation_dataset()
-#         if "model_output" not in data.columns:
-#             raise MlflowException(
-#                 message="The model output column name is not found in ``data``. "
-#                 "Found columns: " + str(data.columns),
-#                 error_code=INVALID_PARAMETER_VALUE,
-#             )
-#     elif isinstance(data, Dataset):
-#         if "model_output" not in data.columns:
-#             raise MlflowException(
-#                 message="The model output column name is not found in ``data``. "
-#                 "Found columns are: " + str(data.columns),
-#                 error_code=INVALID_PARAMETER_VALUE,
-#             )
-#     else:
-#         raise MlflowException(
-#             message="The data argument must be a pandas DataFrame or a Spark DataFrame "
-#             "or a :py:class`mlflow.data.dataset.Dataset` instance when model is None. "
-#             "Found data type: " + str(type(data)),
-#             error_code=INVALID_PARAMETER_VALUE,
-#         )
-
-#     class ModelFromDataset(mlflow.pyfunc.PythonModel):
-#         def predict(self, context, model_input: pd.DataFrame):
-#             filtered_df = pd.merge(model_input, data, how='inner',
-# on=model_input.columns.tolist())
-#             return filtered_df["model_output"].tolist()
-
-#     return ModelFromDataset()
 
 
 def evaluate(
@@ -1354,25 +1298,18 @@ def evaluate(
 
                   - A function
 
-                  - None: This indicates a static dataset will be used for evaluation instead of a
-                    model. In this case, the ``data`` argument must be a Pandas DataFrame or Spark
-                    DataFrame or :py:class`mlflow.data.dataset.Dataset` instance that contains
-                    model outputs. The column name of the model outputs must be ``model_output``.
-
     :param data: One of the following:
 
                  - A numpy array or list of evaluation features, excluding labels.
 
-                 - A Pandas DataFrame or Spark DataFrame, containing evaluation features,
-                   labels, and optionally model outputs. If ``feature_names`` argument not
-                   specified, all columns except for the label column and model_output column
-                   are regarded as feature columns. Otherwise, only column names present in
-                   ``feature_names`` are regarded as feature columns.
-                   If it is Spark DataFrame, only the first 10000 rows in the Spark DataFrame
-                   will be used as evaluation data.
+                 - A Pandas DataFrame or Spark DataFrame, containing evaluation features and
+                   labels. If ``feature_names`` argument not specified, all columns are regarded
+                   as feature columns. Otherwise, only column names present in ``feature_names``
+                   are regarded as feature columns. If it is Spark DataFrame, only the first 10000
+                   rows in the Spark DataFrame will be used as evaluation data.
 
-                 - A :py:class`mlflow.data.dataset.Dataset` instance containing evaluation
-                   features, labels, and optionally model outputs.
+                 - A :py:class`mlflow.data.dataset.Dataset` instance containing evaluation features
+                   and labels.
 
     :param targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
                     labels. If ``data`` is a DataFrame, the string name of a column from ``data``
@@ -1404,8 +1341,7 @@ def evaluate(
                           ``feature_{feature_index}``. If the ``data`` argument is a Pandas
                           DataFrame or a Spark DataFrame, ``feature_names`` is a list of the names
                           of the feature columns in the DataFrame. If ``None``, then all columns
-                          except the label column and the model_output column are regarded as
-                          feature columns.
+                          except the label column are regarded as feature columns.
 
     :param evaluators: The name of the evaluator to use for model evaluation, or a list of
                        evaluator names. If unspecified, all evaluators capable of evaluating the
@@ -1594,17 +1530,12 @@ def evaluate(
         )
     elif isinstance(model, PyFuncModel):
         pass
-    elif model is None:
-        # Evaluating a static dataset
-        # Dummy model can only be created after the dataset is normalized.
-        pass
     elif callable(model):
         model = _get_model_from_function(model)
-        # model = _load_model_or_server(model_uri, env_manager)
     else:
         raise MlflowException(
             message="The model argument must be a string URI referring to an MLflow model, "
-            "an instance of `mlflow.pyfunc.PyFuncModel`, a function, or None",
+            "an instance of `mlflow.pyfunc.PyFuncModel`, or a function.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -1667,13 +1598,6 @@ def evaluate(
                 path=dataset_path,
                 feature_names=feature_names,
             )
-
-        if model is None:
-            # Evaluating a static dataset
-            # Create a dummy model from the dataset
-            # The column name for model_output should be specified in the evaluator config.
-            # model = _get_model_from_dataset(dataset, evaluator_config)
-            pass
 
         try:
             evaluate_result = _evaluate(
