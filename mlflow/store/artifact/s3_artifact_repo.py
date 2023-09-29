@@ -63,7 +63,6 @@ def _cached_get_s3_client(
         config=Config(
             signature_version=signature_version, s3={"addressing_style": addressing_style},
             retries={
-                'max_attempts': 10,
                 'mode': 'standard'
             }
         ),

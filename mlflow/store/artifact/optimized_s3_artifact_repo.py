@@ -5,9 +5,7 @@ import os
 import posixpath
 import urllib.parse
 from mimetypes import guess_type
-import time
 
-from botocore.exceptions import SSLError, ClientError
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_MULTIPART_UPLOAD,
@@ -55,7 +53,6 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         self._s3_endpoint_url = s3_endpoint_url
         self.bucket, self.bucket_path = self.parse_s3_compliant_uri(self.artifact_uri)
         self._region_name = self._get_region_name()
-        self.max_attempts_for_file_download = 3
 
     def _get_region_name(self):
         # note: s3 client enforces path addressing style for get_bucket_location
@@ -261,18 +258,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
     def _download_from_cloud(self, remote_file_path, local_path):
         s3_client = self._get_s3_client()
         s3_full_path = posixpath.join(self.bucket_path, remote_file_path)
-        for i in range(self.max_attempts_for_file_download):
-            try:
-                s3_client.download_file(self.bucket, s3_full_path, local_path)
-                return
-            except (SSLError, ClientError) as e:
-                if i == self.max_attempts_for_file_download - 1:
-                    raise MlflowException(f"Max download attempts exceeded for file {remote_file_path}") from e
-                sleep_secs = 1
-                print(f"Downloading {remote_file_path} failed with {e}. Retrying after {sleep_secs} seconds")
-                time.sleep(sleep_secs)
-                pass
-
+        s3_client.download_file(self.bucket, s3_full_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
         dest_path = self.bucket_path
