@@ -139,3 +139,71 @@ class CorrectnessMetric:
             "models."
         },
     )
+
+    default_examples = [example_score_2, example_score_4]
+
+
+@dataclass
+class RelevanceMetric:
+    definition = (
+        "Relevance encompasses the appropriateness, significance, and applicability of the output "
+        "with respect to the input and context. Scores should reflect the extent to which the "
+        "output directly addresses the question provided in the input, given the provided context."
+    )
+
+    grading_prompt = (
+        "Relevance: Below are the details for different scores:"
+        "- Score 1: the output doesn't mention anything about the question or is completely "
+        "irrelevant to the provided context."
+        "- Score 2: the output provides some relevance to the question and is somehow related to "
+        "the provided context."
+        "- Score 3: the output mostly answers the question and is consistent with the provided "
+        "context."
+        "- Score 5: the output answers the question comprehensively using the provided context."
+    )
+
+    variables = ["context"]
+    parameters = default_parameters
+    default_model = default_model
+
+    example_score_2 = EvaluationExample(
+        input="How is MLflow related to Databricks?",
+        output="Databricks is a data engineering and analytics platform designed to help "
+        "organizations process and analyze large amounts of data. Databricks is a company "
+        "specializing in big data and machine learning solutions.",
+        score=2,
+        justification="The output provides relevant information about Databricks, mentioning it as "
+        "a company specializing in big data and machine learning solutions. However, it doesn't "
+        "directly address how MLflow is related to Databricks, which is the specific question "
+        "asked in the input. Therefore, the output is only somewhat related to the provided "
+        "context.",
+        variables={
+            "context": "MLflow is an open-source platform for managing the end-to-end machine "
+            "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
+            "in big data and machine learning solutions. MLflow is designed to address the "
+            "challenges that data scientists and machine learning engineers face when developing, "
+            "training, and deploying machine learning models."
+        },
+    )
+
+    example_score_4 = EvaluationExample(
+        input="How is MLflow related to Databricks?",
+        output="MLflow is a product created by Databricks to enhance the efficiency of machine "
+        "learning processes.",
+        score=4,
+        justification="The output provides a relevant and accurate statement about the "
+        "relationship between MLflow and Databricks. While it doesn't provide extensive detail, "
+        "it still offers a substantial and meaningful response. To achieve a score of 5, the "
+        "response could be further improved by providing additional context or details about"
+        "how MLflow specifically functions within the Databricks ecosystem.",
+        variables={
+            "context": "MLflow is an open-source platform for managing the end-to-end "
+            "machine learning (ML) lifecycle. It was developed by Databricks, a company "
+            "that specializes in big data and machine learning solutions. MLflow is "
+            "designed to address the challenges that data scientists and machine learning "
+            "engineers face when developing, training, and deploying machine learning "
+            "models."
+        },
+    )
+
+    default_examples = [example_score_2, example_score_4]
