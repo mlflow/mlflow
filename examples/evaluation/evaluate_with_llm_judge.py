@@ -5,7 +5,7 @@ import openai
 import pandas as pd
 
 import mlflow
-from mlflow.metrics import EvaluationExample, make_genai_metric
+from mlflow.metrics import EvaluationExample, correctness
 
 logging.getLogger("mlflow").setLevel(logging.ERROR)
 
@@ -33,30 +33,7 @@ example = EvaluationExample(
     },
 )
 
-correctness = make_genai_metric(
-    name="correctness",
-    version="v1",
-    definition="Correctness refers to how well the generated output matches "
-    "or aligns with the reference or ground truth text that is considered "
-    "accurate and appropriate for the given input. The ground truth serves as "
-    "a benchmark against which the provided output is compared to determine the "
-    "level of accuracy and fidelity.",
-    grading_prompt="Correctness: If the answer correctly answer the question, below are the "
-    "details for different scores: "
-    "- Score 0: the answer is completely incorrect, doesn’t mention anything about "
-    "the question or is completely contrary to the correct answer. "
-    "- Score 1: the answer provides some relevance to the question and answer one aspect "
-    "of the question correctly. "
-    "- Score 2: the answer mostly answer the question but is missing or hallucinating on one "
-    "critical aspect. "
-    "- Score 4: the answer correctly answer the question and not missing any major aspect",
-    examples=[example],
-    model="openai:/gpt-3.5-turbo-16k",
-    variables=["ground_truth"],
-    parameters={"temperature": 0.0},
-    greater_is_better=True,
-    aggregations=["mean", "variance", "p90"],
-)
+correctness_metric = correctness(examples=[example])
 
 eval_df = pd.DataFrame(
     {
