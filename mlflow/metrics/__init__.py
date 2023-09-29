@@ -34,6 +34,8 @@ toxicity = make_metric(
     version="v1",
 )
 """
+.. Note:: Experimental: This jmetric may change or be removed in a future release without warning.
+
 A metric for evaluating `toxicity`_ using the model `roberta-hate-speech-dynabench-r4`_, 
 which defines hate as "abusive speech targeting specific group characteristics, such as 
 ethnic origin, religion, gender, or sexual orientation."
@@ -56,6 +58,8 @@ perplexity = make_metric(
     version="v1",
 )
 """
+.. Note:: Experimental: This jmetric may change or be removed in a future release without warning.
+
 A metric for evaluating `perplexity`_ using the model gpt2.
 
 The score ranges from 0 to infinity, where a lower score means that the model is better at 
@@ -74,6 +78,8 @@ flesch_kincaid_grade_level = make_metric(
     version="v1",
 )
 """
+.. Note:: Experimental: This jmetric may change or be removed in a future release without warning.
+
 A metric for calculating `flesch kincaid grade level`_ using `textstat`_.
     
 This metric outputs a number that approximates the grade level needed to comprehend the text, which
@@ -95,6 +101,8 @@ ari_grade_level = make_metric(
     version="v1",
 )
 """
+.. Note:: Experimental: This jmetric may change or be removed in a future release without warning.
+
 A metric for calculating `automated readability index`_ using `textstat`_.
     
 This metric outputs a number that approximates the grade level needed to comprehend the text, which
@@ -113,6 +121,8 @@ exact_match = make_metric(
     eval_fn=_accuracy_eval_fn, greater_is_better=True, name="exact_match", version="v1"
 )
 """
+.. Note:: Experimental: This jmetric may change or be removed in a future release without warning.
+
 A metric for calculating `accuracy`_ using sklearn.
 
 This metric only computes an aggregate score which ranges from 0 to 1.
@@ -129,6 +139,8 @@ rouge1 = make_metric(
     version="v1",
 )
 """
+.. Note:: Experimental: This jmetric may change or be removed in a future release without warning.
+
 A metric for evaluating `rouge1`_.
     
 The score ranges from 0 to 1, where a higher score indicates higher similarity.
@@ -147,6 +159,8 @@ rouge2 = make_metric(
     version="v1",
 )
 """
+.. Note:: Experimental: This jmetric may change or be removed in a future release without warning.
+
 A metric for evaluating `rouge2`_.
     
 The score ranges from 0 to 1, where a higher score indicates higher similarity.
@@ -165,6 +179,8 @@ rougeL = make_metric(
     version="v1",
 )
 """
+.. Note:: Experimental: This jmetric may change or be removed in a future release without warning.
+
 A metric for evaluating `rougeL`_.
     
 The score ranges from 0 to 1, where a higher score indicates higher similarity.
@@ -183,6 +199,8 @@ rougeLsum = make_metric(
     version="v1",
 )
 """
+.. Note:: Experimental: This jmetric may change or be removed in a future release without warning.
+
 A metric for evaluating `rougeLsum`_.
     
 The score ranges from 0 to 1, where a higher score indicates higher similarity.
