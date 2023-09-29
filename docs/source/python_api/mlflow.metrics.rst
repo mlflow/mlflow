@@ -14,44 +14,24 @@ The :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` is a ____.
 We provide the following default :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` for evaluating text models. 
 
 .. autoattribute:: mlflow.metrics.ari_grade_level
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :annotation:
 
 .. autoattribute:: mlflow.metrics.flesch_kincaid_grade_level
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :no-value:
 
-.. autoattribute:: mlflow.metrics.perplexity
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autodata:: mlflow.metrics.perplexity
+   :annotation:
 
-.. autoattribute:: mlflow.metrics.rouge1
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autodata:: mlflow.metrics.rouge1
+   :no-value:
 
-.. autoattribute:: mlflow.metrics.rouge2
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autoproperty:: mlflow.metrics.rouge2
 
 .. autoattribute:: mlflow.metrics.rougeL
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
 .. autoattribute:: mlflow.metrics.rougeLsum
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
 .. autoattribute:: mlflow.metrics.toxicity
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
 Users create their own EvaluationMetric using the :py:func:`make_metric <mlflow.metrics.make_metric>` factory function
 
@@ -60,9 +40,8 @@ Users create their own EvaluationMetric using the :py:func:`make_metric <mlflow.
 The following "intelligent" :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` are available. These metrics use an LLM to evaluate the quality of a model's output text.
 
 .. autoattribute:: mlflow.metrics.correctness
-    :members:
-    :undoc-members:
-    :show-inheritance:
+
+.. autoattribute:: mlflow.metrics.relevance
 
 Users can also create their own LLM based EvaluationMetric using the :py:func:`make_genai_metric <mlflow.metrics.make_genai_metric>` factory function
 
