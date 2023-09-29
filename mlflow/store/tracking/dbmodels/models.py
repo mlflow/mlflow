@@ -441,9 +441,9 @@ class SqlParam(Base):
     """
     Param key: `String` (limit 250 characters). Part of *Primary Key* for ``params`` table.
     """
-    value = Column(String(500), nullable=False)
+    value = Column(String(8000), nullable=False)
     """
-    Param value: `String` (limit 500 characters). Defined as *Non-null* in schema.
+    Param value: `String` (limit 8000 characters). Defined as *Non-null* in schema.
     """
     run_uuid = Column(String(32), ForeignKey("runs.run_uuid"))
     """

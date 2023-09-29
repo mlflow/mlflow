@@ -13,16 +13,17 @@ class BaseMetricsMonitor(abc.ABC):
     def collect_metrics(self):
         """Method to collect metrics.
 
-        Sublcass should implement this method to collect metrics and store in `self._metrics`.
+        Subclass should implement this method to collect metrics and store in `self._metrics`.
         """
         pass
 
+    @abc.abstractmethod
     def aggregate_metrics(self):
-        metrics = {}
-        for name, values in self._metrics.items():
-            if len(values) > 0:
-                metrics[name] = round(sum(values) / len(values), 1)
-        return metrics
+        """Method to aggregate metrics.
+
+        Subclass should implement this method to aggregate the metrics and return it in a dict.
+        """
+        pass
 
     @property
     def metrics(self):

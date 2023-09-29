@@ -42,6 +42,8 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install -e .
+          # pyspark 3.5 is incompatible with delta 2.4
+          pip install 'pyspark<3.5'
           # TODO: Remove xgboost once https://github.com/microsoft/FLAML/issues/1217 is fixed
           pip install pyspark 'xgboost<2'
       - name: Run tests
@@ -64,6 +66,8 @@ jobs:
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .
+          # pyspark 3.5 is incompatible with delta 2.4
+          pip install 'pyspark<3.5'
           # TODO: Remove xgboost once https://github.com/microsoft/FLAML/issues/1217 is fixed
           pip install pyspark 'xgboost<2'
           # TODO: Importing datasets in a pandas UDF (created by mlflow.pyfunc.spark_udf) crashes

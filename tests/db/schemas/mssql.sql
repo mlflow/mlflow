@@ -117,7 +117,7 @@ CREATE TABLE model_version_tags (
 
 CREATE TABLE params (
 	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	value VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	value VARCHAR(8000) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	run_uuid VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT param_pk PRIMARY KEY (key, run_uuid),
 	CONSTRAINT "FK__params__run_uuid__46E78A0C" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)

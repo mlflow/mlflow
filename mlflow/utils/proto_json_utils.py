@@ -183,7 +183,7 @@ class NumpyEncoder(JSONEncoder):
             return encode_binary(o), True
         if isinstance(o, np.datetime64):
             return np.datetime_as_string(o), True
-        if isinstance(o, (pd.Timestamp, datetime.date)):
+        if isinstance(o, (pd.Timestamp, datetime.date, datetime.datetime, datetime.time)):
             return o.isoformat(), True
         return o, False
 

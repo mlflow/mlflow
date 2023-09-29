@@ -37,7 +37,7 @@ from mlflow.models import (
     infer_signature,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.utils import _save_example
+from mlflow.models.utils import _contains_params, _save_example
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
@@ -471,7 +471,7 @@ def save_model(
     if _should_add_pyfunc_to_model(built_pipeline):
         # For pyfunc supported models, if a signature is not supplied, infer the signature
         # from the input_example if provided, otherwise, apply a generic signature.
-        if signature is None:
+        if mlflow_model.signature is None:
             mlflow_model.signature = _get_default_pipeline_signature(
                 built_pipeline, input_example, inference_config
             )
@@ -1314,13 +1314,18 @@ def _format_input_example_for_special_cases(input_example, pipeline):
     """
     import transformers
 
+    if isinstance(input_example, tuple):
+        input_data = input_example[0]
+    else:
+        input_data = input_example
+
     if (
         isinstance(pipeline, transformers.ZeroShotClassificationPipeline)
-        and isinstance(input_example, dict)
-        and isinstance(input_example["candidate_labels"], list)
+        and isinstance(input_data, dict)
+        and isinstance(input_data["candidate_labels"], list)
     ):
-        input_example["candidate_labels"] = json.dumps(input_example["candidate_labels"])
-    return input_example
+        input_data["candidate_labels"] = json.dumps(input_data["candidate_labels"])
+    return input_data if not isinstance(input_example, tuple) else (input_data, input_example[1])
 
 
 def _get_default_pipeline_signature(
@@ -1338,13 +1343,17 @@ def _get_default_pipeline_signature(
 
     if example:
         try:
-            prediction = generate_signature_output(pipeline, example, inference_config)
-            return infer_signature(example, prediction)
+            params = None
+            if _contains_params(example):
+                example, params = example
+            prediction = generate_signature_output(pipeline, example, inference_config, params)
+            return infer_signature(example, prediction, params)
         except Exception as e:
             _logger.warning(
                 "Attempted to generate a signature for the saved model or pipeline "
                 f"but encountered an error: {e}"
             )
+            raise
     else:
         if isinstance(
             pipeline,
@@ -1548,7 +1557,7 @@ def _load_pyfunc(path):
 
 
 @experimental
-def generate_signature_output(pipeline, data, inference_config=None):
+def generate_signature_output(pipeline, data, inference_config=None, params=None):
     """
     Utility for generating the response output for the purposes of extracting an output signature
     for model saving and logging. This function simulates loading of a saved model or pipeline
@@ -1559,6 +1568,7 @@ def generate_signature_output(pipeline, data, inference_config=None):
     :param data: An example input that is compatible with the given pipeline
     :param inference_config: Any additional inference configuration, provided as kwargs, to inform
                              the format of the output type from a pipeline inference call.
+    :param params: A dictionary of additional parameters to pass to the pipeline for inference.
     :return: The output from the ``pyfunc`` pipeline wrapper's ``predict`` method
     """
     import transformers
@@ -1570,7 +1580,9 @@ def generate_signature_output(pipeline, data, inference_config=None):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    return _TransformersWrapper(pipeline=pipeline, inference_config=inference_config).predict(data)
+    return _TransformersWrapper(pipeline=pipeline, inference_config=inference_config).predict(
+        data, params=params
+    )
 
 
 class _TransformersWrapper:

@@ -70,8 +70,8 @@ def test_network_monitor():
     network_monitor.collect_metrics()
 
     assert len(network_monitor.metrics.keys()) > 0
-    assert isinstance(network_monitor.metrics["network_receive_megabytes"], list)
-    assert isinstance(network_monitor.metrics["network_transmit_megabytes"], list)
+    assert isinstance(network_monitor.metrics["network_receive_megabytes"], float)
+    assert isinstance(network_monitor.metrics["network_transmit_megabytes"], float)
 
     network_monitor.collect_metrics()
     aggregated_metrics = network_monitor.aggregate_metrics()
