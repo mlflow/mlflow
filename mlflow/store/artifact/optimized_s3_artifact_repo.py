@@ -7,7 +7,7 @@ import urllib.parse
 from mimetypes import guess_type
 import time
 
-from botocore.exceptions import SSLError
+from botocore.exceptions import SSLError, ClientError
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_MULTIPART_UPLOAD,
@@ -268,7 +268,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             try:
                 s3_client.download_file(self.bucket, s3_full_path, local_path)
                 return
-            except SSLError as e:
+            except (SSLError, ClientError) as e:
                 if i == self.max_attempts_for_file_download - 1:
                     raise MlflowException(f"Max download attempts exceeded for file {remote_file_path}") from e
                 sleep_secs = 1
