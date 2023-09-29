@@ -7,6 +7,7 @@ from mlflow.metrics.genai.genai_metric import (
 )
 from mlflow.metrics.genai.metric_definitions import (
     correctness,
+    relevance,
 )
 from mlflow.metrics.metric_definitions import (
     _accuracy_eval_fn,
@@ -210,4 +211,5 @@ __all__ = [
     "toxicity",
     "make_genai_metric",
     "correctness",
+    "relevance",
 ]
