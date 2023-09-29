@@ -204,7 +204,7 @@ def test_no_examples(examples):
 
     And you'll need to submit your grading for the correctness of the output,
     using the following in json format:
-    Score: [your score number between 1 to 5 for the correctness of the output]
+    Score: [your score number for the correctness of the output]
     Justification: [your step by step reasoning about the correctness of the output]
       """
     prompt2 = model["eval_prompt"].format(
