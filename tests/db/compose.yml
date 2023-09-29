@@ -97,7 +97,6 @@ services:
       # [ODBC Driver 17 for SQL Server][SQL Server]The data types varchar and ntext are incompatible in the equal to operator
       # https://docs.sqlalchemy.org/en/20/dialects/mssql.html#avoiding-sending-large-string-parameters-as-text-ntext
       MLFLOW_TRACKING_URI: mssql+pyodbc://mlflowuser:Mlfl*wpassword1@mssql/mlflowdb?driver=ODBC+Driver+17+for+SQL+Server
-      SKIP_MSSQL_LOG_PARAM_MAX_LENGTH_CHECK: true
     command: tests/db/check_migration.sh
 
   mlflow-sqlite:

@@ -14,6 +14,7 @@ from unittest import mock
 
 import pytest
 import sqlalchemy
+from packaging.version import Version
 
 import mlflow
 import mlflow.db
@@ -1108,7 +1109,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             ) or exception_context.value.error_code == ErrorCode.Name(TEMPORARILY_UNAVAILABLE)
 
     @pytest.mark.skipif(
-        "SKIP_MSSQL_LOG_PARAM_MAX_LENGTH_CHECK" in os.environ,
+        Version(sqlalchemy.__version__) < Version("2.0")
+        and mlflow.get_tracking_uri().startswith("mssql"),
         reason="large string parameters are sent as TEXT/NTEXT; "
         "see tests/db/compose.yml for details",
     )
