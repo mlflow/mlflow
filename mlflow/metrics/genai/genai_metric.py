@@ -2,7 +2,8 @@ import json
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from inspect import Parameter, Signature
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import EvaluationExample, MetricValue
@@ -14,19 +15,18 @@ from mlflow.utils.class_utils import _get_class_from_string
 
 if TYPE_CHECKING:
     import pandas as pd
-    import pyspark
 
 _logger = logging.getLogger(__name__)
 
 
-def _format_variable_string(variables: Dict[str, Any], eval_df, indx) -> str:
+def _format_variable_string(variables: Optional[List[str]], eval_variables, indx) -> str:
     variables_dict = {}
     for variable in variables:
-        if variable in eval_df.columns:
-            variables_dict[variable] = eval_df[variable].tolist()[indx]
+        if variable in eval_variables:
+            variables_dict[variable] = eval_variables[variable][indx]
         else:
             raise MlflowException(
-                f"{variable} does not exist in the Eval DataFrame {eval_df.columns}."
+                f"{variable} does not exist in the eval function {list(eval_variables.keys())}."
             )
 
     return (
@@ -169,12 +169,16 @@ def make_genai_metric(
     """
 
     def eval_fn(
-        eval_df: Union["pd.DataFrame", "pyspark.sql.DataFrame"], metrics: Dict[str, MetricValue]
+        predictions: "pd.Series",
+        metrics: Dict[str, MetricValue],
+        inputs: "pd.Series",
+        *args,
     ) -> MetricValue:
         """
         This is the function that is called when the metric is evaluated.
         """
 
+        eval_variables = dict(zip(variables, args))
         class_name = f"mlflow.metrics.genai.prompts.{version}.EvaluationModel"
         try:
             evaluation_model_class_module = _get_class_from_string(class_name)
@@ -199,8 +203,8 @@ def make_genai_metric(
             *(parameters,) if parameters is not None else (),
         ).to_dict()
 
-        outputs = eval_df["prediction"].tolist()
-        inputs = eval_df["input"].tolist()
+        outputs = predictions.to_list()
+        inputs = inputs.to_list()
         eval_model = evaluation_context["model"]
         eval_parameters = evaluation_context["parameters"]
 
@@ -215,9 +219,16 @@ def make_genai_metric(
             )
 
         def score_model_on_one_payload(
-            indx, input, output, variables, eval_df, evaluation_context, eval_parameters, eval_model
+            indx,
+            input,
+            output,
+            variables,
+            eval_variables,
+            evaluation_context,
+            eval_parameters,
+            eval_model,
         ):
-            variable_string = _format_variable_string(variables, eval_df, indx)
+            variable_string = _format_variable_string(variables, eval_variables, indx)
             payload = {
                 "prompt": evaluation_context["eval_prompt"].format(
                     input=input, output=output, variables=variable_string
@@ -242,7 +253,7 @@ def make_genai_metric(
                     input,
                     output,
                     variables,
-                    eval_df,
+                    eval_variables,
                     evaluation_context,
                     eval_parameters,
                     eval_model,
@@ -284,10 +295,18 @@ def make_genai_metric(
 
         return MetricValue(scores, justifications, aggregate_results)
 
+    signature_parameters = [
+        Parameter("predictions", Parameter.POSITIONAL_OR_KEYWORD, annotation="pd.Series"),
+        Parameter("metrics", Parameter.POSITIONAL_OR_KEYWORD, annotation=Dict[str, MetricValue]),
+        Parameter("inputs", Parameter.POSITIONAL_OR_KEYWORD, annotation="pd.Series"),
+    ]
+
+    # Add variables to signature list
+    for var in variables:
+        signature_parameters.append(Parameter(var, Parameter.POSITIONAL_OR_KEYWORD))
+
+    eval_fn.__signature__ = Signature(signature_parameters)
+
     return make_metric(
-        eval_fn=eval_fn,
-        greater_is_better=greater_is_better,
-        name=name,
-        version=version,
-        variables=variables,
+        eval_fn=eval_fn, greater_is_better=greater_is_better, name=name, version=version
     )
