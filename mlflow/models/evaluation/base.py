@@ -1297,7 +1297,14 @@ def evaluate(
 
                   - A URI referring to a pyfunc model
 
-                  - A function
+                  - A function. The function should have the same signature as the
+                    :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>` method, which has
+                    the following signature::
+
+                    predict(data: Union[pandas.(Series | DataFrame),
+                    numpy.ndarray, csc_matrix, csr_matrix, List[Any], Dict[str, Any], str],
+                    params: Optional[Dict[str, Any]] = None) →
+                    Union[pandas.(Series | DataFrame), numpy.ndarray, list, str]
 
     :param data: One of the following:
 
