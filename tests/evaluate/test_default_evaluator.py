@@ -1342,28 +1342,19 @@ def test_evaluate_custom_metric_backwards_compatible():
     def old_fn(eval_df, builtin_metrics):
         return builtin_metrics["mean_absolute_error"] * 1.5
 
-    res_metric = _evaluate_custom_metric(
-        _CustomMetric(old_fn, "old_fn", 0), eval_df, builtin_metrics, metrics
-    )
+    eval_fn_args = [eval_df, builtin_metrics]
+    res_metric = _evaluate_custom_metric(_CustomMetric(old_fn, "old_fn", 0), eval_fn_args)
     assert res_metric.scores is None
     assert res_metric.justifications is None
     assert res_metric.aggregate_results["old_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
 
-    def new_fn_no_type_hint(eval_df, metrics):
-        return metrics["mean_absolute_error"].aggregate_results["mean_absolute_error"] * 1.5
-
-    with pytest.raises(
-        AttributeError, match="'numpy.float64' object has no attribute 'aggregate_results'"
-    ):
-        _evaluate_custom_metric(
-            _CustomMetric(new_fn_no_type_hint, "new_fn", 0), eval_df, builtin_metrics, metrics
-        )
+    new_eval_fn_args = [eval_df, metrics]
 
     def new_fn_with_type_hint(eval_df, metrics: Dict[str, MetricValue]):
         return metrics["mean_absolute_error"].aggregate_results["mean_absolute_error"] * 1.5
 
     res_metric = _evaluate_custom_metric(
-        _CustomMetric(new_fn_with_type_hint, "new_fn", 0), eval_df, builtin_metrics, metrics
+        _CustomMetric(new_fn_with_type_hint, "new_fn", 0), new_eval_fn_args
     )
     assert res_metric.scores is None
     assert res_metric.justifications is None
@@ -1375,15 +1366,13 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     builtin_metrics = _get_regressor_metrics(
         eval_df["target"], eval_df["prediction"], sample_weights=None
     )
-    metrics = _get_aggregate_metrics_values(builtin_metrics)
+    eval_fn_args = [eval_df, builtin_metrics]
 
     def dummy_fn(*_):
         pass
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_custom_metric(
-            _CustomMetric(dummy_fn, "dummy_fn", 0), eval_df, builtin_metrics, metrics
-        )
+        _evaluate_custom_metric(_CustomMetric(dummy_fn, "dummy_fn", 0), eval_fn_args)
         mock_warning.assert_called_once_with(
             "Did not log custom metric 'dummy_fn' at index 0 in the `custom_metrics` parameter"
             " because it returned None."
@@ -1394,10 +1383,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_custom_metric(
-            _CustomMetric(incorrect_return_type, incorrect_return_type.__name__, 0),
-            eval_df,
-            builtin_metrics,
-            metrics,
+            _CustomMetric(incorrect_return_type, incorrect_return_type.__name__, 0), eval_fn_args
         )
         mock_warning.assert_called_once_with(
             f"Did not log custom metric '{incorrect_return_type.__name__}' at index 0 in the "
@@ -1409,10 +1395,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_custom_metric(
-            _CustomMetric(non_list_scores, non_list_scores.__name__, 0),
-            eval_df,
-            builtin_metrics,
-            metrics,
+            _CustomMetric(non_list_scores, non_list_scores.__name__, 0), eval_fn_args
         )
         mock_warning.assert_called_once_with(
             f"Did not log custom metric '{non_list_scores.__name__}' at index 0 in the "
@@ -1424,10 +1407,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_custom_metric(
-            _CustomMetric(non_numeric_scores, non_numeric_scores.__name__, 0),
-            eval_df,
-            builtin_metrics,
-            metrics,
+            _CustomMetric(non_numeric_scores, non_numeric_scores.__name__, 0), eval_fn_args
         )
         mock_warning.assert_called_once_with(
             f"Did not log custom metric '{non_numeric_scores.__name__}' at index 0 in the "
@@ -1440,9 +1420,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_custom_metric(
             _CustomMetric(non_list_justifications, non_list_justifications.__name__, 0),
-            eval_df,
-            builtin_metrics,
-            metrics,
+            eval_fn_args,
         )
         mock_warning.assert_called_once_with(
             f"Did not log custom metric '{non_list_justifications.__name__}' at index 0 in the "
@@ -1455,10 +1433,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_custom_metric(
-            _CustomMetric(non_str_justifications, non_str_justifications.__name__, 0),
-            eval_df,
-            builtin_metrics,
-            metrics,
+            _CustomMetric(non_str_justifications, non_str_justifications.__name__, 0), eval_fn_args
         )
         mock_warning.assert_called_once_with(
             f"Did not log custom metric '{non_str_justifications.__name__}' at index 0 in the "
@@ -1471,10 +1446,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_custom_metric(
-            _CustomMetric(non_dict_aggregates, non_dict_aggregates.__name__, 0),
-            eval_df,
-            builtin_metrics,
-            metrics,
+            _CustomMetric(non_dict_aggregates, non_dict_aggregates.__name__, 0), eval_fn_args
         )
         mock_warning.assert_called_once_with(
             f"Did not log custom metric '{non_dict_aggregates.__name__}' at index 0 in the "
@@ -1487,10 +1459,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_custom_metric(
-            _CustomMetric(wrong_type_aggregates, wrong_type_aggregates.__name__, 0),
-            eval_df,
-            builtin_metrics,
-            metrics,
+            _CustomMetric(wrong_type_aggregates, wrong_type_aggregates.__name__, 0), eval_fn_args
         )
         mock_warning.assert_called_once_with(
             f"Did not log custom metric '{wrong_type_aggregates.__name__}' at index 0 in the "
@@ -1522,8 +1491,9 @@ def test_evaluate_custom_metric_lambda(fn):
         eval_df["target"], eval_df["prediction"], sample_weights=None
     )
     metrics = _get_aggregate_metrics_values(builtin_metrics)
+    eval_fn_args = [eval_df, metrics]
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_custom_metric(_CustomMetric(fn, "<lambda>", 0), eval_df, builtin_metrics, metrics)
+        _evaluate_custom_metric(_CustomMetric(fn, "<lambda>", 0), eval_fn_args)
         mock_warning.assert_not_called()
 
 
@@ -1545,11 +1515,9 @@ def test_evaluate_custom_metric_success():
             },
         )
 
+    eval_fn_args = [eval_df, _get_aggregate_metrics_values(builtin_metrics)]
     res_metric = _evaluate_custom_metric(
-        _CustomMetric(example_count_times_1_point_5, "", 0),
-        eval_df,
-        builtin_metrics,
-        _get_aggregate_metrics_values(builtin_metrics),
+        _CustomMetric(example_count_times_1_point_5, "", 0), eval_fn_args
     )
     assert (
         res_metric.aggregate_results["example_count_times_1_point_5"]
@@ -2676,18 +2644,26 @@ def language_model_with_context(inputs: List[str]) -> List[Dict[str, str]]:
 def test_constructing_eval_df_for_custom_metrics():
     test_eval_df_value = pd.DataFrame(
         {
-            "prediction": ["text_a", "text_b"],
-            "target": ["target_a", "target_b"],
+            "predictions": ["text_a", "text_b"],
+            "targets": ["target_a", "target_b"],
+            "inputs": ["text_a", "text_b"],
             "truth": ["truth_a", "truth_b"],
             "context": ["context_text_a", "context_text_b"],
-            "input": ["text_a", "text_b"],
         }
     )
 
-    def test_eval_df(eval_df, _builtin_metrics):
+    def test_eval_df(predictions, targets, metrics, inputs, truth, context):
         global eval_df_value
-        eval_df_value = eval_df
-        return eval_df["prediction"].eq(eval_df["target"]).mean()
+        eval_df_value = pd.DataFrame(
+            {
+                "predictions": predictions,
+                "targets": targets,
+                "inputs": inputs,
+                "truth": truth,
+                "context": context,
+            }
+        )
+        return predictions.eq(targets).mean()
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
@@ -2699,21 +2675,17 @@ def test_constructing_eval_df_for_custom_metrics():
             {
                 "text": ["text_a", "text_b"],
                 "truth": ["truth_a", "truth_b"],
-                "target": ["target_a", "target_b"],
+                "targets": ["target_a", "target_b"],
             }
         )
         mlflow.evaluate(
             model_info.model_uri,
             data,
-            targets="target",
+            targets="targets",
             model_type="text",
-            custom_metrics=[
-                make_metric(
-                    eval_fn=test_eval_df, greater_is_better=True, variables=["truth", "context"]
-                )
-            ],
+            custom_metrics=[make_metric(eval_fn=test_eval_df, greater_is_better=True)],
             evaluators="default",
-            evaluator_config={"input": "text"},
+            evaluator_config={"inputs": "text"},
         )
 
     assert eval_df_value.equals(test_eval_df_value)
