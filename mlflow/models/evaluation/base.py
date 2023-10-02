@@ -1297,14 +1297,15 @@ def evaluate(
 
                   - A URI referring to a pyfunc model
 
-                  - A function. The function should have the same signature as the
-                    :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>` method, which has
-                    the following signature::
+                  - A callable function: This function should be able to take in model input and
+                    return predictions. It should follow the signature of the
+                    :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>` method. Here's an example
+                    of a valid function:
 
-                        predict(data: Union[pandas.(Series | DataFrame),
-                        numpy.ndarray, csc_matrix, csr_matrix, List[Any], Dict[str, Any], str],
-                        params: Optional[Dict[str, Any]] = None) →
-                        Union[pandas.(Series | DataFrame), numpy.ndarray, list, str]
+                        model = mlflow.pyfunc.load_model(model_uri)
+
+                        def fn(model_input):
+                            return model.predict(model_input)
 
     :param data: One of the following:
 
