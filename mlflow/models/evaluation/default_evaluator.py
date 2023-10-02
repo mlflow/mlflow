@@ -1313,7 +1313,11 @@ class DefaultEvaluator(ModelEvaluator):
 
             self.is_model_server = isinstance(model, _ServedPyFuncModel)
 
-            self.model_loader_module, self.raw_model = _extract_raw_model(model)
+            if getattr(model, "metadata", None):
+                self.model_loader_module, self.raw_model = _extract_raw_model(model)
+            else:
+                # model is constructed from a user specified function
+                self.model_loader_module, self.raw_model = None, None
             self.predict_fn, self.predict_proba_fn = _extract_predict_fn(model, self.raw_model)
 
             self.metrics = {}
