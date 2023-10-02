@@ -386,7 +386,7 @@ def test_pyfunc_serve_and_score(spacy_model_with_data):
     artifact_path = "model"
     with mlflow.start_run():
         if spacy_version <= Version("3.0.8"):
-            extra_pip_requirements = ["click<8.1.0", "flask<2.1.0"]
+            extra_pip_requirements = ["click<8.1.0", "flask<2.1.0", "werkzeug<3"]
         elif spacy_version < Version("3.2.4"):
             extra_pip_requirements = ["click<8.1.0"]
         else:
