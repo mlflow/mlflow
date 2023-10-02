@@ -11,6 +11,7 @@ from mlflow.metrics.genai import model_utils
 from mlflow.metrics.genai.utils import _get_latest_metric_version
 from mlflow.models import EvaluationMetric, make_metric
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
+from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
 
 if TYPE_CHECKING:
@@ -73,6 +74,7 @@ def _extract_score_and_justification(output):
     return None, None
 
 
+@experimental
 def make_genai_metric(
     name: str,
     definition: str,
