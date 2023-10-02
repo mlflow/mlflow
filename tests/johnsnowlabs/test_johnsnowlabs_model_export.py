@@ -55,8 +55,7 @@ def load_and_init_model(model=nlu_model):
     setup_env()
     mlflow.johnsnowlabs._validate_env_vars()
     nlp.start(model_cache_folder=MODEL_CACHE_FOLDER)
-    jsl_model = nlp.load(model, verbose=False)
-    return jsl_model
+    return nlp.load(model, verbose=False)
 
 
 def fix_dataframe_with_respect_for_nlu_issues(df1, df2):

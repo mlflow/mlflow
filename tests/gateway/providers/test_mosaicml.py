@@ -266,6 +266,82 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
             ],
             "<s>[INST] Hi there [/INST] How can I help? </s><s>[INST] Thanks! [/INST]",
         ),
+        (
+            [
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="user", content="Test"),
+            ],
+            "<s>[INST] Test Test [/INST]",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Test"),
+                RequestMessage(role="system", content="Test"),
+            ],
+            "<s>[INST] <<SYS>> Test <</SYS>> <<SYS>> Test <</SYS>> [/INST]",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Test"),
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="user", content="Test"),
+            ],
+            "<s>[INST] <<SYS>> Test <</SYS>> Test Test [/INST]",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Test"),
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+            ],
+            "<s>[INST] <<SYS>> Test <</SYS>> Test [/INST] Test </s><s> Test ",
+        ),
+        (
+            [RequestMessage(role="assistant", content="Test")],
+            "<s> Test ",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+            ],
+            "<s>[INST] <<SYS>> Test <</SYS>> [/INST] Test ",
+        ),
+        (
+            [
+                RequestMessage(role="assistant", content="Test"),
+                RequestMessage(role="system", content="Test"),
+            ],
+            "<s> Test </s><s>[INST] <<SYS>> Test <</SYS>> [/INST]",
+        ),
+        (
+            [RequestMessage(role="system", content="Test")],
+            "<s>[INST] <<SYS>> Test <</SYS>> [/INST]",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Test"),
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+                RequestMessage(role="system", content="Test"),
+            ],
+            "<s>[INST] <<SYS>> Test <</SYS>> Test [/INST] Test </s><s>[INST] <<SYS>> "
+            "Test <</SYS>> [/INST]",
+        ),
+        (
+            [
+                RequestMessage(role="system", content="Test"),
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+                RequestMessage(role="user", content="Test"),
+                RequestMessage(role="assistant", content="Test"),
+            ],
+            "<s>[INST] <<SYS>> Test <</SYS>> Test [/INST] Test </s><s>[INST] Test [/INST] "
+            "Test </s><s>[INST] Test [/INST] Test ",
+        ),
     ],
 )
 def test_valid_parsing(messages, expected_output):
@@ -275,71 +351,6 @@ def test_valid_parsing(messages, expected_output):
         MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages=messages)
         == expected_output
     )
-
-
-@pytest.mark.parametrize(
-    "messages",
-    [
-        [RequestMessage(role="user", content="Test"), RequestMessage(role="user", content="Test")],
-        [
-            RequestMessage(role="system", content="Test"),
-            RequestMessage(role="system", content="Test"),
-        ],
-        [
-            RequestMessage(role="system", content="Test"),
-            RequestMessage(role="user", content="Test"),
-            RequestMessage(role="user", content="Test"),
-        ],
-    ],
-)
-def test_consecutive_same_role_raises(messages):
-    route_config = RouteConfig(**chat_config())
-    with pytest.raises(MlflowException, match="Consecutive messages cannot have the same 'role'."):
-        MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages)
-
-
-@pytest.mark.parametrize(
-    "messages",
-    [
-        [RequestMessage(role="assistant", content="Test")],
-        [
-            RequestMessage(role="system", content="Test"),
-            RequestMessage(role="assistant", content="Test"),
-        ],
-        [
-            RequestMessage(role="assistant", content="Test"),
-            RequestMessage(role="system", content="Test"),
-        ],
-    ],
-)
-def test_assistant_without_user_raises(messages):
-    route_config = RouteConfig(**chat_config())
-    with pytest.raises(
-        MlflowException,
-        match="Messages with role 'assistant' must be preceded by a message with role 'user'.",
-    ):
-        MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages)
-
-
-@pytest.mark.parametrize(
-    "messages",
-    [
-        [RequestMessage(role="system", content="Test")],
-        [
-            RequestMessage(role="system", content="Test"),
-            RequestMessage(role="user", content="Test"),
-            RequestMessage(role="assistant", content="Test"),
-            RequestMessage(role="system", content="Test"),
-        ],
-    ],
-)
-def test_assistant_without_user_raises(messages):
-    route_config = RouteConfig(**chat_config())
-    with pytest.raises(
-        MlflowException,
-        match="Messages must end with 'user' role for final prompt.",
-    ):
-        MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages)
 
 
 @pytest.mark.parametrize(
@@ -379,3 +390,53 @@ def unsupported_mosaic_chat_model_config():
 def test_unsupported_model_name_raises_in_chat_parsing_route_configuration():
     with pytest.raises(MlflowException, match="An invalid model has been specified"):
         RouteConfig(**unsupported_mosaic_chat_model_config())
+
+
+@pytest.mark.asyncio
+async def test_completions_raises_with_invalid_max_tokens_too_large():
+    config = completions_config()
+    error_msg = {
+        "message": "Error: prompt token count (29) + max output tokens (4085) cannot "
+        "exceed 4096. Please reduce the length of your prompt and/or max "
+        "output tokens generated.\n"
+    }
+    resp = {
+        "message": error_msg["message"],
+    }
+
+    with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp, status=500)):
+        provider = MosaicMLProvider(RouteConfig(**config))
+        payload = {
+            "prompt": "How many puffins can fit on the flight deck of a Nimitz class "
+            "aircraft carrier?",
+            "max_tokens": 4080,
+        }
+        with pytest.raises(HTTPException, match=r".*") as e:
+            await provider.completions(completions.RequestPayload(**payload))
+        assert error_msg == e.value.detail
+        assert e.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_chat_raises_with_invalid_max_tokens_too_large():
+    config = chat_config()
+    error_msg = {
+        "message": "Error: max output tokens is limited to 4096 but 5000 was requested. "
+        "Please use a lower token count.\n"
+    }
+    resp = {
+        "message": error_msg["message"],
+    }
+    with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp, status=500)):
+        provider = MosaicMLProvider(RouteConfig(**config))
+        payload = {
+            "messages": [
+                {"role": "system", "content": "You're an astronaut."},
+                {"role": "user", "content": "When do you go to space next?"},
+            ],
+            "max_tokens": 5000,
+        }
+        with pytest.raises(HTTPException, match=r".*") as e:
+            await provider.chat(chat.RequestPayload(**payload))
+        assert error_msg == e.value.detail
+        assert e.value.status_code == 422

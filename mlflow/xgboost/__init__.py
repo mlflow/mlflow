@@ -704,8 +704,7 @@ def autolog(
 
         def infer_model_signature(input_example):
             model_output = model.predict(xgboost.DMatrix(input_example))
-            model_signature = infer_signature(input_example, model_output)
-            return model_signature
+            return infer_signature(input_example, model_output)
 
         # Only log the model if the autolog() param log_models is set to True.
         if _log_models:

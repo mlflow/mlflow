@@ -344,6 +344,7 @@ New Features and Notable Changes
     model-registry
     recipes
     gateway/index
+    llms/prompt-engineering
     plugins
     auth/index
     cli

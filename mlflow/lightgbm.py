@@ -841,8 +841,7 @@ def autolog(
 
         def infer_model_signature(input_example):
             model_output = model.predict(input_example)
-            model_signature = infer_signature(input_example, model_output)
-            return model_signature
+            return infer_signature(input_example, model_output)
 
         # Whether to automatically log the trained model based on boolean flag.
         if _log_models:

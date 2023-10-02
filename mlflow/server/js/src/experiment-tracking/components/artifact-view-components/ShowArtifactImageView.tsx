@@ -6,10 +6,12 @@
  */
 
 import React, { useState, useEffect, useContext } from 'react';
-import { getSrc } from './ShowArtifactPage';
 import { Image } from 'antd';
-import { DesignSystemContext, Skeleton } from '@databricks/design-system';
-import { getArtifactBytesContent } from '../../../common/utils/ArtifactUtils';
+import { DesignSystemContext, LegacySkeleton } from '@databricks/design-system';
+import {
+  getArtifactBytesContent,
+  getArtifactLocationUrl,
+} from '../../../common/utils/ArtifactUtils';
 
 type Props = {
   runUuid: string;
@@ -29,7 +31,7 @@ const ShowArtifactImageView = ({ runUuid, path, getArtifact = getArtifactBytesCo
 
     // Download image contents using XHR so all necessary
     // HTTP headers will be automatically added
-    getArtifact(getSrc(path, runUuid)).then((result: any) => {
+    getArtifact(getArtifactLocationUrl(path, runUuid)).then((result: any) => {
       const options = path.toLowerCase().endsWith('.svg') ? { type: 'image/svg+xml' } : undefined;
       // @ts-expect-error TS(2345): Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
       setImageUrl(URL.createObjectURL(new Blob([new Uint8Array(result)], options)));
@@ -39,7 +41,7 @@ const ShowArtifactImageView = ({ runUuid, path, getArtifact = getArtifactBytesCo
 
   return (
     <div css={classNames.imageOuterContainer}>
-      {isLoading && <Skeleton active />}
+      {isLoading && <LegacySkeleton active />}
       <div css={isLoading ? classNames.hidden : classNames.imageWrapper}>
         <img
           alt={path}

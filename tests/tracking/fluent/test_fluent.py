@@ -48,7 +48,7 @@ from mlflow.tracking.fluent import (
     start_run,
 )
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import multi_context
 
@@ -511,6 +511,7 @@ def is_from_run(active_run, run):
 
 
 def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-argument
+    mlflow.disable_system_metrics_logging()
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id

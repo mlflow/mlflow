@@ -7,10 +7,11 @@ jinja2==3.0.3
 flask<=2.2.5
 sphinx-autobuild
 sphinx-click
-tensorflow<=2.12.0
+tensorflow-cpu<=2.12.0
 pyspark
 datasets
 # nbsphinx and ipython are required for jupyter notebook rendering
 nbsphinx==0.8.8
 # ipython 8.7.0 is an incompatible release
 ipython!=8.7.0
+keras-core

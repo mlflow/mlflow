@@ -21,5 +21,5 @@ library(mlflow)
 
 if (identical(Sys.getenv("NOT_CRAN"), "true")) {
   message("Current working directory: ", getwd())
-  test_check("mlflow")
+  test_check("mlflow", reporter = ProgressReporter)
 }

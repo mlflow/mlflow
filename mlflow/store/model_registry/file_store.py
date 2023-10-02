@@ -52,7 +52,7 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
 from mlflow.utils.string_utils import is_string_type
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
     _validate_model_alias_name,
     _validate_model_version,
@@ -504,8 +504,7 @@ class FileStore(AbstractStore):
         meta = FileStore._read_yaml(directory, FileStore.META_DATA_FILE_NAME)
         meta["tags"] = self._get_model_version_tags_from_dir(directory)
         meta["aliases"] = self._get_model_version_aliases(directory)
-        model_version = ModelVersion.from_dictionary(meta)
-        return model_version
+        return ModelVersion.from_dictionary(meta)
 
     def _save_model_version_as_meta_file(self, model_version, meta_dir=None, overwrite=True):
         model_version_dict = dict(model_version)
@@ -719,10 +718,7 @@ class FileStore(AbstractStore):
 
     def _get_all_registered_model_paths(self):
         self._check_root_dir()
-        model_dirs = list_subdirs(
-            join(self.root_directory, FileStore.MODELS_FOLDER_NAME), full_path=True
-        )
-        return model_dirs
+        return list_subdirs(join(self.root_directory, FileStore.MODELS_FOLDER_NAME), full_path=True)
 
     def _list_model_versions_under_path(self, path):
         model_versions = []
@@ -908,3 +904,10 @@ class FileStore(AbstractStore):
                 return _read_helper(root, file_name, attempts_remaining - 1)
 
         return _read_helper(root, file_name, attempts_remaining=retries)
+
+    def _await_model_version_creation(self, mv, await_creation_for):
+        """
+        Does not wait for the model version to become READY as a successful creation will
+        immediately place the model version in a READY state.
+        """
+        pass

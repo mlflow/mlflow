@@ -330,6 +330,7 @@ nitpick_ignore = [
     ("py:class", "pandas.core.series.Series"),
     ("py:class", "pandas.core.frame.DataFrame"),
     ("py:class", "pandas.DataFrame"),
+    ("py:class", "pyspark.sql.DataFrame"),
     ("py:class", "pyspark.sql.dataframe.DataFrame"),
     ("py:class", "matplotlib.figure.Figure"),
     ("py:class", "plotly.graph_objects.Figure"),
@@ -354,6 +355,7 @@ nitpick_ignore = [
     ("py:class", "pydantic.main.BaseModel"),
     ("py:class", "ConfigDict"),
     ("py:class", "FieldInfo"),
+    ("py:class", "keras_core.src.callbacks.callback.Callback"),
 ]
 
 

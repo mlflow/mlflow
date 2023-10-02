@@ -311,8 +311,7 @@ class SageMakerBackend(BaseBackend):
         specified SageMaker URLs to the mocked SageMaker backend.
         """
         urls_module_name = "tests.sagemaker.mock.mock_sagemaker_urls"
-        urls_module = __import__(urls_module_name, fromlist=["url_bases", "url_paths"])
-        return urls_module
+        return __import__(urls_module_name, fromlist=["url_bases", "url_paths"])
 
     def _get_base_arn(self, region_name):
         """

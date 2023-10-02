@@ -22,6 +22,7 @@ _logger = logging.getLogger(__name__)
 
 # NOTE: The MLMODEL_FILE_NAME constant is considered @developer_stable
 MLMODEL_FILE_NAME = "MLmodel"
+_DATABRICKS_FS_LOADER_MODULE = "databricks.feature_store.mlflow_model"
 _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "Logging model metadata to the tracking server has failed. The model artifacts "
     "have been logged successfully under %s. Set logging level to DEBUG via "
@@ -320,6 +321,19 @@ class Model:
         from mlflow.models.utils import _read_example
 
         return _read_example(self, path)
+
+    def load_input_example_params(self, path: str):
+        """
+        Load the params of input example saved along a model. Returns None if there is no params in
+        the input_example.
+
+        :param path: Path to the model directory.
+
+        :return: params (dict) or None if the model has no params.
+        """
+        from mlflow.models.utils import _read_example_params
+
+        return _read_example_params(self, path)
 
     def add_flavor(self, name, **params):
         """Add an entry for how to serve the model in a given format."""

@@ -92,7 +92,6 @@ _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
     UcModelRegistryService, _REST_API_PATH_PREFIX
 )
-_DATABRICKS_FS_LOADER_MODULE = "databricks.feature_store.mlflow_model"
 
 _logger = logging.getLogger(__name__)
 
@@ -148,7 +147,7 @@ def get_feature_dependencies(model_dir):
     model_info = model.get_model_info()
     if (
         model_info.flavors.get("python_function", {}).get("loader_module")
-        == _DATABRICKS_FS_LOADER_MODULE
+        == mlflow.models.model._DATABRICKS_FS_LOADER_MODULE
     ):
         raise MlflowException(
             "This model was packaged by Databricks Feature Store and can only be registered on a "
@@ -745,3 +744,10 @@ class UcModelRegistryStore(BaseRestStore):
         req_body = message_to_json(GetModelVersionByAliasRequest(name=full_name, alias=alias))
         response_proto = self._call_endpoint(GetModelVersionByAliasRequest, req_body)
         return model_version_from_uc_proto(response_proto.model_version)
+
+    def _await_model_version_creation(self, mv, await_creation_for):
+        """
+        Does not wait for the model version to become READY as a successful creation will
+        immediately place the model version in a READY state.
+        """
+        pass

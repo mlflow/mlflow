@@ -410,6 +410,12 @@ The Javascript Dev Server will run at <http://localhost:3000> and the
 MLflow server will run at <http://localhost:5000> and show runs logged
 in `./mlruns`.
 
+#### Launching MLflow UI with MLflow AI Gateway for PromptLab
+
+```sh
+python dev/server.py
+```
+
 #### Testing a React Component
 
 Add a test file in the same directory as the newly created React
