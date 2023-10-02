@@ -1656,7 +1656,12 @@ class _TransformersWrapper:
                     transformers.AutomaticSpeechRecognitionPipeline,
                     transformers.AudioClassificationPipeline,
                 ),
-            ) and "Malformed soundfile" in str(e):
+            ) and (
+                # transformers <= 4.33.3
+                "Malformed soundfile" in str(e)
+                # transformers > 4.33.3
+                or "Soundfile is either not in the correct format or is malformed" in str(e)
+            ):
                 raise MlflowException.invalid_parameter_value(
                     "Failed to process the input audio data. Either the audio file is "
                     "corrupted or a uri was passed in without overriding the default model "
