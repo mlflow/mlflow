@@ -48,4 +48,4 @@ class GPUMonitor(BaseMetricsMonitor):
             self._metrics[f"gpu_{i}_utilization_percentage"].append(device_utilization.gpu)
 
     def aggregate_metrics(self):
-        return {k: round(sum(v) / len(v), 1) for k, v in self._metrics.items() if v}
+        return {k: round(sum(v) / len(v), 1) for k, v in self._metrics.items()}
