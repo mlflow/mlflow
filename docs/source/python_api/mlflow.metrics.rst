@@ -6,32 +6,33 @@ The ``mlflow.metrics`` module helps you quantitatively and qualitatively measure
 The following code demonstrates how to use :py:func:`mlflow.evaluate()` with a intelligent :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`.
 
 .. code-block:: python
-   import mlflow
-   from mlflow.metrics import EvaluationExample, correctness
 
-   example = EvaluationExample(
-      input="What is MLflow?",
-      output="MLflow is an open-source platform for managing machine "
-      "learning workflows, including experiment tracking, model packaging, "
-      "versioning, and deployment, simplifying the ML lifecycle.",
-      score=4,
-      justification="The definition effectively explains what MLflow is "
-      "its purpose, and its developer. It could be more concise for a 5-score.",
-      variables={
-         "ground_truth": "MLflow is an open-source platform for managing "
-         "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
-         "a company that specializes in big data and machine learning solutions. MLflow is "
-         "designed to address the challenges that data scientists and machine learning "
-         "engineers face when developing, training, and deploying machine learning models."
-      },
-   )
-   correctness_metric = correctness(examples=[example])
-   results = mlflow.evaluate(
-      logged_model.model_uri,
-      eval_df,
-      model_type="text",
-      custom_metrics=[correctness_metric],
-   )
+    import mlflow
+    from mlflow.metrics import EvaluationExample, correctness
+
+    example = EvaluationExample(
+        input="What is MLflow?",
+        output="MLflow is an open-source platform for managing machine "
+        "learning workflows, including experiment tracking, model packaging, "
+        "versioning, and deployment, simplifying the ML lifecycle.",
+        score=4,
+        justification="The definition effectively explains what MLflow is "
+        "its purpose, and its developer. It could be more concise for a 5-score.",
+        variables={
+            "ground_truth": "MLflow is an open-source platform for managing "
+            "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
+            "a company that specializes in big data and machine learning solutions. MLflow is "
+            "designed to address the challenges that data scientists and machine learning "
+            "engineers face when developing, training, and deploying machine learning models."
+        },
+    )
+    correctness_metric = correctness(examples=[example])
+    results = mlflow.evaluate(
+        logged_model.model_uri,
+        eval_df,
+        model_type="text",
+        custom_metrics=[correctness_metric],
+    )
 
 Evaluation results are stored as :py:class:`MetricValue <mlflow.metrics.MetricValue>` and are logged to the MLflow run.
 
@@ -73,6 +74,8 @@ We provide the following pre-canned "intelligent" :py:class:`EvaluationMetric <m
 
 .. autofunction:: mlflow.metrics.correctness
 
+.. autofunction:: mlflow.metrics.strict_correctness
+
 .. autofunction:: mlflow.metrics.relevance
 
 Users can also create their own LLM based :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` using the :py:func:`make_genai_metric <mlflow.metrics.make_genai_metric>` factory function
@@ -87,4 +90,4 @@ When using LLM based :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetri
     :members:
     :undoc-members:
     :show-inheritance:
-    :exclude-members: MetricValue, EvaluationMetric, make_metric, make_genai_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, perplexity, rouge1, rouge2, rougeL, rougeLsum, toxicity, correctness, relevance
+    :exclude-members: MetricValue, EvaluationMetric, make_metric, make_genai_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, perplexity, rouge1, rouge2, rougeL, rougeLsum, toxicity, correctness, strict_correctness, relevance
