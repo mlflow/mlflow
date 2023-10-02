@@ -1,5 +1,5 @@
-Exploring Hyperparameter Tuning with MLflow and Optuna
-======================================================
+Hyperparameter Tuning with MLflow and Optuna
+============================================
 
 In this guide, we venture into a frequent use case of MLflow Tracking: hyperparameter tuning.
 
@@ -15,16 +15,6 @@ Throughout this guide, our focal points will be:
 * Delving into the components of MLflow and their relevance in our workflow
 * Discovering and navigating experiments, parent runs, and child runs in the MLflow UI
 * Conducting a comparative analysis of runs to understand the nuances of hyperparameter tuning
-
-For those who appreciate an overview before diving deep, we've got you covered:
-
-.. raw:: html
-
-    <div class="grid-container">
-        <a href="notebooks/hyperparameter-tuning-with-child-runs.html" class="button default" style="background-image: url('../../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs-notebook.gif');"><span>View the Notebook</span></a>
-        <a href="notebooks/hyperparameter-tuning-with-child-runs.ipynb" class="button default" style="background-image: url('../../../_static/icons/download-icon.svg');"><span>Download</span></a>
-    </div>
-    <br><br>
 
 .. toctree::
     :maxdepth: 1

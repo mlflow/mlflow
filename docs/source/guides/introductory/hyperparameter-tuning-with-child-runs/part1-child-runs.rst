@@ -166,7 +166,7 @@ Our code might change in-place with the values being tested:
 
         def log_run(run_name, test_no):
             with mlflow.start_run(run_name=run_name):
-                mlflow.log_param("param1", random.choice(["a", "c"])) # remove 'b'
+                mlflow.log_param("param1", random.choice(["a", "c"]))  # remove 'b'
                 # remainder of code ...
 
 When we execute this and navigate back to the UI, it is now significantly more difficult to determine
@@ -215,12 +215,7 @@ The code below demonstrates these modifications to our original hyperparameter t
 
         # Define a function to log parameters and metrics and add tag
         # logging for search_runs functionality
-        def log_run(run_name,
-                    test_no,
-                    param1_choices,
-                    param2_choices,
-                    tag_ident
-                   ):
+        def log_run(run_name, test_no, param1_choices, param2_choices, tag_ident):
             with mlflow.start_run(run_name=run_name, nested=True):
                 mlflow.log_param("param1", random.choice(param1_choices))
                 mlflow.log_param("param2", random.choice(param2_choices))
@@ -236,26 +231,27 @@ The code below demonstrates these modifications to our original hyperparameter t
 
         # Execute tuning function, allowing for param overrides,
         # run_name disambiguation, and tagging support
-        def execute_tuning(test_no,
-                           param1_choices=["a", "b", "c"],
-                           param2_choices=["d", "e", "f"],
-                           test_identifier=""
-                          ):
+        def execute_tuning(
+            test_no,
+            param1_choices=["a", "b", "c"],
+            param2_choices=["d", "e", "f"],
+            test_identifier="",
+        ):
             ident = "default" if not test_identifier else test_identifier
             # Use a parent run to encapsulate the child runs
             with mlflow.start_run(run_name=f"parent_run_test_{ident}_{test_no}"):
                 # Partial application of the log_run function
-                log_current_run = partial(log_run,
-                                          test_no=test_no,
-                                          param1_choices=param1_choices,
-                                          param2_choices=param2_choices,
-                                          tag_ident = ident,
-                                         )
+                log_current_run = partial(
+                    log_run,
+                    test_no=test_no,
+                    param1_choices=param1_choices,
+                    param2_choices=param2_choices,
+                    tag_ident=ident,
+                )
                 mlflow.set_tag("test_identifier", ident)
                 # Generate run names and apply log_current_run function to each run name
                 runs = starmap(
-                    log_current_run,
-                    ((run_name,) for run_name in generate_run_names(test_no))
+                    log_current_run, ((run_name,) for run_name in generate_run_names(test_no))
                 )
                 # Consume the iterator to execute the runs
                 consume(runs)
@@ -271,10 +267,7 @@ The code below demonstrates these modifications to our original hyperparameter t
 
         # Execute hyperparameter tuning runs with custom parameter choices
         consume(
-            starmap(
-                execute_tuning,
-                ((x, param_1_values, param_2_values) for x in range(5))
-            )
+            starmap(execute_tuning, ((x, param_1_values, param_2_values) for x in range(5)))
         )
 
 We can view the results of executing this in the UI:

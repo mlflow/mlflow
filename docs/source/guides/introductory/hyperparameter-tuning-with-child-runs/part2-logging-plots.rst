@@ -154,7 +154,9 @@ with additional flexibility in plot access and usage.
 .. code-section::
     .. code-block:: python
 
-        def plot_correlation_matrix_and_save(df, style="seaborn", plot_size=(10, 8), path="/tmp/corr_plot.png"):
+        def plot_correlation_matrix_and_save(
+            df, style="seaborn", plot_size=(10, 8), path="/tmp/corr_plot.png"
+        ):
             with plt.style.context(style=style):
                 fig, ax = plt.subplots(figsize=plot_size)
 
@@ -165,8 +167,17 @@ with additional flexibility in plot access and usage.
                 mask = np.triu(np.ones_like(corr, dtype=bool))
 
                 # Draw the heatmap with the mask and correct aspect ratio
-                sns.heatmap(corr, mask=mask, cmap='coolwarm', vmax=.3, center=0,
-                            square=True, linewidths=.5, annot=True, fmt=".2f")
+                sns.heatmap(
+                    corr,
+                    mask=mask,
+                    cmap="coolwarm",
+                    vmax=0.3,
+                    center=0,
+                    square=True,
+                    linewidths=0.5,
+                    annot=True,
+                    fmt=".2f",
+                )
 
                 ax.set_title("Feature Correlation Matrix", fontsize=14)
                 plt.tight_layout()
@@ -208,8 +219,8 @@ the more generic artifact writer (it supports any file type) ``mlflow.log_artifa
 
         mlflow.set_experiment("Visualizations Demo")
 
-        X = my_data.drop(columns=['demand', 'date'])
-        y = my_data['demand']
+        X = my_data.drop(columns=["demand", "date"])
+        y = my_data["demand"]
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
 
@@ -222,7 +233,6 @@ the more generic artifact writer (it supports any file type) ``mlflow.log_artifa
         plot_correlation_matrix_and_save(my_data)
 
         with mlflow.start_run() as run:
-
             # Define our Ridge model
             model = Ridge(alpha=1.0)
 
@@ -247,18 +257,13 @@ the more generic artifact writer (it supports any file type) ``mlflow.log_artifa
             fig8 = plot_qq(y_test, y_pred)
 
             # Log the model
-            mlflow.sklearn.log_model(sk_model=model, input_example=X_test, artifact_path="model")
+            mlflow.sklearn.log_model(
+                sk_model=model, input_example=X_test, artifact_path="model"
+            )
 
             # Log the metrics
             mlflow.log_metrics(
-                {
-                    "mse": mse,
-                    "rmse": rmse,
-                    "mae": mae,
-                    "r2": r2,
-                    "msle": msle,
-                    "medae": medae
-                }
+                {"mse": mse, "rmse": rmse, "mae": mae, "r2": r2, "msle": msle, "medae": medae}
             )
 
             # Log the hyperparameter

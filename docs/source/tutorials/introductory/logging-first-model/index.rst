@@ -1,14 +1,15 @@
 Logging your first model with MLflow
 ====================================
 
-In this tutorial, we'll be starting with the basics of using MLflow to record information about a model
-training event.
+In this entry point tutorial to MLflow, we'll be covering the essential basics of core MLflow functionality associated 
+with tracking training event data. 
 
-In the first section, we'll be starting a local MLflow Tracking Server from a command prompt (shell) to begin with.
-After the tracking server is running, we'll start the MLflow UI, use the MLflow Client API to interact with the
-tracking server, and finally, we'll build towards logging our first model in MLflow.
+We'll start by learning how to start a local MLflow Tracking server, how to start the MLflow UI, and move on to 
+our first interactions with the Tracking server through the use of the MLflow Client. 
 
-We'll be focusing on:
+The tutorial content builds upon itself, culminating in successfully logging your first MLflow model.
+
+The topics in this tutorial cover:
 
 * Starting a local MLflow Tracking Server and the MLflow UI Server
 * Exploring the MlflowClient (briefly)
@@ -18,17 +19,6 @@ We'll be focusing on:
 * Creating an Experiment that will contain our run (and our model)
 * Learning how to log metrics, parameters, and a model artifact to a run
 * Viewing our Experiment and our first run within the MLflow UI
-
-For those who prefer to view the complete code before diving into the step-by-step creation process,
-we offer two options:
-
-.. raw:: html
-
-    <div class="grid-container">
-        <a href="notebooks/logging-first-model.html" class="button default" style="background-image: url('../../../_static/images/tutorials/logging-first-model-notebook.gif');"><span>View the Notebook</span></a>
-        <a href="notebooks/logging-first-model.ipynb" class="button default" style="background-image: url('../../../_static/icons/download-icon.svg');"><span>Download</span></a>
-    </div>
-    <br><br>
 
 .. toctree::
     :maxdepth: 1

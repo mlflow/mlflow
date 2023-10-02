@@ -117,41 +117,47 @@ You'll find more in the respective sections within the documentation.
 
     Starting with the *Introductory Tutorials* is recommended before moving on to the guides.
 
-Learning Journey
-^^^^^^^^^^^^^^^^
-Below is a list of a select group of tutorials and guides.
 
-To see more of the tutorials available, visit :doc:`../tutorials/index` for the full listing.
-To see the full listing of guides, visit :doc:`../guides/index`.
+Core Learning Journey
+^^^^^^^^^^^^^^^^^^^^^
+Below are a select group of core tutorials and guides that are designed to get you familiar with the many features of MLflow. To see a full catalogue of 
+each, you can navigate to :doc:`../tutorials/index` and :doc:`../guides/index`.
 
-.. container:: boxes-wrapper
 
-    .. container:: left-box
+.. raw:: html
 
-        **Introductory Tutorials**
+    <section>
+        <article class="new-content-grid">
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        Logging your first MLflow Model
+                    </div>
+                    <div class="body">
+                        An ideal on-ramp to MLflow, this tutorial introduces the fundamental aspects of MLflow Tracking. You will learn how to start a local 
+                        MLflow Tracking server, start the UI server, how to create Experiments, how to search Experiments with the MLflow Client, and how to 
+                        log information to runs. 
+                        In the final section of the tutorial, you will put all of your knowledge together to log your first model to MLflow. 
+                    </div>
+                    <div class="doc"><a class="bulb" href="../tutorials/introductory/logging-first-model/index.html">Start the Tutorial</a></div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        Hyperparameter tuning with MLflow and Optuna
+                    </div>
+                    <div class="body">
+                        One of the more common tasks that ML professionals engage in is hyperparameter tuning of models. This guide covers this routine task, 
+                        focusing on the best ways to leverage MLflow Tracking to keep your tuning iterations organized, demonstrates the logging of custom 
+                        plots, and covers and end-to-end example of leveraging <a href="https://optuna.org/">Optuna</a> to perform tuning, using MLflow to record 
+                        all iterations through the use of child runs.  
+                    </div>
+                    <div class="doc"><a class="bulb" href="../guides/introductory/hyperparameter-tuning-with-child-runs/index.html">Visit the Guide</a></div>
+                </div>
+            </div>
+        </article>
+    </section>
+            
 
-        * :doc:`../tutorials/introductory/logging-first-model/index` 🎉 **new!** 🎉
-        * Navigating the MLflow UI 🚧
-        * Serving your first model 🚧
-        * Comparing runs in the UI 🚧
-        * Prompt Engineering with PromptLab 🚧
 
-        **Expert Tutorials**
-
-        * Packaging custom code with a model 🚧
-        * Batch inference with Apache Spark 🚧
-
-    .. container:: right-box
-
-        **Introductory Guides**
-
-        * :doc:`../guides/introductory/hyperparameter-tuning-with-child-runs/index` 🎉 **new!** 🎉
-        * :doc:`../guides/introductory/deploy-model-to-kubernetes/index`
-        * Using the MLflow AI Gateway 🚧
-        * Creating a custom pyfunc 🚧
-
-        **Expert Guides**
-
-        * MLflow server deployment options 🚧
-        * Creating plugins 🚧
-        * Creating a custom flavor 🚧
