@@ -14,7 +14,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from decimal import Decimal
 from types import FunctionType
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -80,27 +80,25 @@ class EvaluationMetric:
         .. code-block:: python
 
             def eval_fn(
-                eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
+                predictions: pandas.Series,
+                targets: pandas.Series,
                 metrics: Dict[str, MetricValue],
+                **kwargs,
             ) -> Union[float, MetricValue]:
                 """
-                :param eval_df:
-                    A Pandas or Spark DataFrame containing ``prediction``, ``target``,
-                    various ``variables``, ``input`` column.
-                    The ``prediction`` column contains the predictions made by the model.
-                    The ``target`` column contains the corresponding labels to the predictions made
-                    on that row.
-                    The "variables" map from any inputs or outputs of the model to columns in
-                    eval_df. These "variables" are defined in computing the custom metrics
-                    during evaluation
-                    The optional ``input`` contains the input sent to the model.
-                :param builtin_metrics:
-                    A dictionary containing the metrics calculated by the default evaluator.
+                :param predictions: A pandas Series containing the predictions made by the model.
+                :param targets: (Optional) A pandas Series containing the corresponding labels
+                    for the predictions made on that input.
+                :param metrics: (Optional) A dictionary containing the metrics calculated by the
+                    default evaluator.
                     The keys are the names of the metrics and the values are the metric values.
                     To access the MetricValue for the metrics calculated by the system, make sure
                     to specify the type hint for this parameter as Dict[str, MetricValue].
                     Refer to the DefaultEvaluator behavior section for what metrics
                     will be returned based on the type of model (i.e. classifier or regressor).
+                :param kwargs: Includes a list of args that are used to compute the metric. These
+                    args could information coming from input data, model outputs or parameters
+                    specified in the `evaluator_config` argument of the `mlflow.evaluate` API.
                 :return:
                     MetricValue with per-row scores, per-row justifications, and aggregate results.
                 """
@@ -111,18 +109,14 @@ class EvaluationMetric:
     :param long_name: (Optional) The long name of the metric. For example,
         ``"root_mean_squared_error"`` for ``"mse"``.
     :param version: (Optional) The metric version. For example ``v1``.
-    :param variables: (Optional) The list of variables required to compute the metric.
     '''
 
-    def __init__(
-        self, eval_fn, name, greater_is_better, long_name=None, version=None, variables=None
-    ):
+    def __init__(self, eval_fn, name, greater_is_better, long_name=None, version=None):
         self.eval_fn = eval_fn
         self.name = name
         self.greater_is_better = greater_is_better
         self.long_name = long_name or name
         self.version = version
-        self.variables = variables
 
     def __str__(self):
         if self.long_name:
@@ -141,7 +135,6 @@ def make_metric(
     name=None,
     long_name=None,
     version=None,
-    variables: Optional[List[str]] = None,
 ):
     '''
     A factory function to create an :py:class:`EvaluationMetric` object.
@@ -152,27 +145,25 @@ def make_metric(
         .. code-block:: python
 
             def eval_fn(
-                eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
+                predictions: pandas.Series,
+                targets: pandas.Series,
                 metrics: Dict[str, MetricValue],
+                **kwargs,
             ) -> Union[float, MetricValue]:
                 """
-                :param eval_df:
-                    A Pandas or Spark DataFrame containing ``prediction``, ``target``,
-                    various ``variables``, optional ``input`` column.
-                    The ``prediction`` column contains the predictions made by the model.
-                    The ``target`` column contains the corresponding labels to the predictions made
-                    on that row.
-                    The "variables" map from any inputs or outputs of the model to columns in
-                    eval_df. These "variables" are defined in computing the custom metrics
-                    during evaluation
-                    The optional ``input`` contains the input sent to the model.
-                :param builtin_metrics:
-                    A dictionary containing the metrics calculated by the default evaluator.
+                :param predictions: A pandas Series containing the predictions made by the model.
+                :param targets: (Optional) A pandas Series containing the corresponding labels
+                    for the predictions made on that input.
+                :param metrics: (Optional) A dictionary containing the metrics calculated by the
+                    default evaluator.
                     The keys are the names of the metrics and the values are the metric values.
                     To access the MetricValue for the metrics calculated by the system, make sure
                     to specify the type hint for this parameter as Dict[str, MetricValue].
                     Refer to the DefaultEvaluator behavior section for what metrics
                     will be returned based on the type of model (i.e. classifier or regressor).
+                :param kwargs: Includes a list of args that are used to compute the metric. These
+                    args could information coming from input data, model outputs or parameters
+                    specified in the `evaluator_config` argument of the `mlflow.evaluate` API.
                 :return:
                     MetricValue with per-row scores, per-row justifications, and aggregate results.
                 """
@@ -184,7 +175,6 @@ def make_metric(
     :param long_name: (Optional) The long name of the metric. For example, ``"mean_squared_error"``
         for ``"mse"``.
     :param version: (Optional) The metric version. For example ``v1``.
-    :param variables: (Optional) The list of variables required to compute the metric.
 
     .. seealso::
 
@@ -204,7 +194,7 @@ def make_metric(
             )
         name = eval_fn.__name__
 
-    return EvaluationMetric(eval_fn, name, greater_is_better, long_name, version, variables)
+    return EvaluationMetric(eval_fn, name, greater_is_better, long_name, version)
 
 
 @developer_stable

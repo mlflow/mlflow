@@ -1,3 +1,4 @@
+import inspect
 import re
 from unittest import mock
 
@@ -16,10 +17,12 @@ from mlflow.metrics.genai.genai_metric import (
 from mlflow.metrics.genai.metric_definitions import (
     correctness,
     relevance,
+    strict_correctness,
 )
 from mlflow.metrics.genai.prompts.v1 import (
     CorrectnessMetric,
     RelevanceMetric,
+    StrictCorrectnessMetric,
 )
 
 openai_justification1 = (
@@ -181,20 +184,21 @@ def test_make_genai_metric_correct_response():
         aggregations=["mean", "variance", "p90"],
     )
 
-    eval_df = pd.DataFrame(
-        {
-            "input": ["What is MLflow?"],
-            "prediction": [mlflow_prediction],
-            "ground_truth": [mlflow_ground_truth],
-        }
-    )
+    assert [
+        param.name for param in inspect.signature(custom_metric.eval_fn).parameters.values()
+    ] == ["predictions", "metrics", "inputs", "ground_truth"]
 
     with mock.patch.object(
         model_utils,
         "score_model_on_payload",
         return_value=properly_formatted_openai_response1,
     ):
-        metric_value = custom_metric.eval_fn(eval_df, {})
+        metric_value = custom_metric.eval_fn(
+            pd.Series([mlflow_prediction]),
+            {},
+            pd.Series(["What is MLflow?"]),
+            pd.Series([mlflow_ground_truth]),
+        )
 
     assert metric_value.scores == [3]
     assert metric_value.justifications == [openai_justification1]
@@ -224,19 +228,17 @@ def test_make_genai_metric_correct_response():
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
     )
-    eval_df = pd.DataFrame(
-        {
-            "input": ["input"],
-            "prediction": ["prediction"],
-            "ground_truth": ["ground_truth"],
-        }
-    )
     with mock.patch.object(
         model_utils,
         "score_model_on_payload",
         return_value=properly_formatted_openai_response1,
     ) as mock_predict_function:
-        metric_value = custom_metric.eval_fn(eval_df, {})
+        metric_value = custom_metric.eval_fn(
+            pd.Series(["prediction"]),
+            {},
+            pd.Series(["input"]),
+            pd.Series(["ground_truth"]),
+        )
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "openai:/gpt-3.5-turbo"
         assert mock_predict_function.call_args[0][1] == {
@@ -251,7 +253,7 @@ def test_make_genai_metric_correct_response():
             "Provided output: example-output\n\nProvided ground_truth: example-ground_truth\n\n"
             "Score: 4\nJustification: example-justification\n\n        \n\nAnd you'll need to "
             "submit your grading for the fake_metric of the output,\nusing the following in json "
-            "format:\nScore: [your score number between 1 to 5 for the fake_metric of the "
+            "format:\nScore: [your score number for the fake_metric of the "
             "output]\nJustification: [your step by step reasoning about the fake_metric of the "
             "output]\n    ",
             "temperature": 0.0,
@@ -274,20 +276,17 @@ def test_make_genai_metric_incorrect_response():
         aggregations=["mean", "variance", "p90"],
     )
 
-    eval_df = pd.DataFrame(
-        {
-            "input": ["What is MLflow?"],
-            "prediction": [mlflow_prediction],
-            "ground_truth": [mlflow_ground_truth],
-        }
-    )
-
     with mock.patch.object(
         model_utils,
         "score_model_on_payload",
         return_value=incorrectly_formatted_openai_response,
     ):
-        metric_value = custom_metric.eval_fn(eval_df, {})
+        metric_value = custom_metric.eval_fn(
+            pd.Series([mlflow_prediction]),
+            {},
+            pd.Series(["What is MLflow?"]),
+            pd.Series([mlflow_ground_truth]),
+        )
 
     assert metric_value.scores == [None]
     assert metric_value.justifications == [None]
@@ -311,30 +310,31 @@ def test_make_genai_metric_multiple():
         aggregations=["mean", "variance", "p90"],
     )
 
-    eval_df = pd.DataFrame(
-        {
-            "input": ["What is MLflow?", "What is Spark?"],
-            "prediction": [
-                mlflow_prediction,
-                "Apache Spark is an open-source, distributed computing system designed for "
-                "big data processing and analytics. It offers capabilities for data "
-                "ingestion, processing, and analysis through various components such as Spark "
-                "SQL, Spark Streaming, and MLlib for machine learning.",
-            ],
-            "ground_truth": [
-                mlflow_ground_truth,
-                apache_spark_ground_truth,
-            ],
-        }
-    )
-
     # Use side_effect to specify multiple return values
     with mock.patch.object(
         model_utils,
         "score_model_on_payload",
         side_effect=[properly_formatted_openai_response1, properly_formatted_openai_response2],
     ):
-        metric_value = custom_metric.eval_fn(eval_df, {})
+        metric_value = custom_metric.eval_fn(
+            pd.Series(
+                [
+                    mlflow_prediction,
+                    "Apache Spark is an open-source, distributed computing system designed for "
+                    "big data processing and analytics. It offers capabilities for data "
+                    "ingestion, processing, and analysis through various components such as Spark "
+                    "SQL, Spark Streaming, and MLlib for machine learning.",
+                ],
+            ),
+            {},
+            pd.Series(["What is MLflow?", "What is Spark?"]),
+            pd.Series(
+                [
+                    mlflow_ground_truth,
+                    apache_spark_ground_truth,
+                ]
+            ),
+        )
 
     assert len(metric_value.scores) == 2
     assert set(metric_value.scores) == {3, 2}
@@ -371,14 +371,6 @@ def test_make_genai_metric_failure():
     )
     import pandas as pd
 
-    eval_df = pd.DataFrame(
-        {
-            "input": ["What is MLflow?"],
-            "prediction": ["predictions"],
-            "ground_truth": ["truth"],
-        }
-    )
-
     custom_metric1 = make_genai_metric(
         name="correctness",
         version="v-latest",
@@ -398,35 +390,19 @@ def test_make_genai_metric_failure():
             "Please check the correctness of the version"
         ),
     ):
-        custom_metric1.eval_fn(eval_df, {})
-
-    custom_metric2 = make_genai_metric(
-        name="correctness",
-        version="v1",
-        definition="definition",
-        grading_prompt="grading_prompt",
-        examples=[example],
-        model="model",
-        variables=["ground_truth-error"],
-        parameters={"temperature": 1.0},
-        greater_is_better=True,
-        aggregations=["mean"],
-    )
-    with pytest.raises(
-        MlflowException,
-        match=re.escape(
-            "ground_truth-error does not exist in the Eval DataFrame "
-            "Index(['input', 'prediction', 'ground_truth'], dtype='object')."
-        ),
-    ):
-        custom_metric2.eval_fn(eval_df, {})
+        custom_metric1.eval_fn(
+            pd.Series(["predictions"]),
+            {},
+            pd.Series(["What is MLflow?"]),
+            pd.Series(["truth"]),
+        )
 
     with mock.patch.object(
         model_utils,
         "score_model_on_payload",
         return_value=properly_formatted_openai_response1,
     ):
-        custom_metric3 = make_genai_metric(
+        custom_metric2 = make_genai_metric(
             name="correctness",
             version="v1",
             definition="definition",
@@ -442,21 +418,22 @@ def test_make_genai_metric_failure():
             MlflowException,
             match=re.escape("Invalid aggregate option random-fake"),
         ):
-            custom_metric3.eval_fn(eval_df, {})
+            custom_metric2.eval_fn(
+                pd.Series(["predictions"]),
+                {},
+                pd.Series(["What is MLflow?"]),
+                pd.Series(["truth"]),
+            )
 
 
 def test_format_variable_string():
-    variable_string = _format_variable_string(
-        ["foo", "bar"], pd.DataFrame({"foo": ["foo"], "bar": ["bar"]}), 0
-    )
+    variable_string = _format_variable_string(["foo", "bar"], {"foo": ["foo"], "bar": ["bar"]}, 0)
 
     assert variable_string == "Provided foo: foo\nProvided bar: bar"
 
     with pytest.raises(
         MlflowException,
-        match=re.escape(
-            "bar does not exist in the Eval DataFrame " "Index(['foo'], dtype='object')."
-        ),
+        match=re.escape("bar does not exist in the eval function ['foo']."),
     ):
         variable_string = _format_variable_string(["foo", "bar"], pd.DataFrame({"foo": ["foo"]}), 0)
 
@@ -531,20 +508,19 @@ def test_correctness_metric():
     )
 
     input = "What is MLflow?"
-    eval_df = pd.DataFrame(
-        {
-            "input": [input],
-            "prediction": [mlflow_prediction],
-            "ground_truth": [mlflow_ground_truth],
-        }
-    )
 
     with mock.patch.object(
         model_utils,
         "score_model_on_payload",
         return_value=properly_formatted_openai_response1,
     ) as mock_predict_function:
-        metric_value = correctness_metric.eval_fn(eval_df, {})
+        metric_value = correctness_metric.eval_fn(
+            pd.Series([mlflow_prediction]),
+            {},
+            pd.Series([input]),
+            pd.Series([mlflow_ground_truth]),
+        )
+
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
         assert mock_predict_function.call_args[0][1] == {
@@ -566,7 +542,7 @@ def test_correctness_metric():
             f"Justification: {mlflow_example.justification}\n\n        \n\n"
             "And you'll need to submit your grading for the correctness of the output,"
             "\nusing the following in json format:\n"
-            "Score: [your score number between 1 to 5 for the correctness of the output]\n"
+            "Score: [your score number for the correctness of the output]\n"
             "Justification: [your step by step reasoning about the correctness of the output]"
             "\n    ",
             **CorrectnessMetric.parameters,
@@ -593,22 +569,19 @@ def test_correctness_metric():
 
 def test_relevance_metric():
     relevance_metric = relevance(model="gateway:/gpt-3.5-turbo", examples=[])
-
     input = "What is MLflow?"
-    eval_df = pd.DataFrame(
-        {
-            "input": [input],
-            "prediction": [mlflow_prediction],
-            "context": [mlflow_ground_truth],
-        }
-    )
 
     with mock.patch.object(
         model_utils,
         "score_model_on_payload",
         return_value=properly_formatted_openai_response1,
     ) as mock_predict_function:
-        metric_value = relevance_metric.eval_fn(eval_df, {})
+        metric_value = relevance_metric.eval_fn(
+            pd.Series([mlflow_prediction]),
+            {},
+            pd.Series([input]),
+            pd.Series([mlflow_ground_truth]),
+        )
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
         assert mock_predict_function.call_args[0][1] == {
@@ -622,10 +595,10 @@ def test_relevance_metric():
             f"\nProvided context: {mlflow_ground_truth}\n"
             f"\nMetric definition:\n{RelevanceMetric.definition}\n"
             f"\nBelow is your grading criteria:\n{RelevanceMetric.grading_prompt}\n"
-            "\nExamples:\n\n"
+            "\n\n"
             "\nAnd you'll need to submit your grading for the relevance of the output,"
             "\nusing the following in json format:\n"
-            "Score: [your score number between 1 to 5 for the relevance of the output]\n"
+            "Score: [your score number for the relevance of the output]\n"
             "Justification: [your step by step reasoning about the relevance of the output]"
             "\n    ",
             **RelevanceMetric.parameters,
@@ -648,3 +621,59 @@ def test_relevance_metric():
             metric_version="non-existent-version",
             examples=[mlflow_example],
         )
+
+
+def test_strict_correctness_metric():
+    strict_correctness_metric = strict_correctness()
+    input = "What is MLflow?"
+    examples = "\n".join([str(example) for example in StrictCorrectnessMetric.default_examples])
+
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        return_value=properly_formatted_openai_response1,
+    ) as mock_predict_function:
+        metric_value = strict_correctness_metric.eval_fn(
+            pd.Series([mlflow_prediction]),
+            {},
+            pd.Series([input]),
+            pd.Series([mlflow_ground_truth]),
+        )
+        assert mock_predict_function.call_count == 1
+        assert mock_predict_function.call_args[0][0] == "openai:/gpt-4"
+        assert mock_predict_function.call_args[0][1] == {
+            "prompt": "\nPlease act as an impartial judge and evaluate the quality of "
+            "the provided output which\nattempts to produce output for the provided input "
+            "based on a provided information.\n\nYou'll be given a grading format below which "
+            "you'll call for each provided information,\ninput and provided output to submit "
+            "your justification and score to compute the strict_correctness of\nthe output.\n"
+            f"\nInput:\n{input}\n"
+            f"\nProvided output:\n{mlflow_prediction}\n"
+            f"\nProvided ground_truth: {mlflow_ground_truth}\n"
+            f"\nMetric definition:\n{StrictCorrectnessMetric.definition}\n"
+            f"\nBelow is your grading criteria:\n{StrictCorrectnessMetric.grading_prompt}\n"
+            "\nExamples:\n"
+            f"{examples}\n"
+            "\nAnd you'll need to submit your grading for the strict_correctness of the output,"
+            "\nusing the following in json format:\n"
+            "Score: [your score number for the strict_correctness of the output]\n"
+            "Justification: [your step by step reasoning about the strict_correctness of the "
+            "output]"
+            "\n    ",
+            **StrictCorrectnessMetric.parameters,
+        }
+
+    assert metric_value.scores == [3]
+    assert metric_value.justifications == [openai_justification1]
+
+    assert metric_value.aggregate_results == {
+        "mean": 3,
+        "variance": 0,
+        "p90": 3,
+    }
+
+    with pytest.raises(
+        MlflowException,
+        match="Failed to find strict correctness metric for version non-existent-version",
+    ):
+        strict_correctness_metric = strict_correctness(metric_version="non-existent-version")
