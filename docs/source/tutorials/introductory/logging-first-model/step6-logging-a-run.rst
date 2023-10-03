@@ -77,7 +77,6 @@ To start with, we will need to import our required modules.
 
 .. code-section::
     .. code-block:: python
-        :caption: Import the required modules for model training
 
         import mlflow
         from sklearn.model_selection import train_test_split
@@ -96,7 +95,6 @@ address. We do this via the following command:
 
 .. code-section::
     .. code-block:: python
-        :caption: Set the tracking uri
 
         mlflow.set_tracking_uri("http://127.0.0.1:8080")
 
@@ -107,7 +105,6 @@ clear once we start iterating over some ideas and need to compare the results of
 
 .. code-section::
     .. code-block:: python
-        :caption: Set the tracking uri
 
         # Sets the current active experiment to the "Apple_Models" experiment and
         # returns the Experiment metadata
@@ -127,7 +124,6 @@ an annotated version of the code.
 
 .. code-section::
     .. code-block:: python
-        :caption: Use MLflow to log the training of a model
 
         with mlflow.start_run(run_name=run_name) as run:
             # Split the data into features and target and drop irrelevant date

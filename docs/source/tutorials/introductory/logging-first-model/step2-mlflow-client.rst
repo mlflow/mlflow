@@ -19,7 +19,6 @@ In order to use the MLflowClient API, the initial step involves importing the ne
 
 .. code-section::
     .. code-block:: python
-        :caption: Import Dependencies
         :name: imports
         :emphasize-lines: 1
 
@@ -45,7 +44,6 @@ assigned the server when we started it. The two components that we submitted as 
 
 .. code-section::
     .. code-block:: python
-        :caption: Create an instance of the MLflow Client
         :name: client
 
         client = MlflowClient(tracking_uri="http://127.0.0.1:8080")
@@ -73,7 +71,6 @@ use of the :py:func:`mlflow.client.MlflowClient.search_experiments` API. Let's i
 
 .. code-section::
     .. code-block:: python
-        :caption: View Experiments in the Tracking Server
 
         all_experiments = client.search_experiments()
 
@@ -95,7 +92,6 @@ query and extract these attributes into a dict.
 
 .. code-section::
     .. code-block:: python
-        :caption: Getting the name and stage of the Default Experiment
 
         default_experiment = [
             {"name": experiment.name, "lifecycle_stage": experiment.lifecycle_stage}

@@ -52,7 +52,6 @@ condition is wrapped in single quotes.
 
 .. code-section::
     .. code-block:: python
-        :caption: Search for experiments that match one of our tags
 
         # Use search_experiments() to search on the project_name tag key
 

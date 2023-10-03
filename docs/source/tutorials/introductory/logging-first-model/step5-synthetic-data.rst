@@ -22,7 +22,6 @@ The random elements of some of the factors will handle the unexplained variance 
 
 .. code-section::
     .. code-block:: python
-        :caption: Synthetic data generator for predicting demand for apples
 
         import pandas as pd
         import numpy as np
