@@ -6,8 +6,8 @@ MLflow Model Registry
 
 The MLflow Model Registry component is a centralized model store, set of APIs, and UI, to
 collaboratively manage the full lifecycle of an MLflow Model. It provides model lineage (which
-MLflow experiment and run produced the model), model versioning, stage transitions (for example from
-staging to production), and annotations.
+MLflow experiment and run produced the model), model versioning, model aliasing, model tagging, and
+annotations.
 
 .. contents:: Table of Contents
   :local:
@@ -22,19 +22,26 @@ Model
     An MLflow Model is created from an experiment or run that is logged with one of the model flavor’s ``mlflow.<model_flavor>.log_model()`` methods. Once logged, this model can then be registered with the Model Registry.
 
 Registered Model
-    An MLflow Model can be registered with the  Model Registry. A registered model has a unique name, contains versions, associated transitional stages, model lineage, and other metadata.
+    An MLflow Model can be registered with the Model Registry. A registered model has a unique name, contains versions, associated transitional stages, model lineage, and other metadata.
 
 Model Version
     Each registered model can have one or many versions. When a new model is added to the Model Registry, it is added as version 1. Each new model registered to the same model name increments the version number.
 
-Model Stage
-    Each distinct model version can be assigned one stage at any given time. MLflow provides predefined stages for common use-cases such as *Staging*, *Production* or *Archived*. You can transition a model version from one stage to another stage.
+.. _using-registered-model-aliases:
+
+Model Alias
+    Model aliases allow you to assign a mutable, named reference to a particular version of a registered model. By assigning an alias to a specific model version, you can use the alias to refer that model version via a model URI or the model registry API. For example, you can create an alias named ``champion`` that points to version 1 of a model named ``MyModel``. You can then refer to version 1 of ``MyModel`` by using the URI ``models:/MyModel@champion``.
+
+    Aliases are especially useful for deploying models. For example, you could assign a ``champion`` alias to the model version intended for production traffic and target this alias in production workloads. You can then update the model serving production traffic by reassigning the ``champion`` alias to a different model version.
+
+Tags
+    Tags are key-value pairs that you associate with registered models and model versions, allowing you to label and categorize them by function or status. For example, you could apply a tag with key ``"task"`` and value ``"question-answering"`` (displayed in the UI as ``task:question-answering``) to registered models intended for question answering tasks. At the model version level, you could tag versions undergoing pre-deployment validation with ``validation_status:pending`` and those cleared for deployment with ``validation_status:approved``.
 
 Annotations and Descriptions
     You can annotate the top-level model and each version individually using Markdown, including description and any relevant information useful for the team such as algorithm descriptions, dataset employed or methodology.
 
-Model Alias
-    You can create an alias for a registered model that points to a specific model version. You can then use an alias to refer to a specific model version via a model URI or the model registry API. For example, you can create an alias named ``Champion`` that points to version 1 of a model named ``MyModel``. You can then refer to version 1 of ``MyModel`` by using the URI ``models:/MyModel@Champion``.
+Model Stage
+    Each distinct model version can be assigned one stage at any given time. MLflow provides predefined stages for common use-cases such as *Staging*, *Production* or *Archived*. You can transition a model version from one stage to another stage.
 
 Model Registry Workflows
 ========================
@@ -42,50 +49,58 @@ If running your own MLflow server, you must use a database-backed backend store 
 the model registry via the UI or API. `See here <tracking.html#backend-stores>`_ for more information.
 
 Before you can add a model to the Model Registry, you must log it using the ``log_model`` methods
-of the corresponding model flavors. Once a model has been logged, you can add, modify, update, transition,
-or delete model in the Model Registry through the UI or the API.
+of the corresponding model flavors. Once a model has been logged, you can add, modify, update,
+or delete the model in the Model Registry through the UI or the API.
 
 UI Workflow
 -----------
 
-Registering a Model
-^^^^^^^^^^^^^^^^^^^
+This section demonstrates how to use the MLflow Model Registry UI to manage your MLflow models.
 
-#. From the MLflow Runs detail page, select a logged MLflow Model in the **Artifacts** section.
+Register a Model
+^^^^^^^^^^^^^^^^
 
-#. Click the **Register Model** button.
+Follow the steps below to register your MLflow model in the Model Registry.
 
-   .. figure:: _static/images/oss_registry_1_register.png
+1. Open the details page for the MLflow Run containing the logged MLflow model you'd like to register. Select the model folder containing the intended MLflow model in the **Artifacts** section.
 
-#. In the **Model Name** field, if you are adding a new model, specify a unique name to identify the model. If you are registering a new version to an existing model, pick the existing model name from the dropdown.
+  .. figure:: _static/images/oss_registry_1_register.png
 
+2. Click the **Register Model** button, which will trigger a form to pop up.
+
+3. In the **Model** dropdown menu on the form, you can either select "Create New Model", which creates a new registered model with your MLflow model as its initial version, or select an existing registered model, which registers your model under it as a new version. The screenshot below demonstrates registering the MLflow model to a new registered model named ``"iris_model_testing"``.
+ 
   .. figure:: _static/images/oss_registry_2_dialog.png
 
-Using the Model Registry
-^^^^^^^^^^^^^^^^^^^^^^^^
+Find Registered Models
+^^^^^^^^^^^^^^^^^^^^^^
 
-- Navigate to the **Registered Models** page and view the model properties.
+After you've registered your models in the Model Registry, you can navigate to them in the following ways.
+
+- Navigate to the **Registered Models** page, which links to your registered models and correponding model versions.
 
   .. figure:: _static/images/oss_registry_3_overview.png
 
-- Go to the **Artifacts** section of the run detail page, click the model, and then click the model version at the top right to view the version you just created.
+- Go to the **Artifacts** section of your MLflow Runs details page, click the model folder, and then click the model version at the top right to view the version created from that model.
 
   .. figure:: _static/images/oss_registry_3b_version.png
 
-Each model has an overview page that shows the active versions.
+Deploy and Organize Models
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. figure:: _static/images/oss_registry_3c_version.png
+You can deploy and organize your models in the Model Registry using model aliases and tags. To set aliases and tags for model versions in your registered model, navigate to the overview page of your registered model, such as the one below.
 
-Click a version to navigate to the version detail page.
+.. figure:: _static/images/oss_registry_4_model.png
 
-.. figure:: _static/images/oss_registry_4_version.png
+You can add or edit aliases and tags for a specific model version by clicking on the corresponding ``Add`` link or pencil icon in the model verison table.
 
-On the version detail page you can see model version details and the current stage of the model
-version. Click the **Stage** drop-down at the top right, to transition the model
-version to one of the other valid stages.
+.. figure:: _static/images/oss_registry_4b_model_alias.png
 
-.. figure:: _static/images/oss_registry_5_transition.png
+To learn more about a specific model version, navigate to the details page for that model version.
 
+.. figure:: _static/images/oss_registry_5_version.png
+
+In this page, you can inspect model version details like the model signature, MLflow source run, and creation timestamp. You can also view and configure the verion's aliases, tags, and description.
 
 API Workflow
 ------------
@@ -171,10 +186,64 @@ as shown below to create a new version of the model.
         run_id="d16076a3ec534311817565e6527539c0",
     )
 
+
+Deploy and Organize Models with Aliases and Tags
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Model aliases and tags help you deploy and organize your models in the Model Registry.
+
+**Set and delete aliases on models**
+
+To set, update, and delete aliases using the MLflow Client API, see the examples below:
+
+.. code-block:: python
+
+    from mlflow import MlflowClient
+
+    client = MlflowClient()
+
+    # create "champion" alias for version 1 of model "example-model"
+    client.set_registered_model_alias("example-model", "champion", 1)
+
+    # reassign the "Champion" alias to version 2
+    client.set_registered_model_alias("example-model", "Champion", 2)
+
+    # get a model version by alias
+    client.get_model_version_by_alias("example-model", "Champion")
+
+    # delete the alias
+    client.delete_registered_model_alias("example-model", "Champion")
+
+**Set and delete tags on models**
+
+To set and delete tags using the MLflow Client API, see the examples below:
+
+.. code-block:: python
+
+    from mlflow import MlflowClient
+
+    client = MlflowClient()
+
+    # Set registered model tag
+    client.set_registered_model_tag("example-model", "task", "classification")
+
+    # Delete registered model tag
+    client.delete_registered_model_tag("example-model", "task")
+
+    # Set model version tag
+    client.set_model_version_tag("example-model", "1", "validation_status", "approved")
+
+    # Delete model version tag
+    client.delete_model_version_tag("example-model", "1", "validation_status")
+
+For more details on alias and tag client APIs, see the :py:mod:`mlflow.client` API documentation.
+
+
 Fetching an MLflow Model from the Model Registry
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 After you have registered an MLflow model, you can fetch that model using ``mlflow.<model_flavor>.load_model()``, or more generally, :meth:`~mlflow.pyfunc.load_model`.
+You can use the loaded model for one off predictions or in inference workloads such as batch inference.
 
 **Fetch a specific model version**
 
@@ -190,6 +259,23 @@ To fetch a specific model version, just supply that version number as part of th
     model = mlflow.pyfunc.load_model(model_uri=f"models:/{model_name}/{model_version}")
 
     model.predict(data)
+
+**Fetch a model version by alias**
+
+To fetch a model version by alias, specify the model alias in the model URI, and it will fetch the model version currently under it.
+
+.. code-block:: python
+
+    import mlflow.pyfunc
+
+    model_name = "sk-learn-random-forest-reg-model"
+    alias = "champion"
+
+    champion_version = mlflow.pyfunc.load_model(f"models:/{model_name}@{alias}")
+
+    champion_version.predict(data)
+
+Note that model alias assignments can be updated independently of your production code. If the ``champion`` alias in the snippet above is reassigned to a new model version in the Model Registry, the next execution of this snippet will automatically pick up the new model version. This allows you to decouple model deployments from your inference workloads.
 
 **Fetch the latest model version in a specific stage**
 
@@ -247,20 +333,6 @@ As well as adding or updating a description of a specific version of the model, 
         name="sk-learn-random-forest-reg-model",
         new_name="sk-learn-random-forest-reg-model-100",
     )
-
-Transitioning an MLflow Model’s Stage
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Over the course of the model’s lifecycle, a model evolves—from development to staging to production.
-You can transition a registered model to one of the stages: **Staging**, **Production** or **Archived**.
-
-.. code-block:: python
-
-    client = MlflowClient()
-    client.transition_model_version_stage(
-        name="sk-learn-random-forest-reg-model", version=3, stage="Production"
-    )
-
-The accepted values for <stage> are: Staging|Archived|Production|None.
 
 Listing and Searching MLflow Models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -327,20 +399,6 @@ This outputs:
         "user_id": None,
         "version": 2,
     }
-
-
-Archiving an MLflow Model
-^^^^^^^^^^^^^^^^^^^^^^^^^
-You can move models versions out of a **Production** stage into an **Archived** stage.
-At a later point, if that archived model is not needed, you can delete it.
-
-.. code-block:: python
-
-    # Archive models version 3 from Production into Archived
-    client = MlflowClient()
-    client.transition_model_version_stage(
-        name="sk-learn-random-forest-reg-model", version=3, stage="Archived"
-    )
 
 Deleting MLflow Models
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -623,66 +681,30 @@ save, log, register, and load from the Model Registry and score.
     <Yay!! Another good phone interview. I nailed it!!> -- {'neg': 0.0, 'neu': 0.446, 'pos': 0.554, 'compound': 0.816}
     <This is INSANE! I can't believe it. How could you do such a horrible thing?> -- {'neg': 0.357, 'neu': 0.643, 'pos': 0.0, 'compound': -0.8034}
 
-Using Registered Model Aliases
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Model aliases in the MLflow Model Registry allow you to assign a mutable, named reference to a particular version within a
-registered model. You can use aliases to specify which model versions are deployed in a given environment in your model
-training workflows (e.g. specify the current ``Champion`` model version that should serve the majority of production traffic),
-and then write inference workloads that target that alias ("make predictions using the ``Champion`` version"). The example
-workflow below captures this idea.
-
-
-**Mark model for deployment using aliases**
-
-We can set a ``Champion`` alias to point to a newly trained model version, indicating to downstream inference workloads that they
-should use this model version to make predictions on production traffic:
+Transitioning an MLflow Model’s Stage
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Over the course of the model’s lifecycle, a model evolves—from development to staging to production.
+You can transition a registered model to one of the stages: **Staging**, **Production** or **Archived**.
 
 .. code-block:: python
-
-    # Register a new model and version
-    from sklearn.ensemble import RandomForestRegressor
-
-    import mlflow
-    import mlflow.sklearn
-
-    with mlflow.start_run(run_name="YOUR_RUN_NAME") as run:
-        params = {"n_estimators": 5, "random_state": 42}
-        sk_learn_rfr = RandomForestRegressor(**params)
-
-        # Log the sklearn model and register as version 1
-        mlflow.sklearn.log_model(
-            sk_model=sk_learn_rfr,
-            artifact_path="sklearn-model",
-            registered_model_name="example-model",
-        )
-
-    # Set alias on model version
-    from mlflow import MlflowClient
 
     client = MlflowClient()
-    client.set_registered_model_alias("example-model", "Champion", 1)
+    client.transition_model_version_stage(
+        name="sk-learn-random-forest-reg-model", version=3, stage="Production"
+    )
 
+The accepted values for <stage> are: Staging|Archived|Production|None.
 
-**Consume model versions by alias in inference workloads**
-
-You can write batch inference workloads that reference a model version by alias. For example, the snippet below loads and applies
-the ``Champion`` model version for batch inference. If the ``Champion`` version is updated to reference a new model version, the batch
-inference workload automatically picks it up on its next execution. This allows you to decouple model deployments/updates from your
-batch inference workloads.
+Archiving an MLflow Model
+^^^^^^^^^^^^^^^^^^^^^^^^^
+You can move models versions out of a **Production** stage into an **Archived** stage.
+At a later point, if that archived model is not needed, you can delete it.
 
 .. code-block:: python
 
-    import mlflow.pyfunc
-
-    model_version_uri = "models:/example-model@Champion"
-    champion_version = mlflow.pyfunc.load_model(model_version_uri)
-    champion_version.predict(test_x)
-
-See the full set of client APIs for working with aliases in the MLflow documentation, including APIs to
-:meth:`~mlflow.client.MlflowClient.get_model_version_by_alias` and :meth:`~mlflow.client.MlflowClient.delete_registered_model_alias`.
-
-
-
-
-
+    # Archive models version 3 from Production into Archived
+    client = MlflowClient()
+    client.transition_model_version_stage(
+        name="sk-learn-random-forest-reg-model", version=3, stage="Archived"
+    )
 
