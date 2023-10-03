@@ -120,186 +120,200 @@ def _ari_eval_fn(predictions):
 
 
 def _accuracy_eval_fn(predictions, targets, sample_weight=None):
-    from sklearn.metrics import accuracy_score
+    if targets is not None:
+        from sklearn.metrics import accuracy_score
 
-    acc = accuracy_score(y_true=targets, y_pred=predictions, sample_weight=sample_weight)
-    return MetricValue(aggregate_results={"exact_match": acc})
+        acc = accuracy_score(y_true=targets, y_pred=predictions, sample_weight=sample_weight)
+        return MetricValue(aggregate_results={"exact_match": acc})
 
 
 def _rouge1_eval_fn(predictions, targets):
-    if not _validate_text_data(targets, "rouge1") or not _validate_text_data(predictions, "rouge1"):
-        return
+    if targets is not None:
+        if not _validate_text_data(targets, "rouge1") or not _validate_text_data(predictions, "rouge1"):
+            return
 
-    try:
-        import evaluate
+        try:
+            import evaluate
 
-        rouge = evaluate.load("rouge")
-    except Exception as e:
-        _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
-        return
+            rouge = evaluate.load("rouge")
+        except Exception as e:
+            _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+            return
 
-    references = targets
-    scores = rouge.compute(
-        predictions=predictions,
-        references=references,
-        rouge_types=["rouge1"],
-        use_aggregator=False,
-    )["rouge1"]
-    return MetricValue(
-        scores=scores,
-        aggregate_results=standard_aggregations(scores),
-    )
+        references = targets
+        scores = rouge.compute(
+            predictions=predictions,
+            references=references,
+            rouge_types=["rouge1"],
+            use_aggregator=False,
+        )["rouge1"]
+        return MetricValue(
+            scores=scores,
+            aggregate_results=standard_aggregations(scores),
+        )
 
 
 def _rouge2_eval_fn(predictions, targets):
-    if not _validate_text_data(targets, "rouge2") or not _validate_text_data(predictions, "rouge2"):
-        return
+    if targets is not None:
+        if not _validate_text_data(targets, "rouge2") or not _validate_text_data(predictions, "rouge2"):
+            return
 
-    try:
-        import evaluate
+        try:
+            import evaluate
 
-        rouge = evaluate.load("rouge")
-    except Exception as e:
-        _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
-        return
+            rouge = evaluate.load("rouge")
+        except Exception as e:
+            _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+            return
 
-    references = targets
-    scores = rouge.compute(
-        predictions=predictions,
-        references=references,
-        rouge_types=["rouge2"],
-        use_aggregator=False,
-    )["rouge2"]
-    return MetricValue(
-        scores=scores,
-        aggregate_results=standard_aggregations(scores),
-    )
+        references = targets
+        scores = rouge.compute(
+            predictions=predictions,
+            references=references,
+            rouge_types=["rouge2"],
+            use_aggregator=False,
+        )["rouge2"]
+        return MetricValue(
+            scores=scores,
+            aggregate_results=standard_aggregations(scores),
+        )
 
 
 def _rougeL_eval_fn(predictions, targets):
-    if not _validate_text_data(targets, "rougeL") or not _validate_text_data(predictions, "rougeL"):
-        return
+    if targets is not None:
+        if not _validate_text_data(targets, "rougeL") or not _validate_text_data(predictions, "rougeL"):
+            return
 
-    try:
-        import evaluate
+        try:
+            import evaluate
 
-        rouge = evaluate.load("rouge")
-    except Exception as e:
-        _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
-        return
+            rouge = evaluate.load("rouge")
+        except Exception as e:
+            _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+            return
 
-    references = targets
-    scores = rouge.compute(
-        predictions=predictions,
-        references=references,
-        rouge_types=["rougeL"],
-        use_aggregator=False,
-    )["rougeL"]
-    return MetricValue(
-        scores=scores,
-        aggregate_results=standard_aggregations(scores),
-    )
+        references = targets
+        scores = rouge.compute(
+            predictions=predictions,
+            references=references,
+            rouge_types=["rougeL"],
+            use_aggregator=False,
+        )["rougeL"]
+        return MetricValue(
+            scores=scores,
+            aggregate_results=standard_aggregations(scores),
+        )
 
 
 def _rougeLsum_eval_fn(predictions, targets):
-    if not _validate_text_data(targets, "rougeLsum") or not _validate_text_data(
-        predictions, "rougeLsum"
-    ):
-        return
+    if targets is not None:
+        if not _validate_text_data(targets, "rougeLsum") or not _validate_text_data(
+            predictions, "rougeLsum"
+        ):
+            return
 
-    try:
-        import evaluate
+        try:
+            import evaluate
 
-        rouge = evaluate.load("rouge")
-    except Exception as e:
-        _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
-        return
+            rouge = evaluate.load("rouge")
+        except Exception as e:
+            _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+            return
 
-    references = targets
-    scores = rouge.compute(
-        predictions=predictions,
-        references=references,
-        rouge_types=["rougeLsum"],
-        use_aggregator=False,
-    )["rougeLsum"]
-    return MetricValue(
-        scores=scores,
-        aggregate_results=standard_aggregations(scores),
-    )
+        references = targets
+        scores = rouge.compute(
+            predictions=predictions,
+            references=references,
+            rouge_types=["rougeLsum"],
+            use_aggregator=False,
+        )["rougeLsum"]
+        return MetricValue(
+            scores=scores,
+            aggregate_results=standard_aggregations(scores),
+        )
 
 
 def _mae_eval_fn(predictions, targets, sample_weight=None):
-    from sklearn.metrics import mean_absolute_error
+    if targets is not None:
+        from sklearn.metrics import mean_absolute_error
 
-    mae = mean_absolute_error(targets, predictions, sample_weight=sample_weight)
-    return MetricValue(aggregate_results={"mean_absolute_error": mae})
+        mae = mean_absolute_error(targets, predictions, sample_weight=sample_weight)
+        return MetricValue(aggregate_results={"mean_absolute_error": mae})
 
 
 def _mse_eval_fn(predictions, targets, sample_weight=None):
-    from sklearn.metrics import mean_squared_error
+    if targets is not None:
+        from sklearn.metrics import mean_squared_error
 
-    mse = mean_squared_error(targets, predictions, sample_weight=sample_weight)
-    return MetricValue(aggregate_results={"mean_squared_error": mse})
+        mse = mean_squared_error(targets, predictions, sample_weight=sample_weight)
+        return MetricValue(aggregate_results={"mean_squared_error": mse})
 
 
 def _rmse_eval_fn(predictions, targets, sample_weight=None):
-    from sklearn.metrics import mean_squared_error
+    if targets is not None:
+        from sklearn.metrics import mean_squared_error
 
-    rmse = mean_squared_error(targets, predictions, squared=False, sample_weight=sample_weight)
-    return MetricValue(aggregate_results={"root_mean_squared_error": rmse})
+        rmse = mean_squared_error(targets, predictions, squared=False, sample_weight=sample_weight)
+        return MetricValue(aggregate_results={"root_mean_squared_error": rmse})
 
 
 def _r2_score_eval_fn(predictions, targets, sample_weight=None):
-    from sklearn.metrics import r2_score
+    if targets is not None:
+        from sklearn.metrics import r2_score
 
-    r2 = r2_score(targets, predictions, sample_weight=sample_weight)
-    return MetricValue(aggregate_results={"r2_score": r2})
+        r2 = r2_score(targets, predictions, sample_weight=sample_weight)
+        return MetricValue(aggregate_results={"r2_score": r2})
 
 
 def _max_error_eval_fn(predictions, targets):
-    from sklearn.metrics import max_error
+    if targets is not None:
+        from sklearn.metrics import max_error
 
-    error = max_error(targets, predictions)
-    return MetricValue(aggregate_results={"max_error": error})
+        error = max_error(targets, predictions)
+        return MetricValue(aggregate_results={"max_error": error})
 
 
 def _mape_eval_fn(predictions, targets, sample_weight=None):
-    from sklearn.metrics import mean_absolute_percentage_error
+    if targets is not None:
+        from sklearn.metrics import mean_absolute_percentage_error
 
-    mape = mean_absolute_percentage_error(targets, predictions, sample_weight=sample_weight)
-    return MetricValue(aggregate_results={"mean_absolute_percentage_error": mape})
+        mape = mean_absolute_percentage_error(targets, predictions, sample_weight=sample_weight)
+        return MetricValue(aggregate_results={"mean_absolute_percentage_error": mape})
 
 
 def _recall_eval_fn(predictions, targets, pos_label=1, average="binary", sample_weight=None):
-    from sklearn.metrics import recall_score
+    if targets is not None:
+        from sklearn.metrics import recall_score
 
-    recall = recall_score(
-        targets, predictions, pos_label=pos_label, average=average, sample_weight=sample_weight
-    )
-    return MetricValue(aggregate_results={"recall_score": recall})
+        recall = recall_score(
+            targets, predictions, pos_label=pos_label, average=average, sample_weight=sample_weight
+        )
+        return MetricValue(aggregate_results={"recall_score": recall})
 
 
 def _precision_eval_fn(predictions, targets, pos_label=1, average="binary", sample_weight=None):
-    from sklearn.metrics import precision_score
+    if targets is not None:
+        from sklearn.metrics import precision_score
 
-    precision = precision_score(
-        targets,
-        predictions,
-        pos_label=pos_label,
-        average=average,
-        sample_weight=sample_weight,
-    )
-    return MetricValue(aggregate_results={"precision_score": precision})
+        precision = precision_score(
+            targets,
+            predictions,
+            pos_label=pos_label,
+            average=average,
+            sample_weight=sample_weight,
+        )
+        return MetricValue(aggregate_results={"precision_score": precision})
 
 
 def _f1_score_eval_fn(predictions, targets, pos_label=1, average="binary", sample_weight=None):
-    from sklearn.metrics import f1_score
+    if targets is not None:
+        from sklearn.metrics import f1_score
 
-    f1 = f1_score(
-        targets,
-        predictions,
-        pos_label=pos_label,
-        average=average,
-        sample_weight=sample_weight,
-    )
-    return MetricValue(aggregate_results={"f1_score": f1})
+        f1 = f1_score(
+            targets,
+            predictions,
+            pos_label=pos_label,
+            average=average,
+            sample_weight=sample_weight,
+        )
+        return MetricValue(aggregate_results={"f1_score": f1})
