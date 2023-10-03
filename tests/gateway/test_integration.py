@@ -5,7 +5,6 @@ import pytest
 import requests
 
 import mlflow
-from mlflow.gateway.providers.palm import PaLMProvider
 import mlflow.gateway.utils
 from mlflow.exceptions import MlflowException
 from mlflow.gateway import MlflowGatewayClient, get_route, query, set_gateway_uri
@@ -16,6 +15,7 @@ from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
 from mlflow.gateway.providers.mosaicml import MosaicMLProvider
 from mlflow.gateway.providers.openai import OpenAIProvider
+from mlflow.gateway.providers.palm import PaLMProvider
 from mlflow.utils.request_utils import _cached_get_request_session
 
 from tests.gateway.tools import (
@@ -247,7 +247,7 @@ def test_create_gateway_client_with_declared_url(gateway):
     assert gateway_client.gateway_uri == gateway.url
     assert isinstance(gateway_client.get_route("chat-openai"), Route)
     routes = gateway_client.search_routes()
-    assert len(routes) == 13
+    assert len(routes) == 15
     assert all(isinstance(route, Route) for route in routes)
 
 

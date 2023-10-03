@@ -174,10 +174,30 @@ def embeddings_response():
     }
 
 
-@pytest.mark.parametrize("prompt", ["This is a test", ["This is a test"]])
+def batch_embeddings_response():
+    return {
+        "embeddings": [
+            {
+                "value": [
+                    3.25,
+                    0.7685547,
+                    2.65625,
+                    -0.30126953,
+                    -2.3554688,
+                    1.2597656,
+                ]
+            }
+        ],
+        "headers": {"Content-Type": "application/json"},
+    }
+
+
+@pytest.mark.parametrize(
+    "prompt, resp",
+    [("This is a test", embeddings_response()), (["This is a test"], batch_embeddings_response())],
+)
 @pytest.mark.asyncio
-async def test_embeddings(prompt):
-    resp = embeddings_response()
+async def test_embeddings(prompt, resp):
     config = embeddings_config()
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
