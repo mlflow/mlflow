@@ -81,8 +81,13 @@ def _check_databricks_auth():
     from databricks.sdk import WorkspaceClient
 
     try:
-        # If credentials are set correctly, `WorkspaceClient()` will not throw an error.
-        WorkspaceClient()
+        w = WorkspaceClient()
+        # If credentials are invalid, `clusters.list()` will throw an error.
+        w.clusters.list()
+        _logger.info(
+            "Succesfully signed in Databricks! Please run `mlflow.set_tracking_uri('databricks')` "
+            "to connect MLflow to Databricks tracking server."
+        )
         return True
     except Exception:
         return False
@@ -101,8 +106,11 @@ def _overwrite_or_create_databricks_profile(
         profile_name: string, the name of the profile to be overwritten or created.
     """
     profile_name = f"[{profile_name}]"
-    with open(file_name) as file:
-        lines = file.readlines()
+    lines = []
+    # Read `file_name` if the file exists, otherwise `lines=[]`.
+    if os.path.exists(file_name):
+        with open(file_name) as file:
+            lines = file.readlines()
     start_index = -1
     end_index = -1
     # Find the start and end indices of the profile to overwrite.
@@ -138,11 +146,10 @@ def _databricks_login():
     """Set up databricks authentication and connect MLflow to Databricks tracking server."""
     if _check_databricks_auth():
         # Check if the auth has already been set.
-        _logger.info("Succesfully signed in Databricks!")
         return
 
     while True:
-        host = getpass.getpass("Databricks Host (should begin with https://): ")
+        host = input("Databricks Host (should begin with https://): ")
         if host.startswith("https://"):
             break
         _logger.error("Error: The host does not start with https://")
@@ -164,11 +171,5 @@ def _databricks_login():
     profile_name = os.environ.get("DATABRICKS_CONFIG_PROFILE", "DEFAULT")
     _overwrite_or_create_databricks_profile(file_name, profile, profile_name)
 
-    if _check_databricks_auth():
-        _logger.info("Succesfully signed in Databricks!")
-    else:
+    if not _check_databricks_auth():
         raise MlflowException("Failed to sign in Databricks, please retry `mlflow.login()`.")
-
-    from mlflow.tracking._tracking_service.utils import set_tracking_uri
-
-    set_tracking_uri("databricks")
