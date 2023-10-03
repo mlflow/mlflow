@@ -101,7 +101,7 @@ def _install_pyfunc_deps(
             env_path_dst_dir = os.path.dirname(env_path_dst)
             if not os.path.exists(env_path_dst_dir):
                 os.makedirs(env_path_dst_dir)
-            shutil.copyfile(os.path.join(MODEL_PATH, env), env_path_dst)
+            shutil.copy2(os.path.join(MODEL_PATH, env), env_path_dst)
             if env_manager == em.CONDA:
                 conda_create_model_env = f"conda env create -n custom_env -f {env_path_dst}"
                 if Popen(["bash", "-c", conda_create_model_env]).wait() != 0:
