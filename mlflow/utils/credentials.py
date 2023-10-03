@@ -65,7 +65,7 @@ def login(backend="databricks"):
         import mlflow
 
         mlflow.login()
-        with mlflow.start_run() as run:
+        with mlflow.start_run():
             mlflow.log_param("p", 0)
     """
     if backend == "databricks":
