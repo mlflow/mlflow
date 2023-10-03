@@ -404,7 +404,7 @@ def test_complete_multipart_upload(s3_artifact_root):
     bucket, _ = repo.parse_s3_compliant_uri(s3_artifact_root)
     s3_client = repo._get_s3_client()
     response = s3_client.list_multipart_uploads(Bucket=bucket)
-    assert not response.get("Uploads")
+    assert response.get("Uploads") is None
 
 
 def test_abort_multipart_upload(s3_artifact_root):
@@ -423,4 +423,4 @@ def test_abort_multipart_upload(s3_artifact_root):
     bucket, _ = repo.parse_s3_compliant_uri(s3_artifact_root)
     s3_client = repo._get_s3_client()
     response = s3_client.list_multipart_uploads(Bucket=bucket)
-    assert not response.get("Uploads")
+    assert response.get("Uploads") is None
