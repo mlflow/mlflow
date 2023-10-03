@@ -1054,7 +1054,8 @@ Arguments
 
 Log Model
 
-Logs a model for this run. Stores model as an artifact within the active run.
+Logs a model for this run. Similar to ``mlflow_save_model()`` but stores
+model as an artifact within the active run.
 
 .. code:: r
 
