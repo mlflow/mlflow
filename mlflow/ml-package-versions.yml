@@ -310,7 +310,9 @@ spark:
       # -Pconnect -Phive is requried by spark connect
       ./build/mvn -Pconnect -Phive -DskipTests --no-transfer-progress clean package
       cd python
-      pip install '.[connect]'
+      python setup.py sdist
+      sdist=$(find dist -type f -name "*.tar.gz")
+      pip install "pyspark[connect] @ $sdist"
 
   models:
     minimum: "3.0.0"
