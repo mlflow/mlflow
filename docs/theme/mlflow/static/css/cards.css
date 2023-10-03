@@ -190,35 +190,28 @@
     vertical-align: middle;
 }
 
-.teacher-icon::before {
-    content: "\f51c";
+/* Common styles for icons */
+.icon::before {
     font-family: "Font Awesome 5 Free";
-    font-weight: 900; 
-    color: #0194E2; 
-    margin-right: 6px; 
+    font-weight: 900;
+    color: #0194E2;
     max-height: 0.6em;
     height: 50%;
     vertical-align: middle;
+}
+
+/* Unique styles for each icon */
+.teacher-icon::before {
+    content: "\f51c";
+    margin-right: 6px;
 }
 
 .bell::before {
     content: "\f0f3";
-    font-family: "Font Awesome 5 Free";
-    font-weight: 900; 
-    color: #0194E2; 
-    margin-right: 3px; 
-    max-height: 0.6em;
-    height: 50%;
-    vertical-align: middle;
+    margin-right: 3px;
 }
 
 .bulb::before {
     content: "\f0eb";
-    font-family: "Font Awesome 5 Free";
-    font-weight: 900; 
-    color: #0194E2; 
-    margin-right: 3px; 
-    max-height: 0.6em;
-    height: 50%;
-    vertical-align: middle;
+    margin-right: 3px;
 }

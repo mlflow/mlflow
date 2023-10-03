@@ -16,7 +16,6 @@ MLflow is conveniently available on PyPI. Installing it is as simple as running 
 
 .. code-section::
     .. code-block:: bash
-        :caption: Install the Latest MLflow Version from PyPI
         :name: download-mlflow
 
         pip install mlflow
@@ -29,7 +28,6 @@ running during the tutorial, as closing it will shut down the server.
 
 .. code-section::
     .. code-block:: bash
-        :caption: Initialize the MLflow Tracking Server Locally
         :name: tracking-server-start
 
         mlflow server --host 127.0.0.1 --port 8080
@@ -48,7 +46,6 @@ prompt. As with the Tracking Server, ensure this window remains open.
 
 .. code-section::
     .. code-block:: bash
-        :caption: Boot Up the MLflow UI
         :name: mlflow-ui-start
 
         mlflow ui --host 127.0.0.1 --port 8090

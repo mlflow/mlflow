@@ -14,11 +14,10 @@ Viewing the MLflow UI
 In order to navigate to the MLflow UI server, we simply have to use a web browser and enter:
 
 .. code-block:: text
-    :caption: The MLflow UI url
 
         http://127.0.0.1:8090
 
-Once navigating to the url, you will see the default experiment with no run data.
+Once navigating to the url for the MLflow UI, you will see the default experiment with no run data.
 
 .. figure:: ../../../_static/images/tutorials/introductory/logging-first-model/default-ui.gif
    :width: 1024px
@@ -112,7 +111,6 @@ Creating the Apples Experiment with Meaningful tags
 
 .. code-section::
     .. code-block:: python
-        :caption: Creating our first MLflow Experiment
 
         # Provide an Experiment description that will appear in the UI
         experiment_description = (
