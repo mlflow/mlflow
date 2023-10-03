@@ -415,7 +415,7 @@ def save_model(
             with tempfile.NamedTemporaryFile(suffix=".h5") as f:
                 model.save(f.name, **keras_model_kwargs)
                 f.flush()  # force flush the data
-                shutil.copyfile(src=f.name, dst=model_path)
+                shutil.copy2(src=f.name, dst=model_path)
         else:
             model.save(model_path, **keras_model_kwargs)
 

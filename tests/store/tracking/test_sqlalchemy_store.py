@@ -2797,7 +2797,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         with TempDir() as tmp_db_dir:
             db_path = tmp_db_dir.path("tmp_db.sql")
             db_url = "sqlite:///" + db_path
-            shutil.copyfile(
+            shutil.copy2(
                 src=os.path.join(db_resources_path, "db_version_7ac759974ad8_with_metrics.sql"),
                 dst=db_path,
             )
