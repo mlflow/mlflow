@@ -27,11 +27,15 @@ Registered Model
 Model Version
     Each registered model can have one or many versions. When a new model is added to the Model Registry, it is added as version 1. Each new model registered to the same model name increments the version number.
 
+.. _using-registered-model-aliases:
+
 Model Alias
     Model aliases allow you to assign a mutable, named reference to a particular version of a registered model. By assigning an alias to a specific model version, you can use the alias to refer that model version via a model URI or the model registry API. For example, you can create an alias named ``champion`` that points to version 1 of a model named ``MyModel``. You can then refer to version 1 of ``MyModel`` by using the URI ``models:/MyModel@champion``.
 
+    Aliases are especially useful for deploying models. For example, you could assign a ``champion`` alias to the model version intended for production traffic and target this alias in production workloads. You can then update the model serving production traffic by reassigning the ``champion`` alias to a different model version.
+
 Tags
-    Tags are key-value pairs that you associate with registered models and model versions. You can use tags to label and categorize models in the Model Registry by function or status.
+    Tags are key-value pairs that you associate with registered models and model versions, allowing you to label and categorize them by function or status. For example, you could apply a tag with key ``"task"`` and value ``"question-answering"`` (displayed in the UI as ``task:question-answering``) to registered models intended for question answering tasks. At the model version level, you could tag versions undergoing pre-deployment validation with ``validation_status:pending`` and those cleared for deployment with ``validation_status:approved``.
 
 Annotations and Descriptions
     You can annotate the top-level model and each version individually using Markdown, including description and any relevant information useful for the team such as algorithm descriptions, dataset employed or methodology.
@@ -84,7 +88,7 @@ After you've registered your models in the Model Registry, you can navigate to t
 Deploy and Organize Models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can deploy and organize your models in the Model Registry using model aliases and tags (learn more about them :ref:`here<using-registered-model-aliases>`). To set aliases and tags for model versions in your registered model, navigate to the overview page of your registered model, such as the one below.
+You can deploy and organize your models in the Model Registry using model aliases and tags. To set aliases and tags for model versions in your registered model, navigate to the overview page of your registered model, such as the one below.
 
 .. figure:: _static/images/oss_registry_4_model.png
 
@@ -182,17 +186,11 @@ as shown below to create a new version of the model.
         run_id="d16076a3ec534311817565e6527539c0",
     )
 
-.. _using-registered-model-aliases:
 
 Deploy and Organize Models with Aliases and Tags
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Model aliases and tags help you deploy and organize your models in the Model Registry.
-
-Model aliases allow you to assign a mutable, named reference to a particular version of a registered model. You can use aliases to indicate the deployment status of a model version. For example, you could assign a ``champion`` alias to the model version currently in production and target this alias in workloads that use the production model. You can then update the production model by reassigning the ``champion`` alias to a different model version.
-
-Tags are key-value pairs that you associate with registered models and model versions, allowing you to label and categorize them by function or status. For example, you could apply a tag with key ``"task"`` and value ``"question-answering"`` (displayed in the UI as ``task:question-answering``) to registered models intended for question answering tasks. At the model version level, you could tag versions undergoing pre-deployment validation with ``validation_status:pending`` and those cleared for deployment with ``validation_status:approved``.
-
 
 **Set and delete aliases on models**
 
