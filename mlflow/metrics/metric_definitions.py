@@ -1,7 +1,6 @@
 import logging
 
 import numpy as np
-import pandas as pd
 
 from mlflow.metrics.base import MetricValue
 
@@ -16,11 +15,12 @@ def standard_aggregations(scores):
     }
 
 
-def _validate_text_predictions(predictions, metric_name):
-    if len(predictions) == 0:
+def _validate_text_data(data, metric_name):
+    """Validates that the data is text and is non-empty"""
+    if len(data) == 0:
         return False
 
-    if any(not isinstance(prediction, str) for prediction in predictions):
+    if any(not isinstance(line, str) for line in data):
         _logger.warning(
             f"Cannot calculate {metric_name} for non-string inputs, skipping metric logging."
         )
@@ -29,11 +29,9 @@ def _validate_text_predictions(predictions, metric_name):
     return True
 
 
-def _toxicity_eval_fn(eval_df, metrics):
-    y_pred = eval_df["prediction"]
-    predictions = y_pred.squeeze() if isinstance(y_pred, pd.DataFrame) else y_pred
-
-    if not _validate_text_predictions(predictions, "toxicity"):
+def _toxicity_eval_fn(y_pred):
+    predictions = y_pred
+    if not _validate_text_data(predictions, "toxicity"):
         return
 
     try:
@@ -61,11 +59,9 @@ def _toxicity_eval_fn(eval_df, metrics):
     )
 
 
-def _perplexity_eval_fn(eval_df, metrics):
-    y_pred = eval_df["prediction"]
-    predictions = y_pred.squeeze() if isinstance(y_pred, pd.DataFrame) else y_pred
-
-    if not _validate_text_predictions(predictions, "perplexity"):
+def _perplexity_eval_fn(y_pred):
+    predictions = y_pred
+    if not _validate_text_data(predictions, "perplexity"):
         return
 
     try:
@@ -87,11 +83,9 @@ def _perplexity_eval_fn(eval_df, metrics):
     )
 
 
-def _flesch_kincaid_eval_fn(eval_df, metrics):
-    y_pred = eval_df["prediction"]
-    predictions = y_pred.squeeze() if isinstance(y_pred, pd.DataFrame) else y_pred
-
-    if not _validate_text_predictions(predictions, "flesch_kincaid"):
+def _flesch_kincaid_eval_fn(y_pred):
+    predictions = y_pred
+    if not _validate_text_data(predictions, "flesch_kincaid"):
         return
 
     try:
@@ -108,11 +102,9 @@ def _flesch_kincaid_eval_fn(eval_df, metrics):
     )
 
 
-def _ari_eval_fn(eval_df, metrics):
-    y_pred = eval_df["prediction"]
-    predictions = y_pred.squeeze() if isinstance(y_pred, pd.DataFrame) else y_pred
-
-    if not _validate_text_predictions(predictions, "ari"):
+def _ari_eval_fn(y_pred):
+    predictions = y_pred
+    if not _validate_text_data(predictions, "ari"):
         return
 
     try:
@@ -131,121 +123,189 @@ def _ari_eval_fn(eval_df, metrics):
     )
 
 
-def _accuracy_eval_fn(eval_df, metrics):
-    if "target" in eval_df:
-        from sklearn.metrics import accuracy_score
+def _accuracy_eval_fn(y_pred, y_true, sample_weight=None):
+    from sklearn.metrics import accuracy_score
 
-        acc = accuracy_score(y_true=eval_df["target"], y_pred=eval_df["prediction"])
-        return MetricValue(aggregate_results={"exact_match": acc})
-
-
-def _rouge1_eval_fn(eval_df, metrics):
-    if "target" in eval_df:
-        try:
-            import evaluate
-
-            rouge = evaluate.load("rouge")
-        except Exception as e:
-            _logger.warning(
-                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
-            )
-            return
-
-        y_pred = eval_df["prediction"]
-        predictions = y_pred.squeeze() if isinstance(y_pred, pd.DataFrame) else y_pred
-        references = eval_df["target"]
-
-        scores = rouge.compute(
-            predictions=predictions,
-            references=references,
-            rouge_types=["rouge1"],
-            use_aggregator=False,
-        )["rouge1"]
-        return MetricValue(
-            scores=scores,
-            aggregate_results=standard_aggregations(scores),
-        )
+    acc = accuracy_score(y_true=y_true, y_pred=y_pred, sample_weight=sample_weight)
+    return MetricValue(aggregate_results={"exact_match": acc})
 
 
-def _rouge2_eval_fn(eval_df, metrics):
-    if "target" in eval_df:
-        try:
-            import evaluate
+def _rouge1_eval_fn(y_pred, y_true):
+    if not _validate_text_data(y_true, "rouge1") or not _validate_text_data(y_pred, "rouge1"):
+        return
 
-            rouge = evaluate.load("rouge")
-        except Exception as e:
-            _logger.warning(
-                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
-            )
-            return
+    try:
+        import evaluate
 
-        y_pred = eval_df["prediction"]
-        predictions = y_pred.squeeze() if isinstance(y_pred, pd.DataFrame) else y_pred
-        references = eval_df["target"]
+        rouge = evaluate.load("rouge")
+    except Exception as e:
+        _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+        return
 
-        scores = rouge.compute(
-            predictions=predictions,
-            references=references,
-            rouge_types=["rouge2"],
-            use_aggregator=False,
-        )["rouge2"]
-        return MetricValue(
-            scores=scores,
-            aggregate_results=standard_aggregations(scores),
-        )
+    predictions = y_pred
+    references = y_true
+    scores = rouge.compute(
+        predictions=predictions,
+        references=references,
+        rouge_types=["rouge1"],
+        use_aggregator=False,
+    )["rouge1"]
+    return MetricValue(
+        scores=scores,
+        aggregate_results=standard_aggregations(scores),
+    )
 
 
-def _rougeL_eval_fn(eval_df, metrics):
-    if "target" in eval_df:
-        try:
-            import evaluate
+def _rouge2_eval_fn(y_pred, y_true):
+    if not _validate_text_data(y_true, "rouge2") or not _validate_text_data(y_pred, "rouge2"):
+        return
 
-            rouge = evaluate.load("rouge")
-        except Exception as e:
-            _logger.warning(
-                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
-            )
-            return
+    try:
+        import evaluate
 
-        y_pred = eval_df["prediction"]
-        predictions = y_pred.squeeze() if isinstance(y_pred, pd.DataFrame) else y_pred
-        references = eval_df["target"]
+        rouge = evaluate.load("rouge")
+    except Exception as e:
+        _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+        return
 
-        scores = rouge.compute(
-            predictions=predictions,
-            references=references,
-            rouge_types=["rougeL"],
-            use_aggregator=False,
-        )["rougeL"]
-        return MetricValue(
-            scores=scores,
-            aggregate_results=standard_aggregations(scores),
-        )
+    predictions = y_pred
+    references = y_true
+    scores = rouge.compute(
+        predictions=predictions,
+        references=references,
+        rouge_types=["rouge2"],
+        use_aggregator=False,
+    )["rouge2"]
+    return MetricValue(
+        scores=scores,
+        aggregate_results=standard_aggregations(scores),
+    )
 
 
-def _rougeLsum_eval_fn(eval_df, metrics):
-    if "target" in eval_df:
-        try:
-            import evaluate
+def _rougeL_eval_fn(y_pred, y_true):
+    if not _validate_text_data(y_true, "rougeL") or not _validate_text_data(y_pred, "rougeL"):
+        return
 
-            rouge = evaluate.load("rouge")
-        except Exception as e:
-            _logger.warning(
-                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
-            )
-            return
+    try:
+        import evaluate
 
-        y_pred = eval_df["prediction"]
-        predictions = y_pred.squeeze() if isinstance(y_pred, pd.DataFrame) else y_pred
-        references = eval_df["target"]
+        rouge = evaluate.load("rouge")
+    except Exception as e:
+        _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+        return
 
-        scores = rouge.compute(
-            predictions=predictions,
-            references=references,
-            rouge_types=["rougeLsum"],
-            use_aggregator=False,
-        )["rougeLsum"]
-        return MetricValue(
-            scores=scores,
-            aggregate_results=standard_aggregations(scores),
-        )
+    predictions = y_pred
+    references = y_true
+    scores = rouge.compute(
+        predictions=predictions,
+        references=references,
+        rouge_types=["rougeL"],
+        use_aggregator=False,
+    )["rougeL"]
+    return MetricValue(
+        scores=scores,
+        aggregate_results=standard_aggregations(scores),
+    )
+
+
+def _rougeLsum_eval_fn(y_pred, y_true):
+    if not _validate_text_data(y_true, "rougeLsum") or not _validate_text_data(y_pred, "rougeLsum"):
+        return
+
+    try:
+        import evaluate
+
+        rouge = evaluate.load("rouge")
+    except Exception as e:
+        _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+        return
+
+    predictions = y_pred
+    references = y_true
+    scores = rouge.compute(
+        predictions=predictions,
+        references=references,
+        rouge_types=["rougeLsum"],
+        use_aggregator=False,
+    )["rougeLsum"]
+    return MetricValue(
+        scores=scores,
+        aggregate_results=standard_aggregations(scores),
+    )
+
+
+def _mae_eval_fn(y_pred, y_true, sample_weight=None):
+    from sklearn.metrics import mean_absolute_error
+
+    mae = mean_absolute_error(y_true, y_pred, sample_weight=sample_weight)
+    return MetricValue(aggregate_results={"mean_absolute_error": mae})
+
+
+def _mse_eval_fn(y_pred, y_true, sample_weight=None):
+    from sklearn.metrics import mean_squared_error
+
+    mse = mean_squared_error(y_true, y_pred, sample_weight=sample_weight)
+    return MetricValue(aggregate_results={"mean_squared_error": mse})
+
+
+def _rmse_eval_fn(y_pred, y_true, sample_weight=None):
+    from sklearn.metrics import mean_squared_error
+
+    rmse = mean_squared_error(y_true, y_pred, squared=False, sample_weight=sample_weight)
+    return MetricValue(aggregate_results={"root_mean_squared_error": rmse})
+
+
+def _r2_score_eval_fn(y_pred, y_true, sample_weight=None):
+    from sklearn.metrics import r2_score
+
+    r2 = r2_score(y_true, y_pred, sample_weight=sample_weight)
+    return MetricValue(aggregate_results={"r2_score": r2})
+
+
+def _max_error_eval_fn(y_pred, y_true):
+    from sklearn.metrics import max_error
+
+    error = max_error(y_true, y_pred)
+    return MetricValue(aggregate_results={"max_error": error})
+
+
+def _mape_eval_fn(y_pred, y_true, sample_weight=None):
+    from sklearn.metrics import mean_absolute_percentage_error
+
+    mape = mean_absolute_percentage_error(y_true, y_pred, sample_weight=sample_weight)
+    return MetricValue(aggregate_results={"mean_absolute_percentage_error": mape})
+
+
+def _recall_score_eval_fn(y_pred, y_true, pos_label=1, average="binary", sample_weight=None):
+    from sklearn.metrics import recall_score
+
+    recall = recall_score(
+        y_true, y_pred, pos_label=pos_label, average=average, sample_weight=sample_weight
+    )
+    return MetricValue(aggregate_results={"recall_score": recall})
+
+
+def _precision_score_eval_fn(y_pred, y_true, pos_label=1, average="binary", sample_weight=None):
+    from sklearn.metrics import precision_score
+
+    precision = precision_score(
+        y_true,
+        y_pred,
+        pos_label=pos_label,
+        average=average,
+        sample_weight=sample_weight,
+    )
+    return MetricValue(aggregate_results={"precision_score": precision})
+
+
+def _f1_score_eval_fn(y_pred, y_true, pos_label=1, average="binary", sample_weight=None):
+    from sklearn.metrics import f1_score
+
+    f1 = f1_score(
+        y_true,
+        y_pred,
+        pos_label=pos_label,
+        average=average,
+        sample_weight=sample_weight,
+    )
+    return MetricValue(aggregate_results={"f1_score": f1})
