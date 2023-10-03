@@ -312,7 +312,7 @@ spark:
       cd python
       python setup.py sdist
       sdist=$(find dist -type f -name "*.tar.gz")
-      pip install "pyspark[connect] @ file://$sdist"
+      pip install "$sdist[connect]"
 
   models:
     minimum: "3.0.0"
