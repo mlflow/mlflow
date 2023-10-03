@@ -41,8 +41,7 @@ class PaLMProvider(BaseProvider):
 
         # Replace 'role' with 'author' in payload
         for m in payload["messages"]:
-            if "role" in m:
-                m["author"] = m.pop("role")
+            m["author"] = m.pop("role")
 
         # Map 'messages', 'examples, and 'context' to 'prompt'
         prompt = {"messages": payload.pop("messages")}

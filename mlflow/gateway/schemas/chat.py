@@ -8,7 +8,7 @@ from mlflow.gateway.config import RouteType
 
 
 class RequestMessage(RequestModel):
-    role: Optional[str]
+    role: str
     content: str
 
 

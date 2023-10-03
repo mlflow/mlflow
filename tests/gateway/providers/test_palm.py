@@ -106,12 +106,6 @@ def chat_response():
             "temperature": 0.5,
             "max_tokens": 1000,
         },
-        {
-            "messages": [
-                {"content": "You're funny"},
-                {"content": "Tell me a joke"},
-            ]
-        },
     ],
 )
 @pytest.mark.asyncio
@@ -193,7 +187,7 @@ def batch_embeddings_response():
 
 
 @pytest.mark.parametrize(
-    "prompt, resp",
+    ("prompt", "resp"),
     [("This is a test", embeddings_response()), (["This is a test"], batch_embeddings_response())],
 )
 @pytest.mark.asyncio
