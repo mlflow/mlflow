@@ -1561,7 +1561,7 @@ def _get_results_for_custom_metrics_tests(
             model_type="classifier",
             targets=dataset._constructor_args["targets"],
             evaluators="default",
-            custom_metrics=custom_metrics,
+            extra_metrics=custom_metrics,
             custom_artifacts=custom_artifacts,
         )
     _, metrics, _, artifacts = get_run_data(run.info.run_id)
@@ -2070,7 +2070,7 @@ def test_custom_metrics():
             model_type="classifier",
             targets="target",
             evaluators="default",
-            custom_metrics=[
+            extra_metrics=[
                 make_metric(
                     eval_fn=lambda _eval_df, _builtin_metrics: MetricValue(
                         aggregate_results={"cm": 1.0}
@@ -2495,7 +2495,7 @@ def test_evaluate_text_custom_metrics():
             data,
             targets="target",
             model_type="text",
-            custom_metrics=[
+            extra_metrics=[
                 make_metric(eval_fn=very_toxic, greater_is_better=True, version="v2"),
                 make_metric(eval_fn=per_row_metric, greater_is_better=False, name="no_version"),
             ],
@@ -2678,7 +2678,7 @@ def test_constructing_eval_df_for_custom_metrics():
             data,
             targets="targets",
             model_type="text",
-            custom_metrics=[make_metric(eval_fn=test_eval_df, greater_is_better=True)],
+            extra_metrics=[make_metric(eval_fn=test_eval_df, greater_is_better=True)],
             evaluators="default",
             evaluator_config={"inputs": "text"},
         )

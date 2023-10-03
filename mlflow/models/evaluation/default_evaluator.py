@@ -1146,9 +1146,9 @@ class DefaultEvaluator(ModelEvaluator):
         return eval_fn_args
 
     def _evaluate_custom_metrics(self, eval_df):
-        if not self.custom_metrics:
+        if not self.extra_metrics:
             return
-        for index, custom_metric in enumerate(self.custom_metrics):
+        for index, custom_metric in enumerate(self.extra_metrics):
             eval_fn_args = self._get_args_for_metrics(custom_metric, eval_df)
             _logger.info("Evaluating custom metrics:", custom_metric.name)
             custom_metric_tuple = _CustomMetric(
@@ -1537,7 +1537,7 @@ class DefaultEvaluator(ModelEvaluator):
         dataset,
         run_id,
         evaluator_config,
-        custom_metrics=None,
+        extra_metrics=None,
         custom_artifacts=None,
         baseline_model=None,
         **kwargs,
@@ -1547,7 +1547,7 @@ class DefaultEvaluator(ModelEvaluator):
         self.model_type = model_type
         self.evaluator_config = evaluator_config
         self.feature_names = dataset.feature_names
-        self.custom_metrics = custom_metrics
+        self.extra_metrics = extra_metrics
         self.custom_artifacts = custom_artifacts
         self.y = dataset.labels_data
         self.pos_label = self.evaluator_config.get("pos_label")

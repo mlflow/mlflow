@@ -911,7 +911,7 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                     targets=iris_dataset._constructor_args["targets"],
                     evaluators="test_evaluator1",
                     evaluator_config=evaluator1_config,
-                    custom_metrics=None,
+                    extra_metrics=None,
                     baseline_model=None,
                 )
                 assert eval1_result.metrics == evaluator1_return_value.metrics
@@ -967,7 +967,7 @@ def test_model_validation_interface_invalid_baseline_model_should_throw(
                 targets=iris_dataset._constructor_args["targets"],
                 evaluators="test_evaluator1",
                 evaluator_config=evaluator1_config,
-                custom_metrics=None,
+                extra_metrics=None,
                 baseline_model=baseline_model_uri,
             )
 

@@ -66,7 +66,7 @@ with mlflow.start_run() as run:
         logged_model.model_uri,
         eval_df,
         model_type="text",
-        custom_metrics=[correctness_metric],
+        extra_metrics=[correctness_metric],
     )
     print(results)
 
