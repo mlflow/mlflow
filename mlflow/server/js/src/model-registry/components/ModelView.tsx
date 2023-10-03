@@ -8,7 +8,7 @@
 import React from 'react';
 import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
-import { Link, NavigateFunction } from 'react-router-dom-v5-compat';
+import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
 import { modelListPageRoute, getCompareModelVersionsPageRoute } from '../routes';
 import { message } from 'antd';
 import { ACTIVE_STAGES } from '../constants';
@@ -19,7 +19,7 @@ import { getRegisteredModelTags } from '../reducers';
 import { setRegisteredModelTagApi, deleteRegisteredModelTagApi } from '../actions';
 import { connect } from 'react-redux';
 import { OverflowMenu, PageHeader } from '../../shared/building_blocks/PageHeader';
-import { FormattedMessage, injectIntl } from 'react-intl';
+import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
 import {
   Button,
   SegmentedControlGroup,
@@ -27,6 +27,10 @@ import {
   DangerModal,
 } from '@databricks/design-system';
 import { Descriptions } from '../../common/components/Descriptions';
+import { type ModelEntity } from '../../experiment-tracking/types';
+import { shouldUseToggleModelsNextUI } from '../../common/utils/FeatureUtils';
+import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
+import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
 
 export const StageFilters = {
   ALL: 'ALL',
@@ -34,13 +38,7 @@ export const StageFilters = {
 };
 
 type ModelViewImplProps = {
-  model?: {
-    name: string;
-    creation_timestamp: number;
-    last_updated_timestamp: number;
-    permission_level: string;
-    id: string;
-  };
+  model?: ModelEntity;
   modelVersions?: {
     current_stage: string;
   }[];
@@ -56,7 +54,9 @@ type ModelViewImplProps = {
   tags: any;
   setRegisteredModelTagApi: (...args: any[]) => any;
   deleteRegisteredModelTagApi: (...args: any[]) => any;
-  intl?: any;
+  intl: IntlShape;
+  onAliasesModified: () => void;
+  usingNextModelsUI: boolean;
 };
 
 type ModelViewImplState = any;
@@ -391,12 +391,25 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
           }
           data-test-id='model-versions-section'
         >
+          {shouldUseToggleModelsNextUI() && (
+            <div
+              css={{
+                marginBottom: 8,
+                display: 'flex',
+                justifyContent: 'flex-end',
+              }}
+            >
+              <ModelsNextUIToggleSwitch />
+            </div>
+          )}
           <ModelVersionTable
-            // @ts-expect-error TS(2322): Type '{ activeStageOnly: boolean; modelName: strin... Remove this comment to see the full error message
             activeStageOnly={stageFilter === StageFilters.ACTIVE}
             modelName={modelName}
             modelVersions={modelVersions}
+            modelEntity={model}
             onChange={this.onChange}
+            onAliasesModified={this.props.onAliasesModified}
+            usingNextModelsUI={this.props.usingNextModelsUI}
           />
         </CollapsibleSection>
 
@@ -500,5 +513,7 @@ const styles = {
   }),
 };
 
-// @ts-expect-error TS(2769): No overload matches this call.
-export const ModelView = connect(mapStateToProps, mapDispatchToProps)(injectIntl(ModelViewImpl));
+export const ModelView = connect(
+  mapStateToProps,
+  mapDispatchToProps,
+)(withNextModelsUIContext(injectIntl(ModelViewImpl)));

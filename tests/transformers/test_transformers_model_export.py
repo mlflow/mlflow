@@ -2000,6 +2000,9 @@ def test_infer_signature_from_example_only(
             assert set(saved_example[0].keys()).intersection(example.keys()) == set(
                 saved_example[0].keys()
             )
+        assert model.saved_input_example_info["type"] == "dataframe"
+        orient = "split" if pipeline_name == "zero_shot_pipeline" else "values"
+        assert model.saved_input_example_info["pandas_orient"] == orient
     else:
         assert model.saved_input_example_info is None
 
@@ -3569,6 +3572,55 @@ def test_whisper_model_serve_and_score_with_timestamps_with_kwargs(
     )
 
 
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
+)
+@pytest.mark.skipcacheclean
+def test_whisper_model_serve_and_score_with_input_example_with_params(
+    whisper_pipeline, raw_audio_file
+):
+    artifact_path = "whisper_timestamps"
+    inference_config = {
+        "return_timestamps": "word",
+        "chunk_length_s": 20,
+        "stride_length_s": [5, 3],
+    }
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=whisper_pipeline,
+            artifact_path=artifact_path,
+            input_example=(raw_audio_file, inference_config),
+        )
+    # model signature inferred from input_example
+    signature = infer_signature(
+        raw_audio_file,
+        mlflow.transformers.generate_signature_output(whisper_pipeline, raw_audio_file),
+        params=inference_config,
+    )
+    assert model_info.signature == signature
+
+    inference_payload = json.dumps(
+        {
+            "inputs": [base64.b64encode(raw_audio_file).decode("ascii")],
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    payload_output = json.loads(values.loc[0, 0])
+
+    assert (
+        payload_output["text"]
+        == mlflow.transformers.load_model(model_info.model_uri)(raw_audio_file, **inference_config)[
+            "text"
+        ]
+    )
+
+
 def test_uri_directory_renaming_handling_pipeline(model_path, small_seq2seq_pipeline):
     with mlflow.start_run():
         mlflow.transformers.save_model(transformers_model=small_seq2seq_pipeline, path=model_path)
@@ -3633,7 +3685,7 @@ def test_whisper_model_supports_timestamps(raw_audio_file, whisper_pipeline):
     inference_config = {
         "return_timestamps": "word",
         "chunk_length_s": 60,
-        "batch_size": 16,
+        "batch_size": 1,
     }
 
     with mlflow.start_run():
@@ -3646,7 +3698,7 @@ def test_whisper_model_supports_timestamps(raw_audio_file, whisper_pipeline):
     model_uri = model_info.model_uri
     whisper = mlflow.transformers.load_model(model_uri)
 
-    prediction = whisper(raw_audio_file, return_timestamps="word")
+    prediction = whisper(raw_audio_file, **inference_config)
     whisper_pyfunc = mlflow.pyfunc.load_model(model_uri)
     prediction_inference = json.loads(whisper_pyfunc.predict(raw_audio_file)[0])
 

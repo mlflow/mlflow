@@ -1,13 +1,23 @@
-import { MemoryRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import {
   getTableRowByCellText,
   getTableRows,
 } from '@databricks/design-system/dist/test-utils/enzyme';
-import { mountWithIntl } from '../../../common/utils/TestUtils';
+import { act, mountWithIntl, renderWithIntl, screen } from '../../../common/utils/TestUtils';
 import { ModelListTable, ModelListTableProps } from './ModelListTable';
 
 import { Stages } from '../../constants';
 import Utils from '../../../common/utils/Utils';
+import { withNextModelsUIContext } from '../../hooks/useNextModelsUI';
+import { ModelsNextUIToggleSwitch } from '../ModelsNextUIToggleSwitch';
+import userEvent from '@testing-library/user-event';
+import { shouldUseToggleModelsNextUI } from '../../../common/utils/FeatureUtils';
+
+jest.mock('../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual('../../../common/utils/FeatureUtils'),
+  // Force-enable toggling new models UI for test purposes
+  shouldUseToggleModelsNextUI: () => true,
+}));
 
 const MODELS = [
   {
@@ -147,5 +157,29 @@ describe('ModelListTable', () => {
     const lessButton = row.findWhere((e: any) => e.text() === 'Show less').find('button');
     lessButton.simulate('click');
     expect(row.text()).not.toContain('Tag 4: Value 4');
+  });
+  test('should display aliases column instead of stage when new models UI is used', async () => {
+    const TestComponent = withNextModelsUIContext(() => (
+      <MemoryRouter>
+        <ModelListTable {...minimalProps} />
+        <ModelsNextUIToggleSwitch />
+      </MemoryRouter>
+    ));
+    renderWithIntl(<TestComponent />);
+
+    // Assert stages column being visible and aliased versions column being absent
+    expect(screen.queryByRole('columnheader', { name: 'Staging' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Production' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Aliases' })).not.toBeInTheDocument();
+
+    // Flip the "Next models UI" switch
+    await act(async () => {
+      userEvent.click(screen.getByRole('switch'));
+    });
+
+    // Assert the opposite: stage columns should be invisible and aliased versions column should be present
+    expect(screen.queryByRole('columnheader', { name: 'Staging' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Production' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Aliased versions' })).toBeInTheDocument();
   });
 });

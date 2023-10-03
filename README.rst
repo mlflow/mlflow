@@ -53,14 +53,14 @@ Job Statuses
 |examples| |cross-version-tests| |r-devel| |test-requirements| |stale| |push-images|
 
 .. |examples| image:: https://img.shields.io/github/actions/workflow/status/mlflow-automation/mlflow/examples.yml?branch=master&event=schedule&label=Examples&style=for-the-badge&logo=github
-    :target: https://github.com/mlflow-automation/mlflow/actions?query=workflow%3AExamples+event%3Aschedule
+    :target: https://github.com/mlflow-automation/mlflow/actions/workflows/examples.yml?query=workflow%3AExamples+event%3Aschedule
     :alt: Examples Action Status
 .. |cross-version-tests| image:: https://img.shields.io/github/actions/workflow/status/mlflow-automation/mlflow/cross-version-tests.yml?branch=master&event=schedule&label=Cross%20version%20tests&style=for-the-badge&logo=github
-    :target: https://github.com/mlflow-automation/mlflow/actions?query=workflow%3ACross%2Bversion%2Btests+event%3Aschedule
+    :target: https://github.com/mlflow-automation/mlflow/actions/workflows/cross-version-tests.yml?query=workflow%3A%22Cross+version+tests%22+event%3Aschedule
 .. |r-devel| image:: https://img.shields.io/github/actions/workflow/status/mlflow-automation/mlflow/r.yml?branch=master&event=schedule&label=r-devel&style=for-the-badge&logo=github
-    :target: https://github.com/mlflow-automation/mlflow/actions?query=workflow%3AR+event%3Aschedule
+    :target: https://github.com/mlflow-automation/mlflow/actions/workflows/r.yml?query=workflow%3AR+event%3Aschedule
 .. |test-requirements| image:: https://img.shields.io/github/actions/workflow/status/mlflow-automation/mlflow/requirements.yml?branch=master&event=schedule&label=test%20requirements&logo=github&style=for-the-badge
-    :target: https://github.com/mlflow-automation/mlflow/actions?query=workflow%3ATest%2Brequirements+event%3Aschedule
+    :target: https://github.com/mlflow-automation/mlflow/actions/workflows/requirements.yml?query=workflow%3A"Test+requirements"+event%3Aschedule
 .. |stale| image:: https://img.shields.io/github/actions/workflow/status/mlflow/mlflow/stale.yml?branch=master&event=schedule&label=stale&logo=github&style=for-the-badge
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AStale+event%3Aschedule
 .. |push-images| image:: https://img.shields.io/github/actions/workflow/status/mlflow/mlflow/push-images.yml?event=release&label=push-images&logo=github&style=for-the-badge

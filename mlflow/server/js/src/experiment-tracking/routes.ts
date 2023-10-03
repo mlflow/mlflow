@@ -5,6 +5,12 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import {
+  createLazyRouteElement,
+  createMLflowRoutePath,
+  createRouteElement,
+} from '../common/utils/RoutingUtils';
+import { HomePage } from './components/HomePage';
 import { X_AXIS_RELATIVE } from './components/MetricsPlotControls';
 
 class Routes {
@@ -123,3 +129,19 @@ class Routes {
 }
 
 export default Routes;
+
+export const getRouteDefs = () => [
+  // TODO(ML-33995): Add new experiment tracking route definitions here
+  // {
+  //   // Example of statically loaded page component
+  //   path: createMLflowRoutePath('/experiments/:experimentId'),
+  //   element: createRouteElement(ExperimentPage),
+  //   pageId: 'mlflow.experiment.details',
+  // },
+  // {
+  //   // Example of dynamically loaded page component
+  //   path: createMLflowRoutePath('/experiments/:experimentId/runs/:runId'),
+  //   element: createLazyRouteElement(() => import('./components/RunPage')),
+  //   pageId: 'mlflow.experiment.run',
+  // },
+];

@@ -1,4 +1,4 @@
-import { Button, SyncIcon } from '@databricks/design-system';
+import { Button, SyncIcon, Tooltip } from '@databricks/design-system';
 import React, { useCallback, useEffect, useState } from 'react';
 // TODO: de-antd-ify Badge as soon as it appears in the design system
 import { Theme } from '@emotion/react';
@@ -84,12 +84,16 @@ export const ExperimentViewRefreshButtonImpl = React.memo(
         css={styles.pill}
         overflowCount={MAX_DETECT_NEW_RUNS_RESULTS - 1}
       >
-        <Button onClick={refreshRuns} data-testid='runs-refresh-button' icon={<SyncIcon />}>
-          <FormattedMessage
-            defaultMessage='Refresh'
-            description='refresh button text to refresh the experiment runs'
-          />
-        </Button>
+        <Tooltip
+          title={
+            <FormattedMessage
+              defaultMessage='Refresh'
+              description='refresh button text to refresh the experiment runs'
+            />
+          }
+        >
+          <Button onClick={refreshRuns} data-testid='runs-refresh-button' icon={<SyncIcon />} />
+        </Tooltip>
       </Badge>
     );
   },

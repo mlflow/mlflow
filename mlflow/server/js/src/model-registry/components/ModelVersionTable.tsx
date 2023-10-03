@@ -6,8 +6,8 @@
  */
 
 import React from 'react';
-import { Table } from 'antd';
-import { Link } from 'react-router-dom-v5-compat';
+import { Table, type TableColumnType } from 'antd';
+import { Link } from '../../common/utils/RoutingUtils';
 import { Tooltip, Typography } from '@databricks/design-system';
 import Utils from '../../common/utils/Utils';
 import { truncateToFirstLineWithMaxLength } from '../../common/utils/StringUtils';
@@ -20,29 +20,35 @@ import {
 } from '../constants';
 import { getModelVersionPageRoute } from '../routes';
 import { RegisteringModelDocUrl } from '../../common/constants';
-import { FormattedMessage, injectIntl } from 'react-intl';
+import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
+import type { ModelEntity, ModelVersionInfoEntity } from '../../experiment-tracking/types';
+import { ModelVersionTableAliasesCell } from './aliases/ModelVersionTableAliasesCell';
+import { useEditRegisteredModelAliasesModal } from '../hooks/useEditRegisteredModelAliasesModal';
 
 const { Text } = Typography;
 
-type OwnProps = {
+type ModelVersionTableImplProps = {
   modelName: string;
-  modelVersions: any[];
+  modelVersions?: any[];
   activeStageOnly?: boolean;
   onChange: (...args: any[]) => any;
-  intl?: any;
+  intl: IntlShape;
+  modelEntity?: ModelEntity;
+  onAliasesModified: () => void;
+  showEditAliasesModal?: (versionNumber: string) => void;
+  usingNextModelsUI?: boolean;
 };
 
-type Props = OwnProps & typeof ModelVersionTableImpl.defaultProps;
-
-export class ModelVersionTableImpl extends React.Component<Props> {
+export class ModelVersionTableImpl extends React.Component<ModelVersionTableImplProps> {
   static defaultProps = {
     modelVersions: [],
     activeStageOnly: false,
   };
 
   getColumns = () => {
-    const { modelName } = this.props;
-    const columns = [
+    const { modelName, usingNextModelsUI } = this.props;
+
+    const columns: TableColumnType<ModelVersionInfoEntity>[] = [
       {
         key: 'status',
         title: '', // Status column does not have title
@@ -92,7 +98,32 @@ export class ModelVersionTableImpl extends React.Component<Props> {
         }),
         dataIndex: 'user_id',
       },
-      {
+    ];
+
+    if (usingNextModelsUI) {
+      // Display aliases column only when "new models UI" is flipped
+      columns.push({
+        title: this.props.intl.formatMessage({
+          defaultMessage: 'Aliases',
+          description: 'Column title text for model version aliases in model version table',
+        }),
+        dataIndex: 'aliases',
+        render: (aliases: string[], { version }: ModelVersionInfoEntity) => {
+          return (
+            <ModelVersionTableAliasesCell
+              modelName={modelName}
+              version={version}
+              aliases={aliases}
+              onAddEdit={() => {
+                this.props.showEditAliasesModal?.(version);
+              }}
+            />
+          );
+        },
+      });
+    } else {
+      // If not, display legacy "Stage" columns
+      columns.push({
         title: this.props.intl.formatMessage({
           defaultMessage: 'Stage',
           description: 'Column title text for model version stage in model version table',
@@ -101,7 +132,10 @@ export class ModelVersionTableImpl extends React.Component<Props> {
         render: (currentStage: any) => {
           return StageTagComponents[currentStage];
         },
-      },
+      });
+    }
+    columns.push(
+      // Add remaining columns
       {
         title: this.props.intl.formatMessage({
           defaultMessage: 'Description',
@@ -110,14 +144,14 @@ export class ModelVersionTableImpl extends React.Component<Props> {
         dataIndex: 'description',
         render: (description: any) => truncateToFirstLineWithMaxLength(description, 32),
       },
-    ];
+    );
     return columns;
   };
 
   getRowKey = (record: any) => record.creation_timestamp;
 
   emptyTablePlaceholder = () => {
-    const learnMoreLinkUrl = (ModelVersionTable as any).getLearnMoreLinkUrl();
+    const learnMoreLinkUrl = ModelVersionTableImpl.getLearnMoreLinkUrl();
     return (
       <span>
         <FormattedMessage
@@ -141,7 +175,7 @@ export class ModelVersionTableImpl extends React.Component<Props> {
   static getLearnMoreLinkUrl = () => RegisteringModelDocUrl;
 
   render() {
-    const { modelVersions, activeStageOnly } = this.props;
+    const { modelVersions = [], activeStageOnly } = this.props;
     const versions = activeStageOnly
       ? modelVersions.filter((v) => ACTIVE_STAGES.includes(v.current_stage))
       : modelVersions;
@@ -151,7 +185,6 @@ export class ModelVersionTableImpl extends React.Component<Props> {
         rowKey={this.getRowKey}
         className='model-version-table'
         dataSource={versions}
-        // @ts-expect-error TS(2322): Type '({ key: string; title: string; render: ({ st... Remove this comment to see the full error message
         columns={this.getColumns()}
         locale={{ emptyText: this.emptyTablePlaceholder() }}
         rowSelection={{
@@ -169,5 +202,16 @@ export class ModelVersionTableImpl extends React.Component<Props> {
   }
 }
 
-// @ts-expect-error TS(2769): No overload matches this call.
-export const ModelVersionTable = injectIntl(ModelVersionTableImpl);
+const ModelVersionTableWithAliasEditor = (props: ModelVersionTableImplProps) => {
+  const { EditAliasesModal, showEditAliasesModal } = useEditRegisteredModelAliasesModal({
+    model: props.modelEntity || null,
+    onSuccess: props.onAliasesModified,
+  });
+  return (
+    <>
+      <ModelVersionTableImpl {...props} showEditAliasesModal={showEditAliasesModal} />
+      {EditAliasesModal}
+    </>
+  );
+};
+export const ModelVersionTable = injectIntl(ModelVersionTableWithAliasEditor);

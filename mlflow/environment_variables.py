@@ -23,7 +23,7 @@ class _EnvironmentVariable:
         return os.getenv(self.name)
 
     def set(self, value):
-        os.environ[self.name] = value
+        os.environ[self.name] = str(value)
 
     def unset(self):
         os.environ.pop(self.name, None)
@@ -425,3 +425,18 @@ MLFLOW_DISABLE_ENV_CREATION = _BooleanEnvironmentVariable("MLFLOW_DISABLE_ENV_CR
 #: Specifies the timeout value for downloading chunks of mlflow artifacts.
 #: (default: ``300``)
 MLFLOW_DOWNLOAD_CHUNK_TIMEOUT = _EnvironmentVariable("MLFLOW_DOWNLOAD_CHUNK_TIMEOUT", int, 300)
+
+#: Specifies if system metrics logging should be enabled.
+MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING", False
+)
+
+#: Specifies the sampling interval for system metrics logging.
+MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL = _EnvironmentVariable(
+    "MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL", float, None
+)
+
+#: Specifies the number of samples before logging system metrics.
+MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING = _EnvironmentVariable(
+    "MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING", int, None
+)

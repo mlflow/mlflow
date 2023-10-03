@@ -10,9 +10,8 @@ import os
 import shutil
 import signal
 import sys
+from pathlib import Path
 from subprocess import Popen, check_call
-
-from pkg_resources import resource_filename
 
 import mlflow
 import mlflow.version
@@ -102,7 +101,7 @@ def _install_pyfunc_deps(
             env_path_dst_dir = os.path.dirname(env_path_dst)
             if not os.path.exists(env_path_dst_dir):
                 os.makedirs(env_path_dst_dir)
-            shutil.copyfile(os.path.join(MODEL_PATH, env), env_path_dst)
+            shutil.copy2(os.path.join(MODEL_PATH, env), env_path_dst)
             if env_manager == em.CONDA:
                 conda_create_model_env = f"conda env create -n custom_env -f {env_path_dst}"
                 if Popen(["bash", "-c", conda_create_model_env]).wait() != 0:
@@ -162,8 +161,8 @@ def _serve_pyfunc(model, env_manager):
         start_nginx = False
 
     if start_nginx:
-        nginx_conf = resource_filename(
-            mlflow.models.__name__, "container/scoring_server/nginx.conf"
+        nginx_conf = Path(mlflow.models.__file__).parent.joinpath(
+            "container", "scoring_server", "nginx.conf"
         )
 
         nginx = Popen(["nginx", "-c", nginx_conf]) if start_nginx else None

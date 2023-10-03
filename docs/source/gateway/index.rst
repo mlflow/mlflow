@@ -245,7 +245,7 @@ below can be used as a helpful guide when configuring a given route for any newl
 +====================+==========================+====================+==================+=============================+==========================+==========================+
 | llm/v1/completions | - gpt-3.5-turbo          | - mpt-7b-instruct  | - claude-1       | - command                   | - text-davinci-003       | - MLflow served models*  |
 |                    | - gpt-4                  | - mpt-30b-instruct | - claude-1.3-100k| - command-light-nightly     | - gpt-35-turbo           |                          |
-|                    |                          | - llama2-70b-chat† |                  |                             |                          |                          |
+|                    |                          | - llama2-70b-chat† | - claude-2       |                             |                          |                          |
 +--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+--------------------------+
 | llm/v1/chat        | - gpt-3.5-turbo          | - llama2-70b-chat† | N/A              | N/A                         | - gpt-35-turbo           | - MLflow served models*  |
 |                    | - gpt-4                  |                    |                  |                             | - gpt-4                  |                          |
@@ -295,6 +295,8 @@ most up-to-date list of supported providers.
 
 Remember, the provider you specify must be one that the MLflow AI Gateway supports. If the provider
 is not supported, the Gateway will return an error when trying to route requests to that provider.
+
+.. _routes:
 
 Routes
 ------
@@ -979,13 +981,13 @@ Here are some examples for how you might use curl to interact with the Gateway:
 
        curl -X GET http://my.gateway:8888/api/2.0/gateway/routes/embeddings
 
-2. List all routes: ``GET /api/2.0/gateway/routes``
+2. List all routes: ``GET /api/2.0/gateway/routes/``
 
    This endpoint returns a list of all routes.
 
    .. code-block:: bash
 
-       curl -X GET http://my.gateway:8888/api/2.0/gateway/routes
+       curl -X GET http://my.gateway:8888/api/2.0/gateway/routes/
 
 3. Query a route: ``POST /gateway/{route}/invocations``
 

@@ -1,6 +1,5 @@
 # Based ons: https://github.com/openai/openai-cookbook/blob/6df6ceff470eeba26a56de131254e775292eac22/examples/api_request_parallel_processor.py
 # Several changes were made to make it work with MLflow.
-# Currently, only chat completion is supported.
 
 """
 API REQUEST PARALLEL PROCESSOR
@@ -34,6 +33,7 @@ import tiktoken
 from openai.openai_object import OpenAIObject
 
 import mlflow
+from mlflow.openai.utils import _OAITokenHolder
 
 _logger = logging.getLogger(__name__)
 
@@ -84,6 +84,7 @@ class APIRequest:
     """
 
     index: int
+    task: OpenAIObject
     request_json: dict
     token_consumption: int
     attempts_left: int
@@ -95,7 +96,7 @@ class APIRequest:
         """
         _logger.debug(f"Request #{self.index} started")
         try:
-            response = openai.ChatCompletion.create(**self.request_json)
+            response = self.task.create(**self.request_json)
             _logger.debug(f"Request #{self.index} succeeded")
             status_tracker.complete_task(success=True)
             self.results.append((self.index, response))
@@ -118,27 +119,34 @@ class APIRequest:
             else:
                 status_tracker.complete_task(success=False)
         # Unretryable errors
+        except openai.error.InvalidRequestError as e:
+            if e.error.code == "content_filter" and e.error.innererror:
+                content_filter_result = e.error.innererror.content_filter_result
+                _logger.warning(
+                    f"Request #{self.index} failed because of content filtering: "
+                    f"{content_filter_result}"
+                )
+                status_tracker.increment_num_api_errors()
+                status_tracker.complete_task(success=False)
         except Exception as e:
             _logger.warning(f"Request #{self.index} failed with {e!r}")
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
 
 
-def num_tokens_consumed_from_request(
-    request_json: dict, api_endpoint: str, token_encoding_name: str
-):
+def num_tokens_consumed_from_request(request_json: dict, task: type, token_encoding_name: str):
     """
     Count the number of tokens in the request. Only supports completion and embedding requests.
     """
     encoding = tiktoken.get_encoding(token_encoding_name)
     # if completions request, tokens = prompt + n * max_tokens
-    if api_endpoint.endswith("completions"):
+    if task in (openai.Completion, openai.ChatCompletion):
         max_tokens = request_json.get("max_tokens", 15)
         n = request_json.get("n", 1)
         completion_tokens = n * max_tokens
 
         # chat completions
-        if api_endpoint.startswith("chat/"):
+        if task == openai.ChatCompletion:
             num_tokens = 0
             for message in request_json["messages"]:
                 num_tokens += 4  # every message follows <im_start>{role/name}\n{content}<im_end>\n
@@ -153,37 +161,35 @@ def num_tokens_consumed_from_request(
             prompt = request_json["prompt"]
             if isinstance(prompt, str):  # single prompt
                 prompt_tokens = len(encoding.encode(prompt))
-                num_tokens = prompt_tokens + completion_tokens
-                return num_tokens
+                return prompt_tokens + completion_tokens
             elif isinstance(prompt, list):  # multiple prompts
                 prompt_tokens = sum([len(encoding.encode(p)) for p in prompt])
-                num_tokens = prompt_tokens + completion_tokens * len(prompt)
-                return num_tokens
+                return prompt_tokens + completion_tokens * len(prompt)
             else:
                 raise TypeError(
                     "Expecting either string or list of strings for 'prompt' field in completion "
                     "request"
                 )
     # if embeddings request, tokens = input tokens
-    elif api_endpoint == "embeddings":
+    elif task == openai.Embedding:
         inp = request_json["input"]
         if isinstance(inp, str):  # single input
-            num_tokens = len(encoding.encode(inp))
-            return num_tokens
+            return len(encoding.encode(inp))
         elif isinstance(inp, list):  # multiple inputs
-            num_tokens = sum([len(encoding.encode(i)) for i in inp])
-            return num_tokens
+            return sum([len(encoding.encode(i)) for i in inp])
         else:
             raise TypeError(
                 'Expecting either string or list of strings for "inputs" field in embedding request'
             )
     # more logic needed to support other API calls (e.g., edits, inserts, DALL-E)
     else:
-        raise NotImplementedError(f'API endpoint "{api_endpoint}" not implemented in this script')
+        raise NotImplementedError(f'Task "{task!s}" not implemented in this script')
 
 
 def process_api_requests(
-    requests: list[dict[str, any]] = None,
+    requests: list[dict[str, any]],
+    task: OpenAIObject,
+    api_token: _OAITokenHolder,
     # Reference: https://platform.openai.com/docs/guides/rate-limits/overview
     max_requests_per_minute: float = 3_500,
     max_tokens_per_minute: float = 90_000,
@@ -210,6 +216,7 @@ def process_api_requests(
     requests_iter = enumerate(requests)
     last_index = len(requests) - 1
     requests_exhausted = False
+    _logger.debug(f"Request pool executor will run {len(requests)} requests")
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         while True:
             # get next request (if one is not already waiting for capacity)
@@ -221,10 +228,11 @@ def process_api_requests(
                     # get new request
                     index, request_json = req
                     next_request = APIRequest(
+                        task=task,
                         index=index,
                         request_json=request_json,
                         token_consumption=num_tokens_consumed_from_request(
-                            request_json, "chat/completions", token_encoding_name
+                            request_json, task, token_encoding_name
                         ),
                         attempts_left=max_attempts,
                         results=results,
@@ -260,6 +268,7 @@ def process_api_requests(
                     available_token_capacity -= next_request_tokens
                     next_request.attempts_left -= 1
                     # call API
+                    api_token.validate(_logger)
                     executor.submit(
                         next_request.call_api,
                         retry_queue=retry_queue,
