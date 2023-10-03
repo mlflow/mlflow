@@ -5,6 +5,7 @@ import pytest
 import requests
 
 import mlflow
+from mlflow.gateway.providers.palm import PaLMProvider
 import mlflow.gateway.utils
 from mlflow.exceptions import MlflowException
 from mlflow.gateway import MlflowGatewayClient, get_route, query, set_gateway_uri
@@ -106,6 +107,28 @@ def basic_config_dict():
                 },
             },
             {
+                "name": "completions-palm",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "palm",
+                    "name": "text-bison-001",
+                    "config": {
+                        "palm_api_key": "$PALM_API_KEY",
+                    },
+                },
+            },
+            {
+                "name": "chat-palm",
+                "route_type": "llm/v1/chat",
+                "model": {
+                    "provider": "palm",
+                    "name": "chat-bison-001",
+                    "config": {
+                        "palm_api_key": "$PALM_API_KEY",
+                    },
+                },
+            },
+            {
                 "name": "chat-mosaicml",
                 "route_type": "llm/v1/chat",
                 "model": {
@@ -135,6 +158,17 @@ def basic_config_dict():
                     "name": "instructor-large",
                     "config": {
                         "mosaicml_api_key": "$MOSAICML_API_KEY",
+                    },
+                },
+            },
+            {
+                "name": "embeddings-palm",
+                "route_type": "llm/v1/embeddings",
+                "model": {
+                    "provider": "palm",
+                    "name": "embedding-gecko-001",
+                    "config": {
+                        "palm_api_key": "$PALM_API_KEY",
                     },
                 },
             },
@@ -189,6 +223,7 @@ def env_setup(monkeypatch):
     monkeypatch.setenv("COHERE_API_KEY", "test_cohere_key")
     monkeypatch.setenv("AI21LABS_API_KEY", "test_ai21labs_key")
     monkeypatch.setenv("MOSAICML_API_KEY", "test_mosaicml_key")
+    monkeypatch.setenv("PALM_API_KEY", "test_palm_key")
 
 
 @pytest.fixture
@@ -453,6 +488,67 @@ def test_mosaicml_chat(gateway):
     assert response == expected_output
 
 
+def test_palm_completions(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("completions-palm")
+    expected_output = {
+        "candidates": [
+            {
+                "text": "mock using MagicMock please",
+                "metadata": {},
+            }
+        ],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "text-bison-001",
+            "route_type": "llm/v1/completions",
+        },
+    }
+
+    data = {"prompt": "mock my test", "max_tokens": 50}
+
+    async def mock_completions(self, payload):
+        return expected_output
+
+    with patch.object(PaLMProvider, "completions", mock_completions):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_palm_chat(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("chat-palm")
+    expected_output = {
+        "candidates": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "test",
+                },
+                "metadata": {"finish_reason": None},
+            }
+        ],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "chat-bison-001",
+            "route_type": "llm/v1/chat",
+        },
+    }
+
+    data = {"messages": [{"role": "user", "content": "test"}]}
+
+    async def mock_chat(self, payload):
+        return expected_output
+
+    with patch.object(PaLMProvider, "chat", mock_chat):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
 def test_cohere_embeddings(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("embeddings-cohere")
@@ -497,6 +593,30 @@ def test_mosaicml_embeddings(gateway):
         return expected_output
 
     with patch.object(MosaicMLProvider, "embeddings", mock_embeddings):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_palm_embeddings(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("embeddings-palm")
+    expected_output = {
+        "embeddings": [[0.1, 0.2, 0.3]],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "embedding-gecko-001",
+            "route_type": "llm/v1/embeddings",
+        },
+    }
+
+    data = {"text": "mock me and my test"}
+
+    async def mock_embeddings(self, payload):
+        return expected_output
+
+    with patch.object(PaLMProvider, "embeddings", mock_embeddings):
         response = client.query(route=route.name, data=data)
     assert response == expected_output
 

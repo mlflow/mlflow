@@ -7,6 +7,7 @@ from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
 from mlflow.gateway.providers.mosaicml import MosaicMLProvider
 from mlflow.gateway.providers.openai import OpenAIProvider
+from mlflow.gateway.providers.palm import PaLMProvider
 
 
 def get_provider(provider: Provider) -> BaseProvider:
@@ -16,6 +17,7 @@ def get_provider(provider: Provider) -> BaseProvider:
         Provider.COHERE: CohereProvider,
         Provider.AI21LABS: AI21LabsProvider,
         Provider.MOSAICML: MosaicMLProvider,
+        Provider.PALM: PaLMProvider,
         Provider.MLFLOW_MODEL_SERVING: MlflowModelServingProvider,
     }
     if prov := provider_to_class.get(provider):
