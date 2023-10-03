@@ -38,31 +38,31 @@ experience.
                 </p>
                 <ul>
                     <li>
-                        <span class="jupyter-icon"></span>
+                        <span class="icon notebook"></span>
                         <a class="card-link" href="introductory/hyperparameter-tuning-with-child-runs/notebooks/hyperparameter-tuning-with-child-runs.html">
                             Hyperparameter tuning example  
                         </a>
                     </li>
                     <li>
-                        <span class="jupyter-icon"></span>
+                        <span class="icon notebook"></span>
                         <a class="card-link" href="introductory/hyperparameter-tuning-with-child-runs/notebooks/parent-child-runs.html">
                              Parent-Child run associations
                         </a>
                     </li>
                     <li>
-                        <span class="teacher-icon"></span>
+                        <span class="icon teacher"></span>
                         <a class="card-link" href="introductory/hyperparameter-tuning-with-child-runs/part1-child-runs.html">
                             Understanding the benefits of using child runs 
                         </a>
                     </li>
                     <li>
-                        <span class="jupyter-icon"></span>
+                        <span class="icon notebook"></span>
                         <a class="card-link" href="introductory/hyperparameter-tuning-with-child-runs/notebooks/logging-plots-in-mlflow.html">
                             Logging custom plots in MLflow
                         </a>
                     </li>
                     <li>
-                        <span class="teacher-icon"></span>
+                        <span class="icon teacher"></span>
                         <a class="card-link" href="introductory/hyperparameter-tuning-with-child-runs/part2-logging-plots.html">
                             Custom plot overview and where to view your logged plots
                         </a>
@@ -105,25 +105,25 @@ experience.
                 </p>
                 <ul>
                     <li>
-                        <span class="teacher-icon"></span>
+                        <span class="icon teacher"></span>
                         <a class="card-link" href="introductory/deploy-model-to-kubernetes/index.html#training-the-model">
                             Building a model  
                         </a>
                     </li>
                     <li>
-                        <span class="teacher-icon"></span>
+                        <span class="icon teacher"></span>
                         <a class="card-link" href="introductory/deploy-model-to-kubernetes/index.html#packaging-training-code-in-a-conda-environment">
                              Defining inference dependencies for our container
                         </a>
                     </li>
                     <li>
-                        <span class="teacher-icon"></span>
+                        <span class="icon teacher"></span>
                         <a class="card-link" href="introductory/deploy-model-to-kubernetes/index.html#serving-the-model">
                             Locally testing model serving with MLServer 
                         </a>
                     </li>
                     <li>
-                        <span class="teacher-icon"></span>
+                        <span class="icon teacher"></span>
                         <a class="card-link" href="introductory/deploy-model-to-kubernetes/index.html#deploy-the-model-to-seldon-core-or-kserve">
                             Deploying our model container to Kubernetes
                         </a>

@@ -178,40 +178,31 @@
     border-color: darkblue;
 }
 
-.jupyter-icon::before {
-    content: "";
-    display: inline-block;
-    background-image: url('../../../../source/_static/images/intro/Jupyter_logo.svg');
-    background-size: contain;
-    background-repeat: no-repeat;
-    width: 32px; 
-    height: 32px;
-    margin-right: 6px;
-    vertical-align: middle;
-}
 
 /* Common styles for icons */
 .icon::before {
     font-family: "Font Awesome 5 Free";
     font-weight: 900;
     color: #0194E2;
-    max-height: 0.6em;
-    height: 50%;
     vertical-align: middle;
+    margin-right: 3px;
+    line-height: 1;
 }
 
 /* Unique styles for each icon */
-.teacher-icon::before {
+.teacher::before {
     content: "\f51c";
     margin-right: 6px;
 }
 
 .bell::before {
     content: "\f0f3";
-    margin-right: 3px;
 }
 
 .bulb::before {
     content: "\f0eb";
-    margin-right: 3px;
+}
+
+.notebook::before {
+    content: "\f328";
 }

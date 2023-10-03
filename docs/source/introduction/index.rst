@@ -139,7 +139,7 @@ each, you can navigate to :doc:`../tutorials/index` and :doc:`../guides/index`.
                         log information to runs. 
                         In the final section of the tutorial, you will put all of your knowledge together to log your first model to MLflow. 
                     </div>
-                    <div class="doc"><a class="bulb" href="../tutorials/introductory/logging-first-model/index.html">Start the Tutorial</a></div>
+                    <div class="doc"><a class="icon bulb" href="../tutorials/introductory/logging-first-model/index.html">Start the Tutorial</a></div>
                 </div>
             </div>
             <div class="grid-card">
@@ -153,7 +153,7 @@ each, you can navigate to :doc:`../tutorials/index` and :doc:`../guides/index`.
                         plots, and covers and end-to-end example of leveraging <a href="https://optuna.org/">Optuna</a> to perform tuning, using MLflow to record 
                         all iterations through the use of child runs.  
                     </div>
-                    <div class="doc"><a class="bulb" href="../guides/introductory/hyperparameter-tuning-with-child-runs/index.html">Visit the Guide</a></div>
+                    <div class="doc"><a class="icon bulb" href="../guides/introductory/hyperparameter-tuning-with-child-runs/index.html">Visit the Guide</a></div>
                 </div>
             </div>
         </article>

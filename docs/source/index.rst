@@ -64,6 +64,7 @@ Welcome to the Mlflow Documentation
                         MLflow Tutorials
                     </h1>
                 </a>
+                <img src="_static/MLflow-logo-final-black.png" alt="MLflow logo" class="card-header-image"></img>
                 <h2>
                     Get started with MLflow by diving into our step-by-step tutorials.
                 </h2>
@@ -72,7 +73,7 @@ Welcome to the Mlflow Documentation
                     guided step-by-step fashion with these tutorials.</p>
             </header>
             <div class="tags">
-                <div><a class="bell" href="tutorials/introductory/logging-first-model/index.html">Logging your first MLflow Model</a></div>
+                <div><a class="icon bell" href="tutorials/introductory/logging-first-model/index.html">Logging your first MLflow Model</a></div>
             </div>
         </article>
         <article class="card">
@@ -82,6 +83,7 @@ Welcome to the Mlflow Documentation
                         MLflow Guides
                     </h1>
                 </a>
+                <img src="_static/MLflow-logo-final-black.png" alt="MLflow logo" class="card-header-image"></img>
                 <h2>
                     Learn in-depth processes from working examples focused on real-world MLOps tasks.
                 </h2>
@@ -89,7 +91,7 @@ Welcome to the Mlflow Documentation
                 <p>Learn best practices of using MLflow to simplify and provide production-readiness to your ML workflows.</p>
             </header>
             <div class="tags">
-                <div><a class="bell" href="guides/introductory/hyperparameter-tuning-with-child-runs/index.html">Hyperparameter Tuning with MLflow and Optuna</a></div>
+                <div><a class="icon bell" href="guides/introductory/hyperparameter-tuning-with-child-runs/index.html">Hyperparameter Tuning with MLflow and Optuna</a></div>
                 <div><a href="guides/introductory/deploy-model-to-kubernetes/index.html">Deploy a MLflow Model to Kubernetes</a></div>
             </div>
         </article>
@@ -202,7 +204,7 @@ New Features and Notable Changes
                         Link your MLflow Tracking Server with your MLflow AI Gateway Server to experiment, evaluate, and construct 
                         prompts that can be compared amongst different providers without writing a single line of code.
                     </div>
-                    <div class="doc"><a href="llms/prompt-engineering.html">Learn more</a></div>
+                    <div class="doc"><a class="icon bell" href="llms/prompt-engineering.html">Learn more</a></div>
                     <div class="tag">
                         <a href="https://github.com/mlflow/mlflow/releases/tag/v2.7.0">released in 2.7.0</a>
                     </div>
