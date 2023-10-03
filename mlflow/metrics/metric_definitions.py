@@ -276,7 +276,7 @@ def _mape_eval_fn(y_pred, y_true, sample_weight=None):
     return MetricValue(aggregate_results={"mean_absolute_percentage_error": mape})
 
 
-def _recall_score_eval_fn(y_pred, y_true, pos_label=1, average="binary", sample_weight=None):
+def _recall_eval_fn(y_pred, y_true, pos_label=1, average="binary", sample_weight=None):
     from sklearn.metrics import recall_score
 
     recall = recall_score(
@@ -285,7 +285,7 @@ def _recall_score_eval_fn(y_pred, y_true, pos_label=1, average="binary", sample_
     return MetricValue(aggregate_results={"recall_score": recall})
 
 
-def _precision_score_eval_fn(y_pred, y_true, pos_label=1, average="binary", sample_weight=None):
+def _precision_eval_fn(y_pred, y_true, pos_label=1, average="binary", sample_weight=None):
     from sklearn.metrics import precision_score
 
     precision = precision_score(

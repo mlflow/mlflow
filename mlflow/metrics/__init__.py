@@ -20,9 +20,9 @@ from mlflow.metrics.metric_definitions import (
     _max_error_eval_fn,
     _mse_eval_fn,
     _perplexity_eval_fn,
-    _precision_score_eval_fn,
+    _precision_eval_fn,
     _r2_score_eval_fn,
-    _recall_score_eval_fn,
+    _recall_eval_fn,
     _rmse_eval_fn,
     _rouge1_eval_fn,
     _rouge2_eval_fn,
@@ -306,9 +306,7 @@ This metric computes an aggregate score for the mean absolute percentage error f
 
 # Binary Classification Metrics
 
-recall_score = make_metric(
-    eval_fn=_recall_score_eval_fn, greater_is_better=True, name="recall_score"
-)
+recall_score = make_metric(eval_fn=_recall_eval_fn, greater_is_better=True, name="recall_score")
 """
 A metric for evaluating `recall`_ for classification.
 
@@ -318,7 +316,7 @@ This metric computes an aggregate score between 0 and 1 for the recall of a clas
 """
 
 precision_score = make_metric(
-    eval_fn=_precision_score_eval_fn, greater_is_better=True, name="precision_score"
+    eval_fn=_precision_eval_fn, greater_is_better=True, name="precision_score"
 )
 """
 A metric for evaluating `precision`_ for classification.
