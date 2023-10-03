@@ -36,37 +36,37 @@ topics covered.
                 <p>In this introductory tutorial, you will learn:</p>
                 <ul style="max-height: 250px">
                     <li>
-                        <span class="teacher-icon"></span>
+                        <span class="icon teacher"></span>
                         <a class="card-link" href="introductory/logging-first-model/step1-tracking-server.html">
                             How to setup local MLflow Tracking and UI Servers
                         </a>
                     </li>
                     <li>
-                        <span class="teacher-icon"></span>
+                        <span class="icon teacher"></span>
                         <a class="card-link" href="introductory/logging-first-model/step2-mlflow-client.html">
                             How to use the MLflow Client to interface with the Mlflow Tracking Server
                         </a>
                     </li>
                     <li>
-                        <span class="teacher-icon"></span>
+                        <span class="icon teacher"></span>
                         <a class="card-link" href="introductory/logging-first-model/step3-create-experiment.html">
                             The process of creating an Experiment
                         </a>
                     </li>
                     <li>
-                        <span class="teacher-icon"></span>
+                        <span class="icon teacher"></span>
                         <a class="card-link" href="introductory/logging-first-model/step4-experiment-search.html">
                             How to search experiments in the UI and through the MLflow Client
                         </a>
                     </li>
                     <li>
-                        <span class="teacher-icon"></span>
+                        <span class="icon teacher"></span>
                         <a class="card-link" href="introductory/logging-first-model/step5-synthetic-data.html">
                             How to build a synthetic dataset for learning
                         </a>
                     </li>
                     <li>
-                        <span class="teacher-icon"></span>
+                        <span class="icon teacher"></span>
                         <a class="card-link" href="introductory/logging-first-model/step6-logging-a-run.html">
                             How to log a model with metrics, parameters, and tags
                         </a>
