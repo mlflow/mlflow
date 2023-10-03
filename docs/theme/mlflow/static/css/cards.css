@@ -160,8 +160,8 @@
 .tags a.github::before {
     content: ""; 
     display: inline-block; 
-    width: .75rem; 
-    height: .75rem; 
+    width: 1rem; 
+    height: 1rem;
     background: url("../../../../source/_static/images/intro/github-mark.svg") no-repeat center center; 
     background-size: contain; 
     margin-right: 3px; 
