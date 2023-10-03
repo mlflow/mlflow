@@ -223,7 +223,6 @@ the more generic artifact writer (it supports any file type) ``mlflow.log_artifa
         y = my_data["demand"]
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
-
         fig1 = plot_time_series_demand(my_data, window_size=28)
         fig2 = plot_box_weekend(my_data)
         fig3 = plot_scatter_demand_price(my_data)
@@ -232,30 +231,31 @@ the more generic artifact writer (it supports any file type) ``mlflow.log_artifa
         # Execute the correlation plot, saving the plot to a local temporary directory
         plot_correlation_matrix_and_save(my_data)
 
+        # Define our Ridge model
+        model = Ridge(alpha=1.0)
+
+        # Train the model
+        model.fit(X_train, y_train)
+
+        # Make predictions
+        y_pred = model.predict(X_test)
+
+        # Calculate error metrics
+        mse = mean_squared_error(y_test, y_pred)
+        rmse = math.sqrt(mse)
+        mae = mean_absolute_error(y_test, y_pred)
+        r2 = r2_score(y_test, y_pred)
+        msle = mean_squared_log_error(y_test, y_pred)
+        medae = median_absolute_error(y_test, y_pred)
+
+        # Generate prediction-dependent plots
+        fig5 = plot_residuals(y_test, y_pred)
+        fig6 = plot_coefficients(model, X_test.columns)
+        fig7 = plot_prediction_error(y_test, y_pred)
+        fig8 = plot_qq(y_test, y_pred)
+
+        # Start an MLflow run for logging metrics, parameters, the model, and our figures
         with mlflow.start_run() as run:
-            # Define our Ridge model
-            model = Ridge(alpha=1.0)
-
-            # Train the model
-            model.fit(X_train, y_train)
-
-            # Make predictions
-            y_pred = model.predict(X_test)
-
-            # Calculate error metrics
-            mse = mean_squared_error(y_test, y_pred)
-            rmse = math.sqrt(mse)
-            mae = mean_absolute_error(y_test, y_pred)
-            r2 = r2_score(y_test, y_pred)
-            msle = mean_squared_log_error(y_test, y_pred)
-            medae = median_absolute_error(y_test, y_pred)
-
-            # Generate prediction-dependent plots
-            fig5 = plot_residuals(y_test, y_pred)
-            fig6 = plot_coefficients(model, X_test.columns)
-            fig7 = plot_prediction_error(y_test, y_pred)
-            fig8 = plot_qq(y_test, y_pred)
-
             # Log the model
             mlflow.sklearn.log_model(
                 sk_model=model, input_example=X_test, artifact_path="model"
