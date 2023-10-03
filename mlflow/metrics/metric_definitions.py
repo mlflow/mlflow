@@ -202,7 +202,9 @@ def _rougeL_eval_fn(predictions, targets):
 
 
 def _rougeLsum_eval_fn(predictions, targets):
-    if not _validate_text_data(targets, "rougeLsum") or not _validate_text_data(predictions, "rougeLsum"):
+    if not _validate_text_data(targets, "rougeLsum") or not _validate_text_data(
+        predictions, "rougeLsum"
+    ):
         return
 
     try:
