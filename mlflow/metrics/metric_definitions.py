@@ -29,8 +29,7 @@ def _validate_text_data(data, metric_name):
     return True
 
 
-def _toxicity_eval_fn(y_pred):
-    predictions = y_pred
+def _toxicity_eval_fn(predictions):
     if not _validate_text_data(predictions, "toxicity"):
         return
 
@@ -59,8 +58,7 @@ def _toxicity_eval_fn(y_pred):
     )
 
 
-def _perplexity_eval_fn(y_pred):
-    predictions = y_pred
+def _perplexity_eval_fn(predictions):
     if not _validate_text_data(predictions, "perplexity"):
         return
 
@@ -83,8 +81,7 @@ def _perplexity_eval_fn(y_pred):
     )
 
 
-def _flesch_kincaid_eval_fn(y_pred):
-    predictions = y_pred
+def _flesch_kincaid_eval_fn(predictions):
     if not _validate_text_data(predictions, "flesch_kincaid"):
         return
 
@@ -102,8 +99,7 @@ def _flesch_kincaid_eval_fn(y_pred):
     )
 
 
-def _ari_eval_fn(y_pred):
-    predictions = y_pred
+def _ari_eval_fn(predictions):
     if not _validate_text_data(predictions, "ari"):
         return
 
@@ -123,15 +119,15 @@ def _ari_eval_fn(y_pred):
     )
 
 
-def _accuracy_eval_fn(y_pred, y_true, sample_weight=None):
+def _accuracy_eval_fn(predictions, targets, sample_weight=None):
     from sklearn.metrics import accuracy_score
 
-    acc = accuracy_score(y_true=y_true, y_pred=y_pred, sample_weight=sample_weight)
+    acc = accuracy_score(y_true=targets, y_pred=predictions, sample_weight=sample_weight)
     return MetricValue(aggregate_results={"exact_match": acc})
 
 
-def _rouge1_eval_fn(y_pred, y_true):
-    if not _validate_text_data(y_true, "rouge1") or not _validate_text_data(y_pred, "rouge1"):
+def _rouge1_eval_fn(predictions, targets):
+    if not _validate_text_data(targets, "rouge1") or not _validate_text_data(predictions, "rouge1"):
         return
 
     try:
@@ -142,8 +138,7 @@ def _rouge1_eval_fn(y_pred, y_true):
         _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
         return
 
-    predictions = y_pred
-    references = y_true
+    references = targets
     scores = rouge.compute(
         predictions=predictions,
         references=references,
@@ -156,8 +151,8 @@ def _rouge1_eval_fn(y_pred, y_true):
     )
 
 
-def _rouge2_eval_fn(y_pred, y_true):
-    if not _validate_text_data(y_true, "rouge2") or not _validate_text_data(y_pred, "rouge2"):
+def _rouge2_eval_fn(predictions, targets):
+    if not _validate_text_data(targets, "rouge2") or not _validate_text_data(predictions, "rouge2"):
         return
 
     try:
@@ -168,8 +163,7 @@ def _rouge2_eval_fn(y_pred, y_true):
         _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
         return
 
-    predictions = y_pred
-    references = y_true
+    references = targets
     scores = rouge.compute(
         predictions=predictions,
         references=references,
@@ -182,8 +176,8 @@ def _rouge2_eval_fn(y_pred, y_true):
     )
 
 
-def _rougeL_eval_fn(y_pred, y_true):
-    if not _validate_text_data(y_true, "rougeL") or not _validate_text_data(y_pred, "rougeL"):
+def _rougeL_eval_fn(predictions, targets):
+    if not _validate_text_data(targets, "rougeL") or not _validate_text_data(predictions, "rougeL"):
         return
 
     try:
@@ -194,8 +188,7 @@ def _rougeL_eval_fn(y_pred, y_true):
         _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
         return
 
-    predictions = y_pred
-    references = y_true
+    references = targets
     scores = rouge.compute(
         predictions=predictions,
         references=references,
@@ -208,8 +201,8 @@ def _rougeL_eval_fn(y_pred, y_true):
     )
 
 
-def _rougeLsum_eval_fn(y_pred, y_true):
-    if not _validate_text_data(y_true, "rougeLsum") or not _validate_text_data(y_pred, "rougeLsum"):
+def _rougeLsum_eval_fn(predictions, targets):
+    if not _validate_text_data(targets, "rougeLsum") or not _validate_text_data(predictions, "rougeLsum"):
         return
 
     try:
@@ -220,8 +213,7 @@ def _rougeLsum_eval_fn(y_pred, y_true):
         _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
         return
 
-    predictions = y_pred
-    references = y_true
+    references = targets
     scores = rouge.compute(
         predictions=predictions,
         references=references,
@@ -234,63 +226,63 @@ def _rougeLsum_eval_fn(y_pred, y_true):
     )
 
 
-def _mae_eval_fn(y_pred, y_true, sample_weight=None):
+def _mae_eval_fn(predictions, targets, sample_weight=None):
     from sklearn.metrics import mean_absolute_error
 
-    mae = mean_absolute_error(y_true, y_pred, sample_weight=sample_weight)
+    mae = mean_absolute_error(targets, predictions, sample_weight=sample_weight)
     return MetricValue(aggregate_results={"mean_absolute_error": mae})
 
 
-def _mse_eval_fn(y_pred, y_true, sample_weight=None):
+def _mse_eval_fn(predictions, targets, sample_weight=None):
     from sklearn.metrics import mean_squared_error
 
-    mse = mean_squared_error(y_true, y_pred, sample_weight=sample_weight)
+    mse = mean_squared_error(targets, predictions, sample_weight=sample_weight)
     return MetricValue(aggregate_results={"mean_squared_error": mse})
 
 
-def _rmse_eval_fn(y_pred, y_true, sample_weight=None):
+def _rmse_eval_fn(predictions, targets, sample_weight=None):
     from sklearn.metrics import mean_squared_error
 
-    rmse = mean_squared_error(y_true, y_pred, squared=False, sample_weight=sample_weight)
+    rmse = mean_squared_error(targets, predictions, squared=False, sample_weight=sample_weight)
     return MetricValue(aggregate_results={"root_mean_squared_error": rmse})
 
 
-def _r2_score_eval_fn(y_pred, y_true, sample_weight=None):
+def _r2_score_eval_fn(predictions, targets, sample_weight=None):
     from sklearn.metrics import r2_score
 
-    r2 = r2_score(y_true, y_pred, sample_weight=sample_weight)
+    r2 = r2_score(targets, predictions, sample_weight=sample_weight)
     return MetricValue(aggregate_results={"r2_score": r2})
 
 
-def _max_error_eval_fn(y_pred, y_true):
+def _max_error_eval_fn(predictions, targets):
     from sklearn.metrics import max_error
 
-    error = max_error(y_true, y_pred)
+    error = max_error(targets, predictions)
     return MetricValue(aggregate_results={"max_error": error})
 
 
-def _mape_eval_fn(y_pred, y_true, sample_weight=None):
+def _mape_eval_fn(predictions, targets, sample_weight=None):
     from sklearn.metrics import mean_absolute_percentage_error
 
-    mape = mean_absolute_percentage_error(y_true, y_pred, sample_weight=sample_weight)
+    mape = mean_absolute_percentage_error(targets, predictions, sample_weight=sample_weight)
     return MetricValue(aggregate_results={"mean_absolute_percentage_error": mape})
 
 
-def _recall_eval_fn(y_pred, y_true, pos_label=1, average="binary", sample_weight=None):
+def _recall_eval_fn(predictions, targets, pos_label=1, average="binary", sample_weight=None):
     from sklearn.metrics import recall_score
 
     recall = recall_score(
-        y_true, y_pred, pos_label=pos_label, average=average, sample_weight=sample_weight
+        targets, predictions, pos_label=pos_label, average=average, sample_weight=sample_weight
     )
     return MetricValue(aggregate_results={"recall_score": recall})
 
 
-def _precision_eval_fn(y_pred, y_true, pos_label=1, average="binary", sample_weight=None):
+def _precision_eval_fn(predictions, targets, pos_label=1, average="binary", sample_weight=None):
     from sklearn.metrics import precision_score
 
     precision = precision_score(
-        y_true,
-        y_pred,
+        targets,
+        predictions,
         pos_label=pos_label,
         average=average,
         sample_weight=sample_weight,
@@ -298,12 +290,12 @@ def _precision_eval_fn(y_pred, y_true, pos_label=1, average="binary", sample_wei
     return MetricValue(aggregate_results={"precision_score": precision})
 
 
-def _f1_score_eval_fn(y_pred, y_true, pos_label=1, average="binary", sample_weight=None):
+def _f1_score_eval_fn(predictions, targets, pos_label=1, average="binary", sample_weight=None):
     from sklearn.metrics import f1_score
 
     f1 = f1_score(
-        y_true,
-        y_pred,
+        targets,
+        predictions,
         pos_label=pos_label,
         average=average,
         sample_weight=sample_weight,
