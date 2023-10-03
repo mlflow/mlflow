@@ -480,7 +480,7 @@ typing-extensions==4.4.0
     #   pydantic
     #   pylint
     #   rich
-urllib3==1.26.12
+urllib3==1.26.17
     # via
     #   botocore
     #   docker
