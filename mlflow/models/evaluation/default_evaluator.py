@@ -963,7 +963,7 @@ class DefaultEvaluator(ModelEvaluator):
         # be supplied through file. Which is handled by the first if clause. This is because
         # DataFrame objects default to be stored as CsvEvaluationArtifact.
         if inferred_from_path:
-            shutil.copyfile(raw_artifact, artifact_file_local_path)
+            shutil.copy2(raw_artifact, artifact_file_local_path)
         elif inferred_type is JsonEvaluationArtifact:
             with open(artifact_file_local_path, "w") as f:
                 if isinstance(raw_artifact, str):
