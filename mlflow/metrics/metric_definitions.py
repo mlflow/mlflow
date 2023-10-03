@@ -129,7 +129,9 @@ def _accuracy_eval_fn(predictions, targets, sample_weight=None):
 
 def _rouge1_eval_fn(predictions, targets):
     if targets is not None:
-        if not _validate_text_data(targets, "rouge1") or not _validate_text_data(predictions, "rouge1"):
+        if not _validate_text_data(targets, "rouge1") or not _validate_text_data(
+            predictions, "rouge1"
+        ):
             return
 
         try:
@@ -137,7 +139,9 @@ def _rouge1_eval_fn(predictions, targets):
 
             rouge = evaluate.load("rouge")
         except Exception as e:
-            _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+            _logger.warning(
+                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
+            )
             return
 
         references = targets
@@ -155,7 +159,9 @@ def _rouge1_eval_fn(predictions, targets):
 
 def _rouge2_eval_fn(predictions, targets):
     if targets is not None:
-        if not _validate_text_data(targets, "rouge2") or not _validate_text_data(predictions, "rouge2"):
+        if not _validate_text_data(targets, "rouge2") or not _validate_text_data(
+            predictions, "rouge2"
+        ):
             return
 
         try:
@@ -163,7 +169,9 @@ def _rouge2_eval_fn(predictions, targets):
 
             rouge = evaluate.load("rouge")
         except Exception as e:
-            _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+            _logger.warning(
+                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
+            )
             return
 
         references = targets
@@ -181,7 +189,9 @@ def _rouge2_eval_fn(predictions, targets):
 
 def _rougeL_eval_fn(predictions, targets):
     if targets is not None:
-        if not _validate_text_data(targets, "rougeL") or not _validate_text_data(predictions, "rougeL"):
+        if not _validate_text_data(targets, "rougeL") or not _validate_text_data(
+            predictions, "rougeL"
+        ):
             return
 
         try:
@@ -189,7 +199,9 @@ def _rougeL_eval_fn(predictions, targets):
 
             rouge = evaluate.load("rouge")
         except Exception as e:
-            _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+            _logger.warning(
+                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
+            )
             return
 
         references = targets
@@ -217,7 +229,9 @@ def _rougeLsum_eval_fn(predictions, targets):
 
             rouge = evaluate.load("rouge")
         except Exception as e:
-            _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+            _logger.warning(
+                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
+            )
             return
 
         references = targets
