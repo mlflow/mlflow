@@ -15,8 +15,7 @@ import re
 import shutil
 import tempfile
 import warnings
-from collections import namedtuple
-from typing import Any, Dict, Optional
+from typing import Any, Dict, NamedTuple, Optional
 
 import numpy as np
 import pandas
@@ -416,7 +415,7 @@ def save_model(
             with tempfile.NamedTemporaryFile(suffix=".h5") as f:
                 model.save(f.name, **keras_model_kwargs)
                 f.flush()  # force flush the data
-                shutil.copyfile(src=f.name, dst=model_path)
+                shutil.copy2(src=f.name, dst=model_path)
         else:
             model.save(model_path, **keras_model_kwargs)
 
@@ -917,7 +916,9 @@ def _get_tensorboard_callback(lst):
 # :location - string: The filesystem location of the logging directory
 # :is_temp - boolean: `True` if the logging directory was created for temporary use by MLflow,
 #                     `False` otherwise
-_TensorBoardLogDir = namedtuple("_TensorBoardLogDir", ["location", "is_temp"])
+class _TensorBoardLogDir(NamedTuple):
+    location: str
+    is_temp: bool
 
 
 def _setup_callbacks(callbacks, metrics_logger):

@@ -24,7 +24,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Dict, List, Union
 
-import langchain
+import langchain.chains
 from langchain.schema import AgentAction
 
 import mlflow
