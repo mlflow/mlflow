@@ -1,16 +1,11 @@
 from abc import ABCMeta, abstractmethod
-from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
 from mlflow.entities import DatasetInput, ViewType
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils.annotations import developer_stable, experimental
-
-# This is used for default implementation of log_batch(..., synchronous=False).
-# Using this threadpool we simply call LogBatch(...) so that store without this method implemented
-# need not have to change.
-_ASYNC_DATA_LOGGING_THREAD_POOL = ThreadPoolExecutor(max_workers=2)
+from mlflow.utils.run_data_queuing_processor import RunDataQueuingProcessor
 
 
 @developer_stable
@@ -27,7 +22,7 @@ class AbstractStore:
         Empty constructor for now. This is deliberately not marked as abstract, else every
         derived class would be forced to create one.
         """
-        pass
+        self.run_data_processor = RunDataQueuingProcessor(processing_func=self.log_batch)
 
     @abstractmethod
     def search_experiments(
@@ -388,8 +383,8 @@ class AbstractStore:
         :param tags: List of :py:class:`mlflow.entities.RunTag` instances to log
         :return: None.
         """
-        _ASYNC_DATA_LOGGING_THREAD_POOL.submit(
-            fn=self.log_batch, args=(run_id, metrics, params, tags)
+        self.run_data_processor.log_batch_async(
+            run_id=run_id, metrics=metrics, params=params, tags=tags
         )
 
     @abstractmethod
