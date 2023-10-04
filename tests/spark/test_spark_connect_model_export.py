@@ -25,10 +25,10 @@ def _get_spark_connect_session():
     builder = SparkSession.builder.remote("local[2]").config(
         "spark.connect.copyFromLocalToFs.allowDestLocal", "true"
     )
-    if not Version(pyspark.__version__).is_devrelease:
-        builder.config(
-            "spark.jars.packages", f"org.apache.spark:spark-connect_2.12:{pyspark.__version__}"
-        )
+    builder.config(
+        "spark.jars.packages",
+        f"org.apache.spark:spark-connect_2.12:{Version(pyspark.__version__).base_version}",
+    )
     return builder.getOrCreate()
 
 
