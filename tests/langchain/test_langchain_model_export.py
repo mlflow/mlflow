@@ -446,7 +446,7 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
     langchain_output = [
         {loaded_model.output_key: TEST_CONTENT, "source_documents": TEST_SOURCE_DOCUMENTS}
     ]
-    result = loaded_pyfunc_model.predict([langchain_input], params={"mlflow_return_context": True})
+    result = loaded_pyfunc_model.predict([langchain_input])
 
     assert result == langchain_output
 
@@ -464,7 +464,71 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
     assert (
         PredictionsResponse.from_json(response.content.decode("utf-8")) == langchain_output_serving
     )
-    assert False
+
+@pytest.mark.skipif(
+    version.parse(langchain.__version__) < version.parse("0.0.194"),
+    reason="Saving RetrievalQA chains requires langchain>=0.0.194",
+)
+def test_langchain_context(tmp_path):
+    # Create the vector db, persist the db to a local fs folder
+    loader = TextLoader("tests/langchain/state_of_the_union.txt")
+    documents = loader.load()
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    docs = text_splitter.split_documents(documents)
+    embeddings = FakeEmbeddings(size=5)
+    db = FAISS.from_documents(docs, embeddings)
+    persist_dir = str(tmp_path / "faiss_index")
+    db.save_local(persist_dir)
+
+    # Create the RetrievalQA chain
+    retrievalQA = RetrievalQA.from_llm(
+        llm=OpenAI(), retriever=db.as_retriever()
+    )
+
+    # Log the RetrievalQA chain
+    def load_retriever(persist_directory):
+        embeddings = FakeEmbeddings(size=5)
+        vectorstore = FAISS.load_local(persist_directory, embeddings)
+        return vectorstore.as_retriever()
+
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(
+            retrievalQA,
+            "retrieval_qa_chain",
+            loader_fn=load_retriever,
+            persist_dir=persist_dir,
+        )
+
+    # Remove the persist_dir
+    shutil.rmtree(persist_dir)
+
+    # Load the chain
+    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
+    assert loaded_model == retrievalQA
+
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+    langchain_input = {"query": "What did the president say about Ketanji Brown Jackson"}
+    langchain_output = [
+        {loaded_model.output_key: TEST_CONTENT, "source_documents": TEST_SOURCE_DOCUMENTS, "context": TEST_SOURCE_DOCUMENTS}
+    ]
+    result = loaded_pyfunc_model.predict([langchain_input], params={"mlflow_return_context": True})
+    assert result == langchain_output
+
+    # Serve the chain
+    inference_payload = json.dumps({"inputs": langchain_input})
+    langchain_output = [{loaded_model.output_key: TEST_CONTENT}]
+    langchain_output_serving = {"predictions": langchain_output}
+
+    response = pyfunc_serve_and_score_model(
+        logged_model.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    assert (
+        PredictionsResponse.from_json(response.content.decode("utf-8")) == langchain_output_serving
+    )
 
 
 # Define a special embedding for testing

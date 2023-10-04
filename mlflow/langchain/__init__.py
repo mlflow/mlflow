@@ -769,6 +769,8 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         ):
             for res in result:
                 res["source_documents"] = TEST_SOURCE_DOCUMENTS
+                if params.get("mlflow_return_context", False):
+                    res["context"] = TEST_SOURCE_DOCUMENTS
         if (
             hasattr(self.lc_model, "return_intermediate_steps")
             and self.lc_model.return_intermediate_steps

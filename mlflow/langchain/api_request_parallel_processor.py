@@ -26,6 +26,7 @@ from typing import Any, Dict, List, Union
 
 import langchain
 from langchain.schema import AgentAction
+from langchain.chains.retrieval_qa.base import BaseRetrievalQA
 
 import mlflow
 
@@ -112,6 +113,10 @@ class APIRequest:
                 {"page_content": doc.page_content, "metadata": doc.metadata}
                 for doc in response["source_documents"]
             ]
+            if self.return_context:
+                print("!@*#&^$)*&")
+
+                response["context"] = response["source_documents"].copy()
 
     def call_api(self, status_tracker: StatusTracker):
         """
@@ -128,6 +133,8 @@ class APIRequest:
                     {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
                 ]
             else:
+                if isinstance(self.lc_model, BaseRetrievalQA) and self.return_context:
+                    self.lc_model.return_source_documents = True
                 response = self.lc_model(self.request_json, return_only_outputs=True)
 
                 # to maintain existing code, single output chains will still return only the result
@@ -162,6 +169,8 @@ def process_api_requests(
 
     results: list[tuple[int, str]] = []
     requests_iter = enumerate(requests)
+    print("!#!")
+    print("return_context", return_context)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         while True:
             # get next request (if one is not already waiting for capacity)
