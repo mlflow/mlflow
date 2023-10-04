@@ -10,7 +10,7 @@ def test_evaluation_example_str():
             output="This is an output",
             score=5,
             justification="This is a justification",
-            variables={"foo": "bar"},
+            eval_args={"foo": "bar"},
         )
     )
     example1_expected = """

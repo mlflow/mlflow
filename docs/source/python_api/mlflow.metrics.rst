@@ -1,7 +1,7 @@
 mlflow.metrics
 ==============
 
-The ``mlflow.metrics`` module helps you quantitatively and qualitatively measure your models. These :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` are used by the :py:func:`mlflow.evaluate()` API, either computed automatically depending on the ``model_type`` or specified via the ``custom_metrics`` parameter. 
+The ``mlflow.metrics`` module helps you quantitatively and qualitatively measure your models. These :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` are used by the :py:func:`mlflow.evaluate()` API, either computed automatically depending on the ``model_type`` or specified via the ``custom_metrics`` parameter.
 
 The following code demonstrates how to use :py:func:`mlflow.evaluate()` with a intelligent :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`.
 
@@ -18,7 +18,7 @@ The following code demonstrates how to use :py:func:`mlflow.evaluate()` with a i
         score=4,
         justification="The definition effectively explains what MLflow is "
         "its purpose, and its developer. It could be more concise for a 5-score.",
-        variables={
+        eval_args={
             "ground_truth": "MLflow is an open-source platform for managing "
             "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
             "a company that specializes in big data and machine learning solutions. MLflow is "
@@ -40,7 +40,7 @@ Evaluation results are stored as :py:class:`MetricValue <mlflow.metrics.MetricVa
 
 .. autoclass:: mlflow.metrics.EvaluationMetric
 
-We provide the following :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` for evaluating text models. 
+We provide the following :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` for evaluating text models.
 
 .. autodata:: mlflow.metrics.ari_grade_level
    :annotation:

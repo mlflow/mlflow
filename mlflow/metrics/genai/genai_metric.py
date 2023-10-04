@@ -20,23 +20,20 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-def _format_variable_string(variables: Optional[List[str]], eval_variables, indx) -> str:
-    variables_dict = {}
-    for variable in variables:
-        if variable in eval_variables:
-            variables_dict[variable] = eval_variables[variable][indx]
+def _format_args_string(eval_args: Optional[List[str]], eval_values, indx) -> str:
+    args_dict = {}
+    for arg in eval_args:
+        if arg in eval_values:
+            args_dict[arg] = eval_values[arg][indx]
         else:
             raise MlflowException(
-                f"{variable} does not exist in the eval function {list(eval_variables.keys())}."
+                f"{arg} does not exist in the eval function {list(eval_values.keys())}."
             )
 
     return (
         ""
-        if variables_dict is None
-        else "\n".join(
-            f"Provided {variable}: {variable_value}"
-            for variable, variable_value in variables_dict.items()
-        )
+        if args_dict is None
+        else "\n".join(f"Provided {arg}: {arg_value}" for arg, arg_value in args_dict.items())
     )
 
 
@@ -81,8 +78,8 @@ def make_genai_metric(
     grading_prompt: str,
     examples: Optional[List[EvaluationExample]] = None,
     version: Optional[str] = _get_latest_metric_version(),
-    model: Optional[str] = "openai:/gpt4",
-    variables: Optional[List[str]] = None,
+    model: Optional[str] = "openai:/gpt-4",
+    eval_args: Optional[List[str]] = None,
     parameters: Optional[Dict[str, Any]] = None,
     aggregations: Optional[List[str]] = None,
     greater_is_better: bool = True,
@@ -98,7 +95,7 @@ def make_genai_metric(
     :param examples: (Optional) Examples of the metric.
     :param version: (Optional) Version of the metric. Currently supported versions are: v1.
     :param model: (Optional) Model uri of the metric.
-    :param variables: (Optional) Variables required to compute the metric.
+    :param eval_args: (Optional) Variables required to compute the metric.
     :param parameters: (Optional) Parameters for the llm used to compute the metric.
     :param aggregations: (Optional) The list of options to aggregate the scores. Currently supported
         options are: min, max, mean, median, variance, p90.
@@ -127,7 +124,7 @@ def make_genai_metric(
                 "The definition effectively explains what MLflow is "
                 "its purpose, and its developer. It could be more concise for a 5-score.",
             ),
-            variables={
+            eval_args={
                 "ground_truth": (
                     "MLflow is an open-source platform for managing "
                     "the end-to-end machine learning (ML) lifecycle. It was developed by "
@@ -163,7 +160,7 @@ def make_genai_metric(
             examples=[example],
             version="v1",
             model="gateway:/gpt4",
-            variables=["ground_truth"],
+            eval_args=["ground_truth"],
             parameters={"temperature": 1.0},
             aggregations=["mean", "variance", "p90"],
             greater_is_better=True,
@@ -180,7 +177,7 @@ def make_genai_metric(
         This is the function that is called when the metric is evaluated.
         """
 
-        eval_variables = dict(zip(variables, args))
+        eval_values = dict(zip(eval_args, args))
         class_name = f"mlflow.metrics.genai.prompts.{version}.EvaluationModel"
         try:
             evaluation_model_class_module = _get_class_from_string(class_name)
@@ -224,16 +221,16 @@ def make_genai_metric(
             indx,
             input,
             output,
-            variables,
-            eval_variables,
+            eval_args,
+            eval_values,
             evaluation_context,
             eval_parameters,
             eval_model,
         ):
-            variable_string = _format_variable_string(variables, eval_variables, indx)
+            arg_string = _format_args_string(eval_args, eval_values, indx)
             payload = {
                 "prompt": evaluation_context["eval_prompt"].format(
-                    input=input, output=output, variables=variable_string
+                    input=input, output=output, eval_args=arg_string
                 ),
                 **eval_parameters,
             }
@@ -254,8 +251,8 @@ def make_genai_metric(
                     indx,
                     input,
                     output,
-                    variables,
-                    eval_variables,
+                    eval_args,
+                    eval_values,
                     evaluation_context,
                     eval_parameters,
                     eval_model,
@@ -303,8 +300,8 @@ def make_genai_metric(
         Parameter("inputs", Parameter.POSITIONAL_OR_KEYWORD, annotation="pd.Series"),
     ]
 
-    # Add variables to signature list
-    for var in variables:
+    # Add eval_args to signature list
+    for var in eval_args:
         signature_parameters.append(Parameter(var, Parameter.POSITIONAL_OR_KEYWORD))
 
     eval_fn.__signature__ = Signature(signature_parameters)

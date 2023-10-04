@@ -11,7 +11,7 @@ from mlflow.metrics.base import EvaluationExample
 from mlflow.metrics.genai import model_utils
 from mlflow.metrics.genai.genai_metric import (
     _extract_score_and_justification,
-    _format_variable_string,
+    _format_args_string,
     make_genai_metric,
 )
 from mlflow.metrics.genai.metric_definitions import (
@@ -146,7 +146,7 @@ mlflow_example = EvaluationExample(
     score=4,
     justification="The definition effectively explains what MLflow is "
     "its purpose, and its developer. It could be more concise for a 5-score.",
-    variables={"ground_truth": mlflow_ground_truth},
+    eval_args={"ground_truth": mlflow_ground_truth},
 )
 
 example_grading_prompt = (
@@ -178,7 +178,7 @@ def test_make_genai_metric_correct_response():
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
-        variables=["ground_truth"],
+        eval_args=["ground_truth"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
@@ -220,11 +220,11 @@ def test_make_genai_metric_correct_response():
                 output="example-output",
                 score=4,
                 justification="example-justification",
-                variables={"ground_truth": "example-ground_truth"},
+                eval_args={"ground_truth": "example-ground_truth"},
             )
         ],
         model="openai:/gpt-3.5-turbo",
-        variables=["ground_truth"],
+        eval_args=["ground_truth"],
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
     )
@@ -270,7 +270,7 @@ def test_make_genai_metric_incorrect_response():
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
-        variables=["ground_truth"],
+        eval_args=["ground_truth"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
@@ -304,7 +304,7 @@ def test_make_genai_metric_multiple():
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
-        variables=["ground_truth"],
+        eval_args=["ground_truth"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
@@ -367,7 +367,7 @@ def test_make_genai_metric_failure():
         output="output",
         score=4,
         justification="justification",
-        variables={"ground_truth": "ground_truth"},
+        eval_args={"ground_truth": "ground_truth"},
     )
     import pandas as pd
 
@@ -378,7 +378,7 @@ def test_make_genai_metric_failure():
         grading_prompt="grading_prompt",
         examples=[example],
         model="model",
-        variables=["ground_truth"],
+        eval_args=["ground_truth"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
         aggregations=["mean"],
@@ -409,7 +409,7 @@ def test_make_genai_metric_failure():
             grading_prompt="grading_prompt",
             examples=[example],
             model="openai:/gpt-3.5-turbo",
-            variables=["ground_truth"],
+            eval_args=["ground_truth"],
             parameters={"temperature": 1.0},
             greater_is_better=True,
             aggregations=["random-fake"],
@@ -426,8 +426,8 @@ def test_make_genai_metric_failure():
             )
 
 
-def test_format_variable_string():
-    variable_string = _format_variable_string(["foo", "bar"], {"foo": ["foo"], "bar": ["bar"]}, 0)
+def test_format_args_string():
+    variable_string = _format_args_string(["foo", "bar"], {"foo": ["foo"], "bar": ["bar"]}, 0)
 
     assert variable_string == "Provided foo: foo\nProvided bar: bar"
 
@@ -435,7 +435,7 @@ def test_format_variable_string():
         MlflowException,
         match=re.escape("bar does not exist in the eval function ['foo']."),
     ):
-        variable_string = _format_variable_string(["foo", "bar"], pd.DataFrame({"foo": ["foo"]}), 0)
+        variable_string = _format_args_string(["foo", "bar"], pd.DataFrame({"foo": ["foo"]}), 0)
 
 
 def test_extract_score_and_justification():
