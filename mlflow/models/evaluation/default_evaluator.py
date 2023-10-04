@@ -1527,7 +1527,9 @@ class DefaultEvaluator(ModelEvaluator):
                     self._log_artifacts()
                     self._log_metrics()
                     self._log_eval_table()
-                return EvaluationResult(metrics=self.metrics, artifacts=self.artifacts)
+                return EvaluationResult(
+                    metrics=self.metrics, artifacts=self.artifacts, run_id=self.run_id
+                )
 
     def evaluate(
         self,
@@ -1579,6 +1581,7 @@ class DefaultEvaluator(ModelEvaluator):
             metrics=evaluation_result.metrics,
             artifacts=evaluation_result.artifacts,
             baseline_model_metrics=baseline_evaluation_result.metrics,
+            run_id=self.run_id,
         )
 
     @property
