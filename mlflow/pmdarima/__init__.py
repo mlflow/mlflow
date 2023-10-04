@@ -107,12 +107,10 @@ _logger = logging.getLogger(__name__)
 
 def get_default_pip_requirements():
     """
-
     Returns:
         A list of default pip requirements for MLflow Models produced by this flavor.
         Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment that,
         at a minimum, contains these requirements.
-
     """
 
     return [_get_pinned_requirement("pmdarima")]
@@ -120,11 +118,9 @@ def get_default_pip_requirements():
 
 def get_default_conda_env():
     """
-
     Returns:
         The default Conda environment for MLflow Models produced by calls to
         :func:`save_model()` and :func:`log_model()`.
-
     """
 
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
@@ -144,7 +140,6 @@ def save_model(
     metadata=None,
 ):
     """
-
     Save a pmdarima ``ARIMA`` model or ``Pipeline`` object to a path on the local file system.
 
     Args:
@@ -213,7 +208,6 @@ def save_model(
 
             # Save the model to the specified path
             mlflow.pmdarima.save_model(model, "model")
-
     """
 
     import pmdarima
@@ -302,7 +296,6 @@ def log_model(
     **kwargs,
 ):
     """
-
     Log a ``pmdarima`` ``ARIMA`` or ``Pipeline`` object as an MLflow artifact for the current run.
 
     Args:
@@ -394,7 +387,6 @@ def log_model(
 
             # Log model
             mlflow.pmdarima.log_model(model, ARTIFACT_PATH, signature=signature)
-
     """
 
     return Model.log(
@@ -416,7 +408,6 @@ def log_model(
 
 def load_model(model_uri, dst_path=None):
     """
-
     Loads a ``pmdarima`` ``ARIMA`` model or ``Pipeline`` object from a local file or a run.
 
     Args:
@@ -438,6 +429,65 @@ def load_model(model_uri, dst_path=None):
     Returns:
         A ``pmdarima`` model instance
 
+    .. code-block:: python
+        :caption: Example
+
+        import pandas as pd
+        import mlflow
+        from mlflow.models import infer_signature
+        import pmdarima
+        from pmdarima.metrics import smape
+
+        # Specify locations of source data and the model artifact
+        SOURCE_DATA = "https://raw.githubusercontent.com/facebook/prophet/master/examples/example_retail_sales.csv"
+        ARTIFACT_PATH = "model"
+
+        # Read data and recode columns
+        sales_data = pd.read_csv(SOURCE_DATA)
+        sales_data.rename(columns={"y": "sales", "ds": "date"}, inplace=True)
+
+        # Split the data into train/test
+        train_size = int(0.8 * len(sales_data))
+        train, test = sales_data[:train_size], sales_data[train_size:]
+
+        with mlflow.start_run():
+            # Create the model
+            model = pmdarima.auto_arima(train["sales"], seasonal=True, m=12)
+
+            # Calculate metrics
+            prediction = model.predict(n_periods=len(test))
+            metrics = {"smape": smape(test["sales"], prediction)}
+
+            # Infer signature
+            input_sample = pd.DataFrame(train["sales"])
+            output_sample = pd.DataFrame(model.predict(n_periods=5))
+            signature = infer_signature(input_sample, output_sample)
+
+            # Log model
+            input_example = input_sample.head()
+            mlflow.pmdarima.log_model(
+                model, ARTIFACT_PATH, signature=signature, input_example=input_example
+            )
+
+            # Get the model URI for loading
+            model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
+
+        # Load the model
+        loaded_model = mlflow.pmdarima.load_model(model_uri)
+
+        # Forecast for the next 60 days
+        forecast = loaded_model.predict(n_periods=60)
+
+        print(f"forecast: {forecast}")
+
+    .. code-block:: text
+        :caption: Output
+
+        forecast:
+        234    382452.397246
+        235    380639.458720
+        236    359805.611219
+        ...
     """
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
@@ -476,7 +526,6 @@ class _PmdarimaModelWrapper:
         self, dataframe, params: Optional[Dict[str, Any]] = None
     ) -> pd.DataFrame:  # pylint: disable=unused-argument
         """
-
         Args:
             dataframe: Model input data.
             params: Additional parameters to pass to the model for inference.
@@ -486,7 +535,6 @@ class _PmdarimaModelWrapper:
 
         Returns:
             Model predictions.
-
         """
         df_schema = dataframe.columns.values.tolist()
 
