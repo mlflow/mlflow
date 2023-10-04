@@ -34,6 +34,7 @@ class Provider(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     COHERE = "cohere"
+    AI21LABS = "ai21labs"
     MLFLOW_MODEL_SERVING = "mlflow-model-serving"
     MOSAICML = "mosaicml"
     # Note: The following providers are only supported on Databricks
@@ -57,6 +58,15 @@ class CohereConfig(ConfigModel):
     # pylint: disable=no-self-argument
     @validator("cohere_api_key", pre=True)
     def validate_cohere_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
+class AI21LabsConfig(ConfigModel):
+    ai21labs_api_key: str
+
+    #pylint: disable=no-self-argument
+    @validator("ai21labs_api_key", pre=True)
+    def validate_ai21labs_api_key(cls, value):
         return _resolve_api_key_from_input(value)
 
 
@@ -164,6 +174,7 @@ config_types = {
     Provider.COHERE: CohereConfig,
     Provider.OPENAI: OpenAIConfig,
     Provider.ANTHROPIC: AnthropicConfig,
+    Provider.AI21LABS: AI21LabsConfig,
     Provider.MOSAICML: MosaicMLConfig,
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
 }
@@ -218,6 +229,7 @@ class Model(ConfigModel):
         Union[
             CohereConfig,
             OpenAIConfig,
+            AI21LabsConfig,
             AnthropicConfig,
             MosaicMLConfig,
             MlflowModelServingConfig,
