@@ -25,10 +25,19 @@ def _get_spark_connect_session():
     builder = SparkSession.builder.remote("local[2]").config(
         "spark.connect.copyFromLocalToFs.allowDestLocal", "true"
     )
-    builder.config(
-        "spark.jars.packages",
-        f"org.apache.spark:spark-connect_2.12:{Version(pyspark.__version__).base_version}",
-    )
+    pyspark_version = Version(pyspark.__version__)
+    if pyspark_version.major < 4:
+        # Prior to Spark 4.0.0, the Spark Connect jars are not included by default.
+        # So they have to be specified for production mode.
+        builder.config(
+            "spark.jars.packages", f"org.apache.spark:spark-connect_2.12:{pyspark.__version__}"
+        )
+    elif pyspark_version.major == 4 and pyspark_version.is_devrelease:
+        # Spark Connect is planned to be included by default from Apache Spark 4.0.0.
+        # Once Apache Spark includes the jars by default, this branch can be removed.
+        # Here it uses 3.5.0 as a workaround until then as Spark Connect should be compatible
+        # with lower versions in any event.
+        builder.config("spark.jars.packages", "org.apache.spark:spark-connect_2.12:3.5.0")
     return builder.getOrCreate()
 
 
