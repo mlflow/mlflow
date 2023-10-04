@@ -718,7 +718,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         :param run_id: The ID of the MLflow Run to which to log results.
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
-        :param custom_metrics: A list of :py:class:`EvaluationMetric` objects.
+        :param extra_metrics: A list of :py:class:`EvaluationMetric` objects.
         :param custom_artifacts: A list of callable custom artifact functions.
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
                        may be added to the evaluation interface in the future.
@@ -1349,7 +1349,7 @@ def evaluate(
                              If multiple evaluators are specified, each configuration should be
                              supplied as a nested dictionary whose key is the evaluator name.
 
-    :param custom_metrics:
+    :param extra_metrics:
         (Optional) A list of :py:class:`EvaluationMetric <mlflow.models.EvaluationMetric>` objects.
 
         .. code-block:: python
@@ -1367,7 +1367,7 @@ def evaluate(
                 eval_fn=root_mean_squared_error,
                 greater_is_better=False,
             )
-            mlflow.evaluate(..., custom_metrics=[rmse_metric])
+            mlflow.evaluate(..., extra_metrics=[rmse_metric])
 
     :param custom_artifacts:
         (Optional) A list of custom artifact functions with the following signature:
@@ -1439,8 +1439,8 @@ def evaluate(
 
     :param validation_thresholds: (Optional) A dictionary of metric name to
         :py:class:`mlflow.models.MetricThreshold` used for model validation. Each metric name must
-        either be the name of a builtin metric or the name of a custom metric defined in the
-        ``custom_metrics`` parameter.
+        either be the name of a builtin metric or the name of a metric defined in the
+        ``extra_metrics`` parameter.
 
         .. code-block:: python
             :caption: Example of Model Validation

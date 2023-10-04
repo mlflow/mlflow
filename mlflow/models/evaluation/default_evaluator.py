@@ -468,11 +468,11 @@ def _extract_output_and_other_columns(model_predictions, output_column_name):
 
 class _CustomMetric(NamedTuple):
     """
-    A namedtuple representing a custom metric function and its properties.
+    A namedtuple representing a metric function and its properties.
 
-    function : the custom metric function
-    name : the name of the custom metric function
-    index : the index of the function in the ``custom_metrics`` argument of mlflow.evaluate
+    function : the metric function
+    name : the name of the metric function
+    index : the index of the function in the ``extra_metrics`` argument of mlflow.evaluate
     """
 
     function: Callable
@@ -500,30 +500,30 @@ def _is_numeric(value):
     return isinstance(value, (int, float, np.number))
 
 
-def _evaluate_custom_metric(custom_metric_tuple, eval_fn_args):
+def _evaluate_extra_metric(extra_metric_tuple, eval_fn_args):
     """
-    This function calls the `custom_metric` function and performs validations on the returned
+    This function calls the `extra_metric` function and performs validations on the returned
     result to ensure that they are in the expected format. It will warn and will not log metrics
     that are in the wrong format.
 
-    :param custom_metric_tuple: Containing a user provided function and its index in the
-        ``custom_metrics`` parameter of ``mlflow.evaluate``
+    :param extra_metric_tuple: Containing a user provided function and its index in the
+        ``extra_metrics`` parameter of ``mlflow.evaluate``
     :param eval_fn_args: A dictionary of args needed to compute the eval metrics.
     :return: MetricValue
     """
     exception_header = (
-        f"Did not log custom metric '{custom_metric_tuple.name}' at index "
-        f"{custom_metric_tuple.index} in the `custom_metrics` parameter because it"
+        f"Did not log metric '{extra_metric_tuple.name}' at index "
+        f"{extra_metric_tuple.index} in the `extra_metrics` parameter because it"
     )
 
-    metric = custom_metric_tuple.function(*eval_fn_args)
+    metric = extra_metric_tuple.function(*eval_fn_args)
 
     if metric is None:
         _logger.warning(f"{exception_header} returned None.")
         return
 
     if _is_numeric(metric):
-        return MetricValue(aggregate_results={custom_metric_tuple.name: metric})
+        return MetricValue(aggregate_results={extra_metric_tuple.name: metric})
 
     if not isinstance(metric, MetricValue):
         _logger.warning(f"{exception_header} did not return a MetricValue.")
@@ -583,7 +583,7 @@ def _evaluate_custom_artifacts(custom_artifact_tuple, eval_df, builtin_metrics):
     result to ensure that they are in the expected format. It will raise a MlflowException if
     the result is not in the expected format.
 
-    :param custom_metric_tuple: Containing a user provided function and its index in the
+    :param custom_artifact_tuple: Containing a user provided function and its index in the
                                 ``custom_artifacts`` parameter of ``mlflow.evaluate``
     :param eval_df: A Pandas dataframe object containing a prediction and a target column.
     :param builtin_metrics: A dictionary of metrics produced by the default evaluator.
@@ -1042,8 +1042,8 @@ class DefaultEvaluator(ModelEvaluator):
         """
 
         exception_and_warning_header = (
-            f"Custom metric function '{custom_metric_tuple.name}' at index "
-            f"{custom_metric_tuple.index} in the `custom_metrics` parameter"
+            f"Custom artifact function '{custom_metric_tuple.name}' at index "
+            f"{custom_metric_tuple.index} in the `custom_artifacts` parameter"
         )
 
         inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
@@ -1103,12 +1103,12 @@ class DefaultEvaluator(ModelEvaluator):
         artifact._load(artifact_file_local_path)
         return artifact
 
-    def _get_args_for_metrics(self, custom_metric, eval_df):
+    def _get_args_for_metrics(self, extra_metric, eval_df):
         # deepcopying eval_df and builtin_metrics for each custom metric function call,
         # in case the user modifies them inside their function(s).
         eval_df_copy = eval_df.copy()
         input_df = self.X.copy_to_avoid_mutation()
-        parameters = dict(inspect.signature(custom_metric.eval_fn).parameters)
+        parameters = dict(inspect.signature(extra_metric.eval_fn).parameters)
         eval_fn_args = []
         if len(parameters) == 2:
             eval_fn_args.append(eval_df_copy)
@@ -1145,23 +1145,23 @@ class DefaultEvaluator(ModelEvaluator):
 
         return eval_fn_args
 
-    def _evaluate_custom_metrics(self, eval_df):
+    def _evaluate_extra_metrics(self, eval_df):
         if not self.extra_metrics:
             return
-        for index, custom_metric in enumerate(self.extra_metrics):
-            eval_fn_args = self._get_args_for_metrics(custom_metric, eval_df)
-            _logger.info("Evaluating custom metrics:", custom_metric.name)
-            custom_metric_tuple = _CustomMetric(
-                function=custom_metric.eval_fn,
+        for index, extra_metric in enumerate(self.extra_metrics):
+            eval_fn_args = self._get_args_for_metrics(extra_metric, eval_df)
+            _logger.info("Evaluating custom metrics:", extra_metric.name)
+            extra_metric_tuple = _CustomMetric(
+                function=extra_metric.eval_fn,
                 index=index,
-                name=custom_metric.name,
+                name=extra_metric.name,
             )
-            metric_value = _evaluate_custom_metric(custom_metric_tuple, eval_fn_args)
+            metric_value = _evaluate_extra_metric(extra_metric_tuple, eval_fn_args)
             if metric_value:
                 name = (
-                    f"{custom_metric.name}/{custom_metric.version}"
-                    if custom_metric.version
-                    else custom_metric.name
+                    f"{extra_metric.name}/{extra_metric.version}"
+                    if extra_metric.version
+                    else extra_metric.name
                 )
                 self.metrics_values.update({name: metric_value})
 
@@ -1504,7 +1504,7 @@ class DefaultEvaluator(ModelEvaluator):
 
                 self._evaluate_builtin_metrics(eval_df)
                 self._update_metrics()
-                self._evaluate_custom_metrics(eval_df)
+                self._evaluate_extra_metrics(eval_df)
                 if not is_baseline_model:
                     self._log_custom_artifacts(eval_df)
 
