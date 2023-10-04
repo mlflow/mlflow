@@ -71,14 +71,20 @@ def login(backend="databricks"):
     if backend == "databricks":
         _databricks_login()
     else:
-        raise ValueError(
+        raise MlflowException(
             f"Currently only 'databricks' backend is supported, received `backend={backend}`."
         )
 
 
 def _check_databricks_auth():
     # Check if databricks credentials are set.
-    from databricks.sdk import WorkspaceClient
+    try:
+        from databricks.sdk import WorkspaceClient
+    except ImportError:
+        raise ImportError(
+            "Databricks SDK is not installed. To use `mlflow.login()`, please install "
+            "databricks-sdk by `pip install databricks-sdk`."
+        )
 
     try:
         w = WorkspaceClient()
@@ -166,8 +172,9 @@ def _databricks_login():
         token = getpass.getpass("Token: ")
         profile["token"] = token
 
-    home = os.path.expanduser("~")
-    file_name = f"{home}/.databrickscfg"
+    file_name = os.environ.get(
+        "DATABRICKS_CONFIG_FILE", f"{os.path.expanduser('~')}/.databrickscfg"
+    )
     profile_name = os.environ.get("DATABRICKS_CONFIG_PROFILE", "DEFAULT")
     _overwrite_or_create_databricks_profile(file_name, profile, profile_name)
 

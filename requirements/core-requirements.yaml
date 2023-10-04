@@ -15,10 +15,6 @@ docker:
   minimum: "4.0.0"
   max_major_version: 6
 
-databricks-sdk:
-  pip_release: databricks-sdk
-  minimum: "0.10.0"
-
 flask:
   pip_release: Flask
   max_major_version: 2

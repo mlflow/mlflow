@@ -1,9 +1,12 @@
+import os
 from unittest import mock
+from unittest.mock import patch
 
 import pytest
 
 from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
-from mlflow.utils.credentials import read_mlflow_creds
+from mlflow.exceptions import MlflowException
+from mlflow.utils.credentials import login, read_mlflow_creds
 
 
 def test_read_mlflow_creds_file(tmp_path, monkeypatch):
@@ -99,3 +102,29 @@ mlflow_tracking_password = password_file
         creds = read_mlflow_creds()
         assert creds.username == "username_env"
         assert creds.password == "password_env"
+
+
+def test_mlflow_login(tmp_path):
+    with patch("builtins.input") as mock_input, patch("getpass.getpass") as mock_getpass:
+        mock_input.side_effect = ["https://community.cloud.databricks.com/", "weirdmouse"]
+        mock_getpass.side_effect = ["dummypassword"]
+
+        os.environ["DATABRICKS_CONFIG_FILE"] = f"{tmp_path}/.databrickscfg"
+
+        with patch("databricks.sdk.WorkspaceClient") as mock_workspace_client:
+
+            class FakeWorkspaceClient:
+                class FakeClusters:
+                    def list(self):
+                        return ["cluster1"]
+
+                def __init__(self):
+                    self.clusters = FakeWorkspaceClient.FakeClusters()
+
+            mock_workspace_client.side_effect = [
+                MlflowException("Error"),
+                FakeWorkspaceClient(),
+            ]
+
+            login("databricks")
+    del os.environ["DATABRICKS_CONFIG_FILE"]
