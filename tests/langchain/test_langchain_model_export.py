@@ -446,7 +446,7 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
     langchain_output = [
         {loaded_model.output_key: TEST_CONTENT, "source_documents": TEST_SOURCE_DOCUMENTS}
     ]
-    result = loaded_pyfunc_model.predict([langchain_input])
+    result = loaded_pyfunc_model.predict([langchain_input], params={"mlflow_return_context": True})
 
     assert result == langchain_output
 
@@ -464,6 +464,7 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
     assert (
         PredictionsResponse.from_json(response.content.decode("utf-8")) == langchain_output_serving
     )
+    assert False
 
 
 # Define a special embedding for testing

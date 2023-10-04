@@ -32,7 +32,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types.schema import ColSpec, DataType, Schema
+from mlflow.types.schema import ColSpec, DataType, ParamSchema, ParamSpec, Schema
 from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -541,6 +541,11 @@ def log_model(
 
         signature = ModelSignature(input_schema, output_schema)
 
+    existing_params = signature.params.params() if signature.params else []
+    new_param = ParamSpec(name="mlflow_return_context", dtype=DataType.boolean, default=False)
+    params = ParamSchema([*existing_params, new_param])
+    signature = ModelSignature(signature.inputs, signature.outputs, params)
+
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.langchain,
@@ -690,10 +695,10 @@ class _LangChainModelWrapper:
     def __init__(self, lc_model):
         self.lc_model = lc_model
 
-    def predict(  # pylint: disable=unused-argument
+    def predict(
         self,
         data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]],
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
         """
         :param data: Model input data.
@@ -716,7 +721,11 @@ class _LangChainModelWrapper:
             raise mlflow.MlflowException.invalid_parameter_value(
                 "Input must be a pandas DataFrame or a list of strings or a list of dictionaries",
             )
-        return process_api_requests(lc_model=self.lc_model, requests=messages)
+
+        return_context = params.get("mlflow_return_context", False)
+        return process_api_requests(
+            lc_model=self.lc_model, requests=messages, return_context=return_context
+        )
 
 
 class _TestLangChainWrapper(_LangChainModelWrapper):
@@ -724,9 +733,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
     A wrapper class that should be used for testing purposes only.
     """
 
-    def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
-    ):
+    def predict(self, data, params: Optional[Dict[str, Any]] = None):
         """
         :param data: Model input data.
         :param params: Additional parameters to pass to the model for inference.
@@ -755,7 +762,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
             mockContent = f"Final Answer: {TEST_CONTENT}"
 
         with _mock_async_request(mockContent):
-            result = super().predict(data)
+            result = super().predict(data, params)
         if (
             hasattr(self.lc_model, "return_source_documents")
             and self.lc_model.return_source_documents

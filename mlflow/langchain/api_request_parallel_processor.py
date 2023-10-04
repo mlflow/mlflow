@@ -74,6 +74,7 @@ class APIRequest:
     lc_model: langchain.chains.base.Chain
     request_json: dict
     results: list[tuple[int, str]]
+    return_context: bool
 
     def _prepare_to_serialize(self, response: dict):
         """
@@ -148,6 +149,7 @@ def process_api_requests(
     lc_model,
     requests: List[Union[str, Dict[str, Any]]] = None,
     max_workers: int = 10,
+    return_context: bool = False,
 ):
     """
     Processes API requests in parallel.
@@ -171,7 +173,11 @@ def process_api_requests(
                     # get new request
                     index, request_json = req
                     next_request = APIRequest(
-                        index=index, lc_model=lc_model, request_json=request_json, results=results
+                        index=index,
+                        lc_model=lc_model,
+                        request_json=request_json,
+                        results=results,
+                        return_context=return_context,
                     )
                     status_tracker.start_task()
 
