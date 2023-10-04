@@ -89,7 +89,7 @@ def _check_databricks_auth():
     try:
         w = WorkspaceClient()
         # If credentials are invalid, `clusters.list()` will throw an error.
-        w.clusters.list()
+        w.current_user.me()
         _logger.info(
             "Succesfully signed in Databricks! Please run `mlflow.set_tracking_uri('databricks')` "
             "to connect MLflow to Databricks tracking server."
@@ -134,14 +134,17 @@ def _overwrite_or_create_databricks_profile(
         end_index = end_index if end_index != -1 else len(lines)
         del lines[start_index : end_index + 1]
 
-    # Write the new profile to the end of the file.
-    lines.append(profile_name + "\n")
-    lines.append(f"host = {profile['host']}\n")
+    # Write the new profile to the top of the file.
+    new_profile = []
+    new_profile.append(profile_name + "\n")
+    new_profile.append(f"host = {profile['host']}\n")
     if "token" in profile:
-        lines.append(f"token = {profile['token']}\n")
+        new_profile.append(f"token = {profile['token']}\n")
     else:
-        lines.append(f"username = {profile['username']}\n")
-        lines.append(f"password = {profile['password']}\n")
+        new_profile.append(f"username = {profile['username']}\n")
+        new_profile.append(f"password = {profile['password']}\n")
+    new_profile.append("\n")
+    lines = new_profile + lines
 
     # Write back the modified lines to the file.
     with open(file_name, "w") as file:
