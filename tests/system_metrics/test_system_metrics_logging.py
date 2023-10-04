@@ -36,12 +36,13 @@ def test_manual_system_metrics_monitor():
         "network_receive_megabytes",
         "network_transmit_megabytes",
     ]
+    expected_metrics_name = [f"system/{name}" for name in expected_metrics_name]
     for name in expected_metrics_name:
         assert name in metrics
 
     # Check the step is correctly logged.
     metrics_history = mlflow.tracking.MlflowClient().get_metric_history(
-        run.info.run_id, "cpu_utilization_percentage"
+        run.info.run_id, "system/cpu_utilization_percentage"
     )
     assert metrics_history[-1].step > 0
 
@@ -76,12 +77,13 @@ def test_automatic_system_metrics_monitor():
         "network_receive_megabytes",
         "network_transmit_megabytes",
     ]
+    expected_metrics_name = [f"system/{name}" for name in expected_metrics_name]
     for name in expected_metrics_name:
         assert name in metrics
 
     # Check the step is correctly logged.
     metrics_history = mlflow.tracking.MlflowClient().get_metric_history(
-        run.info.run_id, "cpu_utilization_percentage"
+        run.info.run_id, "system/cpu_utilization_percentage"
     )
     assert metrics_history[-1].step > 0
 
