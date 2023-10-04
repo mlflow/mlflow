@@ -157,7 +157,7 @@ def _databricks_login():
     profile = {"host": host}
     if "community" in host:
         # Databricks community edition requires username and password for authentication.
-        username = getpass.getpass("Username: ")
+        username = input("Username: ")
         password = getpass.getpass("Password: ")
         profile["username"] = username
         profile["password"] = password
