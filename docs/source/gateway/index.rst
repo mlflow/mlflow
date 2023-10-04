@@ -109,6 +109,12 @@ Use the MLflow AI Gateway ``start`` command and specify the path to your configu
 
     mlflow gateway start --config-path config.yaml --port {port} --host {host} --workers {worker count}
 
+The configuration file can also be set using the ``MLFLOW_GATEWAY_CONFIG_PATH`` environment variable:
+
+.. code-block:: bash
+
+    export MLFLOW_GATEWAY_CONFIG_PATH=/path/to/config.yaml
+
 If you do not specify the host, a localhost address will be used.
 
 If you do not specify the port, port 5000 will be used.
