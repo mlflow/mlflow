@@ -1537,6 +1537,7 @@ class DefaultEvaluator(ModelEvaluator):
         dataset,
         run_id,
         evaluator_config,
+        custom_metrics=None,
         extra_metrics=None,
         custom_artifacts=None,
         baseline_model=None,
@@ -1547,11 +1548,21 @@ class DefaultEvaluator(ModelEvaluator):
         self.model_type = model_type
         self.evaluator_config = evaluator_config
         self.feature_names = dataset.feature_names
-        self.extra_metrics = extra_metrics
+
         self.custom_artifacts = custom_artifacts
         self.y = dataset.labels_data
         self.pos_label = self.evaluator_config.get("pos_label")
         self.sample_weights = self.evaluator_config.get("sample_weights")
+
+        if extra_metrics and custom_metrics:
+            raise MlflowException(
+                "Parameter custom_metrics is deprecated. Please only use extra_metrics instead."
+            )
+        if custom_metrics:
+            _logger.warning("custom_metrics parameter is deprecated.")
+            self.extra_metrics = custom_metrics
+        else:
+            self.extra_metrics = extra_metrics
 
         if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
             inferred_model_type = _infer_model_type_by_labels(self.y)
