@@ -64,7 +64,7 @@ class CohereConfig(ConfigModel):
 class AI21LabsConfig(ConfigModel):
     ai21labs_api_key: str
 
-    #pylint: disable=no-self-argument
+    # pylint: disable=no-self-argument
     @validator("ai21labs_api_key", pre=True)
     def validate_ai21labs_api_key(cls, value):
         return _resolve_api_key_from_input(value)

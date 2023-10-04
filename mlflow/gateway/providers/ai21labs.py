@@ -1,5 +1,3 @@
-from typing import Any, Dict
-
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
@@ -10,7 +8,8 @@ from mlflow.gateway.schemas import chat, completions, embeddings
 
 
 class AI21LabsProvider(BaseProvider):
-    allowed_models = set(["j2-ultra", "j2-mid", "j2-light"])
+    allowed_models = {"j2-ultra", "j2-mid", "j2-light"}
+
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, AI21LabsConfig):
@@ -46,7 +45,7 @@ class AI21LabsProvider(BaseProvider):
         resp = await send_request(
             headers=self.headers,
             base_url=self.base_url,
-            path='complete',
+            path="complete",
             payload=payload,
         )
         # Response example (https://docs.ai21.com/reference/j2-complete-ref)

@@ -3,11 +3,10 @@ from unittest import mock
 import pytest
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-from pydantic import ValidationError
 
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.providers.ai21labs import AI21LabsProvider
-from mlflow.gateway.schemas import completions, embeddings, chat
+from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import MockAsyncResponse
 
@@ -24,6 +23,8 @@ def completions_config():
             },
         },
     }
+
+
 def completions_config_invalid_model():
     return {
         "name": "completions",
@@ -36,6 +37,7 @@ def completions_config_invalid_model():
             },
         },
     }
+
 
 def embedding_config():
     return {
@@ -50,6 +52,7 @@ def embedding_config():
         },
     }
 
+
 def chat_config():
     return {
         "name": "chat",
@@ -63,23 +66,17 @@ def chat_config():
         },
     }
 
+
 def completions_response():
     return {
         "id": "7921a78e-d905-c9df-27e3-88e4831e3c3b",
-        "prompt": {
-            "text": "This is a test"
-        },
+        "prompt": {"text": "This is a test"},
         "completions": [
             {
-                "data": {
-                    "text": "this is a test response"
-                },
-                "finishReason": {
-                    "reason": "length",
-                    "length": 2
-                }
+                "data": {"text": "this is a test response"},
+                "finishReason": {"reason": "length", "length": 2},
             }
-        ]
+        ],
     }
 
 
@@ -112,11 +109,13 @@ async def test_completions():
         }
         mock_post.assert_called_once()
 
+
 @pytest.mark.asyncio
 async def test_param_invalid_model_name_is_not_permitted():
     config = completions_config_invalid_model()
-    with pytest.raises(TypeError, match=r"Invalid modelName.*") as e:
-        provider = AI21LabsProvider(RouteConfig(**config))
+    with pytest.raises(TypeError, match=r"Invalid modelName.*"):
+        AI21LabsProvider(RouteConfig(**config))
+
 
 @pytest.mark.asyncio
 async def test_param_maxTokens_is_not_permitted():
@@ -131,6 +130,7 @@ async def test_param_maxTokens_is_not_permitted():
     assert "Invalid parameter maxTokens. Use max_tokens instead." in e.value.detail
     assert e.value.status_code == 422
 
+
 @pytest.mark.asyncio
 async def test_param_model_is_not_permitted():
     config = completions_config()
@@ -144,6 +144,7 @@ async def test_param_model_is_not_permitted():
     assert "The parameter 'model' is not permitted" in e.value.detail
     assert e.value.status_code == 422
 
+
 @pytest.mark.asyncio
 async def test_chat_is_not_supported_for_ai21labs():
     config = chat_config()
@@ -156,6 +157,7 @@ async def test_chat_is_not_supported_for_ai21labs():
         await provider.chat(chat.RequestPayload(**payload))
     assert "The chat route is not available for AI21Labs models" in e.value.detail
     assert e.value.status_code == 404
+
 
 @pytest.mark.asyncio
 async def test_embeddings_are_not_supported_for_ai21labs():
