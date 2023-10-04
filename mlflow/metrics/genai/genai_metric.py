@@ -20,9 +20,9 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-def _format_args_string(eval_args: Optional[List[str]], eval_values, indx) -> str:
+def _format_args_string(grading_context_columns: Optional[List[str]], eval_values, indx) -> str:
     args_dict = {}
-    for arg in eval_args:
+    for arg in grading_context_columns:
         if arg in eval_values:
             args_dict[arg] = eval_values[arg][indx]
         else:
@@ -79,7 +79,7 @@ def make_genai_metric(
     examples: Optional[List[EvaluationExample]] = None,
     version: Optional[str] = _get_latest_metric_version(),
     model: Optional[str] = "openai:/gpt-4",
-    eval_args: Optional[List[str]] = None,
+    grading_context_columns: Optional[List[str]] = None,
     parameters: Optional[Dict[str, Any]] = None,
     aggregations: Optional[List[str]] = None,
     greater_is_better: bool = True,
@@ -95,7 +95,10 @@ def make_genai_metric(
     :param examples: (Optional) Examples of the metric.
     :param version: (Optional) Version of the metric. Currently supported versions are: v1.
     :param model: (Optional) Model uri of the metric.
-    :param eval_args: (Optional) Variables required to compute the metric.
+    :param grading_context_columns: (Optional) grading_context_columns required to compute
+        the metric. These grading_context_columns are used by the LLM as a judge as additional
+        information to compute the metric. The columns are extracted from the input dataset or
+        output predictions based on col_mapping in evaluator_config.
     :param parameters: (Optional) Parameters for the llm used to compute the metric.
     :param aggregations: (Optional) The list of options to aggregate the scores. Currently supported
         options are: min, max, mean, median, variance, p90.
@@ -124,7 +127,7 @@ def make_genai_metric(
                 "The definition effectively explains what MLflow is "
                 "its purpose, and its developer. It could be more concise for a 5-score.",
             ),
-            eval_args={
+            grading_context={
                 "ground_truth": (
                     "MLflow is an open-source platform for managing "
                     "the end-to-end machine learning (ML) lifecycle. It was developed by "
@@ -160,7 +163,7 @@ def make_genai_metric(
             examples=[example],
             version="v1",
             model="gateway:/gpt4",
-            eval_args=["ground_truth"],
+            grading_context_columns=["ground_truth"],
             parameters={"temperature": 1.0},
             aggregations=["mean", "variance", "p90"],
             greater_is_better=True,
@@ -177,7 +180,7 @@ def make_genai_metric(
         This is the function that is called when the metric is evaluated.
         """
 
-        eval_values = dict(zip(eval_args, args))
+        eval_values = dict(zip(grading_context_columns, args))
         class_name = f"mlflow.metrics.genai.prompts.{version}.EvaluationModel"
         try:
             evaluation_model_class_module = _get_class_from_string(class_name)
@@ -221,16 +224,16 @@ def make_genai_metric(
             indx,
             input,
             output,
-            eval_args,
+            grading_context_columns,
             eval_values,
             evaluation_context,
             eval_parameters,
             eval_model,
         ):
-            arg_string = _format_args_string(eval_args, eval_values, indx)
+            arg_string = _format_args_string(grading_context_columns, eval_values, indx)
             payload = {
                 "prompt": evaluation_context["eval_prompt"].format(
-                    input=input, output=output, eval_args=arg_string
+                    input=input, output=output, grading_context_columns=arg_string
                 ),
                 **eval_parameters,
             }
@@ -251,7 +254,7 @@ def make_genai_metric(
                     indx,
                     input,
                     output,
-                    eval_args,
+                    grading_context_columns,
                     eval_values,
                     evaluation_context,
                     eval_parameters,
@@ -300,8 +303,8 @@ def make_genai_metric(
         Parameter("inputs", Parameter.POSITIONAL_OR_KEYWORD, annotation="pd.Series"),
     ]
 
-    # Add eval_args to signature list
-    for var in eval_args:
+    # Add grading_context_columns to signature list
+    for var in grading_context_columns:
         signature_parameters.append(Parameter(var, Parameter.POSITIONAL_OR_KEYWORD))
 
     eval_fn.__signature__ = Signature(signature_parameters)

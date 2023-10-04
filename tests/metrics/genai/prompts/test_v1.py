@@ -30,14 +30,14 @@ def test_evaluation_model_output():
                 output="This is an output",
                 score=4,
                 justification="This is a justification",
-                eval_args={"ground_truth": "This is an output"},
+                grading_context={"ground_truth": "This is an output"},
             ),
             EvaluationExample(
                 input="This is an example input 2",
                 output="This is an example output 2",
                 score=4,
                 justification="This is an example justification 2",
-                eval_args={"ground_truth": "This is an output"},
+                grading_context={"ground_truth": "This is an output"},
             ),
         ],
         model="gateway:/gpt-4",
@@ -47,9 +47,9 @@ def test_evaluation_model_output():
     assert model1["model"] == "gateway:/gpt-4"
     assert model1["parameters"] == {"temperature": 1.0}
 
-    eval_args = {"ground_truth": "This is an output"}
+    grading_context = {"ground_truth": "This is an output"}
     args_string = "\n".join(
-        [f"Provided {arg}: {arg_value}" for arg, arg_value in eval_args.items()]
+        [f"Provided {arg}: {arg_value}" for arg, arg_value in grading_context.items()]
     )
     expected_prompt1 = """
     Please act as an impartial judge and evaluate the quality of the provided output which
@@ -102,7 +102,7 @@ def test_evaluation_model_output():
     Justification: [your step by step reasoning about the correctness of the output]
       """
     prompt1 = model1["eval_prompt"].format(
-        input="This is an input", output="This is an output", eval_args=args_string
+        input="This is an input", output="This is an output", grading_context_columns=args_string
     )
     assert re.sub(r"\s+", "", prompt1) == re.sub(r"\s+", "", expected_prompt1)
 
@@ -168,7 +168,7 @@ def test_evaluation_model_output():
     Justification: [your step by step reasoning about the correctness of the output]
       """
     prompt2 = model2["eval_prompt"].format(
-        input="This is an input", output="This is an output", eval_args=args_string
+        input="This is an input", output="This is an output", grading_context_columns=args_string
     )
     assert re.sub(r"\s+", "", prompt2) == re.sub(r"\s+", "", expected_prompt2)
 
@@ -208,6 +208,6 @@ def test_no_examples(examples):
     Justification: [your step by step reasoning about the correctness of the output]
       """
     prompt2 = model["eval_prompt"].format(
-        input="This is an input", output="This is an output", eval_args=args_string
+        input="This is an input", output="This is an output", grading_context_columns=args_string
     )
     assert re.sub(r"\s+", "", prompt2) == re.sub(r"\s+", "", expected_prompt2)

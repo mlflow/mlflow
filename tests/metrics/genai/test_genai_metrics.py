@@ -146,7 +146,7 @@ mlflow_example = EvaluationExample(
     score=4,
     justification="The definition effectively explains what MLflow is "
     "its purpose, and its developer. It could be more concise for a 5-score.",
-    eval_args={"ground_truth": mlflow_ground_truth},
+    grading_context={"ground_truth": mlflow_ground_truth},
 )
 
 example_grading_prompt = (
@@ -178,7 +178,7 @@ def test_make_genai_metric_correct_response():
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
-        eval_args=["ground_truth"],
+        grading_context_columns=["ground_truth"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
@@ -220,11 +220,11 @@ def test_make_genai_metric_correct_response():
                 output="example-output",
                 score=4,
                 justification="example-justification",
-                eval_args={"ground_truth": "example-ground_truth"},
+                grading_context={"ground_truth": "example-ground_truth"},
             )
         ],
         model="openai:/gpt-3.5-turbo",
-        eval_args=["ground_truth"],
+        grading_context_columns=["ground_truth"],
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
     )
@@ -270,7 +270,7 @@ def test_make_genai_metric_incorrect_response():
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
-        eval_args=["ground_truth"],
+        grading_context_columns=["ground_truth"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
@@ -304,7 +304,7 @@ def test_make_genai_metric_multiple():
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
-        eval_args=["ground_truth"],
+        grading_context_columns=["ground_truth"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
@@ -367,7 +367,7 @@ def test_make_genai_metric_failure():
         output="output",
         score=4,
         justification="justification",
-        eval_args={"ground_truth": "ground_truth"},
+        grading_context={"ground_truth": "ground_truth"},
     )
     import pandas as pd
 
@@ -378,7 +378,7 @@ def test_make_genai_metric_failure():
         grading_prompt="grading_prompt",
         examples=[example],
         model="model",
-        eval_args=["ground_truth"],
+        grading_context_columns=["ground_truth"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
         aggregations=["mean"],
@@ -409,7 +409,7 @@ def test_make_genai_metric_failure():
             grading_prompt="grading_prompt",
             examples=[example],
             model="openai:/gpt-3.5-turbo",
-            eval_args=["ground_truth"],
+            grading_context_columns=["ground_truth"],
             parameters={"temperature": 1.0},
             greater_is_better=True,
             aggregations=["random-fake"],

@@ -18,7 +18,7 @@ The following code demonstrates how to use :py:func:`mlflow.evaluate()` with a i
         score=4,
         justification="The definition effectively explains what MLflow is "
         "its purpose, and its developer. It could be more concise for a 5-score.",
-        eval_args={
+        grading_context={
             "ground_truth": "MLflow is an open-source platform for managing "
             "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
             "a company that specializes in big data and machine learning solutions. MLflow is "
