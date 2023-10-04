@@ -2652,6 +2652,9 @@ def test_constructing_eval_df_for_custom_metrics():
         }
     )
 
+    def example_custom_artifact(_, __, ___):
+        return {"test_json_artifact": {"a": 2, "b": [1, 2]}}
+
     def test_eval_df(predictions, targets, metrics, inputs, truth, context):
         global eval_df_value
         eval_df_value = pd.DataFrame(
@@ -2678,14 +2681,29 @@ def test_constructing_eval_df_for_custom_metrics():
                 "targets": ["target_a", "target_b"],
             }
         )
-        mlflow.evaluate(
+        eval_results = mlflow.evaluate(
             model_info.model_uri,
             data,
             targets="targets",
             model_type="text",
             custom_metrics=[make_metric(eval_fn=test_eval_df, greater_is_better=True)],
+            custom_artifacts=[example_custom_artifact],
             evaluators="default",
             evaluator_config={"inputs": "text"},
         )
 
     assert eval_df_value.equals(test_eval_df_value)
+    assert len(eval_results.artifacts) == 2
+    assert len(eval_results.table) == 1
+    assert eval_results.table["eval_results_table"].columns.tolist() == [
+        "text",
+        "truth",
+        "targets",
+        "outputs",
+        "latency",
+        "token_count",
+        "toxicity/v1/score",
+        "perplexity/v1/score",
+        "flesch_kincaid_grade_level/v1/score",
+        "ari_grade_level/v1/score",
+    ]
