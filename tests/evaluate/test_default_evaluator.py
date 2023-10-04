@@ -2182,8 +2182,8 @@ def test_custom_metrics_deprecated():
 
     with pytest.raises(
         MlflowException,
-        match="Parameter custom_metrics for mlflow.evaluate is deprecated. "
-        "Please use extra_metrics instead",
+        match="The 'custom_metrics' parameter in mlflow.evaluate is deprecated. Please update "
+        "your code to only use the 'extra_metrics' parameter instead.",
     ):
         with mlflow.start_run():
             mlflow.evaluate(
@@ -2204,7 +2204,11 @@ def test_custom_metrics_deprecated():
                 model_type="question-answering",
                 custom_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
             )
-        mock_warning.assert_any_call("custom_metrics parameter is deprecated.")
+        mock_warning.assert_any_call(
+            "The 'custom_metrics' parameter in mlflow.evaluate is "
+            "deprecated. Please update your code to use the "
+            "'extra_metrics' parameter instead."
+        )
 
 
 def test_evaluate_question_answering_with_targets():
