@@ -129,7 +129,7 @@ xgboost:
       pytest tests/xgboost/test_xgboost_model_export.py
 
   autologging:
-    minimum: "1.1.1"
+    minimum: "1.4.2"
     maximum: "2.0.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
