@@ -10,13 +10,16 @@ from mlflow.gateway.schemas import chat, completions, embeddings
 
 
 class AI21LabsProvider(BaseProvider):
+    allowed_models = set(["j2-ultra", "j2-mid", "j2-light"])
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, AI21LabsConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.ai21labs_config: AI21LabsConfig = config.model.config
-        self.headers = {"Authorization": f"Bearer {self.anthropic_config.anthropic_api_key}"}
+        self.headers = {"Authorization": f"Bearer {self.ai21labs_config.ai21labs_api_key}"}
         self.base_url = f"https://api.ai21.com/studio/v1/{self.config.model.name}/"
+        if (self.config.model.name not in self.allowed_models):
+            raise TypeError(f"Invalid modelName: {self.config.model.name}. Supported models for AI21Labs are {self.allowed_models}.")
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -38,12 +41,11 @@ class AI21LabsProvider(BaseProvider):
                 "Gateway.",
             )
         payload = rename_payload_keys(payload, key_mapping)
-        payload["prompt"] = {"text": payload["prompt"]}
         resp = await send_request(
             headers=self.headers,
             base_url=self.base_url,
             path='complete',
-            payload={"model": self.config.model.name, **payload},
+            payload=payload,
         )
         # Response example (https://docs.ai21.com/reference/j2-complete-ref)
         # ```

@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.providers.ai21labs import AI21LabsProvider
-from mlflow.gateway.schemas import completions, embeddings
+from mlflow.gateway.schemas import completions, embeddings, chat
 
 from tests.gateway.tools import MockAsyncResponse
 
@@ -18,17 +18,53 @@ def completions_config():
         "route_type": "llm/v1/completions",
         "model": {
             "provider": "ai21labs",
-            "name": "command",
+            "name": "j2-ultra",
+            "config": {
+                "ai21labs_api_key": "key",
+            },
+        },
+    }
+def completions_config_invalid_model():
+    return {
+        "name": "completions",
+        "route_type": "llm/v1/completions",
+        "model": {
+            "provider": "ai21labs",
+            "name": "j2",
             "config": {
                 "ai21labs_api_key": "key",
             },
         },
     }
 
+def embedding_config():
+    return {
+        "name": "embeddings",
+        "route_type": "llm/v1/embeddings",
+        "model": {
+            "provider": "ai21labs",
+            "name": "j2-ultra",
+            "config": {
+                "ai21labs_api_key": "key",
+            },
+        },
+    }
+
+def chat_config():
+    return {
+        "name": "chat",
+        "route_type": "llm/v1/chat",
+        "model": {
+            "provider": "ai21labs",
+            "name": "j2-ultra",
+            "config": {
+                "ai21labs_api_key": "key",
+            },
+        },
+    }
 
 def completions_response():
-    return
-    {
+    return {
         "id": "7921a78e-d905-c9df-27e3-88e4831e3c3b",
         "prompt": {
             "text": "This is a test"
@@ -70,32 +106,64 @@ async def test_completions():
                 "input_tokens": None,
                 "output_tokens": None,
                 "total_tokens": None,
-                "model": "command",
+                "model": "j2-ultra",
                 "route_type": "llm/v1/completions",
             },
         }
         mock_post.assert_called_once()
 
 @pytest.mark.asyncio
-async def test_param_model_is_not_permitted():
-    config = embeddings_config()
-    provider = CohereProvider(RouteConfig(**config))
+async def test_param_invalid_model_name_is_not_permitted():
+    config = completions_config_invalid_model()
+    with pytest.raises(TypeError, match=r"Invalid modelName.*") as e:
+        provider = AI21LabsProvider(RouteConfig(**config))
+
+@pytest.mark.asyncio
+async def test_param_maxTokens_is_not_permitted():
+    config = completions_config()
+    provider = AI21LabsProvider(RouteConfig(**config))
     payload = {
         "prompt": "This should fail",
-        "max_tokens": 5000,
-        "model": "something-else",
+        "maxTokens": 5000,
+    }
+    with pytest.raises(HTTPException, match=r".*") as e:
+        await provider.completions(completions.RequestPayload(**payload))
+    assert "Invalid parameter maxTokens. Use max_tokens instead." in e.value.detail
+    assert e.value.status_code == 422
+
+@pytest.mark.asyncio
+async def test_param_model_is_not_permitted():
+    config = completions_config()
+    provider = AI21LabsProvider(RouteConfig(**config))
+    payload = {
+        "prompt": "This should fail",
+        "model": "j2-light",
     }
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "The parameter 'model' is not permitted" in e.value.detail
     assert e.value.status_code == 422
 
-
-@pytest.mark.parametrize("prompt", [{"set1", "set2"}, ["list1"], [1], ["list1", "list2"], [1, 2]])
 @pytest.mark.asyncio
-async def test_completions_throws_if_prompt_contains_non_string(prompt):
-    config = completions_config()
-    provider = CohereProvider(RouteConfig(**config))
-    payload = {"prompt": prompt}
-    with pytest.raises(ValidationError, match=r"prompt"):
-        await provider.completions(completions.RequestPayload(**payload))
+async def test_chat_is_not_supported_for_ai21labs():
+    config = chat_config()
+    provider = AI21LabsProvider(RouteConfig(**config))
+    payload = {
+        "messages": [{"role": "user", "content": "J2-ultra, can you chat with me? I'm lonely."}]
+    }
+
+    with pytest.raises(HTTPException, match=r".*") as e:
+        await provider.chat(chat.RequestPayload(**payload))
+    assert "The chat route is not available for AI21Labs models" in e.value.detail
+    assert e.value.status_code == 404
+
+@pytest.mark.asyncio
+async def test_embeddings_are_not_supported_for_ai21labs():
+    config = embedding_config()
+    provider = AI21LabsProvider(RouteConfig(**config))
+    payload = {"text": "give me that sweet, sweet vector, please."}
+
+    with pytest.raises(HTTPException, match=r".*") as e:
+        await provider.embeddings(embeddings.RequestPayload(**payload))
+    assert "The embeddings route is not available for AI21Labs models" in e.value.detail
+    assert e.value.status_code == 404
