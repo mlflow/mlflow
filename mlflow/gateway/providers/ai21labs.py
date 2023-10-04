@@ -17,10 +17,11 @@ class AI21LabsProvider(BaseProvider):
         self.ai21labs_config: AI21LabsConfig = config.model.config
         self.headers = {"Authorization": f"Bearer {self.ai21labs_config.ai21labs_api_key}"}
         self.base_url = f"https://api.ai21.com/studio/v1/{self.config.model.name}/"
-        if (self.config.model.name not in self.allowed_models):
+        if self.config.model.name not in self.allowed_models:
             raise TypeError(
                 f"Invalid modelName: {self.config.model.name}.” \
-                “ Supported models for AI21Labs are {self.allowed_models}.")
+                “ Supported models for AI21Labs are {self.allowed_models}."
+            )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
