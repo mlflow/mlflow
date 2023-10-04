@@ -1,4 +1,3 @@
-import requests
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import OpenAIAPIType, OpenAIConfig, RouteConfig
@@ -176,18 +175,6 @@ class OpenAIProvider(BaseProvider):
                 },
             }
         )
-
-    def sync_completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        payload = self._prepare_completion_request_payload(payload)
-
-        # use python requests instead of aiohttp
-        resp = requests.post(
-            url=append_to_uri_path(self._request_base_url, "chat/completions"),
-            headers=self._request_headers,
-            json=self._add_model_to_payload_if_necessary(payload),
-        ).json()
-
-        return self._prepare_completion_response_payload(resp)
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         from fastapi import HTTPException
