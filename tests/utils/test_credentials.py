@@ -104,27 +104,26 @@ mlflow_tracking_password = password_file
         assert creds.password == "password_env"
 
 
-def test_mlflow_login(tmp_path):
-    with patch("builtins.input") as mock_input, patch("getpass.getpass") as mock_getpass:
-        mock_input.side_effect = ["https://community.cloud.databricks.com/", "weirdmouse"]
-        mock_getpass.side_effect = ["dummypassword"]
+def test_mlflow_login(tmp_path, monkeypatch):
+    with patch(
+        "builtins.input", side_effect=["https://community.cloud.databricks.com/", "weirdmouse"]
+    ), patch("getpass.getpass", side_effect=["dummypassword"]):
+        monkeypatch.setenv("DATABRICKS_CONFIG_FILE", f"{tmp_path}/.databrickscfg")
 
-        os.environ["DATABRICKS_CONFIG_FILE"] = f"{tmp_path}/.databrickscfg"
+        class FakeWorkspaceClient:
+            class FakeClusters:
+                def list(self):
+                    return ["cluster1"]
 
-        with patch("databricks.sdk.WorkspaceClient") as mock_workspace_client:
+            def __init__(self):
+                self.clusters = FakeWorkspaceClient.FakeClusters()
 
-            class FakeWorkspaceClient:
-                class FakeClusters:
-                    def list(self):
-                        return ["cluster1"]
-
-                def __init__(self):
-                    self.clusters = FakeWorkspaceClient.FakeClusters()
-
-            mock_workspace_client.side_effect = [
+        with patch(
+            "databricks.sdk.WorkspaceClient",
+            side_effect=[
                 MlflowException("Error"),
                 FakeWorkspaceClient(),
-            ]
-
+            ],
+        ):
             login("databricks")
     del os.environ["DATABRICKS_CONFIG_FILE"]
