@@ -148,12 +148,6 @@ class OpenAIProvider(BaseProvider):
         )
 
     def _prepare_completion_request_payload(self, payload):
-        # payload = jsonable_encoder(payload, exclude_none=True)
-        # self.check_for_model_field(payload)
-        # if "n" in payload:
-        #     raise HTTPException(
-        #         status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
-        #     )
         payload = rename_payload_keys(
             payload,
             {"candidate_count": "n"},
@@ -196,6 +190,15 @@ class OpenAIProvider(BaseProvider):
         return self._prepare_completion_response_payload(resp)
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        from fastapi import HTTPException
+        from fastapi.encoders import jsonable_encoder
+
+        payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
+        if "n" in payload:
+            raise HTTPException(
+                status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
+            )
         payload = self._prepare_completion_request_payload(payload)
 
         resp = await send_request(
