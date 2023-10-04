@@ -2170,6 +2170,43 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
         assert logged_data["answer"].tolist() == ["words random", "This is a sentence."]
 
 
+def test_custom_metrics_deprecated():
+    def dummy_fn(eval_df, metrics):
+        pass
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"question": ["a", "b"], "answer": ["a", "b"]})
+
+    with pytest.raises(
+        MlflowException,
+        match="Parameter custom_metrics for mlflow.evaluate is deprecated. "
+        "Please use extra_metrics instead",
+    ):
+        with mlflow.start_run():
+            mlflow.evaluate(
+                model_info.model_uri,
+                data,
+                targets="answer",
+                model_type="question-answering",
+                custom_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
+                extra_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
+            )
+
+    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
+        with mlflow.start_run():
+            mlflow.evaluate(
+                model_info.model_uri,
+                data,
+                targets="answer",
+                model_type="question-answering",
+                custom_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
+            )
+        mock_warning.assert_any_call("custom_metrics parameter is deprecated.")
+
+
 def test_evaluate_question_answering_with_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(

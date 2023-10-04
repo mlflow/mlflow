@@ -1556,7 +1556,8 @@ class DefaultEvaluator(ModelEvaluator):
 
         if extra_metrics and custom_metrics:
             raise MlflowException(
-                "Parameter custom_metrics is deprecated. Please only use extra_metrics instead."
+                "Parameter custom_metrics for mlflow.evaluate is deprecated. "
+                "Please use extra_metrics instead."
             )
         if custom_metrics:
             _logger.warning("custom_metrics parameter is deprecated.")
