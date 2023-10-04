@@ -2,8 +2,11 @@ import json
 import os
 import urllib.parse
 
+import requests
+
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.uri import append_to_uri_path
 
 ROUTE_TYPE = "llm/v1/completions"
 
@@ -62,7 +65,16 @@ def _call_openai_api(openai_uri, payload):
     )
     openai_provider = OpenAIProvider(route_config)
 
-    return json.loads(openai_provider.sync_completions(payload).json())
+    payload = openai_provider._prepare_completion_request_payload(payload)
+
+    # use python requests instead of aiohttp
+    resp = requests.post(
+        url=append_to_uri_path(openai_provider._request_base_url, "chat/completions"),
+        headers=openai_provider._request_headers,
+        json=openai_provider._add_model_to_payload_if_necessary(payload),
+    ).json()
+
+    return json.loads(openai_provider._prepare_completion_response_payload(resp).json())
 
 
 def _call_gateway_api(gateway_uri, payload):
