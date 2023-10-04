@@ -37,7 +37,7 @@ def _get_spark_connect_session():
         # Once Apache Spark includes the jars by default, this branch can be removed.
         # Here it uses 3.5.0 as a workaround until then as Spark Connect should be compatible
         # with lower versions in any event.
-        builder.config("spark.jars.packages", "org.apache.spark:spark-connect_2.12:3.5.0")
+        builder.config("spark.jars", os.environ["SPARK_JARS"])
     return builder.getOrCreate()
 
 
