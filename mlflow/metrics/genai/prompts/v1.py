@@ -102,7 +102,7 @@ class CorrectnessMetric:
         "provided in the ground truth answer."
     )
 
-    grading_context_columns = ["ground_truth"]
+    grading_context_columns = ["targets"]
     parameters = default_parameters
     default_model = default_model
 
@@ -117,7 +117,7 @@ class CorrectnessMetric:
         "data scientists and machine learning engineers. Therefore, it answers one aspect of the "
         "question but is missing several critical aspects provided in the ground truth.",
         grading_context={
-            "ground_truth": "MLflow is an open-source platform for managing the end-to-end "
+            "targets": "MLflow is an open-source platform for managing the end-to-end "
             "machine learning (ML) lifecycle. It was developed by Databricks, a company "
             "that specializes in big data and machine learning solutions. MLflow is "
             "designed to address the challenges that data scientists and machine learning "
@@ -135,7 +135,7 @@ class CorrectnessMetric:
         justification="The output effectively explains what MLflow is and its purpose. "
         "Information about the developer of MLflow could be included for a 5-score.",
         grading_context={
-            "ground_truth": "MLflow is an open-source platform for managing the end-to-end "
+            "targets": "MLflow is an open-source platform for managing the end-to-end "
             "machine learning (ML) lifecycle. It was developed by Databricks, a company "
             "that specializes in big data and machine learning solutions. MLflow is "
             "designed to address the challenges that data scientists and machine learning "
@@ -229,7 +229,7 @@ class StrictCorrectnessMetric:
         "- Score 1: the output answers the question correctly as provided in the ground truth."
     )
 
-    grading_context_columns = ["ground_truth"]
+    grading_context_columns = ["targets"]
     parameters = default_parameters
     default_model = default_model
 
@@ -242,7 +242,7 @@ class StrictCorrectnessMetric:
         "open-source platform. This directly opposes the ground truth, resulting in a score of 0 "
         "for strict correctness.",
         grading_context={
-            "ground_truth": "MLflow is an open-source platform for managing the end-to-end machine "
+            "targets": "MLflow is an open-source platform for managing the end-to-end machine "
             "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
             "in big data and machine learning solutions. MLflow is designed to address the "
             "challenges that data scientists and machine learning engineers face when developing, "
@@ -258,7 +258,7 @@ class StrictCorrectnessMetric:
         "with the provided context. It accurately reflects the ground truth information, earning "
         "a score of 1 for strict correctness.",
         grading_context={
-            "ground_truth": "MLflow is an open-source platform for managing the end-to-end machine "
+            "targets": "MLflow is an open-source platform for managing the end-to-end machine "
             "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
             "in big data and machine learning solutions. MLflow is designed to address the "
             "challenges that data scientists and machine learning engineers face when developing, "
