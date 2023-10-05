@@ -519,8 +519,7 @@ def test_langchain_context(tmp_path):
 
     # Serve the chain
     inference_payload = json.dumps({"inputs": langchain_input})
-    langchain_output = [{loaded_model.output_key: TEST_CONTENT}]
-    langchain_output_serving = {"predictions": langchain_output}
+    langchain_output_serving = {"predictions": [TEST_CONTENT]}
 
     response = pyfunc_serve_and_score_model(
         logged_model.model_uri,
