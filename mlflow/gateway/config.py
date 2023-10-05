@@ -21,9 +21,9 @@ from mlflow.gateway.constants import (
 )
 from mlflow.gateway.utils import (
     check_configuration_route_name_collisions,
+    is_valid_ai21labs_model,
     is_valid_endpoint_name,
     is_valid_mosiacml_chat_model,
-    is_valid_ai21labs_model,
 )
 
 _logger = logging.getLogger(__name__)
@@ -311,7 +311,7 @@ class RouteConfig(ConfigModel):
                 f"Ensure the model selected starts with one of: "
                 f"{MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES}"
             )
-        if (model and model.provider == "ai21labs" and not is_valid_ai21labs_model(model.name)):
+        if model and model.provider == "ai21labs" and not is_valid_ai21labs_model(model.name):
             raise MlflowException.invalid_parameter_value(
                 f"An Unsupported AI21Labs model has been specified: '{model.name}'. "
                 f"Please see documentation for supported models."

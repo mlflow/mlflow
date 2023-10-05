@@ -178,5 +178,6 @@ def is_valid_mosiacml_chat_model(model_name: str) -> bool:
         for supported in MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES
     )
 
+
 def is_valid_ai21labs_model(model_name: str) -> bool:
-    return model_name in set(["j2-ultra", "j2-mid", "j2-light"])
+    return model_name in {"j2-ultra", "j2-mid", "j2-light"}

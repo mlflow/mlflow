@@ -4,10 +4,10 @@ import pytest
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
+from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.providers.ai21labs import AI21LabsProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
-from mlflow.exceptions import MlflowException
 
 from tests.gateway.tools import MockAsyncResponse
 
