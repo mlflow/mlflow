@@ -37,3 +37,4 @@ textstat
 # Required by progress bar tests
 ipywidgets
 tqdm
+databricks-sdk
