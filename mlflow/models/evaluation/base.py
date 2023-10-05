@@ -9,6 +9,7 @@ import signal
 import struct
 import sys
 import urllib
+import urllib.parse
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from contextlib import contextmanager
@@ -31,7 +32,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import _get_fully_qualified_class_name
-from mlflow.utils.annotations import developer_stable
+from mlflow.utils.annotations import developer_stable, experimental
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
@@ -262,10 +263,15 @@ class EvaluationResult:
     both scalar metrics and output artifacts such as performance plots.
     """
 
-    def __init__(self, metrics, artifacts, baseline_model_metrics=None):
+    def __init__(self, metrics, artifacts, baseline_model_metrics=None, run_id=None):
         self._metrics = metrics
         self._artifacts = artifacts
         self._baseline_model_metrics = baseline_model_metrics if baseline_model_metrics else {}
+        self._run_id = (
+            run_id
+            if run_id is not None
+            else (mlflow.active_run().info.run_id if mlflow.active_run() is not None else None)
+        )
 
     @classmethod
     def load(cls, path):
@@ -334,6 +340,28 @@ class EvaluationResult:
         A dictionary mapping scalar metric names to scalar metric values for the baseline model
         """
         return self._baseline_model_metrics
+
+    @experimental
+    @property
+    def table(self) -> Dict[str, "pd.DataFrame"]:
+        """
+        A dictionary mapping standardized artifact names (e.g. "eval_results_table") to
+        corresponding table content as pandas DataFrame.
+        """
+        eval_table = {}
+        if self._run_id is None:
+            _logger.warning("Cannot load eval_results_table because run_id is not specified.")
+            return eval_table
+
+        for table_name, table_path in self._artifacts.items():
+            path = urllib.parse.urlparse(table_path.uri).path
+            table_fileName = os.path.basename(path)
+            try:
+                eval_table[table_name] = mlflow.load_table(table_fileName, run_ids=[self._run_id])
+            except Exception:
+                pass  # Swallow the exception since we assume its not a table.
+
+        return eval_table
 
 
 _cached_mlflow_client = None
@@ -1051,7 +1079,7 @@ def _evaluate(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    merged_eval_result = EvaluationResult({}, {}, {})
+    merged_eval_result = EvaluationResult({}, {}, {}, None)
 
     for eval_result in eval_results:
         if not eval_result:

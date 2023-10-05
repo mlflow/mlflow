@@ -1128,7 +1128,7 @@ class DefaultEvaluator(ModelEvaluator):
 
             # Rest are all parameters are args that are used to compute the metric.
             for param_name, param in parameters.items():
-                column = self.evaluator_config.get(param_name, param_name)
+                column = self.col_mapping.get(param_name, param_name)
                 if not isinstance(column, str):
                     eval_fn_args.append(column)
                 if column in input_df.columns:
@@ -1527,7 +1527,9 @@ class DefaultEvaluator(ModelEvaluator):
                     self._log_artifacts()
                     self._log_metrics()
                     self._log_eval_table()
-                return EvaluationResult(metrics=self.metrics, artifacts=self.artifacts)
+                return EvaluationResult(
+                    metrics=self.metrics, artifacts=self.artifacts, run_id=self.run_id
+                )
 
     def evaluate(
         self,
@@ -1551,6 +1553,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         self.custom_artifacts = custom_artifacts
         self.y = dataset.labels_data
+        self.col_mapping = self.evaluator_config.get("col_mapping")
         self.pos_label = self.evaluator_config.get("pos_label")
         self.sample_weights = self.evaluator_config.get("sample_weights")
 
@@ -1594,6 +1597,7 @@ class DefaultEvaluator(ModelEvaluator):
             metrics=evaluation_result.metrics,
             artifacts=evaluation_result.artifacts,
             baseline_model_metrics=baseline_evaluation_result.metrics,
+            run_id=self.run_id,
         )
 
     @property

@@ -6,9 +6,11 @@ from mlflow.metrics.genai.genai_metric import make_genai_metric
 from mlflow.metrics.genai.utils import _get_latest_metric_version
 from mlflow.models import EvaluationMetric
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
+from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
 
 
+@experimental
 def correctness(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
@@ -19,7 +21,7 @@ def correctness(
     model provided. Correctness will be assessed by the similarity in meaning and description to
     the ground truth.
 
-    The ground_truth variable must be provided as part of the input dataset or output predictions.
+    The ground_truth eval_arg must be provided as part of the input dataset or output predictions.
     This can be mapped to a column of a different name using the evaluator_config.
 
     An MlflowException will be raised if the specified version for this metric does not exist.
@@ -61,13 +63,14 @@ def correctness(
         examples=examples,
         version=metric_version,
         model=model,
-        variables=correctness_class_module.variables,
+        grading_context_columns=correctness_class_module.grading_context_columns,
         parameters=correctness_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
     )
 
 
+@experimental
 def strict_correctness(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
@@ -82,7 +85,7 @@ def strict_correctness(
     or when considering other factors such as the comprehensiveness of the output, it is more
     appropriate to use the correctness metric instead.
 
-    The ground_truth variable must be provided as part of the input dataset or output predictions.
+    The ground_truth eval_arg must be provided as part of the input dataset or output predictions.
     This can be mapped to a column of a different name using the evaluator_config.
 
     An MlflowException will be raised if the specified version for this metric does not exist.
@@ -124,13 +127,14 @@ def strict_correctness(
         examples=examples,
         version=metric_version,
         model=model,
-        variables=strict_correctness_class_module.variables,
+        grading_context_columns=strict_correctness_class_module.grading_context_columns,
         parameters=strict_correctness_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
     )
 
 
+@experimental
 def relevance(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
@@ -141,7 +145,7 @@ def relevance(
     model provided. Relevance will be assessed by the appropriateness, significance, and
     applicability of the output with respect to the input and context.
 
-    The context variable must be provided as part of the input dataset or output predictions.
+    The context eval_arg must be provided as part of the input dataset or output predictions.
     This can be mapped to a column of a different name using the evaluator_config.
 
     An MlflowException will be raised if the specified version for this metric does not exist.
@@ -183,7 +187,7 @@ def relevance(
         examples=examples,
         version=metric_version,
         model=model,
-        variables=relevance_class_module.variables,
+        grading_context_columns=relevance_class_module.grading_context_columns,
         parameters=relevance_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
