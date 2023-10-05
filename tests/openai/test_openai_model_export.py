@@ -338,7 +338,6 @@ def test_prompt_no_variable(tmp_path):
         model="text-davinci-003",
         task=openai.Completion,
         path=tmp_path,
-        suffix="Say ",
     )
 
     model = mlflow.pyfunc.load_model(tmp_path)

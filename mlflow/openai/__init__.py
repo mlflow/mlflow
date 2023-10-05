@@ -573,7 +573,7 @@ def _load_model(path):
 
 
 def _has_content_and_role(d):
-    return "content" in d and "role" in d
+    return isinstance(d, Dict) and "content" in d and "role" in d
 
 
 class _ContentFormatter:
@@ -583,7 +583,7 @@ class _ContentFormatter:
                 template = "{prompt}"
             if not isinstance(template, str):
                 raise mlflow.MlflowException.invalid_parameter_value(
-                    f"Type {type(template)} is not a valid type for template of task {type}."
+                    f"Template for task {type} expects type `str`, but got {type(template)}."
                 )
 
             self.template = template
@@ -592,9 +592,10 @@ class _ContentFormatter:
         elif type == "chat.completions":
             if not template:
                 template = [{"role": "user", "content": "{content}"}]
-            if not all(isinstance(message, Dict) for message in template):
+            if not all(_has_content_and_role(message) for message in template):
                 raise mlflow.MlflowException.invalid_parameter_value(
-                    f"Type {type(template)} is not a valid type for template of task {type}."
+                    f"Template for task {type} expects type `dict` with keys 'content' "
+                    f"and 'role', but got {type(template)}."
                 )
 
             self.template = template.copy()
