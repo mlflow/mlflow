@@ -3,6 +3,7 @@ import os
 import pytest
 
 import mlflow
+from mlflow.models import Model
 
 
 @pytest.fixture
@@ -17,6 +18,10 @@ def model_config():
         "temperature": 0.9,
         "timeout": 300,
     }
+
+
+def _load_pyfunc(path):
+    return TestModel()
 
 
 class TestModel(mlflow.pyfunc.PythonModel):
@@ -71,3 +76,18 @@ def test_pyfunc_without_model_config(model_path, model_config):
 
     assert loaded_model.predict([[5]])
     assert not loaded_model.model_config
+
+
+def test_pyfunc_loader_without_model_config(model_path):
+    mlflow.pyfunc.save_model(
+        path=model_path,
+        data_path=".",
+        loader_module=__name__,
+        code_path=[__file__],
+        mlflow_model=Model(run_id="test", artifact_path="testtest"),
+    )
+
+    inference_override = {"invalid_key": 400}
+    pyfunc_model = mlflow.pyfunc.load_model(model_path, model_config=inference_override)
+
+    assert not pyfunc_model.model_config
