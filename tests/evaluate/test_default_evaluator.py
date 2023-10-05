@@ -2684,7 +2684,7 @@ def test_constructing_eval_df_for_custom_metrics():
             custom_metrics=[make_metric(eval_fn=test_eval_df, greater_is_better=True)],
             custom_artifacts=[example_custom_artifact],
             evaluators="default",
-            evaluator_config={"inputs": "text"},
+            evaluator_config={"col_mapping": {"inputs": "text"}},
         )
 
     assert eval_df_value.equals(test_eval_df_value)
