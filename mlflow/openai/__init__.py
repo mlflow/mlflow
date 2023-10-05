@@ -30,7 +30,7 @@ import logging
 import os
 from enum import Enum
 from string import Formatter
-from typing import Any, Dict, NamedTuple, Optional
+from typing import Any, Dict, NamedTuple, Optional, Set
 
 import yaml
 
@@ -73,7 +73,7 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "openai"
 MODEL_FILENAME = "model.yaml"
-_PYFUNC_SUPPORTED_TASKS = ("chat.completions", "embeddings")
+_PYFUNC_SUPPORTED_TASKS = ("chat.completions", "embeddings", "completions")
 
 _logger = logging.getLogger(__name__)
 
@@ -234,31 +234,17 @@ def _log_secrets_yaml(local_model_dir, scope):
         yaml.safe_dump({e.value: f"{scope}:{e.secret_key}" for e in _OpenAIEnvVar}, f)
 
 
-def _parse_format_fields(s):
+def _parse_format_fields(s) -> Set[str]:
     """
     Parses format fields from a given string, e.g. "Hello {name}" -> ["name"].
     """
-    return [fn for _, fn, _, _ in Formatter().parse(s) if fn is not None]
+    return {fn for _, fn, _, _ in Formatter().parse(s) if fn is not None}
 
 
-def _parse_variables(messages):
-    """
-    Parses variables from a list of messages for chat completion task. For example, if
-    messages = [{"content": "{x}", ...}, {"content": "{y}", ...}], then _parse_variables(messages)
-    returns ["x", "y"].
-    """
-    return sorted(
-        set(
-            itertools.chain.from_iterable(
-                _parse_format_fields(message.get("content")) for message in messages
-            )
-        )
-    )
-
-
-def _get_input_schema(messages):
-    if messages:
-        variables = _parse_variables(messages)
+def _get_input_schema(task, content):
+    if content:
+        formatter = _ContentFormatter(task, content)
+        variables = formatter.variables
         if len(variables) == 1:
             return Schema([ColSpec(type="string")])
         elif len(variables) > 1:
@@ -342,6 +328,14 @@ def save_model(
             path="model",
         )
 
+        # Completions
+        mlflow.openai.save_model(
+            model="text-davinci-002",
+            task=openai.Completion,
+            prompt="{text}. The general sentiment of the text is",
+            path="model",
+        )
+
         # Embeddings
         mlflow.openai.save_model(
             model="text-embedding-ada-002",
@@ -373,7 +367,13 @@ def save_model(
             )
 
         mlflow_model.signature = ModelSignature(
-            inputs=_get_input_schema(messages),
+            inputs=_get_input_schema(task, messages),
+            outputs=Schema([ColSpec(type="string", name=None)]),
+        )
+    elif task == "completions":
+        prompt = kwargs.get("prompt", None)
+        mlflow_model.signature = ModelSignature(
+            inputs=_get_input_schema(task, prompt),
             outputs=Schema([ColSpec(type="string", name=None)]),
         )
     elif task == "embeddings":
@@ -576,11 +576,45 @@ def _has_content_and_role(d):
     return "content" in d and "role" in d
 
 
-class _FormattableMessage:
-    def __init__(self, message):
-        self.content = message.get("content")
-        self.role = message.get("role")
-        self.variables = _parse_format_fields(self.content)
+class _ContentFormatter:
+    def __init__(self, type, template=None):
+        if type == "completions":
+            if not template:
+                template = "{prompt}"
+            if not isinstance(template, str):
+                raise mlflow.MlflowException.invalid_parameter_value(
+                    f"Type {type(template)} is not a valid type for template of task {type}."
+                )
+
+            self.template = template
+            self.format_fn = self.format_prompt
+            self.variables = _parse_format_fields(self.template)
+        elif type == "chat.completions":
+            if not template:
+                template = [{"role": "user", "content": "{content}"}]
+            if not all(isinstance(message, Dict) for message in template):
+                raise mlflow.MlflowException.invalid_parameter_value(
+                    f"Type {type(template)} is not a valid type for template of task {type}."
+                )
+
+            self.template = template
+            self.format_fn = self.format_chat
+            self.variables = sorted(
+                set(
+                    itertools.chain.from_iterable(
+                        _parse_format_fields(message.get("content"))
+                        + _parse_format_fields(message.get("role"))
+                        for message in template
+                    )
+                )
+            )
+            if not self.variables:
+                self.template.append({"role": "user", "content": "{content}"})
+                self.variables = "content"
+        else:
+            raise mlflow.MlflowException.invalid_parameter_value(
+                f"Task type ``{type}`` is not supported for formatting."
+            )
 
     def format(self, **params):
         if missing_params := set(self.variables) - set(params):
@@ -588,10 +622,20 @@ class _FormattableMessage:
                 f"Expected parameters {self.variables} to be provided, "
                 f"only got {list(params)}, {list(missing_params)} are missing."
             )
-        return {
-            "role": self.role,
-            "content": self.content.format(**{v: params[v] for v in self.variables}),
-        }
+        return self.format_fn(**params)
+
+    def format_prompt(self, **params):
+        return self.template.format(**{v: params[v] for v in self.variables})
+
+    def format_chat(self, **params):
+        format_args = {v: params[v] for v in self.variables}
+        return [
+            {
+                "role": message.get("role").format(**format_args),
+                "content": message.get("content").format(**format_args),
+            }
+            for message in self.template
+        ]
 
 
 def _first_string_column(pdf):
@@ -606,7 +650,7 @@ def _first_string_column(pdf):
 
 class _OpenAIWrapper:
     def __init__(self, model):
-        task = model["task"]
+        task = model.pop("task")
         if task not in _PYFUNC_SUPPORTED_TASKS:
             raise mlflow.MlflowException.invalid_parameter_value(
                 f"Unsupported task: {task}. Supported tasks: {_PYFUNC_SUPPORTED_TASKS}."
@@ -616,53 +660,37 @@ class _OpenAIWrapper:
         self.api_config = _get_api_config()
         self.api_token = _OAITokenHolder(self.api_config.api_type)
 
-        self.messages = None
-        self.variables = None
-        self.formattable_messages = None
+        if self.task != "embeddings":
+            self._setup_completions()
+
+    def _setup_completions(self):
         if self.task == "chat.completions":
-            self._setup_chat()
+            self.template = self.model.get("messages", [])
+        else:
+            self.template = self.model.get("prompt", None)
+        self.formater = _ContentFormatter(self.task, self.template)
 
-    def _setup_chat(self):
-        self.messages = self.model.get("messages", [])
-        self.variables = _parse_variables(self.messages)
-        self.formattable_messages = [_FormattableMessage(m) for m in self.messages]
-
-    def format_messages(self, params_list):
-        return [[m.format(**params) for m in self.formattable_messages] for params in params_list]
+    def format_completions(self, params_list):
+        return [self.formater.format(**params) for params in params_list]
 
     def get_params_list(self, data):
-        if len(self.variables) == 1:
-            variable = self.variables[0]
+        if len(self.formater.variables) == 1:
+            variable = self.formater.variables[0]
             if variable in data.columns:
                 return data[[variable]].to_dict(orient="records")
             else:
                 first_string_column = _first_string_column(data)
                 return [{variable: s} for s in data[first_string_column]]
         else:
-            return data[self.variables].to_dict(orient="records")
+            return data[self.formater.variables].to_dict(orient="records")
 
     def _predict_chat(self, data):
         import openai
 
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
-        if self.variables:
-            messages_list = self.format_messages(self.get_params_list(data))
-        else:
-            first_string_column = _first_string_column(data)
-            messages_list = [
-                [*self.messages, {"role": "user", "content": s}] for s in data[first_string_column]
-            ]
-
-        model_dict = self.model.copy()
-        model_dict.pop("task", None)
-        requests = [
-            {
-                **model_dict,
-                "messages": messages,
-            }
-            for messages in messages_list
-        ]
+        messages_list = self.format_completions(self.get_params_list(data))
+        requests = [{**self.model, "messages": messages} for messages in messages_list]
         results = process_api_requests(
             requests,
             openai.ChatCompletion,
@@ -672,23 +700,45 @@ class _OpenAIWrapper:
         )
         return [r["choices"][0]["message"]["content"] for r in results]
 
+    def _predict_completions(self, data):
+        import openai
+
+        from mlflow.openai.api_request_parallel_processor import process_api_requests
+
+        prompts_list = self.format_completions(self.get_params_list(data))
+
+        batch_size = self.api_config.batch_size
+        _logger.debug(f"Requests are being batched by {batch_size} samples.")
+        requests = [
+            {
+                **self.model,
+                "prompt": prompts_list[i : i + batch_size],
+            }
+            for i in range(0, len(prompts_list), batch_size)
+        ]
+        results = process_api_requests(
+            requests,
+            openai.Completion,
+            api_token=self.api_token,
+            max_requests_per_minute=self.api_config.max_requests_per_minute,
+            max_tokens_per_minute=self.api_config.max_tokens_per_minute,
+        )
+        return [row["text"] for batch in results for row in batch["choices"]]
+
     def _predict_embeddings(self, data):
         import openai
 
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
-        kwargs = self.model.copy()
-        kwargs.pop("task", None)
+        batch_size = self.api_config.batch_size
+        _logger.debug(f"Requests are being batched by {batch_size} samples.")
+
         first_string_column = _first_string_column(data)
         texts = data[first_string_column].tolist()
-        batch_size = self.api_config.batch_size
-        _logger.debug(
-            f"Requests are being batched by {batch_size} samples. Change this by using parameters."
-        )
         requests = [
             {
+                **self.model,
                 "input": texts[i : i + batch_size],
-                **kwargs,
             }
             for i in range(0, len(texts), batch_size)
         ]
@@ -715,9 +765,10 @@ class _OpenAIWrapper:
         """
 
         self.api_token.validate()
-
         if self.task == "chat.completions":
             return self._predict_chat(data)
+        elif self.task == "completions":
+            return self._predict_completions(data)
         elif self.task == "embeddings":
             return self._predict_embeddings(data)
 
