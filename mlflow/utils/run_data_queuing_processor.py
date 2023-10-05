@@ -1,233 +1,103 @@
 """
-Defines an MlflowAutologgingQueueingClient developer API that provides batching, queueing, and
-asynchronous execution capabilities for a subset of MLflow Tracking logging operations used most
-frequently by autologging operations.
-
-TODO(dbczumar): Migrate request batching, queueing, and async execution support from
-MlflowAutologgingQueueingClient to MlflowClient in order to provide broader benefits to end users.
-Remove this developer API.
+Defines an RunDataQueuingProcessor that provides batching, queueing, and
+asynchronous execution capabilities for a subset of MLflow Tracking logging operations
+ log_metrics/log_params/set_tags
 """
 
 import atexit
 import logging
 import threading
 import time
-from collections import deque, namedtuple
 from concurrent.futures import ThreadPoolExecutor
 
-from mlflow.entities import Metric, Param, RunTag
-from mlflow.utils.validation import (
-    MAX_METRICS_PER_BATCH,
-    MAX_PARAM_VAL_LENGTH,
-    MAX_TAG_VAL_LENGTH,
-)
+from mlflow.utils.pending_run_batches import PendingRunBatches, RunBatch
 
 _logger = logging.getLogger(__name__)
-
-_PendingCreateRun = namedtuple(
-    "_PendingCreateRun", ["experiment_id", "start_time", "tags", "run_name"]
-)
-_PendingSetTerminated = namedtuple("_PendingSetTerminated", ["status", "end_time"])
 
 # Keeping max_workers=1 so that there are no two threads
 _RUN_DATA_LOGGING_THREADPOOL = ThreadPoolExecutor(max_workers=1)
 
 
-class Item:
-    def __init__(self, id, value) -> None:
-        self.id = id
-        self.value = value
-        self.item_type = type(value).__name__
-
-
-class RunItems:
-    def __init__(self, run_id) -> None:
-        self.run_id = run_id
-        self.params = deque()
-        self.tags = deque()
-        self.metrics = deque()
-        self.enqueue_id = 0
-        self.lock = threading.Lock()
-
-    def _get_next_id(self):
-        self.lock.acquire()
-        next_id = self.enqueue_id + 1
-        self.enqueue_id = next_id
-        self.lock.release()
-        return next_id
-
-    def append(self, value):
-        if isinstance(value, Metric):
-            metric_item = Item(id=self._get_next_id(), value=value)
-            self.metrics.append(metric_item)
-            return metric_item.id
-        elif isinstance(value, RunTag):
-            tag_item = Item(id=self._get_next_id(), value=value)
-            self.tags.append(tag_item)
-            return tag_item.id
-        elif isinstance(value, Param):
-            param_item = Item(id=self._get_next_id(), value=value)
-            self.params.append(param_item)
-            return param_item.id
-        else:
-            raise Exception("Invalid data type specified")
-
-    def get_next_batch(
-        self,
-        max_tags=MAX_TAG_VAL_LENGTH,
-        max_params=MAX_PARAM_VAL_LENGTH,
-        max_metrics=MAX_METRICS_PER_BATCH,
-    ):
-        param_count = 0
-        params_batch = []
-        while len(self.params) > 0 and param_count + 1 <= max_params:
-            params_batch.append(self.params.popleft())
-
-        tag_count = 0
-        tags_batch = []
-        while len(self.tags) > 0 and tag_count + 1 <= max_tags:
-            tags_batch.append(self.tags.popleft())
-
-        metric_count = 0
-        max_metrics = MAX_METRICS_PER_BATCH - param_count - tag_count
-        metrics_batch = []
-        while len(self.metrics) > 0 and metric_count + 1 <= max_metrics:
-            metrics_batch.append(self.metrics.popleft())
-
-        return (params_batch, tags_batch, metrics_batch)
-
-
 class RunDataQueuingProcessor:
     """
-    Efficiently implements a subset of MLflow Tracking's  `MlflowClient` and fluent APIs to provide
-    automatic batching and async execution of run operations by way of queueing, as well as
-    parameter / tag truncation for autologging use cases. Run operations defined by this client,
-    such as `create_run` and `log_metrics`, enqueue data for future persistence to MLflow
-    Tracking. Data is not persisted until the queue is flushed via the `flush()` method, which
-    supports synchronous and asynchronous execution.
-
-    MlflowAutologgingQueueingClient is not threadsafe; none of its APIs should be called
-    concurrently.
+    This is a queue based run data processor that queues incoming batches and processes them using
+    single worker thread.
     """
 
     def __init__(self, processing_func):
-        self._pending_ops_by_run_id = {}
-        self._pending_items = {}
+        self._running_runs = {}  # Dict[str, PendingRunBatches]
         self._processing_func = processing_func
         self._lock = threading.Lock()
-        self.run_log_thread_alive = True
-        self.run_log_thread = _RUN_DATA_LOGGING_THREADPOOL.submit(
+        self.continue_to_process_data = True
+        self.run_data_process_thread = _RUN_DATA_LOGGING_THREADPOOL.submit(
             self._log_run_data
         )  # concurrent.futures.Future[self._log_run_data]
 
-        atexit.register(self._process_at_exit)
-        self.current_watermark = -1
+        atexit.register(self._at_exit_callback)
+        self.processed_watermark = -1
 
-    def _add_run_deque(self, run_id):
+    def _add_run(self, run_id) -> PendingRunBatches:
         self._lock.acquire()
-        if not self._pending_items.get(run_id, None):
-            self._pending_items[run_id] = RunItems(run_id=run_id)
+        if not self._running_runs.get(run_id, None):
+            self._running_runs[run_id] = PendingRunBatches(run_id=run_id)
         self._lock.release()
+        return self._running_runs[run_id]
 
-    def _process_at_exit(self):
-        _logger.info("Inside RunDataQueuingProcessor._process_at_exit")
-        self._lock.acquire()
-        self.run_log_thread_alive = False
-        self._lock.release()
+    def _has_more_data_to_process(self) -> bool:
+        for _, pending_batches in self._running_runs.items():
+            if not pending_batches.is_empty():
+                return True
+        return False
+
+    def _at_exit_callback(self):
         try:
-            self.run_log_thread.result(timeout=10)
+            # Stop the data processing thread
+            self.continue_to_process_data = False
+            # need better way to decide this timeout
+            self.run_data_process_thread.result(timeout=60)
+            _RUN_DATA_LOGGING_THREADPOOL.shutdown(wait=True)
         except Exception as e:
-            _logger.error(f"Error while waiting for run data log thread to finish: {e}")
-
-        self._process_run_data()
+            _logger.error(f"Error while callback from atexit in _process_at_exit: {e}")
 
     def _log_run_data(self):
         try:
-            while self.run_log_thread_alive:
+            while self.continue_to_process_data or self._has_more_data_to_process():
                 self._process_run_data()
                 time.sleep(5)
         except Exception as e:
-            _logger.error(e)
+            _logger.error(f"Exception inside the thread: {e}")
             raise
 
     def _process_run_data(self):
-        for run_id, pending_items in self._pending_items.items():
-            (params, tags, metrics) = pending_items.get_next_batch()
-            params_arr = [p.value for p in params]
-            tags_arr = [p.value for p in tags]
-            metrics_arr = [p.value for p in metrics]
+        for run_id, pending_items in self._running_runs.items():
+            (yet_to_process_watermark, params, tags, metrics) = pending_items.get_next_batch(
+                max_tags=100, max_metrics=250, max_params=200
+            )  # need to get these values from env variable etc.
 
             while len(params) > 0 or len(tags) > 0 or len(metrics) > 0:
                 try:
-                    self._processing_func(
-                        run_id=run_id, metrics=metrics_arr, params=params_arr, tags=tags_arr
-                    )
+                    self._processing_func(run_id=run_id, metrics=metrics, params=params, tags=tags)
 
-                    max_params_id = 0 if len(params) == 0 else params[-1].id
-                    max_tags_id = 0 if len(tags) == 0 else tags[-1].id
-                    max_metrics_id = 0 if len(metrics) == 0 else metrics[-1].id
-                    self.current_watermark = max(max_metrics_id, max(max_params_id, max_tags_id))
-                    _logger.info(f"run_id: {run_id}, Processed watermark: {self.current_watermark}")
-                    time.sleep(5)
+                    self.processed_watermark = yet_to_process_watermark
+                    _logger.info(
+                        f"run_id: {run_id}, Processed watermark: {self.processed_watermark}"
+                    )
                     # get next batch
-                    (params, tags, metrics) = pending_items.get_next_batch()
+                    (
+                        yet_to_process_watermark,
+                        params,
+                        tags,
+                        metrics,
+                    ) = pending_items.get_next_batch(max_tags=100, max_metrics=250, max_params=200)
                 except Exception as e:
                     _logger.error(e)
                     raise
 
     def log_batch_async(self, run_id, params, tags, metrics):
-        if not self._pending_items.get(run_id, None):
-            self._add_run_deque(run_id=run_id)
+        pending_run_batches = self._running_runs.get(run_id, None)
+        if not pending_run_batches:
+            pending_run_batches = self._add_run(run_id=run_id)
 
-        param_enqueue_id = self._log_params(run_id=run_id, params=params)
-        tag_enqueue_id = self._set_tags(run_id=run_id, tags=tags)
-        metric_enqueue_id = self._log_metrics(run_id=run_id, metrics=metrics)
-        max_enqueue_id = max(param_enqueue_id, max(tag_enqueue_id, metric_enqueue_id))
-        _logger.info(f"Enqueued watermark: {max_enqueue_id}")
-
-    def _log_params(self, run_id: str, params: [Param]) -> None:
-        """
-        Enqueues a collection of Parameters to be logged to the run specified by `run_id`.
-        """
-        if not params or len(params) == 0:
-            return -1
-
-        run_items = self._pending_items.get(run_id)
-        assert run_items, "No deque found for specified run_id"
-
-        enqueued_id = -1
-        for param in params:
-            enqueued_id = run_items.append(param)
-
-        return enqueued_id
-
-    def _log_metrics(self, run_id: str, metrics: [Metric]) -> None:
-        """
-        Enqueues a collection of Metrics to be logged to the run specified by `run_id` at the
-        step specified by `step`.
-        """
-        if not metrics or len(metrics) == 0:
-            return -1
-
-        run_items = self._pending_items.get(run_id)
-        assert run_items, "No deque found for specified run_id"
-
-        enqueued_id = -1
-        for metric in metrics:
-            enqueued_id = run_items.append(metric)
-
-        return enqueued_id
-
-    def _set_tags(self, run_id: str, tags: [RunTag]) -> None:
-        """
-        Enqueues a collection of Tags to be logged to the run specified by `run_id`.
-        """
-        if not tags or len(tags) == 0:
-            return -1
-
-        run_items = self._pending_items.get(run_id)
-        assert run_items, "No deque found for specified run_id"
-        enqueued_id = -1
-        for tag in tags:
-            enqueued_id = run_items.append(tag)
-        return enqueued_id
+        batch = RunBatch(params=params, tags=tags, metrics=metrics)
+        enqueue_id = pending_run_batches.append(batch)
+        _logger.info(f"Enqueued watermark: {enqueue_id}")
