@@ -465,6 +465,7 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
         PredictionsResponse.from_json(response.content.decode("utf-8")) == langchain_output_serving
     )
 
+
 @pytest.mark.skipif(
     version.parse(langchain.__version__) < version.parse("0.0.194"),
     reason="Saving RetrievalQA chains requires langchain>=0.0.194",
@@ -481,9 +482,7 @@ def test_langchain_context(tmp_path):
     db.save_local(persist_dir)
 
     # Create the RetrievalQA chain
-    retrievalQA = RetrievalQA.from_llm(
-        llm=OpenAI(), retriever=db.as_retriever()
-    )
+    retrievalQA = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
 
     # Log the RetrievalQA chain
     def load_retriever(persist_directory):
@@ -509,7 +508,11 @@ def test_langchain_context(tmp_path):
     loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     langchain_input = {"query": "What did the president say about Ketanji Brown Jackson"}
     langchain_output = [
-        {loaded_model.output_key: TEST_CONTENT, "source_documents": TEST_SOURCE_DOCUMENTS, "context": TEST_SOURCE_DOCUMENTS}
+        {
+            loaded_model.output_key: TEST_CONTENT,
+            "source_documents": TEST_SOURCE_DOCUMENTS,
+            "context": TEST_SOURCE_DOCUMENTS,
+        }
     ]
     result = loaded_pyfunc_model.predict([langchain_input], params={"mlflow_return_context": True})
     assert result == langchain_output

@@ -25,8 +25,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Union
 
 import langchain
-from langchain.schema import AgentAction
 from langchain.chains.retrieval_qa.base import BaseRetrievalQA
+from langchain.schema import AgentAction
 
 import mlflow
 
@@ -114,8 +114,6 @@ class APIRequest:
                 for doc in response["source_documents"]
             ]
             if self.return_context:
-                print("!@*#&^$)*&")
-
                 response["context"] = response["source_documents"].copy()
 
     def call_api(self, status_tracker: StatusTracker):
@@ -169,8 +167,6 @@ def process_api_requests(
 
     results: list[tuple[int, str]] = []
     requests_iter = enumerate(requests)
-    print("!#!")
-    print("return_context", return_context)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         while True:
             # get next request (if one is not already waiting for capacity)
