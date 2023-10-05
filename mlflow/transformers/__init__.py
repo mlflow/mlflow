@@ -493,7 +493,8 @@ def save_model(
             conda_env=_CONDA_ENV_FILE_NAME,
             python_env=_PYTHON_ENV_FILE_NAME,
             code=code_dir_subpath,
-            model_config=model_config**model_bin_kwargs,
+            model_config=model_config,
+            **model_bin_kwargs,
         )
     else:
         if processor:
