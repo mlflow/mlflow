@@ -75,12 +75,10 @@ def _get_spark_session_with_retry(max_tries=3):
     for num_tries in range(max_tries):
         try:
             return get_spark_session(conf)
-        except Exception as e:
+        except Exception:
             if num_tries >= max_tries - 1:
                 raise
-            _logger.exception(
-                e, f"Attempt {num_tries} to create a SparkSession failed, retrying..."
-            )
+            _logger.exception(f"Attempt {num_tries} to create a SparkSession failed, retrying...")
 
 
 # Specify `autouse=True` to ensure that a context is created

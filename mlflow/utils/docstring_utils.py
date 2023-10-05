@@ -75,7 +75,7 @@ class ParamDocs(dict):
 
         min_indent = _get_minimum_indentation(docstring)
         for param_name, param_doc in self.items():
-            param_doc = textwrap.indent(param_doc, min_indent + " " * 4)
+            param_doc = textwrap.indent(param_doc, min_indent + " " * 8)
             if not param_doc.startswith("\n"):
                 param_doc = "\n" + param_doc
             docstring = _replace_placeholder(docstring, param_name, param_doc)

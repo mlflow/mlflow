@@ -931,7 +931,7 @@ def shutil_copytree_without_file_permissions(src_dir, dst_dir):
             file_path = os.path.join(dirpath, filename)
             relative_file_path = os.path.relpath(file_path, src_dir)
             abs_file_path = os.path.join(dst_dir, relative_file_path)
-            shutil.copyfile(file_path, abs_file_path)
+            shutil.copy2(file_path, abs_file_path)
 
 
 def contains_path_separator(path):
