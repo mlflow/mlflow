@@ -354,7 +354,10 @@ def test_get_optimizer_name_with_lightning_optimizer():
     assert _get_optimizer_name(LightningOptimizer(adam)) == "Adam"
 
 
-def test_pytorch_autologging_supports_data_parallel_execution():
+def test_pytorch_autologging_supports_data_parallel_execution(tmp_path):
+    # The following error occurs with sqlite backend:
+    # `torch.multiprocessing.spawn.ProcessExitedException: process 0 terminated with signal SIGSEGV`
+    mlflow.set_tracking_uri(f"file://{tmp_path}/mlruns")
     mlflow.pytorch.autolog()
     model = IrisClassification()
     dm = IrisDataModule()
