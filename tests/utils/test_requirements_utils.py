@@ -1,5 +1,6 @@
 import importlib
 import os
+import sys
 from unittest import mock
 
 import importlib_metadata
@@ -8,6 +9,7 @@ import pytest
 import mlflow
 import mlflow.utils.requirements_utils
 from mlflow.utils.requirements_utils import (
+    _capture_imported_modules,
     _get_installed_version,
     _get_pinned_requirement,
     _infer_requirements,
@@ -332,6 +334,9 @@ def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmp_pat
             pass
 
     with _CaptureImportedModules() as cap:
+        # Delete `databricks` from the cache to ensure we load from the dummy module created above.
+        if "databricks" in sys.modules:
+            del sys.modules["databricks"]
         import databricks
         import databricks.automl
         import databricks.automl_foo
@@ -381,3 +386,27 @@ def test_infer_pip_requirements_scopes_databricks_imports():
             "databricks-model-monitoring==1.0",
         ]
         assert mlflow.utils.requirements_utils._MODULES_TO_PACKAGES["databricks"] == ["koalas"]
+
+
+def test_capture_imported_modules_include_deps_by_params():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            if params is not None:
+                import pandas as pd
+                import sklearn  # noqa: F401
+
+                return pd.DataFrame([params])
+            return model_input
+
+    params = {"a": 1, "b": "string", "c": True}
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            input_example=(["input1"], params),
+        )
+
+    captured_modules = _capture_imported_modules(model_info.model_uri, "pyfunc")
+    assert "pandas" in captured_modules
+    assert "sklearn" in captured_modules

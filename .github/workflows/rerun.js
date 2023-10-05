@@ -1,6 +1,5 @@
 module.exports = async ({ context, github, workflow_id }) => {
-  const owner = "mlflow-automation";
-  const { repo } = context.repo;
+  const { owner, repo } = context.repo;
   const { data: workflowRunsData } = await github.rest.actions.listWorkflowRuns({
     owner,
     repo,

@@ -20,7 +20,7 @@ from mlflow.utils.file_utils import (
     relative_path_to_artifact_path,
     remove_on_error,
 )
-from mlflow.utils.uri import is_fuse_uri
+from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 
 _logger = logging.getLogger(__name__)
 _DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
@@ -211,9 +211,12 @@ class CloudArtifactRepository(ArtifactRepository):
                 headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
             if any(not e.retryable for e in failed_downloads.values()):
-                raise MlflowException(
-                    f"Failed to download artifact {remote_file_path}: {failed_downloads}"
+                template = "===== Chunk {index} =====\n{error}"
+                failure = "\n".join(
+                    template.format(index=index, error=error)
+                    for index, error in failed_downloads.items()
                 )
+                raise MlflowException(f"Failed to download artifact {remote_file_path}:\n{failure}")
 
             if failed_downloads:
                 new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
@@ -240,7 +243,7 @@ class CloudArtifactRepository(ArtifactRepository):
             not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
             or not file_size
             or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE
-            or is_fuse_uri(local_path)
+            or is_fuse_or_uc_volumes_uri(local_path)
         ):
             self._download_from_cloud(remote_file_path, local_path)
         else:

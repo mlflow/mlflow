@@ -24,7 +24,7 @@ from mlflow.server import handlers
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.rest_utils import augmented_raise_for_status
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import PROTOBUF_REQUIREMENT, get_safe_port, pyfunc_serve_and_score_model
 from tests.tracking.integration_test_utils import _await_server_up_or_die
@@ -111,6 +111,9 @@ def test_tracking_uri_validation_sql_driver_uris(command):
         )
         assert result.exit_code == 0
         run_server_mock.assert_called()
+    # Clean up the global variables set by the server
+    mlflow.set_tracking_uri(None)
+    mlflow.set_registry_uri(None)
 
 
 @pytest.mark.parametrize("command", [server])
@@ -144,6 +147,9 @@ def test_registry_store_uri_different_from_tracking_store(command):
         run_server_mock.assert_called()
         tracking_store.assert_called()
         registry_store.assert_called()
+    # Clean up the global variables set by the server
+    mlflow.set_tracking_uri(None)
+    mlflow.set_registry_uri(None)
 
 
 @pytest.fixture

@@ -14,6 +14,7 @@ from unittest import mock
 
 import pytest
 import sqlalchemy
+from packaging.version import Version
 
 import mlflow
 import mlflow.db
@@ -65,7 +66,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_RUN_NAME
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES
 from mlflow.utils.os import is_windows
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
 
 from tests.integration.utils import invoke_cli_runner
@@ -444,6 +445,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             ("exp3", [ExperimentTag("k e y 1", "value")]),
         ]
         for name, tags in experiments:
+            time.sleep(0.001)
             self.store.create_experiment(name, tags=tags)
 
         experiments = self.store.search_experiments(filter_string="tag.key1 = 'value'")
@@ -1106,16 +1108,22 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 BAD_REQUEST
             ) or exception_context.value.error_code == ErrorCode.Name(TEMPORARILY_UNAVAILABLE)
 
+    @pytest.mark.skipif(
+        Version(sqlalchemy.__version__) < Version("2.0")
+        and mlflow.get_tracking_uri().startswith("mssql"),
+        reason="large string parameters are sent as TEXT/NTEXT; "
+        "see tests/db/compose.yml for details",
+    )
     def test_log_param_max_length_value(self):
         run = self._run_factory()
         tkey = "blahmetric"
-        tval = "x" * 500
+        tval = "x" * 6000
         param = entities.Param(tkey, tval)
         self.store.log_param(run.info.run_id, param)
         run = self.store.get_run(run.info.run_id)
         assert run.data.params[tkey] == str(tval)
         with pytest.raises(MlflowException, match="exceeded length"):
-            self.store.log_param(run.info.run_id, entities.Param(tkey, "x" * 1000))
+            self.store.log_param(run.info.run_id, entities.Param(tkey, "x" * 6001))
 
     def test_set_experiment_tag(self):
         exp_id = self._experiment_factory("setExperimentTagExp")
@@ -2720,11 +2728,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
     def test_log_batch_params_max_length_value(self):
         run = self._run_factory()
-        param_entities = [Param("long param", "x" * 500), Param("short param", "xyz")]
-        expected_param_entities = [Param("long param", "x" * 500), Param("short param", "xyz")]
+        param_entities = [Param("long param", "x" * 6000), Param("short param", "xyz")]
+        expected_param_entities = [Param("long param", "x" * 6000), Param("short param", "xyz")]
         self.store.log_batch(run.info.run_id, [], param_entities, [])
         self._verify_logged(self.store, run.info.run_id, [], expected_param_entities, [])
-        param_entities = [Param("long param", "x" * 1000)]
+        param_entities = [Param("long param", "x" * 6001)]
         with pytest.raises(MlflowException, match="exceeded length"):
             self.store.log_batch(run.info.run_id, [], param_entities, [])
 
@@ -2789,7 +2797,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         with TempDir() as tmp_db_dir:
             db_path = tmp_db_dir.path("tmp_db.sql")
             db_url = "sqlite:///" + db_path
-            shutil.copyfile(
+            shutil.copy2(
                 src=os.path.join(db_resources_path, "db_version_7ac759974ad8_with_metrics.sql"),
                 dst=db_path,
             )

@@ -10,6 +10,9 @@ on:
   schedule:
     - cron: "0 13 * * *"
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
@@ -71,6 +74,8 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --ml
+          # pyspark 3.5 is incompatible with delta 2.4
+          pip install 'pyspark<3.5'
       - name: Run tests
         run: |
           source dev/setup-ssh.sh

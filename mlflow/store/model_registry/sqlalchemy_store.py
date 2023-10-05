@@ -34,7 +34,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModelTag,
 )
 from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import (
     _validate_model_alias_name,
@@ -656,10 +656,9 @@ class SqlAlchemyStore(AbstractStore):
                     ]
                     session.add_all([sql_registered_model, model_version])
                     session.flush()
-                    model_version_entity = self._populate_model_version_aliases(
+                    return self._populate_model_version_aliases(
                         session, name, model_version.to_mlflow_entity()
                     )
-                    return model_version_entity
                 except sqlalchemy.exc.IntegrityError:
                     more_retries = self.CREATE_MODEL_VERSION_RETRIES - attempt - 1
                     _logger.info(
@@ -732,10 +731,9 @@ class SqlAlchemyStore(AbstractStore):
                 SqlModelVersion.version == version,
             ]
             sql_model_version = self._get_model_version_from_db(session, name, version, conditions)
-            model_version_entity = self._populate_model_version_aliases(
+            return self._populate_model_version_aliases(
                 session, name, sql_model_version.to_mlflow_entity()
             )
-            return model_version_entity
 
     def update_model_version(self, name, version, description=None):
         """
@@ -752,10 +750,9 @@ class SqlAlchemyStore(AbstractStore):
             sql_model_version.description = description
             sql_model_version.last_updated_time = updated_time
             session.add(sql_model_version)
-            model_version_entity = self._populate_model_version_aliases(
+            return self._populate_model_version_aliases(
                 session, name, sql_model_version.to_mlflow_entity()
             )
-            return model_version_entity
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
         """
@@ -801,10 +798,9 @@ class SqlAlchemyStore(AbstractStore):
             sql_registered_model = sql_model_version.registered_model
             sql_registered_model.last_updated_time = last_updated_time
             session.add_all([*model_versions, sql_model_version, sql_registered_model])
-            model_version_entity = self._populate_model_version_aliases(
+            return self._populate_model_version_aliases(
                 session, name, sql_model_version.to_mlflow_entity()
             )
-            return model_version_entity
 
     def delete_model_version(self, name, version):
         """
@@ -844,10 +840,9 @@ class SqlAlchemyStore(AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             sql_model_version = self._get_sql_model_version(session, name, version, eager=True)
-            model_version_entity = self._populate_model_version_aliases(
+            return self._populate_model_version_aliases(
                 session, name, sql_model_version.to_mlflow_entity()
             )
-            return model_version_entity
 
     def get_model_version_download_uri(self, name, version):
         """
@@ -1096,11 +1091,17 @@ class SqlAlchemyStore(AbstractStore):
                 sql_model_version = self._get_sql_model_version(
                     session, existing_alias.name, existing_alias.version
                 )
-                model_version_entity = self._populate_model_version_aliases(
+                return self._populate_model_version_aliases(
                     session, name, sql_model_version.to_mlflow_entity()
                 )
-                return model_version_entity
             else:
                 raise MlflowException(
                     f"Registered model alias {alias} not found.", INVALID_PARAMETER_VALUE
                 )
+
+    def _await_model_version_creation(self, mv, await_creation_for):
+        """
+        Does not wait for the model version to become READY as a successful creation will
+        immediately place the model version in a READY state.
+        """
+        pass

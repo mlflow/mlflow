@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from mlflow.gateway.client import MlflowGatewayClient
-from mlflow.gateway.config import Route
+from mlflow.gateway.config import LimitsConfig, Route
 from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
@@ -130,6 +130,57 @@ def delete_route(name: str) -> None:
 
     """
     MlflowGatewayClient().delete_route(name)
+
+
+@experimental
+def set_limits(route: str, limits: List[Dict[str, Any]]) -> LimitsConfig:
+    """
+    Set limits on an existing route in the Gateway.
+
+    .. warning::
+
+        This API is **only available** when running within Databricks.
+
+    :param route: The name of the route to set limits on.
+    :param limits: Limits to set on the route.
+
+    Example usage from within Databricks:
+
+    .. code-block:: python
+
+        from mlflow.gateway import set_gateway_uri, set_limits
+
+        set_gateway_uri(gateway_uri="databricks")
+
+        set_limits("my-new-route", [{"key": "user", "renewal_period": "minute", "calls": 50}])
+
+    """
+    return MlflowGatewayClient().set_limits(route=route, limits=limits)
+
+
+@experimental
+def get_limits(route: str) -> LimitsConfig:
+    """
+    Get limits of an existing route in the Gateway.
+
+    .. warning::
+
+        This API is **only available** when connected to a Databricks-hosted AI Gateway.
+
+    :param route: The name of the route to get limits of.
+
+    Example usage from within Databricks:
+
+    .. code-block:: python
+
+        from mlflow.gateway import set_gateway_uri, get_limits
+
+        set_gateway_uri(gateway_uri="databricks")
+
+        get_limits("my-new-route")
+
+    """
+    return MlflowGatewayClient().get_limits(route=route)
 
 
 @experimental

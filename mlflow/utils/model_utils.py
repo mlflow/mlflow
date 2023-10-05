@@ -41,8 +41,7 @@ def _get_flavor_configuration(model_path, flavor_name):
             f'Model does not have the "{flavor_name}" flavor',
             RESOURCE_DOES_NOT_EXIST,
         )
-    conf = model_conf.flavors[flavor_name]
-    return conf
+    return model_conf.flavors[flavor_name]
 
 
 def _get_flavor_configuration_from_uri(model_uri, flavor_name, logger):
