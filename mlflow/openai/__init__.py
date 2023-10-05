@@ -359,7 +359,7 @@ def save_model(
     elif task == "chat.completions":
         messages = kwargs.get("messages", [])
         if messages and not (
-            all(isinstance(m, dict) for m in messages) and all(map(_has_content_and_role, messages))
+            all(isinstance(m, dict) for m in messages) and all(map(_is_valid_message, messages))
         ):
             raise mlflow.MlflowException.invalid_parameter_value(
                 "If `messages` is provided, it must be a list of dictionaries with keys "
@@ -573,27 +573,27 @@ def _load_model(path):
 
 
 def _is_valid_message(d):
-    return isinstance(d, Dict) and "content" in d and "role" in d
+    return isinstance(d, dict) and "content" in d and "role" in d
 
 
 class _ContentFormatter:
-    def __init__(self, type, template=None):
-        if type == "completions":
+    def __init__(self, task, template=None):
+        if task == "completions":
             template = template or "{prompt}"
             if not isinstance(template, str):
                 raise mlflow.MlflowException.invalid_parameter_value(
-                    f"Template for task {type} expects type `str`, but got {type(template)}."
+                    f"Template for task {task} expects type `str`, but got {type(template)}."
                 )
 
             self.template = template
             self.format_fn = self.format_prompt
             self.variables = sorted(_parse_format_fields(self.template))
-        elif type == "chat.completions":
+        elif task == "chat.completions":
             if not template:
                 template = [{"role": "user", "content": "{content}"}]
-            if not all(map(_has_content_and_role, template)):
+            if not all(map(_is_valid_message, template)):
                 raise mlflow.MlflowException.invalid_parameter_value(
-                    f"Template for task {type} expects type `dict` with keys 'content' "
+                    f"Template for task {task} expects type `dict` with keys 'content' "
                     f"and 'role', but got {type(template)}."
                 )
 
@@ -613,7 +613,7 @@ class _ContentFormatter:
                 self.variables.append("content")
         else:
             raise mlflow.MlflowException.invalid_parameter_value(
-                f"Task type ``{type}`` is not supported for formatting."
+                f"Task type ``{task}`` is not supported for formatting."
             )
 
     def format(self, **params):
@@ -667,7 +667,7 @@ class _OpenAIWrapper:
         if self.task == "chat.completions":
             self.template = self.model.get("messages", [])
         else:
-            self.template = self.model.get("prompt", None)
+            self.template = self.model.get("prompt")
         self.formater = _ContentFormatter(self.task, self.template)
 
     def format_completions(self, params_list):
