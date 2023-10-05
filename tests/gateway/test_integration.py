@@ -9,6 +9,7 @@ import mlflow.gateway.utils
 from mlflow.exceptions import MlflowException
 from mlflow.gateway import MlflowGatewayClient, get_route, query, set_gateway_uri
 from mlflow.gateway.config import Route
+from mlflow.gateway.providers.ai21labs import AI21LabsProvider
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
@@ -68,6 +69,17 @@ def basic_config_dict():
                     "name": "claude-instant-1.1",
                     "config": {
                         "anthropic_api_key": "$ANTHROPIC_API_KEY",
+                    },
+                },
+            },
+            {
+                "name": "completions-ai21labs",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "ai21labs",
+                    "name": "j2-ultra",
+                    "config": {
+                        "ai21labs_api_key": "$AI21LABS_API_KEY",
                     },
                 },
             },
@@ -175,6 +187,7 @@ def env_setup(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test_anthropic_key")
     monkeypatch.setenv("OPENAI_API_KEY", "test_openai_key")
     monkeypatch.setenv("COHERE_API_KEY", "test_cohere_key")
+    monkeypatch.setenv("AI21LABS_API_KEY", "test_ai21labs_key")
     monkeypatch.setenv("MOSAICML_API_KEY", "test_mosaicml_key")
 
 
@@ -199,7 +212,7 @@ def test_create_gateway_client_with_declared_url(gateway):
     assert gateway_client.gateway_uri == gateway.url
     assert isinstance(gateway_client.get_route("chat-openai"), Route)
     routes = gateway_client.search_routes()
-    assert len(routes) == 12
+    assert len(routes) == 13
     assert all(isinstance(route, Route) for route in routes)
 
 
@@ -318,6 +331,35 @@ def test_anthropic_completions(gateway):
 
     with patch.object(AnthropicProvider, "completions", mock_completions):
         response = query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_ai21labs_completions(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("completions-ai21labs")
+    expected_output = {
+        "candidates": [
+            {
+                "text": "mock using MagicMock please",
+                "metadata": {},
+            }
+        ],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "j2-ultra",
+            "route_type": "llm/v1/completions",
+        },
+    }
+
+    data = {"prompt": "mock my test", "max_tokens": 50}
+
+    async def mock_completions(self, payload):
+        return expected_output
+
+    with patch.object(AI21LabsProvider, "completions", mock_completions):
+        response = client.query(route=route.name, data=data)
     assert response == expected_output
 
 
