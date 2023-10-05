@@ -78,7 +78,7 @@ tensorflow:
   package_info:
     pip_release: "tensorflow"
     install_dev: |
-      pip install tf-nightly
+      pip install --pre tf-nightly
 
   models:
     minimum: "2.6.5"
