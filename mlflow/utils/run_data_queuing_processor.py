@@ -58,11 +58,17 @@ class RunItems:
 
     def append(self, value):
         if isinstance(value, Metric):
-            self.metrics.append(Item(id=self._get_next_id(), value=value))
+            metric_item = Item(id=self._get_next_id(), value=value)
+            self.metrics.append(metric_item)
+            return metric_item.id
         elif isinstance(value, RunTag):
-            self.tags.append(Item(id=self._get_next_id(), value=value))
+            tag_item = Item(id=self._get_next_id(), value=value)
+            self.tags.append(tag_item)
+            return tag_item.id
         elif isinstance(value, Param):
-            self.params.append(Item(id=self._get_next_id(), value=value))
+            param_item = Item(id=self._get_next_id(), value=value)
+            self.params.append(param_item)
+            return param_item.id
         else:
             raise Exception("Invalid data type specified")
 
@@ -110,7 +116,10 @@ class RunDataQueuingProcessor:
         self._processing_func = processing_func
         self._lock = threading.Lock()
         self.run_log_thread_alive = True
-        self.run_log_thread = _RUN_DATA_LOGGING_THREADPOOL.submit(self._log_run_data)
+        self.run_log_thread = _RUN_DATA_LOGGING_THREADPOOL.submit(
+            self._log_run_data
+        )  # concurrent.futures.Future[self._log_run_data]
+
         atexit.register(self._process_at_exit)
         self.current_watermark = -1
 
@@ -123,8 +132,13 @@ class RunDataQueuingProcessor:
     def _process_at_exit(self):
         _logger.info("Inside RunDataQueuingProcessor._process_at_exit")
         self._lock.acquire()
-        self.run_log_thread = False
+        self.run_log_thread_alive = False
         self._lock.release()
+        try:
+            self.run_log_thread.result(timeout=10)
+        except Exception as e:
+            _logger.error(f"Error while waiting for run data log thread to finish: {e}")
+
         self._process_run_data()
 
     def _log_run_data(self):
@@ -142,41 +156,50 @@ class RunDataQueuingProcessor:
             params_arr = [p.value for p in params]
             tags_arr = [p.value for p in tags]
             metrics_arr = [p.value for p in metrics]
-            max_params_id = 0 if len(params) == 0 else params[-1].id
-            max_tags_id = 0 if len(tags) == 0 else tags[-1].id
-            max_metrics_id = 0 if len(metrics) == 0 else metrics[-1].id
 
             while len(params) > 0 or len(tags) > 0 or len(metrics) > 0:
                 try:
                     self._processing_func(
                         run_id=run_id, metrics=metrics_arr, params=params_arr, tags=tags_arr
                     )
+
+                    max_params_id = 0 if len(params) == 0 else params[-1].id
+                    max_tags_id = 0 if len(tags) == 0 else tags[-1].id
+                    max_metrics_id = 0 if len(metrics) == 0 else metrics[-1].id
                     self.current_watermark = max(max_metrics_id, max(max_params_id, max_tags_id))
-                    _logger.info(f"run_id: {run_id}, current watermark: {self.current_watermark}")
+                    _logger.info(f"run_id: {run_id}, Processed watermark: {self.current_watermark}")
+                    time.sleep(5)
+                    # get next batch
                     (params, tags, metrics) = pending_items.get_next_batch()
                 except Exception as e:
                     _logger.error(e)
                     raise
 
     def log_batch_async(self, run_id, params, tags, metrics):
-        self._log_params(run_id=run_id, params=params)
-        self._set_tags(run_id=run_id, tags=tags)
-        self._log_metrics(run_id=run_id, metrics=metrics)
+        if not self._pending_items.get(run_id, None):
+            self._add_run_deque(run_id=run_id)
+
+        param_enqueue_id = self._log_params(run_id=run_id, params=params)
+        tag_enqueue_id = self._set_tags(run_id=run_id, tags=tags)
+        metric_enqueue_id = self._log_metrics(run_id=run_id, metrics=metrics)
+        max_enqueue_id = max(param_enqueue_id, max(tag_enqueue_id, metric_enqueue_id))
+        _logger.info(f"Enqueued watermark: {max_enqueue_id}")
 
     def _log_params(self, run_id: str, params: [Param]) -> None:
         """
         Enqueues a collection of Parameters to be logged to the run specified by `run_id`.
         """
         if not params or len(params) == 0:
-            return
-        if not self._pending_items.get(run_id, None):
-            self._add_run_deque(run_id=run_id)
+            return -1
 
         run_items = self._pending_items.get(run_id)
         assert run_items, "No deque found for specified run_id"
 
+        enqueued_id = -1
         for param in params:
-            run_items.append(param)
+            enqueued_id = run_items.append(param)
+
+        return enqueued_id
 
     def _log_metrics(self, run_id: str, metrics: [Metric]) -> None:
         """
@@ -184,27 +207,27 @@ class RunDataQueuingProcessor:
         step specified by `step`.
         """
         if not metrics or len(metrics) == 0:
-            return
-        if not self._pending_items.get(run_id, None):
-            self._add_run_deque(run_id=run_id)
+            return -1
 
         run_items = self._pending_items.get(run_id)
         assert run_items, "No deque found for specified run_id"
 
+        enqueued_id = -1
         for metric in metrics:
-            run_items.append(metric)
+            enqueued_id = run_items.append(metric)
+
+        return enqueued_id
 
     def _set_tags(self, run_id: str, tags: [RunTag]) -> None:
         """
         Enqueues a collection of Tags to be logged to the run specified by `run_id`.
         """
         if not tags or len(tags) == 0:
-            return
-        if not self._pending_items.get(run_id, None):
-            self._add_run_deque(run_id=run_id)
+            return -1
 
         run_items = self._pending_items.get(run_id)
         assert run_items, "No deque found for specified run_id"
-
+        enqueued_id = -1
         for tag in tags:
-            run_items.append(tag)
+            enqueued_id = run_items.append(tag)
+        return enqueued_id
