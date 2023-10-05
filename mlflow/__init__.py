@@ -168,6 +168,7 @@ from mlflow.tracking.fluent import (
     set_tags,
     start_run,
 )
+from mlflow.utils.credentials import login
 
 __all__ = [
     "ActiveRun",
@@ -222,6 +223,7 @@ __all__ = [
     "enable_system_metrics_logging",
     "set_system_metrics_sampling_interval",
     "set_system_metrics_samples_before_logging",
+    "login",
 ]
 
 
