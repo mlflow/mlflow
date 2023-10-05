@@ -371,7 +371,7 @@ def save_model(
             outputs=Schema([ColSpec(type="string", name=None)]),
         )
     elif task == "completions":
-        prompt = kwargs.get("prompt", None)
+        prompt = kwargs.get("prompt")
         mlflow_model.signature = ModelSignature(
             inputs=_get_input_schema(task, prompt),
             outputs=Schema([ColSpec(type="string", name=None)]),
