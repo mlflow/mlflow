@@ -7,6 +7,7 @@ from fastapi.encoders import jsonable_encoder
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.providers.ai21labs import AI21LabsProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.exceptions import MlflowException
 
 from tests.gateway.tools import MockAsyncResponse
 
@@ -113,8 +114,8 @@ async def test_completions():
 @pytest.mark.asyncio
 async def test_param_invalid_model_name_is_not_permitted():
     config = completions_config_invalid_model()
-    with pytest.raises(TypeError, match=r"Invalid modelName.*"):
-        AI21LabsProvider(RouteConfig(**config))
+    with pytest.raises(MlflowException, match=r"An Unsupported AI21Labs model.*"):
+        RouteConfig(**config)
 
 
 @pytest.mark.asyncio
