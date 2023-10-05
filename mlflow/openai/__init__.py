@@ -588,7 +588,7 @@ class _ContentFormatter:
 
             self.template = template
             self.format_fn = self.format_prompt
-            self.variables = _parse_format_fields(self.template)
+            self.variables = sorted(_parse_format_fields(self.template))
         elif type == "chat.completions":
             if not template:
                 template = [{"role": "user", "content": "{content}"}]
@@ -597,20 +597,20 @@ class _ContentFormatter:
                     f"Type {type(template)} is not a valid type for template of task {type}."
                 )
 
-            self.template = template
+            self.template = template.copy()
             self.format_fn = self.format_chat
             self.variables = sorted(
                 set(
                     itertools.chain.from_iterable(
                         _parse_format_fields(message.get("content"))
-                        + _parse_format_fields(message.get("role"))
-                        for message in template
+                        | _parse_format_fields(message.get("role"))
+                        for message in self.template
                     )
                 )
             )
             if not self.variables:
                 self.template.append({"role": "user", "content": "{content}"})
-                self.variables = "content"
+                self.variables.append("content")
         else:
             raise mlflow.MlflowException.invalid_parameter_value(
                 f"Task type ``{type}`` is not supported for formatting."
