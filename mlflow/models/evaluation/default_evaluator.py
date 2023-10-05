@@ -9,6 +9,7 @@ import pickle
 import shutil
 import tempfile
 import time
+import warnings
 from collections import namedtuple
 from functools import partial
 from typing import Callable, NamedTuple
@@ -1563,9 +1564,11 @@ class DefaultEvaluator(ModelEvaluator):
                 "your code to only use the 'extra_metrics' parameter instead."
             )
         if custom_metrics:
-            _logger.warning(
+            warnings.warn(
                 "The 'custom_metrics' parameter in mlflow.evaluate is deprecated. "
-                "Please update your code to use the 'extra_metrics' parameter instead."
+                "Please update your code to use the 'extra_metrics' parameter instead.",
+                FutureWarning,
+                stacklevel=2,
             )
             self.extra_metrics = custom_metrics
         else:
