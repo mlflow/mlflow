@@ -331,7 +331,11 @@ def save_model(
 
 
 def _validate_and_wrap_lc_model(lc_model, loader_fn):
-    import langchain
+    import langchain.agents
+    import langchain.chains
+    import langchain.llms.huggingface_hub
+    import langchain.llms.openai
+    import langchain.schema
 
     if not isinstance(
         lc_model,
