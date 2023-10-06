@@ -27,12 +27,11 @@ class HuggingFaceDatasetSource(DatasetSource):
         Arguments in `__init__` match arguments of the same name in
         [`datasets.load_dataset()`](https://huggingface.co/docs/datasets/v2.14.5/en/package_reference/loading_methods#datasets.load_dataset).
         The only exception is `config_name` matches `name` in `datasets.load_dataset()`, because
-        `mlflow.data.Dataset` already has a `name` argument.
+        we need to differentiate from `mlflow.data.Dataset` `name` attribute.
 
         Args:
             path: The path of the Hugging Face dataset, if it is a dataset from HuggingFace hub,
-                `path` must match the path of the dataset on the hub, e.g.,
-                "databricks/databricks-dolly-15k".
+                `path` must match the hub path, e.g., "databricks/databricks-dolly-15k".
             config_name: The name of of the Hugging Face dataset configuration.
             data_dir: The `data_dir` of the Hugging Face dataset configuration.
             data_files: Paths to source data file(s) for the Hugging Face dataset configuration.
@@ -62,27 +61,23 @@ class HuggingFaceDatasetSource(DatasetSource):
         """
         import datasets
 
-        keys = ["path", "data_dir", "data_files", "split", "revision"]
-        load_kwargs = {}
-        for key in keys:
-            # Populate `load_kwargs` with non-None values from `HuggingFaceDatasetSource`.
-            value = getattr(self, key, None)
-            if value is None:
-                continue
-            if key in kwargs:
-                # Same key must not be specified in both `HuggingFaceDatasetSource` and `kwargs`.
+        load_kwargs = {
+            "path": self.path,
+            "name": self.config_name,
+            "data_dir": self.data_dir,
+            "data_files": self.data_files,
+            "split": self.split,
+            "revision": self.revision,
+        }
+        for k, v in kwargs.items():
+            if load_kwargs.get(k, None):
                 raise KeyError(
-                    f"Found duplicated arguments {key} in `HuggingFaceDatasetSource` and `kwargs`: "
-                    f"in `HuggingFaceDatasetSource` `{key}={value}`, and in `kwargs` "
-                    f"`{key}={kwargs[key]}`. Please remove {key} from `kwargs`."
+                    f"Found duplicated arguments {k} in `HuggingFaceDatasetSource` and `kwargs`: "
+                    f"`HuggingFaceDatasetSource` has `{k}={v}`, and `kwargs` has `{k}={kwargs[k]}`"
+                    f"Please remove {k} from `kwargs`."
                 )
-            load_kwargs[key] = value
-        # "name" should always come from `HuggingFaceDatasetSource`.
-        load_kwargs["name"] = self.config_name
-        if "name" in kwargs:
-            raise KeyError(f"'name' must not be specified in `kwargs`, received `kwargs={kwargs}`.")
-        # Insert args from `kwargs` into `load_kwargs`.
-        load_kwargs.update(kwargs)
+            # Copy `kwargs` to `load_kwargs`.
+            load_kwargs[k] = v
         return datasets.load_dataset(**load_kwargs)
 
     @staticmethod
