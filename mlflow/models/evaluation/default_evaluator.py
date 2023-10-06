@@ -1141,7 +1141,14 @@ class DefaultEvaluator(ModelEvaluator):
                         eval_fn_args.append(self.other_output_columns[column])
                     elif param.default == inspect.Parameter.empty:
                         raise MlflowException(
-                            f"Column '{param_name}' not found in input data or output data."
+                            "Error: Metric Calculation Failed\n"
+                            f"Metric '{extra_metric.name}' requires the column '{param_name}' to "
+                            "be defined in either the input data or resulting output data.\n"
+                            "To resolve this issue, you may want to map an existing column using "
+                            "the following configuration:\n"
+                            f"evaluator_config={{'col_mapping': {{'{param_name}': 'col_name'}}}}\n"
+                            "Please ensure that the specified column is present and correctly "
+                            "mapped."
                         )
 
         return eval_fn_args
