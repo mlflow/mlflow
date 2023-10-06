@@ -166,6 +166,7 @@ class SparkAutologgingSuite extends AnyFunSuite with Matchers with BeforeAndAfte
             verify(subscriber, times(1)).notify(any(), any(), any())
             verify(subscriber, times(1)).notify(expectedPath, "unknown", format)
             MlflowAutologEventPublisher.stop()
+            
           }
         }
   }
