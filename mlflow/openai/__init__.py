@@ -591,7 +591,7 @@ class _ContentFormatter:
         elif type == "chat.completions":
             if not template:
                 template = [{"role": "user", "content": "{content}"}]
-            if not all(_has_content_and_role(message) for message in template):
+            if not all(map(_has_content_and_role, template)):
                 raise mlflow.MlflowException.invalid_parameter_value(
                     f"Template for task {type} expects type `dict` with keys 'content' "
                     f"and 'role', but got {type(template)}."
