@@ -3,7 +3,7 @@ import os
 
 import openai
 import pandas as pd
-from examples.evaluation.utils.human_eval import check_correctness
+from datasets import load_dataset
 
 import mlflow
 from mlflow.metrics import make_metric
@@ -16,15 +16,17 @@ assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environmen
 
 
 # Create an evaluation function that iterates through the predictions
-def eval_fn(predictions, targets, metrics, prompt, test, entry_point):
+def eval_fn(predictions, targets, metrics, prompt, test, entry_point, task_id):
     scores = []
     for i in range(len(predictions)):
         problem_dict = {
-            "prompt": prompt,
-            "test": test,
-            "entry_point": entry_point,
+            "prompt": prompt[i],
+            "test": test[i],
+            "entry_point": entry_point[i],
+            "task_id": task_id[i],
         }
         result = check_correctness(problem_dict, predictions[0], 3.0)
+        print(result)
         if result["passed"]:
             scores.append(1)
         else:
@@ -40,25 +42,10 @@ passing_code_metric = make_metric(
     eval_fn=eval_fn, greater_is_better=False, name="passing_code_metric", version="v1"
 )
 
-eval_df = pd.DataFrame(
-    {
-        "prompt": [
-            "SELECT * FROM ",
-            "import pandas",
-            "def hello_world",
-        ],
-        "test": [
-            "SELECT * FROM table",
-            "import pandas as pd",
-            "def hello_world():",
-        ],
-        "entry_point": [
-            "sql",
-            "python",
-            "python",
-        ],
-    }
-)
+# Load the openai_humaneval dataset
+humaneval_ds = load_dataset("openai_humaneval")
+test_data_df = humaneval_ds["test"].to_pandas()
+eval_df = test_data_df.head()
 
 with mlflow.start_run() as run:
     system_prompt = (
@@ -86,7 +73,7 @@ with mlflow.start_run() as run:
             }
         },
     )
-    print(results)
+    print(results.metrics)
 
     eval_table = results.table["eval_results_table"]
     print(eval_table)
