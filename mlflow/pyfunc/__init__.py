@@ -846,7 +846,9 @@ def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefine
 
     .. warning::
         This API downloads all the model artifacts to the local filesystem. This may take
-        a long time for large models.
+        a long time for large models. To avoid this overhead, use
+        ``mlflow.artifacts.download_artifacts("<model_uri>/requirements.txt")`` or
+        ``mlflow.artifacts.download_artifacts("<model_uri>/conda.yaml")`` instead.
 
     :param model_uri: The uri of the model to get dependencies from.
     :param format: The format of the returned dependency file. If the ``"pip"`` format is
