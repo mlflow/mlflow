@@ -1,5 +1,6 @@
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import Provider
+from mlflow.gateway.providers.ai21labs import AI21LabsProvider
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.cohere import CohereProvider
@@ -13,6 +14,7 @@ def get_provider(provider: Provider) -> BaseProvider:
         Provider.OPENAI: OpenAIProvider,
         Provider.ANTHROPIC: AnthropicProvider,
         Provider.COHERE: CohereProvider,
+        Provider.AI21LABS: AI21LabsProvider,
         Provider.MOSAICML: MosaicMLProvider,
         Provider.MLFLOW_MODEL_SERVING: MlflowModelServingProvider,
     }

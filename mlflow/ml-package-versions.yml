@@ -307,10 +307,11 @@ spark:
       temp_dir=$(mktemp -d)
       git clone --depth 1 https://github.com/apache/spark.git $temp_dir
       cd $temp_dir
-      # -Pconnect -Phive is requried by spark connect
-      ./build/mvn -Pconnect -Phive -DskipTests --no-transfer-progress clean package
+      # -Pconnect -Phive is required by spark connect
+      ./build/sbt -Pconnect -Phive clean package connect/assembly
       cd python
       pip install '.[connect]'
+      pyspark --version
 
   models:
     minimum: "3.0.0"
@@ -559,6 +560,7 @@ langchain:
           "psutil",
           "faiss-cpu",
           "langchain-experimental",
+          "numexpr",
         ]
     run: |
       pytest tests/langchain/test_langchain_model_export.py
