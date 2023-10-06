@@ -11,8 +11,9 @@ import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructT
 import org.mockito.Matchers.{any, eq => meq}
 import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
+
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -39,7 +40,7 @@ private[autologging] class BrokenSubscriber extends MockSubscriber {
 
 }
 
-class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAll
+class SparkAutologgingSuite extends AnyFunSuite with Matchers with BeforeAndAfterAll
   with BeforeAndAfterEach {
 
   var spark: SparkSession = getOrCreateSparkSession()
