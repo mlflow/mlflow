@@ -17,10 +17,11 @@ class PaLMProvider(BaseProvider):
         self.palm_config: PaLMConfig = config.model.config
 
     async def _request(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        headers = {"x-goog-api-key": self.palm_config.palm_api_key}
         return await send_request(
-            headers={},
+            headers=headers,
             base_url="https://generativelanguage.googleapis.com/v1beta3/models/",
-            path=f"{path}?key={self.palm_config.palm_api_key}",
+            path=path,
             payload=payload,
         )
 
@@ -152,41 +153,21 @@ class PaLMProvider(BaseProvider):
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
-        postfix = "embedText"
-
-        # Remap text to texts to setup for batch embeddings
-        if isinstance(payload["text"], list):
-            postfix = "batchEmbedText"
-            key_mapping = {
-                "text": "texts",
-            }
-            for k1, k2 in key_mapping.items():
-                if k2 in payload:
-                    raise HTTPException(
-                        status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
-                    )
-            payload = rename_payload_keys(payload, key_mapping)
+        key_mapping = {
+            "text": "texts",
+        }
+        for k1, k2 in key_mapping.items():
+            if k2 in payload:
+                raise HTTPException(
+                    status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
+                )
+        payload = rename_payload_keys(payload, key_mapping)
 
         resp = await self._request(
-            f"{self.config.model.name}:{postfix}",
+            f"{self.config.model.name}:batchEmbedText",
             payload,
         )
-        # Single-text response example (https://developers.generativeai.google/api/rest/generativelanguage/models/embedText):
-        # ```
-        # {
-        #   "embedding": {
-        #     "value": [
-        #       3.25,
-        #       0.7685547,
-        #       2.65625,
-        #       ...
-        #       -0.30126953,
-        #       -2.3554688,
-        #       1.2597656
-        #     ]
-        #   }
-        # }
-        # ```
+
         # Batch-text response example (https://developers.generativeai.google/api/rest/generativelanguage/models/batchEmbedText):
         # ```
         # {
@@ -205,14 +186,9 @@ class PaLMProvider(BaseProvider):
         #   ]
         # }
         # ```
-
-        if postfix == "batchEmbedText":
-            embedResponse = [e["value"] for e in resp["embeddings"]]
-        else:
-            embedResponse = [resp["embedding"]["value"]]
         return embeddings.ResponsePayload(
             **{
-                "embeddings": embedResponse,
+                "embeddings": [e["value"] for e in resp["embeddings"]],
                 "metadata": {
                     "model": self.config.model.name,
                     "route_type": self.config.route_type,

@@ -154,22 +154,6 @@ def embeddings_config():
 
 def embeddings_response():
     return {
-        "embedding": {
-            "value": [
-                3.25,
-                0.7685547,
-                2.65625,
-                -0.30126953,
-                -2.3554688,
-                1.2597656,
-            ]
-        },
-        "headers": {"Content-Type": "application/json"},
-    }
-
-
-def batch_embeddings_response():
-    return {
         "embeddings": [
             {
                 "value": [
@@ -186,15 +170,12 @@ def batch_embeddings_response():
     }
 
 
-@pytest.mark.parametrize(
-    ("prompt", "resp"),
-    [("This is a test", embeddings_response()), (["This is a test"], batch_embeddings_response())],
-)
+@pytest.mark.parametrize("prompt", ["This is a test", ["This is a test"]])
 @pytest.mark.asyncio
-async def test_embeddings(prompt, resp):
+async def test_embeddings(prompt):
     config = embeddings_config()
     with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(embeddings_response())
     ) as mock_post:
         provider = PaLMProvider(RouteConfig(**config))
         payload = {"text": prompt}
