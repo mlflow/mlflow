@@ -226,7 +226,7 @@ def test_make_genai_metric_correct_response():
         model="openai:/gpt-3.5-turbo",
         grading_context_columns=["targets"],
         greater_is_better=True,
-        aggregations=["mean", "variance", "p90"],
+        aggregations=None,
     )
     with mock.patch.object(
         model_utils,
@@ -260,6 +260,9 @@ def test_make_genai_metric_correct_response():
             "max_tokens": 200,
             "top_p": 1.0,
         }
+        assert metric_value.scores == [3]
+        assert metric_value.justifications == [openai_justification1]
+        assert metric_value.aggregate_results == {}
 
 
 def test_make_genai_metric_incorrect_response():
@@ -637,7 +640,7 @@ def test_strict_correctness_metric():
             pd.Series([mlflow_ground_truth]),
         )
         assert mock_predict_function.call_count == 1
-        assert mock_predict_function.call_args[0][0] == "openai:/gpt-4"
+        assert mock_predict_function.call_args[0][0] == "openai:/gpt-3.5-turbo-16k"
         assert mock_predict_function.call_args[0][1] == {
             "prompt": "\nPlease act as an impartial judge and evaluate the quality of "
             "the provided output which\nattempts to produce output for the provided input "
