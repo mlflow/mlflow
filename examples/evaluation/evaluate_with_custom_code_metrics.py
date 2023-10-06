@@ -24,10 +24,7 @@ def is_valid_python_code(code: str) -> bool:
 
 
 # Create an evaluation function that iterates through the predictions
-def eval_fn(eval_df, metrics):
-    y_pred = eval_df["prediction"]
-    predictions = y_pred.squeeze() if isinstance(y_pred, pd.DataFrame) else y_pred
-
+def eval_fn(predictions):
     scores = [int(is_valid_python_code(prediction)) for prediction in predictions]
     return MetricValue(
         scores=scores,
