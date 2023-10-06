@@ -3,6 +3,7 @@ import os
 
 import openai
 import pandas as pd
+from examples.evaluation.utils.human_eval import check_correctness
 
 import mlflow
 from mlflow.metrics import make_metric
@@ -14,18 +15,20 @@ logging.getLogger("mlflow").setLevel(logging.ERROR)
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
 
 
-# Helper function to check if a string is valid python code
-def is_valid_python_code(code: str) -> bool:
-    try:
-        compile(code, "<string>", "exec")
-        return True
-    except SyntaxError:
-        return False
-
-
 # Create an evaluation function that iterates through the predictions
-def eval_fn(predictions):
-    scores = [int(is_valid_python_code(prediction)) for prediction in predictions]
+def eval_fn(predictions, targets, metrics, prompt, test, entry_point):
+    scores = []
+    for i in range(len(predictions)):
+        problem_dict = {
+            "prompt": prompt,
+            "test": test,
+            "entry_point": entry_point,
+        }
+        result = check_correctness(problem_dict, predictions[0], 3.0)
+        if result["passed"]:
+            scores.append(1)
+        else:
+            scores.append(0)
     return MetricValue(
         scores=scores,
         aggregate_results=standard_aggregations(scores),
@@ -33,16 +36,26 @@ def eval_fn(predictions):
 
 
 # Create an EvaluationMetric object for the python code metric
-valid_code_metric = make_metric(
-    eval_fn=eval_fn, greater_is_better=False, name="valid_python_code", version="v1"
+passing_code_metric = make_metric(
+    eval_fn=eval_fn, greater_is_better=False, name="passing_code_metric", version="v1"
 )
 
 eval_df = pd.DataFrame(
     {
-        "input": [
+        "prompt": [
             "SELECT * FROM ",
             "import pandas",
             "def hello_world",
+        ],
+        "test": [
+            "SELECT * FROM table",
+            "import pandas as pd",
+            "def hello_world():",
+        ],
+        "entry_point": [
+            "sql",
+            "python",
+            "python",
         ],
     }
 )
@@ -65,7 +78,13 @@ with mlflow.start_run() as run:
         logged_model.model_uri,
         eval_df,
         model_type="text",
-        extra_metrics=[valid_code_metric],
+        extra_metrics=[passing_code_metric],
+        evaluators="default",
+        evaluator_config={
+            "default": {
+                "col_mapping": {"input": "prompt"},
+            }
+        },
     )
     print(results)
 
