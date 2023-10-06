@@ -842,6 +842,12 @@ def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefin
 
 def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
     """
+    Downloads the model dependencies and returns the path to requirements.txt or conda.yaml file.
+
+    .. warning::
+        This API downloads all the model artifacts to the local filesystem. This may take
+        a long time for large models.
+
     :param model_uri: The uri of the model to get dependencies from.
     :param format: The format of the returned dependency file. If the ``"pip"`` format is
                    specified, the path to a pip ``requirements.txt`` file is returned.
