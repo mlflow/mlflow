@@ -1373,7 +1373,12 @@ def test_evaluate_with_static_dataset_input_single_output():
     X = X[::5]
     y = y[::5]
     with mlflow.start_run() as run:
-        mlflow.evaluate(None, X.assign(y=y, model_output=y), targets="y", model_type="regressor")
+        mlflow.evaluate(
+            data=X.assign(y=y, model_output=y),
+            targets="y",
+            prediction="model_output",
+            model_type="regressor",
+        )
 
     run = mlflow.get_run(run.info.run_id)
     assert "mean_absolute_error" in run.data.metrics
