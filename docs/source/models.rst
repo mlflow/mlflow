@@ -916,6 +916,39 @@ Furthermore, if you want to run model inference in the same environment used in 
 from the `conda.yaml` file, ensuring that the python UDF will execute with the exact package versions that were used
 during training.
 
+Some PyFunc models may accept model load configuration, which controls how the model is loaded and predictions
+computed. You can learn which configuration the model supports by inspecting the model's flavor metadata:
+
+.. code-block:: python
+
+    model_info = mlflow.models.get_model_info(model_uri)
+    model_info.flavors[mlflow.pyfunc.FLAVOR_NAME][mlflow.pyfunc.MODEL_CONFIG]
+
+Alternatively, you can load the PyFunc model and inspect the `model_config` property:
+
+.. code-block:: python
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri)
+    pyfunc_model.model_config
+
+Model configuration can be changed at loading time by indicating `model_config` parameter in the 
+:py:func:`mlflow.pyfunc.load_model` method:
+
+.. code-block:: python
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri, model_config=dict(temperature=0.93))
+
+When a model configuration value is changed, those values the configuration the model was saved with. Indicating an
+invalid model configuration key for a model results in that configuration being ignored. A warning is displayed mentioning
+the ignored entries.
+
+.. note:: 
+    
+    **Model configuration vs parameters with default values in signatures:** Use model configuration when you need to provide
+    model publishers for a way to change how the model is loaded into memory and how predictions are computed for all the
+    samples. For instance, a key like `user_gpu`. Model consumers are not able to change those values at predict time. Use
+    parameters with default values in the signature to provide a users the ability to change how predictions are computed on
+    each data sample.
 
 R Function (``crate``)
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -2881,9 +2914,9 @@ to formats that are compatible with json serialization and casting to Pandas Dat
 .. note::
     Certain `TextGenerationPipeline` types, particularly instructional-based ones, may return the original
     prompt and included line-formatting carriage returns `"\n"` in their outputs. For these pipeline types,
-    if you would like to disable the prompt return, you can set the following in the `inference_config` dictionary when
+    if you would like to disable the prompt return, you can set the following in the `model_config` dictionary when
     saving or logging the model: `"include_prompt": False`. To remove the newline characters from within the body
-    of the generated text output, you can add the `"collapse_whitespace": True` option to the `inference_config` dictionary.
+    of the generated text output, you can add the `"collapse_whitespace": True` option to the `model_config` dictionary.
     If the pipeline type being saved does not inherit from `TextGenerationPipeline`, these options will not perform
     any modification to the output returned from pipeline inference.
 
@@ -2945,19 +2978,28 @@ avoid failed inference requests.
 
 \***** If using `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint. String inputs will be interpreted as uri locations.
 
-Using inference_config and model signature params for `transformers` inference
+Using model_config and model signature params for `transformers` inference
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 For `transformers` inference, there are two ways to pass in additional arguments to the pipeline.
 
-* Use ``inference_config`` when saving/logging the model
+* Use ``model_config`` when saving/logging the model. Optionally, specify ``model_config`` when calling ``load_model``.
 * Specify params at inference time when calling ``predict()``
 
-.. note::
-    If both ``inference_config`` and ``ModelSignature`` with schema are saved when logging model, both of them
-    will be used for inference. The default params in ``ModelSignature`` will override the params in ``inference_config``.
-    If extra ``params`` are provided at inference time, they take precedence over all params.
+Use ``model_config`` to control how the model is loaded and inference performed for all input samples. Configuration in
+``model_config`` is not overridable at ``predict()`` time unless a ``ModelSignature`` is indicated with the same parameters.
 
-* Using ``inference_config``
+Use ``ModelSignature`` with params schema, on the other hand, to allow downstream consumers to provide additional inference
+params that may be needed to compute the predictions for their specific samples.
+
+.. note::
+    If both ``model_config`` and ``ModelSignature`` with parameters are saved when logging model, both of them
+    will be used for inference. The default parameters in ``ModelSignature`` will override the params in ``model_config``.
+    If extra ``params`` are provided at inference time, they take precedence over all params. We recommend using 
+    ``model_config`` for those parameters needed to run the model in general for all the samples. Then, add 
+    ``ModelSignature`` with parameters for those extra parameters that you want downstream consumers to indicated at
+    per each of the samples.
+
+* Using ``model_config``
 
 .. code-block:: python
 
@@ -2980,26 +3022,34 @@ For `transformers` inference, there are two ways to pass in additional arguments
         generate_signature_output(model, data),
     )
 
-    # Define an inference_config
-    inference_config = {
+    # Define an model_config
+    model_config = {
         "num_beams": 5,
         "max_length": 30,
         "do_sample": True,
         "remove_invalid_values": True,
     }
 
-    # Saving inference_config with the model
+    # Saving model_config with the model
     mlflow.transformers.save_model(
         model,
         path="text2text",
-        inference_config=inference_config,
+        model_config=model_config,
         signature=signature,
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model("text2text")
-    # inference_config will be applied
+    # model_config will be applied
     result = pyfunc_loaded.predict(data)
 
+    # overriding some inference configuration with diferent values
+    pyfunc_loaded = mlflow.pyfunc.load_model(
+        "text2text", model_config=dict(do_sample=False)
+    )
+
+.. note::
+    Note that in the previous example, the user can't override the configuration ``do_sample``
+    when calling ``predict``.
 
 * Specifying params at inference time
 
@@ -3018,25 +3068,30 @@ For `transformers` inference, there are two ways to pass in additional arguments
     )
     data = "pencil draw paper"
 
-    # Define an inference_config
-    inference_config = {
+    # Define an model_config
+    model_config = {
         "num_beams": 5,
+        "remove_invalid_values": True,
+    }
+
+    # Define the inference parameters params
+    inference_params = {
         "max_length": 30,
         "do_sample": True,
-        "remove_invalid_values": True,
     }
 
     # Infer the signature including params
     signature_with_params = infer_signature(
         data,
         generate_signature_output(model, data),
-        params=inference_config,
+        params=inference_params,
     )
 
-    # Saving model without inference_config
+    # Saving model with signature and model config
     mlflow.transformers.save_model(
         model,
         path="text2text",
+        model_config=model_config,
         signature=signature_with_params,
     )
 
@@ -3049,7 +3104,8 @@ For `transformers` inference, there are two ways to pass in additional arguments
     }
 
     # In this case we only override max_length and do_sample,
-    # other params will use the default one saved in ModelSignature.
+    # other params will use the default one saved on ModelSignature
+    # or in the model configuration.
     # The final params used for prediction is as follows:
     # {
     #    "num_beams": 5,
