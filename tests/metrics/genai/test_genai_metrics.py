@@ -11,7 +11,7 @@ from mlflow.metrics.base import EvaluationExample
 from mlflow.metrics.genai import model_utils
 from mlflow.metrics.genai.genai_metric import (
     _extract_score_and_justification,
-    _format_variable_string,
+    _format_args_string,
     make_genai_metric,
 )
 from mlflow.metrics.genai.metric_definitions import (
@@ -146,7 +146,7 @@ mlflow_example = EvaluationExample(
     score=4,
     justification="The definition effectively explains what MLflow is "
     "its purpose, and its developer. It could be more concise for a 5-score.",
-    variables={"ground_truth": mlflow_ground_truth},
+    grading_context={"targets": mlflow_ground_truth},
 )
 
 example_grading_prompt = (
@@ -178,7 +178,7 @@ def test_make_genai_metric_correct_response():
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
-        variables=["ground_truth"],
+        grading_context_columns=["targets"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
@@ -186,7 +186,7 @@ def test_make_genai_metric_correct_response():
 
     assert [
         param.name for param in inspect.signature(custom_metric.eval_fn).parameters.values()
-    ] == ["predictions", "metrics", "inputs", "ground_truth"]
+    ] == ["predictions", "metrics", "inputs", "targets"]
 
     with mock.patch.object(
         model_utils,
@@ -220,11 +220,11 @@ def test_make_genai_metric_correct_response():
                 output="example-output",
                 score=4,
                 justification="example-justification",
-                variables={"ground_truth": "example-ground_truth"},
+                grading_context={"targets": "example-ground_truth"},
             )
         ],
         model="openai:/gpt-3.5-turbo",
-        variables=["ground_truth"],
+        grading_context_columns=["targets"],
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
     )
@@ -247,10 +247,10 @@ def test_make_genai_metric_correct_response():
             "based on a provided information.\n\nYou'll be given a grading format below which "
             "you'll call for each provided information,\ninput and provided output to submit "
             "your justification and score to compute the fake_metric of\nthe output."
-            "\n\nInput:\ninput\n\nProvided output:\nprediction\n\nProvided ground_truth: "
+            "\n\nInput:\ninput\n\nProvided output:\nprediction\n\nProvided targets: "
             "ground_truth\n\nMetric definition:\nFake metric definition\n\nBelow is your grading "
             "criteria:\nFake metric grading prompt\n\nExamples:\n\nInput: example-input\n\n"
-            "Provided output: example-output\n\nProvided ground_truth: example-ground_truth\n\n"
+            "Provided output: example-output\n\nProvided targets: example-ground_truth\n\n"
             "Score: 4\nJustification: example-justification\n\n        \n\nAnd you'll need to "
             "submit your grading for the fake_metric of the output,\nusing the following in json "
             "format:\nScore: [your score number for the fake_metric of the "
@@ -270,7 +270,7 @@ def test_make_genai_metric_incorrect_response():
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
-        variables=["ground_truth"],
+        grading_context_columns=["targets"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
@@ -304,7 +304,7 @@ def test_make_genai_metric_multiple():
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
-        variables=["ground_truth"],
+        grading_context_columns=["targets"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
@@ -367,7 +367,7 @@ def test_make_genai_metric_failure():
         output="output",
         score=4,
         justification="justification",
-        variables={"ground_truth": "ground_truth"},
+        grading_context={"targets": "ground_truth"},
     )
     import pandas as pd
 
@@ -378,7 +378,7 @@ def test_make_genai_metric_failure():
         grading_prompt="grading_prompt",
         examples=[example],
         model="model",
-        variables=["ground_truth"],
+        grading_context_columns=["targets"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
         aggregations=["mean"],
@@ -409,7 +409,7 @@ def test_make_genai_metric_failure():
             grading_prompt="grading_prompt",
             examples=[example],
             model="openai:/gpt-3.5-turbo",
-            variables=["ground_truth"],
+            grading_context_columns=["targets"],
             parameters={"temperature": 1.0},
             greater_is_better=True,
             aggregations=["random-fake"],
@@ -426,8 +426,8 @@ def test_make_genai_metric_failure():
             )
 
 
-def test_format_variable_string():
-    variable_string = _format_variable_string(["foo", "bar"], {"foo": ["foo"], "bar": ["bar"]}, 0)
+def test_format_args_string():
+    variable_string = _format_args_string(["foo", "bar"], {"foo": ["foo"], "bar": ["bar"]}, 0)
 
     assert variable_string == "Provided foo: foo\nProvided bar: bar"
 
@@ -435,7 +435,7 @@ def test_format_variable_string():
         MlflowException,
         match=re.escape("bar does not exist in the eval function ['foo']."),
     ):
-        variable_string = _format_variable_string(["foo", "bar"], pd.DataFrame({"foo": ["foo"]}), 0)
+        variable_string = _format_args_string(["foo", "bar"], pd.DataFrame({"foo": ["foo"]}), 0)
 
 
 def test_extract_score_and_justification():
@@ -515,10 +515,7 @@ def test_correctness_metric():
         return_value=properly_formatted_openai_response1,
     ) as mock_predict_function:
         metric_value = correctness_metric.eval_fn(
-            pd.Series([mlflow_prediction]),
-            {},
-            pd.Series([input]),
-            pd.Series([mlflow_ground_truth]),
+            pd.Series([mlflow_prediction]), {}, pd.Series([input]), pd.Series([mlflow_ground_truth])
         )
 
         assert mock_predict_function.call_count == 1
@@ -531,13 +528,13 @@ def test_correctness_metric():
             "your justification and score to compute the correctness of\nthe output.\n"
             f"\nInput:\n{input}\n"
             f"\nProvided output:\n{mlflow_prediction}\n"
-            f"\nProvided ground_truth: {mlflow_ground_truth}\n"
+            f"\nProvided targets: {mlflow_ground_truth}\n"
             f"\nMetric definition:\n{CorrectnessMetric.definition}\n"
             f"\nBelow is your grading criteria:\n{CorrectnessMetric.grading_prompt}\n"
             "\nExamples:\n"
             f"\nInput: {mlflow_example.input}\n"
             f"\nProvided output: {mlflow_example.output}\n"
-            f"\nProvided ground_truth: {mlflow_ground_truth}\n"
+            f"\nProvided targets: {mlflow_ground_truth}\n"
             f"\nScore: {mlflow_example.score}\n"
             f"Justification: {mlflow_example.justification}\n\n        \n\n"
             "And you'll need to submit your grading for the correctness of the output,"
@@ -649,7 +646,7 @@ def test_strict_correctness_metric():
             "your justification and score to compute the strict_correctness of\nthe output.\n"
             f"\nInput:\n{input}\n"
             f"\nProvided output:\n{mlflow_prediction}\n"
-            f"\nProvided ground_truth: {mlflow_ground_truth}\n"
+            f"\nProvided targets: {mlflow_ground_truth}\n"
             f"\nMetric definition:\n{StrictCorrectnessMetric.definition}\n"
             f"\nBelow is your grading criteria:\n{StrictCorrectnessMetric.grading_prompt}\n"
             "\nExamples:\n"
