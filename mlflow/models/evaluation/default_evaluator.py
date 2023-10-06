@@ -1109,40 +1109,40 @@ class DefaultEvaluator(ModelEvaluator):
         # in case the user modifies them inside their function(s).
         eval_df_copy = eval_df.copy()
         input_df = self.X.copy_to_avoid_mutation()
-        parameters = dict(inspect.signature(extra_metric.eval_fn).parameters)
+        parameters = inspect.signature(extra_metric.eval_fn).parameters
         eval_fn_args = []
         if len(parameters) == 2:
             eval_fn_args.append(eval_df_copy)
-            if "metrics" in parameters:
+            if "metrics" in parameters.keys():
                 eval_fn_args.append(copy.deepcopy(self.metrics_values))
             else:
                 eval_fn_args.append(copy.deepcopy(self.metrics))
         else:
-            eval_fn_args.append(eval_df_copy["prediction"])
-            del parameters["predictions"]
-            if "targets" in parameters:
-                eval_fn_args.append(eval_df_copy["target"])
-                del parameters["targets"]
-            if "metrics" in parameters:
-                eval_fn_args.append(copy.deepcopy(self.metrics_values))
-                del parameters["metrics"]
-
-            # Rest are all parameters are args that are used to compute the metric.
             for param_name, param in parameters.items():
-                column = self.col_mapping.get(param_name, param_name)
-                if not isinstance(column, str):
-                    eval_fn_args.append(column)
-                if column in input_df.columns:
-                    eval_fn_args.append(input_df[column])
-                elif (
-                    self.other_output_columns is not None
-                    and column in self.other_output_columns.columns
-                ):
-                    eval_fn_args.append(self.other_output_columns[column])
-                elif param.default == inspect.Parameter.empty:
-                    raise MlflowException(
-                        f"Column '{param_name}' not found in input data or output data."
-                    )
+                if param_name == "predictions":
+                    eval_fn_args.append(eval_df_copy["prediction"])
+                elif param_name == "targets":
+                    if "target" in eval_df_copy:
+                        eval_fn_args.append(eval_df_copy["target"])
+                    else:
+                        eval_fn_args.append(None)
+                elif param_name == "metrics":
+                    eval_fn_args.append(copy.deepcopy(self.metrics_values))
+                else:
+                    column = self.col_mapping.get(param_name, param_name)
+                    if not isinstance(column, str):
+                        eval_fn_args.append(column)
+                    elif column in input_df.columns:
+                        eval_fn_args.append(input_df[column])
+                    elif (
+                        self.other_output_columns is not None
+                        and column in self.other_output_columns.columns
+                    ):
+                        eval_fn_args.append(self.other_output_columns[column])
+                    elif param.default == inspect.Parameter.empty:
+                        raise MlflowException(
+                            f"Column '{param_name}' not found in input data or output data."
+                        )
 
         return eval_fn_args
 
@@ -1151,7 +1151,7 @@ class DefaultEvaluator(ModelEvaluator):
             return
         for index, extra_metric in enumerate(self.extra_metrics):
             eval_fn_args = self._get_args_for_metrics(extra_metric, eval_df)
-            _logger.info("Evaluating custom metrics:", extra_metric.name)
+            _logger.info(f"Evaluating custom metrics: {extra_metric.name}")
             extra_metric_tuple = _CustomMetric(
                 function=extra_metric.eval_fn,
                 index=index,
@@ -1380,7 +1380,7 @@ class DefaultEvaluator(ModelEvaluator):
         if not self.builtin_metrics:
             return
         for builtin_metric in self.builtin_metrics:
-            _logger.info("Evaluating builtin metrics:", builtin_metric.name)
+            _logger.info(f"Evaluating builtin metrics: {builtin_metric.name}")
 
             eval_fn_args = self._get_args_for_metrics(builtin_metric, eval_df)
             metric_value = builtin_metric.eval_fn(*eval_fn_args)
