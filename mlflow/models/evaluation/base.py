@@ -1523,6 +1523,11 @@ def evaluate(
     from mlflow.pyfunc import PyFuncModel, _load_model_or_server, _ServedPyFuncModel
     from mlflow.utils import env_manager as _EnvManager
 
+    if data is None:
+        raise MlflowException(
+            message="The data argument must be specified.", error_code=INVALID_PARAMETER_VALUE
+        )
+
     _EnvManager.validate(env_manager)
 
     if model_type in [_ModelType.REGRESSOR, _ModelType.CLASSIFIER]:
