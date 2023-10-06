@@ -78,10 +78,10 @@ def make_genai_metric(
     grading_prompt: str,
     examples: Optional[List[EvaluationExample]] = None,
     version: Optional[str] = _get_latest_metric_version(),
-    model: Optional[str] = "openai:/gpt-4",
+    model: Optional[str] = "openai:/gpt-3.5-turbo-16k",
     grading_context_columns: Optional[List[str]] = None,
     parameters: Optional[Dict[str, Any]] = None,
-    aggregations: Optional[List[str]] = None,
+    aggregations: Optional[List[str]] = ["mean", "variance", "p90"],
     greater_is_better: bool = True,
     max_workers: int = 10,
     judge_request_timeout: int = 15,
@@ -291,9 +291,12 @@ def make_genai_metric(
             return options[aggregate_option](scores)
 
         scores_for_aggregation = [score for score in scores if score is not None]
-        aggregate_results = {
-            option: aggregate_function(option, scores_for_aggregation) for option in aggregations
-        }
+
+        aggregate_results = (
+            {option: aggregate_function(option, scores_for_aggregation) for option in aggregations}
+            if aggregations is not None
+            else {}
+        )
 
         return MetricValue(scores, justifications, aggregate_results)
 
