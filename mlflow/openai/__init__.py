@@ -572,7 +572,7 @@ def _load_model(path):
         return yaml.safe_load(f)
 
 
-def _has_content_and_role(d):
+def _is_valid_message(d):
     return isinstance(d, Dict) and "content" in d and "role" in d
 
 
