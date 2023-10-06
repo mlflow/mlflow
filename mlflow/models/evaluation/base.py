@@ -1528,6 +1528,12 @@ def evaluate(
             message="The data argument cannot be None.", error_code=INVALID_PARAMETER_VALUE
         )
 
+    if prediction is not None and model is not None:
+        raise MlflowException(
+            message="The prediction argument cannot be specified when model is specified.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     _EnvManager.validate(env_manager)
 
     if model_type in [_ModelType.REGRESSOR, _ModelType.CLASSIFIER]:
@@ -1546,12 +1552,6 @@ def evaluate(
                     f"The targets argument must be specified for {model_type} models.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-
-    if prediction is not None and model is not None:
-        raise MlflowException(
-            message="The prediction argument cannot be specified when model is specified.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
 
     if isinstance(model, str):
         model = _load_model_or_server(model, env_manager)
