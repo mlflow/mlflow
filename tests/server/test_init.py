@@ -29,7 +29,7 @@ def test_build_waitress_command():
     ) == [
         sys.executable,
         "-m",
-        "waitress-serve",
+        "waitress",
         "--host=localhost",
         "--port=5000",
         "--ident=mlflow",
@@ -41,7 +41,7 @@ def test_build_waitress_command():
     ) == [
         sys.executable,
         "-m",
-        "waitress-serve",
+        "waitress",
         "--host=localhost",
         "--port=5000",
         "--ident=mlflow",

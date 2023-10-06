@@ -190,7 +190,7 @@ def _build_waitress_command(waitress_opts, host, port, app_name, is_factory):
     return [
         sys.executable,
         "-m",
-        "waitress-serve",
+        "waitress",
         *opts,
         f"--host={host}",
         f"--port={port}",
