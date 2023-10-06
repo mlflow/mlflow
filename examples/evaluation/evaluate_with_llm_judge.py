@@ -65,7 +65,7 @@ with mlflow.start_run() as run:
         model_type="text",
         extra_metrics=[correctness_metric],
     )
-    print(results)
+    print(results.metrics)
 
     eval_table = results.table["eval_results_table"]
     print(eval_table)
