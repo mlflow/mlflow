@@ -1061,11 +1061,12 @@ def _get_model_from_function(fn):
 
 
 def evaluate(
-    model: str,
-    data,
+    model: str = None,
+    data=None,
     *,
     model_type: str,
     targets=None,
+    predictions=None,
     dataset_path=None,
     feature_names: list = None,
     evaluators=None,
@@ -1291,7 +1292,7 @@ def evaluate(
           specified, unless the ``evaluator_config`` option **log_model_explainability** is
           explicitly set to ``True``.
 
-    :param model: One of the following:
+    :param model: Optional. If specified, it should be one of the following:
 
                   - A pyfunc model instance
 
@@ -1307,10 +1308,11 @@ def evaluate(
                         def fn(model_input):
                             return model.predict(model_input)
 
-                  - None: This indicates a static dataset will be used for evaluation instead of a
-                    model. In this case, the ``data`` argument must be a Pandas DataFrame or Spark
-                    DataFrame or :py:class`mlflow.data.dataset.Dataset` instance that contains
-                    model outputs. The column name of the model outputs must be ``model_output``.
+        If omitted, it indicates a static dataset will be used for evaluation instead of a model.
+        In this case, the ``data`` argument must be a Pandas DataFrame or Spark DataFrame or
+        :py:class`mlflow.data.dataset.Dataset` instance that contains model outputs, and the
+        ``prediction`` argument must be the name of the column in ``data`` that contains model
+        outputs.
 
     :param data: One of the following:
 
@@ -1333,6 +1335,9 @@ def evaluate(
                     but optional for question-answering, text-summarization, and text models. If
                     ``data`` is a :py:class`mlflow.data.dataset.Dataset` that defines targets,
                     then ``targets`` is optional.
+
+    :param prediction: Optional. Only used when ``model`` is not specified. The name of the column
+                       in ``data`` that contains model outputs.
 
     :param model_type: A string describing the model type. The default evaluator
                        supports the following model types:
@@ -1357,7 +1362,7 @@ def evaluate(
                           ``feature_{feature_index}``. If the ``data`` argument is a Pandas
                           DataFrame or a Spark DataFrame, ``feature_names`` is a list of the names
                           of the feature columns in the DataFrame. If ``None``, then all columns
-                          except the label column and the model_output column are regarded as
+                          except the label column and the prediction column are regarded as
                           feature columns.
 
     :param evaluators: The name of the evaluator to use for model evaluation, or a list of
