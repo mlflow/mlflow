@@ -1525,7 +1525,7 @@ def evaluate(
 
     if data is None:
         raise MlflowException(
-            message="The data argument must be specified.", error_code=INVALID_PARAMETER_VALUE
+            message="The data argument cannot be None.", error_code=INVALID_PARAMETER_VALUE
         )
 
     _EnvManager.validate(env_manager)
