@@ -1554,7 +1554,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         self.custom_artifacts = custom_artifacts
         self.y = dataset.labels_data
-        self.col_mapping = self.evaluator_config.get("col_mapping")
+        self.col_mapping = self.evaluator_config.get("col_mapping", {})
         self.pos_label = self.evaluator_config.get("pos_label")
         self.sample_weights = self.evaluator_config.get("sample_weights")
 
