@@ -579,8 +579,7 @@ def _has_content_and_role(d):
 class _ContentFormatter:
     def __init__(self, type, template=None):
         if type == "completions":
-            if not template:
-                template = "{prompt}"
+            template = template or "{prompt}"
             if not isinstance(template, str):
                 raise mlflow.MlflowException.invalid_parameter_value(
                     f"Template for task {type} expects type `str`, but got {type(template)}."
