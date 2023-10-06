@@ -1066,7 +1066,7 @@ def evaluate(
     *,
     model_type: str,
     targets=None,
-    predictions=None,
+    prediction=None,
     dataset_path=None,
     feature_names: list = None,
     evaluators=None,
@@ -1547,6 +1547,12 @@ def evaluate(
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
+    if prediction is not None and model is not None:
+        raise MlflowException(
+            message="The prediction argument cannot be specified when model is specified.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     if isinstance(model, str):
         model = _load_model_or_server(model, env_manager)
     elif env_manager != _EnvManager.LOCAL:
@@ -1559,25 +1565,32 @@ def evaluate(
         pass
     elif model is None:
         # Evaluating a static dataset
+        if prediction is None:
+            raise MlflowException(
+                message="The prediction argument must be specified when model=None.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         if not isinstance(data, pd.DataFrame):
             raise MlflowException(
                 message="The ``data`` must be a pandas dataframe when model=None.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        if "model_output" not in data.columns:
+        if prediction not in data.columns:
             raise MlflowException(
-                message="The ``data`` must contain a column ``model_output``.",
+                message=f"The prediction column {prediction} is not found in ``data``.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        data_with_output = data.copy(deep=True)
-        data = data.drop(columns=["model_output"])
+
+        data_with_prediction = data.copy(deep=True)
+        data = data.drop(columns=[prediction])
 
         def fn(model_input: pd.DataFrame):
             filtered_df = pd.merge(
-                model_input, data_with_output, how="inner", on=model_input.columns.tolist()
+                model_input, data_with_prediction, how="inner", on=model_input.columns.tolist()
             )
-            return filtered_df["model_output"].tolist()
+            return filtered_df[prediction].tolist()
 
         model = _get_model_from_function(fn)
     elif callable(model):
