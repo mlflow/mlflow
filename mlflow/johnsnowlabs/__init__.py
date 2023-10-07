@@ -291,6 +291,7 @@ def log_model(
     run_root_artifact_uri = mlflow.get_artifact_uri()
     remote_model_path = None
     # commented for now because spark flavor is mlflowdbfs it, but it has many issues on databricks
+    # See https://github.com/mlflow/mlflow/issues/9869
     # if _should_use_mlflowdbfs(run_root_artifact_uri):
     #     remote_model_path = append_to_uri_path(
     #         run_root_artifact_uri, artifact_path, _JOHNSNOWLABS_MODEL_PATH_SUB
