@@ -1144,11 +1144,9 @@ class DefaultEvaluator(ModelEvaluator):
                             "Error: Metric Calculation Failed\n"
                             f"Metric '{extra_metric.name}' requires the column '{param_name}' to "
                             "be defined in either the input data or resulting output data.\n"
-                            "To resolve this issue, you may want to map an existing column using "
-                            "the following configuration:\n"
-                            f"evaluator_config={{'col_mapping': {{'{param_name}': 'col_name'}}}}\n"
-                            "Please ensure that the specified column is present and correctly "
-                            "mapped."
+                            f"To resolve this issue, you may want to map {param_name} to an "
+                            "existing column using the following configuration:\n"
+                            f"evaluator_config={{'col_mapping': {{'{param_name}': 'col_name'}}}}"
                         )
 
         return eval_fn_args
@@ -1158,7 +1156,7 @@ class DefaultEvaluator(ModelEvaluator):
             return
         for index, extra_metric in enumerate(self.extra_metrics):
             eval_fn_args = self._get_args_for_metrics(extra_metric, eval_df)
-            _logger.info(f"Evaluating custom metrics: {extra_metric.name}")
+            _logger.info(f"Evaluating metrics: {extra_metric.name}")
             extra_metric_tuple = _CustomMetric(
                 function=extra_metric.eval_fn,
                 index=index,
