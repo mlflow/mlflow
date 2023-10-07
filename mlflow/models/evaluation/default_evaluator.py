@@ -963,7 +963,7 @@ class DefaultEvaluator(ModelEvaluator):
         # be supplied through file. Which is handled by the first if clause. This is because
         # DataFrame objects default to be stored as CsvEvaluationArtifact.
         if inferred_from_path:
-            shutil.copyfile(raw_artifact, artifact_file_local_path)
+            shutil.copy2(raw_artifact, artifact_file_local_path)
         elif inferred_type is JsonEvaluationArtifact:
             with open(artifact_file_local_path, "w") as f:
                 if isinstance(raw_artifact, str):
@@ -1313,7 +1313,11 @@ class DefaultEvaluator(ModelEvaluator):
 
             self.is_model_server = isinstance(model, _ServedPyFuncModel)
 
-            self.model_loader_module, self.raw_model = _extract_raw_model(model)
+            if getattr(model, "metadata", None):
+                self.model_loader_module, self.raw_model = _extract_raw_model(model)
+            else:
+                # model is constructed from a user specified function
+                self.model_loader_module, self.raw_model = None, None
             self.predict_fn, self.predict_proba_fn = _extract_predict_fn(model, self.raw_model)
 
             self.metrics = {}

@@ -22,7 +22,8 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.utils.os import is_windows
 
-from tests.server.auth.auth_test_utils import User, create_user
+from tests.helper_functions import random_str
+from tests.server.auth.auth_test_utils import ADMIN_USERNAME, User, create_user
 from tests.tracking.integration_test_utils import (
     _init_server,
     _send_rest_tracking_post_request,
@@ -71,6 +72,21 @@ def _mlflow_search_experiments_rest(base_uri, headers):
     return response
 
 
+def _mlflow_create_user_rest(base_uri, headers):
+    username = random_str()
+    password = random_str()
+    response = requests.post(
+        f"{base_uri}/api/2.0/mlflow/users/create",
+        headers=headers,
+        json={
+            "username": username,
+            "password": password,
+        },
+    )
+    response.raise_for_status()
+    return username, password
+
+
 @pytest.mark.parametrize(
     "client",
     [
@@ -88,7 +104,12 @@ def test_authenticate_jwt(client):
     assert e.value.response.status_code == 401  # Unauthorized
 
     # authenticated
-    username, password = create_user(client.tracking_uri)
+    # we need to use jwt to authenticate as admin so that we can create a new user
+    bearer_token = jwt.encode({"username": ADMIN_USERNAME}, "secret", algorithm="HS256")
+    headers = {"Authorization": f"Bearer {bearer_token}"}
+    username, password = _mlflow_create_user_rest(client.tracking_uri, headers)
+
+    # authenticate with the newly created user
     headers = {
         "Authorization": f'Bearer {jwt.encode({"username": username}, "secret", algorithm="HS256")}'
     }

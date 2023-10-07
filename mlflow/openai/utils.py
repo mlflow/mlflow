@@ -1,4 +1,6 @@
 import json
+import os
+import time
 from contextlib import contextmanager
 from unittest import mock
 
@@ -7,22 +9,6 @@ import requests
 import mlflow
 
 TEST_CONTENT = "test"
-TEST_SOURCE_DOCUMENTS = [
-    {
-        "page_content": "We see the unity among leaders ...",
-        "metadata": {"source": "tests/langchain/state_of_the_union.txt"},
-    },
-]
-TEST_INTERMEDIATE_STEPS = (
-    [
-        {
-            "tool": "Search",
-            "tool_input": "High temperature in SF yesterday",
-            "log": " I need to find the temperature first...",
-            "result": "San Francisco...",
-        },
-    ],
-)
 
 
 class _MockResponse:
@@ -51,6 +37,17 @@ def _chat_completion_json_sample(content):
     }
 
 
+def _completion_json_sample(content):
+    return {
+        "id": "cmpl-123",
+        "object": "text_completion",
+        "created": 1589478378,
+        "model": "text-davinci-003",
+        "choices": [{"text": content, "index": 0, "finish_reason": "length"}],
+        "usage": {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
+    }
+
+
 def _models_retrieve_json_sample():
     # https://platform.openai.com/docs/api-reference/models/retrieve
     return {
@@ -63,6 +60,10 @@ def _models_retrieve_json_sample():
 
 def _mock_chat_completion_response(content=TEST_CONTENT):
     return _MockResponse(200, _chat_completion_json_sample(content))
+
+
+def _mock_completion_response(content=TEST_CONTENT):
+    return _MockResponse(200, _completion_json_sample(content))
 
 
 def _mock_embeddings_response(num_texts):
@@ -108,6 +109,9 @@ def _mock_openai_request():
         if url.endswith("/chat/completions"):
             messages = json.loads(kwargs.get("data")).get("messages")
             return _mock_chat_completion_response(content=json.dumps(messages))
+        elif url.endswith("/completions"):
+            prompt = json.loads(kwargs.get("data")).get("prompt")
+            return _mock_completion_response(content=json.dumps(prompt))
         elif url.endswith("/embeddings"):
             inp = json.loads(kwargs.get("data")).get("input")
             return _mock_embeddings_response(len(inp) if isinstance(inp, list) else 1)
@@ -115,3 +119,58 @@ def _mock_openai_request():
             return original(*args, **kwargs)
 
     return _mock_request(new=request)
+
+
+class _OAITokenHolder:
+    def __init__(self, api_type):
+        import openai
+
+        self._api_token = None
+        self._credential = None
+        self._is_azure_ad = api_type in ("azure_ad", "azuread")
+        self._key_configured = bool(openai.api_key) or "OPENAI_API_KEY" in os.environ
+
+        if self._is_azure_ad and not self._key_configured:
+            try:
+                from azure.identity import DefaultAzureCredential
+            except ImportError:
+                raise mlflow.MlflowException(
+                    "Using API type `azure_ad` or `azuread` requires the package"
+                    " `azure-identity` to be installed."
+                )
+            self._credential = DefaultAzureCredential()
+
+    def validate(self, logger=None):
+        """
+        Validates the token or API key configured for accessing the OpenAI resource.
+        """
+        import openai
+
+        if self._key_configured:
+            return
+
+        if self._is_azure_ad:
+            if not self._api_token or self._api_token.expires_on < time.time() + 60:
+                from azure.core.exceptions import ClientAuthenticationError
+
+                if logger:
+                    logger.debug(
+                        "Token for Azure AD is either expired or unset. Attempting to "
+                        "acquire a new token."
+                    )
+                try:
+                    self._api_token = self._credential.get_token(
+                        "https://cognitiveservices.azure.com/.default"
+                    )
+                except ClientAuthenticationError as err:
+                    raise mlflow.MlflowException(
+                        "Unable to acquire a valid Azure AD token for the resource due to "
+                        f"the following error: {err.message}"
+                    ) from err
+                openai.api_key = self._api_token.token
+            if logger:
+                logger.debug("Token refreshed successfully")
+        else:
+            raise mlflow.MlflowException(
+                "OpenAI API key must be set in the ``OPENAI_API_KEY`` environment variable."
+            )

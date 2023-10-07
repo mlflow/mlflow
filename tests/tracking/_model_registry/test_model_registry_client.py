@@ -4,7 +4,7 @@ and returns values when required.
 """
 
 from unittest import mock
-from unittest.mock import ANY, patch
+from unittest.mock import ANY
 
 import pytest
 
@@ -199,10 +199,11 @@ def test_delete_registered_model_tag(mock_store):
 
 
 # Model Version API
-@patch(
-    "mlflow.tracking._model_registry.client.AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS", 1
+@pytest.mark.parametrize(
+    "await_time",
+    [1, 10, None, 0, -1],
 )
-def test_create_model_version_when_wait_exceeds_time(mock_store):
+def test_await_model_version_creation(mock_store, await_time):
     name = "Model 1"
     version = "1"
 
@@ -210,12 +211,14 @@ def test_create_model_version_when_wait_exceeds_time(mock_store):
         name=name, version=version, creation_timestamp=123, status="PENDING_REGISTRATION"
     )
     mock_store.create_model_version.return_value = mv
-    mock_store.get_model_version.return_value = mv
 
-    with pytest.raises(MlflowException, match="Exceeded max wait time"):
-        newModelRegistryClient().create_model_version(
-            name, "uri:/source", "run123", await_creation_for=1
-        )
+    newModelRegistryClient().create_model_version(
+        name, "uri:/source", "run123", await_creation_for=await_time
+    )
+    if await_time and await_time > 0:
+        mock_store._await_model_version_creation.assert_called_once_with(mv, await_time)
+    else:
+        mock_store._await_model_version_creation.assert_not_called()
 
 
 def test_create_model_version_does_not_wait_when_await_creation_param_is_false(mock_store):

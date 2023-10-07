@@ -1316,3 +1316,53 @@ def test_evaluate_lightgbm_regressor():
     assert "mean_absolute_error" in run.data.metrics
     assert "mean_squared_error" in run.data.metrics
     assert "root_mean_squared_error" in run.data.metrics
+
+
+def test_evaluate_with_function_input_single_output():
+    import lightgbm as lgb
+
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    data = lgb.Dataset(X, label=y)
+    model = lgb.train({"objective": "regression"}, data, num_boost_round=5)
+
+    def fn(X):
+        return model.predict(X)
+
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            fn,
+            X.assign(y=y),
+            targets="y",
+            model_type="regressor",
+        )
+    run = mlflow.get_run(run.info.run_id)
+    assert "mean_absolute_error" in run.data.metrics
+    assert "mean_squared_error" in run.data.metrics
+    assert "root_mean_squared_error" in run.data.metrics
+
+
+def test_evaluate_with_loaded_pyfunc_model():
+    import lightgbm as lgb
+
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    data = lgb.Dataset(X, label=y)
+    model = lgb.train({"objective": "regression"}, data, num_boost_round=5)
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.lightgbm.log_model(model, "model")
+        loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+        mlflow.evaluate(
+            loaded_model,
+            X.assign(y=y),
+            targets="y",
+            model_type="regressor",
+        )
+
+    run = mlflow.get_run(run.info.run_id)
+    assert "mean_absolute_error" in run.data.metrics
+    assert "mean_squared_error" in run.data.metrics
+    assert "root_mean_squared_error" in run.data.metrics

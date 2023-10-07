@@ -18,3 +18,6 @@ class CPUMonitor(BaseMetricsMonitor):
         self._metrics["system_memory_usage_percentage"].append(
             system_memory.used / system_memory.total * 100
         )
+
+    def aggregate_metrics(self):
+        return {k: round(sum(v) / len(v), 1) for k, v in self._metrics.items()}

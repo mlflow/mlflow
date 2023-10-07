@@ -462,7 +462,7 @@ def _strip_local_version_label(version):
         return version
 
 
-def _get_pinned_requirement(package, version=None, module=None):
+def _get_pinned_requirement(package, version=None, module=None, extras=None):
     """
     Returns a string representing a pinned pip requirement to install the specified package and
     version (e.g. 'mlflow==1.2.3').
@@ -472,6 +472,7 @@ def _get_pinned_requirement(package, version=None, module=None):
     :param module: The name of the top-level module provided by the package . For example,
                    if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
                    to `package`.
+    :param extras: A list of extra names for the package
     """
     if version is None:
         version_raw = _get_installed_version(package, module)
@@ -491,6 +492,8 @@ def _get_pinned_requirement(package, version=None, module=None):
         else:
             version = version_raw
 
+    if extras:
+        return f"{package}[{','.join(extras)}]=={version}"
     return f"{package}=={version}"
 
 
