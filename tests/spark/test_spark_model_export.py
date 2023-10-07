@@ -373,10 +373,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
 @pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
 def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run, use_dfs_tmpdir):
     old_tracking_uri = mlflow.get_tracking_uri()
-    if use_dfs_tmpdir:
-        dfs_tmpdir = None
-    else:
-        dfs_tmpdir = tmp_path.joinpath("test")
+    dfs_tmpdir = None if use_dfs_tmpdir else tmp_path.joinpath("test")
 
     try:
         tracking_dir = tmp_path.joinpath("mlruns")
@@ -450,10 +447,7 @@ def test_sparkml_estimator_model_log(
     tmp_path, spark_model_estimator, should_start_run, use_dfs_tmpdir
 ):
     old_tracking_uri = mlflow.get_tracking_uri()
-    if use_dfs_tmpdir:
-        dfs_tmpdir = None
-    else:
-        dfs_tmpdir = tmp_path.joinpath("test")
+    dfs_tmpdir = None if use_dfs_tmpdir else tmp_path.joinpath("test")
 
     try:
         tracking_dir = tmp_path.joinpath("mlruns")

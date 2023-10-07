@@ -290,6 +290,6 @@ class FailureCard(BaseCard):
         warning_output_path = os.path.join(output_directory, "warning_logs.txt")
         if os.path.exists(warning_output_path):
             with open(warning_output_path) as f:
-                return self.add_tab("Warning Logs", "{{ STEP_WARNINGS }}").add_html(
+                self.add_tab("Warning Logs", "{{ STEP_WARNINGS }}").add_html(
                     "STEP_WARNINGS", f"<pre>{f.read()}</pre>"
                 )

@@ -213,7 +213,7 @@ def test_mkdir(tmp_path):
 
     # raises if it exists already but is a file
     dummy_file_path = str(tmp_path.joinpath("dummy_file"))
-    open(dummy_file_path, "a").close()
+    open(dummy_file_path, "a").close()  # noqa: SIM115
     with pytest.raises(OSError, match="exists"):
         file_utils.mkdir(dummy_file_path)
 
