@@ -740,6 +740,18 @@ def _load_pyfunc(path, spark=None):
     )
 
 
+def _auth_env_with_artifact(model_path):
+    _, license_path = _fetch_deps_from_path(model_path)
+    if license_path:
+        with open(license_path) as f:
+            loaded_license = json.load(f)
+            os.environ.update(
+                {k: str(v) for k, v in loaded_license.items() if v is not None}
+            )
+            os.environ["JSL_NLP_LICENSE"] = loaded_license["HC_LICENSE"]
+            os.environ['JOHNSNOWLABS_LICENSE_JSON'] = json.dumps(loaded_license)
+
+
 def _get_or_create_sparksession(model_path=None):
     """
     1. Check if SparkSession running and get it
@@ -764,15 +776,9 @@ def _get_or_create_sparksession(model_path=None):
         os.environ["PYSPARK_PYTHON"] = sys.executable
         os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
         if model_path:
-            jar_paths, license_path = _fetch_deps_from_path(model_path)
+            _auth_env_with_artifact(model_path)
             # jar_paths += get_mleap_jars().split(',')  # TODO when to load MLleap Jars
-            if license_path:
-                with open(license_path) as f:
-                    loaded_license = json.load(f)
-                    os.environ.update(
-                        {k: str(v) for k, v in loaded_license.items() if v is not None}
-                    )
-                    os.environ["JSL_NLP_LICENSE"] = loaded_license["HC_LICENSE"]
+            jar_paths, license_path = _fetch_deps_from_path(model_path)
             _logger.info("Starting a new Session with Jars: %s", jar_paths)
             spark = nlp.start(
                 nlp=False,
