@@ -106,6 +106,8 @@ from mlflow.utils.uri import (
 
 FLAVOR_NAME = "johnsnowlabs"
 _JOHNSNOWLABS_ENV_JSON_LICENSE_KEY = "JOHNSNOWLABS_LICENSE_JSON"
+_JOHNSNOWLABS_ENV_HEALTHCARE_SECRET = 'HEALTHCARE_SECRET'
+_JOHNSNOWLABS_ENV_VISUAL_SECRET = 'VISUAL_SECRET'
 _JOHNSNOWLABS_MODEL_PATH_SUB = "jsl-model"
 _logger = logging.getLogger(__name__)
 env_var_missing_logged = False
