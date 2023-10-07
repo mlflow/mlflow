@@ -108,15 +108,21 @@ FLAVOR_NAME = "johnsnowlabs"
 _JOHNSNOWLABS_ENV_JSON_LICENSE_KEY = "JOHNSNOWLABS_LICENSE_JSON"
 _JOHNSNOWLABS_MODEL_PATH_SUB = "jsl-model"
 _logger = logging.getLogger(__name__)
+env_var_missing_logged = False
 
 
 def _validate_env_vars():
+    global env_var_missing_logged
     if _JOHNSNOWLABS_ENV_JSON_LICENSE_KEY not in os.environ:
-        raise Exception(
-            f"Please set the {_JOHNSNOWLABS_ENV_JSON_LICENSE_KEY}"
-            f" environment variable as the raw license.json string from John Snow Labs"
-        )
-    _set_env_vars()
+        if not env_var_missing_logged:
+            _logger.warning(
+                f"{_JOHNSNOWLABS_ENV_JSON_LICENSE_KEY} "
+                f"environment variable is not set. Ensure all dependencies are resolved or \n"
+                f"set it as the raw license.json string from John Snow Labs to automatically resolve them."
+            )
+            env_var_missing_logged = True
+    else:
+        _set_env_vars()
 
 
 def _set_env_vars():
@@ -767,9 +773,10 @@ def _get_or_create_sparksession(model_path=None):
 
     from mlflow.utils._spark_utils import _get_active_spark_session
 
-    _validate_env_vars()
-
     spark = _get_active_spark_session()
+    if not _validate_env_vars() and model_path:
+        _auth_env_with_artifact(model_path)
+
     if spark is None:
         spark_conf = {}
         spark_conf["spark.python.worker.reuse"] = "true"
