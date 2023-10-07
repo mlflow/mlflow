@@ -35223,7 +35223,7 @@ public final class Service {
 
     /**
      * <pre>
-     * String value of the param being logged. Maximum size is 500 bytes.
+     * String value of the param being logged. Maximum size is 6000 bytes.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -35232,7 +35232,7 @@ public final class Service {
     boolean hasValue();
     /**
      * <pre>
-     * String value of the param being logged. Maximum size is 500 bytes.
+     * String value of the param being logged. Maximum size is 6000 bytes.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -35241,7 +35241,7 @@ public final class Service {
     java.lang.String getValue();
     /**
      * <pre>
-     * String value of the param being logged. Maximum size is 500 bytes.
+     * String value of the param being logged. Maximum size is 6000 bytes.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -35962,7 +35962,7 @@ public final class Service {
     private volatile java.lang.Object value_;
     /**
      * <pre>
-     * String value of the param being logged. Maximum size is 500 bytes.
+     * String value of the param being logged. Maximum size is 6000 bytes.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -35974,7 +35974,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * String value of the param being logged. Maximum size is 500 bytes.
+     * String value of the param being logged. Maximum size is 6000 bytes.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -35997,7 +35997,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * String value of the param being logged. Maximum size is 500 bytes.
+     * String value of the param being logged. Maximum size is 6000 bytes.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -36744,7 +36744,7 @@ public final class Service {
       private java.lang.Object value_ = "";
       /**
        * <pre>
-       * String value of the param being logged. Maximum size is 500 bytes.
+       * String value of the param being logged. Maximum size is 6000 bytes.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -36755,7 +36755,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the param being logged. Maximum size is 500 bytes.
+       * String value of the param being logged. Maximum size is 6000 bytes.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -36777,7 +36777,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the param being logged. Maximum size is 500 bytes.
+       * String value of the param being logged. Maximum size is 6000 bytes.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -36798,7 +36798,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the param being logged. Maximum size is 500 bytes.
+       * String value of the param being logged. Maximum size is 6000 bytes.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -36817,7 +36817,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the param being logged. Maximum size is 500 bytes.
+       * String value of the param being logged. Maximum size is 6000 bytes.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -36831,7 +36831,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the param being logged. Maximum size is 500 bytes.
+       * String value of the param being logged. Maximum size is 6000 bytes.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>

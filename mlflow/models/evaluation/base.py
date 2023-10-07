@@ -997,9 +997,11 @@ def _evaluate(
 
     client = MlflowClient()
 
-    model_uuid = model.metadata.model_uuid
+    model_uuid = getattr(model, "metadata", None)
 
-    dataset._log_dataset_tag(client, run_id, model_uuid)
+    if model_uuid is not None:
+        model_uuid = model_uuid.model_uuid
+        dataset._log_dataset_tag(client, run_id, model_uuid)
 
     eval_results = []
     for evaluator_name in evaluator_name_list:
@@ -1047,6 +1049,17 @@ def _evaluate(
     return merged_eval_result
 
 
+def _get_model_from_function(fn):
+    from mlflow.pyfunc.model import _PythonModelPyfuncWrapper
+
+    class ModelFromFunction(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input: pd.DataFrame):
+            return fn(model_input)
+
+    python_model = ModelFromFunction()
+    return _PythonModelPyfuncWrapper(python_model, None, None)
+
+
 def evaluate(
     model: str,
     data,
@@ -1062,6 +1075,8 @@ def evaluate(
     validation_thresholds=None,
     baseline_model=None,
     env_manager="local",
+    model_config=None,
+    baseline_config=None,
 ):
     '''
     Evaluate a PyFunc model on the specified dataset using one or more specified ``evaluators``, and
@@ -1278,7 +1293,21 @@ def evaluate(
           specified, unless the ``evaluator_config`` option **log_model_explainability** is
           explicitly set to ``True``.
 
-    :param model: A pyfunc model instance, or a URI referring to such a model.
+    :param model: One of the following:
+
+                  - A pyfunc model instance
+
+                  - A URI referring to a pyfunc model
+
+                  - A callable function: This function should be able to take in model input and
+                    return predictions. It should follow the signature of the
+                    :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>` method. Here's an example
+                    of a valid function:
+
+                        model = mlflow.pyfunc.load_model(model_uri)
+
+                        def fn(model_input):
+                            return model.predict(model_input)
 
     :param data: One of the following:
 
@@ -1477,6 +1506,14 @@ def evaluate(
                            may differ from the environment used to train the model and may lead to
                            errors or invalid predictions.
 
+    :param model_config: the model configuration to use for loading the model with pyfunc. Inspect
+                         the model's pyfunc flavor to know which keys are supported for your
+                         specific model. If not indicated, the default model configuration
+                         from the model is used (if any).
+    :param baseline_config: the model configuration to use for loading the baseline
+                            model. If not indicated, the default model configuration
+                            from the baseline model is used (if any).
+
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              metrics of candidate model and baseline model, and artifacts of candidate model.
     '''
@@ -1503,7 +1540,7 @@ def evaluate(
                 )
 
     if isinstance(model, str):
-        model = _load_model_or_server(model, env_manager)
+        model = _load_model_or_server(model, env_manager, model_config)
     elif env_manager != _EnvManager.LOCAL:
         raise MlflowException(
             message="The model argument must be a string URI referring to an MLflow model when a "
@@ -1511,11 +1548,22 @@ def evaluate(
             error_code=INVALID_PARAMETER_VALUE,
         )
     elif isinstance(model, PyFuncModel):
+        if model_config:
+            raise MlflowException(
+                message="Indicating ``model_config`` when passing a `PyFuncModel`` object as "
+                "model argument is not allowed. If you need to change the model configuration "
+                "for the evaluation model, use "
+                "``mlflow.pyfunc.load_model(model_uri, model_config=<value>)`` and indicate "
+                "the desired configuration there.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         pass
+    elif callable(model):
+        model = _get_model_from_function(model)
     else:
         raise MlflowException(
-            message="The model argument must be a string URI referring to an MLflow model or "
-            "an instance of `mlflow.pyfunc.PyFuncModel`.",
+            message="The model argument must be a string URI referring to an MLflow model, "
+            "an instance of `mlflow.pyfunc.PyFuncModel`, or a function.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -1534,7 +1582,9 @@ def evaluate(
             )
 
     if isinstance(baseline_model, str):
-        baseline_model = _load_model_or_server(baseline_model, env_manager)
+        baseline_model = _load_model_or_server(
+            baseline_model, env_manager, model_config=baseline_config
+        )
     elif baseline_model is not None:
         raise MlflowException(
             message="The baseline model argument must be a string URI referring to an "

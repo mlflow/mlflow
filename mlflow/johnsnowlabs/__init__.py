@@ -491,17 +491,17 @@ def _save_jars_and_lic(dst_dir, store_license=True, gpu=False):
                                             )
 
     if suite.hc and suite.hc.get_java_path():
-        shutil.copyfile(suite.hc.get_java_path(), deps_data_path / "medical_nlp.jar")
+        shutil.copy2(suite.hc.get_java_path(), deps_data_path / "medical_nlp.jar")
     else:
         _logger.warning("No HealthCare NLP jar found detected")
     if suite.nlp and suite.nlp.get_java_path():
-        shutil.copyfile(suite.nlp.get_java_path(), deps_data_path / f"spark_nlp_{jar_type.value}.jar")
+        shutil.copy2(suite.nlp.get_java_path(), deps_data_path / f"spark_nlp_{jar_type.value}.jar")
     else:
         _logger.warning("No NLP jar found detected")
 
     if _JOHNSNOWLABS_ENV_VISUAL_SECRET in os.environ and suite.ocr and suite.ocr.get_java_path():
         # only if _JOHNSNOWLABS_ENV_VISUAL_SECRET set we copy visual jar
-        shutil.copyfile(suite.ocr.get_java_path(), deps_data_path / "visual_nlp.jar")
+        shutil.copy2(suite.ocr.get_java_path(), deps_data_path / "visual_nlp.jar")
     else:
         _logger.warning("No Visual jar found detected")
 

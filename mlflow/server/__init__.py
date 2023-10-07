@@ -188,7 +188,9 @@ def get_app_client(app_name: str, *args, **kwargs):
 def _build_waitress_command(waitress_opts, host, port, app_name, is_factory):
     opts = shlex.split(waitress_opts) if waitress_opts else []
     return [
-        "waitress-serve",
+        sys.executable,
+        "-m",
+        "waitress",
         *opts,
         f"--host={host}",
         f"--port={port}",
@@ -202,6 +204,8 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     bind_address = f"{host}:{port}"
     opts = shlex.split(gunicorn_opts) if gunicorn_opts else []
     return [
+        sys.executable,
+        "-m",
         "gunicorn",
         *opts,
         "-b",
