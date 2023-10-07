@@ -141,20 +141,42 @@ def get_default_pip_requirements():
              that, at minimum, contains these requirements.
     """
     from johnsnowlabs import settings
+    if _JOHNSNOWLABS_ENV_HEALTHCARE_SECRET not in os.environ and _JOHNSNOWLABS_ENV_VISUAL_SECRET not in os.environ:
+        raise Exception(
+            f"You need to set the {_JOHNSNOWLABS_ENV_HEALTHCARE_SECRET} or {_JOHNSNOWLABS_ENV_VISUAL_SECRET} environment variable set."
+            f" Please contact John Snow Labs to get one")
 
     _SPARK_NLP_JSL_WHEEL_URI = (
-        "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl/spark_nlp_jsl-"
-        + f"{settings.raw_version_medical}-py3-none-any.whl"
+            "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl/spark_nlp_jsl-"
+            + f"{settings.raw_version_medical}-py3-none-any.whl"
     )
 
-    return [
+    _SPARK_NLP_VISUAL_WHEEL_URI = (
+        "https://pypi.johnsnowlabs.com/{secret}/spark-ocr/"
+        f"spark_ocr-{settings.raw_version_ocr}-py3-none-any.whl"
+    )
+
+    deps = [
         f"johnsnowlabs_for_databricks=={settings.raw_version_jsl_lib}",
+
         _get_pinned_requirement("pyspark"),
-        _SPARK_NLP_JSL_WHEEL_URI.format(secret=os.environ["SECRET"]),
         # TODO remove pandas constraint when NLU supports it
         # https://github.com/JohnSnowLabs/nlu/issues/176
         "pandas<=1.5.3",
+
     ]
+
+    if _JOHNSNOWLABS_ENV_HEALTHCARE_SECRET in os.environ:
+        _SPARK_NLP_JSL_WHEEL_URI = _SPARK_NLP_JSL_WHEEL_URI.format(
+            secret=os.environ[_JOHNSNOWLABS_ENV_HEALTHCARE_SECRET])
+        deps.append(_SPARK_NLP_JSL_WHEEL_URI)
+
+    if _JOHNSNOWLABS_ENV_VISUAL_SECRET in os.environ:
+        _SPARK_NLP_VISUAL_WHEEL_URI = _SPARK_NLP_VISUAL_WHEEL_URI.format(
+            secret=os.environ[_JOHNSNOWLABS_ENV_VISUAL_SECRET])
+        deps.append(_SPARK_NLP_VISUAL_WHEEL_URI)
+
+    return deps
 
 
 @experimental
@@ -183,6 +205,7 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     store_license=False,
+    gpu=False,
 ):
     """
     Log a ``Johnsnowlabs NLUPipeline`` created via `nlp.load()
@@ -250,6 +273,7 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param gpu: If True, GPU optimized jars are loaded, otherwise CPU optimized jars are loaded
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
@@ -337,6 +361,8 @@ def log_model(
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             metadata=metadata,
+            store_license=store_license,
+            gpu=gpu,
         )
     # Otherwise, override the default model log behavior and save model directly to artifact repo
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
@@ -355,6 +381,7 @@ def log_model(
             extra_pip_requirements=extra_pip_requirements,
             remote_model_path=remote_model_path,
             store_license=store_license,
+            gpu=gpu,
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
@@ -380,6 +407,8 @@ def _save_model_metadata(
     extra_pip_requirements=None,
     remote_model_path=None,  # pylint: disable=unused-argument
     store_license=False,  # pylint: disable=unused-argument
+    gpu=False,
+
 ):
     """
     Saves model metadata into the passed-in directory.
@@ -444,27 +473,45 @@ def _save_model_metadata(
 
     _PythonEnv.current().to_yaml(str(Path(dst_dir) / _PYTHON_ENV_FILE_NAME))
 
-    _save_jars_and_lic(dst_dir)
+    _save_jars_and_lic(dst_dir, store_license=store_license, gpu=gpu)
 
 
-def _save_jars_and_lic(dst_dir, store_license=False):
+def _save_jars_and_lic(dst_dir, store_license=True, gpu=False):
     from johnsnowlabs.auto_install.jsl_home import get_install_suite_from_jsl_home
     from johnsnowlabs.py_models.jsl_secrets import JslSecrets
-
+    from johnsnowlabs.utils.enums import JvmHardwareTarget
+    # todo we could download missing jars on the fly
     deps_data_path = Path(dst_dir) / _JOHNSNOWLABS_MODEL_PATH_SUB / "jars.jsl"
     deps_data_path.mkdir(parents=True, exist_ok=True)
 
-    suite = get_install_suite_from_jsl_home(False)
-    if suite.hc.get_java_path():
-        shutil.copyfile(suite.hc.get_java_path(), deps_data_path / "hc_jar.jar")
-    if suite.nlp.get_java_path():
-        shutil.copyfile(suite.nlp.get_java_path(), deps_data_path / "os_jar.jar")
+    jar_type = JvmHardwareTarget('gpu' if gpu else 'cpu')  # _JOHNSNOWLABS_ENV_ENABLE_GPU in os.environ
+    suite = get_install_suite_from_jsl_home(False,
+                                            visual=_JOHNSNOWLABS_ENV_VISUAL_SECRET in os.environ,
+                                            jvm_hardware_target=jar_type,
+                                            )
+
+    if suite.hc and suite.hc.get_java_path():
+        shutil.copyfile(suite.hc.get_java_path(), deps_data_path / "medical_nlp.jar")
+    else:
+        _logger.warning("No HealthCare NLP jar found detected")
+    if suite.nlp and suite.nlp.get_java_path():
+        shutil.copyfile(suite.nlp.get_java_path(), deps_data_path / f"spark_nlp_{jar_type.value}.jar")
+    else:
+        _logger.warning("No NLP jar found detected")
+
+    if _JOHNSNOWLABS_ENV_VISUAL_SECRET in os.environ and suite.ocr and suite.ocr.get_java_path():
+        # only if _JOHNSNOWLABS_ENV_VISUAL_SECRET set we copy visual jar
+        shutil.copyfile(suite.ocr.get_java_path(), deps_data_path / "visual_nlp.jar")
+    else:
+        _logger.warning("No Visual jar found detected")
 
     if store_license:
         # Read the secrets from env vars and write to license.json
         secrets = JslSecrets.build_or_try_find_secrets()
         if secrets.HC_LICENSE:
-            deps_data_path.joinpath("license.json").write(secrets.json())
+            license_file_path = deps_data_path.joinpath("license.json")
+            with open(license_file_path, "w") as license_file:
+                license_file.write(secrets.json())
 
 
 @experimental
@@ -483,6 +530,8 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     store_license=False,
+    gpu=False,
+
 ):
     """
     Save a Spark johnsnowlabs Model to a local path.
@@ -617,6 +666,7 @@ def save_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         store_license=store_license,
+        gpu=gpu,
     )
 
 
