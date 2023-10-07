@@ -184,7 +184,7 @@ def from_huggingface(
     name: Optional[str] = None,
     digest: Optional[str] = None,
 ) -> HuggingFaceDataset:
-    """Create `mlflow.data.huggingface_dataset.HuggingFaceDataset` from a Hugging Face dataset.
+    """Create a `mlflow.data.huggingface_dataset.HuggingFaceDataset` from a Hugging Face dataset.
 
     Args:
         ds: A Hugging Face dataset. Must be an instance of `datasets.Dataset`. Other types, such as

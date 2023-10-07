@@ -69,15 +69,13 @@ class HuggingFaceDatasetSource(DatasetSource):
             "split": self.split,
             "revision": self.revision,
         }
-        for k, v in kwargs.items():
-            if load_kwargs.get(k, None):
-                raise KeyError(
-                    f"Found duplicated arguments {k} in `HuggingFaceDatasetSource` and `kwargs`: "
-                    f"`HuggingFaceDatasetSource` has `{k}={v}`, and `kwargs` has `{k}={kwargs[k]}`"
-                    f"Please remove {k} from `kwargs`."
-                )
-            # Copy `kwargs` to `load_kwargs`.
-            load_kwargs[k] = v
+        intersecting_keys = set(load_kwargs.keys()) & set(kwargs.keys())
+        if intersecting_keys:
+            raise KeyError(
+                f"Found duplicated arguments in `HuggingFaceDatasetSource` and "
+                f"`kwargs`: {intersecting_keys}. Please remove them from `kwargs`."
+            )
+            load_kwargs.update(kwargs)
         return datasets.load_dataset(**load_kwargs)
 
     @staticmethod
