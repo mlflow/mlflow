@@ -1594,7 +1594,7 @@ def _validate_function_python_model(python_model):
             )
 
 
-@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyfunc"))
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def save_model(
     path,
     loader_module=None,
@@ -1848,7 +1848,7 @@ def save_model(
         )
 
 
-@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyfunc"))
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def log_model(
     artifact_path,
     loader_module=None,

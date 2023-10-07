@@ -818,13 +818,13 @@ How To Log Model With Example Containing Params
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 For models that require additional parameters during inference, you can include an input_example 
 containing params when saving or logging the model. To achieve this, the sample input should be 
-provided as a Python ``tuple``. The first element of the tuple is the input data example, and the
+provided as a ``tuple``. The first element of the tuple is the input data example, and the
 second element is a ``dict`` of params. A comprehensive list of valid params is documented in
 :ref:`Model Inference Params <inference-params>` section.
 
 * Python ``tuple``: (input_data, params)
 
-The following example demonstrates how you can log a model with example containing params:
+The following example demonstrates how to log a model with an example containing params:
 
 .. code-block:: python
 

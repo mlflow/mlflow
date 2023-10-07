@@ -549,11 +549,14 @@ class Model:
                             a Pandas DataFrame and then serialized to json using the Pandas
                             split-oriented format, or a numpy array where the example will be
                             serialized to json by converting it to a list. If input example is a
-                            tuple, then the first element should be a valid model input, and the
-                            second element should be a valid params dictionary that could be used
-                            for model inference. Bytes are base64-encoded. When the ``signature``
-                            parameter is ``None``, the input example is used to infer a model
-                            signature.
+                            tuple, then the first element must be a valid model input, and the
+                            second element must be a valid params dictionary that can optionally
+                            be used during model inference. Bytes are base64-encoded. When the
+                            ``signature`` parameter is ``None``, the input example is used to infer
+                            a model's signature. If an input example containing params is provided,
+                            and signature is inferred from the input example, then params will be
+                            used as default params during model inference if no extra params are
+                            passed at inference time.
 
         :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
