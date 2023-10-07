@@ -348,10 +348,7 @@ def start_run(
             )
         active_run_obj = client.get_run(existing_run_id)
     else:
-        if len(_active_run_stack) > 0:
-            parent_run_id = _active_run_stack[-1].info.run_id
-        else:
-            parent_run_id = None
+        parent_run_id = _active_run_stack[-1].info.run_id if len(_active_run_stack) > 0 else None
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 

@@ -97,10 +97,7 @@ def serve(
         }'
 
     """
-    if no_conda:
-        env_manager = _EnvManager.LOCAL
-    else:
-        env_manager = env_manager or _EnvManager.VIRTUALENV
+    env_manager = _EnvManager.LOCAL if no_conda else env_manager or _EnvManager.VIRTUALENV
 
     return get_flavor_backend(
         model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow

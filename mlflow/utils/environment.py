@@ -600,16 +600,10 @@ class Environment:
         if not isinstance(command, list):
             command = [command]
 
-        if _IS_UNIX:
-            separator = " && "
-        else:
-            separator = " & "
+        separator = " && " if _IS_UNIX else " & "
 
         command = separator.join(map(str, self._activate_cmd + command))
-        if _IS_UNIX:
-            command = ["bash", "-c", command]
-        else:
-            command = ["cmd", "/c", command]
+        command = ["bash", "-c", command] if _IS_UNIX else ["cmd", "/c", command]
         _logger.info("=== Running command '%s'", command)
         return _exec_cmd(
             command,
