@@ -98,7 +98,7 @@ def test_chat_single_variable(tmp_path):
     assert list(map(json.loads, model.predict(data))) == expected_output
 
 
-def test_prompt_single_variable(tmp_path):
+def test_completion_single_variable(tmp_path):
     mlflow.openai.save_model(
         model="text-davinci-003",
         task=openai.Completion,
@@ -209,7 +209,7 @@ def test_chat_role_content(tmp_path):
     assert list(map(json.loads, model.predict(data))) == expected_output
 
 
-def test_prompt_multiple_variables(tmp_path):
+def test_completion_multiple_variables(tmp_path):
     mlflow.openai.save_model(
         model="text-davinci-003",
         task=openai.Completion,
@@ -333,7 +333,7 @@ def test_chat_no_variables(tmp_path):
     assert list(map(json.loads, model.predict(data))) == expected_output
 
 
-def test_prompt_no_variable(tmp_path):
+def test_completion_no_variable(tmp_path):
     mlflow.openai.save_model(
         model="text-davinci-003",
         task=openai.Completion,
