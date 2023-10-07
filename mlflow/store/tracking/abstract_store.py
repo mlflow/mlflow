@@ -6,6 +6,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils.annotations import developer_stable, experimental
 from mlflow.utils.run_data_queuing_processor import RunDataQueuingProcessor
+from mlflow.utils.run_operations import RunOperations
 
 
 @developer_stable
@@ -220,14 +221,14 @@ class AbstractStore:
         """
         self.log_batch(run_id, metrics=[metric], params=[], tags=[])
 
-    def log_metric_async(self, run_id, metric):
+    def log_metric_async(self, run_id, metric) -> RunOperations:
         """
         Log a metric for the specified run in async fashion.
 
         :param run_id: String id for the run
         :param metric: :py:class:`mlflow.entities.Metric` instance to log
         """
-        self.log_batch_async(run_id, metrics=[metric], params=[], tags=[])
+        return self.log_batch_async(run_id, metrics=[metric], params=[], tags=[])
 
     def log_param(self, run_id, param):
         """
@@ -238,14 +239,14 @@ class AbstractStore:
         """
         self.log_batch(run_id, metrics=[], params=[param], tags=[])
 
-    def log_param_async(self, run_id, param):
+    def log_param_async(self, run_id, param) -> RunOperations:
         """
         Log a param for the specified run in async fashion.
 
         :param run_id: String id for the run
         :param param: :py:class:`mlflow.entities.Param` instance to log
         """
-        self.log_batch_async(run_id, metrics=[], params=[param], tags=[])
+        return self.log_batch_async(run_id, metrics=[], params=[param], tags=[])
 
     def set_experiment_tag(self, experiment_id, tag):
         """
@@ -265,14 +266,14 @@ class AbstractStore:
         """
         self.log_batch(run_id, metrics=[], params=[], tags=[tag])
 
-    def set_tag_async(self, run_id, tag):
+    def set_tag_async(self, run_id, tag) -> RunOperations:
         """
         Set a tag for the specified run in async fashion.
 
         :param run_id: String id for the run
         :param tag: :py:class:`mlflow.entities.RunTag` instance to set
         """
-        self.log_batch_async(run_id, metrics=[], params=[], tags=[tag])
+        return self.log_batch_async(run_id, metrics=[], params=[], tags=[tag])
 
     @abstractmethod
     def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
@@ -371,7 +372,7 @@ class AbstractStore:
         """
         pass
 
-    def log_batch_async(self, run_id, metrics, params, tags):
+    def log_batch_async(self, run_id, metrics, params, tags) -> RunOperations:
         """
         Log multiple metrics, params, and tags for the specified run in async fashion.
         This API does not offer immediate consistency of the data. When API returns,
@@ -383,7 +384,7 @@ class AbstractStore:
         :param tags: List of :py:class:`mlflow.entities.RunTag` instances to log
         :return: None.
         """
-        self.run_data_processor.log_batch_async(
+        return self.run_data_processor.log_batch_async(
             run_id=run_id, metrics=metrics, params=params, tags=tags
         )
 

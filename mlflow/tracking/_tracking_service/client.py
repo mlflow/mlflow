@@ -6,6 +6,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 
 import os
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
 from typing import List, Optional
 
@@ -17,8 +18,9 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.tracking import GET_METRIC_HISTORY_MAX_RESULTS, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
-from mlflow.utils import chunk_list
+from mlflow.utils import chunk_list, run_operations_status_check
 from mlflow.utils.mlflow_tags import MLFLOW_USER
+from mlflow.utils.run_operations import RunOperations
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri
@@ -30,6 +32,8 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_run_id,
 )
+
+_RUN_OPERATIONS_LIST_STATUS_CHECK_THREADPOOL = ThreadPoolExecutor(max_workers=1)
 
 
 class TrackingServiceClient:
@@ -261,7 +265,9 @@ class TrackingServiceClient:
         """
         self.store.rename_experiment(experiment_id, new_name)
 
-    def log_metric(self, run_id, key, value, timestamp=None, step=None, synchronous: bool = True):
+    def log_metric(
+        self, run_id, key, value, timestamp=None, step=None, synchronous: bool = True
+    ) -> RunOperations:
         """
         Log a metric against the run ID.
 
@@ -292,11 +298,11 @@ class TrackingServiceClient:
         metric_value = convert_metric_value_to_float_if_possible(value)
         metric = Metric(key, metric_value, timestamp, step)
         if synchronous:
-            self.store.log_metric(run_id, metric)
+            return self.store.log_metric(run_id, metric)
         else:
-            self.store.log_metric_async(run_id, metric)
+            return self.store.log_metric_async(run_id, metric)
 
-    def log_param(self, run_id, key, value, synchronous: bool = True):
+    def log_param(self, run_id, key, value, synchronous: bool = True) -> RunOperations:
         """
         Log a parameter (e.g. model hyperparameter) against the run ID. Value is converted to
         a string.
@@ -313,9 +319,9 @@ class TrackingServiceClient:
         param = Param(key, str(value))
         try:
             if synchronous:
-                self.store.log_param(run_id, param)
+                return self.store.log_param(run_id, param)
             else:
-                self.store.log_param_async(run_id, param)
+                return self.store.log_param_async(run_id, param)
         except MlflowException as e:
             if e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE):
                 msg = f"{e.message}{PARAM_VALIDATION_MSG}"
@@ -334,7 +340,7 @@ class TrackingServiceClient:
         tag = ExperimentTag(key, str(value))
         self.store.set_experiment_tag(experiment_id, tag)
 
-    def set_tag(self, run_id, key, value, synchronous: bool = True):
+    def set_tag(self, run_id, key, value, synchronous: bool = True) -> RunOperations:
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
 
@@ -359,9 +365,9 @@ class TrackingServiceClient:
         """
         tag = RunTag(key, str(value))
         if synchronous:
-            self.store.set_tag(run_id, tag)
+            return self.store.set_tag(run_id, tag)
         else:
-            self.store.set_tag_async(run_id, tag)
+            return self.store.set_tag_async(run_id, tag)
 
     def delete_tag(self, run_id, key):
         """
@@ -395,7 +401,9 @@ class TrackingServiceClient:
             run_name=name,
         )
 
-    def log_batch(self, run_id, metrics=(), params=(), tags=(), synchronous: bool = True):
+    def log_batch(
+        self, run_id, metrics=(), params=(), tags=(), synchronous: bool = True
+    ) -> RunOperations:
         """
         Log multiple metrics, params, and/or tags.
 
@@ -422,7 +430,8 @@ class TrackingServiceClient:
 
         param_batches = chunk_list(params, MAX_PARAMS_TAGS_PER_BATCH)
         tag_batches = chunk_list(tags, MAX_PARAMS_TAGS_PER_BATCH)
-
+        run_operations_list = []  # [RunOperations]
+        run_operations = None
         for params_batch, tags_batch in zip_longest(param_batches, tag_batches, fillvalue=[]):
             metrics_batch_size = min(
                 MAX_ENTITIES_PER_BATCH - len(params_batch) - len(tags_batch),
@@ -432,25 +441,39 @@ class TrackingServiceClient:
             metrics_batch = metrics[:metrics_batch_size]
             metrics = metrics[metrics_batch_size:]
             if synchronous:
-                self.store.log_batch(
+                run_operations = self.store.log_batch(
                     run_id=run_id,
                     metrics=metrics_batch,
                     params=params_batch,
                     tags=tags_batch,
                 )
             else:
-                self.store.log_batch_async(
+                run_operations = self.store.log_batch_async(
                     run_id=run_id,
                     metrics=metrics_batch,
                     params=params_batch,
                     tags=tags_batch,
                 )
+            run_operations_list.append(run_operations)
 
         for metrics_batch in chunk_list(metrics, chunk_size=MAX_METRICS_PER_BATCH):
             if synchronous:
-                self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
+                run_operations = self.store.log_batch(
+                    run_id=run_id, metrics=metrics_batch, params=[], tags=[]
+                )
             else:
-                self.store.log_batch_async(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
+                run_operations = self.store.log_batch_async(
+                    run_id=run_id, metrics=metrics_batch, params=[], tags=[]
+                )
+            run_operations_list.append(run_operations)
+
+        if len(run_operations_list) > 1:
+            operation_future = _RUN_OPERATIONS_LIST_STATUS_CHECK_THREADPOOL.submit(
+                run_operations_status_check, run_operations_list
+            )
+            return RunOperations(operation_futures=[operation_future])
+
+        return run_operations_list[0]
 
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """

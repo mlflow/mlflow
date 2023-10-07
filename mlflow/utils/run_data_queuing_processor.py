@@ -11,11 +11,14 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from mlflow.utils.pending_run_batches import PendingRunBatches, RunBatch
+from mlflow.utils.run_operations import RunOperations
 
 _logger = logging.getLogger(__name__)
 
 # Keeping max_workers=1 so that there are no two threads
 _RUN_DATA_LOGGING_THREADPOOL = ThreadPoolExecutor(max_workers=1)
+
+_RUN_BATCH_PROCESSING_STATUS_CHECK_THREADPOOL = ThreadPoolExecutor(max_workers=1)
 
 
 class RunDataQueuingProcessor:
@@ -35,6 +38,7 @@ class RunDataQueuingProcessor:
 
         atexit.register(self._at_exit_callback)
         self.processed_watermark = -1
+        self.failed_run_batches = {}  # Dict[str, Dict[int, Exception]]
 
     def _add_run(self, run_id) -> PendingRunBatches:
         self._lock.acquire()
@@ -70,7 +74,7 @@ class RunDataQueuingProcessor:
 
     def _process_run_data(self):
         for run_id, pending_items in self._running_runs.items():
-            (yet_to_process_watermark, params, tags, metrics) = pending_items.get_next_batch(
+            (start_watermark, end_watermark, params, tags, metrics) = pending_items.get_next_batch(
                 max_tags=100, max_metrics=250, max_params=200
             )  # need to get these values from env variable etc.
 
@@ -78,26 +82,58 @@ class RunDataQueuingProcessor:
                 try:
                     self._processing_func(run_id=run_id, metrics=metrics, params=params, tags=tags)
 
-                    self.processed_watermark = yet_to_process_watermark
-                    _logger.info(
+                    self.processed_watermark = end_watermark
+                    _logger.debug(
                         f"run_id: {run_id}, Processed watermark: {self.processed_watermark}"
                     )
                     # get next batch
                     (
-                        yet_to_process_watermark,
+                        start_watermark,
+                        end_watermark,
                         params,
                         tags,
                         metrics,
                     ) = pending_items.get_next_batch(max_tags=100, max_metrics=250, max_params=200)
                 except Exception as e:
-                    _logger.error(e)
-                    raise
+                    _logger.error(
+                        f"Failed to process batches for {run_id} Start: {start_watermark} "
+                        + f" End: {end_watermark} Exception: {e}"
+                    )
+                    if self.failed_run_batches.get(run_id, None):
+                        self.failed_run_batches[run_id] = []
+                        for batch_id in range(start_watermark, end_watermark + 1):
+                            self.failed_run_batches[run_id].append(batch_id)
 
-    def log_batch_async(self, run_id, params, tags, metrics):
+    def _is_batch_processed(self, run_id: str, batch_id: int, timeout_sec: int = 60):
+        stop_at = time.time() + timeout_sec
+        _logger.debug(f"Start awaiting {run_id} Batch: {batch_id}")
+        while self.processed_watermark < batch_id:
+            failed_batches = self.failed_run_batches.get(run_id, {})
+            exception = failed_batches.get(batch_id, None)
+            if exception:
+                raise Exception(
+                    f"run_id: {run_id}. Failed to process batch: {batch_id} "
+                    + f"Exception: {exception!s}"
+                )
+            if time.time() > stop_at:
+                raise Exception(
+                    f"run_id: {run_id}. Batch: {batch_id} Await operation to process batch"
+                    + " timed out."
+                )
+            # Need to check better interval
+            time.sleep(5)
+        _logger.debug(f"Finished awaiting {run_id} Batch: {batch_id}")
+        return True
+
+    def log_batch_async(self, run_id, params, tags, metrics) -> RunOperations:
         pending_run_batches = self._running_runs.get(run_id, None)
         if not pending_run_batches:
             pending_run_batches = self._add_run(run_id=run_id)
 
         batch = RunBatch(params=params, tags=tags, metrics=metrics)
-        enqueue_id = pending_run_batches.append(batch)
-        _logger.info(f"Enqueued watermark: {enqueue_id}")
+        batch_id = pending_run_batches.append(batch)
+        _logger.debug(f"Enqueued watermark: {batch_id}")
+        operation_future = _RUN_BATCH_PROCESSING_STATUS_CHECK_THREADPOOL.submit(
+            self._is_batch_processed, run_id, batch_id
+        )
+        return RunOperations(operation_futures=[operation_future])

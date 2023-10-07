@@ -40,6 +40,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_LOGGED_ARTIFACTS,
     MLFLOW_PARENT_RUN_ID,
 )
+from mlflow.utils.run_operations import RunOperations
 from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_databricks_uri
 from mlflow.utils.validation import (
     _validate_model_alias_name,
@@ -690,7 +691,7 @@ class MlflowClient:
         timestamp: Optional[int] = None,
         step: Optional[int] = None,
         synchronous: bool = True,
-    ) -> None:
+    ) -> RunOperations:
         """
         Log a metric against the run ID.
 
@@ -759,7 +760,7 @@ class MlflowClient:
             metrics: {'m': 1.5}
             status: FINISHED
         """
-        self._tracking_client.log_metric(
+        return self._tracking_client.log_metric(
             run_id, key, value, timestamp, step, synchronous=synchronous
         )
 
@@ -787,10 +788,7 @@ class MlflowClient:
                              into system but would persist them with some time delay -
                              'near-real time'/'eventual' consistency.
         :return: When synchronous=True, the parameter value that is logged.
-                 When synchronous=False, returns None. Since params are immutable it is
-                  possible that by the time this value gets logged, some other client
-                   already logged param with same key with different value
-                     (in a distributed environment). Hence it is not possible to return any value.
+                 When synchronous=False, returns RunOperations
 
         .. code-block:: python
             :caption: Example
@@ -833,8 +831,7 @@ class MlflowClient:
             params: {'p': '1'}
             status: FINISHED
         """
-        self._tracking_client.log_param(run_id, key, value, synchronous=synchronous)
-        return value if synchronous else None
+        return self._tracking_client.log_param(run_id, key, value, synchronous=synchronous)
 
     def set_experiment_tag(self, experiment_id: str, key: str, value: Any) -> None:
         """
@@ -867,7 +864,7 @@ class MlflowClient:
         """
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
 
-    def set_tag(self, run_id: str, key: str, value: Any, synchronous: bool = True) -> None:
+    def set_tag(self, run_id: str, key: str, value: Any, synchronous: bool = True) -> RunOperations:
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
 
@@ -921,7 +918,7 @@ class MlflowClient:
             run_id: 4f226eb5758145e9b28f78514b59a03b
             Tags: {'nlp.framework': 'Spark NLP'}
         """
-        self._tracking_client.set_tag(run_id, key, value, synchronous=synchronous)
+        return self._tracking_client.set_tag(run_id, key, value, synchronous=synchronous)
 
     def delete_tag(self, run_id: str, key: str) -> None:
         """
@@ -1021,7 +1018,7 @@ class MlflowClient:
         params: Sequence[Param] = (),
         tags: Sequence[RunTag] = (),
         synchronous: bool = True,
-    ) -> None:
+    ) -> RunOperations:
         """
         Log multiple metrics, params, and/or tags.
 
@@ -1087,7 +1084,9 @@ class MlflowClient:
             tags: {'t': 't'}
             status: FINISHED
         """
-        self._tracking_client.log_batch(run_id, metrics, params, tags, synchronous=synchronous)
+        return self._tracking_client.log_batch(
+            run_id, metrics, params, tags, synchronous=synchronous
+        )
 
     @experimental
     def log_inputs(

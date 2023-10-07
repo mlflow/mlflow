@@ -57,6 +57,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RUN_NAME,
     MLFLOW_RUN_NOTE,
 )
+from mlflow.utils.run_operations import RunOperations
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import _validate_experiment_id_type, _validate_run_id
 
@@ -637,7 +638,7 @@ def set_experiment_tag(key: str, value: Any) -> None:
     MlflowClient().set_experiment_tag(experiment_id, key, value)
 
 
-def set_tag(key: str, value: Any, synchronous: Optional[bool] = True) -> None:
+def set_tag(key: str, value: Any, synchronous: Optional[bool] = True) -> RunOperations:
     """
     Set a tag under the current run. If no run is active, this method will create a
     new active run.
@@ -671,7 +672,7 @@ def set_tag(key: str, value: Any, synchronous: Optional[bool] = True) -> None:
 
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().set_tag(run_id, key, value, synchronous=synchronous)
+    return MlflowClient().set_tag(run_id, key, value, synchronous=synchronous)
 
 
 def delete_tag(key: str) -> None:
@@ -700,7 +701,7 @@ def delete_tag(key: str) -> None:
 
 def log_metric(
     key: str, value: float, step: Optional[int] = None, synchronous: Optional[bool] = True
-) -> None:
+) -> RunOperations:
     """
     Log a metric under the current run. If no run is active, this method will create
     a new active run.
@@ -732,14 +733,14 @@ def log_metric(
             mlflow.log_metric("mse", 2500.00, synchronous=False)
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_metric(
+    return MlflowClient().log_metric(
         run_id, key, value, get_current_time_millis(), step or 0, synchronous=synchronous
     )
 
 
 def log_metrics(
     metrics: Dict[str, float], step: Optional[int] = None, synchronous: Optional[bool] = True
-) -> None:
+) -> RunOperations:
     """
     Log multiple metrics for the current run. If no run is active, this method will create a new
     active run.
@@ -780,12 +781,12 @@ def log_metrics(
     run_id = _get_or_start_run().info.run_id
     timestamp = get_current_time_millis()
     metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
-    MlflowClient().log_batch(
+    return MlflowClient().log_batch(
         run_id=run_id, metrics=metrics_arr, params=[], tags=[], synchronous=synchronous
     )
 
 
-def log_params(params: Dict[str, Any], synchronous: Optional[bool] = True) -> None:
+def log_params(params: Dict[str, Any], synchronous: Optional[bool] = True) -> RunOperations:
     """
     Log a batch of params for the current run. If no run is active, this method will create a
     new active run.
@@ -820,7 +821,7 @@ def log_params(params: Dict[str, Any], synchronous: Optional[bool] = True) -> No
     """
     run_id = _get_or_start_run().info.run_id
     params_arr = [Param(key, str(value)) for key, value in params.items()]
-    MlflowClient().log_batch(
+    return MlflowClient().log_batch(
         run_id=run_id, metrics=[], params=params_arr, tags=[], synchronous=synchronous
     )
 
@@ -888,7 +889,7 @@ def set_experiment_tags(tags: Dict[str, Any]) -> None:
         set_experiment_tag(key, value)
 
 
-def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = True) -> None:
+def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = True) -> RunOperations:
     """
     Log a batch of tags for the current run. If no run is active, this method will create a
     new active run.
@@ -927,7 +928,7 @@ def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = True) -> None:
     """
     run_id = _get_or_start_run().info.run_id
     tags_arr = [RunTag(key, str(value)) for key, value in tags.items()]
-    MlflowClient().log_batch(
+    return MlflowClient().log_batch(
         run_id=run_id, metrics=[], params=[], tags=tags_arr, synchronous=synchronous
     )
 

@@ -47,7 +47,8 @@ class PendingRunBatches:
         params_batch = []
         tags_batch = []
         metrics_batch = []
-        current_watermark = -1
+        start_watermark = -1
+        end_watermark = -1
         while len(self.pending) > 0:
             next_batch = self.pending[0]  # RunBatch
             if (
@@ -59,7 +60,8 @@ class PendingRunBatches:
             params_batch += next_batch.params or []
             tags_batch += next_batch.tags or []
             metrics_batch += next_batch.metrics or []
-            current_watermark = next_batch.id
+            start_watermark = next_batch.id if start_watermark == -1 else start_watermark
+            end_watermark = next_batch.id
             self.pending.popleft()
 
-        return (current_watermark, params_batch, tags_batch, metrics_batch)
+        return (start_watermark, end_watermark, params_batch, tags_batch, metrics_batch)
