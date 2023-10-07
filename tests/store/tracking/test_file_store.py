@@ -1524,14 +1524,14 @@ def test_log_param_enforces_value_immutability(store):
 
 def test_log_param_max_length_value(store):
     param_name = "new param"
-    param_value = "x" * 500
+    param_value = "x" * 6000
     _, exp_data, _ = _create_root(store)
     run_id = exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
     store.log_param(run_id, Param(param_name, param_value))
     run = store.get_run(run_id)
     assert run.data.params[param_name] == param_value
     with pytest.raises(MlflowException, match="exceeded length"):
-        store.log_param(run_id, Param(param_name, "x" * 1000))
+        store.log_param(run_id, Param(param_name, "x" * 6001))
 
 
 def test_weird_metric_names(store):
@@ -1799,9 +1799,9 @@ def test_log_batch(store):
 
 
 def test_log_batch_max_length_value(store):
-    param_entities = [Param("long param", "x" * 500), Param("short param", "xyz")]
+    param_entities = [Param("long param", "x" * 6000), Param("short param", "xyz")]
     expected_param_entities = [
-        Param("long param", "x" * 500),
+        Param("long param", "x" * 6000),
         Param("short param", "xyz"),
     ]
     run = store.create_run(
@@ -1814,7 +1814,7 @@ def test_log_batch_max_length_value(store):
     store.log_batch(run.info.run_id, (), param_entities, ())
     _verify_logged(store, run.info.run_id, (), expected_param_entities, ())
 
-    param_entities = [Param("long param", "x" * 1000), Param("short param", "xyz")]
+    param_entities = [Param("long param", "x" * 6001), Param("short param", "xyz")]
     with pytest.raises(MlflowException, match="exceeded length"):
         store.log_batch(run.info.run_id, (), param_entities, ())
 

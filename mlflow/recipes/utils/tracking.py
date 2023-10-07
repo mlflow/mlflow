@@ -287,7 +287,7 @@ def log_code_snapshot(
             if file_path.exists():
                 tmp_path = tmpdir.joinpath(file_path.relative_to(recipe_root))
                 tmp_path.parent.mkdir(exist_ok=True, parents=True)
-                shutil.copyfile(file_path, tmp_path)
+                shutil.copy2(file_path, tmp_path)
         if recipe_config is not None:
             import yaml
 

@@ -316,7 +316,6 @@ public final class Databricks {
      * Prefer this over CUSTOMER_UNAUTHORIZED, unless you need to keep consistent behavior with legacy
      * code.
      * For authorization (AuthZ) errors use PERMISSION_DENIED.
-     * 
      * Maps to:
      * - google.rpc.Code: UNAUTHENTICATED = 16;
      * - HTTP code: 401 Unauthorized
@@ -863,7 +862,6 @@ public final class Databricks {
      * Prefer this over CUSTOMER_UNAUTHORIZED, unless you need to keep consistent behavior with legacy
      * code.
      * For authorization (AuthZ) errors use PERMISSION_DENIED.
-     * 
      * Maps to:
      * - google.rpc.Code: UNAUTHENTICATED = 16;
      * - HTTP code: 401 Unauthorized

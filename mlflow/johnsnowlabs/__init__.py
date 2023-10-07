@@ -451,9 +451,9 @@ def _save_jars_and_lic(dst_dir, store_license=False):
 
     suite = get_install_suite_from_jsl_home(False)
     if suite.hc.get_java_path():
-        shutil.copyfile(suite.hc.get_java_path(), deps_data_path / "hc_jar.jar")
+        shutil.copy2(suite.hc.get_java_path(), deps_data_path / "hc_jar.jar")
     if suite.nlp.get_java_path():
-        shutil.copyfile(suite.nlp.get_java_path(), deps_data_path / "os_jar.jar")
+        shutil.copy2(suite.nlp.get_java_path(), deps_data_path / "os_jar.jar")
 
     if store_license:
         # Read the secrets from env vars and write to license.json

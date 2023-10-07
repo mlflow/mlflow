@@ -1,5 +1,6 @@
 import importlib
 import os
+import sys
 from unittest import mock
 
 import importlib_metadata
@@ -333,6 +334,9 @@ def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmp_pat
             pass
 
     with _CaptureImportedModules() as cap:
+        # Delete `databricks` from the cache to ensure we load from the dummy module created above.
+        if "databricks" in sys.modules:
+            del sys.modules["databricks"]
         import databricks
         import databricks.automl
         import databricks.automl_foo
