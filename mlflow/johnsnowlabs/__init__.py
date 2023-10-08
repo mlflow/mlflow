@@ -143,9 +143,6 @@ def get_default_pip_requirements():
         f"johnsnowlabs_for_databricks=={settings.raw_version_jsl_lib}",
         _get_pinned_requirement("pyspark"),
         _SPARK_NLP_JSL_WHEEL_URI.format(secret=os.environ["SECRET"]),
-        # TODO remove pandas constraint when NLU supports it
-        # https://github.com/JohnSnowLabs/nlu/issues/176
-        "pandas<=1.5.3",
     ]
 
 
