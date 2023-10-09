@@ -30,7 +30,7 @@ class RunDataQueuingProcessor:
     def __init__(self, processing_func):
         self._running_runs = {}  # Dict[str, PendingRunBatches]
         self._processing_func = processing_func
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self.continue_to_process_data = True
         self.run_data_process_thread = _RUN_DATA_LOGGING_THREADPOOL.submit(
             self._log_run_data
@@ -56,7 +56,9 @@ class RunDataQueuingProcessor:
     def _at_exit_callback(self):
         try:
             # Stop the data processing thread
+            self._lock.acquire()
             self.continue_to_process_data = False
+            self._lock.release()
             # need better way to decide this timeout
             self.run_data_process_thread.result(timeout=60)
             _RUN_DATA_LOGGING_THREADPOOL.shutdown(wait=True)
