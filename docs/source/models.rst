@@ -761,7 +761,8 @@ To include an input example with your model, add it to the appropriate log_model
 model signatures in log_model calls when signatures aren't specified.
 
 Similar to model signatures, model inputs can be column-based (i.e DataFrames) or tensor-based
-(i.e numpy.ndarrays). See examples below:
+(i.e numpy.ndarrays). We offer support for input_example with params by using tuple to combine model
+inputs and params. See examples below:
 
 How To Log Model With Column-based Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -812,6 +813,27 @@ The following example demonstrates how you can log a tensor-based input example 
         dtype=np.uint8,
     )
     mlflow.tensorflow.log_model(..., input_example=input_example)
+
+How To Log Model With Example Containing Params
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+For models that require additional parameters during inference, you can include an input_example 
+containing params when saving or logging the model. To achieve this, the sample input should be 
+provided as a ``tuple``. The first element of the tuple is the input data example, and the
+second element is a ``dict`` of params. A comprehensive list of valid params is documented in
+:ref:`Model Inference Params <inference-params>` section.
+
+* Python ``tuple``: (input_data, params)
+
+The following example demonstrates how to log a model with an example containing params:
+
+.. code-block:: python
+
+    # input_example could be column-based or tensor-based example as shown above
+    # params must be a valid dictionary of params
+    input_data = "Hello, Dolly!"
+    params = {"temperature": 0.5, "top_k": 1}
+    input_example = (input_data, params)
+    mlflow.transformers.log_model(..., input_example=input_example)
 
 .. _model-api:
 
