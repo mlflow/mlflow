@@ -23,7 +23,8 @@ def _validate_text_data(data, metric_name, column_name):
     for row, line in enumerate(data):
         if not isinstance(line, str):
             _logger.warning(
-                f"Cannot calculate {metric_name} for non-string inputs. Non-string found for {column_name} on row {row}. skipping metric logging."
+                f"Cannot calculate {metric_name} for non-string inputs. "
+                + f"Non-string found for {column_name} on row {row}. skipping metric logging."
             )
             return False
 
