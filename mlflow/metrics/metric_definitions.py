@@ -15,22 +15,23 @@ def standard_aggregations(scores):
     }
 
 
-def _validate_text_data(data, metric_name):
+def _validate_text_data(data, metric_name, column_name):
     """Validates that the data is text and is non-empty"""
     if len(data) == 0:
         return False
 
-    if any(not isinstance(line, str) for line in data):
-        _logger.warning(
-            f"Cannot calculate {metric_name} for non-string inputs, skipping metric logging."
-        )
-        return False
+    for row, line in enumerate(data):
+        if not isinstance(line, str):
+            _logger.warning(
+                f"Cannot calculate {metric_name} for non-string inputs. Non-string found for {column_name} on row {row}. skipping metric logging."
+            )
+            return False
 
     return True
 
 
 def _toxicity_eval_fn(predictions, targets, metrics):
-    if not _validate_text_data(predictions, "toxicity"):
+    if not _validate_text_data(predictions, "toxicity", "predictions"):
         return
     try:
         _logger.info("Loading toxicity metric:")
@@ -58,7 +59,7 @@ def _toxicity_eval_fn(predictions, targets, metrics):
 
 
 def _perplexity_eval_fn(predictions, targets, metrics):
-    if not _validate_text_data(predictions, "perplexity"):
+    if not _validate_text_data(predictions, "perplexity", "predictions"):
         return
 
     try:
@@ -81,7 +82,7 @@ def _perplexity_eval_fn(predictions, targets, metrics):
 
 
 def _flesch_kincaid_eval_fn(predictions, targets, metrics):
-    if not _validate_text_data(predictions, "flesch_kincaid"):
+    if not _validate_text_data(predictions, "flesch_kincaid", "predictions"):
         return
 
     try:
@@ -99,7 +100,7 @@ def _flesch_kincaid_eval_fn(predictions, targets, metrics):
 
 
 def _ari_eval_fn(predictions, targets, metrics):
-    if not _validate_text_data(predictions, "ari"):
+    if not _validate_text_data(predictions, "ari", "predictions"):
         return
 
     try:
@@ -128,8 +129,8 @@ def _accuracy_eval_fn(predictions, targets, metrics, sample_weight=None):
 
 def _rouge1_eval_fn(predictions, targets, metrics):
     if targets is not None and len(targets) != 0:
-        if not _validate_text_data(targets, "rouge1") or not _validate_text_data(
-            predictions, "rouge1"
+        if not _validate_text_data(targets, "rouge1", "targets") or not _validate_text_data(
+            predictions, "rouge1", "predictions"
         ):
             return
 
@@ -143,10 +144,9 @@ def _rouge1_eval_fn(predictions, targets, metrics):
             )
             return
 
-        references = targets
         scores = rouge.compute(
             predictions=predictions,
-            references=references,
+            references=targets,
             rouge_types=["rouge1"],
             use_aggregator=False,
         )["rouge1"]
@@ -158,8 +158,8 @@ def _rouge1_eval_fn(predictions, targets, metrics):
 
 def _rouge2_eval_fn(predictions, targets, metrics):
     if targets is not None and len(targets) != 0:
-        if not _validate_text_data(targets, "rouge2") or not _validate_text_data(
-            predictions, "rouge2"
+        if not _validate_text_data(targets, "rouge2", "targets") or not _validate_text_data(
+            predictions, "rouge2", "predictions"
         ):
             return
 
@@ -173,10 +173,9 @@ def _rouge2_eval_fn(predictions, targets, metrics):
             )
             return
 
-        references = targets
         scores = rouge.compute(
             predictions=predictions,
-            references=references,
+            references=targets,
             rouge_types=["rouge2"],
             use_aggregator=False,
         )["rouge2"]
@@ -188,8 +187,8 @@ def _rouge2_eval_fn(predictions, targets, metrics):
 
 def _rougeL_eval_fn(predictions, targets, metrics):
     if targets is not None and len(targets) != 0:
-        if not _validate_text_data(targets, "rougeL") or not _validate_text_data(
-            predictions, "rougeL"
+        if not _validate_text_data(targets, "rougeL", "targets") or not _validate_text_data(
+            predictions, "rougeL", "predictions"
         ):
             return
 
@@ -203,10 +202,9 @@ def _rougeL_eval_fn(predictions, targets, metrics):
             )
             return
 
-        references = targets
         scores = rouge.compute(
             predictions=predictions,
-            references=references,
+            references=targets,
             rouge_types=["rougeL"],
             use_aggregator=False,
         )["rougeL"]
@@ -218,8 +216,8 @@ def _rougeL_eval_fn(predictions, targets, metrics):
 
 def _rougeLsum_eval_fn(predictions, targets, metrics):
     if targets is not None and len(targets) != 0:
-        if not _validate_text_data(targets, "rougeLsum") or not _validate_text_data(
-            predictions, "rougeLsum"
+        if not _validate_text_data(targets, "rougeLsum", "targets") or not _validate_text_data(
+            predictions, "rougeLsum", "predictions"
         ):
             return
 
@@ -233,10 +231,9 @@ def _rougeLsum_eval_fn(predictions, targets, metrics):
             )
             return
 
-        references = targets
         scores = rouge.compute(
             predictions=predictions,
-            references=references,
+            references=targets,
             rouge_types=["rougeLsum"],
             use_aggregator=False,
         )["rougeLsum"]
