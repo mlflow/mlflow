@@ -33,7 +33,12 @@ def _format_args_string(grading_context_columns: Optional[List[str]], eval_value
     return (
         ""
         if args_dict is None
-        else "\n".join(f"Provided {arg}: {arg_value}" for arg, arg_value in args_dict.items())
+        else (
+            "Additional information used by the model:\n"
+            + "\n".join(
+                [f"key:\n{arg}\nvalue:\n{arg_value}" for arg, arg_value in args_dict.items()]
+            )
+        )
     )
 
 
@@ -51,11 +56,11 @@ def _extract_score_and_justification(output):
         # Attempt to parse JSON
         try:
             data = json.loads(text)
-            score = int(data.get("Score"))
-            justification = data.get("Justification")
+            score = int(data.get("score"))
+            justification = data.get("justification")
         except json.JSONDecodeError:
             # If parsing fails, use regex
-            match = re.search(r"Score: (\d+),?\s*Justification: (.+)", text)
+            match = re.search(r"score: (\d+),?\s*justification: (.+)", text)
             if match:
                 score = int(match.group(1))
                 justification = match.group(2)
