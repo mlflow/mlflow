@@ -78,26 +78,31 @@ class EvaluationExample:
     justification: str = None
     grading_context: Dict[str, str] = None
 
+    def _format_grading_context(self):
+        return "\n".join(
+            [f"key:\n{key}\nvalue:\n{value}" for key, value in self.grading_context.items()]
+        )
+
     def __str__(self) -> str:
         grading_context = (
             ""
             if self.grading_context is None
-            else "\n".join(
-                [f"Provided {key}: {value}" for key, value in self.grading_context.items()]
-            )
+            else "Additional information used by the model:\n" f"{self._format_grading_context()}"
         )
 
         justification = ""
         if self.justification is not None:
-            justification = f"Justification: {self.justification}\n"
+            justification = f"justification: {self.justification}\n"
 
         return f"""
-Input: {self.input}
+Input:
+{self.input}
 
-Provided output: {self.output}
+Output:
+{self.output}
 
 {grading_context}
 
-Score: {self.score}
+score: {self.score}
 {justification}
         """

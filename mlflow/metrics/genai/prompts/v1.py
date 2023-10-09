@@ -17,17 +17,22 @@ default_parameters = {
 }
 grading_system_prompt_template = PromptTemplate(
     """
-Please act as an impartial judge and evaluate the quality of the provided output which
-attempts to produce output for the provided input based on a provided information.
+Task:
+You are an impartial judge. You will be given an input that was sent to a machine
+learning model, and you will be given an output that the model produced. You
+could also be given additional information that was used by the model to generate the output.
 
-You'll be given a grading format below which you'll call for each provided information,
-input and provided output to submit your justification and score to compute the {name} of
-the output.
+Your task is to determine a numerical score called {name} based on the input and output.
+A definition of {name} and a grading rubric are provided below.
+You must use the grading rubric to determine your score. You must also justify your score.
+
+Examples could be included below for reference. Make sure to use them as references and to
+understand them before completing the task.
 
 Input:
 {input}
 
-Provided output:
+Output:
 {output}
 
 {grading_context_columns}
@@ -35,15 +40,14 @@ Provided output:
 Metric definition:
 {definition}
 
-Below is your grading criteria:
+Grading rubric:
 {grading_prompt}
 
 {examples}
 
-And you'll need to submit your grading for the {name} of the output,
-using the following in json format:
-Score: [your score number for the {name} of the output]
-Justification: [your step by step reasoning about the {name} of the output]
+You must output a JSON object with the following fields:
+score: Your numerical score for the model's {name} based on the rubric
+justification: Your step-by-step reasoning about the model's {name} score
     """
 )
 
