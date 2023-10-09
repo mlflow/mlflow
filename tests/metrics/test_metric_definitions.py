@@ -115,7 +115,6 @@ def test_ari_grade_level():
 
 
 def test_exact_match():
-    
     predictions = pd.Series(["sentence not", "random text", "a", "c"])
     targets = pd.Series(["sentence not", "random text", "a", "c"])
 
@@ -227,7 +226,6 @@ def test_mape_error():
 
 
 def test_binary_recall_score():
-    
     predictions = pd.Series([0, 0, 1, 1, 0, 0, 0, 1])
     targets = pd.Series([1, 1, 1, 1, 0, 0, 0, 0])
     result = recall_score.eval_fn(predictions, targets, {})
