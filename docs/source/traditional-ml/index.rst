@@ -90,7 +90,11 @@ Tutorials and Guides
     </section>
 
 
+.. toctree::
+    :maxdepth: 1
+    :hidden:
 
+    hyperparameter-tuning-with-child-runs/index
 
 MLflow Tracking
 ---------------
@@ -138,8 +142,3 @@ MLflow simplifies the transition from development to production:
 - **Scalability**: MLflow is designed to accommodate both small-scale deployments and large, distributed setups, ensuring that it scales with your needs.
 
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-
-    hyperparameter-tuning-with-child-runs/index

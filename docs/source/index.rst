@@ -12,8 +12,8 @@ the features of MLflow and how they can be leveraged to solve real-world MLOps p
 
 Getting Started with MLflow
 ---------------------------
-If this is your first time exploring MLflow, the guides here are a great place to start. The emphasis in each of these is 
-getting you up to speed as quickly as possible with the basic functionality, terms, APIs, and general best practices to 
+If this is your first time exploring MLflow, the tutorials and guides here are a great place to start. The emphasis in each of these is 
+getting you up to speed as quickly as possible with the basic functionality, terms, APIs, and general best practices of using MLflow in order to 
 enhance your learning in area-specific guides and tutorials. 
 
 .. raw:: html
@@ -118,7 +118,6 @@ Additionally, discover the intricacies of prompt engineering with OpenAI, define
 model quality checks. 
 Visual insights are also available through the MLflow UI, showcasing logged outputs and model comparison artifacts. 
 
-Navigate through the sections below to deepen your understanding and expertise!
 
 
 

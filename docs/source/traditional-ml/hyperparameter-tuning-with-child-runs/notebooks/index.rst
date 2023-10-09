@@ -29,7 +29,7 @@ What you will learn
 
 .. raw:: html
 
-    <a href="parent-child-runs.html" class="download-btn">View the Notebook</a>
+    <a href="hyperparameter-tuning-with-child-runs.html" class="download-btn">View the Notebook</a>
 
 Supplementary Notebook - Parent Child Run Relationships
 -------------------------------------------------------

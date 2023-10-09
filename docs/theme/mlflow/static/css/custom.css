@@ -1234,7 +1234,7 @@ a.download-btn i.fas {
   align-items: center; /* Vertically center the logo */
 
   /* animation */
-  animation: scrollLogos 3s ease-in-out forwards; 
+  animation: scrollLogos 1s ease-in-out forwards; 
 }
 
 .logo {

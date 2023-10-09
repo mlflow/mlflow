@@ -30,7 +30,7 @@ Find out about the details of major features, changes, and deprecations below.
                     <div class="header">
                         MosaicML Support in AI Gateway
                     </div>
-                    <img class="card-image" src="../_static/images/intro/new_features/mosaicml-logo.svg" alt="MosaicML"></img>
+                    <img class="card-image" src="../_static/images/logos/mosaicml-logo.svg" alt="MosaicML"></img>
                     <div class="body">
                         MosaicML has now been added to the supported providers in MLflow AI Gateway.
                         You can now seamlessly interface with managed popular models like
@@ -65,7 +65,7 @@ Find out about the details of major features, changes, and deprecations below.
                     <div class="header">
                         Params support for PyFunc Models
                     </div>
-                    <img class="card-image" src="../_static/images/intro/new_features/mlflow-logo.svg" alt="MLflow"></img>
+                    <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
                     <div class="body">
                         PyFunc models now support passing parameters at inference time. With this new feature, 
                         you can define the allowable keys, with default values, for any parameters that you would like 
@@ -83,7 +83,7 @@ Find out about the details of major features, changes, and deprecations below.
                     <div class="header">
                         MLflow Serving support added to MLflow AI Gateway
                     </div>
-                    <img class="card-image" src="../_static/images/intro/new_features/mlflow-logo.svg" alt="MLflow"></img>
+                    <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
                     <div class="body">
                         The MLflow AI Gateway now supports defining an MLflow serving endpoint as provider. With this 
                         new feature, you can serve any OSS transformers model that conforms to the 
@@ -104,7 +104,7 @@ Find out about the details of major features, changes, and deprecations below.
                     <div class="header">
                         Introducing the MLflow AI Gateway
                     </div>
-                    <img class="card-image" src="../_static/images/intro/new_features/mlflow-logo.svg" alt="Mlflow"></img>
+                    <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="Mlflow"></img>
                     <div class="body">
                         We're excited to announce the newest top-level component in the MLflow ecosystem: <strong>The AI Gateway</strong>. 
                     </div>
@@ -124,7 +124,7 @@ Find out about the details of major features, changes, and deprecations below.
                     <div class="header">
                         MLflow Evaluate now supports LLMs
                     </div>
-                    <img class="card-image" src="../_static/images/intro/new_features/mlflow-logo.svg" alt="MLflow"></img>
+                    <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
                     <div class="body">
                         You can now use MLflow evaluate to compare results from your favorite LLMs on a fixed prompt.
                     </div>

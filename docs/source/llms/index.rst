@@ -26,6 +26,38 @@ By offering a centralized endpoint, it negates the need for developers to juggle
 Moreover, the AI Gateway brings in robustness in credential management. Instead of scattering sensitive API keys across multiple services, giving them to users 
 to manage, or hardcoding them into production deployment services, the gateway centralizes these credentials, reinforcing security and simplifying key management.
 
+.. raw:: html
+
+    <section>
+        <div class="logo-scroller">
+            <div class="logo-box">
+                <a href="gateway/index.html#providers">
+                    <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo" class="logo">
+                </a>
+            </div>
+            <div class="logo-box">
+                <a href="gateway/index.html#providers">
+                    <img src="../_static/images/logos/mosaicml-logo.svg" alt="MosaicML Logo" class="logo">
+                </a>
+            </div>
+            <div class="logo-box">
+                <a href="gateway/index.html#providers">
+                    <img src="../_static/images/logos/anthropic-logo.svg" alt="Anthropic Logo" class="logo">
+                </a>
+            </div>
+            <div class="logo-box">
+                <a href="gateway/index.html#providers">
+                    <img src="../_static/images/logos/cohere-logo.png" alt="Cohere Logo" class="logo">
+                </a>
+            </div>
+            <div class="logo-box">
+                <a href="gateway/index.html#providers">
+                    <img src="../_static/images/logos/mlflow-logo.svg" alt="Mlflow Logo" class="logo">
+                </a>
+            </div>
+        </div>
+    </section>
+
 .. toctree::
     :maxdepth: 1
     :hidden:
@@ -94,3 +126,30 @@ fortifying the MLOps process for LLMs.
 
 By consolidating these tools and functionalities under one umbrella, MLflow offers a cohesive ecosystem for users to seamlessly integrate, 
 manage, and deploy LLMs, ensuring that they can focus more on deriving value from the models and less on the intricacies of interfacing and optimization.
+
+.. raw:: html
+
+    <section>
+        <div class="logo-scroller">
+            <div class="logo-box">
+                <a href="../models.html#transformers-transformers-experimental">
+                    <img src="../_static/images/logos/huggingface-logo.svg" alt="HuggingFace Logo" class="logo">
+                </a>
+            </div>
+            <div class="logo-box">
+                <a href="../models.html#sentencetransformers-sentence-transformers-experimental">
+                    <img src="../_static/images/logos/sentence-transformers-logo.png" alt="Sentence Transformers Logo" class="logo">
+                </a>
+            </div>
+            <div class="logo-box">
+                <a href="../models.html#langchain-langchain-experimental">
+                    <img src="../_static/images/logos/langchain-logo.png" alt="LangChain Logo" class="logo">
+                </a>
+            </div>
+            <div class="logo-box">
+                <a href="../models.html#openai-openai-experimental">
+                    <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo" class="logo">
+                </a>
+            </div>
+        </div>
+    </section>
