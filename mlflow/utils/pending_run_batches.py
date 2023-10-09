@@ -11,9 +11,12 @@ from mlflow.utils.validation import (
 class RunBatch:
     def __init__(self, params, tags, metrics) -> None:
         self.id = -1
-        self.params = params if params else []
-        self.tags = tags if tags else []
-        self.metrics = metrics if metrics else []
+        self.params = []
+        self.tags = []
+        self.metrics = []
+        self.params += params if params else []
+        self.tags += tags if tags else []
+        self.metrics += metrics if metrics else []
 
 
 class PendingRunBatches:

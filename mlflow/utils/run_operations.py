@@ -19,9 +19,9 @@ class RunOperations:
                 failed_operations.append(e)
 
         if len(failed_operations) > 0:
+            # Importing MlflowException gives circular reference / module load error, need to
+            #  figure out why.
             raise Exception(
-                message=(
-                    "The following failures occurred while performing one or more logging"
-                    f" operations: {failed_operations}"
-                )
+                "The following failures occurred while performing one or more logging"
+                + f" operations: {failed_operations}"
             )

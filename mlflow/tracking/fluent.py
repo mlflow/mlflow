@@ -594,10 +594,8 @@ def log_param(key: str, value: Any, synchronous: Optional[bool] = True) -> Any:
                             'near-real time'/'eventual' consistency.
 
     :return: When synchronous=True, the parameter value that is logged.
-                When synchronous=False, returns None. Since params are immutable it is
-                possible that by the time this value gets logged, some other client
-                already logged param with same key with different value
-                    (in a distributed environment). Hence it is not possible to return any value.
+                When synchronous=False, returns RunOperations object. This object
+                can be awaited to know if given param is processed or not.
 
     .. testcode:: python
         :caption: Example
@@ -660,7 +658,8 @@ def set_tag(key: str, value: Any, synchronous: Optional[bool] = True) -> RunOper
                             into system but would persist them with some time delay -
                             'near-real time'/'eventual' consistency.
 
-
+    :return: Returns RunOperations object. This object, when not None,
+                can be awaited to know if given tag was processed or not.
     .. testcode:: python
         :caption: Example
 
@@ -724,6 +723,9 @@ def log_metric(
                         fashion. Backing provider gurantees that metrics are accepted
                         into system but would persist them with some time delay -
                         'near-real time'/'eventual' consistency.
+    :return: Returns RunOperations object. This object, when not None,
+                can be awaited to know if given metric was processed or not.
+
         :caption: Example
 
         import mlflow
@@ -753,16 +755,16 @@ def log_metrics(
                  Metrics. If unspecified, each metric is logged at step zero.
 
     :param synchronous: [Experimental] Defaults to True with no behavior change.
-                        Indicates if the metrics/parameters/tags would be logged
+                        Indicates if the metrics would be logged
                             in synchronous fashion or not.
                         When it is True this call would be blocking call and offers immediate
-                            consistency of the metrics/parameters/tags upon returning.
-                        When this value is set to False, metrics/parameters/tags
-                            would be logged in async fashion. Backing provider gurantees that
-                            metrics/parameters/tags are accepted into the system but
-                            would persist them with some time delay -
-                            'near-real time'/'eventual' consistency.
-    :returns: None
+                            consistency of the metrics upon returning.
+                        When this value is set to False, metrics would be logged in async fashion.
+                          Backing provider gurantees that metrics are accepted into the system
+                            but would persist them with some time delay
+                            -'near-real time'/'eventual' consistency.
+    :return: Returns RunOperations object. This object, when not None,
+                can be awaited to know if given metrics are processed or not.
 
     .. testcode:: python
         :caption: Example
@@ -802,7 +804,8 @@ def log_params(params: Dict[str, Any], synchronous: Optional[bool] = True) -> Ru
                             fashion. Backing provider gurantees that parameters are accepted
                             into system but would persist them with some time delay -
                             'near-real time'/'eventual' consistency.
-    :returns: None
+    :return: Returns RunOperations object. This object, when not None,
+                can be awaited to know if given params are processed or not.
 
     .. testcode:: python
         :caption: Example
@@ -905,7 +908,8 @@ def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = True) -> RunOpe
                             fashion. Backing provider gurantees that tags are accepted
                             into system but would persist them with some time delay -
                             'near-real time'/'eventual' consistency.
-    :returns: None
+    :return: Returns RunOperations object. This object, when not None,
+                can be awaited to know if given tags are processed or not.
 
     .. testcode:: python
         :caption: Example

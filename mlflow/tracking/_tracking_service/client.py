@@ -6,7 +6,6 @@ exposed in the :py:mod:`mlflow.tracking` module.
 
 import os
 from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
 from typing import List, Optional
 
@@ -18,7 +17,7 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.tracking import GET_METRIC_HISTORY_MAX_RESULTS, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
-from mlflow.utils import chunk_list, run_operations_status_check
+from mlflow.utils import chunk_list
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.run_operations import RunOperations
 from mlflow.utils.string_utils import is_string_type
@@ -32,8 +31,6 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_run_id,
 )
-
-_RUN_OPERATIONS_LIST_STATUS_CHECK_THREADPOOL = ThreadPoolExecutor(max_workers=1)
 
 
 class TrackingServiceClient:
@@ -468,10 +465,11 @@ class TrackingServiceClient:
             run_operations_list.append(run_operations)
 
         if len(run_operations_list) > 1:
-            operation_future = _RUN_OPERATIONS_LIST_STATUS_CHECK_THREADPOOL.submit(
-                run_operations_status_check, run_operations_list
-            )
-            return RunOperations(operation_futures=[operation_future])
+            operation_futures = []
+            for run_operations in run_operations_list:
+                if operation_futures:
+                    operation_futures.append(run_operations._operation_futures)
+            return RunOperations(operation_futures)
 
         return run_operations_list[0]
 

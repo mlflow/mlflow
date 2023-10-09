@@ -65,7 +65,7 @@ class RunDataQueuingProcessor:
 
     def _log_run_data(self):
         try:
-            while self.continue_to_process_data or self._has_more_data_to_process():
+            while self.continue_to_process_data:
                 self._process_run_data()
                 time.sleep(5)
         except Exception as e:
@@ -73,55 +73,50 @@ class RunDataQueuingProcessor:
             raise
 
     def _process_run_data(self):
-        for run_id, pending_items in self._running_runs.items():
-            (start_watermark, end_watermark, params, tags, metrics) = pending_items.get_next_batch(
-                max_tags=100, max_metrics=250, max_params=200
-            )  # need to get these values from env variable etc.
+        while self._has_more_data_to_process():
+            for run_id, pending_items in self._running_runs.items():
+                (
+                    start_watermark,
+                    end_watermark,
+                    params,
+                    tags,
+                    metrics,
+                ) = pending_items.get_next_batch(
+                    max_tags=100, max_metrics=250, max_params=200
+                )  # need to get these values from env variable etc.
 
-            while len(params) > 0 or len(tags) > 0 or len(metrics) > 0:
-                try:
-                    self._processing_func(run_id=run_id, metrics=metrics, params=params, tags=tags)
+            try:
+                self._processing_func(run_id=run_id, metrics=metrics, params=params, tags=tags)
 
-                    self.processed_watermark = end_watermark
-                    _logger.debug(
-                        f"run_id: {run_id}, Processed watermark: {self.processed_watermark}"
-                    )
-                    # get next batch
-                    (
-                        start_watermark,
-                        end_watermark,
-                        params,
-                        tags,
-                        metrics,
-                    ) = pending_items.get_next_batch(max_tags=100, max_metrics=250, max_params=200)
-                except Exception as e:
-                    _logger.error(
-                        f"Failed to process batches for {run_id} Start: {start_watermark} "
-                        + f" End: {end_watermark} Exception: {e}"
-                    )
-                    if self.failed_run_batches.get(run_id, None):
-                        self.failed_run_batches[run_id] = []
-                        for batch_id in range(start_watermark, end_watermark + 1):
-                            self.failed_run_batches[run_id].append(batch_id)
+                self.processed_watermark = end_watermark
+                _logger.debug(f"run_id: {run_id}, Processed watermark: {self.processed_watermark}")
+            except Exception as e:  # Importing MlflowException gives circular reference
+                # / module load error, need to figure out why.
+                _logger.error(
+                    f"Failed to process batches for {run_id} Start: {start_watermark} "
+                    + f" End: {end_watermark} Exception: {e}"
+                )
+                if run_id not in self.failed_run_batches:
+                    self.failed_run_batches[run_id] = {}
+                for batch_id in range(start_watermark, end_watermark + 1):
+                    self.failed_run_batches[run_id][batch_id] = e
 
     def _is_batch_processed(self, run_id: str, batch_id: int, timeout_sec: int = 60):
         stop_at = time.time() + timeout_sec
         _logger.debug(f"Start awaiting {run_id} Batch: {batch_id}")
         while self.processed_watermark < batch_id:
-            failed_batches = self.failed_run_batches.get(run_id, {})
-            exception = failed_batches.get(batch_id, None)
-            if exception:
-                raise Exception(
-                    f"run_id: {run_id}. Failed to process batch: {batch_id} "
-                    + f"Exception: {exception!s}"
-                )
+            time.sleep(5)  # Need to check better interval
             if time.time() > stop_at:
                 raise Exception(
                     f"run_id: {run_id}. Batch: {batch_id} Await operation to process batch"
                     + " timed out."
                 )
-            # Need to check better interval
-            time.sleep(5)
+
+        failed_batches = self.failed_run_batches.get(run_id, {})
+        exception = failed_batches.get(batch_id, None)
+        if exception:
+            raise Exception(f"run_id: {run_id} Exception: {exception}")
+
         _logger.debug(f"Finished awaiting {run_id} Batch: {batch_id}")
         return True
 
