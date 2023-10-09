@@ -173,7 +173,7 @@ def hdfs_system(scheme, host, port):
     :param host: hostname or when relaying on the core-site.xml config use 'default'
     :param port: port or when relaying on the core-site.xml config use 0
     """
-    import pyarrow as pa
+    from pyarrow import fs
 
     kerb_ticket = MLFLOW_KERBEROS_TICKET_CACHE.get()
     kerberos_user = MLFLOW_KERBEROS_USER.get()
@@ -184,7 +184,7 @@ def hdfs_system(scheme, host, port):
     else:
         host = "default"
 
-    connected = pa.hdfs.connect(
+    connected = fs.HadoopFileSystem(
         host=host,
         port=port or 0,
         user=kerberos_user,

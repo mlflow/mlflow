@@ -141,7 +141,7 @@ setup(
     extras_require={
         "extras": [
             # Required to log artifacts and models to HDFS artifact locations
-            "pyarrow",
+            "pyarrow>=2.0.0",
             # Required to sign outgoing request with SigV4 signature
             "requests-auth-aws-sigv4",
             # Required to log artifacts and models to AWS S3 artifact locations
