@@ -1120,11 +1120,7 @@ class DefaultEvaluator(ModelEvaluator):
             eval_fn_args.append(eval_df_copy["prediction"])
             del parameters["predictions"]
             if "targets" in parameters:
-                # There are cases where "targets" in parameters but no "target" in eval_df
-                if "target" in eval_df_copy:
-                    eval_fn_args.append(eval_df_copy["target"])
-                else:
-                    eval_fn_args.append(None)
+                eval_fn_args.append(eval_df_copy["target"])
                 del parameters["targets"]
             if "metrics" in parameters:
                 eval_fn_args.append(copy.deepcopy(self.metrics_values))
