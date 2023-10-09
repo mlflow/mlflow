@@ -28,10 +28,13 @@ class PaLMProvider(BaseProvider):
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
+        if "max_tokens" in payload or "maxOutputTokens" in payload:
+            raise HTTPException(
+                status_code=422, detail="Max tokens is not supported for PaLM chat."
+            )
         key_mapping = {
             "stop": "stopSequences",
             "candidate_count": "candidateCount",
-            "max_tokens": "maxOutputTokens",
         }
         for k1, k2 in key_mapping.items():
             if k2 in payload:

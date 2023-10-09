@@ -104,7 +104,6 @@ def chat_response():
         {
             "messages": [{"role": "user", "content": "Tell me a joke"}],
             "temperature": 0.5,
-            "max_tokens": 1000,
         },
     ],
 )
@@ -204,7 +203,7 @@ async def test_embeddings(prompt):
 
 @pytest.mark.asyncio
 async def test_param_model_is_not_permitted():
-    config = embeddings_config()
+    config = completions_config()
     provider = PaLMProvider(RouteConfig(**config))
     payload = {
         "prompt": "This should fail",
@@ -225,3 +224,26 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
     payload = {"prompt": prompt}
     with pytest.raises(ValidationError, match=r"prompt"):
         await provider.completions(completions.RequestPayload(**payload))
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "messages": [{"role": "user", "content": "This should fail."}],
+            "max_tokens": 5000,
+        },
+        {
+            "messages": [{"role": "user", "content": "This should fail."}],
+            "maxOutputTokens": 5000,
+        },
+    ],
+)
+@pytest.mark.asyncio
+async def test_param_max_tokens_for_chat_is_not_permitted(payload):
+    config = chat_config()
+    provider = PaLMProvider(RouteConfig(**config))
+    with pytest.raises(HTTPException, match=r".*") as e:
+        await provider.chat(chat.RequestPayload(**payload))
+    assert "Max tokens is not supported for PaLM chat." in e.value.detail
+    assert e.value.status_code == 422
