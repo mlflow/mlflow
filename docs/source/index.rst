@@ -6,326 +6,183 @@ handling the complexities of the machine learning process. Mlflow focuses on the
 machine learning projects, ensuring that each phase is manageable, traceable, and reproducible.
 
 
-Welcome to the Mlflow Documentation
------------------------------------
-
-.. raw:: html
-
-    <section class="card-list">
-        <article class="card">
-            <header class="card-header">
-                <a class="card-link" href="introduction/index.html">
-                    <h1>
-                        Introduction to MLflow
-                    </h1>
-                </a>
-                <img src="_static/MLflow-logo-final-black.png" alt="MLflow logo" class="card-header-image"></img>
-                <h2>
-                    Learn about how you can leverage MLflow to simplify your MLOps workloads.
-                </h2>
-                <p>Discover the core components of MLflow</p>
-                <ul>
-                    <li>
-                        <a class="card-link" href="tracking.html">
-                            Tracking
-                        </a>
-                    </li>
-                    <li>
-                        <a class="card-link" href="llm-tracking.html">
-                            LLM Tracking
-                        </a>
-                    </li>
-                    <li>
-                        <a class="card-link" href="gateway/index.html">
-                            AI Gateway
-                        </a>
-                    </li>
-                    <li>
-                        <a class="card-link" href="model-registry.html">
-                            Model Registry
-                        </a>
-                    </li>
-                    <li>
-                        <a class="card-link" href="recipes.html">
-                            Recipes
-                        </a>
-                    </li>
-                </ul>
-            </header>
-            <div class="tags">
-                <div><a href="introduction/index.html">What is MLflow?</a></div>
-                <div><a href="concepts.html">MLflow Core Concepts</a></div>
-            </div>
-        </article>
-        <article class="card">
-            <header class="card-header">
-                <a class="card-link" href="tutorials/index.html">
-                    <h1>
-                        MLflow Tutorials
-                    </h1>
-                </a>
-                <img src="_static/MLflow-logo-final-black.png" alt="MLflow logo" class="card-header-image"></img>
-                <h2>
-                    Get started with MLflow by diving into our step-by-step tutorials.
-                </h2>
-                <p>Whether you're new to MLflow or a seasoned user, this is a great place to start.</p>
-                <p>From new features, to enhancements to existing tooling, learn in a hands-on and
-                    guided step-by-step fashion with these tutorials.</p>
-            </header>
-            <div class="tags">
-                <div><a class="icon bell" href="tutorials/introductory/logging-first-model/index.html">Logging your first MLflow Model</a></div>
-            </div>
-        </article>
-        <article class="card">
-            <header class="card-header">
-                <a class="card-link" href="guides/index.html">
-                    <h1>
-                        MLflow Guides
-                    </h1>
-                </a>
-                <img src="_static/MLflow-logo-final-black.png" alt="MLflow logo" class="card-header-image"></img>
-                <h2>
-                    Learn in-depth processes from working examples focused on real-world MLOps tasks.
-                </h2>
-                <p>Explore MLflow features in greater depth with our task-oriented guides.</p>
-                <p>Learn best practices of using MLflow to simplify and provide production-readiness to your ML workflows.</p>
-            </header>
-            <div class="tags">
-                <div><a class="icon bell" href="guides/introductory/hyperparameter-tuning-with-child-runs/index.html">Hyperparameter Tuning with MLflow and Optuna</a></div>
-                <div><a href="guides/introductory/deploy-model-to-kubernetes/index.html">Deploy a MLflow Model to Kubernetes</a></div>
-            </div>
-        </article>
-        <article class="card">
-            <header class="card-header">
-                <a class="card-link" href="https://github.com/mlflow/mlflow/tree/master/examples">
-                    <h1>
-                        MLflow Examples
-                    </h1>
-                </a>
-                <img src="_static/images/intro/github-mark.svg" alt="GitHub logo" class="card-header-image"></img>
-                <h2>
-                    Get reference code examples.<br>No frills, just code.
-                </h2>
-                <p>Prefer code to tutorials and guides?</p>
-                <p>Go straight to our GitHub repository to find examples for using the components of MLflow with supported popular ML libraries.</p>
-            </header>
-            <div class="tags">
-                <div>
-                    <a class="github" href="https://github.com/mlflow/mlflow/blob/master/examples/transformers/MLFlow_X_HuggingFace_Finetune_a_text_classification_model.ipynb">
-                        Fine-tuning a transformers model with MLflow
-                    </a>
-                </div>
-                <div>
-                    <a class="github" href="https://github.com/mlflow/mlflow/tree/master/examples/gateway/mlflow_serving">
-                        Using AI Gateway with MLflow served models
-                    </a>
-                </div>
-                <div>
-                    <a class="github" ref="https://github.com/mlflow/mlflow/tree/master/examples/evaluation">
-                        How to use MLflow Evaluate
-                    </a>
-                </div>
-                <div>
-                    <a class="github" href="https://github.com/mlflow/mlflow/blob/master/examples/langchain/retrieval_qa_chain.py">
-                        Langchain Retrieval QA Chain with MLflow
-                    </a>
-                </div>
-        </article>
-        <article class="card">
-            <header class="card-header">
-                <a class="card-link" href="http://localhost:63342/mlflow/docs/build/html/python_api/index.html">
-                    <h1>
-                        Python API Docs
-                    </h1>
-                </a>
-                <img src="_static/images/intro/python-logo-generic.svg" alt="Python Logo" class="card-header-image"></img>
-                <h2>
-                    References to all components of the MLflow Python APIs.
-                </h2>
-                <p>
-                    Learn more about:
-                </p>
-                <ul>
-                    <li>Function signatures</li>
-                    <li>Plugin support</li>
-                    <li>Integration points</li>
-                </ul>
-            </header>
-        </article>
-        <article class="card">
-            <header class="card-header">
-                <a class="card-link" href="http://localhost:63342/mlflow/docs/build/html/r_api/index.html">
-                    <h1>
-                        R API Docs
-                    </h1>
-                </a>
-                <img src="_static/images/intro/r-logo.svg" alt="R Logo" class="card-header-image"></img>
-                <h2>
-                    References to all components of the MLflow R APIs.
-                </h2>
-                <p>
-                    Learn how to use MLflow with R
-                </p>
-            </header>
-        </article>
-        <article class="card">
-            <header class="card-header">
-                <a class="card-link" href="http://localhost:63342/mlflow/docs/build/html/java_api/index.html">
-                    <h1>
-                        Java API Docs
-                    </h1>
-                </a>
-                <img src="_static/images/intro/Java-Logo.svg" alt="Java Logo" class="card-header-image" style="max-height: 4.5rem;"></img>
-                <h2>
-                    References to all components of the MLflow Java APIs.
-                </h2>
-                <p>
-                    Learn how to use MLflow with JVM-compatible languages
-                </p>
-            </header>
-        </article>
-    </section>
+In each of the sections below, you will find overviews, guides, and step-by-step tutorials to walk you through 
+the features of MLflow and how they can be leveraged to solve real-world MLOps problems. 
 
 
-New Features and Notable Changes
---------------------------------
+Getting Started with MLflow
+---------------------------
+If this is your first time exploring MLflow, the guides here are a great place to start. The emphasis in each of these is 
+getting you up to speed as quickly as possible with the basic functionality, terms, APIs, and general best practices to 
+enhance your learning in area-specific guides and tutorials. 
 
 .. raw:: html
 
     <section>
-        <article class="new-content-grid">
-            <div class="grid-card">
-                <div class="content-container">
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="getting-started/logging-first-model/index.html" >
                     <div class="header">
-                        Introducting the Prompt Engineering UI
+                        Intro to MLflow Tutorial
                     </div>
-                    <img class="card-image" src="_static/images/intro/new_features/prompt-eng-ui.png" alt="Prompt Engineering UI" style="max-height: 5rem"></img>
-                    <div class="body">
-                        Link your MLflow Tracking Server with your MLflow AI Gateway Server to experiment, evaluate, and construct 
-                        prompts that can be compared amongst different providers without writing a single line of code.
-                    </div>
-                    <div class="doc"><a class="icon bell" href="llms/prompt-engineering.html">Learn more</a></div>
-                    <div class="tag">
-                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.7.0">released in 2.7.0</a>
-                    </div>
-                </div>
+                </a>
+                <p>
+                    Learn how to get started with the basics of MLflow in a step-by-step instructional tutorial that shows the critical 
+                    path to logging your first model
+                </p>
             </div>
-            <div class="grid-card">
-                <div class="content-container">
+            <div class="simple-card">
+                <a href="getting-started/quickstart-1/index.html" >
                     <div class="header">
-                        MosaicML Support in AI Gateway
+                        15 minute Tracking Quickstart
                     </div>
-                    <img class="card-image" src="_static/images/intro/new_features/mosaicml-logo.svg" alt="MosaicML"></img>
-                    <div class="body">
-                        MosaicML has now been added to the supported providers in MLflow AI Gateway.
-                        You can now seamlessly interface with managed popular models like
-                        <a href="https://www.mosaicml.com/blog/mpt-30b">MPT-30B</a> and other models in the MPT family.
-                    </div>
-                    <div class="body">
-                        Try it out today with our <a href="https://github.com/mlflow/mlflow/blob/master/examples/gateway/mosaicml">example</a>.
-                    </div>
-                    <div class="doc"><a href="gateway/index.html#supported-provider-models">Learn more</a></div>
-                    <div class="tag">
-                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.7.0">released in 2.7.0</a>
-                    </div>
-                </div>
+                </a>
+                <p>
+                    Short on time? This is a no-frills quickstart that shows how to leverage autologging during training and how to 
+                    load a model for inference
+                </p>
             </div>
-            <div class="grid-card">
-                <div class="content-container">
+            <div class="simple-card">
+                <a href="getting-started/quickstart-2/index.html" >
                     <div class="header">
-                        Cloudflare R2 now supported as an artifact store
+                        15 minute Deployment Quickstart
                     </div>
-                    <img class="card-image" src="_static/images/intro/new_features/cloudflare-logo.svg" alt="cloudflare" style="max-height: 5rem"></img>
-                    <div class="body">
-                        Cloudflare's R2 storage backend is now supported for use as an artifact store. To learn more about 
-                        R2, read the <a href="https://developers.cloudflare.com/r2/get-started/">Cloudflare docs</a> to get more information and to explore what is possible.
-                    </div>
-                    <div class="tag">
-                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.7.0">released in 2.7.0</a>
-                    </div>
-                </div>
-            </div>
-            <div class="grid-card">
-                <div class="content-container">
-                    <div class="header">
-                        Params support for PyFunc Models
-                    </div>
-                    <img class="card-image" src="_static/images/intro/new_features/mlflow-logo.svg" alt="MLflow"></img>
-                    <div class="body">
-                        PyFunc models now support passing parameters at inference time. With this new feature, 
-                        you can define the allowable keys, with default values, for any parameters that you would like 
-                        consumers of your model to be able to override. This is particularly useful for LLMs, where you 
-                        might want to let users adjust commonly modified parameters for a model, such as token counts and temperature. 
-                    </div>
-                    <div class="doc"><a href="models.html#inference-params">Learn more</a></div>
-                    <div class="tag">
-                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.6.0">released in 2.6.0</a>
-                    </div>
-                </div>
-            </div>
-            <div class="grid-card">
-                <div class="content-container">
-                    <div class="header">
-                        MLflow Serving support added to MLflow AI Gateway
-                    </div>
-                    <img class="card-image" src="_static/images/intro/new_features/mlflow-logo.svg" alt="MLflow"></img>
-                    <div class="body">
-                        The MLflow AI Gateway now supports defining an MLflow serving endpoint as provider. With this 
-                        new feature, you can serve any OSS transformers model that conforms to the 
-                        <a href="gateway/index.html#completions">completions</a> or <a href="gateway/index.html#embeddings">embeddings</a> route type 
-                        definitions. 
-                    </div>
-                    <div class="body">
-                        Try it out today with our end-to-end <a href="https://github.com/mlflow/mlflow/tree/master/examples/gateway/mlflow_serving">example</a>.
-                    </div>
-                    <div class="doc"><a href="gateway/index.html#mlflow-models">Learn more</a></div>
-                    <div class="tag">
-                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.6.0">released in 2.6.0</a>
-                    </div>
-                </div>
-            </div>
-            <div class="grid-card">
-                <div class="content-container">
-                    <div class="header">
-                        Introducing the MLflow AI Gateway
-                    </div>
-                    <img class="card-image" src="_static/images/intro/new_features/mlflow-logo.svg" alt="Mlflow"></img>
-                    <div class="body">
-                        We're excited to announce the newest top-level component in the MLflow ecosystem: <strong>The AI Gateway</strong>. 
-                    </div>
-                    <div class="body">
-                        With this new feature, you can create a single access point to many of the most popular LLM SaaS services available now, 
-                        simplifying interfaces, managing credentials, and providing a unified standard set of APIs to reduce the complexity of 
-                        building products and services around LLMs. 
-                    </div>
-                    <div class="doc"><a href="gateway/index.html">Learn more</a></div>
-                    <div class="tag">
-                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.5.0">released in 2.5.0</a>
-                    </div>
-                </div>
-            </div>
-            <div class="grid-card">
-                <div class="content-container">
-                    <div class="header">
-                        MLflow Evaluate now supports LLMs
-                    </div>
-                    <img class="card-image" src="_static/images/intro/new_features/mlflow-logo.svg" alt="MLflow"></img>
-                    <div class="body">
-                        You can now use MLflow evaluate to compare results from your favorite LLMs on a fixed prompt.
-                    </div>
-                    <div class="body">
-                        With support for many of the standard evaluation metrics for LLMs built in directly to the API, the featured 
-                        LLM modeling tasks of text summarization, text classification, question answering, and text generation allows you 
-                        to view the results of submitted text to multiple models in a single UI element. 
-                    </div>
-                    <div class="doc"><a href="models.html#model-evaluation-llms">Learn more</a></div>
-                    <div class="tag">
-                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.4.0">released in 2.4.0</a>
-                    </div>
-                </div>
+                </a>
+                <p>
+                    Learn the basics of registering a model, setting up local serving for validation, and the process of 
+                    containerization of a model for remote serving
+                </p>
             </div>
         </article>
     </section>
+
+LLMs
+----
+Explore the comprehensive LLM-focused native support in MLflow. From **MLflow AI Gateway** to the **Prompt Engineering UI** and native LLM-focused MLflow flavors like 
+**open-ai**, **transformers**, and **sentence-transformers**, the tutorials and guides here will help to get you started in leveraging the 
+benefits of these powerful natural language deep learning models.  
+You'll learn how MLflow simplifies both using LLMs and developing solutions that leverage LLMs. Important tasks such as prompt development, evaluation of prompts, comparison of  
+foundation models, fine-tuning and logging LLMs, and setting up production-grade interface servers are all covered by MLflow. 
+
+Explore the guides and tutorials below to start your journey!
+
+LLM Guides and Tutorials
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="llms/prompt-engineering/index.html" >
+                    <div class="header">
+                        Guide to the MLflow Prompt Engineering UI
+                    </div>
+                </a>
+                <p>
+                    Explore the features and functions of MLflow's Prompt Engineering UI for development, testing, evaluation, and 
+                    deployment of validated prompts for your LLM use cases.
+                </p>
+            </div>
+            <div class="simple-card">
+                <a href="llms/gateway/index.html" >
+                    <div class="header">
+                        Guide for the MLflow AI Gateway
+                    </div>
+                </a>
+                <p>
+                    Learn how to configure, setup, deploy, and use the MLflow AI Gateway for testing and production use cases of both 
+                    SaaS and custom open-source LLMs.
+                </p>
+            </div>
+            <div class="simple-card">
+                <a href="llms/llm-tracking/index.html" >
+                    <div class="header">
+                        LLM Tracking with MLflow
+                    </div>
+                </a>
+                <p>
+                    Dive into the intricacies of MLflow's LLM Tracking system. From capturing prompts to monitoring generated outputs, 
+                    discover how MLflow provides a holistic solution for managing LLM interactions.
+                </p>
+            </div>
+        </article>
+    </section>
+
+
+Model Evaluation
+----------------
+Dive into MLflow's robust framework for evaluating the performance of your ML models. With the `mlflow.evaluate()` API, you can assess models on 
+your chosen datasets, including special support for Large Language Models (LLMs) encompassing tasks like text summarization and question answering. 
+Additionally, discover the intricacies of prompt engineering with OpenAI, define custom metrics, and set validation thresholds for comprehensive 
+model quality checks. 
+Visual insights are also available through the MLflow UI, showcasing logged outputs and model comparison artifacts. 
+
+Navigate through the sections below to deepen your understanding and expertise!
+
+
+
+Deep Learning
+-------------
+See how MLflow can help manage the full lifecycle of your Deep Learning projects. Whether you're using frameworks like **TensorFlow (tensorflow)**, **Keras (keras)**, 
+**PyTorch (pytorch)**, or **MXNet Gluon (gluon)**, MLflow offers first-class support, ensuring seamless integration and deployment. Additionally, 
+libraries like **Fastai (fastai)** and **ONNX (onnx)** are also natively supported. Paired with MLflow's streamlined APIs and comparative UI, 
+you are equipped with everything needed to manage, track, and optimize your deep learning workflows.
+
+
+
+Traditional ML
+--------------
+Leverage the power of MLflow for all your Traditional Machine Learning needs. Whether you're working with supervised, unsupervised, statistical, or time series data, 
+MLflow streamlines the process by providing an integrated environment that supports a large array of widely-used libraries like **Scikit-learn (sklearn)**, 
+**SparkML (spark)**, **XGBoost (xgboost)**, **LightGBM (lightgbm)**, **CatBoost (catboost)**, **Statsmodels**, **Prophet**, and **Pmdarima**. 
+With MLflow, you not only get APIs tailored for these libraries but also a user-friendly UI to compare various runs, ensuring that your model tuning and 
+evaluation phases are both efficient and insightful.
+
+Traditional ML Guides and Tutorials
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="traditional-ml/hyperparameter-tuning-with-child-runs/index.html" >
+                    <div class="header">
+                        Hyperparameter Tuning with Optuna and MLflow
+                    </div>
+                </a>
+                <p>
+                    This in-depth guide will show you how to leverage some core functionality in MLflow to keep your tuning iterations organized and 
+                    searchable, all while covering a number of features within MLflow that cater to the needs of this common activity.
+                </p>
+            </div>
+        </article>
+    </section>
+
+
+Deployment
+----------
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="deployment/kubernetes-deployment/index.html" >
+                    <div class="header">
+                        Deploying a Model to Kubernetes with MLflow
+                    </div>
+                </a>
+                <p>
+                    This guide showcases the seamless end-to-end process of training a linear regression model, packaging it in a reproducible format, 
+                    and deploying to a Kubernetes cluster using MLflow. Explore how MLflow simplifies model deployment to production environments.
+                </p>
+            </div>
+        </article>
+    </section>
+
+
 
 
 .. toctree::
@@ -333,20 +190,19 @@ New Features and Notable Changes
     :hidden:
 
     introduction/index
-    tutorials/index
-    guides/index
-    quickstart
-    quickstart_mlops
-    tutorials-and-examples/index
-    concepts
+    getting-started/index
+    new-features/index
+    llms/index
+    model-evaluation/index
+    deep-learning/index
+    traditional-ml/index
+    deployment/index
+
     tracking
-    llm-tracking
     projects
     models
     model-registry
     recipes
-    gateway/index
-    llms/prompt-engineering
     plugins
     auth/index
     cli
@@ -358,3 +214,4 @@ New Features and Notable Changes
     rest-api
     docker
     community-model-flavors
+    tutorials-and-examples/index

@@ -13,9 +13,9 @@
     position: relative;
     flex-direction: column;
     justify-content: space-between;
-    height: 700px;
-    width: 600px;
-    min-width: 450px;
+    height: 500px;
+    width: 400px;
+    min-width: 375px;
     padding: 2rem;
     border-radius: 16px;
     background: white;
@@ -30,11 +30,11 @@
 }
 
 .card:hover~.card {
-    transform: translateX(130px);
+    transform: translateX(50px);
 }
 
 .card:not(:first-child) {
-    margin-left: -130px;
+    margin-left: -50px;
 }
 
 .card-header h1 {
@@ -46,11 +46,11 @@
     padding-bottom: 1rem;
     height: 6rem;
     overflow: hidden;
-    font-size: 1.25rem;
+    font-size: 1.5rem;
 }
 
 .card-header p {
-    font-size: 0.75rem;
+    font-size: 1rem;
 }
 
 .card-header .card-link {
