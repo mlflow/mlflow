@@ -2740,3 +2740,35 @@ def test_constructing_eval_df_for_custom_metrics():
         "flesch_kincaid_grade_level/v1/score",
         "ari_grade_level/v1/score",
     ]
+
+
+def test_evaluate_genai_without_key():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
+        from mlflow.metrics import make_metric
+        from mlflow.metrics.metric_definitions import standard_aggregations
+
+        def word_count_eval(predictions, targets, metrics):
+            scores = []
+            for prediction in predictions:
+                scores.append(len(prediction.split(" ")))
+            return MetricValue(
+                scores=scores,
+                aggregate_results=standard_aggregations(scores),
+            )
+
+        word_count = make_metric(eval_fn=word_count_eval, greater_is_better=True, name="word_count")
+
+        results = mlflow.evaluate(
+            model_info.model_uri, data, model_type="text", extra_metrics=[word_count]
+        )
+        assert results.metrics.keys() == {
+            "word_count/mean",
+            "word_count/variance",
+            "word_count/p90",
+        }
+        assert results.metrics["word_count/mean"] == 3.0
+        assert False

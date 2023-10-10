@@ -1166,6 +1166,10 @@ class DefaultEvaluator(ModelEvaluator):
                 )
                 self.metrics_values.update({name: metric_value})
 
+    def _precheck_extra_metrics(self):
+        if not self.extra_metrics:
+            return
+
     def _log_custom_artifacts(self, eval_df):
         if not self.custom_artifacts:
             return
@@ -1486,6 +1490,7 @@ class DefaultEvaluator(ModelEvaluator):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             with mlflow.utils.autologging_utils.disable_autologging():
+                self._precheck_extra_metrics()
                 self._generate_model_predictions()
                 if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
                     self._compute_builtin_metrics()
