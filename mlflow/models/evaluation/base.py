@@ -9,6 +9,7 @@ import signal
 import struct
 import sys
 import urllib
+import urllib.parse
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from contextlib import contextmanager
@@ -31,7 +32,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import _get_fully_qualified_class_name
-from mlflow.utils.annotations import developer_stable
+from mlflow.utils.annotations import developer_stable, experimental
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
@@ -262,10 +263,15 @@ class EvaluationResult:
     both scalar metrics and output artifacts such as performance plots.
     """
 
-    def __init__(self, metrics, artifacts, baseline_model_metrics=None):
+    def __init__(self, metrics, artifacts, baseline_model_metrics=None, run_id=None):
         self._metrics = metrics
         self._artifacts = artifacts
         self._baseline_model_metrics = baseline_model_metrics if baseline_model_metrics else {}
+        self._run_id = (
+            run_id
+            if run_id is not None
+            else (mlflow.active_run().info.run_id if mlflow.active_run() is not None else None)
+        )
 
     @classmethod
     def load(cls, path):
@@ -334,6 +340,28 @@ class EvaluationResult:
         A dictionary mapping scalar metric names to scalar metric values for the baseline model
         """
         return self._baseline_model_metrics
+
+    @experimental
+    @property
+    def table(self) -> Dict[str, "pd.DataFrame"]:
+        """
+        A dictionary mapping standardized artifact names (e.g. "eval_results_table") to
+        corresponding table content as pandas DataFrame.
+        """
+        eval_table = {}
+        if self._run_id is None:
+            _logger.warning("Cannot load eval_results_table because run_id is not specified.")
+            return eval_table
+
+        for table_name, table_path in self._artifacts.items():
+            path = urllib.parse.urlparse(table_path.uri).path
+            table_fileName = os.path.basename(path)
+            try:
+                eval_table[table_name] = mlflow.load_table(table_fileName, run_ids=[self._run_id])
+            except Exception:
+                pass  # Swallow the exception since we assume its not a table.
+
+        return eval_table
 
 
 _cached_mlflow_client = None
@@ -701,6 +729,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         run_id,
         evaluator_config,
         custom_metrics=None,
+        extra_metrics=None,
         custom_artifacts=None,
         baseline_model=None,
         **kwargs,
@@ -718,7 +747,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         :param run_id: The ID of the MLflow Run to which to log results.
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
-        :param custom_metrics: A list of :py:class:`EvaluationMetric` objects.
+        :param extra_metrics: A list of :py:class:`EvaluationMetric` objects.
         :param custom_artifacts: A list of callable custom artifact functions.
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
                        may be added to the evaluation interface in the future.
@@ -996,6 +1025,7 @@ def _evaluate(
     evaluator_name_list,
     evaluator_name_to_conf_map,
     custom_metrics,
+    extra_metrics,
     custom_artifacts,
     baseline_model,
 ):
@@ -1034,6 +1064,7 @@ def _evaluate(
                 run_id=run_id,
                 evaluator_config=config,
                 custom_metrics=custom_metrics,
+                extra_metrics=extra_metrics,
                 custom_artifacts=custom_artifacts,
                 baseline_model=baseline_model,
             )
@@ -1048,7 +1079,7 @@ def _evaluate(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    merged_eval_result = EvaluationResult({}, {}, {})
+    merged_eval_result = EvaluationResult({}, {}, {}, None)
 
     for eval_result in eval_results:
         if not eval_result:
@@ -1072,6 +1103,7 @@ def evaluate(
     evaluators=None,
     evaluator_config=None,
     custom_metrics=None,
+    extra_metrics=None,
     custom_artifacts=None,
     validation_thresholds=None,
     baseline_model=None,
@@ -1349,7 +1381,7 @@ def evaluate(
                              If multiple evaluators are specified, each configuration should be
                              supplied as a nested dictionary whose key is the evaluator name.
 
-    :param custom_metrics:
+    :param extra_metrics:
         (Optional) A list of :py:class:`EvaluationMetric <mlflow.models.EvaluationMetric>` objects.
 
         .. code-block:: python
@@ -1367,7 +1399,7 @@ def evaluate(
                 eval_fn=root_mean_squared_error,
                 greater_is_better=False,
             )
-            mlflow.evaluate(..., custom_metrics=[rmse_metric])
+            mlflow.evaluate(..., extra_metrics=[rmse_metric])
 
     :param custom_artifacts:
         (Optional) A list of custom artifact functions with the following signature:
@@ -1439,8 +1471,8 @@ def evaluate(
 
     :param validation_thresholds: (Optional) A dictionary of metric name to
         :py:class:`mlflow.models.MetricThreshold` used for model validation. Each metric name must
-        either be the name of a builtin metric or the name of a custom metric defined in the
-        ``custom_metrics`` parameter.
+        either be the name of a builtin metric or the name of a metric defined in the
+        ``extra_metrics`` parameter.
 
         .. code-block:: python
             :caption: Example of Model Validation
@@ -1602,6 +1634,7 @@ def evaluate(
                 evaluator_name_list=evaluator_name_list,
                 evaluator_name_to_conf_map=evaluator_name_to_conf_map,
                 custom_metrics=custom_metrics,
+                extra_metrics=extra_metrics,
                 custom_artifacts=custom_artifacts,
                 baseline_model=baseline_model,
             )

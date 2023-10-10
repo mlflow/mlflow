@@ -69,7 +69,7 @@ with mlflow.start_run() as run:
         targets="target",
         model_type="regressor",
         evaluators=["default"],
-        custom_metrics=[
+        extra_metrics=[
             make_metric(
                 eval_fn=squared_diff_plus_one,
                 greater_is_better=False,

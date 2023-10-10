@@ -9,9 +9,6 @@ from mlflow.metrics import EvaluationExample, correctness
 
 logging.getLogger("mlflow").setLevel(logging.ERROR)
 
-# Uncomment the following lines to run this script without using a real OpenAI API key.
-# os.environ["OPENAI_API_KEY"] = "test"
-
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
 
 
@@ -24,7 +21,7 @@ example = EvaluationExample(
     score=4,
     justification="The definition effectively explains what MLflow is "
     "its purpose, and its developer. It could be more concise for a 5-score.",
-    variables={
+    grading_context={
         "ground_truth": "MLflow is an open-source platform for managing "
         "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
         "a company that specializes in big data and machine learning solutions. MLflow is "
@@ -66,9 +63,9 @@ with mlflow.start_run() as run:
         logged_model.model_uri,
         eval_df,
         model_type="text",
-        custom_metrics=[correctness_metric],
+        extra_metrics=[correctness_metric],
     )
     print(results)
 
-    eval_table = mlflow.load_table("eval_results_table.json", run_ids=[run.info.run_id])
+    eval_table = results.table["eval_results_table"]
     print(eval_table)
