@@ -4,6 +4,7 @@ import inspect
 import json
 import logging
 import math
+import os
 import pathlib
 import pickle
 import shutil
@@ -1277,11 +1278,9 @@ class DefaultEvaluator(ModelEvaluator):
             num_tokens_list = []
             X_copy = self.X.copy_to_avoid_mutation()
 
-            # ref: https://github.com/openai/tiktoken/issues/75
-            import os
-
             import tiktoken
 
+            # ref: https://github.com/openai/tiktoken/issues/75
             os.environ["TIKTOKEN_CACHE_DIR"] = ""
 
             encoding = tiktoken.get_encoding("cl100k_base")
