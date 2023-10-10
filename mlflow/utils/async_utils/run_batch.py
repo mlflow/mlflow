@@ -1,15 +1,30 @@
+import threading
+
+from mlflow.entities.metric import Metric
+from mlflow.entities.param import Param
+from mlflow.entities.run_tag import RunTag
+
+
 class RunBatch:
-    def __init__(self, id, run_id, params, tags, metrics, event) -> None:
+    def __init__(
+        self,
+        id,
+        run_id: str,
+        params: [Param],
+        tags: [RunTag],
+        metrics: [Metric],
+        event: threading.Event,
+    ) -> None:
         """
-        Initializes an instance of MyClass.
+        Initializes an instance of RunBatch.
 
         Args:
-            id (int): The ID of the instance.
-            run_id (int): The ID of the run.
-            params (dict): A dictionary of parameters.
-            tags (dict): A dictionary of tags.
-            metrics (dict): A dictionary of metrics.
-            event (Event): An event object.
+            id: The ID of the instance.
+            run_id: The ID of the run.
+            params: A list of parameters.
+            tags: A list of tags.
+            metrics: A list of metrics.
+            event: A threading.Event object.
         """
         self.id = id
         self.run_id = run_id
