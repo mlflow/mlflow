@@ -1,8 +1,7 @@
 Hyperparameter tuning with MLflow and child runs - Notebooks
 ============================================================
 
-If you would like to view the notebooks in this guide in their entirety, each notebook and the primary
-sections within them can be navigated to directly below:
+If you would like to view the notebooks in this guide in their entirety, each notebook can be either viewed or downloaded below.
 
 .. toctree::
     :maxdepth: 1
