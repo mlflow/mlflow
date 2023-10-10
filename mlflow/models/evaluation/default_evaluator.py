@@ -1087,7 +1087,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _generate_model_predictions(self):
         """
-        Helper method for generating model predictions
+        Helper method for generating model predictions TODO: change here
         """
         if self.model_type == _ModelType.CLASSIFIER:
             self.label_list = np.unique(self.y)
