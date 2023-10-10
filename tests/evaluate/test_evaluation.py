@@ -1384,3 +1384,79 @@ def test_evaluate_with_static_dataset_input_single_output():
     assert "mean_absolute_error" in run.data.metrics
     assert "mean_squared_error" in run.data.metrics
     assert "root_mean_squared_error" in run.data.metrics
+
+
+def test_evaluate_with_static_spark_dataset_unsupported():
+    data = sklearn.datasets.load_diabetes()
+    spark = SparkSession.builder.master("local[*]").getOrCreate()
+    rows = [
+        (Vectors.dense(features), float(label), float(label))
+        for features, label in zip(data.data, data.target)
+    ]
+    spark_dataframe = spark.createDataFrame(
+        spark.sparkContext.parallelize(rows, 1), ["features", "label", "model_output"]
+    )
+    with mlflow.start_run():
+        with pytest.raises(
+            MlflowException, match="The data must be a pandas dataframe when model=None."
+        ):
+            mlflow.evaluate(
+                data=spark_dataframe,
+                targets="label",
+                prediction="model_output",
+                model_type="regressor",
+            )
+
+
+def test_evaluate_with_static_dataset_error_handling():
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    with mlflow.start_run():
+        with pytest.raises(
+            MlflowException, match="The prediction argument must be specified when model=None."
+        ):
+            mlflow.evaluate(
+                data=X.assign(y=y, model_output=y),
+                targets="y",
+                model_type="regressor",
+            )
+
+        with pytest.raises(
+            MlflowException, match="The data must be a pandas dataframe when model=None."
+        ):
+            mlflow.evaluate(
+                data=X.assign(y=y, model_output=y).to_numpy(),
+                targets="y",
+                prediction="model_output",
+                model_type="regressor",
+            )
+
+        with pytest.raises(
+            MlflowException,
+            match="The prediction argument cannot be specified when model is specified.",
+        ):
+            mlflow.evaluate(
+                model="models:/test",
+                data=X.assign(y=y, model_output=y).to_numpy(),
+                targets="y",
+                prediction="model_output",
+                model_type="regressor",
+            )
+
+        with pytest.raises(MlflowException, match="The data argument cannot be None."):
+            mlflow.evaluate(
+                data=None,
+                targets="y",
+                model_type="regressor",
+            )
+
+        with pytest.raises(
+            MlflowException, match="The prediction column prediction is not found in data."
+        ):
+            mlflow.evaluate(
+                data=X.assign(y=y, model_output=y),
+                targets="y",
+                prediction="prediction",
+                model_type="regressor",
+            )

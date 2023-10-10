@@ -1309,10 +1309,9 @@ def evaluate(
                             return model.predict(model_input)
 
         If omitted, it indicates a static dataset will be used for evaluation instead of a model.
-        In this case, the ``data`` argument must be a Pandas DataFrame or Spark DataFrame or
-        :py:class`mlflow.data.dataset.Dataset` instance that contains model outputs, and the
-        ``prediction`` argument must be the name of the column in ``data`` that contains model
-        outputs.
+        In this case, the ``data`` argument must be a Pandas DataFrame that contains model outputs,
+        and the ``prediction`` argument must be the name of the column in ``data`` that contains
+        model outputs.
 
     :param data: One of the following:
 
@@ -1326,14 +1325,14 @@ def evaluate(
                    If it is Spark DataFrame, only the first 10000 rows in the Spark DataFrame
                    will be used as evaluation data.
 
-                 - A :py:class`mlflow.data.dataset.Dataset` instance containing evaluation
-                   features, labels, and optionally model outputs.
+                 - A :py:class:`mlflow.data.dataset.Dataset` instance containing evaluation
+                   features and labels.
 
     :param targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
                     labels. If ``data`` is a DataFrame, the string name of a column from ``data``
                     that contains evaluation labels. Required for classifier and regressor models,
                     but optional for question-answering, text-summarization, and text models. If
-                    ``data`` is a :py:class`mlflow.data.dataset.Dataset` that defines targets,
+                    ``data`` is a :py:class:`mlflow.data.dataset.Dataset` that defines targets,
                     then ``targets`` is optional.
 
     :param prediction: Optional. Only used when ``model`` is not specified. The name of the column
@@ -1573,13 +1572,13 @@ def evaluate(
 
         if not isinstance(data, pd.DataFrame):
             raise MlflowException(
-                message="The ``data`` must be a pandas dataframe when model=None.",
+                message="The data must be a pandas dataframe when model=None.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
         if prediction not in data.columns:
             raise MlflowException(
-                message=f"The prediction column {prediction} is not found in ``data``.",
+                message=f"The prediction column {prediction} is not found in data.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
