@@ -5,8 +5,8 @@ from mlflow.entities import DatasetInput, ViewType
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils.annotations import developer_stable, experimental
-from mlflow.utils.run_data_queuing_processor import RunDataQueuingProcessor
-from mlflow.utils.run_operations import RunOperations
+from mlflow.utils.async_utils.async_logging_queue import AsyncLoggingQueue
+from mlflow.utils.async_utils.run_operations import RunOperations
 
 
 @developer_stable
@@ -23,7 +23,7 @@ class AbstractStore:
         Empty constructor for now. This is deliberately not marked as abstract, else every
         derived class would be forced to create one.
         """
-        self.run_data_processor = RunDataQueuingProcessor(processing_func=self.log_batch)
+        self.run_data_processor = AsyncLoggingQueue(processing_func=self.log_batch)
 
     @abstractmethod
     def search_experiments(

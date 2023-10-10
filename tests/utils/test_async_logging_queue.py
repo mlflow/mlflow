@@ -6,7 +6,7 @@ import uuid
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
-from mlflow.utils.run_data_queuing_processor import RunDataQueuingProcessor
+from mlflow.utils.async_utils.async_logging_queue import AsyncLoggingQueue
 
 METRIC_PER_BATCH = 250
 TAGS_PER_BATCH = 1
@@ -39,7 +39,7 @@ class RunData:
 def test_single_thread_publish_consume_queue():
     run_id = "test_run_id"
     run_data = RunData()
-    run_data_queueing_processor = RunDataQueuingProcessor(run_data.consume_queue_data)
+    run_data_queueing_processor = AsyncLoggingQueue(run_data.consume_queue_data)
 
     metrics_sent = []
     tags_sent = []
@@ -56,10 +56,8 @@ def test_single_thread_publish_consume_queue():
         tags_sent += tags
         params_sent += params
 
-    time.sleep(5)
-
-    run_operations[1].await_completion()
-    run_operations[4].await_completion()
+    for run_operation in run_operations:
+        run_operation.wait()
 
     # Stop the run data processing thread.
     run_data_queueing_processor.continue_to_process_data = False
@@ -77,7 +75,7 @@ def test_single_thread_publish_consume_queue():
 def test_single_thread_publish_certain_batches_failed_to_be_sent_from_queue():
     run_id = "test_run_id"
     run_data = RunData(throw_exception_on_batch_number=[3, 4])
-    run_data_queueing_processor = RunDataQueuingProcessor(run_data.consume_queue_data)
+    run_data_queueing_processor = AsyncLoggingQueue(run_data.consume_queue_data)
 
     metrics_sent = []
     tags_sent = []
@@ -94,17 +92,16 @@ def test_single_thread_publish_certain_batches_failed_to_be_sent_from_queue():
         tags_sent += tags
         params_sent += params
 
-    try:
-        run_operations[2].await_completion()
-    except Exception as e:
-        assert "Failed to process batch number: 3" in str(e)
+    exceptions = []
+    for run_operation in run_operations:
+        try:
+            run_operation.wait()
+        except Exception as e:
+            exceptions.append(e)
 
-    try:
-        run_operations[3].await_completion()
-    except Exception as e:
-        assert "Failed to process batch number: 4" in str(e)
-
-    time.sleep(5)
+    assert len(exceptions) == 2
+    assert "Failed to process batch number: 3" in str(exceptions[0])
+    assert "Failed to process batch number: 4" in str(exceptions[1])
     # Stop the run data processing thread.
     run_data_queueing_processor.continue_to_process_data = False
 
@@ -126,13 +123,13 @@ def test_single_thread_publish_certain_batches_failed_to_be_sent_from_queue():
 def test_publish_multithread_consume_single_thread():
     run_id = "test_run_id"
     run_data = RunData(throw_exception_on_batch_number=[])
-    run_data_queueing_processor = RunDataQueuingProcessor(run_data.consume_queue_data)
-
+    run_data_queueing_processor = AsyncLoggingQueue(run_data.consume_queue_data)
+    run_operations = []
     t1 = threading.Thread(
-        target=_send_metrics_tags_params, args=(run_data_queueing_processor, run_id)
+        target=_send_metrics_tags_params, args=(run_data_queueing_processor, run_id, run_operations)
     )
     t2 = threading.Thread(
-        target=_send_metrics_tags_params, args=(run_data_queueing_processor, run_id)
+        target=_send_metrics_tags_params, args=(run_data_queueing_processor, run_id, run_operations)
     )
 
     t1.start()
@@ -140,21 +137,19 @@ def test_publish_multithread_consume_single_thread():
     t1.join()
     t2.join()
 
-    time.sleep(5)
-    # Stop the run data processing thread.
-    run_data_queueing_processor.continue_to_process_data = False
+    for run_operation in run_operations:
+        run_operation.wait()
 
     assert len(run_data.received_metrics) == 2 * METRIC_PER_BATCH * TOTAL_BATCHES
     assert len(run_data.received_tags) == 2 * TAGS_PER_BATCH * TOTAL_BATCHES
     assert len(run_data.received_params) == 2 * PARAMS_PER_BATCH * TOTAL_BATCHES
 
 
-def _send_metrics_tags_params(run_data_queueing_processor, run_id):
+def _send_metrics_tags_params(run_data_queueing_processor, run_id, run_operations=[]):
     metrics_sent = []
     tags_sent = []
     params_sent = []
 
-    run_operations = []
     for params, tags, metrics in _get_run_data():
         run_operations.append(
             run_data_queueing_processor.log_batch_async(

@@ -7,7 +7,7 @@ class RunOperations:
     def __init__(self, operation_futures):
         self._operation_futures = operation_futures or []
 
-    def await_completion(self):
+    def wait(self):
         """
         Blocks on completion of the MLflow Run operations.
         """

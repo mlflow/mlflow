@@ -40,6 +40,7 @@ from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.default_experiment import registry as default_experiment_registry
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
+from mlflow.utils.async_utils.run_operations import RunOperations
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
     AUTOLOGGING_INTEGRATIONS,
@@ -57,7 +58,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RUN_NAME,
     MLFLOW_RUN_NOTE,
 )
-from mlflow.utils.run_operations import RunOperations
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import _validate_experiment_id_type, _validate_run_id
 
@@ -583,7 +583,7 @@ def log_param(key: str, value: Any, synchronous: Optional[bool] = True) -> Any:
     :param value: Parameter value (string, but will be string-ified if not).
                   All backend stores support values up to length 500, but some
                   may support larger values.
-    :param synchronous: [Experimental] Defaults to True with no behavior change.
+    :param synchronous: [Experimental] Defaults to True.
                         Indicates if the parameter would be logged in synchronous
                             fashion or not.
                         When it is True this call would be blocking call and offers immediate
@@ -648,7 +648,7 @@ def set_tag(key: str, value: Any, synchronous: Optional[bool] = True) -> RunOper
     :param value: Tag value (string, but will be string-ified if not).
                   All backend stores will support values up to length 5000, but some
                   may support larger values.
-    :param synchronous: [Experimental] Defaults to True with no behavior change.
+    :param synchronous: [Experimental] Defaults to True.
                         Indicates if the tag would be logged in synchronous fashion
                             or not.
                         When it is True this call would be blocking call and offers immediate
@@ -715,7 +715,7 @@ def log_metric(
                   All backend stores will support values up to length 5000, but some
                   may support larger values.
     :param step: Metric step (int). Defaults to zero if unspecified.
-    :param synchronous: [Experimental] Defaults to True with no behavior change.
+    :param synchronous: [Experimental] Defaults to True.
                         Indicates if the metric would be logged in synchronous fashion or not.
                     When it is True this call would be blocking call and offers immediate
                         consistency of the metric upon returning.
@@ -754,7 +754,7 @@ def log_metrics(
     :param step: A single integer step at which to log the specified
                  Metrics. If unspecified, each metric is logged at step zero.
 
-    :param synchronous: [Experimental] Defaults to True with no behavior change.
+    :param synchronous: [Experimental] Defaults to True.
                         Indicates if the metrics would be logged
                             in synchronous fashion or not.
                         When it is True this call would be blocking call and offers immediate
@@ -795,7 +795,7 @@ def log_params(params: Dict[str, Any], synchronous: Optional[bool] = True) -> Ru
 
     :param params: Dictionary of param_name: String -> value: (String, but will be string-ified if
                    not)
-    :param synchronous: [Experimental] Defaults to True with no behavior change.
+    :param synchronous: [Experimental] Defaults to True.
                         Indicates if the parameters would be logged in synchronous
                             fashion or not.
                         When it is True this call would be blocking call and offers immediate
@@ -899,7 +899,7 @@ def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = True) -> RunOpe
 
     :param tags: Dictionary of tag_name: String -> value: (String, but will be string-ified if
                  not)
-    :param synchronous: [Experimental] Defaults to True with no behavior change.
+    :param synchronous: [Experimental] Defaults to True.
                         Indicates if the tags would be logged in synchronous fashion
                             or not.
                         When it is True this call would be blocking call and offers immediate
