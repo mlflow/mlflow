@@ -79,6 +79,7 @@ class AsyncLoggingQueue:
             self._lock.acquire()
             self.continue_to_process_data = False
             self._lock.release()
+            self._queue_consumer.set()
             # Waits till queue is drained.
             self.run_data_process_thread.result()
             _RUN_DATA_LOGGING_THREADPOOL.shutdown(wait=False)
