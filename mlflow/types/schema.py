@@ -4,7 +4,7 @@ import importlib.util
 import json
 import string
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, TypeVar, Union
 
 import numpy as np
 
@@ -122,6 +122,153 @@ class DataType(Enum):
         return next((v for v in cls._member_map_.values() if v.to_numpy() == np_type), None)
 
 
+ArrayType = TypeVar("ArrayType", bound="Array")
+ObjectType = TypeVar("ObjectType", bound="Object")
+
+
+@experimental
+class Property:
+    """
+    Specification used to represent a json-convertible object property.
+    """
+
+    def __init__(
+        self,
+        dtype: Union[DataType, ArrayType, ObjectType, str],  # pylint: disable=redefined-builtin
+        required: bool = True,
+    ) -> None:
+        """
+        :param name: The name of the property
+        :param dtype: The data type of the property
+        :param required: Whether this property is required
+        """
+        try:
+            self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
+        except KeyError:
+            raise MlflowException(
+                f"Unsupported type '{dtype}', expected instance of DataType, Array, Object or "
+                f"one of {[t.name for t in DataType]}"
+            )
+        self._required = required
+
+    @property
+    def dtype(self) -> Union[DataType, ArrayType, ObjectType]:
+        """The property data type."""
+        return self._dtype
+
+    @property
+    def required(self) -> bool:
+        """Whether this property is required"""
+        return self._required
+
+    @required.setter
+    def required(self, value: bool) -> None:
+        self._required = value
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Property):
+            return self.dtype == other.dtype and self.required == other.required
+        return False
+
+    def to_dict(self):
+        if isinstance(self.dtype, DataType):
+            d = {"type": self.dtype.name}
+        else:
+            d = self.dtype.to_dict()
+        d["required"] = self.required
+        return d
+
+
+@experimental
+class Object:
+    """
+    Specification used to represent a json-convertible object.
+    """
+
+    def __init__(self, properties: Dict[str, Property]) -> None:
+        if not isinstance(properties, dict):
+            raise MlflowException.invalid_parameter_value(
+                f"Expected properties to be a dict, got type {type(properties).__name__}"
+            )
+        for k, v in properties.items():
+            if not isinstance(k, str):
+                raise MlflowException.invalid_parameter_value(
+                    f"Expected key to be a string, got type {type(k).__name__}"
+                )
+            if not isinstance(v, Property):
+                raise MlflowException.invalid_parameter_value(
+                    "Expected value to be instance of Property"
+                )
+        self._properties = properties
+
+    def name(self):
+        return "object"
+
+    @property
+    def properties(self) -> Dict[str, Property]:
+        """The list of object properties"""
+        return self._properties
+
+    @properties.setter
+    def properties(self, value: Dict[str, Property]) -> None:
+        if any(not isinstance(v, Property) for v in value.values()):
+            raise MlflowException.invalid_parameter_value(
+                "Expected value to be instance of Property"
+            )
+        self._properties = value
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Object):
+            if self._properties.keys() == other._properties.keys():
+                return all(
+                    self._properties[k] == other._properties[k] for k in self._properties.keys()
+                )
+        return False
+
+    def to_dict(self):
+        return {
+            "type": self.name(),
+            # Sort by key to make the order stable
+            "properties": {k: self.properties[k].to_dict() for k in sorted(self.properties.keys())},
+        }
+
+
+class Array:
+    """
+    Specification used to represent a json-convertible array.
+    """
+
+    def __init__(
+        self,
+        dtype: Union[DataType, ObjectType, str],
+    ) -> None:
+        try:
+            self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
+        except KeyError:
+            raise MlflowException(
+                f"Unsupported type '{dtype}', expected instance of DataType, Array, Object or "
+                f"one of {[t.name for t in DataType]}"
+            )
+
+    @property
+    def dtype(self) -> Union[DataType, ObjectType]:
+        """The array data type."""
+        return self._dtype
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Array):
+            return self.dtype == other.dtype
+        return False
+
+    def name(self):
+        return "array"
+
+    def to_dict(self):
+        if isinstance(self.dtype, DataType):
+            return {"items": self.dtype.name}
+        return {"type": self.name(), "items": self.dtype.to_dict()}
+
+
 class ColSpec:
     """
     Specification of name and type of a single column in a dataset.
@@ -129,12 +276,12 @@ class ColSpec:
 
     def __init__(
         self,
-        type: Union[DataType, str],  # pylint: disable=redefined-builtin
+        type: Union[DataType, ArrayType, ObjectType, str],  # pylint: disable=redefined-builtin
         name: Optional[str] = None,
-        optional: bool = False,
+        required: bool = True,
     ):
         self._name = name
-        self._optional = optional
+        self._required = required
         try:
             self._type = DataType[type] if isinstance(type, str) else type
         except KeyError:
@@ -142,14 +289,14 @@ class ColSpec:
                 f"Unsupported type '{type}', expected instance of DataType or "
                 f"one of {[t.name for t in DataType]}"
             )
-        if not isinstance(self.type, DataType):
+        if not isinstance(self.type, (DataType, Array, Object)):
             raise TypeError(
                 "Expected mlflow.models.signature.Datatype or str for the 'type' "
                 f"argument, but got {self.type.__class__}"
             )
 
     @property
-    def type(self) -> DataType:
+    def type(self) -> Union[DataType, Array, Object]:
         """The column data type."""
         return self._type
 
@@ -160,32 +307,35 @@ class ColSpec:
 
     @experimental
     @property
-    def optional(self) -> bool:
-        """Whether this column is optional."""
-        return self._optional
+    def required(self) -> bool:
+        """Whether this column is required."""
+        return self._required
 
     def to_dict(self) -> Dict[str, Any]:
-        d = {"type": self.type.name}
+        if isinstance(self.type, DataType):
+            d = {"type": self.type.name}
+        else:
+            d = self.type.to_dict()
         if self.name is not None:
             d["name"] = self.name
-        if self.optional:
-            d["optional"] = self.optional
+        if self.required:
+            d["required"] = self.required
         return d
 
     def __eq__(self, other) -> bool:
         if isinstance(other, ColSpec):
             names_eq = (self.name is None and other.name is None) or self.name == other.name
-            return names_eq and self.type == other.type and self.optional == other.optional
+            return names_eq and self.type == other.type and self.required == other.required
         return False
 
     def __repr__(self) -> str:
         if self.name is None:
             return repr(self.type)
         else:
-            return "{name}: {type}{optional}".format(
+            return "{name}: {type}{required}".format(
                 name=repr(self.name),
                 type=repr(self.type),
-                optional=" (optional)" if self.optional else "",
+                required=" (required)" if self.required else "",
             )
 
 
@@ -283,9 +433,9 @@ class TensorSpec:
 
     @experimental
     @property
-    def optional(self) -> bool:
-        """Whether this tensor is optional."""
-        return False
+    def required(self) -> bool:
+        """Whether this tensor is required."""
+        return True
 
     def to_dict(self) -> Dict[str, Any]:
         if self.name is None:
@@ -367,7 +517,7 @@ class Schema:
                 "Creating Schema with multiple unnamed TensorSpecs is not supported. "
                 "Please provide names for each TensorSpec."
             )
-        if all(x.name is None for x in inputs) and any(x.optional is True for x in inputs):
+        if all(x.name is None for x in inputs) and any(x.required is False for x in inputs):
             raise MlflowException(
                 "Creating Schema with unnamed optional inputs is not supported. "
                 "Please name all inputs or make all inputs required."
@@ -395,12 +545,12 @@ class Schema:
 
     def required_input_names(self) -> List[Union[str, int]]:
         """Get list of required data names or range of indices if schema has no names."""
-        return [x.name or i for i, x in enumerate(self.inputs) if not x.optional]
+        return [x.name or i for i, x in enumerate(self.inputs) if x.required]
 
     @experimental
     def optional_input_names(self) -> List[Union[str, int]]:
         """Get list of optional data names or range of indices if schema has no names."""
-        return [x.name or i for i, x in enumerate(self.inputs) if x.optional]
+        return [x.name or i for i, x in enumerate(self.inputs) if not x.required]
 
     def has_input_names(self) -> bool:
         """Return true iff this schema declares names, false otherwise."""

@@ -1,6 +1,6 @@
 import logging
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -8,7 +8,16 @@ import pandas as pd
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import DataType
-from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
+from mlflow.types.schema import (
+    Array,
+    ColSpec,
+    Object,
+    ParamSchema,
+    ParamSpec,
+    Property,
+    Schema,
+    TensorSpec,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -78,6 +87,117 @@ def _get_str_or_byte_type(data):
         return DataType.binary
 
 
+def _infer_datatype(data) -> DataType:
+    if DataType.is_boolean(data):
+        return DataType.boolean
+    if DataType.is_integer(data):
+        return DataType.integer
+    if DataType.is_long(data):
+        return DataType.long
+    if DataType.is_float(data):
+        return DataType.float
+    if DataType.is_double(data):
+        return DataType.double
+    if DataType.is_string(data):
+        return DataType.string
+    if DataType.is_binary(data):
+        return DataType.binary
+    if DataType.is_datetime(data):
+        return DataType.datetime
+
+
+def _update_object_properties(obj1: Object, obj2: Object) -> Object:
+    if obj1 == obj2:
+        return obj1
+    properties1 = obj1.properties
+    properties2 = obj2.properties
+    updated_properties = {}
+    # For each property in the first element, if it doesn't appear
+    # later, we update required=False
+    for k in properties1.keys() - properties2.keys():
+        properties1[k].required = False
+        updated_properties[k] = properties1[k]
+    # For common keys, property type should be the same
+    for k in properties1.keys() & properties2.keys():
+        updated_properties[k] = _update_property_type(properties1[k], properties2[k])
+    # For each property appears in the second elements, if it doesn't
+    # exist, we update and set required=False
+    for k in properties2.keys() - properties1.keys():
+        properties2[k].required = False
+        updated_properties[k] = properties2[k]
+    return Object(properties=updated_properties)
+
+
+def _update_property_type(prop1: Property, prop2: Property) -> Property:
+    required = prop1.required and prop2.required
+    if isinstance(prop1.dtype, DataType) and isinstance(prop2.dtype, DataType):
+        if prop1.dtype == prop2.dtype:
+            return Property(dtype=prop1.dtype, required=required)
+        raise MlflowException.invalid_parameter_value(
+            f"Properties are incompatible for {prop1.dtype} and {prop2.dtype}"
+        )
+
+    if isinstance(prop1.dtype, Object) and isinstance(prop2.dtype, Object):
+        return Property(dtype=_update_object_properties(prop1.dtype, prop2.dtype))
+
+    if isinstance(prop1.dtype, Array) and isinstance(prop2.dtype, Array):
+        if prop1.dtype.dtype == prop2.dtype.dtype:
+            return Property(dtype=prop1.dtype, required=required)
+        if isinstance(prop1.dtype.dtype, Object) and isinstance(prop2.dtype.dtype, Object):
+            object = _update_object_properties(prop1.dtype.dtype, prop2.dtype.dtype)
+            return Property(dtype=Array(object), required=required)
+
+    raise MlflowException.invalid_parameter_value("Properties are incompatible")
+
+
+def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
+    """
+    Infer an MLflow Colspec type from the dataset.
+
+    :param data: data to infer from.
+    :return: Object
+    """
+    if isinstance(data, dict):
+        properties = {}
+        for k, v in data.items():
+            properties[k] = Property(dtype=_infer_colspec_type(v))
+        return Object(properties=properties)
+    # Question: Should we cover np.ndarray here or we follow the old behavior
+    # for numpy arrays?
+    elif isinstance(data, list):
+        if len(data) == 0:
+            raise MlflowException.invalid_parameter_value(
+                "Expected non-empty list of values to infer colspec type"
+            )
+        ndim = np.array(data).ndim
+        if ndim != 1:
+            raise MlflowException.invalid_parameter_value(
+                f"Expected data to be 1D array, got {ndim}D array"
+            )
+        dtype = _infer_colspec_type(data[0])
+        if isinstance(dtype, Object):
+            for v in data[1:]:
+                dtype2 = _infer_colspec_type(v)
+                if not isinstance(dtype2, Object):
+                    raise MlflowException.invalid_parameter_value(
+                        "Expected all values in list to be of same type"
+                    )
+                dtype = _update_object_properties(dtype, dtype2)
+            return Array(dtype)
+        elif isinstance(dtype, DataType):
+            if any(_infer_colspec_type(v) != dtype for v in data[1:]):
+                raise MlflowException.invalid_parameter_value(
+                    "Expected all values in list to be of same type"
+                )
+            return Array(dtype)
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "Only support 1D array of DataType or Object"
+            )
+    else:
+        return _infer_datatype(data)
+
+
 def _infer_schema(data: Any) -> Schema:
     """
     Infer an MLflow schema from a dataset.
@@ -105,6 +225,8 @@ def _infer_schema(data: Any) -> Schema:
       - List[Dict[str, Union[str, List[str]]]]
       - Dict[str, Union[str, List[str]]]
       - bytes
+      - Dict[str, Union[DataType, ArrayType, ObjectType, str]]
+      - List[Dict[str, Union[DataType, ArrayType, ObjectType, str]]]
 
     The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType` for
     dataframes and to one of numpy types for tensors.
@@ -114,6 +236,11 @@ def _infer_schema(data: Any) -> Schema:
     :return: Schema
     """
     from scipy.sparse import csc_matrix, csr_matrix
+
+    if isinstance(data, dict) or (
+        isinstance(data, list) and all(isinstance(element, dict) for element in data)
+    ):
+        schema = Schema([ColSpec(_infer_colspec_type(data))])
 
     if isinstance(data, dict) and all(isinstance(values, np.ndarray) for values in data.values()):
         res = []

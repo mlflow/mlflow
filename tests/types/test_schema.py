@@ -12,9 +12,19 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _enforce_tensor_spec
 from mlflow.pyfunc import _parse_spark_datatype
 from mlflow.types import DataType
-from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
+from mlflow.types.schema import (
+    Array,
+    ColSpec,
+    Object,
+    ParamSchema,
+    ParamSpec,
+    Property,
+    Schema,
+    TensorSpec,
+)
 from mlflow.types.utils import (
     _get_tensor_shape,
+    _infer_colspec_type,
     _infer_param_schema,
     _infer_schema,
     _validate_input_dictionary_contains_only_strings_and_lists_of_strings,
@@ -987,3 +997,90 @@ def test_infer_param_schema_with_errors():
         MlflowException, match=r"Expected parameters to be 1D array or scalar, got Series"
     ):
         _infer_param_schema({"a": pd.Series([1, 2, 3])})
+
+
+def test_infer_colspec_type():
+    data = {"role": "system", "content": "Translate every message you receive to French."}
+    dtype = _infer_colspec_type(data)
+    assert dtype == Object(
+        {"role": Property(DataType.string), "content": Property(DataType.string)}
+    )
+
+    data = {
+        "messages": [
+            {"role": "system", "content": "Translate every message you receive to French."},
+            {"role": "user", "content": "I like machine learning", "name": "John Doe"},
+        ],
+    }
+    dtype = _infer_colspec_type(data)
+    assert dtype == Object(
+        {
+            "messages": Property(
+                Array(
+                    Object(
+                        {
+                            "role": Property(DataType.string),
+                            "content": Property(DataType.string),
+                            "name": Property(DataType.string, required=False),
+                        }
+                    )
+                )
+            )
+        }
+    )
+
+    data = [
+        {
+            "messages": [
+                {"role": "system", "content": "Translate every message you receive to French."},
+                {"role": "user", "content": "I like machine learning"},
+            ],
+        },
+        {
+            "messages": [
+                {"role": "user", "content": "Summarize the following document ...", "name": "jeff"},
+            ]
+        },
+    ]
+    dtype = _infer_colspec_type(data)
+    assert dtype == Array(
+        Object(
+            {
+                "messages": Property(
+                    Array(
+                        Object(
+                            {
+                                "role": Property(DataType.string),
+                                "content": Property(DataType.string),
+                                "name": Property(DataType.string, required=False),
+                            }
+                        )
+                    )
+                )
+            }
+        )
+    )
+    schema = Schema([ColSpec(dtype)])
+    assert schema.to_dict() == [
+        {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "messages": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "content": {"type": "string", "required": True},
+                                "name": {"type": "string", "required": False},
+                                "role": {"type": "string", "required": True},
+                            },
+                        },
+                        "required": True,
+                    }
+                },
+            },
+            "required": True,
+        }
+    ]

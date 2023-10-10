@@ -156,6 +156,7 @@ def infer_signature(
       - pyspark.sql.DataFrame
       - scipy.sparse.csr_matrix
       - scipy.sparse.csc_matrix
+      - dictionary / list of dictionaries of JSON-convertible types
 
     The element types should be mappable to one of :py:class:`mlflow.types.DataType`.
 
