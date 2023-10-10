@@ -1574,6 +1574,8 @@ class DefaultEvaluator(ModelEvaluator):
         else:
             self.extra_metrics = extra_metrics
 
+        # check if any of the extra_metrics are genai metrics
+
         if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
             inferred_model_type = _infer_model_type_by_labels(self.y)
             if inferred_model_type is not None and model_type != inferred_model_type:
