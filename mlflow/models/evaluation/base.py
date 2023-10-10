@@ -15,7 +15,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from decimal import Decimal
 from types import FunctionType
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -1096,7 +1096,7 @@ def evaluate(
     model: str,
     data,
     *,
-    model_type: str,
+    model_type: Optional[str] = None,
     targets=None,
     dataset_path=None,
     feature_names: list = None,
@@ -1346,7 +1346,7 @@ def evaluate(
                     ``data`` is a :py:class`mlflow.data.dataset.Dataset` that defines targets,
                     then ``targets`` is optional.
 
-    :param model_type: A string describing the model type. The default evaluator
+    :param model_type: (Optional) A string describing the model type. The default evaluator
                        supports the following model types:
 
                        - ``'classifier'``
@@ -1354,6 +1354,8 @@ def evaluate(
                        - ``'question-answering'``
                        - ``'text-summarization'``
                        - ``'text'``
+
+                       If no ``model_type`` is specified, then the default evaluator will only compute the metrics specified in the ``extra_metrics`` param.
 
                        .. note::
                             ``'question-answering'``, ``'text-summarization'``, and ``'text'``

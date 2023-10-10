@@ -643,7 +643,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     # pylint: disable=unused-argument
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
-        return model_type in _ModelType.values()
+        return model_type in _ModelType.values() or model_type is None
 
     def _log_metrics(self):
         """
@@ -1485,7 +1485,7 @@ class DefaultEvaluator(ModelEvaluator):
 
             text_metrics = [toxicity, perplexity, flesch_kincaid_grade_level, ari_grade_level]
 
-            if self.model_type not in _ModelType.values():
+            if self.model_type not in _ModelType.values() and self.model_type is not None:
                 raise MlflowException(
                     message=f"Unsupported model type {self.model_type}",
                     error_code=INVALID_PARAMETER_VALUE,
