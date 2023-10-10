@@ -1,12 +1,8 @@
-import logging
 
 import openai
 import pandas as pd
 
 import mlflow
-
-logging.getLogger("mlflow").setLevel(logging.ERROR)
-
 
 eval_df = pd.DataFrame(
     {

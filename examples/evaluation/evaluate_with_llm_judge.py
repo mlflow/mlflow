@@ -1,4 +1,3 @@
-import logging
 import os
 
 import openai
@@ -6,8 +5,6 @@ import pandas as pd
 
 import mlflow
 from mlflow.metrics import EvaluationExample, correctness
-
-logging.getLogger("mlflow").setLevel(logging.ERROR)
 
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
 
