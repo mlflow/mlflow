@@ -943,10 +943,8 @@ def _backported_all_estimators(type_filter=None):
     estimators = [c for c in estimators if not is_abstract(c[1])]
 
     if type_filter is not None:
-        if not isinstance(type_filter, list):
-            type_filter = [type_filter]
-        else:
-            type_filter = list(type_filter)  # copy
+        # copy the object if type_filter is a list
+        type_filter = list(type_filter) if isinstance(type_filter, list) else [type_filter]
         filtered_estimators = []
         filters = {
             "classifier": ClassifierMixin,

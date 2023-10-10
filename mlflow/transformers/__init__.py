@@ -1339,10 +1339,7 @@ def _format_input_example_for_special_cases(input_example, pipeline):
     """
     import transformers
 
-    if isinstance(input_example, tuple):
-        input_data = input_example[0]
-    else:
-        input_data = input_example
+    input_data = input_example[0] if isinstance(input_example, tuple) else input_example
 
     if (
         isinstance(pipeline, transformers.ZeroShotClassificationPipeline)

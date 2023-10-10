@@ -118,10 +118,7 @@ def _mock_openai_request():
     original = requests.Session.request
 
     def request(*args, **kwargs):
-        if len(args) > 2:
-            url = args[2]
-        else:
-            url = kwargs.get("url")
+        url = args[2] if len(args) > 2 else kwargs.get("url")
 
         if url.endswith("/chat/completions"):
             messages = json.loads(kwargs.get("data")).get("messages")

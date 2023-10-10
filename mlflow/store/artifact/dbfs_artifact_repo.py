@@ -77,10 +77,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
                 response.close()
 
     def _is_directory(self, artifact_path):
-        if artifact_path:
-            dbfs_path = self._get_dbfs_path(artifact_path)
-        else:
-            dbfs_path = self._get_dbfs_path("")
+        dbfs_path = self._get_dbfs_path(artifact_path) if artifact_path else self._get_dbfs_path("")
         return self._dbfs_is_dir(dbfs_path)
 
     def _dbfs_is_dir(self, dbfs_path):
@@ -134,10 +131,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
                 self.log_artifact(file_path, artifact_subdir)
 
     def list_artifacts(self, path=None):
-        if path:
-            dbfs_path = self._get_dbfs_path(path)
-        else:
-            dbfs_path = self._get_dbfs_path("")
+        dbfs_path = self._get_dbfs_path(path) if path else self._get_dbfs_path("")
         dbfs_list_json = {"path": dbfs_path}
         response = self._dbfs_list_api(dbfs_list_json)
         try:
