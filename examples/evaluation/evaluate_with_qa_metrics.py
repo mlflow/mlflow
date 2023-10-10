@@ -1,37 +1,11 @@
-import os
-
 import openai
 import pandas as pd
 
 import mlflow
-from mlflow.metrics import EvaluationExample, correctness
-
-assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
-
-
-# testing with OpenAI gpt-3.5-turbo
-example = EvaluationExample(
-    input="What is MLflow?",
-    output="MLflow is an open-source platform for managing machine "
-    "learning workflows, including experiment tracking, model packaging, "
-    "versioning, and deployment, simplifying the ML lifecycle.",
-    score=4,
-    justification="The definition effectively explains what MLflow is "
-    "its purpose, and its developer. It could be more concise for a 5-score.",
-    grading_context={
-        "ground_truth": "MLflow is an open-source platform for managing "
-        "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
-        "a company that specializes in big data and machine learning solutions. MLflow is "
-        "designed to address the challenges that data scientists and machine learning "
-        "engineers face when developing, training, and deploying machine learning models."
-    },
-)
-
-correctness_metric = correctness(examples=[example])
 
 eval_df = pd.DataFrame(
     {
-        "input": [
+        "inputs": [
             "What is MLflow?",
             "What is Spark?",
             "What is Python?",
@@ -59,10 +33,11 @@ with mlflow.start_run() as run:
     results = mlflow.evaluate(
         logged_model.model_uri,
         eval_df,
-        model_type="text",
-        extra_metrics=[correctness_metric],
+        targets="ground_truth",
+        model_type="question-answering",
+        evaluators="default",
     )
-    print(results)
+    print(results.metrics)
 
     eval_table = results.table["eval_results_table"]
     print(eval_table)
