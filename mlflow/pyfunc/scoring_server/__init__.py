@@ -399,10 +399,7 @@ def _predict(model_uri, input_path, output_path, content_type):
         data, params = _split_data_and_params(input_str)
         df = infer_and_parse_data(data)
     elif content_type == "csv":
-        if input_path is not None:
-            df = parse_csv_input(input_path)
-        else:
-            df = parse_csv_input(sys.stdin)
+        df = parse_csv_input(input_path) if input_path is not None else parse_csv_input(sys.stdin)
         params = None
     else:
         raise Exception(f"Unknown content type '{content_type}'")

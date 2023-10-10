@@ -1383,10 +1383,7 @@ def test_text2text_generation_pipeline_with_model_configs(
 
     assert inference == result
 
-    if isinstance(data, str):
-        pd_input = pd.DataFrame([data])
-    else:
-        pd_input = pd.DataFrame(data)
+    pd_input = pd.DataFrame([data]) if isinstance(data, str) else pd.DataFrame(data)
     pd_inference = pyfunc_loaded.predict(pd_input)
     assert pd_inference == result
 
@@ -1582,10 +1579,7 @@ def test_text_generation_pipeline(text_generation_pipeline, model_path, data):
     else:
         assert inference[0].startswith(data)
 
-    if isinstance(data, str):
-        pd_input = pd.DataFrame([data], index=[0])
-    else:
-        pd_input = pd.DataFrame(data)
+    pd_input = pd.DataFrame([data], index=[0]) if isinstance(data, str) else pd.DataFrame(data)
     pd_inference = pyfunc_loaded.predict(pd_input)
 
     if isinstance(data, list):
