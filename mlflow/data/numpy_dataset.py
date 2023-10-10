@@ -191,7 +191,7 @@ def from_numpy(
         y = np.random.randint(2, size=[2])
         dataset = mlflow.data.from_numpy(x, targets=y)
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Dict Example
 
         import mlflow
