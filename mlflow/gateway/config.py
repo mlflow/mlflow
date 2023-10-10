@@ -38,6 +38,7 @@ class Provider(str, Enum):
     AI21LABS = "ai21labs"
     MLFLOW_MODEL_SERVING = "mlflow-model-serving"
     MOSAICML = "mosaicml"
+    PALM = "palm"
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     DATABRICKS = "databricks"
@@ -167,6 +168,15 @@ class AnthropicConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
+class PaLMConfig(ConfigModel):
+    palm_api_key: str
+
+    # pylint: disable=no-self-argument
+    @validator("palm_api_key", pre=True)
+    def validate_palm_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
 class MlflowModelServingConfig(ConfigModel):
     model_server_url: str
 
@@ -178,6 +188,7 @@ config_types = {
     Provider.AI21LABS: AI21LabsConfig,
     Provider.MOSAICML: MosaicMLConfig,
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
+    Provider.PALM: PaLMConfig,
 }
 
 
@@ -234,6 +245,7 @@ class Model(ConfigModel):
             AnthropicConfig,
             MosaicMLConfig,
             MlflowModelServingConfig,
+            PaLMConfig,
         ]
     ] = None
 

@@ -44,6 +44,7 @@ For full examples of configurations and supported route types, see:
 - [MosaicML](mosaicml/config.yaml)
 - [Anthropic](anthropic/config.yaml)
 - [Cohere](cohere/config.yaml)
+- [PaLM](palm/config.yaml)
 - [AzureOpenAI](azure_openai/config.yaml)
 
 ## Step 3: Setting Access Keys
