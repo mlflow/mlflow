@@ -38,10 +38,11 @@ with mlflow.start_run() as run:
     results = mlflow.evaluate(
         logged_model.model_uri,
         eval_df,
+        targets="ground_truth",
         model_type="question-answering",
         evaluators="default",
     )
-    print(results)
+    print(results.metrics)
 
     eval_table = results.table["eval_results_table"]
     print(eval_table)
