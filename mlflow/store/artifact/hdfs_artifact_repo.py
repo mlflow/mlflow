@@ -4,6 +4,8 @@ import tempfile
 import urllib.parse
 from contextlib import contextmanager
 
+import packaging.version
+
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
     MLFLOW_KERBEROS_TICKET_CACHE,
@@ -173,7 +175,7 @@ def hdfs_system(scheme, host, port):
     :param host: hostname or when relaying on the core-site.xml config use 'default'
     :param port: port or when relaying on the core-site.xml config use 0
     """
-    import pyarrow as pa
+    import pyarrow
 
     kerb_ticket = MLFLOW_KERBEROS_TICKET_CACHE.get()
     kerberos_user = MLFLOW_KERBEROS_USER.get()
@@ -183,14 +185,22 @@ def hdfs_system(scheme, host, port):
         host = scheme + "://" + host
     else:
         host = "default"
-
-    connected = pa.hdfs.connect(
-        host=host,
-        port=port or 0,
-        user=kerberos_user,
-        kerb_ticket=kerb_ticket,
-        extra_conf=extra_conf,
-    )
+    if packaging.version.parse(pyarrow.__version__) < packaging.version.parse("2.0.0"):
+        connected = pyarrow.fs.HadoopFileSystem(
+            host=host,
+            port=port or 0,
+            user=kerberos_user,
+            kerb_ticket=kerb_ticket,
+            extra_conf=extra_conf,
+        )
+    else:
+        connected = pyarrow.hdfs.connect(
+            host=host,
+            port=port or 0,
+            user=kerberos_user,
+            kerb_ticket=kerb_ticket,
+            extra_conf=extra_conf,
+        )
     yield connected
     connected.close()
 
