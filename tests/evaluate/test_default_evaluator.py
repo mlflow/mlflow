@@ -2745,3 +2745,41 @@ def test_constructing_eval_df_for_custom_metrics():
         "flesch_kincaid_grade_level/v1/score",
         "ari_grade_level/v1/score",
     ]
+
+
+def identity_model(inputs):
+    return inputs
+
+
+def test_default_metrics_as_custom_metrics():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=identity_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame(
+            {
+                "question": ["words random", "This is a sentence."],
+                "answer": ["words random", "This is a sentence."],
+            }
+        )
+        results = mlflow.evaluate(
+            model_info.model_uri,
+            data,
+            targets="answer",
+            model_type="question-answering",
+            custom_metrics=[
+                mlflow.metrics.flesch_kincaid_grade_level,
+                mlflow.metrics.perplexity,
+                mlflow.metrics.ari_grade_level,
+                mlflow.metrics.toxicity,
+                mlflow.metrics.exact_match,
+            ],
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert "eval_results_table.json" in artifacts
+    for metric in ["toxicity", "perplexity", "ari_grade_level", "flesch_kincaid_grade_level"]:
+        for measure in ["mean", "p90", "variance"]:
+            assert f"{metric}/v1/{measure}" in results.metrics.keys()
+    assert "exact_match/v1" in results.metrics.keys()
