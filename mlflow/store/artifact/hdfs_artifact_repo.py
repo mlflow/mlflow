@@ -4,6 +4,8 @@ import tempfile
 import urllib.parse
 from contextlib import contextmanager
 
+import packaging.version
+
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
     MLFLOW_KERBEROS_TICKET_CACHE,
@@ -183,7 +185,7 @@ def hdfs_system(scheme, host, port):
         host = scheme + "://" + host
     else:
         host = "default"
-    if pyarrow.__version__ < "2.0.0":
+    if packaging.version.parse(pyarrow.__version__) < packaging.version.parse("2.0.0"):
         connected = pyarrow.fs.HadoopFileSystem(
             host=host,
             port=port or 0,
