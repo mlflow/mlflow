@@ -181,7 +181,7 @@ def from_numpy(
     :param digest: The dataset digest (hash). If unspecified, a digest is computed
                    automatically.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Basic Example
 
         import mlflow
