@@ -13,8 +13,17 @@ from mlflow.metrics.genai.metric_definitions import (
 from mlflow.metrics.metric_definitions import (
     _accuracy_eval_fn,
     _ari_eval_fn,
+    _f1_score_eval_fn,
     _flesch_kincaid_eval_fn,
+    _mae_eval_fn,
+    _mape_eval_fn,
+    _max_error_eval_fn,
+    _mse_eval_fn,
     _perplexity_eval_fn,
+    _precision_eval_fn,
+    _r2_score_eval_fn,
+    _recall_eval_fn,
+    _rmse_eval_fn,
     _rouge1_eval_fn,
     _rouge2_eval_fn,
     _rougeL_eval_fn,
@@ -213,6 +222,121 @@ Aggregations calculated for this metric:
 .. _rougeLsum: https://huggingface.co/spaces/evaluate-metric/rouge
 """
 
+# General Regression Metrics
+
+mae = make_metric(
+    eval_fn=_mae_eval_fn,
+    greater_is_better=False,
+    name="mean_absolute_error",
+)
+"""
+A metric for evaluating `mae`_.
+
+This metric computes an aggregate score for the mean absolute error for regression.
+
+.. _mae: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_error.html
+"""
+
+mse = make_metric(
+    eval_fn=_mse_eval_fn,
+    greater_is_better=False,
+    name="mean_squared_error",
+)
+"""
+A metric for evaluating `mse`_.
+
+This metric computes an aggregate score for the mean squared error for regression.
+
+.. _mse: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html
+"""
+
+rmse = make_metric(
+    eval_fn=_rmse_eval_fn,
+    greater_is_better=False,
+    name="root_mean_squared_error",
+)
+"""
+A metric for evaluating the square root of `mse`_.
+
+This metric computes an aggregate score for the root mean absolute error for regression.
+
+.. _mse: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html
+"""
+
+r2_score = make_metric(
+    eval_fn=_r2_score_eval_fn,
+    greater_is_better=True,
+    name="r2_score",
+)
+"""
+A metric for evaluating `r2_score`_.
+
+This metric computes an aggregate score for the coefficient of determination. R2 ranges from
+negative infinity to 1, and measures the percentage of variance explained by the predictor 
+variables in a regression.
+
+.. _r2_score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html
+"""
+
+max_error = make_metric(
+    eval_fn=_max_error_eval_fn,
+    greater_is_better=False,
+    name="max_error",
+)
+"""
+A metric for evaluating `max_error`_.
+
+This metric computes an aggregate score for the maximum residual error for regression.
+
+.. _max_error: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.max_error.html
+"""
+
+mape = make_metric(
+    eval_fn=_mape_eval_fn,
+    greater_is_better=False,
+    name="mean_absolute_percentage_error",
+)
+"""
+A metric for evaluating `mape`_.
+
+This metric computes an aggregate score for the mean absolute percentage error for regression.
+
+.. _mape: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_percentage_error.html
+"""
+
+# Binary Classification Metrics
+
+recall_score = make_metric(eval_fn=_recall_eval_fn, greater_is_better=True, name="recall_score")
+"""
+A metric for evaluating `recall`_ for classification.
+
+This metric computes an aggregate score between 0 and 1 for the recall of a classification task.
+
+.. _recall: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html
+"""
+
+precision_score = make_metric(
+    eval_fn=_precision_eval_fn, greater_is_better=True, name="precision_score"
+)
+"""
+A metric for evaluating `precision`_ for classification.
+
+This metric computes an aggregate score between 0 and 1 for the precision of
+classification task. 
+
+.. _precision: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html
+"""
+
+f1_score = make_metric(eval_fn=_f1_score_eval_fn, greater_is_better=True, name="f1_score")
+"""
+A metric for evaluating `f1_score`_ for binary classification.
+
+This metric computes an aggregate score between 0 and 1 for the F1 score (F-measure) of a
+classification task. F1 score is defined as 2 * (precision * recall) / (precision + recall).
+
+.. _f1_score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html
+"""
+
 __all__ = [
     "EvaluationExample",
     "EvaluationMetric",
@@ -228,6 +352,15 @@ __all__ = [
     "rougeLsum",
     "toxicity",
     "make_genai_metric",
+    "mae",
+    "mse",
+    "rmse",
+    "r2_score",
+    "max_error",
+    "mape",
+    "binary_recall",
+    "binary_precision",
+    "binary_f1_score",
     "correctness",
     "relevance",
     "strict_correctness",
