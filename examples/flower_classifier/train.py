@@ -110,10 +110,7 @@ class MLflowLogger(Callback):
         if not logs:
             return
         for name, value in logs.items():
-            if name.startswith("val_"):
-                name = "valid_" + name[4:]
-            else:
-                name = "train_" + name
+            name = "valid_" + name[4:] if name.startswith("val_") else "train_" + name
             mlflow.log_metric(name, value)
         val_loss = logs["val_loss"]
         if val_loss < self._best_val_loss:

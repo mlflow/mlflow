@@ -181,10 +181,8 @@ def hdfs_system(scheme, host, port):
     kerberos_user = MLFLOW_KERBEROS_USER.get()
     extra_conf = _parse_extra_conf(MLFLOW_PYARROW_EXTRA_CONF.get())
 
-    if host:
-        host = scheme + "://" + host
-    else:
-        host = "default"
+    host = scheme + "://" + host if host else "default"
+
     if packaging.version.parse(pyarrow.__version__) < packaging.version.parse("2.0.0"):
         connected = pyarrow.fs.HadoopFileSystem(
             host=host,

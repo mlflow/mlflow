@@ -922,10 +922,7 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
 
 
 def _create_model_downloading_tmp_dir(should_use_nfs):
-    if should_use_nfs:
-        root_tmp_dir = get_or_create_nfs_tmp_dir()
-    else:
-        root_tmp_dir = get_or_create_tmp_dir()
+    root_tmp_dir = get_or_create_nfs_tmp_dir() if should_use_nfs else get_or_create_tmp_dir()
 
     root_model_cache_dir = os.path.join(root_tmp_dir, "models")
     os.makedirs(root_model_cache_dir, exist_ok=True)

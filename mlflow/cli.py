@@ -526,10 +526,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
         time_delta = int(timedelta(**time_params).total_seconds() * 1000)
 
     deleted_run_ids_older_than = backend_store._get_deleted_runs(older_than=time_delta)
-    if not run_ids:
-        run_ids = deleted_run_ids_older_than
-    else:
-        run_ids = run_ids.split(",")
+    run_ids = run_ids.split(",") if run_ids else deleted_run_ids_older_than
 
     time_threshold = get_current_time_millis() - time_delta
     if not skip_experiments:

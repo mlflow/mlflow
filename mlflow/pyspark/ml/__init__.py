@@ -353,10 +353,7 @@ def _get_instance_param_map_recursively(instance, level, uid_to_indexed_name_map
     is_pipeline = isinstance(instance, Pipeline)
     is_parameter_search_estimator = _is_parameter_search_estimator(instance)
 
-    if level == 0:
-        logged_param_name_prefix = ""
-    else:
-        logged_param_name_prefix = uid_to_indexed_name_map[instance.uid] + "."
+    logged_param_name_prefix = "" if level == 0 else uid_to_indexed_name_map[instance.uid] + "."
 
     for param_name, param_value in param_map.items():
         logged_param_name = logged_param_name_prefix + param_name
