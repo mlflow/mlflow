@@ -2741,7 +2741,7 @@ def test_constructing_eval_df_for_custom_metrics():
         "ari_grade_level/v1/score",
     ]
 
-    
+
 def identity_model(inputs):
     return inputs
 
