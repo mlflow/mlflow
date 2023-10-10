@@ -1485,11 +1485,6 @@ class DefaultEvaluator(ModelEvaluator):
 
             text_metrics = [toxicity, perplexity, flesch_kincaid_grade_level, ari_grade_level]
 
-            if self.model_type not in _ModelType.values() and self.model_type is not None:
-                raise MlflowException(
-                    message=f"Unsupported model type {self.model_type}",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
             with mlflow.utils.autologging_utils.disable_autologging():
                 self._generate_model_predictions()
                 if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
