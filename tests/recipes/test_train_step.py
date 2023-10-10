@@ -479,7 +479,8 @@ def test_train_step_with_tuning_best_parameters(
     assert "penalty" in best_params_yaml
     assert "eta0" in best_params_yaml
 
-    run_id = open(train_step_output_dir / "run_id").read()
+    with open(train_step_output_dir / "run_id") as f:
+        run_id = f.read()
     parent_run_params = MlflowClient().get_run(run_id).data.params
     assert "alpha" in parent_run_params
     assert "penalty" in parent_run_params
