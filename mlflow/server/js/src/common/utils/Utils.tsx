@@ -248,7 +248,6 @@ class Utils {
   }
 
   static getGitHubRegex() {
-    // 
     return /[@/]github.com[:/]([^/.]+)\/([^/#]+)#?(.*)/;
   }
 
@@ -283,6 +282,7 @@ class Utils {
       if (gitHubMatch) {
         url = baseUrl + match[1] + '/' + match[2].replace(/.git/, '');
       } else {
+        //[ML-35426] GitLab has a dash in its URL
         url = baseUrl + match[1] + '/-/' + match[2].replace(/.git/, '');
       }
       if (match[3]) {
