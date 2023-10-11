@@ -1412,17 +1412,13 @@ class DefaultEvaluator(ModelEvaluator):
             self._log_model_explainability()
 
     def _log_eval_table(self):
-        if (
-            self.model_type
-            not in (
-                _ModelType.QUESTION_ANSWERING,
-                _ModelType.TEXT_SUMMARIZATION,
-                _ModelType.TEXT,
-            )
-            and not self.extra_metrics
-            and not self.builtin_metrics
+        # only log eval table if there are per row metrics recorded
+        if not any(
+            metric_value.scores is not None or metric_value.justifications is not None
+                for _, metric_value in self.metrics_values.items()
         ):
             return
+
         metric_prefix = self.evaluator_config.get("metric_prefix", "")
         if not isinstance(metric_prefix, str):
             metric_prefix = ""
