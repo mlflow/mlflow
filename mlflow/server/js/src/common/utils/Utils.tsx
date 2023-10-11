@@ -248,6 +248,7 @@ class Utils {
   }
 
   static getGitHubRegex() {
+    // 
     return /[@/]github.com[:/]([^/.]+)\/([^/#]+)#?(.*)/;
   }
 
@@ -279,7 +280,11 @@ class Utils {
     if (gitHubMatch || gitLabMatch) {
       const baseUrl = gitHubMatch ? 'https://github.com/' : 'https://gitlab.com/';
       const match = gitHubMatch || gitLabMatch;
-      url = baseUrl + match[1] + '/' + match[2].replace(/.git/, '');
+      if (gitHubMatch) {
+        url = baseUrl + match[1] + '/' + match[2].replace(/.git/, '');
+      } else {
+        url = baseUrl + match[1] + '/-/' + match[2].replace(/.git/, '');
+      }
       if (match[3]) {
         url = url + '/tree/master/' + match[3];
       }
