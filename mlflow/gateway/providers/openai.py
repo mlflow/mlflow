@@ -81,7 +81,7 @@ class OpenAIProvider(BaseProvider):
         self.check_for_model_field(payload)
         if "n" in payload:
             raise HTTPException(
-                status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
+                status_code=422, detail="Invalid parameter `n`. Use `candidate_count` instead."
             )
 
         payload = rename_payload_keys(
@@ -150,7 +150,7 @@ class OpenAIProvider(BaseProvider):
         self.check_for_model_field(payload)
         if "n" in payload:
             raise HTTPException(
-                status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
+                status_code=422, detail="Invalid parameter `n`. Use `candidate_count` instead."
             )
         payload = rename_payload_keys(
             payload,

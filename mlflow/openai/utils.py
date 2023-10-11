@@ -10,6 +10,23 @@ import mlflow
 
 TEST_CONTENT = "test"
 
+TEST_SOURCE_DOCUMENTS = [
+    {
+        "page_content": "We see the unity among leaders ...",
+        "metadata": {"source": "tests/langchain/state_of_the_union.txt"},
+    },
+]
+TEST_INTERMEDIATE_STEPS = (
+    [
+        {
+            "tool": "Search",
+            "tool_input": "High temperature in SF yesterday",
+            "log": " I need to find the temperature first...",
+            "result": "San Francisco...",
+        },
+    ],
+)
+
 
 class _MockResponse:
     def __init__(self, status_code, json_data):
@@ -101,10 +118,7 @@ def _mock_openai_request():
     original = requests.Session.request
 
     def request(*args, **kwargs):
-        if len(args) > 2:
-            url = args[2]
-        else:
-            url = kwargs.get("url")
+        url = args[2] if len(args) > 2 else kwargs.get("url")
 
         if url.endswith("/chat/completions"):
             messages = json.loads(kwargs.get("data")).get("messages")

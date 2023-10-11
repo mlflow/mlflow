@@ -22,6 +22,7 @@ def commands():
 @commands.command("start", help="Start the MLflow Gateway service")
 @click.option(
     "--config-path",
+    envvar="MLFLOW_GATEWAY_CONFIG_PATH",
     callback=validate_config_path,
     required=True,
     help="The path to the gateway configuration file.",

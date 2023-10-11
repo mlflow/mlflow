@@ -53,10 +53,7 @@ def train_and_log_model(is_dummy=False):
     mlflow.set_experiment("demo")
     with mlflow.start_run() as run:
         X, y = load_diabetes(as_frame=True, return_X_y=True)
-        if is_dummy:
-            model = DummyRegressor(strategy="constant", constant=42)
-        else:
-            model = LinearRegression()
+        model = DummyRegressor(strategy="constant", constant=42) if is_dummy else LinearRegression()
         fitted_model = model.fit(X, y)
         mlflow.sklearn.log_model(fitted_model, artifact_path="train/model")
         return run.info.run_id, fitted_model

@@ -172,6 +172,7 @@ def save_model(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
+        default_reqs = None
         if pip_requirements is None:
             # cannot use inferred requirements due to prophet's build process
             # as the package installation of pystan requires Cython to be present
@@ -181,8 +182,6 @@ def save_model(
             # NOTE: if Prophet .whl build architecture is changed, this should be
             # modified to a standard inferred approach.
             default_reqs = get_default_pip_requirements()
-        else:
-            default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
             default_reqs,
             pip_requirements,
