@@ -1385,6 +1385,8 @@ def evaluate(
 
     :param extra_metrics:
         (Optional) A list of :py:class:`EvaluationMetric <mlflow.models.EvaluationMetric>` objects.
+        See the `mlflow.metrics` module for more information about the
+        builtin metrics and how to define custom metrics
 
         .. code-block:: python
             :caption: Example usage of custom metrics
