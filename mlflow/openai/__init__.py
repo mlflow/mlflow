@@ -40,12 +40,13 @@ from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_OPENAI_SECRET_S
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
-from mlflow.openai.utils import _OAITokenHolder
+from mlflow.openai.utils import _OAITokenHolder, _validate_model_params
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, Schema, TensorSpec
 from mlflow.utils.annotations import experimental
+from mlflow.utils.class_utils import nameof
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
     is_in_databricks_runtime,
@@ -346,11 +347,16 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
     task = _get_task_name(task)
+    _get_api_config()
 
     if mlflow_model is None:
         mlflow_model = Model()
 
     if signature is not None:
+        if signature.params:
+            _validate_model_params(
+                task, kwargs, {p.name: p.default for p in signature.params.params}
+            )
         mlflow_model.signature = signature
     elif task == "chat.completions":
         messages = kwargs.get("messages", [])
@@ -662,13 +668,6 @@ class _OpenAIWrapper:
             self.template = self.model.get("prompt")
         self.formater = _ContentFormatter(self.task, self.template)
 
-    def _validate_model_params(self, params):
-        if params:
-            if any(params.keys() - self.model.keys()):
-                raise mlflow.MlflowException.invalid_parameter_value(
-                    f"Providing any of {list(self.model.keys())} as parameters is not allowed.",
-                )
-
     def format_completions(self, params_list):
         return [self.formater.format(**params) for params in params_list]
 
@@ -688,7 +687,7 @@ class _OpenAIWrapper:
 
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
-        self._validate_model_params(params)
+        _validate_model_params(self.task, self.model, params)
         messages_list = self.format_completions(self.get_params_list(data))
         requests = [{**self.model, **params, "messages": messages} for messages in messages_list]
         results = process_api_requests(
@@ -705,10 +704,10 @@ class _OpenAIWrapper:
 
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
-        self._validate_model_params(params)
+        _validate_model_params(self.task, self.model, params)
         prompts_list = self.format_completions(self.get_params_list(data))
 
-        batch_size = params.pop("batch_size", self.api_config.batch_size)
+        batch_size = params.pop(nameof(self.api_config.batch_size), self.api_config.batch_size)
         _logger.debug(f"Requests are being batched by {batch_size} samples.")
         requests = [
             {
@@ -732,8 +731,8 @@ class _OpenAIWrapper:
 
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
-        self._validate_model_params(params)
-        batch_size = params.pop("batch_size", self.api_config.batch_size)
+        _validate_model_params(self.task, self.model, params)
+        batch_size = params.pop(nameof(self.api_config.batch_size), self.api_config.batch_size)
         _logger.debug(f"Requests are being batched by {batch_size} samples.")
 
         first_string_column = _first_string_column(data)
