@@ -237,11 +237,6 @@ def _infer_schema(data: Any) -> Schema:
     """
     from scipy.sparse import csc_matrix, csr_matrix
 
-    if isinstance(data, dict) or (
-        isinstance(data, list) and all(isinstance(element, dict) for element in data)
-    ):
-        schema = Schema([ColSpec(_infer_colspec_type(data))])
-
     if isinstance(data, dict) and all(isinstance(values, np.ndarray) for values in data.values()):
         res = []
         for name in data.keys():

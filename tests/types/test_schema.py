@@ -999,6 +999,70 @@ def test_infer_param_schema_with_errors():
         _infer_param_schema({"a": pd.Series([1, 2, 3])})
 
 
+def test_property_to_and_from_dict():
+    for data_type in DataType:
+        prop = Property("name", data_type, True)
+        assert prop.to_dict() == {"name": "name", "type": data_type.name, "required": True}
+        assert Property.from_json_dict(**json.loads(json.dumps(prop.to_dict()))) == prop
+
+    # test array
+    for data_type in DataType:
+        prop = Property("name", Array(data_type), False)
+        assert prop.to_dict() == {
+            "name": "name",
+            "type": "array",
+            "items": data_type.name,
+            "required": False,
+        }
+        assert Property.from_json_dict(**json.loads(json.dumps(prop.to_dict()))) == prop
+
+    # test object
+    for data_type in DataType:
+        prop = Property("name", Object([Property("p", data_type)]))
+        assert prop.to_dict() == {
+            "name": "name",
+            "type": "object",
+            "properties": [{"name": "p", "type": data_type.name, "required": True}],
+            "required": True,
+        }
+        assert Property.from_json_dict(**json.loads(json.dumps(prop.to_dict()))) == prop
+
+
+def test_object_to_and_from_dict():
+    properties = []
+    dict_prop = []
+    for data_type in DataType:
+        properties.append(Property(f"name_{data_type.name}", data_type))
+        dict_prop.append(
+            {"name": f"name_{data_type.name}", "type": data_type.name, "required": True}
+        )
+    obj = Object(properties)
+    assert obj.to_dict() == {
+        "type": "object",
+        "properties": sorted(dict_prop, key=lambda x: x["name"]),
+    }
+    assert Object.from_json_dict(**json.loads(json.dumps(obj.to_dict()))) == obj
+
+
+def test_array_to_and_from_dict():
+    for data_type in DataType:
+        arr = Array(data_type)
+        assert arr.to_dict() == {"type": "array", "items": data_type.name}
+        assert Array.from_json_dict(**json.loads(json.dumps(arr.to_dict()))) == arr
+
+    # test object
+    for data_type in DataType:
+        arr = Array(Object([Property("p", data_type)]))
+        assert arr.to_dict() == {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": [{"name": "p", "type": data_type.name, "required": True}],
+            },
+        }
+        assert Array.from_json_dict(**json.loads(json.dumps(arr.to_dict()))) == arr
+
+
 def test_infer_colspec_type():
     data = {"role": "system", "content": "Translate every message you receive to French."}
     dtype = _infer_colspec_type(data)
@@ -1068,21 +1132,45 @@ def test_infer_colspec_type():
             "type": "array",
             "items": {
                 "type": "object",
-                "properties": {
-                    "messages": {
+                "properties": [
+                    {
+                        "name": "messages",
                         "type": "array",
                         "items": {
                             "type": "object",
-                            "properties": {
-                                "content": {"type": "string", "required": True},
-                                "name": {"type": "string", "required": False},
-                                "role": {"type": "string", "required": True},
-                            },
+                            "properties": [
+                                {"name": "content", "type": "string", "required": True},
+                                {"name": "name", "type": "string", "required": False},
+                                {"name": "role", "type": "string", "required": True},
+                            ],
                         },
                         "required": True,
                     }
-                },
+                ],
             },
             "required": True,
         }
     ]
+    # assert schema.to_dict() == [
+    #     {
+    #         "type": "array",
+    #         "items": {
+    #             "type": "object",
+    #             "properties": {
+    #                 "messages": {
+    #                     "type": "array",
+    #                     "items": {
+    #                         "type": "object",
+    #                         "properties": {
+    #                             "content": {"type": "string", "required": True},
+    #                             "name": {"type": "string", "required": False},
+    #                             "role": {"type": "string", "required": True},
+    #                         },
+    #                     },
+    #                     "required": True,
+    #                 }
+    #             },
+    #         },
+    #         "required": True,
+    #     }
+    # ]

@@ -155,7 +155,7 @@ class Property:
                 f"Unsupported type '{dtype}', expected instance of DataType, Array, Object or "
                 f"one of {[t.name for t in DataType]}"
             )
-        if not isinstance(self.dtype, (DataType, ArrayType, ObjectType)):
+        if not isinstance(self.dtype, (DataType, Array, Object)):
             raise TypeError(
                 "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array, "
                 "mlflow.types.schema.Object or str for the 'dtype' "
@@ -195,6 +195,27 @@ class Property:
             d.update(self.dtype.to_dict())
         d["required"] = self.required
         return d
+
+    @classmethod
+    def from_json_dict(cls, **kwargs):
+        """
+        Deserialize from a json loaded dictionary.
+        The dictionary is expected to contain `name`, `type` and
+        optional `required` keys.
+        """
+        if not {"name", "type"} <= set(kwargs.keys()):
+            raise MlflowException(
+                "Missing keys in Property JSON. Expected to find keys `name` and `type`"
+            )
+        name = kwargs.pop("name")
+        required = kwargs.pop("required", True)
+        dtype = kwargs["type"]
+        if dtype not in ["array", "object"]:
+            return cls(name=name, dtype=dtype, required=required)
+        if dtype == "array":
+            return cls(name=name, dtype=Array.from_json_dict(**kwargs), required=required)
+        if dtype == "object":
+            return cls(name=name, dtype=Object.from_json_dict(**kwargs), required=required)
 
 
 @experimental
@@ -251,8 +272,32 @@ class Object:
         return {
             "type": "object",
             # Sort by name to make sure the order is stable
-            "properties": {prop.pop("name"): prop for prop in properties},
+            "properties": properties,
+            # Question: should we update as below (which aligns with the design doc)
+            # but it makes to_dict & from_json_dict not symmetric
+            # "properties": {prop.pop("name"): prop for prop in properties},
         }
+
+    @classmethod
+    def from_json_dict(cls, **kwargs):
+        """
+        Deserialize from a json loaded dictionary.
+        The dictionary is expected to contain `type` and
+        `properties` keys.
+        """
+        if not {"properties", "type"} <= set(kwargs.keys()):
+            raise MlflowException(
+                "Missing keys in Object JSON. Expected to find keys `properties` and `type`"
+            )
+        if kwargs["type"] != "object":
+            raise MlflowException("Type mismatch, Object expects `object` as the type")
+        return cls([Property.from_json_dict(**prop) for prop in kwargs["properties"]])
+
+        # This corresponds to line 276's comment
+        # for name, prop in kwargs["properties"].items():
+        #     # this should be in-place update
+        #     prop["name"] = name
+        # return cls([Property.from_json_dict(**prop) for prop in kwargs["properties"].values()])
 
 
 class Array:
@@ -271,7 +316,7 @@ class Array:
                 f"Unsupported type '{dtype}', expected instance of DataType, Array, Object or "
                 f"one of {[t.name for t in DataType]}"
             )
-        if not isinstance(self.dtype, (DataType, ObjectType)):
+        if not isinstance(self.dtype, (DataType, Object)):
             raise TypeError(
                 "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Object"
                 f"or str for the 'dtype' argument, but got {self.dtype.__class__}"
@@ -289,8 +334,27 @@ class Array:
 
     def to_dict(self):
         if isinstance(self.dtype, DataType):
-            return {"items": self.dtype.name}
-        return {"type": "array", "items": self.dtype.to_dict()}
+            items = self.dtype.name
+        else:
+            items = self.dtype.to_dict()
+        return {"type": "array", "items": items}
+
+    @classmethod
+    def from_json_dict(cls, **kwargs):
+        """
+        Deserialize from a json loaded dictionary.
+        The dictionary is expected to contain `type` and
+        `items` keys.
+        """
+        if not {"items", "type"} <= set(kwargs.keys()):
+            raise MlflowException(
+                "Missing keys in Array JSON. Expected to find keys `items` and `type`"
+            )
+        if kwargs["type"] != "array":
+            raise MlflowException("Type mismatch, Array expects `array` as the type")
+        if isinstance(kwargs["items"], str):
+            return cls(dtype=kwargs["items"])
+        return cls(Object.from_json_dict(**kwargs["items"]))
 
 
 class ColSpec:
@@ -362,6 +426,20 @@ class ColSpec:
                 type=repr(self.type),
                 required=" (required)" if self.required else "",
             )
+
+    @classmethod
+    def from_json_dict(cls, **kwargs):
+        """
+        Deserialize from a json loaded dictionary.
+        The dictionary is expected to contain `type` and
+        optional `name` and `required` keys.
+        """
+        if not {"type"} <= set(kwargs.keys()):
+            raise MlflowException("Missing keys in ColSpec JSON. Expected to find key `type`")
+        if kwargs["type"] not in ["array", "object"]:
+            return cls(**kwargs)
+        if kwargs["type"] == "array":
+            return cls(Array.from_json_dict(**kwargs))
 
 
 class TensorInfo:
@@ -635,7 +713,11 @@ class Schema:
         """Deserialize from a json string."""
 
         def read_input(x: dict):
-            return TensorSpec.from_json_dict(**x) if x["type"] == "tensor" else ColSpec(**x)
+            return (
+                TensorSpec.from_json_dict(**x)
+                if x["type"] == "tensor"
+                else ColSpec.from_json_dict(**x)
+            )
 
         return cls([read_input(x) for x in json.loads(json_str)])
 
