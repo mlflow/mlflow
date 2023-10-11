@@ -134,6 +134,7 @@ class Property:
 
     def __init__(
         self,
+        name: str,
         dtype: Union[DataType, ArrayType, ObjectType, str],  # pylint: disable=redefined-builtin
         required: bool = True,
     ) -> None:
@@ -142,6 +143,11 @@ class Property:
         :param dtype: The data type of the property
         :param required: Whether this property is required
         """
+        if not isinstance(name, str):
+            raise MlflowException.invalid_parameter_value(
+                f"Expected name to be a string, got type {type(name).__name__}"
+            )
+        self._name = name
         try:
             self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
         except KeyError:
@@ -149,7 +155,18 @@ class Property:
                 f"Unsupported type '{dtype}', expected instance of DataType, Array, Object or "
                 f"one of {[t.name for t in DataType]}"
             )
+        if not isinstance(self.dtype, (DataType, ArrayType, ObjectType)):
+            raise TypeError(
+                "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array, "
+                "mlflow.types.schema.Object or str for the 'dtype' "
+                f"argument, but got {self.dtype.__class__}"
+            )
         self._required = required
+
+    @property
+    def name(self) -> str:
+        """The property name."""
+        return self._name
 
     @property
     def dtype(self) -> Union[DataType, ArrayType, ObjectType]:
@@ -171,10 +188,11 @@ class Property:
         return False
 
     def to_dict(self):
+        d = {"name": self.name}
         if isinstance(self.dtype, DataType):
-            d = {"type": self.dtype.name}
+            d["type"] = self.dtype.name
         else:
-            d = self.dtype.to_dict()
+            d.update(self.dtype.to_dict())
         d["required"] = self.required
         return d
 
@@ -185,51 +203,55 @@ class Object:
     Specification used to represent a json-convertible object.
     """
 
-    def __init__(self, properties: Dict[str, Property]) -> None:
-        if not isinstance(properties, dict):
+    def __init__(self, properties: List[Property]) -> None:
+        self._check_properties(properties)
+        self._properties = properties
+
+    def _check_properties(self, properties):
+        if not isinstance(properties, list):
             raise MlflowException.invalid_parameter_value(
                 f"Expected properties to be a dict, got type {type(properties).__name__}"
             )
-        for k, v in properties.items():
-            if not isinstance(k, str):
-                raise MlflowException.invalid_parameter_value(
-                    f"Expected key to be a string, got type {type(k).__name__}"
-                )
-            if not isinstance(v, Property):
-                raise MlflowException.invalid_parameter_value(
-                    "Expected value to be instance of Property"
-                )
-        self._properties = properties
-
-    def name(self):
-        return "object"
+        if any(not isinstance(v, Property) for v in properties):
+            raise MlflowException.invalid_parameter_value(
+                "Expected values to be instance of Property"
+            )
+        # check duplicated property names
+        names = set()
+        duplicates = set()
+        for prop in properties:
+            if prop.name in names:
+                duplicates.add(prop.name)
+            else:
+                names.add(prop.name)
+        if len(duplicates) > 0:
+            raise MlflowException.invalid_parameter_value(
+                f"Found duplicated property names: {duplicates}"
+            )
 
     @property
-    def properties(self) -> Dict[str, Property]:
+    def properties(self) -> List[Property]:
         """The list of object properties"""
         return self._properties
 
     @properties.setter
-    def properties(self, value: Dict[str, Property]) -> None:
-        if any(not isinstance(v, Property) for v in value.values()):
-            raise MlflowException.invalid_parameter_value(
-                "Expected value to be instance of Property"
-            )
+    def properties(self, value: List[Property]) -> None:
+        self._check_properties(value)
         self._properties = value
 
     def __eq__(self, other) -> bool:
         if isinstance(other, Object):
-            if self._properties.keys() == other._properties.keys():
-                return all(
-                    self._properties[k] == other._properties[k] for k in self._properties.keys()
-                )
+            return sorted(self.properties, key=lambda x: x.name) == sorted(
+                other.properties, key=lambda x: x.name
+            )
         return False
 
     def to_dict(self):
+        properties = sorted([prop.to_dict() for prop in self.properties], key=lambda x: x["name"])
         return {
-            "type": self.name(),
-            # Sort by key to make the order stable
-            "properties": {k: self.properties[k].to_dict() for k in sorted(self.properties.keys())},
+            "type": "object",
+            # Sort by name to make sure the order is stable
+            "properties": {prop.pop("name"): prop for prop in properties},
         }
 
 
@@ -249,6 +271,11 @@ class Array:
                 f"Unsupported type '{dtype}', expected instance of DataType, Array, Object or "
                 f"one of {[t.name for t in DataType]}"
             )
+        if not isinstance(self.dtype, (DataType, ObjectType)):
+            raise TypeError(
+                "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Object"
+                f"or str for the 'dtype' argument, but got {self.dtype.__class__}"
+            )
 
     @property
     def dtype(self) -> Union[DataType, ObjectType]:
@@ -260,13 +287,10 @@ class Array:
             return self.dtype == other.dtype
         return False
 
-    def name(self):
-        return "array"
-
     def to_dict(self):
         if isinstance(self.dtype, DataType):
             return {"items": self.dtype.name}
-        return {"type": self.name(), "items": self.dtype.to_dict()}
+        return {"type": "array", "items": self.dtype.to_dict()}
 
 
 class ColSpec:
@@ -276,7 +300,7 @@ class ColSpec:
 
     def __init__(
         self,
-        type: Union[DataType, ArrayType, ObjectType, str],  # pylint: disable=redefined-builtin
+        type: Union[DataType, Array, Object, str],  # pylint: disable=redefined-builtin
         name: Optional[str] = None,
         required: bool = True,
     ):
@@ -291,7 +315,8 @@ class ColSpec:
             )
         if not isinstance(self.type, (DataType, Array, Object)):
             raise TypeError(
-                "Expected mlflow.models.signature.Datatype or str for the 'type' "
+                "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array,"
+                "mlflow.types.schema.Object or str for the 'type' "
                 f"argument, but got {self.type.__class__}"
             )
 

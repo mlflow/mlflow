@@ -109,45 +109,45 @@ def _infer_datatype(data) -> DataType:
 def _update_object_properties(obj1: Object, obj2: Object) -> Object:
     if obj1 == obj2:
         return obj1
-    properties1 = obj1.properties
-    properties2 = obj2.properties
-    updated_properties = {}
+    properties1 = {prop.name: prop for prop in obj1.properties}
+    properties2 = {prop.name: prop for prop in obj2.properties}
+    updated_properties = []
     # For each property in the first element, if it doesn't appear
     # later, we update required=False
     for k in properties1.keys() - properties2.keys():
         properties1[k].required = False
-        updated_properties[k] = properties1[k]
+        updated_properties.append(properties1[k])
     # For common keys, property type should be the same
     for k in properties1.keys() & properties2.keys():
-        updated_properties[k] = _update_property_type(properties1[k], properties2[k])
+        updated_properties.append(_update_property_type(properties1[k], properties2[k]))
     # For each property appears in the second elements, if it doesn't
     # exist, we update and set required=False
     for k in properties2.keys() - properties1.keys():
         properties2[k].required = False
-        updated_properties[k] = properties2[k]
+        updated_properties.append(properties2[k])
     return Object(properties=updated_properties)
 
 
 def _update_property_type(prop1: Property, prop2: Property) -> Property:
+    if prop1.name != prop2.name:
+        raise MlflowException("Can't update two properties with different names")
     required = prop1.required and prop2.required
     if isinstance(prop1.dtype, DataType) and isinstance(prop2.dtype, DataType):
         if prop1.dtype == prop2.dtype:
-            return Property(dtype=prop1.dtype, required=required)
-        raise MlflowException.invalid_parameter_value(
-            f"Properties are incompatible for {prop1.dtype} and {prop2.dtype}"
-        )
+            return Property(name=prop1.name, dtype=prop1.dtype, required=required)
+        raise MlflowException(f"Properties are incompatible for {prop1.dtype} and {prop2.dtype}")
 
     if isinstance(prop1.dtype, Object) and isinstance(prop2.dtype, Object):
-        return Property(dtype=_update_object_properties(prop1.dtype, prop2.dtype))
+        return Property(name=prop1.name, dtype=_update_object_properties(prop1.dtype, prop2.dtype))
 
     if isinstance(prop1.dtype, Array) and isinstance(prop2.dtype, Array):
         if prop1.dtype.dtype == prop2.dtype.dtype:
-            return Property(dtype=prop1.dtype, required=required)
+            return Property(name=prop1.name, dtype=prop1.dtype, required=required)
         if isinstance(prop1.dtype.dtype, Object) and isinstance(prop2.dtype.dtype, Object):
             object = _update_object_properties(prop1.dtype.dtype, prop2.dtype.dtype)
-            return Property(dtype=Array(object), required=required)
+            return Property(name=prop1.name, dtype=Array(object), required=required)
 
-    raise MlflowException.invalid_parameter_value("Properties are incompatible")
+    raise MlflowException("Properties are incompatible")
 
 
 def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
@@ -158,9 +158,9 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
     :return: Object
     """
     if isinstance(data, dict):
-        properties = {}
+        properties = []
         for k, v in data.items():
-            properties[k] = Property(dtype=_infer_colspec_type(v))
+            properties.append(Property(name=k, dtype=_infer_colspec_type(v)))
         return Object(properties=properties)
     # Question: Should we cover np.ndarray here or we follow the old behavior
     # for numpy arrays?

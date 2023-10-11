@@ -1003,7 +1003,7 @@ def test_infer_colspec_type():
     data = {"role": "system", "content": "Translate every message you receive to French."}
     dtype = _infer_colspec_type(data)
     assert dtype == Object(
-        {"role": Property(DataType.string), "content": Property(DataType.string)}
+        [Property("role", DataType.string), Property("content", DataType.string)]
     )
 
     data = {
@@ -1014,19 +1014,20 @@ def test_infer_colspec_type():
     }
     dtype = _infer_colspec_type(data)
     assert dtype == Object(
-        {
-            "messages": Property(
+        [
+            Property(
+                "messages",
                 Array(
                     Object(
-                        {
-                            "role": Property(DataType.string),
-                            "content": Property(DataType.string),
-                            "name": Property(DataType.string, required=False),
-                        }
+                        [
+                            Property("role", DataType.string),
+                            Property("content", DataType.string),
+                            Property("name", DataType.string, required=False),
+                        ]
                     )
-                )
+                ),
             )
-        }
+        ]
     )
 
     data = [
@@ -1045,19 +1046,20 @@ def test_infer_colspec_type():
     dtype = _infer_colspec_type(data)
     assert dtype == Array(
         Object(
-            {
-                "messages": Property(
+            [
+                Property(
+                    "messages",
                     Array(
                         Object(
-                            {
-                                "role": Property(DataType.string),
-                                "content": Property(DataType.string),
-                                "name": Property(DataType.string, required=False),
-                            }
+                            [
+                                Property("role", DataType.string),
+                                Property("content", DataType.string),
+                                Property("name", DataType.string, required=False),
+                            ]
                         )
-                    )
+                    ),
                 )
-            }
+            ]
         )
     )
     schema = Schema([ColSpec(dtype)])
