@@ -644,7 +644,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     # pylint: disable=unused-argument
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
-        return model_type in _ModelType.values()
+        return model_type in _ModelType.values() or model_type is None
 
     def _log_metrics(self):
         """
@@ -1416,12 +1416,13 @@ class DefaultEvaluator(ModelEvaluator):
             self._log_model_explainability()
 
     def _log_eval_table(self):
-        if self.model_type not in (
-            _ModelType.QUESTION_ANSWERING,
-            _ModelType.TEXT_SUMMARIZATION,
-            _ModelType.TEXT,
+        # only log eval table if there are per row metrics recorded
+        if not any(
+            metric_value.scores is not None or metric_value.justifications is not None
+            for _, metric_value in self.metrics_values.items()
         ):
             return
+
         metric_prefix = self.evaluator_config.get("metric_prefix", "")
         if not isinstance(metric_prefix, str):
             metric_prefix = ""
@@ -1489,11 +1490,6 @@ class DefaultEvaluator(ModelEvaluator):
 
             text_metrics = [toxicity, perplexity, flesch_kincaid_grade_level, ari_grade_level]
 
-            if self.model_type not in _ModelType.values():
-                raise MlflowException(
-                    message=f"Unsupported model type {self.model_type}",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
             with mlflow.utils.autologging_utils.disable_autologging():
                 self._generate_model_predictions()
                 if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
