@@ -40,7 +40,49 @@ Evaluation results are stored as :py:class:`MetricValue <mlflow.metrics.MetricVa
 
 .. autoclass:: mlflow.metrics.EvaluationMetric
 
-We provide the following :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` for evaluating text models.
+.. toctree::
+   :hidden:
+   :titlesonly:
+
+   regression_metrics
+   classification_metrics
+   text_metrics
+
+.. rubric:: Evaluation Metrics for Different Model Types
+   :name: metrics-rubric
+
+.. rubric:: Regression Metrics
+   :name: regression-metrics
+   :class: collapsible
+
+.. autodata:: mlflow.metrics.mae
+   :annotation:
+
+.. autodata:: mlflow.metrics.mape
+   :annotation:
+
+.. autodata:: mlflow.metrics.max_error
+   :annotation:
+
+.. autodata:: mlflow.metrics.mse
+   :annotation:
+
+.. autodata:: mlflow.metrics.rmse
+   :annotation:
+
+.. autodata:: mlflow.metrics.r2_score
+   :annotation:
+
+.. rubric:: Classification Metrics
+   :name: classification-metrics
+   :class: collapsible
+
+.. autodata:: mlflow.metrics.f1_score
+   :annotation:
+
+.. rubric:: Text Metrics
+   :name: text-metrics
+   :class: collapsible
 
 .. autodata:: mlflow.metrics.ari_grade_level
    :annotation:
@@ -70,19 +112,6 @@ Users create their own :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMet
 
 .. autofunction:: mlflow.metrics.make_metric
 
-.. code-block:: python
-
-    import mlflow
-    from mlflow.metrics import EvaluationExample, correctness
-
-    def word_count_eval(predictions, targets, metrics):
-        scores = []
-        for prediction in predictions:
-            scores.append(len(prediction.split(" ")))
-        return MetricValue(scores=scores)
-
-    word_count_metric = make_metric(eval_fn=word_count_eval, greater_is_better=True, name="word_count")
-
 We provide the following pre-canned "intelligent" :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` for evaluating text models. These metrics use an LLM to evaluate the quality of a model's output text. The following factory functions help you customize the intelligent metric to your use case.
 
 .. autofunction:: mlflow.metrics.correctness
@@ -90,28 +119,6 @@ We provide the following pre-canned "intelligent" :py:class:`EvaluationMetric <m
 .. autofunction:: mlflow.metrics.strict_correctness
 
 .. autofunction:: mlflow.metrics.relevance
-
-.. code-block:: python
-
-    from mlflow.metrics import EvaluationExample, correctness
-
-    example = EvaluationExample(
-        input="What is MLflow?",
-        output="MLflow is an open-source platform for managing machine "
-        "learning workflows, including experiment tracking, model packaging, "
-        "versioning, and deployment, simplifying the ML lifecycle.",
-        score=4,
-        justification="The definition effectively explains what MLflow is "
-        "its purpose, and its developer. It could be more concise for a 5-score.",
-        grading_context={
-            "ground_truth": "MLflow is an open-source platform for managing "
-            "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
-            "a company that specializes in big data and machine learning solutions. MLflow is "
-            "designed to address the challenges that data scientists and machine learning "
-            "engineers face when developing, training, and deploying machine learning models."
-        },
-    )
-    correctness_metric = correctness(examples=[example])
 
 Users can also create their own LLM based :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` using the :py:func:`make_genai_metric <mlflow.metrics.make_genai_metric>` factory function.
 
