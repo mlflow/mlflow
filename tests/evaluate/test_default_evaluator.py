@@ -2748,10 +2748,14 @@ def test_evaluate_no_model_type():
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
-        mlflow.evaluate(
-            model_info.model_uri,
-            data,
-        )
+        with pytest.raises(
+            MlflowException,
+            match="The extra_metrics argument must be specified model_type is None.",
+        ):
+            mlflow.evaluate(
+                model_info.model_uri,
+                data,
+            )
 
 
 def test_evaluate_no_model_type_with_builtin_metric():
