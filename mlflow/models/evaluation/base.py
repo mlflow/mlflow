@@ -15,7 +15,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from decimal import Decimal
 from types import FunctionType
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -1096,7 +1096,7 @@ def evaluate(
     model: str,
     data,
     *,
-    model_type: str,
+    model_type: Optional[str] = None,
     targets=None,
     dataset_path=None,
     feature_names: list = None,
@@ -1348,7 +1348,7 @@ def evaluate(
                     ``data`` is a :py:class`mlflow.data.dataset.Dataset` that defines targets,
                     then ``targets`` is optional.
 
-    :param model_type: A string describing the model type. The default evaluator
+    :param model_type: (Optional) A string describing the model type. The default evaluator
                        supports the following model types:
 
                        - ``'classifier'``
@@ -1356,6 +1356,9 @@ def evaluate(
                        - ``'question-answering'``
                        - ``'text-summarization'``
                        - ``'text'``
+
+                       If no ``model_type`` is specified, then you must provide a a list of
+                       metrics to compute via the``extra_metrics`` param.
 
                        .. note::
                             ``'question-answering'``, ``'text-summarization'``, and ``'text'``
@@ -1551,6 +1554,12 @@ def evaluate(
                     f"The targets argument must be specified for {model_type} models.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
+    elif model_type is None:
+        if not extra_metrics:
+            raise MlflowException(
+                message="The extra_metrics argument must be specified model_type is None.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     if isinstance(model, str):
         model = _load_model_or_server(model, env_manager)
