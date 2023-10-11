@@ -1139,10 +1139,7 @@ def gateway_proxy_handler():
         # Pretend an empty gateway service is running
         return {"routes": []}
 
-    if request.method == "GET":
-        args = request.args
-    else:
-        args = request.json
+    args = request.args if request.method == "GET" else request.json
 
     gateway_path = args.get("gateway_path")
     if not gateway_path:
