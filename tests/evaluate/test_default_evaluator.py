@@ -2740,3 +2740,116 @@ def test_constructing_eval_df_for_custom_metrics():
         "flesch_kincaid_grade_level/v1/score",
         "ari_grade_level/v1/score",
     ]
+
+
+def test_evaluate_no_model_type():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
+        with pytest.raises(
+            MlflowException,
+            match="The extra_metrics argument must be specified model_type is None.",
+        ):
+            mlflow.evaluate(
+                model_info.model_uri,
+                data,
+            )
+
+
+def test_evaluate_no_model_type_with_builtin_metric():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
+        results = mlflow.evaluate(
+            model_info.model_uri,
+            data,
+            extra_metrics=[mlflow.metrics.perplexity],
+        )
+        assert results.metrics.keys() == {
+            "perplexity/v1/mean",
+            "perplexity/v1/variance",
+            "perplexity/v1/p90",
+        }
+        assert len(results.table) == 1
+        assert results.table["eval_results_table"].columns.tolist() == [
+            "text",
+            "outputs",
+            "perplexity/v1/score",
+        ]
+
+
+def test_evaluate_no_model_type_with_custom_metric():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
+        from mlflow.metrics import make_metric
+        from mlflow.metrics.metric_definitions import standard_aggregations
+
+        def word_count_eval(predictions, targets, metrics):
+            scores = []
+            for prediction in predictions:
+                scores.append(len(prediction.split(" ")))
+            return MetricValue(
+                scores=scores,
+                aggregate_results=standard_aggregations(scores),
+            )
+
+        word_count = make_metric(eval_fn=word_count_eval, greater_is_better=True, name="word_count")
+
+        results = mlflow.evaluate(model_info.model_uri, data, extra_metrics=[word_count])
+        assert results.metrics.keys() == {
+            "word_count/mean",
+            "word_count/variance",
+            "word_count/p90",
+        }
+        assert results.metrics["word_count/mean"] == 3.0
+        assert len(results.table) == 1
+        assert results.table["eval_results_table"].columns.tolist() == [
+            "text",
+            "outputs",
+            "word_count/score",
+        ]
+
+
+def identity_model(inputs):
+    return inputs
+
+
+def test_default_metrics_as_custom_metrics():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=identity_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame(
+            {
+                "question": ["words random", "This is a sentence."],
+                "answer": ["words random", "This is a sentence."],
+            }
+        )
+        results = mlflow.evaluate(
+            model_info.model_uri,
+            data,
+            targets="answer",
+            model_type="question-answering",
+            custom_metrics=[
+                mlflow.metrics.flesch_kincaid_grade_level,
+                mlflow.metrics.perplexity,
+                mlflow.metrics.ari_grade_level,
+                mlflow.metrics.toxicity,
+                mlflow.metrics.exact_match,
+            ],
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert "eval_results_table.json" in artifacts
+    for metric in ["toxicity", "perplexity", "ari_grade_level", "flesch_kincaid_grade_level"]:
+        for measure in ["mean", "p90", "variance"]:
+            assert f"{metric}/v1/{measure}" in results.metrics.keys()
+    assert "exact_match/v1" in results.metrics.keys()

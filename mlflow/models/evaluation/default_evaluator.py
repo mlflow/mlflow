@@ -4,6 +4,7 @@ import inspect
 import json
 import logging
 import math
+import os
 import pathlib
 import pickle
 import shutil
@@ -643,7 +644,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     # pylint: disable=unused-argument
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
-        return model_type in _ModelType.values()
+        return model_type in _ModelType.values() or model_type is None
 
     def _log_metrics(self):
         """
@@ -1141,7 +1142,12 @@ class DefaultEvaluator(ModelEvaluator):
                         eval_fn_args.append(self.other_output_columns[column])
                     elif param.default == inspect.Parameter.empty:
                         raise MlflowException(
-                            f"Column '{param_name}' not found in input data or output data."
+                            "Error: Metric Calculation Failed\n"
+                            f"Metric '{extra_metric.name}' requires the column '{param_name}' to "
+                            "be defined in either the input data or resulting output data.\n"
+                            f"To resolve this issue, you may want to map {param_name} to an "
+                            "existing column using the following configuration:\n"
+                            f"evaluator_config={{'col_mapping': {{'{param_name}': 'col_name'}}}}"
                         )
 
         return eval_fn_args
@@ -1151,7 +1157,7 @@ class DefaultEvaluator(ModelEvaluator):
             return
         for index, extra_metric in enumerate(self.extra_metrics):
             eval_fn_args = self._get_args_for_metrics(extra_metric, eval_df)
-            _logger.info(f"Evaluating custom metrics: {extra_metric.name}")
+            _logger.info(f"Evaluating metrics: {extra_metric.name}")
             extra_metric_tuple = _CustomMetric(
                 function=extra_metric.eval_fn,
                 index=index,
@@ -1273,6 +1279,9 @@ class DefaultEvaluator(ModelEvaluator):
             X_copy = self.X.copy_to_avoid_mutation()
 
             import tiktoken
+
+            # ref: https://github.com/openai/tiktoken/issues/75
+            os.environ["TIKTOKEN_CACHE_DIR"] = ""
 
             encoding = tiktoken.get_encoding("cl100k_base")
 
@@ -1407,12 +1416,13 @@ class DefaultEvaluator(ModelEvaluator):
             self._log_model_explainability()
 
     def _log_eval_table(self):
-        if self.model_type not in (
-            _ModelType.QUESTION_ANSWERING,
-            _ModelType.TEXT_SUMMARIZATION,
-            _ModelType.TEXT,
+        # only log eval table if there are per row metrics recorded
+        if not any(
+            metric_value.scores is not None or metric_value.justifications is not None
+            for _, metric_value in self.metrics_values.items()
         ):
             return
+
         metric_prefix = self.evaluator_config.get("metric_prefix", "")
         if not isinstance(metric_prefix, str):
             metric_prefix = ""
@@ -1480,11 +1490,6 @@ class DefaultEvaluator(ModelEvaluator):
 
             text_metrics = [toxicity, perplexity, flesch_kincaid_grade_level, ari_grade_level]
 
-            if self.model_type not in _ModelType.values():
-                raise MlflowException(
-                    message=f"Unsupported model type {self.model_type}",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
             with mlflow.utils.autologging_utils.disable_autologging():
                 self._generate_model_predictions()
                 if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
