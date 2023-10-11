@@ -276,17 +276,15 @@ class Utils {
     const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
     const gitMatch = sourceName.match(Utils.getGitRegex());
     let url = null;
-    if (gitHubMatch || gitLabMatch) {
-      const baseUrl = gitHubMatch ? 'https://github.com/' : 'https://gitlab.com/';
-      const match = gitHubMatch || gitLabMatch;
-      if (gitHubMatch) {
-        url = baseUrl + match[1] + '/' + match[2].replace(/.git/, '');
-      } else {
-        //[ML-35426] GitLab has a dash in its URL
-        url = baseUrl + match[1] + '/-/' + match[2].replace(/.git/, '');
+    if (gitHubMatch) {
+      url = 'https://github.com/' + gitHubMatch[1] + '/' + gitHubMatch[2].replace(/.git/, '');
+      if (gitHubMatch[3]) {
+        url = url + '/tree/master/' + gitHubMatch[3];
       }
-      if (match[3]) {
-        url = url + '/tree/master/' + match[3];
+    } else if (gitLabMatch) {
+      url = 'https://gitlab.com/' + gitLabMatch[1] + '/' + gitLabMatch[2].replace(/.git/, '');
+      if (gitLabMatch[3]) {
+        url = url + '/-/tree/master' + gitLabMatch[3];
       }
     } else if (bitbucketMatch) {
       const baseUrl = 'https://bitbucket.org/';
@@ -310,18 +308,26 @@ class Utils {
     const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
     const gitMatch = sourceName.match(Utils.getGitRegex());
     let url = null;
-    if (gitHubMatch || gitLabMatch) {
-      const baseUrl = gitHubMatch ? 'https://github.com/' : 'https://gitlab.com/';
-      const match = gitHubMatch || gitLabMatch;
+    if (gitHubMatch) {
       url =
-        baseUrl +
-        match[1] +
+        'https://github.com/' +
+        gitHubMatch[1] +
         '/' +
-        match[2].replace(/.git/, '') +
+        gitHubMatch[2].replace(/.git/, '') +
         '/tree/' +
         sourceVersion +
         '/' +
-        match[3];
+        gitHubMatch[3];
+    } else if (gitLabMatch) {
+      url =
+        'https://gitlab.com/' +
+        gitLabMatch[1] +
+        '/' +
+        gitLabMatch[2].replace(/.git/, '') +
+        '/-/tree/' +
+        sourceVersion +
+        '/' +
+        gitLabMatch[3];
     } else if (bitbucketMatch) {
       const baseUrl = 'https://bitbucket.org/';
       url =
