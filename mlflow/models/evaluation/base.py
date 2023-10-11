@@ -1289,6 +1289,8 @@ def evaluate(
           parameter will be ignored.
         - **sample_weights**: Weights for each sample to apply when computing model performance
           metrics.
+        - **col_mapping**: A dictionary mapping column names in the input dataset or output
+          predictions to column names used when invoking the evaluation functions.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.
