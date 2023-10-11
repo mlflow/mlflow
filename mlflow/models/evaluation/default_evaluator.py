@@ -29,12 +29,21 @@ from mlflow.metrics import (
     MetricValue,
     ari_grade_level,
     exact_match,
+    example_count,
     flesch_kincaid_grade_level,
+    mae,
+    mape,
+    max_error,
+    mean_on_target,
+    mse,
     perplexity,
+    r2_score,
+    rmse,
     rouge1,
     rouge2,
     rougeL,
     rougeLsum,
+    sum_on_target,
     toxicity,
 )
 from mlflow.models.evaluation.artifacts import (
@@ -1488,11 +1497,25 @@ class DefaultEvaluator(ModelEvaluator):
             self.metrics_values = {}
             self.builtin_metrics = {}
 
+            regression_metrics = [
+                example_count,
+                sum_on_target,
+                mean_on_target,
+                mae,
+                mse,
+                rmse,
+                r2_score,
+                max_error,
+                mape,
+            ]
             text_metrics = [toxicity, perplexity, flesch_kincaid_grade_level, ari_grade_level]
 
             with mlflow.utils.autologging_utils.disable_autologging():
                 self._generate_model_predictions()
-                if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
+                if self.model_type == _ModelType.REGRESSOR:
+                    self._evaluate_sklearn_model_score_if_scorable()
+                    self.builtin_metrics = regression_metrics
+                elif self.model_type == _ModelType.CLASSIFIER:
                     self._compute_builtin_metrics()
                 elif self.model_type == _ModelType.QUESTION_ANSWERING:
                     self.builtin_metrics = [*text_metrics, exact_match]

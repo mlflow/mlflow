@@ -244,6 +244,32 @@ def _rougeLsum_eval_fn(predictions, targets, metrics):
         )
 
 
+def _example_count_eval_fn(predictions, targets, metrics, sample_weight=None):
+    if targets is not None and len(targets) != 0:
+        return MetricValue(aggregate_results={"example_count": len(predictions)})
+
+
+def _sum_on_target_eval_fn(predictions, targets, metrics, sample_weight=None):
+    if targets is not None and len(targets) != 0:
+        sum_on_target = (
+            (np.array(targets) * np.array(sample_weight)).sum()
+            if sample_weight is not None
+            else sum(targets)
+        )
+        return MetricValue(aggregate_results={"sum_on_target": np.sum(sum_on_target)})
+
+
+def _mean_on_target_eval_fn(predictions, targets, metrics, sample_weight=None):
+    if targets is not None and len(targets) != 0:
+        sum_on_target = (
+            (np.array(targets) * np.array(sample_weight)).sum()
+            if sample_weight is not None
+            else sum(targets)
+        )
+        mean_on_target = sum_on_target / len(targets)
+        return MetricValue(aggregate_results={"mean_on_target": np.sum(mean_on_target)})
+
+
 def _mae_eval_fn(predictions, targets, metrics, sample_weight=None):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import mean_absolute_error
