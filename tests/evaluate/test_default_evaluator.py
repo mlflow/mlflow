@@ -2480,6 +2480,8 @@ def test_evaluate_text_and_text_metrics():
             model_info.model_uri,
             data,
             model_type="text",
+            evaluators="default",
+            evaluator_config={"compute_latency": True},
         )
 
     client = mlflow.MlflowClient()

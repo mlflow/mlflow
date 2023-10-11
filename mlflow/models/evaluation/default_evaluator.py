@@ -1330,21 +1330,30 @@ class DefaultEvaluator(ModelEvaluator):
             num_tokens_list = []
 
             def compute_num_tokens(y_pred):
-                # parse out the output from y_pred
+                # parse out the output from y_pred if possible
                 if isinstance(y_pred, pd.DataFrame):
                     output = y_pred.iloc[0, 0]
                 elif isinstance(y_pred, (np.ndarray, list)):
                     output = y_pred[0]
                 elif isinstance(y_pred, pd.Series):
                     output = y_pred.iloc[0]
+                else:
+                    return None
                 # if output is string-like, tokenize it and get the number of tokens
                 if isinstance(output, str):
                     return len(encoding.encode(output))
                 else:
                     return None
 
-            for y_pred in model_predictions:
-                num_tokens_list.append(compute_num_tokens(y_pred))
+            if isinstance(model_predictions, pd.DataFrame):
+                for _, row in model_predictions.iterrows():
+                    num_tokens_list.append(compute_num_tokens(row))
+            elif isinstance(model_predictions, (np.ndarray, list)):
+                for row in model_predictions:
+                    num_tokens_list.append(compute_num_tokens(row))
+            elif isinstance(model_predictions, pd.Series):
+                for _, row in model_predictions.iteritems():
+                    num_tokens_list.append(compute_num_tokens(row))
 
             self.metrics_values.update(
                 {_TOKEN_COUNT_METRIC_NAME: MetricValue(scores=num_tokens_list)}
@@ -1513,7 +1522,8 @@ class DefaultEvaluator(ModelEvaluator):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             with mlflow.utils.autologging_utils.disable_autologging():
-                self._generate_model_predictions()
+                compute_latency = self.evaluator_config.get("compute_latency", False)
+                self._generate_model_predictions(compute_latency=compute_latency)
                 if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
                     self._compute_builtin_metrics()
                 elif self.model_type == _ModelType.QUESTION_ANSWERING:
