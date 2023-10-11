@@ -183,9 +183,12 @@ For more information about Plugins, see
 
 ### Python Style Guide
 We follow [Google's python style guide](https://google.github.io/styleguide/pyguide.html) 
-combined with [black](https://black.readthedocs.io/en/stable/the_black_code_style/index.html). 
+leveraging [pylint](https://pypi.org/project/pylint/) and 
+[black](https://black.readthedocs.io/en/stable/the_black_code_style/index.html). Both tools
+are run automatically via a pre-commit git hook.
+
 Currently, the MLflow team is working to reformat docstrings to adhere to 
-these guidelines. Any contributions regarding docstring reformatting are much appreciated!
+these guidelines. Any contributions regarding style reformatting are much appreciated!
 
 ## Setting up the repository
 
