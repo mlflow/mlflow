@@ -1355,7 +1355,8 @@ def evaluate(
                        - ``'text-summarization'``
                        - ``'text'``
 
-                       If no ``model_type`` is specified, then you must provide a a list of metrics to compute via the``extra_metrics`` param.
+                       If no ``model_type`` is specified, then you must provide a a list of 
+                       metrics to compute via the``extra_metrics`` param.
 
                        .. note::
                             ``'question-answering'``, ``'text-summarization'``, and ``'text'``
