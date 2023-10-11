@@ -2581,7 +2581,6 @@ def test_eval_results_table_json_can_be_prefixed_with_metric_prefix(metric_prefi
         f"{metric_prefix}flesch_kincaid_grade_level/v1/score",
         f"{metric_prefix}ari_grade_level/v1/score",
         f"{metric_prefix}perplexity/v1/score",
-        f"{metric_prefix}latency",
         f"{metric_prefix}token_count",
     }
 
