@@ -1415,7 +1415,7 @@ class DefaultEvaluator(ModelEvaluator):
         # only log eval table if there are per row metrics recorded
         if not any(
             metric_value.scores is not None or metric_value.justifications is not None
-                for _, metric_value in self.metrics_values.items()
+            for _, metric_value in self.metrics_values.items()
         ):
             return
 
