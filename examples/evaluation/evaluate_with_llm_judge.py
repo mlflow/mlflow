@@ -31,7 +31,7 @@ correctness_metric = correctness(examples=[example])
 
 eval_df = pd.DataFrame(
     {
-        "input": [
+        "inputs": [
             "What is MLflow?",
             "What is Spark?",
             "What is Python?",
@@ -59,7 +59,8 @@ with mlflow.start_run() as run:
     results = mlflow.evaluate(
         logged_model.model_uri,
         eval_df,
-        model_type="text",
+        targets="ground_truth",
+        model_type="question-answering",
         extra_metrics=[correctness_metric],
     )
     print(results)
