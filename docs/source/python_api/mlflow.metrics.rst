@@ -14,6 +14,17 @@ The following code demonstrates how to use :py:func:`mlflow.evaluate()` with an 
     import mlflow
     from mlflow.metrics import EvaluationExample, correctness
 
+    eval_df = pd.DataFrame(
+        {
+            "inputs": [
+                "What is MLflow?",
+            ],
+            "ground_truth": [
+                "MLflow is an open-source platform for managing the end-to-end machine learning lifecycle. It was developed by Databricks, a company that specializes in big data and machine learning solutions. MLflow is designed to address the challenges that data scientists and machine learning engineers face when developing, training, and deploying machine learning models.",
+            ],
+        }
+    )
+
     example = EvaluationExample(
         input="What is MLflow?",
         output="MLflow is an open-source platform for managing machine "
@@ -34,7 +45,8 @@ The following code demonstrates how to use :py:func:`mlflow.evaluate()` with an 
     results = mlflow.evaluate(
         logged_model.model_uri,
         eval_df,
-        model_type="text",
+        targets="ground_truth",
+        model_type="question-answering",
         extra_metrics=[correctness_metric],
     )
 
