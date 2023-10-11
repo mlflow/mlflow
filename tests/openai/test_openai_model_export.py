@@ -569,9 +569,9 @@ def test_embeddings_batch_size_azure(tmp_path, monkeypatch):
         task=openai.Embedding,
         path=tmp_path,
     )
-    model = mlflow.models.Model.load(tmp_path)
+    model = mlflow.pyfunc.load_model(tmp_path)
 
-    assert any(model._model_impl.api_config.batch_size == 16)
+    assert model._model_impl.api_config.batch_size == 16
 
 
 def test_embeddings_pyfunc_server_and_score(tmp_path):
