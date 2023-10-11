@@ -46,7 +46,6 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, Schema, TensorSpec
 from mlflow.utils.annotations import experimental
-from mlflow.utils.class_utils import nameof
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
     is_in_databricks_runtime,
@@ -707,7 +706,7 @@ class _OpenAIWrapper:
         _validate_model_params(self.task, self.model, params)
         prompts_list = self.format_completions(self.get_params_list(data))
 
-        batch_size = params.pop(nameof(self.api_config.batch_size), self.api_config.batch_size)
+        batch_size = params.pop("batch_size", self.api_config.batch_size)
         _logger.debug(f"Requests are being batched by {batch_size} samples.")
         requests = [
             {
@@ -732,7 +731,7 @@ class _OpenAIWrapper:
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
-        batch_size = params.pop(nameof(self.api_config.batch_size), self.api_config.batch_size)
+        batch_size = params.pop("batch_size", self.api_config.batch_size)
         _logger.debug(f"Requests are being batched by {batch_size} samples.")
 
         first_string_column = _first_string_column(data)

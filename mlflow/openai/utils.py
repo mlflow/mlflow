@@ -140,8 +140,8 @@ def _validate_model_params(task, model, params):
         if any(param for param in params.keys() if param in model.keys()):
             raise mlflow.MlflowException.invalid_parameter_value(
                 f"Providing any of {list(model.keys())} as parameters in the signature is not "
-                "allowed because they are indicated in the model configuration. Either remove "
-                "the key from the model configuration or remove the parameter from the signature.",
+                "allowed because they were indicated as part of the OpenAI model. Either remove "
+                "the argument when logging the model or remove the parameter from the signature.",
             )
         if "batch_size" in params.keys() and task == "chat.completions":
             raise mlflow.MlflowException.invalid_parameter_value(
