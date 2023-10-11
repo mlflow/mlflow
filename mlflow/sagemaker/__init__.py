@@ -1924,7 +1924,7 @@ def _does_model_exist(model_name, sage_client):
         if "Could not find model" in error.response["Error"]["Message"]:
             return False
     else:
-        return True if response else False
+        return bool(response)
 
 
 class SageMakerDeploymentClient(BaseDeploymentClient):

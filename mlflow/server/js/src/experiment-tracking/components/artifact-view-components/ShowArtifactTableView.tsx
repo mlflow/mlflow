@@ -58,6 +58,7 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact }: Props) => {
             header: true,
             preview: MAX_NUM_ROWS,
             skipEmptyLines: 'greedy',
+            dynamicTyping: true,
           });
           const dataPreview = result.data;
 
@@ -96,7 +97,8 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact }: Props) => {
       title: f,
       dataIndex: f,
       key: f,
-      sorter: (a: any, b: any) => a[f].localeCompare(b[f]),
+      sorter: (a: any, b: any) =>
+        typeof a[f] === 'string' ? a[f].localeCompare(b[f]) : a[f] - b[f],
       width: 200,
 
       ellipsis: {
