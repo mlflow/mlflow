@@ -180,6 +180,12 @@ base](https://github.com/mlflow/mlflow/blob/cdc6a651d5af0f29bd448d2c87a198cf5d32
 For more information about Plugins, see
 <https://mlflow.org/docs/latest/plugins.html>.
 
+### Python Style Guide
+We follow [Google's python style guide](https://google.github.io/styleguide/pyguide.html) 
+combined with [black](https://black.readthedocs.io/en/stable/the_black_code_style/index.html). 
+Currently, the MLflow team is working to reformat docstrings to adhere to 
+these guidelines. Any contributions regarding docstring reformatting are much appreciated!
+
 ## Setting up the repository
 
 To set up the MLflow repository, run the following commands:
