@@ -11,6 +11,7 @@ We welcome community contributions to MLflow. This page provides useful informat
   - [Write designs for significant changes](#write-designs-for-significant-changes)
   - [Make changes backwards compatible](#make-changes-backwards-compatible)
   - [Consider introducing new features as MLflow Plugins](#consider-introducing-new-features-as-mlflow-plugins)
+  - [Python Style Guide](#python-style-guide)
 - [Setting up the repository](#setting-up-the-repository)
 - [Developing and testing MLflow](#developing-and-testing-mlflow)
   - [Environment Setup and Python configuration](#environment-setup-and-python-configuration)
