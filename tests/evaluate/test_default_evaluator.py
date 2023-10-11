@@ -2283,6 +2283,7 @@ def test_evaluate_question_answering_without_targets():
     assert set(results.metrics.keys()) == set(
         get_question_answering_metrics_keys(with_targets=False)
     )
+    assert False
 
 
 def validate_text_summarization_logged_data(logged_data, with_targets=True):

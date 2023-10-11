@@ -28,6 +28,7 @@ from mlflow.metrics.metric_definitions import (
     _rouge2_eval_fn,
     _rougeL_eval_fn,
     _rougeLsum_eval_fn,
+    _token_count_eval_fn,
     _toxicity_eval_fn,
 )
 from mlflow.models import (
@@ -36,6 +37,15 @@ from mlflow.models import (
 )
 
 # general text metrics
+token_count = make_metric(
+    eval_fn=_token_count_eval_fn,
+    greater_is_better=True,
+    name="token_count",
+)
+"""
+A metric for calculating `token_count`_.
+"""
+
 toxicity = make_metric(
     eval_fn=_toxicity_eval_fn,
     greater_is_better=False,

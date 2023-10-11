@@ -4,7 +4,6 @@ import inspect
 import json
 import logging
 import math
-import os
 import pathlib
 import pickle
 import shutil
@@ -35,6 +34,7 @@ from mlflow.metrics import (
     rouge2,
     rougeL,
     rougeLsum,
+    token_count,
     toxicity,
 )
 from mlflow.models.evaluation.artifacts import (
@@ -1321,44 +1321,6 @@ class DefaultEvaluator(ModelEvaluator):
             else:
                 model_predictions = self.model.predict(X_copy)
 
-            import tiktoken
-
-            # ref: https://github.com/openai/tiktoken/issues/75
-            os.environ["TIKTOKEN_CACHE_DIR"] = ""
-            encoding = tiktoken.get_encoding("cl100k_base")
-
-            num_tokens_list = []
-
-            def compute_num_tokens(y_pred):
-                # parse out the output from y_pred if possible
-                if isinstance(y_pred, pd.DataFrame):
-                    output = y_pred.iloc[0, 0]
-                elif isinstance(y_pred, (np.ndarray, list)):
-                    output = y_pred[0]
-                elif isinstance(y_pred, pd.Series):
-                    output = y_pred.iloc[0]
-                else:
-                    return None
-                # if output is string-like, tokenize it and get the number of tokens
-                if isinstance(output, str):
-                    return len(encoding.encode(output))
-                else:
-                    return None
-
-            if isinstance(model_predictions, pd.DataFrame):
-                for _, row in model_predictions.iterrows():
-                    num_tokens_list.append(compute_num_tokens(row))
-            elif isinstance(model_predictions, (np.ndarray, list)):
-                for row in model_predictions:
-                    num_tokens_list.append(compute_num_tokens(row))
-            elif isinstance(model_predictions, pd.Series):
-                for _, row in model_predictions.items():
-                    num_tokens_list.append(compute_num_tokens(row))
-
-            self.metrics_values.update(
-                {_TOKEN_COUNT_METRIC_NAME: MetricValue(scores=num_tokens_list)}
-            )
-
         else:
             X_copy = self.X.copy_to_avoid_mutation()
             if compute_latency:
@@ -1515,7 +1477,13 @@ class DefaultEvaluator(ModelEvaluator):
             self.metrics_values = {}
             self.builtin_metrics = {}
 
-            text_metrics = [toxicity, perplexity, flesch_kincaid_grade_level, ari_grade_level]
+            text_metrics = [
+                token_count,
+                toxicity,
+                perplexity,
+                flesch_kincaid_grade_level,
+                ari_grade_level,
+            ]
 
             with mlflow.utils.autologging_utils.disable_autologging():
                 compute_latency = self.evaluator_config.get("compute_latency", False)
