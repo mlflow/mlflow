@@ -1352,7 +1352,7 @@ class DefaultEvaluator(ModelEvaluator):
                 for row in model_predictions:
                     num_tokens_list.append(compute_num_tokens(row))
             elif isinstance(model_predictions, pd.Series):
-                for _, row in model_predictions.iteritems():
+                for _, row in model_predictions.items():
                     num_tokens_list.append(compute_num_tokens(row))
 
             self.metrics_values.update(
