@@ -333,10 +333,7 @@ class Array:
         return False
 
     def to_dict(self):
-        if isinstance(self.dtype, DataType):
-            items = self.dtype.name
-        else:
-            items = self.dtype.to_dict()
+        items = self.dtype.name if isinstance(self.dtype, DataType) else self.dtype.to_dict()
         return {"type": "array", "items": items}
 
     @classmethod
@@ -401,14 +398,10 @@ class ColSpec:
         return self._required
 
     def to_dict(self) -> Dict[str, Any]:
-        if isinstance(self.type, DataType):
-            d = {"type": self.type.name}
-        else:
-            d = self.type.to_dict()
+        d = {"type": self.type.name} if isinstance(self.type, DataType) else self.type.to_dict()
         if self.name is not None:
             d["name"] = self.name
-        if self.required:
-            d["required"] = self.required
+        d["required"] = self.required
         return d
 
     def __eq__(self, other) -> bool:
