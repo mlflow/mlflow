@@ -40,14 +40,6 @@ Evaluation results are stored as :py:class:`MetricValue <mlflow.metrics.MetricVa
 
 .. autoclass:: mlflow.metrics.EvaluationMetric
 
-.. toctree::
-   :hidden:
-   :titlesonly:
-
-   regression_metrics
-   classification_metrics
-   text_metrics
-
 .. rubric:: Evaluation Metrics for Different Model Types
    :name: metrics-rubric
 
@@ -132,4 +124,4 @@ When using LLM based :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetri
     :members:
     :undoc-members:
     :show-inheritance:
-    :exclude-members: MetricValue, EvaluationMetric, make_metric, make_genai_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, perplexity, rouge1, rouge2, rougeL, rougeLsum, toxicity, correctness, strict_correctness, relevance
+    :exclude-members: MetricValue, EvaluationMetric, make_metric, make_genai_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, perplexity, rouge1, rouge2, rougeL, rougeLsum, toxicity, correctness, strict_correctness, relevance, mae, mape, max_error, mse, rmse, r2_score, f1_score
