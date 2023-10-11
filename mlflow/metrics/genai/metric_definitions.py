@@ -19,10 +19,11 @@ def correctness(
     """
     This function will create a genai metric used to evaluate the correctness of an LLM using the
     model provided. Correctness will be assessed by the similarity in meaning and description to
-    the ground truth.
+    the ``ground_truth``.
 
-    The ground_truth eval_arg must be provided as part of the input dataset or output predictions.
-    This can be mapped to a column of a different name using the evaluator_config.
+    The ``ground_truth`` eval_arg must be provided as part of the input dataset or output
+    predictions. This can be mapped to a column of a different name using the a ``col_mapping``
+    in the ``evaluator_config``.
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
@@ -79,14 +80,15 @@ def strict_correctness(
     """
     This function will create a genai metric used to evaluate the strict correctness of an LLM
     using the model provided. Strict correctness should be used in cases where correctness is
-    binary, and the source of truth is provided in the ground_truth. Outputs will be given either
-    the highest or lowest score depending on if they are consistent with the ground_truth. When
-    dealing with inputs that may have multiple correct outputs, varying degrees of correctness,
-    or when considering other factors such as the comprehensiveness of the output, it is more
-    appropriate to use the correctness metric instead.
+    binary, and the source of truth is provided in the ``ground_truth``. Outputs will be
+    given either the highest or lowest score depending on if they are consistent with the
+    ``ground_truth``. When dealing with inputs that may have multiple correct outputs, varying
+    degrees of correctness, or when considering other factors such as the comprehensiveness of
+    the output, it is more appropriate to use the correctness metric instead.
 
-    The ground_truth eval_arg must be provided as part of the input dataset or output predictions.
-    This can be mapped to a column of a different name using the evaluator_config.
+    The ``ground_truth`` eval_arg must be provided as part of the input dataset or output
+    predictions. This can be mapped to a column of a different name using the a ``col_mapping``
+    in the ``evaluator_config``.
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
@@ -143,10 +145,11 @@ def relevance(
     """
     This function will create a genai metric used to evaluate the relevance of an LLM using the
     model provided. Relevance will be assessed by the appropriateness, significance, and
-    applicability of the output with respect to the input and context.
+    applicability of the output with respect to the ``input`` and ``context``.
 
-    The context eval_arg must be provided as part of the input dataset or output predictions.
-    This can be mapped to a column of a different name using the evaluator_config.
+    The ``input`` and ``context`` args must be provided as part of the input dataset or output
+    predictions. This can be mapped to a column of a different name using the a ``col_mapping``
+    in the ``evaluator_config``.
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
