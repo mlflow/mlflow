@@ -102,7 +102,7 @@ class TrainStep(BaseStep):
             if self.step_config["tuning_enabled"]:
                 if "sample_fraction" in self.step_config["tuning"]:
                     sample_fraction = float(self.step_config["tuning"]["sample_fraction"])
-                    if sample_fraction > 0 and sample_fraction <= 1.0:
+                    if 0 < sample_fraction <= 1.0:
                         self.step_config["sample_fraction"] = sample_fraction
                     else:
                         raise MlflowException(
