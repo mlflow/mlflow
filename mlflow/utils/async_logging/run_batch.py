@@ -8,30 +8,27 @@ from mlflow.entities.run_tag import RunTag
 class RunBatch:
     def __init__(
         self,
-        id,
         run_id: str,
         params: [Param],
         tags: [RunTag],
         metrics: [Metric],
-        event: threading.Event,
+        completion_event: threading.Event,
     ) -> None:
         """
         Initializes an instance of RunBatch.
 
         Args:
-            id: The ID of the instance.
             run_id: The ID of the run.
             params: A list of parameters.
             tags: A list of tags.
             metrics: A list of metrics.
-            event: A threading.Event object.
+            completion_event: A threading.Event object.
         """
-        self.id = id
         self.run_id = run_id
-        self.params = params
-        self.tags = tags
-        self.metrics = metrics
-        self.event = event
+        self.params = params or []
+        self.tags = tags or []
+        self.metrics = metrics or []
+        self.completion_event = completion_event
         self.exception = None
 
     def is_empty(self):

@@ -12,8 +12,8 @@ from queue import Empty, Queue
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
-from mlflow.utils.async_utils.run_batch import RunBatch
-from mlflow.utils.async_utils.run_operations import RunOperations
+from mlflow.utils.async_logging.run_batch import RunBatch
+from mlflow.utils.async_logging.run_operations import RunOperations
 
 _logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class AsyncLoggingQueue:
     single worker thread.
     """
 
-    def __init__(self, processing_func: callable) -> None:
+    def __init__(self, logging_func: callable([str, [Metric], [Param], [RunTag]])) -> None:
         """
         Initializes an AsyncLoggingQueue object.
 
@@ -37,16 +37,14 @@ class AsyncLoggingQueue:
             processing_func (callable): A function that will be called to process each item in
              the queue.
         """
-        self._running_runs = {}  # Dict[str, Queue]
-        self._processing_func = processing_func
-        self.enqueued_watermark = -1
-        self.processed_watermark = -1
+        self._active_run_data_batches = {}  # Dict[str, Queue]
+        self._logging_func = logging_func
         self._queue_consumer = threading.Event()
         self._lock = threading.RLock()
         self.continue_to_process_data = True
         self.run_data_process_thread = _RUN_DATA_LOGGING_THREADPOOL.submit(
-            self._log_run_data
-        )  # concurrent.futures.Future[self._log_run_data]
+            self._logging_loop
+        )  # concurrent.futures.Future[self._logging_loop]
 
         atexit.register(self._at_exit_callback)
 
@@ -61,10 +59,10 @@ class AsyncLoggingQueue:
             Queue: The queue associated with the given run ID.
         """
         self._lock.acquire()
-        if not self._running_runs.get(run_id, None):
-            self._running_runs[run_id] = Queue()
+        if not self._active_run_data_batches.get(run_id, None):
+            self._active_run_data_batches[run_id] = Queue()
         self._lock.release()
-        return self._running_runs[run_id]
+        return self._active_run_data_batches[run_id]
 
     def _at_exit_callback(self) -> None:
         """
@@ -76,10 +74,7 @@ class AsyncLoggingQueue:
         """
         try:
             # Stop the data processing thread
-            self._lock.acquire()
             self.continue_to_process_data = False
-            self._lock.release()
-            self._queue_consumer.set()
             # Waits till queue is drained.
             self.run_data_process_thread.result()
             _RUN_DATA_LOGGING_THREADPOOL.shutdown(wait=False)
@@ -87,7 +82,7 @@ class AsyncLoggingQueue:
         except Exception as e:
             _logger.error(f"Error while callback from atexit in _at_exit_callback: {e}")
 
-    def _log_run_data(self) -> None:
+    def _logging_loop(self) -> None:
         """
         Continuously processes run data from the logging queue until `continue_to_process_data`
          is False.
@@ -95,13 +90,13 @@ class AsyncLoggingQueue:
         """
         try:
             while self.continue_to_process_data:
-                self._queue_consumer.wait()
-                self._process_run_data()
+                self._log_run_data()
         except Exception as e:
-            _logger.error(f"Exception inside the thread: {e}")
-            raise
+            from mlflow.exceptions import MlflowException
 
-    def _process_run_data(self) -> None:
+            raise MlflowException(f"Exception inside the run data logging thread: {e}")
+
+    def _log_run_data(self) -> None:
         """
         Process the run data in the running runs queues.
 
@@ -115,43 +110,29 @@ class AsyncLoggingQueue:
 
         Returns: None
         """
-        for run_id, run_queue in self._running_runs.items():
-            try:
-                while not run_queue.empty():
+        run_batch = None  # type: RunBatch
+        for run_id, run_queue in self._active_run_data_batches.items():
+            while not run_queue.empty():
+                try:
                     run_batch = run_queue.get(timeout=1)
-                    try:
-                        if run_batch.is_empty():
-                            continue
-                        self._processing_func(
-                            run_id=run_id,
-                            metrics=run_batch.metrics,
-                            params=run_batch.params,
-                            tags=run_batch.tags,
-                        )
-                        self.processed_watermark = run_batch.id
-                        # Signal the batch processing is done.
-                        run_batch.event.set()
-                        _logger.debug(
-                            f"run_id: {run_id}, Processed watermark: {self.processed_watermark}"
-                        )
-                    except Exception as e:  # Importing MlflowException gives circular reference
-                        # / module load error, need to figure out why.
-                        _logger.error(f"Failed to log run data: Exception: {e}")
-                        run_batch.exception = e
-                        run_batch.event.set()
-            except Empty:
-                # Ignore empty queue exception
-                pass
+                except Empty:
+                    # Ignore empty queue exception
+                    continue
+                try:
+                    self._logging_func(
+                        run_id=run_id,
+                        metrics=run_batch.metrics,
+                        params=run_batch.params,
+                        tags=run_batch.tags,
+                    )
 
-    def _get_next_id(self) -> int:
-        """
-        Returns the next available ID for an item in the queue. This method is thread-safe.
-        """
-        self._lock.acquire()
-        next_id = self.enqueued_watermark + 1
-        self.enqueued_watermark = next_id
-        self._lock.release()
-        return next_id
+                    # Signal the batch processing is done.
+                    run_batch.completion_event.set()
+
+                except Exception as e:
+                    _logger.error(f"Run Id {run_id}: Failed to log run data: Exception: {e}")
+                    run_batch.exception = e
+                    run_batch.completion_event.set()
 
     def _wait_for_batch(self, batch: RunBatch) -> None:
         """
@@ -163,9 +144,13 @@ class AsyncLoggingQueue:
         Raises:
             Exception: If an exception occurred while processing the batch.
         """
-        batch.event.wait()
-        if batch.exception:
-            raise batch.exception
+        try:
+            batch.completion_event.wait()
+            if batch.exception:
+                raise batch.exception
+        except Exception as e:
+            _logger.error(f"{batch.run_id}: Exception while waiting for batch: {e}")
+            raise
 
     def log_batch_async(
         self, run_id: str, params: [Param], tags: [RunTag], metrics: [Metric]
@@ -189,22 +174,17 @@ class AsyncLoggingQueue:
         run_queue = self._add_run(run_id=run_id)
 
         batch = RunBatch(
-            id=self._get_next_id(),
             run_id=run_id,
             params=params,
             tags=tags,
             metrics=metrics,
-            event=threading.Event(),
+            completion_event=threading.Event(),
         )
 
         if batch.is_empty():
             return RunOperations()
 
         run_queue.put(batch)
-        _logger.debug(f"run_id: {run_id}, Enqueued watermark: {batch.id}")
-
-        # Signal for consumer to start consuming.
-        self._queue_consumer.set()
 
         operation_future = _RUN_BATCH_PROCESSING_STATUS_CHECK_THREADPOOL.submit(
             self._wait_for_batch, batch

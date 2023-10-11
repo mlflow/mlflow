@@ -18,7 +18,7 @@ from mlflow.store.tracking import GET_METRIC_HISTORY_MAX_RESULTS, SEARCH_MAX_RES
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
-from mlflow.utils.async_utils.run_operations import RunOperations
+from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
@@ -303,15 +303,22 @@ class TrackingServiceClient:
         """
         Log a parameter (e.g. model hyperparameter) against the run ID. Value is converted to
         a string.
+
+        :param run_id: ID of the run to log the parameter against.
+        :param key: Name of the parameter.
+        :param value: Value of the parameter.
         :param synchronous: [Experimental] Defaults to True with no behavior change.
                              Indicates if the parameter would be logged in synchronous fashion
-                              or not.
+                             or not.
                             When it is True this call would be blocking call and offers immediate
                              consistency of the parameter upon returning.
                             When this value is set to False, parameter would be logged in async
                              fashion. Backing provider gurantees that parameter is accepted
                              into system but would persist them with some time delay -
                              'near-real time'/'eventual' consistency.
+
+        :return: An instance of `RunOperations` that can be used to perform additional operations
+                 on the run.
         """
         param = Param(key, str(value))
         try:
@@ -427,8 +434,7 @@ class TrackingServiceClient:
 
         param_batches = chunk_list(params, MAX_PARAMS_TAGS_PER_BATCH)
         tag_batches = chunk_list(tags, MAX_PARAMS_TAGS_PER_BATCH)
-        run_operations_list = []  # [RunOperations]
-        run_operations = None
+        run_operations_list = []  # type: List[RunOperations]
         for params_batch, tags_batch in zip_longest(param_batches, tag_batches, fillvalue=[]):
             metrics_batch_size = min(
                 MAX_ENTITIES_PER_BATCH - len(params_batch) - len(tags_batch),
@@ -437,6 +443,9 @@ class TrackingServiceClient:
             metrics_batch_size = max(metrics_batch_size, 0)
             metrics_batch = metrics[:metrics_batch_size]
             metrics = metrics[metrics_batch_size:]
+
+            run_operations = None
+
             if synchronous:
                 run_operations = self.store.log_batch(
                     run_id=run_id,
@@ -462,16 +471,11 @@ class TrackingServiceClient:
                 run_operations = self.store.log_batch_async(
                     run_id=run_id, metrics=metrics_batch, params=[], tags=[]
                 )
-            run_operations_list.append(run_operations)
+            if run_operations:
+                run_operations_list.append(run_operations)
 
-        if len(run_operations_list) > 1:
-            operation_futures = []
-            for run_operations in run_operations_list:
-                if operation_futures:
-                    operation_futures.append(run_operations._operation_futures)
-            return RunOperations(operation_futures)
-
-        return run_operations_list[0]
+        # Merge all the run operations into a single run operations object
+        return get_combined_run_operations(run_operations_list)
 
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """

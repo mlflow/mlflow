@@ -6,7 +6,7 @@ import uuid
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
-from mlflow.utils.async_utils.async_logging_queue import AsyncLoggingQueue
+from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
 
 METRIC_PER_BATCH = 250
 TAGS_PER_BATCH = 1

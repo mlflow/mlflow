@@ -5,8 +5,8 @@ from mlflow.entities import DatasetInput, ViewType
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils.annotations import developer_stable, experimental
-from mlflow.utils.async_utils.async_logging_queue import AsyncLoggingQueue
-from mlflow.utils.async_utils.run_operations import RunOperations
+from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
+from mlflow.utils.async_logging.run_operations import RunOperations
 
 
 @developer_stable
@@ -23,7 +23,7 @@ class AbstractStore:
         Empty constructor for now. This is deliberately not marked as abstract, else every
         derived class would be forced to create one.
         """
-        self.run_data_processor = AsyncLoggingQueue(processing_func=self.log_batch)
+        self._async_logging_queue = AsyncLoggingQueue(logging_func=self.log_batch)
 
     @abstractmethod
     def search_experiments(
@@ -384,7 +384,7 @@ class AbstractStore:
         :param tags: List of :py:class:`mlflow.entities.RunTag` instances to log
         :return: None.
         """
-        return self.run_data_processor.log_batch_async(
+        return self._async_logging_queue.log_batch_async(
             run_id=run_id, metrics=metrics, params=params, tags=tags
         )
 
