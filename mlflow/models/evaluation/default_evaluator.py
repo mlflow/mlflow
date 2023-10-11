@@ -1299,6 +1299,36 @@ class DefaultEvaluator(ModelEvaluator):
         self._calculate_general_text_metrics()
         self._log_eval_table()
 
+    def _calculate_recall(self):
+        k = self.evaluator_config.get("k")
+        if k is None:
+            # throw some error here
+            return
+
+        # some validation on the format of dataset? or should this occur higher up
+
+        doc_col_name = self.evaluator_config.get("ground_truth_doc")
+        if doc_col_name is not None:
+            # check if the doc ID of each of the top K retrieved chunks matches any of the doc ID(s) for this row
+            pass
+
+        # context_col_name = self.evaluator_config.get("ground_truth_context")
+        # if context_col_name is not None:
+        #     # do some substring matching shit for each of the top K retrieved chunks here
+        #     # do this later
+        #     pass
+
+        metrics = []
+
+        # write to metrics
+        self.metrics.update(metrics)
+
+    def _calculate_retriever_metrics(self):
+        self.dataset._features_data
+
+    def _evaluate_retriever(self):
+        self._calculate_retriever_metrics()
+
     def _evaluate(
         self,
         model: "mlflow.pyfunc.PyFuncModel",
@@ -1339,6 +1369,8 @@ class DefaultEvaluator(ModelEvaluator):
                     self._evaluate_text_summarization()
                 elif self.model_type == _ModelType.TEXT:
                     self._evaluate_text()
+                elif self.model_type == _ModelType.RETRIEVER:
+                    self._evaluate_retriever()
 
                 if self.custom_metrics or self.custom_artifacts:
                     eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
