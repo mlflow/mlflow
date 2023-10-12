@@ -325,10 +325,7 @@ class TrainStep(BaseStep):
                             f"skipping rebalancing."
                         )
 
-            X_train, y_train = (
-                train_df.drop(columns=[self.target_col]),
-                train_df[self.target_col],
-            )
+            X_train, y_train = train_df.drop(columns=[self.target_col]), train_df[self.target_col]
 
             transformed_validation_data_path = get_step_output_path(
                 recipe_root_path=self.recipe_root,
@@ -421,8 +418,8 @@ class TrainStep(BaseStep):
                     # Saving a temp model so that the output schema (signature) of the model's
                     # pyfunc representation can be inferred and included when logging the model
                     # to MLflow Tracking. Unfortunately, there is currently no easy way to infer
-                    # the model's signature without first saving a copy of it, and there is
-                    # no easy way to add an inferred signature to an existing model
+                    # the model's signature without first saving a copy of it, and there is no easy
+                    # way to add an inferred signature to an existing model
                     pyfunc_model_tmp_path = os.path.join(tmp.path(), "pyfunc_model")
                     mlflow.pyfunc.save_model(
                         path=pyfunc_model_tmp_path,

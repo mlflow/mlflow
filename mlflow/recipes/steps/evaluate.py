@@ -226,8 +226,7 @@ class EvaluateStep(BaseStep):
                     eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
                     eval_metrics[dataset_name] = {
                         transform_multiclass_metric(
-                            strip_prefix(k, evaluator_config["metric_prefix"]),
-                            self.extended_task,
+                            strip_prefix(k, evaluator_config["metric_prefix"]), self.extended_task
                         ): v
                         for k, v in eval_result.metrics.items()
                     }
