@@ -65,5 +65,5 @@ with mlflow.start_run() as run:
     )
     print(results)
 
-    eval_table = results.table["eval_results_table"]
+    eval_table = results.tables["eval_results_table"]
     print(eval_table)
