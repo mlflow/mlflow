@@ -87,7 +87,7 @@ def _get_str_or_byte_type(data):
         return DataType.binary
 
 
-def _infer_datatype(data) -> DataType:
+def _infer_datatype(data) -> Optional[DataType]:
     if DataType.is_boolean(data):
         return DataType.boolean
     if DataType.is_integer(data):

@@ -243,6 +243,10 @@ class Object:
             raise MlflowException.invalid_parameter_value(
                 f"Expected properties to be a list, got type {type(properties).__name__}"
             )
+        if len(properties) == 0:
+            raise MlflowException.invalid_parameter_value(
+                "Creating Object with empty properties is not allowed."
+            )
         if any(not isinstance(v, Property) for v in properties):
             raise MlflowException.invalid_parameter_value(
                 "Expected values to be instance of Property"
@@ -314,7 +318,7 @@ class Array:
 
     def __init__(
         self,
-        dtype: Union[DataType, ObjectType, str],
+        dtype: Union[DataType, Object, str],
     ) -> None:
         try:
             self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
@@ -330,7 +334,7 @@ class Array:
             )
 
     @property
-    def dtype(self) -> Union[DataType, ObjectType]:
+    def dtype(self) -> Union[DataType, Object]:
         """The array data type."""
         return self._dtype
 
@@ -340,7 +344,9 @@ class Array:
         return False
 
     def to_dict(self):
-        items = self.dtype.name if isinstance(self.dtype, DataType) else self.dtype.to_dict()
+        items = (
+            {"type": self.dtype.name} if isinstance(self.dtype, DataType) else self.dtype.to_dict()
+        )
         return {"type": ARRAY_TYPE, "items": items}
 
     @classmethod
@@ -357,11 +363,13 @@ class Array:
             )
         if kwargs["type"] != ARRAY_TYPE:
             raise MlflowException("Type mismatch, Array expects `array` as the type")
-        if isinstance(kwargs["items"], str):
-            return cls(dtype=kwargs["items"])
         if not isinstance(kwargs["items"], dict):
             raise MlflowException("Expected items to be a dictionary of Object JSON")
-        return cls(Object.from_json_dict(**kwargs["items"]))
+        if not {"type"} <= set(kwargs["items"].keys()):
+            raise MlflowException("Missing keys in Array's items JSON. Expected to find key `type`")
+        if kwargs["items"]["type"] != OBJECT_TYPE:
+            return cls(dtype=kwargs["items"]["type"])
+        return cls(dtype=Object.from_json_dict(**kwargs["items"]))
 
 
 class ColSpec:
