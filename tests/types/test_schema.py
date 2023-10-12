@@ -27,7 +27,7 @@ from mlflow.types.utils import (
     _infer_colspec_type,
     _infer_param_schema,
     _infer_schema,
-    _update_object_properties,
+    _merge_object_properties,
     _update_property_type,
     _validate_input_dictionary_contains_only_strings_and_lists_of_strings,
 )
@@ -1163,23 +1163,22 @@ def test_object_from_dict_with_errors():
         )
 
 
-def test_array_to_and_from_dict():
-    for data_type in DataType:
-        arr = Array(data_type)
-        assert arr.to_dict() == {"type": "array", "items": {"type": data_type.name}}
-        assert Array.from_json_dict(**json.loads(json.dumps(arr.to_dict()))) == arr
+@pytest.mark.parametrize("data_type", DataType)
+def test_array_to_and_from_dict(data_type):
+    arr = Array(data_type)
+    assert arr.to_dict() == {"type": "array", "items": {"type": data_type.name}}
+    assert Array.from_json_dict(**json.loads(json.dumps(arr.to_dict()))) == arr
 
     # test object
-    for data_type in DataType:
-        arr = Array(Object([Property("p", data_type)]))
-        assert arr.to_dict() == {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {"p": {"type": data_type.name, "required": True}},
-            },
-        }
-        assert Array.from_json_dict(**json.loads(json.dumps(arr.to_dict()))) == arr
+    arr = Array(Object([Property("p", data_type)]))
+    assert arr.to_dict() == {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {"p": {"type": data_type.name, "required": True}},
+        },
+    }
+    assert Array.from_json_dict(**json.loads(json.dumps(arr.to_dict()))) == arr
 
 
 def test_array_from_dict_with_errors():
@@ -1207,7 +1206,7 @@ def test_array_from_dict_with_errors():
         Array.from_json_dict(**{"type": "array", "items": {"type": "object", "properties": []}})
 
 
-def test_update_object_properties_example():
+def test_merge_object_properties_example():
     obj1 = Object(
         properties=[
             Property(name="a", dtype=DataType.string),
@@ -1220,7 +1219,7 @@ def test_update_object_properties_example():
             Property(name="c", dtype=DataType.boolean),
         ]
     )
-    updated_obj = _update_object_properties(obj1, obj2)
+    updated_obj = _merge_object_properties(obj1, obj2)
     assert updated_obj == Object(
         properties=[
             Property(name="a", dtype=DataType.string),

@@ -106,7 +106,7 @@ def _infer_datatype(data) -> Optional[DataType]:
         return DataType.datetime
 
 
-def _update_object_properties(obj1: Object, obj2: Object) -> Object:
+def _merge_object_properties(obj1: Object, obj2: Object) -> Object:
     """
     Check if two objects are compatible and return the updated object.
     When we infer the signature from a list of objects, it is possible
@@ -130,7 +130,7 @@ def _update_object_properties(obj1: Object, obj2: Object) -> Object:
                     Property(name="c", dtype=DataType.boolean),
                 ]
             )
-            updated_obj = _update_object_properties(obj1, obj2)
+            updated_obj = _merge_object_properties(obj1, obj2)
             assert updated_obj == Object(
                 properties=[
                     Property(name="a", dtype=DataType.string),
@@ -206,13 +206,13 @@ def _update_property_type(prop1: Property, prop2: Property) -> Property:
         raise MlflowException(f"Properties are incompatible for {prop1.dtype} and {prop2.dtype}")
 
     if isinstance(prop1.dtype, Object) and isinstance(prop2.dtype, Object):
-        return Property(name=prop1.name, dtype=_update_object_properties(prop1.dtype, prop2.dtype))
+        return Property(name=prop1.name, dtype=_merge_object_properties(prop1.dtype, prop2.dtype))
 
     if isinstance(prop1.dtype, Array) and isinstance(prop2.dtype, Array):
         if prop1.dtype.dtype == prop2.dtype.dtype:
             return Property(name=prop1.name, dtype=prop1.dtype, required=required)
         if isinstance(prop1.dtype.dtype, Object) and isinstance(prop2.dtype.dtype, Object):
-            obj = _update_object_properties(prop1.dtype.dtype, prop2.dtype.dtype)
+            obj = _merge_object_properties(prop1.dtype.dtype, prop2.dtype.dtype)
             return Property(name=prop1.name, dtype=Array(obj), required=required)
 
     raise MlflowException("Properties are incompatible")
@@ -250,7 +250,7 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
                     raise MlflowException.invalid_parameter_value(
                         "Expected all values in list to be of same type"
                     )
-                dtype = _update_object_properties(dtype, dtype2)
+                dtype = _merge_object_properties(dtype, dtype2)
             return Array(dtype)
         elif isinstance(dtype, DataType):
             if any(_infer_colspec_type(v) != dtype for v in data[1:]):
