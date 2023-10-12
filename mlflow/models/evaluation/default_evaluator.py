@@ -1156,7 +1156,7 @@ class DefaultEvaluator(ModelEvaluator):
                             f"To resolve this issue, you may want to map {param_name} to an "
                             "existing column using the following configuration:\n"
                             f"evaluator_config={{'col_mapping': {{'{param_name}': "
-                            "'[insert existing column name]'}}}}\n"
+                            "'[insert existing column name]'}}\n"
                         )
 
         return eval_fn_args
