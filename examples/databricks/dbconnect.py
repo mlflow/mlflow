@@ -1,5 +1,5 @@
 """
-python examples/databricks/dbconnect.py --cluster-id abc
+python examples/databricks/dbconnect.py --cluster-id <cluster-id>
 """
 import argparse
 
