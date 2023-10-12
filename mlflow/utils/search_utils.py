@@ -442,8 +442,7 @@ class SearchUtils:
             return False
         elif token.match(ttype=TokenType.Keyword, values=["AND"]):
             return False
-        else:
-            return True
+        return True
 
     @classmethod
     def _process_statement(cls, statement):
@@ -876,8 +875,7 @@ class SearchExperimentsUtils(SearchUtils):
             return False
         elif token.match(ttype=TokenType.Keyword, values=["AND"]):
             return False
-        else:
-            return True
+        return True
 
     @classmethod
     def _process_statement(cls, statement):
@@ -1204,8 +1202,7 @@ class SearchModelUtils(SearchUtils):
             return False
         elif token.match(ttype=TokenType.Keyword, values=["AND"]):
             return False
-        else:
-            return True
+        return True
 
 
 class SearchModelVersionUtils(SearchUtils):
@@ -1402,8 +1399,7 @@ class SearchModelVersionUtils(SearchUtils):
             return False
         elif token.match(ttype=TokenType.Keyword, values=["AND"]):
             return False
-        else:
-            return True
+        return True
 
     @classmethod
     def parse_search_filter(cls, filter_string):
