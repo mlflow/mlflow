@@ -431,8 +431,12 @@ class ColSpec:
             raise MlflowException("Missing keys in ColSpec JSON. Expected to find key `type`")
         if kwargs["type"] not in ["array", "object"]:
             return cls(**kwargs)
+        name = kwargs.pop("name", None)
+        required = kwargs.pop("required", True)
         if kwargs["type"] == "array":
-            return cls(Array.from_json_dict(**kwargs))
+            return cls(name=name, type=Array.from_json_dict(**kwargs), required=required)
+        if kwargs["type"] == "object":
+            return cls(name=name, type=Object.from_json_dict(**kwargs), required=required)
 
 
 class TensorInfo:
