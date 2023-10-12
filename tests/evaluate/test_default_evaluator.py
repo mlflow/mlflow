@@ -170,7 +170,9 @@ def test_regressor_evaluation(
             evaluators="default",
             eval_baseline_model_only=False,
             evaluator_config={
-                "sample_weights": sample_weights,
+                "col_mapping": {
+                    "sample_weights": sample_weights,
+                }
             },
         )
 
@@ -297,7 +299,9 @@ def test_multi_classifier_evaluation(
             evaluators="default",
             eval_baseline_model_only=False,
             evaluator_config={
-                "sample_weights": sample_weights,
+                "col_mapping": {
+                    "sample_weights": sample_weights,
+                }
             },
         )
 
@@ -422,7 +426,9 @@ def test_bin_classifier_evaluation(
             evaluators="default",
             eval_baseline_model_only=False,
             evaluator_config={
-                "sample_weights": sample_weights,
+                "col_mapping": {
+                    "sample_weights": sample_weights,
+                }
             },
         )
 
