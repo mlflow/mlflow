@@ -296,7 +296,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install tensorflow pyspark
+          pip install tensorflow 'pyspark[connect]'
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
