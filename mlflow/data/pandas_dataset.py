@@ -31,6 +31,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         targets: str = None,
         name: Optional[str] = None,
         digest: Optional[str] = None,
+        predictions: Optional[str] = None,
     ):
         """
         :param df: A pandas DataFrame.
@@ -47,8 +48,15 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
                 f" '{targets}'.",
                 INVALID_PARAMETER_VALUE,
             )
+        if predictions is not None and predictions not in df.columns:
+            raise MlflowException(
+                f"The specified pandas DataFrame does not contain the specified predictions column"
+                f" '{predictions}'.",
+                INVALID_PARAMETER_VALUE,
+            )
         self._df = df
         self._targets = targets
+        self._predictions = predictions
         super().__init__(source=source, name=name, digest=digest)
 
     def _compute_digest(self) -> str:
@@ -97,6 +105,13 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._targets
 
     @property
+    def predicitons(self) -> Optional[str]:
+        """
+        The name of the predicitons column. May be ``None`` if no predicitons column is available.
+        """
+        return self._predicitons
+
+    @property
     def profile(self) -> Optional[Any]:
         """
         A profile of the dataset. May be ``None`` if a profile cannot be computed.
@@ -130,7 +145,9 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         else:
             return PyFuncInputsOutputs(self._df)
 
-    def to_evaluation_dataset(self, path=None, feature_names=None) -> EvaluationDataset:
+    def to_evaluation_dataset(
+        self, path=None, feature_names=None, predictions=None
+    ) -> EvaluationDataset:
         """
         Converts the dataset to an EvaluationDataset for model evaluation. Required
         for use with mlflow.evaluate().
@@ -140,6 +157,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
             targets=self._targets,
             path=path,
             feature_names=feature_names,
+            predictions=predictions,
         )
 
 
@@ -150,6 +168,7 @@ def from_pandas(
     targets: Optional[str] = None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
+    predictions: Optional[str] = None,
 ) -> PandasDataset:
     """
     Constructs a :py:class:`PandasDataset <mlflow.data.pandas_dataset.PandasDataset>` instance from
@@ -169,6 +188,8 @@ def from_pandas(
     :param name: The name of the dataset. If unspecified, a name is generated.
     :param digest: The dataset digest (hash). If unspecified, a digest is computed
                    automatically.
+    :param predicitons: An optional predictions column name for model evaluation. This column
+                        must be present in the dataframe (``df``).
     """
     from mlflow.data.code_dataset_source import CodeDatasetSource
     from mlflow.data.dataset_source_registry import resolve_dataset_source
@@ -184,4 +205,11 @@ def from_pandas(
     else:
         context_tags = registry.resolve_tags()
         resolved_source = CodeDatasetSource(tags=context_tags)
-    return PandasDataset(df=df, source=resolved_source, targets=targets, name=name, digest=digest)
+    return PandasDataset(
+        df=df,
+        source=resolved_source,
+        targets=targets,
+        name=name,
+        digest=digest,
+        predictions=predictions,
+    )
