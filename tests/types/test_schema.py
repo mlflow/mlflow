@@ -27,6 +27,8 @@ from mlflow.types.utils import (
     _infer_colspec_type,
     _infer_param_schema,
     _infer_schema,
+    _update_object_properties,
+    _update_property_type,
     _validate_input_dictionary_contains_only_strings_and_lists_of_strings,
 )
 
@@ -1011,8 +1013,11 @@ def test_object_construction_with_errors():
     with pytest.raises(MlflowException, match=r"Expected values to be instance of Property"):
         Object(properties)
 
-    properties.pop()
-    properties.append(Property("p2", DataType.boolean))
+    properties = [
+        Property("p1", DataType.string),
+        Property("p2", DataType.binary),
+        Property("p2", DataType.boolean),
+    ]
     with pytest.raises(MlflowException, match=r"Found duplicated property names: {'p2'}"):
         Object(properties)
 
@@ -1197,6 +1202,55 @@ def test_array_from_dict_with_errors():
         Array.from_json_dict(
             **{"type": "array", "items": {"type": "invalid_type", "properties": {}}}
         )
+
+
+def test_update_object_properties_example():
+    obj1 = Object(
+        properties=[
+            Property(name="a", dtype=DataType.string),
+            Property(name="b", dtype=DataType.double),
+        ]
+    )
+    obj2 = Object(
+        properties=[
+            Property(name="a", dtype=DataType.string),
+            Property(name="c", dtype=DataType.boolean),
+        ]
+    )
+    updated_obj = _update_object_properties(obj1, obj2)
+    assert updated_obj == Object(
+        properties=[
+            Property(name="a", dtype=DataType.string),
+            Property(name="b", dtype=DataType.double, required=False),
+            Property(name="c", dtype=DataType.boolean, required=False),
+        ]
+    )
+
+
+def test_update_property_type_example():
+    prop1 = Property(
+        name="a",
+        dtype=Object(properties=[Property(name="a", dtype=DataType.string, required=False)]),
+    )
+    prop2 = Property(
+        name="a",
+        dtype=Object(
+            properties=[
+                Property(name="a", dtype=DataType.string),
+                Property(name="b", dtype=DataType.double),
+            ]
+        ),
+    )
+    updated_prop = _update_property_type(prop1, prop2)
+    assert updated_prop == Property(
+        name="a",
+        dtype=Object(
+            properties=[
+                Property(name="a", dtype=DataType.string, required=False),
+                Property(name="b", dtype=DataType.double, required=False),
+            ]
+        ),
+    )
 
 
 def test_infer_colspec_type():

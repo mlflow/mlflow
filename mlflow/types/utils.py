@@ -107,6 +107,39 @@ def _infer_datatype(data) -> DataType:
 
 
 def _update_object_properties(obj1: Object, obj2: Object) -> Object:
+    """
+    Check if two objects are compatible and return the updated object.
+    When we infer the signature from a list of objects, it is possible
+    that one object has more properties than the other. In this case,
+    we should mark those optional properties as required=False.
+    For properties with the same name, we should check the compatibility
+    of two properties and update.
+    An example of two compatible objects:
+
+        .. code-block:: python
+
+            obj1 = Object(
+                properties=[
+                    Property(name="a", dtype=DataType.string),
+                    Property(name="b", dtype=DataType.double),
+                ]
+            )
+            obj2 = Object(
+                properties=[
+                    Property(name="a", dtype=DataType.string),
+                    Property(name="c", dtype=DataType.boolean),
+                ]
+            )
+            updated_obj = _update_object_properties(obj1, obj2)
+            assert updated_obj == Object(
+                properties=[
+                    Property(name="a", dtype=DataType.string),
+                    Property(name="b", dtype=DataType.double, required=False),
+                    Property(name="c", dtype=DataType.boolean, required=False),
+                ]
+            )
+
+    """
     if obj1 == obj2:
         return obj1
     properties1 = {prop.name: prop for prop in obj1.properties}
@@ -129,6 +162,41 @@ def _update_object_properties(obj1: Object, obj2: Object) -> Object:
 
 
 def _update_property_type(prop1: Property, prop2: Property) -> Property:
+    """
+    Check if two properties are compatible and return the updated property.
+    When two properties has the same name, we need to check if the dtypes
+    of them are compatible or not.
+    An example of two compatible properties:
+
+        .. code-block:: python
+
+            prop1 = Property(
+                name="a",
+                dtype=Object(
+                    properties=[Property(name="a", dtype=DataType.string, required=False)]
+                ),
+            )
+            prop2 = Property(
+                name="a",
+                dtype=Object(
+                    properties=[
+                        Property(name="a", dtype=DataType.string),
+                        Property(name="b", dtype=DataType.double),
+                    ]
+                ),
+            )
+            updated_prop = _update_property_type(prop1, prop2)
+            assert updated_prop == Property(
+                name="a",
+                dtype=Object(
+                    properties=[
+                        Property(name="a", dtype=DataType.string, required=False),
+                        Property(name="b", dtype=DataType.double, required=False),
+                    ]
+                ),
+            )
+
+    """
     if prop1.name != prop2.name:
         raise MlflowException("Can't update two properties with different names")
     required = prop1.required and prop2.required
@@ -144,8 +212,8 @@ def _update_property_type(prop1: Property, prop2: Property) -> Property:
         if prop1.dtype.dtype == prop2.dtype.dtype:
             return Property(name=prop1.name, dtype=prop1.dtype, required=required)
         if isinstance(prop1.dtype.dtype, Object) and isinstance(prop2.dtype.dtype, Object):
-            object = _update_object_properties(prop1.dtype.dtype, prop2.dtype.dtype)
-            return Property(name=prop1.name, dtype=Array(object), required=required)
+            obj = _update_object_properties(prop1.dtype.dtype, prop2.dtype.dtype)
+            return Property(name=prop1.name, dtype=Array(obj), required=required)
 
     raise MlflowException("Properties are incompatible")
 

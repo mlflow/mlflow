@@ -12,6 +12,9 @@ import numpy as np
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 
+ARRAY_TYPE = "array"
+OBJECT_TYPE = "object"
+
 _logger = logging.getLogger(__name__)
 
 
@@ -138,7 +141,7 @@ class Property:
     def __init__(
         self,
         name: str,
-        dtype: Union[DataType, ArrayType, ObjectType, str],  # pylint: disable=redefined-builtin
+        dtype: Union[DataType, ArrayType, ObjectType, str],
         required: bool = True,
     ) -> None:
         """
@@ -187,7 +190,11 @@ class Property:
 
     def __eq__(self, other) -> bool:
         if isinstance(other, Property):
-            return self.dtype == other.dtype and self.required == other.required
+            return (
+                self.name == other.name
+                and self.dtype == other.dtype
+                and self.required == other.required
+            )
         return False
 
     def to_dict(self):
@@ -202,6 +209,7 @@ class Property:
         The dictionary is expected to contain only one key as `name`, and
         the value should be a dictionary containing `type` and
         optional `required` keys.
+        Example: {"property_name": {"type": "string", "required": True}}
         """
         if len(kwargs) != 1:
             raise MlflowException(
@@ -212,11 +220,11 @@ class Property:
             raise MlflowException(f"Missing keys in Property `{name}`. Expected to find key `type`")
         required = dic.pop("required", True)
         dtype = dic["type"]
-        if dtype not in ["array", "object"]:
+        if dtype not in [ARRAY_TYPE, OBJECT_TYPE]:
             return cls(name=name, dtype=dtype, required=required)
-        if dtype == "array":
+        if dtype == ARRAY_TYPE:
             return cls(name=name, dtype=Array.from_json_dict(**dic), required=required)
-        if dtype == "object":
+        if dtype == OBJECT_TYPE:
             return cls(name=name, dtype=Object.from_json_dict(**dic), required=required)
 
 
@@ -271,7 +279,7 @@ class Object:
             )
         )
         return {
-            "type": "object",
+            "type": OBJECT_TYPE,
             # Sort by name to make sure the order is stable
             "properties": properties,
         }
@@ -282,12 +290,13 @@ class Object:
         Deserialize from a json loaded dictionary.
         The dictionary is expected to contain `type` and
         `properties` keys.
+        Example: {"type": "object", "properties": {"property_name": {"type": "string"}}}
         """
         if not {"properties", "type"} <= set(kwargs.keys()):
             raise MlflowException(
                 "Missing keys in Object JSON. Expected to find keys `properties` and `type`"
             )
-        if kwargs["type"] != "object":
+        if kwargs["type"] != OBJECT_TYPE:
             raise MlflowException("Type mismatch, Object expects `object` as the type")
         if not isinstance(kwargs["properties"], dict) or any(
             not isinstance(prop, dict) for prop in kwargs["properties"].values()
@@ -316,7 +325,7 @@ class Array:
             )
         if not isinstance(self.dtype, (DataType, Object)):
             raise MlflowException(
-                "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Object"
+                "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Object "
                 f"or str for the 'dtype' argument, but got {self.dtype.__class__}"
             )
 
@@ -332,7 +341,7 @@ class Array:
 
     def to_dict(self):
         items = self.dtype.name if isinstance(self.dtype, DataType) else self.dtype.to_dict()
-        return {"type": "array", "items": items}
+        return {"type": ARRAY_TYPE, "items": items}
 
     @classmethod
     def from_json_dict(cls, **kwargs):
@@ -340,12 +349,13 @@ class Array:
         Deserialize from a json loaded dictionary.
         The dictionary is expected to contain `type` and
         `items` keys.
+        Example: {"type": "array", "items": "string"}
         """
         if not {"items", "type"} <= set(kwargs.keys()):
             raise MlflowException(
                 "Missing keys in Array JSON. Expected to find keys `items` and `type`"
             )
-        if kwargs["type"] != "array":
+        if kwargs["type"] != ARRAY_TYPE:
             raise MlflowException("Type mismatch, Array expects `array` as the type")
         if isinstance(kwargs["items"], str):
             return cls(dtype=kwargs["items"])
@@ -371,7 +381,7 @@ class ColSpec:
         if optional is not None:
             if required is not None:
                 raise MlflowException(
-                    "Only one of `optional` and `required` can be specified."
+                    "Only one of `optional` and `required` can be specified. "
                     "`optional` is deprecated, please use `required` instead."
                 )
             else:
@@ -382,7 +392,7 @@ class ColSpec:
                 self._optional = optional
                 self._required = not optional
         else:
-            self._required = required if required is not None else True
+            self._required = True if required is None else required
         try:
             self._type = DataType[type] if isinstance(type, str) else type
         except KeyError:
@@ -392,7 +402,7 @@ class ColSpec:
             )
         if not isinstance(self.type, (DataType, Array, Object)):
             raise TypeError(
-                "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array,"
+                "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array, "
                 "mlflow.types.schema.Object or str for the 'type' "
                 f"argument, but got {self.type.__class__}"
             )
@@ -455,16 +465,16 @@ class ColSpec:
         """
         if not {"type"} <= set(kwargs.keys()):
             raise MlflowException("Missing keys in ColSpec JSON. Expected to find key `type`")
-        if kwargs["type"] not in ["array", "object"]:
+        if kwargs["type"] not in [ARRAY_TYPE, OBJECT_TYPE]:
             return cls(**kwargs)
         name = kwargs.pop("name", None)
         optional = kwargs.pop("optional", None)
         required = kwargs.pop("required", None)
-        if kwargs["type"] == "array":
+        if kwargs["type"] == ARRAY_TYPE:
             return cls(
                 name=name, type=Array.from_json_dict(**kwargs), optional=optional, required=required
             )
-        if kwargs["type"] == "object":
+        if kwargs["type"] == OBJECT_TYPE:
             return cls(
                 name=name,
                 type=Object.from_json_dict(**kwargs),
