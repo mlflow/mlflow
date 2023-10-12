@@ -1027,35 +1027,33 @@ def test_object_construction_with_errors():
         Object(properties)
 
 
-def test_property_to_and_from_dict():
-    for data_type in DataType:
-        prop = Property("data", data_type, True)
-        assert prop.to_dict() == {"data": {"type": data_type.name, "required": True}}
-        assert Property.from_json_dict(**json.loads(json.dumps(prop.to_dict()))) == prop
+@pytest.mark.parametrize("data_type", DataType)
+def test_property_to_and_from_dict(data_type):
+    prop = Property("data", data_type, True)
+    assert prop.to_dict() == {"data": {"type": data_type.name, "required": True}}
+    assert Property.from_json_dict(**json.loads(json.dumps(prop.to_dict()))) == prop
 
     # test array
-    for data_type in DataType:
-        prop = Property("arr", Array(data_type), False)
-        assert prop.to_dict() == {
-            "arr": {
-                "type": "array",
-                "items": {"type": data_type.name},
-                "required": False,
-            },
-        }
-        assert Property.from_json_dict(**json.loads(json.dumps(prop.to_dict()))) == prop
+    prop = Property("arr", Array(data_type), False)
+    assert prop.to_dict() == {
+        "arr": {
+            "type": "array",
+            "items": {"type": data_type.name},
+            "required": False,
+        },
+    }
+    assert Property.from_json_dict(**json.loads(json.dumps(prop.to_dict()))) == prop
 
     # test object
-    for data_type in DataType:
-        prop = Property("data", Object([Property("p", data_type)]))
-        assert prop.to_dict() == {
-            "data": {
-                "type": "object",
-                "properties": {"p": {"type": data_type.name, "required": True}},
-                "required": True,
-            },
-        }
-        assert Property.from_json_dict(**json.loads(json.dumps(prop.to_dict()))) == prop
+    prop = Property("data", Object([Property("p", data_type)]))
+    assert prop.to_dict() == {
+        "data": {
+            "type": "object",
+            "properties": {"p": {"type": data_type.name, "required": True}},
+            "required": True,
+        },
+    }
+    assert Property.from_json_dict(**json.loads(json.dumps(prop.to_dict()))) == prop
 
 
 def test_property_from_dict_with_errors():

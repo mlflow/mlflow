@@ -128,10 +128,6 @@ class DataType(Enum):
         return next((v for v in cls._member_map_.values() if v.to_numpy() == np_type), None)
 
 
-ArrayType = TypeVar("ArrayType", bound="Array")
-ObjectType = TypeVar("ObjectType", bound="Object")
-
-
 @experimental
 class Property:
     """
@@ -141,7 +137,7 @@ class Property:
     def __init__(
         self,
         name: str,
-        dtype: Union[DataType, ArrayType, ObjectType, str],
+        dtype: Union[DataType, "Array", "Object", str],
         required: bool = True,
     ) -> None:
         """
@@ -175,7 +171,7 @@ class Property:
         return self._name
 
     @property
-    def dtype(self) -> Union[DataType, ArrayType, ObjectType]:
+    def dtype(self) -> Union[DataType, "Array", "Object"]:
         """The property data type."""
         return self._dtype
 
