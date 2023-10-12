@@ -1305,3 +1305,45 @@ def test_colspec_schema_to_and_from_dict():
         }
     ]
     assert Schema.from_json(json.dumps(schema.to_dict())) == schema
+
+    data = [
+        {
+            "messages": [
+                {"role": "system", "content": "Translate every message you receive to French."},
+                {"role": "user", "content": "I like machine learning"},
+            ],
+            "another_message": "hello world",
+        },
+        {
+            "messages": [
+                {"role": "user", "content": "Summarize the following document ...", "name": "jeff"},
+            ]
+        },
+    ]
+    dtype = _infer_colspec_type(data)
+    schema = Schema([ColSpec(dtype)])
+    assert schema.to_dict() == [
+        {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "messages": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "content": {"type": "string", "required": True},
+                                "name": {"type": "string", "required": False},
+                                "role": {"type": "string", "required": True},
+                            },
+                        },
+                        "required": True,
+                    },
+                    "another_message": {"type": "string", "required": False},
+                },
+            },
+            "required": True,
+        }
+    ]
+    assert Schema.from_json(json.dumps(schema.to_dict())) == schema
