@@ -191,34 +191,33 @@ class Property:
         return False
 
     def to_dict(self):
-        d = {"name": self.name}
-        if isinstance(self.dtype, DataType):
-            d["type"] = self.dtype.name
-        else:
-            d.update(self.dtype.to_dict())
+        d = {"type": self.dtype.name} if isinstance(self.dtype, DataType) else self.dtype.to_dict()
         d["required"] = self.required
-        return d
+        return {self.name: d}
 
     @classmethod
     def from_json_dict(cls, **kwargs):
         """
         Deserialize from a json loaded dictionary.
-        The dictionary is expected to contain `name`, `type` and
+        The dictionary is expected to contain only one key as `name`, and
+        the value should be a dictionary containing `type` and
         optional `required` keys.
         """
-        if not {"name", "type"} <= set(kwargs.keys()):
+        if len(kwargs) != 1:
             raise MlflowException(
-                "Missing keys in Property JSON. Expected to find keys `name` and `type`"
+                f"Expected Property JSON to contain a single key as name, got {len(kwargs)} keys."
             )
-        name = kwargs.pop("name")
-        required = kwargs.pop("required", True)
-        dtype = kwargs["type"]
+        name, dic = kwargs.popitem()
+        if not {"type"} <= set(dic.keys()):
+            raise MlflowException(f"Missing keys in Property `{name}`. Expected to find key `type`")
+        required = dic.pop("required", True)
+        dtype = dic["type"]
         if dtype not in ["array", "object"]:
             return cls(name=name, dtype=dtype, required=required)
         if dtype == "array":
-            return cls(name=name, dtype=Array.from_json_dict(**kwargs), required=required)
+            return cls(name=name, dtype=Array.from_json_dict(**dic), required=required)
         if dtype == "object":
-            return cls(name=name, dtype=Object.from_json_dict(**kwargs), required=required)
+            return cls(name=name, dtype=Object.from_json_dict(**dic), required=required)
 
 
 @experimental
@@ -266,14 +265,15 @@ class Object:
         return False
 
     def to_dict(self):
-        properties = sorted([prop.to_dict() for prop in self.properties], key=lambda x: x["name"])
+        properties = dict(
+            sorted(
+                (name, value) for prop in self.properties for name, value in prop.to_dict().items()
+            )
+        )
         return {
             "type": "object",
             # Sort by name to make sure the order is stable
             "properties": properties,
-            # Question: should we update as below (which aligns with the design doc)
-            # but it makes to_dict & from_json_dict not symmetric
-            # "properties": {prop.pop("name"): prop for prop in properties},
         }
 
     @classmethod
@@ -289,17 +289,13 @@ class Object:
             )
         if kwargs["type"] != "object":
             raise MlflowException("Type mismatch, Object expects `object` as the type")
-        if not isinstance(kwargs["properties"], list) or any(
-            not isinstance(prop, dict) for prop in kwargs["properties"]
+        if not isinstance(kwargs["properties"], dict) or any(
+            not isinstance(prop, dict) for prop in kwargs["properties"].values()
         ):
-            raise MlflowException("Expected properties to be a list of Property JSON")
-        return cls([Property.from_json_dict(**prop) for prop in kwargs["properties"]])
-
-        # This corresponds to line 276's comment
-        # for name, prop in kwargs["properties"].items():
-        #     # this should be in-place update
-        #     prop["name"] = name
-        # return cls([Property.from_json_dict(**prop) for prop in kwargs["properties"].values()])
+            raise MlflowException("Expected properties to be a dictionary of Property JSON")
+        return cls(
+            [Property.from_json_dict(**{name: prop}) for name, prop in kwargs["properties"].items()]
+        )
 
 
 class Array:
@@ -353,6 +349,8 @@ class Array:
             raise MlflowException("Type mismatch, Array expects `array` as the type")
         if isinstance(kwargs["items"], str):
             return cls(dtype=kwargs["items"])
+        if not isinstance(kwargs["items"], dict):
+            raise MlflowException("Expected items to be a dictionary of Object JSON")
         return cls(Object.from_json_dict(**kwargs["items"]))
 
 
