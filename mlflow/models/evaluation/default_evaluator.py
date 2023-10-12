@@ -1125,8 +1125,15 @@ class DefaultEvaluator(ModelEvaluator):
                 elif param_name == "targets":
                     if "target" in eval_df_copy:
                         eval_fn_args.append(eval_df_copy["target"])
-                    else:
-                        eval_fn_args.append(None)
+                    elif param.default == inspect.Parameter.empty:
+                        raise MlflowException(
+                            "Error: Metric Calculation Failed\n"
+                            f"Metric '{extra_metric.name}' requires the column '{param_name}' to "
+                            "be defined in either the input data or resulting output data.\n"
+                            f"To resolve this issue, you may want to map {param_name} to an "
+                            "existing column using the following configuration:\n"
+                            f"evaluator_config={{'col_mapping': {{'{param_name}': 'col_name'}}}}"
+                        )
                 elif param_name == "metrics":
                     eval_fn_args.append(copy.deepcopy(self.metrics_values))
                 else:
@@ -1394,7 +1401,7 @@ class DefaultEvaluator(ModelEvaluator):
             try:
                 self._get_args_for_metrics(metric, eval_df)
             except Exception as e:
-                exceptions.append((metric, e))
+                exceptions.append((metric.name, e))
         
         if len(exceptions) > 0:
             raise MlflowException(f"failed to get correct args for the following metrics, {exceptions}")
@@ -1403,7 +1410,8 @@ class DefaultEvaluator(ModelEvaluator):
         # evaluate first row
         # eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
         
-        self._check_args(self.builtin_metrics + self.extra_metrics, eval_df)
+        metrics = self.builtin_metrics + self.extra_metrics
+        self._check_args(metrics, eval_df)
         # try to get necessary args for all builtin metrics
             
         # collect all errors with args and raise exceptions together
