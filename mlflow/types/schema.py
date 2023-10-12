@@ -2,6 +2,7 @@ import builtins
 import datetime as dt
 import importlib.util
 import json
+import logging
 import string
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, TypeVar, Union
@@ -9,7 +10,9 @@ from typing import Any, Dict, List, Optional, Tuple, TypedDict, TypeVar, Union
 import numpy as np
 
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated, experimental
+
+_logger = logging.getLogger(__name__)
 
 
 class DataType(Enum):
@@ -358,10 +361,26 @@ class ColSpec:
         self,
         type: Union[DataType, Array, Object, str],  # pylint: disable=redefined-builtin
         name: Optional[str] = None,
-        required: bool = True,
+        optional: bool = None,
+        required: bool = None,  # TODO: update to required=True after deprecating optional
     ):
         self._name = name
-        self._required = required
+
+        if optional is not None:
+            if required is not None:
+                raise MlflowException(
+                    "Only one of `optional` and `required` can be specified."
+                    "`optional` is deprecated, please use `required` instead."
+                )
+            else:
+                _logger.warning(
+                    "`optional` is deprecated and will be removed in a future version "
+                    "of MLflow. Use `required` instead."
+                )
+                self._optional = optional
+                self._required = not optional
+        else:
+            self._required = required if required is not None else True
         try:
             self._type = DataType[type] if isinstance(type, str) else type
         except KeyError:
@@ -385,6 +404,13 @@ class ColSpec:
     def name(self) -> Optional[str]:
         """The column name or None if the columns is unnamed."""
         return self._name
+
+    @experimental
+    @property
+    @deprecated(alternative="required", since="2.8.0")
+    def optional(self) -> bool:
+        """Whether this column is optional."""
+        return self._optional
 
     @experimental
     @property
@@ -427,11 +453,19 @@ class ColSpec:
         if kwargs["type"] not in ["array", "object"]:
             return cls(**kwargs)
         name = kwargs.pop("name", None)
-        required = kwargs.pop("required", True)
+        optional = kwargs.pop("optional", None)
+        required = kwargs.pop("required", None)
         if kwargs["type"] == "array":
-            return cls(name=name, type=Array.from_json_dict(**kwargs), required=required)
+            return cls(
+                name=name, type=Array.from_json_dict(**kwargs), optional=optional, required=required
+            )
         if kwargs["type"] == "object":
-            return cls(name=name, type=Object.from_json_dict(**kwargs), required=required)
+            return cls(
+                name=name,
+                type=Object.from_json_dict(**kwargs),
+                optional=optional,
+                required=required,
+            )
 
 
 class TensorInfo:
