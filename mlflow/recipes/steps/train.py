@@ -278,7 +278,8 @@ class TrainStep(BaseStep):
             filename = frame.f_code.co_filename
             lineno = frame.f_lineno
             message = f"{timestamp} {filename}:{lineno}: {args[0]}\n"
-            open(os.path.join(output_directory, "warning_logs.txt"), "a").write(message)
+            with open(os.path.join(output_directory, "warning_logs.txt"), "a") as f:
+                f.write(message)
 
         original_warn = warnings.warn
         warnings.warn = my_warn
@@ -291,7 +292,8 @@ class TrainStep(BaseStep):
 
             from mlflow.models import infer_signature
 
-            open(os.path.join(output_directory, "warning_logs.txt"), "w")
+            with open(os.path.join(output_directory, "warning_logs.txt"), "w"):
+                pass
 
             apply_recipe_tracking_config(self.tracking_config)
 
@@ -966,7 +968,8 @@ class TrainStep(BaseStep):
             else:
                 automl_estimator_str = ""
 
-            best_parameters = open(best_parameters_yaml).read()
+            with open(best_parameters_yaml) as f:
+                best_parameters = f.read()
             best_parameters_card_tab.add_html(
                 "BEST_PARAMETERS",
                 f"{automl_estimator_str}<b>Best parameters:</b><br>"
@@ -1001,9 +1004,8 @@ class TrainStep(BaseStep):
         warning_output_path = os.path.join(output_directory, "warning_logs.txt")
         if os.path.exists(warning_output_path):
             warnings_output_tab = card.add_tab("Warning Logs", "{{ STEP_WARNINGS }}")
-            warnings_output_tab.add_html(
-                "STEP_WARNINGS", f"<pre>{open(warning_output_path).read()}</pre>"
-            )
+            with open(warning_output_path) as f:
+                warnings_output_tab.add_html("STEP_WARNINGS", f"<pre>{f.read()}</pre>")
 
         # Tab 11: Run summary.
         run_card_tab = card.add_tab(

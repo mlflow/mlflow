@@ -50,8 +50,8 @@ def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_repo, t
         f.write(file_text)
 
     s3_artifact_repo.log_artifact(file_path)
-    downloaded_text = open(s3_artifact_repo.download_artifacts(file_name)).read()
-    assert downloaded_text == file_text
+    with open(s3_artifact_repo.download_artifacts(file_name)) as f:
+        assert f.read() == file_text
 
 
 def test_file_artifact_is_logged_with_content_metadata(
@@ -210,18 +210,18 @@ def test_file_and_directories_artifacts_are_logged_and_downloaded_successfully_i
     s3_artifact_repo.log_artifacts(subdir_path)
 
     # Download individual files and verify correctness of their contents
-    downloaded_file_a_text = open(s3_artifact_repo.download_artifacts("a.txt")).read()
-    assert downloaded_file_a_text == "A"
-    downloaded_file_b_text = open(s3_artifact_repo.download_artifacts("b.txt")).read()
-    assert downloaded_file_b_text == "B"
-    downloaded_file_c_text = open(s3_artifact_repo.download_artifacts("nested/c.txt")).read()
-    assert downloaded_file_c_text == "C"
+    with open(s3_artifact_repo.download_artifacts("a.txt")) as f:
+        assert f.read() == "A"
+    with open(s3_artifact_repo.download_artifacts("b.txt")) as f:
+        assert f.read() == "B"
+    with open(s3_artifact_repo.download_artifacts("nested/c.txt")) as f:
+        assert f.read() == "C"
 
     # Download the nested directory and verify correctness of its contents
     downloaded_dir = s3_artifact_repo.download_artifacts("nested")
     assert os.path.basename(downloaded_dir) == "nested"
-    text = open(os.path.join(downloaded_dir, "c.txt")).read()
-    assert text == "C"
+    with open(os.path.join(downloaded_dir, "c.txt")) as f:
+        assert f.read() == "C"
 
     # Download the root directory and verify correctness of its contents
     downloaded_dir = s3_artifact_repo.download_artifacts("")
