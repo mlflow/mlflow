@@ -185,9 +185,7 @@ def make_genai_metric(
         eval_values = dict(zip(grading_context_columns, args))
         for col_name, arg in eval_values.items():
             if arg is None:
-                raise MlflowException(
-                    f"{col_name} for metric {name} was {arg} not okay!"
-                )
+                raise MlflowException(f"{col_name} for metric {name} was {arg} not okay!")
         class_name = f"mlflow.metrics.genai.prompts.{version}.EvaluationModel"
         try:
             evaluation_model_class_module = _get_class_from_string(class_name)

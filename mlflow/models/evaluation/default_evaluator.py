@@ -1322,79 +1322,6 @@ class DefaultEvaluator(ModelEvaluator):
                 self.y_probs = self.predict_proba_fn(self.X.copy_to_avoid_mutation())
             else:
                 self.y_probs = None
-        elif self.model_type in (
-            _ModelType.QUESTION_ANSWERING,
-            _ModelType.TEXT_SUMMARIZATION,
-            _ModelType.TEXT,
-        ):
-            y_pred_list = []
-            pred_latencies = []
-            num_tokens_list = []
-            X_copy = self.X.copy_to_avoid_mutation()
-
-            import tiktoken
-
-            # ref: https://github.com/openai/tiktoken/issues/75
-            os.environ["TIKTOKEN_CACHE_DIR"] = ""
-
-            encoding = tiktoken.get_encoding("cl100k_base")
-
-            def compute_num_tokens(y_pred):
-                # parse out the output from y_pred
-                if isinstance(y_pred, pd.DataFrame):
-                    output = y_pred.iloc[0, 0]
-                elif isinstance(y_pred, (np.ndarray, list)):
-                    output = y_pred[0]
-                elif isinstance(y_pred, pd.Series):
-                    output = y_pred.iloc[0]
-                else:
-                    # this errors, y_pred is not the right format
-                    return 
-                # if output is string-like, tokenize it and get the number of tokens
-                if isinstance(output, str):
-                    return len(encoding.encode(output))
-                else:
-                    return None
-
-            if len(X_copy) == 0:
-                raise ValueError("Empty input data")
-
-            is_dataframe = isinstance(X_copy, pd.DataFrame)
-
-            for row in X_copy.iterrows() if is_dataframe else enumerate(X_copy):
-                i, row_data = row
-                single_input = row_data.to_frame().T if is_dataframe else row_data
-                start_time = time.time()
-                y_pred = self.model.predict(single_input)
-                end_time = time.time()
-                num_tokens_list.append(compute_num_tokens(y_pred))
-                pred_latencies.append(end_time - start_time)
-                y_pred_list.append(y_pred)
-
-            # Aggregate all predictions into model_predictions
-            sample_pred = y_pred_list[0]
-            if isinstance(sample_pred, pd.DataFrame):
-                model_predictions = pd.concat(y_pred_list)
-            elif isinstance(sample_pred, np.ndarray):
-                model_predictions = np.concatenate(y_pred_list, axis=0)
-            elif isinstance(sample_pred, list):
-                model_predictions = sum(y_pred_list, [])
-            # handle if sample_pred is a pandas series
-            elif isinstance(sample_pred, pd.Series):
-                model_predictions = pd.concat(y_pred_list)
-            else:
-                raise MlflowException(
-                    message=f"Unsupported prediction type {type(sample_pred)} for model type "
-                    f"{self.model_type}.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
-            self.metrics_values.update({_LATENCY_METRIC_NAME: MetricValue(scores=pred_latencies)})
-            self.metrics_values.update(
-                {_TOKEN_COUNT_METRIC_NAME: MetricValue(scores=num_tokens_list)}
-            )
-        else:
-            model_predictions = self.model.predict(self.X.copy_to_avoid_mutation())
 
         output_column_name = self.evaluator_config.get(_Y_PREDICTED_OUTPUT_COLUMN_NAME, "output")
         self.y_pred, self.other_output_columns = _extract_output_and_other_columns(
@@ -1449,18 +1376,20 @@ class DefaultEvaluator(ModelEvaluator):
                 self._get_args_for_metrics(metric, eval_df)
             except Exception as e:
                 exceptions.append((metric.name, e))
-        
+
         if len(exceptions) > 0:
-            raise MlflowException(f"failed to get correct args for the following metrics, {exceptions}")
+            raise MlflowException(
+                f"failed to get correct args for the following metrics, {exceptions}"
+            )
 
     def _evaluate_metrics(self, eval_df):
         # evaluate first row
         # eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
-        
+
         metrics = self.builtin_metrics + self.extra_metrics
         self._check_args(metrics, eval_df)
         # try to get necessary args for all builtin metrics
-            
+
         # collect all errors with args and raise exceptions together
 
         # need to update args for extra_metrics because self.metrics / self.metric_values
@@ -1475,10 +1404,9 @@ class DefaultEvaluator(ModelEvaluator):
             self._evaluate_extra_metrics(first_row_df)
         except Exception as e:
             exceptions.append(e)
-        
+
         if len(exceptions) > 0:
             raise MlflowException(exceptions)
-        
 
         # capture all errors from first row and return together
 
