@@ -262,7 +262,7 @@ def test_make_genai_metric_correct_response():
         }
         assert metric_value.scores == [3]
         assert metric_value.justifications == [openai_justification1]
-        assert metric_value.aggregate_results == {}
+        assert metric_value.aggregate_results == {"mean": 3.0, "p90": 3.0, "variance": 0.0}
 
 
 def test_make_genai_metric_incorrect_response():
