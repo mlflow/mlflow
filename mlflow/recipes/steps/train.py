@@ -488,7 +488,7 @@ class TrainStep(BaseStep):
                         targets=self.target_col,
                         model_type=_get_model_type_from_template(self.recipe),
                         evaluators="default",
-                        custom_metrics=_load_custom_metrics(
+                        extra_metrics=_load_custom_metrics(
                             self.recipe_root,
                             self.evaluation_metrics.values(),
                         ),
@@ -1148,7 +1148,7 @@ class TrainStep(BaseStep):
                     targets=self.target_col,
                     model_type=_get_model_type_from_template(self.recipe),
                     evaluators="default",
-                    custom_metrics=_load_custom_metrics(
+                    extra_metrics=_load_custom_metrics(
                         self.recipe_root,
                         self.evaluation_metrics.values(),
                     ),
