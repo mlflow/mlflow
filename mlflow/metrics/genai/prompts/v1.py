@@ -20,7 +20,7 @@ grading_system_prompt_template = PromptTemplate(
 Task:
 You are an impartial judge. You will be given an input that was sent to a machine
 learning model, and you will be given an output that the model produced. You
-could also be given additional information that was used by the model to generate the output.
+may also be given additional information that was used by the model to generate the output.
 
 Your task is to determine a numerical score called {name} based on the input and output.
 A definition of {name} and a grading rubric are provided below.
@@ -45,7 +45,7 @@ Grading rubric:
 
 {examples}
 
-You must output a JSON object with the following fields:
+You must return the following fields in your response one below the other:
 score: Your numerical score for the model's {name} based on the rubric
 justification: Your step-by-step reasoning about the model's {name} score
     """
@@ -71,6 +71,7 @@ class EvaluationModel:
             if self.examples is None or len(self.examples) == 0
             else f"Examples:\n{self._format_examples()}"
         )
+
         return {
             "model": self.model,
             "eval_prompt": grading_system_prompt_template.partial_fill(
