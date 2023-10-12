@@ -1141,13 +1141,22 @@ class DefaultEvaluator(ModelEvaluator):
                     ):
                         eval_fn_args.append(self.other_output_columns[column])
                     elif param.default == inspect.Parameter.empty:
+                        output_column_name = self.evaluator_config.get(_Y_PREDICTED_OUTPUT_COLUMN_NAME, "output")
+                        output_columns = [output_column_name]
+                        if self.other_output_columns is not None:
+                            output_columns.extend(self.other_output_columns.columns)
+                        input_columns = list(input_df.columns)
                         raise MlflowException(
                             "Error: Metric Calculation Failed\n"
                             f"Metric '{extra_metric.name}' requires the column '{param_name}' to "
                             "be defined in either the input data or resulting output data.\n"
+                            "Below are the existing column names for the input/output data:\n"
+                            f"Input Columns: {input_columns}\n"
+                            f"Output Columns: {output_columns}\n"
                             f"To resolve this issue, you may want to map {param_name} to an "
                             "existing column using the following configuration:\n"
-                            f"evaluator_config={{'col_mapping': {{'{param_name}': 'col_name'}}}}"
+                            f"evaluator_config={{'col_mapping': {{'{param_name}': "
+                            "'[insert existing column name]'}}\n"
                         )
 
         return eval_fn_args
