@@ -1,4 +1,5 @@
 import logging
+import os
 
 import numpy as np
 
@@ -29,6 +30,27 @@ def _validate_text_data(data, metric_name, column_name):
             return False
 
     return True
+
+
+def _token_count_eval_fn(predictions, targets, metrics):
+    import tiktoken
+
+    # ref: https://github.com/openai/tiktoken/issues/75
+    os.environ["TIKTOKEN_CACHE_DIR"] = ""
+    encoding = tiktoken.get_encoding("cl100k_base")
+
+    _logger.info("Computing token count metric:")
+
+    num_tokens = []
+    for prediction in predictions:
+        if isinstance(prediction, str):
+            num_tokens.append(len(encoding.encode(prediction)))
+        else:
+            num_tokens.append(None)
+
+    return MetricValue(
+        scores=num_tokens,
+    )
 
 
 def _toxicity_eval_fn(predictions, targets, metrics):

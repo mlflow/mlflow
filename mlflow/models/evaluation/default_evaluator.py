@@ -4,7 +4,6 @@ import inspect
 import json
 import logging
 import math
-import os
 import pathlib
 import pickle
 import shutil
@@ -35,6 +34,7 @@ from mlflow.metrics import (
     rouge2,
     rougeL,
     rougeLsum,
+    token_count,
     toxicity,
 )
 from mlflow.models.evaluation.artifacts import (
@@ -1235,15 +1235,58 @@ class DefaultEvaluator(ModelEvaluator):
             )
         return
 
-    def _generate_model_predictions(self):
+    def _generate_model_predictions(self, compute_latency=False):
         """
         Helper method for generating model predictions
         """
+
+        def predict_with_latency(X_copy):
+            y_pred_list = []
+            pred_latencies = []
+            if len(X_copy) == 0:
+                raise ValueError("Empty input data")
+
+            is_dataframe = isinstance(X_copy, pd.DataFrame)
+
+            for row in X_copy.iterrows() if is_dataframe else enumerate(X_copy):
+                i, row_data = row
+                single_input = row_data.to_frame().T if is_dataframe else row_data
+                start_time = time.time()
+                y_pred = self.model.predict(single_input)
+                end_time = time.time()
+                pred_latencies.append(end_time - start_time)
+                y_pred_list.append(y_pred)
+
+            # Update latency metric
+            self.metrics_values.update({_LATENCY_METRIC_NAME: MetricValue(scores=pred_latencies)})
+
+            # Aggregate all predictions into model_predictions
+            sample_pred = y_pred_list[0]
+            if isinstance(sample_pred, pd.DataFrame):
+                return pd.concat(y_pred_list)
+            elif isinstance(sample_pred, np.ndarray):
+                return np.concatenate(y_pred_list, axis=0)
+            elif isinstance(sample_pred, list):
+                return sum(y_pred_list, [])
+            elif isinstance(sample_pred, pd.Series):
+                return pd.concat(y_pred_list)
+            else:
+                raise MlflowException(
+                    message=f"Unsupported prediction type {type(sample_pred)} for model type "
+                    f"{self.model_type}.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+        X_copy = self.X.copy_to_avoid_mutation()
+        if compute_latency:
+            model_predictions = predict_with_latency(X_copy)
+        else:
+            model_predictions = self.model.predict(X_copy)
+
         if self.model_type == _ModelType.CLASSIFIER:
             self.label_list = np.unique(self.y)
             self.num_classes = len(self.label_list)
 
-            model_predictions = self.predict_fn(self.X.copy_to_avoid_mutation())
             self.is_binomial = self.num_classes <= 2
 
             if self.is_binomial:
@@ -1268,76 +1311,6 @@ class DefaultEvaluator(ModelEvaluator):
                 self.y_probs = self.predict_proba_fn(self.X.copy_to_avoid_mutation())
             else:
                 self.y_probs = None
-        elif self.model_type in (
-            _ModelType.QUESTION_ANSWERING,
-            _ModelType.TEXT_SUMMARIZATION,
-            _ModelType.TEXT,
-        ):
-            y_pred_list = []
-            pred_latencies = []
-            num_tokens_list = []
-            X_copy = self.X.copy_to_avoid_mutation()
-
-            import tiktoken
-
-            # ref: https://github.com/openai/tiktoken/issues/75
-            os.environ["TIKTOKEN_CACHE_DIR"] = ""
-
-            encoding = tiktoken.get_encoding("cl100k_base")
-
-            def compute_num_tokens(y_pred):
-                # parse out the output from y_pred
-                if isinstance(y_pred, pd.DataFrame):
-                    output = y_pred.iloc[0, 0]
-                elif isinstance(y_pred, (np.ndarray, list)):
-                    output = y_pred[0]
-                elif isinstance(y_pred, pd.Series):
-                    output = y_pred.iloc[0]
-                # if output is string-like, tokenize it and get the number of tokens
-                if isinstance(output, str):
-                    return len(encoding.encode(output))
-                else:
-                    return None
-
-            if len(X_copy) == 0:
-                raise ValueError("Empty input data")
-
-            is_dataframe = isinstance(X_copy, pd.DataFrame)
-
-            for row in X_copy.iterrows() if is_dataframe else enumerate(X_copy):
-                i, row_data = row
-                single_input = row_data.to_frame().T if is_dataframe else row_data
-                start_time = time.time()
-                y_pred = self.model.predict(single_input)
-                end_time = time.time()
-                num_tokens_list.append(compute_num_tokens(y_pred))
-                pred_latencies.append(end_time - start_time)
-                y_pred_list.append(y_pred)
-
-            # Aggregate all predictions into model_predictions
-            sample_pred = y_pred_list[0]
-            if isinstance(sample_pred, pd.DataFrame):
-                model_predictions = pd.concat(y_pred_list)
-            elif isinstance(sample_pred, np.ndarray):
-                model_predictions = np.concatenate(y_pred_list, axis=0)
-            elif isinstance(sample_pred, list):
-                model_predictions = sum(y_pred_list, [])
-            # handle if sample_pred is a pandas series
-            elif isinstance(sample_pred, pd.Series):
-                model_predictions = pd.concat(y_pred_list)
-            else:
-                raise MlflowException(
-                    message=f"Unsupported prediction type {type(sample_pred)} for model type "
-                    f"{self.model_type}.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
-            self.metrics_values.update({_LATENCY_METRIC_NAME: MetricValue(scores=pred_latencies)})
-            self.metrics_values.update(
-                {_TOKEN_COUNT_METRIC_NAME: MetricValue(scores=num_tokens_list)}
-            )
-        else:
-            model_predictions = self.model.predict(self.X.copy_to_avoid_mutation())
 
         output_column_name = self.evaluator_config.get(_Y_PREDICTED_OUTPUT_COLUMN_NAME, "output")
         self.y_pred, self.other_output_columns = _extract_output_and_other_columns(
@@ -1492,10 +1465,26 @@ class DefaultEvaluator(ModelEvaluator):
             self.metrics_values = {}
             self.builtin_metrics = {}
 
-            text_metrics = [toxicity, perplexity, flesch_kincaid_grade_level, ari_grade_level]
+            text_metrics = [
+                token_count,
+                toxicity,
+                perplexity,
+                flesch_kincaid_grade_level,
+                ari_grade_level,
+            ]
 
             with mlflow.utils.autologging_utils.disable_autologging():
-                self._generate_model_predictions()
+                compute_latency = False
+                if self.extra_metrics:
+                    for extra_metric in self.extra_metrics:
+                        # If latency metric is specified, we will compute latency for the model
+                        # during prediction, and we will remove the metric from the list of extra
+                        # metrics to be computed after prediction.
+                        if extra_metric.name == _LATENCY_METRIC_NAME:
+                            compute_latency = True
+                            self.extra_metrics.remove(extra_metric)
+                            break
+                self._generate_model_predictions(compute_latency=compute_latency)
                 if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
                     self._compute_builtin_metrics()
                 elif self.model_type == _ModelType.QUESTION_ANSWERING:
