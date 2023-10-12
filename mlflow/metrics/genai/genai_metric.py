@@ -81,7 +81,7 @@ def make_genai_metric(
     model: Optional[str] = "openai:/gpt-3.5-turbo-16k",
     grading_context_columns: Optional[List[str]] = None,
     parameters: Optional[Dict[str, Any]] = None,
-    aggregations: Optional[List[str]] = ["mean", "variance", "p90"],
+    aggregations: Optional[List[str]] = None,
     greater_is_better: bool = True,
     max_workers: int = 10,
     judge_request_timeout: int = 15,
@@ -169,6 +169,9 @@ def make_genai_metric(
             greater_is_better=True,
         )
     """
+
+    if aggregations is None:
+        aggregations = ["mean", "variance", "p90"]
 
     def eval_fn(
         predictions: "pd.Series",
