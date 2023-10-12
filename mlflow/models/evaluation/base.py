@@ -1428,8 +1428,8 @@ def evaluate(
                    If it is Spark DataFrame, only the first 10000 rows in the Spark DataFrame
                    will be used as evaluation data.
 
-                 - A :py:class`mlflow.data.dataset.Dataset` instance containing evaluation
-                   features and labels.
+                 - A :py:class`mlflow.data.dataset.Dataset` instance containing evaluation features
+                   and labels.
 
     :param targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
                     labels. If ``data`` is a DataFrame, the string name of a column from ``data``
@@ -1768,8 +1768,6 @@ def evaluate(
         from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 
         if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
-            # We only specify predictions parameter in this case because it is not supported
-            # in any other cases.
             dataset = data.to_evaluation_dataset(dataset_path, feature_names)
             if evaluator_name_to_conf_map and evaluator_name_to_conf_map.get("default", None):
                 context = evaluator_name_to_conf_map["default"].get("metric_prefix", None)
