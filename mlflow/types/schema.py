@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple, TypedDict, TypeVar, Union
 import numpy as np
 
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -409,9 +409,12 @@ class ColSpec:
 
     @experimental
     @property
-    @deprecated(alternative="required", since="2.8.0")
     def optional(self) -> bool:
-        """Whether this column is optional."""
+        """
+        Whether this column is optional.
+
+        .. Warning:: Deprecated. `optional` is deprecated in favor of `required`.
+        """
         return self._optional
 
     @experimental
