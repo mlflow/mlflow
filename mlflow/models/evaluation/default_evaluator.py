@@ -1152,7 +1152,7 @@ class DefaultEvaluator(ModelEvaluator):
                             "be defined in either the input data or resulting output data.\n"
                             f"To resolve this issue, you may want to map {param_name} to an "
                             "existing column using the following configuration:\n"
-                            f"evaluator_config={{'col_mapping': {{'{param_name}': 'col_name'}}}}\n"
+                            f"evaluator_config={{'col_mapping': {{'{param_name}': '{{existing column name here}}'}}}}\n"
                             f"Input Schema: {input_columns}\n"
                             f"Output Schema: {output_columns}"
                         )
