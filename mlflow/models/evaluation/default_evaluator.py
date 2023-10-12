@@ -1411,6 +1411,9 @@ class DefaultEvaluator(ModelEvaluator):
 
         # need to update args for extra_metrics because self.metrics / self.metric_values
         first_row_df = eval_df.iloc[[0]]
+        self._evaluate_builtin_metrics(first_row_df)
+        self._update_metrics()
+        self._evaluate_extra_metrics(first_row_df)
 
         self._evaluate_builtin_metrics(eval_df)
         self._update_metrics()
