@@ -34,6 +34,10 @@ jobs:
             sudo apt-get install maven --yes
             java -version
       - run:
+          name: Install Pandoc
+          command: |
+            sudo apt-get install pandoc
+      - run:
           name: Install Python dependencies
           command: |
             pip --version
