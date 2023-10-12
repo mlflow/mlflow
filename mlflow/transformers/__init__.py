@@ -1721,11 +1721,7 @@ class _TransformersWrapper:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             input_data = data
-        elif isinstance(data, str):
-            input_data = data
-        elif isinstance(data, bytes):
-            input_data = data
-        elif isinstance(data, np.ndarray):
+        elif isinstance(data, (str, bytes, np.ndarray)):
             input_data = data
         else:
             raise MlflowException(
@@ -1982,9 +1978,9 @@ class _TransformersWrapper:
     def _parse_conversation_input(self, data):
         import transformers
 
-        if not isinstance(self.pipeline, transformers.ConversationalPipeline):
-            return data
-        elif isinstance(data, str):
+        if not isinstance(self.pipeline, transformers.ConversationalPipeline) or isinstance(
+            data, str
+        ):
             return data
         elif isinstance(data, list) and all(isinstance(elem, dict) for elem in data):
             return next(iter(data[0].values()))
@@ -2395,9 +2391,9 @@ class _TransformersWrapper:
                 return list(data.values())
         elif isinstance(data, list) and all(isinstance(value, dict) for value in data):
             return [self._parse_text2text_input(entry) for entry in data]
-        elif isinstance(data, str):
-            return data
-        elif isinstance(data, list) and all(isinstance(value, str) for value in data):
+        elif isinstance(data, str) or (
+            isinstance(data, list) and all(isinstance(value, str) for value in data)
+        ):
             return data
         else:
             raise MlflowException(
