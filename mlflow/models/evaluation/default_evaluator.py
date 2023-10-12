@@ -1277,15 +1277,16 @@ class DefaultEvaluator(ModelEvaluator):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
+        X_copy = self.X.copy_to_avoid_mutation()
+        if compute_latency:
+            model_predictions = predict_with_latency(X_copy)
+        else:
+            model_predictions = self.model.predict(X_copy)
+
         if self.model_type == _ModelType.CLASSIFIER:
             self.label_list = np.unique(self.y)
             self.num_classes = len(self.label_list)
 
-            X_copy = self.X.copy_to_avoid_mutation()
-            if compute_latency:
-                model_predictions = predict_with_latency(X_copy)
-            else:
-                model_predictions = self.model.predict(X_copy)
             self.is_binomial = self.num_classes <= 2
 
             if self.is_binomial:
@@ -1310,23 +1311,6 @@ class DefaultEvaluator(ModelEvaluator):
                 self.y_probs = self.predict_proba_fn(self.X.copy_to_avoid_mutation())
             else:
                 self.y_probs = None
-        elif self.model_type in (
-            _ModelType.QUESTION_ANSWERING,
-            _ModelType.TEXT_SUMMARIZATION,
-            _ModelType.TEXT,
-        ):
-            X_copy = self.X.copy_to_avoid_mutation()
-            if compute_latency:
-                model_predictions = predict_with_latency(X_copy)
-            else:
-                model_predictions = self.model.predict(X_copy)
-
-        else:
-            X_copy = self.X.copy_to_avoid_mutation()
-            if compute_latency:
-                model_predictions = predict_with_latency(X_copy)
-            else:
-                model_predictions = self.model.predict(X_copy)
 
         output_column_name = self.evaluator_config.get(_Y_PREDICTED_OUTPUT_COLUMN_NAME, "output")
         self.y_pred, self.other_output_columns = _extract_output_and_other_columns(
