@@ -44,7 +44,7 @@ def _token_count_eval_fn(predictions, targets, metrics):
     num_tokens = []
     for prediction in predictions:
         if isinstance(prediction, str):
-            num_tokens.append(encoding.encode(prediction))
+            num_tokens.append(len(encoding.encode(prediction)))
         else:
             num_tokens.append(None)
 
