@@ -209,6 +209,7 @@ You may prefer the second, lower-level workflow for the following reasons:
 
 import collections
 import functools
+import hashlib
 import importlib
 import inspect
 import logging
@@ -1090,6 +1091,14 @@ def _check_udf_return_type(data_type):
     return False
 
 
+def _is_spark_connect():
+    try:
+        from pyspark.sql.utils import is_remote
+    except ImportError:
+        return False
+    return is_remote()
+
+
 def spark_udf(
     spark,
     model_uri,
@@ -1226,6 +1235,11 @@ def spark_udf(
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from mlflow.utils._spark_utils import _SparkDirectoryDistributor
 
+    is_spark_connect = _is_spark_connect()
+    if is_spark_connect and env_manager in (_EnvManager.VIRTUALENV, _EnvManager.CONDA):
+        raise MlflowException.invalid_parameter_value(
+            f"Environment manager {env_manager!r} is not supported in Spark connect mode.",
+        )
     # Used in test to force install local version of mlflow when starting a model server
     mlflow_home = os.environ.get("MLFLOW_HOME")
     openai_env_vars = mlflow.openai._OpenAIEnvVar.read_environ()
@@ -1239,7 +1253,9 @@ def spark_udf(
 
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
-    should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
+    should_use_spark_to_broadcast_file = not (
+        is_spark_in_local_mode or should_use_nfs or is_spark_connect
+    )
 
     local_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri,
@@ -1556,7 +1572,18 @@ Compound types:
                 return client.invoke(pdf).get_predictions()
 
         elif env_manager == _EnvManager.LOCAL:
-            if should_use_spark_to_broadcast_file:
+            if is_spark_connect:
+                model_path = os.path.join(
+                    tempfile.gettempdir(),
+                    "mlflow",
+                    hashlib.sha1(model_uri.encode()).hexdigest(),
+                )
+                try:
+                    loaded_model = mlflow.pyfunc.load_model(model_path)
+                except Exception:
+                    os.makedirs(model_path, exist_ok=True)
+                    loaded_model = mlflow.pyfunc.load_model(model_uri, dst_path=model_path)
+            elif should_use_spark_to_broadcast_file:
                 loaded_model, _ = SparkModelCache.get_or_load(archive_path)
             else:
                 loaded_model = mlflow.pyfunc.load_model(local_model_path)
