@@ -1410,10 +1410,18 @@ class DefaultEvaluator(ModelEvaluator):
         # collect all errors with args and raise exceptions together
 
         # need to update args for extra_metrics because self.metrics / self.metric_values
+        exceptions = []
         first_row_df = eval_df.iloc[[0]]
-        self._evaluate_builtin_metrics(first_row_df)
+        try:
+            self._evaluate_builtin_metrics(first_row_df)
+        except Exception as e:
+            exceptions.append(e)
         self._update_metrics()
-        self._evaluate_extra_metrics(first_row_df)
+        try:
+            self._evaluate_extra_metrics(first_row_df)
+        except Exception as e:
+            exceptions.append(e)
+        
 
         # capture all errors from first row and return together
 

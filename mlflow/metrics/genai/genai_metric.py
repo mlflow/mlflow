@@ -183,7 +183,7 @@ def make_genai_metric(
         This is the function that is called when the metric is evaluated.
         """
         eval_values = dict(zip(grading_context_columns, args))
-        for col_name, arg in args:
+        for col_name, arg in eval_values:
             if arg is None:
                 raise MlflowException(
                     f"{col_name} for metric {name} was {arg} not okay!"
