@@ -41,7 +41,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
                      automatically generated.
         :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
                        is automatically computed.
-        :param predicitons: An optional predictions column name for model evaluation. This column
+        :param predictions: An optional predictions column name for model evaluation. This column
                             must be present in the dataframe (``df``).
         """
         if targets is not None and targets not in df.columns:
@@ -107,11 +107,11 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._targets
 
     @property
-    def predicitons(self) -> Optional[str]:
+    def predictions(self) -> Optional[str]:
         """
-        The name of the predicitons column. May be ``None`` if no predicitons column is available.
+        The name of the predictions column. May be ``None`` if no predictions column is available.
         """
-        return self._predicitons
+        return self._predictions
 
     @property
     def profile(self) -> Optional[Any]:
@@ -188,7 +188,7 @@ def from_pandas(
     :param name: The name of the dataset. If unspecified, a name is generated.
     :param digest: The dataset digest (hash). If unspecified, a digest is computed
                    automatically.
-    :param predicitons: An optional predictions column name for model evaluation. This column
+    :param predictions: An optional predictions column name for model evaluation. This column
                         must be present in the dataframe (``df``).
     """
     from mlflow.data.code_dataset_source import CodeDatasetSource
