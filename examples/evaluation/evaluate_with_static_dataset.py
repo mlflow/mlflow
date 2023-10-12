@@ -25,7 +25,7 @@ with mlflow.start_run() as run:
     result = mlflow.evaluate(
         data=eval_data,
         targets="label",
-        prediction="prediction",
+        predictions="prediction",
         model_type="classifier",
         evaluators=["default"],
     )
