@@ -1486,10 +1486,12 @@ class DefaultEvaluator(ModelEvaluator):
             ]
 
             with mlflow.utils.autologging_utils.disable_autologging():
-                # compute the latency if a metric named latency is provided in extra_metrics, and  remove the latency metric from extra_metrics
                 compute_latency = False
                 if self.extra_metrics:
                     for extra_metric in self.extra_metrics:
+                        # If latency metric is specified, we will compute latency for the model
+                        # during prediction, and we will remove the metric from the list of extra
+                        # metrics to be computed after prediction.
                         if extra_metric.name == _LATENCY_METRIC_NAME:
                             compute_latency = True
                             self.extra_metrics.remove(extra_metric)
