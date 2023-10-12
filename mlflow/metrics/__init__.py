@@ -36,12 +36,18 @@ from mlflow.models import (
     make_metric,
 )
 
-# latency is a special metric with an eval_fn that returns an empty metric value
 latency = make_metric(
     eval_fn=lambda x: MetricValue(),
     greater_is_better=False,
     name="latency",
 )
+"""
+.. Note:: Experimental: This metric may change or be removed in a future release without warning.
+
+A metric for calculating `latency`_. Latency is determined by the time it takes to generate a
+prediction for a given input. Note that computing latency requires each row to be predicted 
+sequentially, which will likely slow down the evaluation process. 
+"""
 
 # general text metrics
 token_count = make_metric(
@@ -50,7 +56,10 @@ token_count = make_metric(
     name="token_count",
 )
 """
-A metric for calculating `token_count`_.
+.. Note:: Experimental: This metric may change or be removed in a future release without warning.
+
+A metric for calculating `token_count`_. Token count is calculated using tiktoken by using the 
+`cl100k_base` tokenizer.
 """
 
 toxicity = make_metric(
@@ -61,7 +70,7 @@ toxicity = make_metric(
     version="v1",
 )
 """
-.. Note:: Experimental: This jmetric may change or be removed in a future release without warning.
+.. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for evaluating `toxicity`_ using the model `roberta-hate-speech-dynabench-r4`_, 
 which defines hate as "abusive speech targeting specific group characteristics, such as 
@@ -85,7 +94,7 @@ perplexity = make_metric(
     version="v1",
 )
 """
-.. Note:: Experimental: This jmetric may change or be removed in a future release without warning.
+.. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for evaluating `perplexity`_ using the model gpt2.
 
@@ -105,7 +114,7 @@ flesch_kincaid_grade_level = make_metric(
     version="v1",
 )
 """
-.. Note:: Experimental: This jmetric may change or be removed in a future release without warning.
+.. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for calculating `flesch kincaid grade level`_ using `textstat`_.
     
@@ -128,7 +137,7 @@ ari_grade_level = make_metric(
     version="v1",
 )
 """
-.. Note:: Experimental: This jmetric may change or be removed in a future release without warning.
+.. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for calculating `automated readability index`_ using `textstat`_.
     
@@ -148,7 +157,7 @@ exact_match = make_metric(
     eval_fn=_accuracy_eval_fn, greater_is_better=True, name="exact_match", version="v1"
 )
 """
-.. Note:: Experimental: This jmetric may change or be removed in a future release without warning.
+.. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for calculating `accuracy`_ using sklearn.
 
@@ -166,7 +175,7 @@ rouge1 = make_metric(
     version="v1",
 )
 """
-.. Note:: Experimental: This jmetric may change or be removed in a future release without warning.
+.. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for evaluating `rouge1`_.
     
@@ -186,7 +195,7 @@ rouge2 = make_metric(
     version="v1",
 )
 """
-.. Note:: Experimental: This jmetric may change or be removed in a future release without warning.
+.. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for evaluating `rouge2`_.
     
@@ -206,7 +215,7 @@ rougeL = make_metric(
     version="v1",
 )
 """
-.. Note:: Experimental: This jmetric may change or be removed in a future release without warning.
+.. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for evaluating `rougeL`_.
     
@@ -226,7 +235,7 @@ rougeLsum = make_metric(
     version="v1",
 )
 """
-.. Note:: Experimental: This jmetric may change or be removed in a future release without warning.
+.. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for evaluating `rougeLsum`_.
     
