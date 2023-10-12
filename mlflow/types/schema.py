@@ -231,20 +231,15 @@ class Object:
     def _check_properties(self, properties):
         if not isinstance(properties, list):
             raise MlflowException.invalid_parameter_value(
-                f"Expected properties to be a dict, got type {type(properties).__name__}"
+                f"Expected properties to be a list, got type {type(properties).__name__}"
             )
         if any(not isinstance(v, Property) for v in properties):
             raise MlflowException.invalid_parameter_value(
                 "Expected values to be instance of Property"
             )
         # check duplicated property names
-        names = set()
-        duplicates = set()
-        for prop in properties:
-            if prop.name in names:
-                duplicates.add(prop.name)
-            else:
-                names.add(prop.name)
+        names = [prop.name for prop in properties]
+        duplicates = {name for name in names if names.count(name) > 1}
         if len(duplicates) > 0:
             raise MlflowException.invalid_parameter_value(
                 f"Found duplicated property names: {duplicates}"

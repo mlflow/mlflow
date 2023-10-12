@@ -999,6 +999,24 @@ def test_infer_param_schema_with_errors():
         _infer_param_schema({"a": pd.Series([1, 2, 3])})
 
 
+def test_object_construction_with_errors():
+    with pytest.raises(MlflowException, match=r"Expected properties to be a list, got type dict"):
+        Object({"p1": Property("p1", DataType.string)})
+
+    properties = [
+        Property("p1", DataType.string),
+        Property("p2", DataType.binary),
+        {"invalid_type": "value"},
+    ]
+    with pytest.raises(MlflowException, match=r"Expected values to be instance of Property"):
+        Object(properties)
+
+    properties.pop()
+    properties.append(Property("p2", DataType.boolean))
+    with pytest.raises(MlflowException, match=r"Found duplicated property names: {'p2'}"):
+        Object(properties)
+
+
 def test_property_to_and_from_dict():
     for data_type in DataType:
         prop = Property("name", data_type, True)
