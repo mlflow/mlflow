@@ -159,7 +159,7 @@ class Property:
                 f"one of {[t.name for t in DataType]}"
             )
         if not isinstance(self.dtype, (DataType, Array, Object)):
-            raise TypeError(
+            raise MlflowException(
                 "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array, "
                 "mlflow.types.schema.Object or str for the 'dtype' "
                 f"argument, but got {self.dtype.__class__}"
@@ -289,6 +289,10 @@ class Object:
             )
         if kwargs["type"] != "object":
             raise MlflowException("Type mismatch, Object expects `object` as the type")
+        if not isinstance(kwargs["properties"], list) or any(
+            not isinstance(prop, dict) for prop in kwargs["properties"]
+        ):
+            raise MlflowException("Expected properties to be a list of Property JSON")
         return cls([Property.from_json_dict(**prop) for prop in kwargs["properties"]])
 
         # This corresponds to line 276's comment
@@ -315,7 +319,7 @@ class Array:
                 f"one of {[t.name for t in DataType]}"
             )
         if not isinstance(self.dtype, (DataType, Object)):
-            raise TypeError(
+            raise MlflowException(
                 "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Object"
                 f"or str for the 'dtype' argument, but got {self.dtype.__class__}"
             )

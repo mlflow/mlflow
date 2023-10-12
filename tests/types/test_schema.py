@@ -1046,6 +1046,100 @@ def test_property_to_and_from_dict():
         assert Property.from_json_dict(**json.loads(json.dumps(prop.to_dict()))) == prop
 
 
+def test_property_from_dict_with_errors():
+    with pytest.raises(
+        MlflowException,
+        match=r"Missing keys in Property JSON. Expected to find keys `name` and `type`",
+    ):
+        Property.from_json_dict(**{"name": "name"})
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Unsupported type 'invalid_type', expected instance of DataType, Array, Object or ",
+    ):
+        Property.from_json_dict(**{"name": "name", "type": "invalid_type"})
+
+    # test array
+    with pytest.raises(
+        MlflowException,
+        match=r"Missing keys in Array JSON. Expected to find keys `items` and `type`",
+    ):
+        Property.from_json_dict(**{"name": "name", "type": "array"})
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Unsupported type 'invalid_type', expected instance of DataType, Array, Object or ",
+    ):
+        Property.from_json_dict(**{"name": "name", "type": "array", "items": "invalid_type"})
+
+    # test object
+    with pytest.raises(
+        MlflowException,
+        match=r"Missing keys in Object JSON. Expected to find keys `properties` and `type`",
+    ):
+        Property.from_json_dict(**{"name": "name", "type": "object"})
+
+    with pytest.raises(MlflowException, match=r"Expected properties to be a list of Property JSON"):
+        Property.from_json_dict(**{"name": "name", "type": "object", "properties": "invalid_type"})
+
+    with pytest.raises(MlflowException, match=r"Expected properties to be a list of Property JSON"):
+        Property.from_json_dict(
+            **{
+                "name": "name",
+                "type": "object",
+                "properties": [{"name": "name", "type": "string"}, "prop2"],
+            }
+        )
+
+
+def test_object_from_dict_with_errors():
+    with pytest.raises(
+        MlflowException,
+        match=r"Missing keys in Object JSON. Expected to find keys `properties` and `type`",
+    ):
+        Object.from_json_dict(**{"type": "object"})
+
+    with pytest.raises(
+        MlflowException, match=r"Type mismatch, Object expects `object` as the type"
+    ):
+        Object.from_json_dict(**{"type": "array", "properties": []})
+
+    with pytest.raises(MlflowException, match=r"Expected properties to be a list of Property JSON"):
+        Object.from_json_dict(**{"type": "object", "properties": "invalid_type"})
+
+    with pytest.raises(MlflowException, match=r"Expected properties to be a list of Property JSON"):
+        Object.from_json_dict(
+            **{
+                "type": "object",
+                "properties": [{"name": "name", "type": "string"}, "prop2"],
+            }
+        )
+
+
+def test_array_from_dict_with_errors():
+    with pytest.raises(
+        MlflowException,
+        match=r"Missing keys in Array JSON. Expected to find keys `items` and `type`",
+    ):
+        Array.from_json_dict(**{"type": "array"})
+
+    with pytest.raises(MlflowException, match=r"Type mismatch, Array expects `array` as the type"):
+        Array.from_json_dict(**{"type": "object", "items": "string"})
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Unsupported type 'invalid_type', expected instance of DataType, Array, Object or ",
+    ):
+        Array.from_json_dict(**{"type": "array", "items": "invalid_type"})
+
+    with pytest.raises(
+        MlflowException, match=r"Type mismatch, Object expects `object` as the type"
+    ):
+        Array.from_json_dict(
+            **{"type": "array", "items": {"type": "invalid_type", "properties": []}}
+        )
+
+
 def test_object_to_and_from_dict():
     properties = []
     dict_prop = []
