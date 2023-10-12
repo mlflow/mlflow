@@ -1142,7 +1142,9 @@ class DefaultEvaluator(ModelEvaluator):
                         eval_fn_args.append(self.other_output_columns[column])
                     elif param.default == inspect.Parameter.empty:
                         output_column_name = self.evaluator_config.get(_Y_PREDICTED_OUTPUT_COLUMN_NAME, "output")
-                        output_columns = (self.other_output_columns.columns if self.other_output_columns else []).append(output_column_name)
+                        output_columns = [output_column_name]
+                        if self.other_output_columns:
+                            output_columns.extend(self.other_output_columns.columns)
                         raise MlflowException(
                             "Error: Metric Calculation Failed\n"
                             f"Metric '{extra_metric.name}' requires the column '{param_name}' to "
