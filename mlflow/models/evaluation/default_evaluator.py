@@ -1143,7 +1143,7 @@ class DefaultEvaluator(ModelEvaluator):
                     elif param.default == inspect.Parameter.empty:
                         output_column_name = self.evaluator_config.get(_Y_PREDICTED_OUTPUT_COLUMN_NAME, "output")
                         output_columns = [output_column_name]
-                        if self.other_output_columns:
+                        if self.other_output_columns is not None:
                             output_columns.extend(self.other_output_columns.columns)
                         raise MlflowException(
                             "Error: Metric Calculation Failed\n"
