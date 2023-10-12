@@ -1125,15 +1125,8 @@ class DefaultEvaluator(ModelEvaluator):
                 elif param_name == "targets":
                     if "target" in eval_df_copy:
                         eval_fn_args.append(eval_df_copy["target"])
-                    elif param.default == inspect.Parameter.empty:
-                        raise MlflowException(
-                            "Error: Metric Calculation Failed\n"
-                            f"Metric '{extra_metric.name}' requires the column '{param_name}' to "
-                            "be defined in either the input data or resulting output data.\n"
-                            f"To resolve this issue, you may want to map {param_name} to an "
-                            "existing column using the following configuration:\n"
-                            f"evaluator_config={{'col_mapping': {{'{param_name}': 'col_name'}}}}"
-                        )
+                    else:
+                        eval_fn_args.append(None)
                 elif param_name == "metrics":
                     eval_fn_args.append(copy.deepcopy(self.metrics_values))
                 else:
