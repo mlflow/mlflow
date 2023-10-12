@@ -2,10 +2,10 @@ import builtins
 import datetime as dt
 import importlib.util
 import json
-import logging
 import string
+import warnings
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, TypedDict, TypeVar, Union
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 
 import numpy as np
 
@@ -14,8 +14,6 @@ from mlflow.utils.annotations import experimental
 
 ARRAY_TYPE = "array"
 OBJECT_TYPE = "object"
-
-_logger = logging.getLogger(__name__)
 
 
 class DataType(Enum):
@@ -389,9 +387,10 @@ class ColSpec:
                     "`optional` is deprecated, please use `required` instead."
                 )
             else:
-                _logger.warning(
+                warnings.warn(
                     "`optional` is deprecated and will be removed in a future version "
-                    "of MLflow. Use `required` instead."
+                    "of MLflow. Use `required` instead.",
+                    category=FutureWarning,
                 )
                 self._optional = optional
                 self._required = not optional
