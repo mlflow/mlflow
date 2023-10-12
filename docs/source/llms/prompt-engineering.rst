@@ -145,7 +145,7 @@ or real-time inference.
 
 Step 8: Try new inputs
 ----------------------
-To test the behavior of your chosen LLM, prompt template, and parameters on a new inputs:
+To test the behavior of your chosen LLM, prompt template, and parameters on new inputs:
 
 1. Click the *Add Row* button and fill in a value(s) your prompt template's input variable(s).
    For example, in the MLflow documentation use case, you can try asking a question
