@@ -1150,11 +1150,13 @@ class DefaultEvaluator(ModelEvaluator):
                             "Error: Metric Calculation Failed\n"
                             f"Metric '{extra_metric.name}' requires the column '{param_name}' to "
                             "be defined in either the input data or resulting output data.\n"
+                            "Below are the existing column names for the input/output data:\n"
+                            f"Input Columns: {input_columns}\n"
+                            f"Output Columns: {output_columns}\n"
                             f"To resolve this issue, you may want to map {param_name} to an "
                             "existing column using the following configuration:\n"
-                            f"evaluator_config={{'col_mapping': {{'{param_name}': '{{existing column name here}}'}}}}\n"
-                            f"Input Schema: {input_columns}\n"
-                            f"Output Schema: {output_columns}"
+                            f"evaluator_config={{'col_mapping': {{'{param_name}': "
+                            "'[insert existing column name]'}}}}\n"
                         )
 
         return eval_fn_args
