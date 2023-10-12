@@ -33,9 +33,6 @@ def _validate_text_data(data, metric_name, column_name):
 
 
 def _token_count_eval_fn(predictions, targets, metrics):
-    if not _validate_text_data(predictions, "token_count", "predictions"):
-        return
-
     import tiktoken
 
     # ref: https://github.com/openai/tiktoken/issues/75
