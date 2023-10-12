@@ -182,7 +182,11 @@ def make_genai_metric(
         """
         This is the function that is called when the metric is evaluated.
         """
-
+        for arg in args:
+            if arg is None:
+                raise MlflowException(
+                    f"{arg} for metric {name} was not defined"
+                )
         eval_values = dict(zip(grading_context_columns, args))
         class_name = f"mlflow.metrics.genai.prompts.{version}.EvaluationModel"
         try:
