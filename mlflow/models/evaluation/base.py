@@ -343,25 +343,25 @@ class EvaluationResult:
 
     @experimental
     @property
-    def table(self) -> Dict[str, "pd.DataFrame"]:
+    def tables(self) -> Dict[str, "pd.DataFrame"]:
         """
         A dictionary mapping standardized artifact names (e.g. "eval_results_table") to
         corresponding table content as pandas DataFrame.
         """
-        eval_table = {}
+        eval_tables = {}
         if self._run_id is None:
             _logger.warning("Cannot load eval_results_table because run_id is not specified.")
-            return eval_table
+            return eval_tables
 
         for table_name, table_path in self._artifacts.items():
             path = urllib.parse.urlparse(table_path.uri).path
             table_fileName = os.path.basename(path)
             try:
-                eval_table[table_name] = mlflow.load_table(table_fileName, run_ids=[self._run_id])
+                eval_tables[table_name] = mlflow.load_table(table_fileName, run_ids=[self._run_id])
             except Exception:
                 pass  # Swallow the exception since we assume its not a table.
 
-        return eval_table
+        return eval_tables
 
 
 _cached_mlflow_client = None

@@ -2732,8 +2732,8 @@ def test_constructing_eval_df_for_custom_metrics():
 
     assert eval_df_value.equals(test_eval_df_value)
     assert len(eval_results.artifacts) == 2
-    assert len(eval_results.table) == 1
-    assert eval_results.table["eval_results_table"].columns.tolist() == [
+    assert len(eval_results.tables) == 1
+    assert eval_results.tables["eval_results_table"].columns.tolist() == [
         "text",
         "truth",
         "targets",
@@ -2779,8 +2779,8 @@ def test_evaluate_no_model_type_with_builtin_metric():
             "perplexity/v1/variance",
             "perplexity/v1/p90",
         }
-        assert len(results.table) == 1
-        assert results.table["eval_results_table"].columns.tolist() == [
+        assert len(results.tables) == 1
+        assert results.tables["eval_results_table"].columns.tolist() == [
             "text",
             "outputs",
             "perplexity/v1/score",
@@ -2814,8 +2814,8 @@ def test_evaluate_no_model_type_with_custom_metric():
             "word_count/p90",
         }
         assert results.metrics["word_count/mean"] == 3.0
-        assert len(results.table) == 1
-        assert results.table["eval_results_table"].columns.tolist() == [
+        assert len(results.tables) == 1
+        assert results.tables["eval_results_table"].columns.tolist() == [
             "text",
             "outputs",
             "word_count/score",
