@@ -1141,7 +1141,9 @@ class DefaultEvaluator(ModelEvaluator):
                     ):
                         eval_fn_args.append(self.other_output_columns[column])
                     elif param.default == inspect.Parameter.empty:
-                        output_column_name = self.evaluator_config.get(_Y_PREDICTED_OUTPUT_COLUMN_NAME, "output")
+                        output_column_name = self.evaluator_config.get(
+                            _Y_PREDICTED_OUTPUT_COLUMN_NAME, "output"
+                        )
                         output_columns = [output_column_name]
                         if self.other_output_columns is not None:
                             output_columns.extend(self.other_output_columns.columns)
