@@ -318,6 +318,9 @@ def make_genai_metric(
 
         scores_for_aggregation = [score for score in scores if score is not None]
 
+        if len(scores_for_aggregation) == 0:
+            raise MlflowException("failed to score any")
+
         aggregate_results = (
             {option: aggregate_function(option, scores_for_aggregation) for option in aggregations}
             if aggregations is not None

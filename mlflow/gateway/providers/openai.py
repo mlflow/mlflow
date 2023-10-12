@@ -156,6 +156,8 @@ class OpenAIProvider(BaseProvider):
         return payload
 
     def _prepare_completion_response_payload(self, resp):
+        if "choices" not in resp:
+            raise MlflowException("openai error")
         return completions.ResponsePayload(
             **{
                 "candidates": [
