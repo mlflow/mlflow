@@ -296,12 +296,15 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install tensorflow pyspark
+          pip install tensorflow 'pyspark[connect]'
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
-          pytest --durations=30 tests/pyfunc
+          pytest --durations=30 tests/pyfunc --ignore tests/pyfunc/test_spark_connect.py
+
+          # test_spark_connect.py fails if it's run with ohter tests, so run it separately.
+          pytest tests/pyfunc/test_spark_connect.py
 
   sagemaker:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -346,6 +349,8 @@ jobs:
           pip install datasets
           # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
           pip install tensorflow
+          # Install torch and transformers to test metrics
+          pip install torch transformers
       - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark
         run: |

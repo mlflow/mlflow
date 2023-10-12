@@ -269,10 +269,7 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
         source_name = _expand_uri(uri)
     source_version = get_git_commit(work_dir)
     existing_run = fluent.active_run()
-    if existing_run:
-        parent_run_id = existing_run.info.run_id
-    else:
-        parent_run_id = None
+    parent_run_id = existing_run.info.run_id if existing_run else None
 
     tags = {
         MLFLOW_USER: _get_user(),

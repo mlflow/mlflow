@@ -203,20 +203,23 @@ def make_containing_dirs(path):
         os.makedirs(dir_name)
 
 
-def write_yaml(root, file_name, data, overwrite=False, sort_keys=True):
+def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_yaml_extension=True):
     """
     Write dictionary data in yaml format.
 
     :param root: Directory name.
-    :param file_name: Desired file name. Will automatically add .yaml extension if not given
+    :param file_name: Desired file name.
     :param data: data to be dumped as yaml format
     :param overwrite: If True, will overwrite existing files
+    :param ensure_yaml_extension: If True, will automatically add .yaml extension if not given
     """
     if not exists(root):
         raise MissingConfigException(f"Parent directory '{root}' does not exist.")
 
     file_path = os.path.join(root, file_name)
-    yaml_file_name = file_path if file_path.endswith(".yaml") else file_path + ".yaml"
+    yaml_file_name = file_path
+    if ensure_yaml_extension and not file_path.endswith(".yaml"):
+        yaml_file_name = file_path + ".yaml"
 
     if exists(yaml_file_name) and not overwrite:
         raise Exception(f"Yaml file '{file_path}' exists as '{yaml_file_name}")
@@ -235,7 +238,7 @@ def write_yaml(root, file_name, data, overwrite=False, sort_keys=True):
         raise e
 
 
-def overwrite_yaml(root, file_name, data):
+def overwrite_yaml(root, file_name, data, ensure_yaml_extension=True):
     """
     Safely overwrites a preexisting yaml file, ensuring that file contents are not deleted or
     corrupted if the write fails. This is achieved by writing contents to a temporary file
@@ -243,10 +246,13 @@ def overwrite_yaml(root, file_name, data):
     preexisting file for a direct write.
 
     :param root: Directory name.
-    :param file_name: File name. Expects to have '.yaml' extension.
+    :param file_name: File name.
     :param data: The data to write, represented as a dictionary.
+    :param ensure_yaml_extension: If True, Will automatically add .yaml extension if not given
     """
     tmp_file_path = None
+    original_file_path = os.path.join(root, file_name)
+    original_file_mode = os.stat(original_file_path).st_mode
     try:
         tmp_file_fd, tmp_file_path = tempfile.mkstemp(suffix="file.yaml")
         os.close(tmp_file_fd)
@@ -256,11 +262,11 @@ def overwrite_yaml(root, file_name, data):
             data=data,
             overwrite=True,
             sort_keys=True,
+            ensure_yaml_extension=ensure_yaml_extension,
         )
-        shutil.move(
-            tmp_file_path,
-            os.path.join(root, file_name),
-        )
+        shutil.move(tmp_file_path, original_file_path)
+        # restores original file permissions, see https://docs.python.org/3/library/tempfile.html#tempfile.mkstemp
+        os.chmod(original_file_path, original_file_mode)
     finally:
         if tmp_file_path is not None and os.path.exists(tmp_file_path):
             os.remove(tmp_file_path)
@@ -753,7 +759,8 @@ def parallelized_download_file_using_http_uri(
     # Create file if it doesn't exist or erase the contents if it does. We should do this here
     # before sending to the workers so they can each individually seek to their respective positions
     # and write chunks without overwriting.
-    open(download_path, "w").close()
+    with open(download_path, "w"):
+        pass
     starting_index = 0
     if uri_type == ArtifactCredentialType.GCP_SIGNED_URL or uri_type is None:
         # GCP files could be transcoded, in which case the range header is ignored.

@@ -9,6 +9,7 @@ import requests
 import mlflow
 
 TEST_CONTENT = "test"
+
 TEST_SOURCE_DOCUMENTS = [
     {
         "page_content": "We see the unity among leaders ...",
@@ -53,6 +54,17 @@ def _chat_completion_json_sample(content):
     }
 
 
+def _completion_json_sample(content):
+    return {
+        "id": "cmpl-123",
+        "object": "text_completion",
+        "created": 1589478378,
+        "model": "text-davinci-003",
+        "choices": [{"text": content, "index": 0, "finish_reason": "length"}],
+        "usage": {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
+    }
+
+
 def _models_retrieve_json_sample():
     # https://platform.openai.com/docs/api-reference/models/retrieve
     return {
@@ -65,6 +77,10 @@ def _models_retrieve_json_sample():
 
 def _mock_chat_completion_response(content=TEST_CONTENT):
     return _MockResponse(200, _chat_completion_json_sample(content))
+
+
+def _mock_completion_response(content=TEST_CONTENT):
+    return _MockResponse(200, _completion_json_sample(content))
 
 
 def _mock_embeddings_response(num_texts):
@@ -102,14 +118,14 @@ def _mock_openai_request():
     original = requests.Session.request
 
     def request(*args, **kwargs):
-        if len(args) > 2:
-            url = args[2]
-        else:
-            url = kwargs.get("url")
+        url = args[2] if len(args) > 2 else kwargs.get("url")
 
         if url.endswith("/chat/completions"):
             messages = json.loads(kwargs.get("data")).get("messages")
             return _mock_chat_completion_response(content=json.dumps(messages))
+        elif url.endswith("/completions"):
+            prompt = json.loads(kwargs.get("data")).get("prompt")
+            return _mock_completion_response(content=json.dumps(prompt))
         elif url.endswith("/embeddings"):
             inp = json.loads(kwargs.get("data")).get("input")
             return _mock_embeddings_response(len(inp) if isinstance(inp, list) else 1)

@@ -911,7 +911,7 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                     targets=iris_dataset._constructor_args["targets"],
                     evaluators="test_evaluator1",
                     evaluator_config=evaluator1_config,
-                    custom_metrics=None,
+                    extra_metrics=None,
                     baseline_model=None,
                 )
                 assert eval1_result.metrics == evaluator1_return_value.metrics
@@ -927,6 +927,7 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                     run_id=run.info.run_id,
                     evaluator_config=evaluator1_config,
                     custom_metrics=None,
+                    extra_metrics=None,
                     custom_artifacts=None,
                     baseline_model=None,
                 )
@@ -967,7 +968,7 @@ def test_model_validation_interface_invalid_baseline_model_should_throw(
                 targets=iris_dataset._constructor_args["targets"],
                 evaluators="test_evaluator1",
                 evaluator_config=evaluator1_config,
-                custom_metrics=None,
+                extra_metrics=None,
                 baseline_model=baseline_model_uri,
             )
 
@@ -1006,6 +1007,7 @@ def test_evaluate_with_multi_evaluators(
                 "dataset": iris_dataset,
                 "run_id": run.info.run_id,
                 "evaluator_config": evaluator_config,
+                "extra_metrics": None,
                 "custom_metrics": None,
                 "custom_artifacts": None,
                 "baseline_model": baseline_model,
@@ -1165,10 +1167,7 @@ def test_evaluate_restores_env(tmp_path, env_manager, iris_dataset):
             pass
 
         def predict(self, context, model_input, params=None):
-            if sklearn.__version__ == "0.22.1":
-                pred_value = 1
-            else:
-                pred_value = 0
+            pred_value = 1 if sklearn.__version__ == "0.22.1" else 0
 
             return model_input.apply(lambda row: pred_value, axis=1)
 
