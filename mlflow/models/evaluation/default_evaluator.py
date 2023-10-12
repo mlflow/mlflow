@@ -1422,6 +1422,9 @@ class DefaultEvaluator(ModelEvaluator):
         except Exception as e:
             exceptions.append(e)
         
+        if len(exceptions) > 0:
+            raise MlflowException(exceptions)
+        
 
         # capture all errors from first row and return together
 
