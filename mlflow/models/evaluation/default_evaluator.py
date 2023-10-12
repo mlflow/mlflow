@@ -1293,6 +1293,9 @@ class DefaultEvaluator(ModelEvaluator):
                     output = y_pred[0]
                 elif isinstance(y_pred, pd.Series):
                     output = y_pred.iloc[0]
+                else:
+                    # this errors, y_pred is not the right format
+                    return 
                 # if output is string-like, tokenize it and get the number of tokens
                 if isinstance(output, str):
                     return len(encoding.encode(output))
