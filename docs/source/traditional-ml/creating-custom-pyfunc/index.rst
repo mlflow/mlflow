@@ -5,7 +5,6 @@ MLflow offers a wide range of pre-defined model flavors, but there are instances
 beyond these and craft something tailored to your needs. That's where custom PyFuncs come in handy.
 
 What's in this tutorial?
--------------------------
 
 This guide aims to walk you through the intricacies of PyFuncs, explaining the why, the what, and the how:
 

@@ -2,7 +2,7 @@ MLflow: A Tool for Managing the Machine Learning Lifecycle
 ==========================================================
 
 MLflow is an open-source platform, purpose-built to assist machine learning practitioners and teams in
-handling the complexities of the machine learning process. Mlflow focuses on the full lifecycle for
+handling the complexities of the machine learning process. MLflow focuses on the full lifecycle for
 machine learning projects, ensuring that each phase is manageable, traceable, and reproducible.
 
 
@@ -106,6 +106,17 @@ LLM Guides and Tutorials
                     discover how MLflow provides a holistic solution for managing LLM interactions.
                 </p>
             </div>
+            <div class="simple-card">
+                <a href="llms/custom-pyfunc-for-llms/index.html" >
+                    <div class="header">
+                        Using Custom PyFunc with LLMs
+                    </div>
+                </a>
+                <p>
+                    Explore the nuances of packaging and deploying advanced LLMs in MLflow using custom PyFuncs. This guide delves deep 
+                    into managing intricate model behaviors, ensuring seamless and efficient LLM deployments.
+                </p>
+            </div>
         </article>
     </section>
 
@@ -154,6 +165,17 @@ Traditional ML Guides and Tutorials
                 <p>
                     This in-depth guide will show you how to leverage some core functionality in MLflow to keep your tuning iterations organized and 
                     searchable, all while covering a number of features within MLflow that cater to the needs of this common activity.
+                </p>
+            </div>
+            <div class="simple-card">
+                <a href="traditional-ml/creating-custom-pyfunc/index.html" >
+                    <div class="header">
+                        Custom PyFunc Tutorials with MLflow
+                    </div>
+                </a>
+                <p>
+                    Dive into the foundational aspects of MLflow's custom `pyfunc` to encapsulate, manage, and invoke models from any framework. 
+                    This guide elucidates the versatility of `pyfunc`, highlighting how it bridges the gap between supported named flavors and bespoke model requirements.
                 </p>
             </div>
         </article>
