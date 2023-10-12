@@ -490,8 +490,6 @@ class EvaluationDataset:
         if has_targets:
             self._has_targets = True
 
-        self._has_predictions = predictions is not None
-
         if isinstance(data, (np.ndarray, list)):
             if has_targets and not isinstance(targets, (np.ndarray, list)):
                 raise MlflowException(
@@ -524,18 +522,6 @@ class EvaluationDataset:
             self._features_data = data
             if has_targets:
                 self._labels_data = (
-                    targets if isinstance(targets, np.ndarray) else np.array(targets)
-                )
-
-                if len(self._features_data) != len(self._labels_data):
-                    raise MlflowException(
-                        message="The input features example rows must be the same length "
-                        "with labels array.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-
-            if self._has_predictions:
-                self._predictions_data = (
                     targets if isinstance(targets, np.ndarray) else np.array(targets)
                 )
 
@@ -583,6 +569,7 @@ class EvaluationDataset:
                 self._labels_data = data[targets].to_numpy()
                 self._targets_name = targets
 
+            self._has_predictions = predictions is not None
             if self._has_predictions:
                 self._predictions_data = data[predictions].to_numpy()
                 self._predictions_name = predictions
@@ -1514,9 +1501,9 @@ def evaluate(
             ) -> Dict[str, Any]:
                 """
                 :param eval_df:
-                    A Pandas or Spark DataFrame containing ``predictions`` and ``targets`` column.
-                    The ``predictions`` column contains the predictions made by the model.
-                    The ``targets`` column contains the corresponding labels to the predictions made
+                    A Pandas or Spark DataFrame containing ``prediction`` and ``target`` column.
+                    The ``prediction`` column contains the predictions made by the model.
+                    The ``target`` column contains the corresponding labels to the predictions made
                     on that row.
                 :param builtin_metrics:
                     A dictionary containing the metrics calculated by the default evaluator.
