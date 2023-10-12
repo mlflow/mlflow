@@ -1238,7 +1238,7 @@ def spark_udf(
     is_spark_connect = _is_spark_connect()
     if is_spark_connect and env_manager in (_EnvManager.VIRTUALENV, _EnvManager.CONDA):
         raise MlflowException.invalid_parameter_value(
-            f"Environment manager {env_manager!r} is not supported for Spark Connect",
+            f"Environment manager {env_manager!r} is not supported in Spark connect mode.",
         )
     # Used in test to force install local version of mlflow when starting a model server
     mlflow_home = os.environ.get("MLFLOW_HOME")
