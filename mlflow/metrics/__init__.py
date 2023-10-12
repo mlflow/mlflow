@@ -36,6 +36,13 @@ from mlflow.models import (
     make_metric,
 )
 
+# latency is a special metric with an eval_fn that returns an empty metric value
+latency = make_metric(
+    eval_fn=lambda x: MetricValue(),
+    greater_is_better=False,
+    name="latency",
+)
+
 # general text metrics
 token_count = make_metric(
     eval_fn=_token_count_eval_fn,
@@ -374,4 +381,6 @@ __all__ = [
     "correctness",
     "relevance",
     "strict_correctness",
+    "token_count",
+    "latency",
 ]

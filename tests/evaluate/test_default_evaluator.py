@@ -2859,7 +2859,7 @@ def test_evaluate_with_latency():
             data,
             model_type="text",
             evaluators="default",
-            evaluator_config={"compute_latency": True},
+            extra_metrics=[mlflow.metrics.latency],
         )
 
     client = mlflow.MlflowClient()
