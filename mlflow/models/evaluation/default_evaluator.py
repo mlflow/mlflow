@@ -1172,6 +1172,10 @@ class DefaultEvaluator(ModelEvaluator):
                 )
                 self.metrics_values.update({name: metric_value})
 
+    def _precheck_extra_metrics(self):
+        if not self.extra_metrics:
+            return
+
     def _log_custom_artifacts(self, eval_df):
         if not self.custom_artifacts:
             return
@@ -1491,6 +1495,7 @@ class DefaultEvaluator(ModelEvaluator):
             text_metrics = [toxicity, perplexity, flesch_kincaid_grade_level, ari_grade_level]
 
             with mlflow.utils.autologging_utils.disable_autologging():
+                self._precheck_extra_metrics()
                 self._generate_model_predictions()
                 if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
                     self._compute_builtin_metrics()
@@ -1578,6 +1583,8 @@ class DefaultEvaluator(ModelEvaluator):
             self.extra_metrics = custom_metrics
         else:
             self.extra_metrics = extra_metrics
+
+        # check if any of the extra_metrics are genai metrics
 
         if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
             inferred_model_type = _infer_model_type_by_labels(self.y)
