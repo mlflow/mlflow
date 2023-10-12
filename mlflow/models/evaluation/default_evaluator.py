@@ -91,7 +91,7 @@ def _extract_raw_model(model):
 
 
 def _extract_predict_fn(model, raw_model):
-    predict_fn = model.predict
+    predict_fn = model.predict if model is not None else None
     predict_proba_fn = None
 
     if raw_model is not None:
@@ -1087,13 +1087,16 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _generate_model_predictions(self):
         """
-        Helper method for generating model predictions TODO: change here
+        Helper method for generating model predictions
         """
         if self.model_type == _ModelType.CLASSIFIER:
             self.label_list = np.unique(self.y)
             self.num_classes = len(self.label_list)
 
-            self.y_pred = self.predict_fn(self.X.copy_to_avoid_mutation())
+            if self.predict_fn is not None:
+                self.y_pred = self.predict_fn(self.X.copy_to_avoid_mutation())
+            else:
+                self.y_pred = self.dataset.predictions_data
             self.is_binomial = self.num_classes <= 2
 
             if self.is_binomial:
@@ -1119,7 +1122,10 @@ class DefaultEvaluator(ModelEvaluator):
             else:
                 self.y_probs = None
         else:
-            self.y_pred = self.model.predict(self.X.copy_to_avoid_mutation())
+            if self.model is not None:
+                self.y_pred = self.model.predict(self.X.copy_to_avoid_mutation())
+            else:
+                self.y_pred = self.dataset.predictions_data
 
     def _compute_builtin_metrics(self):
         """
@@ -1301,7 +1307,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _evaluate(
         self,
-        model: "mlflow.pyfunc.PyFuncModel",
+        model: "mlflow.pyfunc.PyFuncModel" = None,
         is_baseline_model=False,
         **kwargs,
     ):
@@ -1316,7 +1322,7 @@ class DefaultEvaluator(ModelEvaluator):
             if getattr(model, "metadata", None):
                 self.model_loader_module, self.raw_model = _extract_raw_model(model)
             else:
-                # model is constructed from a user specified function
+                # model is constructed from a user specified function or not provided
                 self.model_loader_module, self.raw_model = None, None
             self.predict_fn, self.predict_proba_fn = _extract_predict_fn(model, self.raw_model)
 
@@ -1358,11 +1364,11 @@ class DefaultEvaluator(ModelEvaluator):
     def evaluate(
         self,
         *,
-        model: "mlflow.pyfunc.PyFuncModel",
         model_type,
         dataset,
         run_id,
         evaluator_config,
+        model: "mlflow.pyfunc.PyFuncModel" = None,
         custom_metrics=None,
         custom_artifacts=None,
         baseline_model=None,

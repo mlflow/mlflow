@@ -2064,7 +2064,7 @@ def test_evaluate_question_answering_on_static_dataset_with_targets():
         results = mlflow.evaluate(
             data=data,
             targets="answer",
-            prediction="pred",
+            predictions="pred",
             model_type="question-answering",
         )
 

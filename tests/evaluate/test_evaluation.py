@@ -1376,7 +1376,7 @@ def test_evaluate_with_static_dataset_input_single_output():
         mlflow.evaluate(
             data=X.assign(y=y, model_output=y),
             targets="y",
-            prediction="model_output",
+            predictions="model_output",
             model_type="regressor",
         )
 
@@ -1403,7 +1403,7 @@ def test_evaluate_with_static_spark_dataset_unsupported():
             mlflow.evaluate(
                 data=spark_dataframe,
                 targets="label",
-                prediction="model_output",
+                predictions="model_output",
                 model_type="regressor",
             )
 
@@ -1414,7 +1414,7 @@ def test_evaluate_with_static_dataset_error_handling():
     y = y[::5]
     with mlflow.start_run():
         with pytest.raises(
-            MlflowException, match="The prediction argument must be specified when model=None."
+            MlflowException, match="The predictions argument must be specified when model=None."
         ):
             mlflow.evaluate(
                 data=X.assign(y=y, model_output=y),
@@ -1428,19 +1428,19 @@ def test_evaluate_with_static_dataset_error_handling():
             mlflow.evaluate(
                 data=X.assign(y=y, model_output=y).to_numpy(),
                 targets="y",
-                prediction="model_output",
+                predictions="model_output",
                 model_type="regressor",
             )
 
         with pytest.raises(
             MlflowException,
-            match="The prediction argument cannot be specified when model is specified.",
+            match="The predictions argument cannot be specified when model is specified.",
         ):
             mlflow.evaluate(
                 model="models:/test",
                 data=X.assign(y=y, model_output=y).to_numpy(),
                 targets="y",
-                prediction="model_output",
+                predictions="model_output",
                 model_type="regressor",
             )
 
@@ -1452,11 +1452,11 @@ def test_evaluate_with_static_dataset_error_handling():
             )
 
         with pytest.raises(
-            MlflowException, match="The prediction column prediction is not found in data."
+            MlflowException, match="The predictions column prediction is not found in data."
         ):
             mlflow.evaluate(
                 data=X.assign(y=y, model_output=y),
                 targets="y",
-                prediction="prediction",
+                predictions="prediction",
                 model_type="regressor",
             )

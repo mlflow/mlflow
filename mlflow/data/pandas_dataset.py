@@ -41,6 +41,8 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
                      automatically generated.
         :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
                        is automatically computed.
+        :param predicitons: An optional predictions column name for model evaluation. This column
+                            must be present in the dataframe (``df``).
         """
         if targets is not None and targets not in df.columns:
             raise MlflowException(
@@ -145,9 +147,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         else:
             return PyFuncInputsOutputs(self._df)
 
-    def to_evaluation_dataset(
-        self, path=None, feature_names=None, predictions=None
-    ) -> EvaluationDataset:
+    def to_evaluation_dataset(self, path=None, feature_names=None) -> EvaluationDataset:
         """
         Converts the dataset to an EvaluationDataset for model evaluation. Required
         for use with mlflow.evaluate().
@@ -157,7 +157,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
             targets=self._targets,
             path=path,
             feature_names=feature_names,
-            predictions=predictions,
+            predictions=self._predictions,
         )
 
 

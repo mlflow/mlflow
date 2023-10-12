@@ -541,14 +541,23 @@ class EvaluationDataset:
                 self._labels_data = data[targets].to_numpy()
                 self._targets_name = targets
 
+            if self._has_predictions:
+                self._predictions_data = data[predictions].to_numpy()
+                self._predictions_name = predictions
+
             if feature_names is not None:
                 self._features_data = data[list(feature_names)]
                 self._feature_names = feature_names
             else:
+                features_data = data
+
                 if has_targets:
-                    self._features_data = data.drop(targets, axis=1, inplace=False)
-                else:
-                    self._features_data = data
+                    features_data = features_data.drop(targets, axis=1, inplace=False)
+
+                if self._has_predictions:
+                    features_data = features_data.drop(predictions, axis=1, inplace=False)
+
+                self._features_data = features_data
                 self._feature_names = [
                     generate_feature_name_if_not_string(c) for c in self._features_data.columns
                 ]
@@ -564,6 +573,8 @@ class EvaluationDataset:
         _gen_md5_for_arraylike_obj(md5_gen, self._features_data)
         if self._labels_data is not None:
             _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)
+        if self._predictions_data is not None:
+            _gen_md5_for_arraylike_obj(md5_gen, self._predictions_data)
         md5_gen.update(",".join(list(map(str, self._feature_names))).encode("UTF-8"))
 
         self._hash = md5_gen.hexdigest()
@@ -605,7 +616,7 @@ class EvaluationDataset:
         """
         return labels data as a numpy array
         """
-        return self._predicitons_data
+        return self._predictions_data
 
     @property
     def has_predictions(self):
@@ -722,11 +733,11 @@ class ModelEvaluator(metaclass=ABCMeta):
     def evaluate(
         self,
         *,
-        model,
         model_type,
         dataset,
         run_id,
         evaluator_config,
+        model=None,
         custom_metrics=None,
         custom_artifacts=None,
         baseline_model=None,
@@ -735,9 +746,6 @@ class ModelEvaluator(metaclass=ABCMeta):
         """
         The abstract API to log metrics and artifacts, and return evaluation results.
 
-        :param model: A pyfunc model instance, used as the candidate_model
-                      to be compared with baseline_model (specified by the `baseline_model` param)
-                      for model validation.
         :param model_type: A string describing the model type
                            (e.g., ``"regressor"``, ``"classifier"``, …).
         :param dataset: An instance of `mlflow.models.evaluation.base._EvaluationDataset`
@@ -745,6 +753,10 @@ class ModelEvaluator(metaclass=ABCMeta):
         :param run_id: The ID of the MLflow Run to which to log results.
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
+        :param model: A pyfunc model instance, used as the candidate_model
+                      to be compared with baseline_model (specified by the `baseline_model` param)
+                      for model validation. If None, the model output is supposed to be found in
+                      ``dataset.predictions_data``.
         :param custom_metrics: A list of :py:class:`EvaluationMetric` objects.
         :param custom_artifacts: A list of callable custom artifact functions.
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
@@ -1676,7 +1688,9 @@ def evaluate(
         from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 
         if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
-            dataset = data.to_evaluation_dataset(dataset_path, feature_names, predictions)
+            # We only specify predictions parameter in this case because it is not supported
+            # in any other cases.
+            dataset = data.to_evaluation_dataset(dataset_path, feature_names)
             if evaluator_name_to_conf_map and evaluator_name_to_conf_map.get("default", None):
                 context = evaluator_name_to_conf_map["default"].get("metric_prefix", None)
             else:

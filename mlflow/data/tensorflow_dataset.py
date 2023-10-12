@@ -226,9 +226,7 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         return PyFuncInputsOutputs(self._features, self._targets)
 
-    def to_evaluation_dataset(
-        self, path=None, feature_names=None, predictions=None
-    ) -> EvaluationDataset:
+    def to_evaluation_dataset(self, path=None, feature_names=None) -> EvaluationDataset:
         """
         Converts the dataset to an EvaluationDataset for model evaluation. Only supported if the
         dataset is a Tensor. Required for use with mlflow.evaluate().

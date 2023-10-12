@@ -186,9 +186,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         else:
             return PyFuncInputsOutputs(inputs=df, outputs=None)
 
-    def to_evaluation_dataset(
-        self, path=None, feature_names=None, predictions=None
-    ) -> EvaluationDataset:
+    def to_evaluation_dataset(self, path=None, feature_names=None) -> EvaluationDataset:
         """
         Converts the dataset to an EvaluationDataset for model evaluation. Required
         for use with mlflow.evaluate().
@@ -198,7 +196,6 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
             targets=self._targets,
             path=path,
             feature_names=feature_names,
-            predictions=predictions,
         )
 
 
