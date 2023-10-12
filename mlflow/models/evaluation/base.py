@@ -1289,9 +1289,6 @@ def evaluate(
           parameter will be ignored.
         - **sample_weights**: Weights for each sample to apply when computing model performance
           metrics.
-        - **compute_latency**: A boolean value specifying whether or not to compute the latency.
-          Default value is False. Note that computing latency requires each row to be predicted
-          sequentially, which will likely slow down the evaluation process.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.
