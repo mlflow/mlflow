@@ -1317,7 +1317,8 @@ def test_keras_autolog_logs_model_signature_by_default(keras_data_gen_sequence):
     mlmodel_path = mlflow.artifacts.download_artifacts(
         f"runs:/{mlflow.last_active_run().info.run_id}/model/MLmodel"
     )
-    mlmodel_contents = yaml.safe_load(open(mlmodel_path))
+    with open(mlmodel_path) as f:
+        mlmodel_contents = yaml.safe_load(f)
     assert "signature" in mlmodel_contents.keys()
     signature = mlmodel_contents["signature"]
     assert signature is not None
