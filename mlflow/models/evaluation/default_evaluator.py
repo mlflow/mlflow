@@ -1358,39 +1358,32 @@ class DefaultEvaluator(ModelEvaluator):
         Helper method for computing builtin metrics
         """
         self._evaluate_sklearn_model_score_if_scorable()
-        if self.model_type == _ModelType.CLASSIFIER:
-            if self.is_binomial:
-                self.metrics_values.update(
-                    _get_aggregate_metrics_values(
-                        _get_binary_classifier_metrics(
-                            y_true=self.y,
-                            y_pred=self.y_pred,
-                            y_proba=self.y_probs,
-                            labels=self.label_list,
-                            pos_label=self.pos_label,
-                            sample_weights=self.sample_weights,
-                        )
-                    )
-                )
-                self._compute_roc_and_pr_curve()
-            else:
-                average = self.evaluator_config.get("average", "weighted")
-                self.metrics_values.update(
-                    _get_aggregate_metrics_values(
-                        _get_multiclass_classifier_metrics(
-                            y_true=self.y,
-                            y_pred=self.y_pred,
-                            y_proba=self.y_probs,
-                            labels=self.label_list,
-                            average=average,
-                            sample_weights=self.sample_weights,
-                        )
-                    )
-                )
-        elif self.model_type == _ModelType.REGRESSOR:
+        if self.is_binomial:
             self.metrics_values.update(
                 _get_aggregate_metrics_values(
-                    _get_regressor_metrics(self.y, self.y_pred, self.sample_weights)
+                    _get_binary_classifier_metrics(
+                        y_true=self.y,
+                        y_pred=self.y_pred,
+                        y_proba=self.y_probs,
+                        labels=self.label_list,
+                        pos_label=self.pos_label,
+                        sample_weights=self.sample_weights,
+                    )
+                )
+            )
+            self._compute_roc_and_pr_curve()
+        else:
+            average = self.evaluator_config.get("average", "weighted")
+            self.metrics_values.update(
+                _get_aggregate_metrics_values(
+                    _get_multiclass_classifier_metrics(
+                        y_true=self.y,
+                        y_pred=self.y_pred,
+                        y_proba=self.y_probs,
+                        labels=self.label_list,
+                        average=average,
+                        sample_weights=self.sample_weights,
+                    )
                 )
             )
 
