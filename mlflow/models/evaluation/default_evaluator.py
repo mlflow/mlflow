@@ -1385,6 +1385,33 @@ class DefaultEvaluator(ModelEvaluator):
                 )
             )
 
+    def _check_args(self, metrics, eval_df):
+        exceptions = []
+        for metric in metrics:
+            try:
+                self._get_args_for_metrics(metric, eval_df)
+            except Exception as e:
+                exceptions.append((metric, e))
+        
+        if len(exceptions) > 0:
+            raise MlflowException(f"failed to get correct args for the following metrics, {exceptions}")
+
+    def _evaluate_metrics(self, eval_df):
+        # evaluate first row
+        # eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
+        
+        self._check_args(self.builtin_metrics + self.extra_metrics, eval_df)
+        # try to get necessary args for all builtin metrics
+            
+        # collect all errors with args and raise exceptions together
+
+        # need to update args for extra_metrics because self.metrics / self.metric_values
+        first_row_df = eval_df.iloc[[0]]
+
+        self._evaluate_builtin_metrics(eval_df)
+        self._update_metrics()
+        self._evaluate_extra_metrics(eval_df)
+
     def _evaluate_builtin_metrics(self, eval_df):
         if not self.builtin_metrics:
             return
@@ -1512,9 +1539,7 @@ class DefaultEvaluator(ModelEvaluator):
                 if self.dataset.has_targets:
                     eval_df["target"] = self.y
 
-                self._evaluate_builtin_metrics(eval_df)
-                self._update_metrics()
-                self._evaluate_extra_metrics(eval_df)
+                self._evaluate_metrics(eval_df)
                 if not is_baseline_model:
                     self._log_custom_artifacts(eval_df)
 
