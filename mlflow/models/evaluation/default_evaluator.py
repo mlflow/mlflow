@@ -1145,6 +1145,7 @@ class DefaultEvaluator(ModelEvaluator):
                         output_columns = [output_column_name]
                         if self.other_output_columns is not None:
                             output_columns.extend(self.other_output_columns.columns)
+                        input_columns = list(input_df.columns)
                         raise MlflowException(
                             "Error: Metric Calculation Failed\n"
                             f"Metric '{extra_metric.name}' requires the column '{param_name}' to "
@@ -1152,7 +1153,7 @@ class DefaultEvaluator(ModelEvaluator):
                             f"To resolve this issue, you may want to map {param_name} to an "
                             "existing column using the following configuration:\n"
                             f"evaluator_config={{'col_mapping': {{'{param_name}': 'col_name'}}}}\n"
-                            f"Input Schema: {input_df.columns}\n"
+                            f"Input Schema: {input_columns}\n"
                             f"Output Schema: {output_columns}"
                         )
 
