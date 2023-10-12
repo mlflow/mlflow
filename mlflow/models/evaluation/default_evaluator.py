@@ -4,7 +4,6 @@ import inspect
 import json
 import logging
 import math
-import os
 import pathlib
 import pickle
 import shutil
@@ -35,6 +34,7 @@ from mlflow.metrics import (
     rouge2,
     rougeL,
     rougeLsum,
+    token_count,
     toxicity,
 )
 from mlflow.models.evaluation.artifacts import (
@@ -1141,13 +1141,24 @@ class DefaultEvaluator(ModelEvaluator):
                     ):
                         eval_fn_args.append(self.other_output_columns[column])
                     elif param.default == inspect.Parameter.empty:
+                        output_column_name = self.evaluator_config.get(
+                            _Y_PREDICTED_OUTPUT_COLUMN_NAME, "output"
+                        )
+                        output_columns = list(self.other_output_columns.columns)
+                        input_columns = list(input_df.columns)
                         raise MlflowException(
                             "Error: Metric Calculation Failed\n"
                             f"Metric '{extra_metric.name}' requires the column '{param_name}' to "
-                            "be defined in either the input data or resulting output data.\n"
+                            "be defined in either the input data or resulting output data.\n\n"
+                            "Below are the existing column names for the input/output data:\n"
+                            f"Input Columns: {input_columns}\n"
+                            f"Output Columns: {output_columns}\n"
+                            "Note that this does not include the output column: "
+                            f"'{output_column_name}'\n\n"
                             f"To resolve this issue, you may want to map {param_name} to an "
                             "existing column using the following configuration:\n"
-                            f"evaluator_config={{'col_mapping': {{'{param_name}': 'col_name'}}}}"
+                            f"evaluator_config={{'col_mapping': {{'{param_name}': "
+                            "'<existing column name>'}}\n"
                         )
 
         return eval_fn_args
@@ -1235,15 +1246,58 @@ class DefaultEvaluator(ModelEvaluator):
             )
         return
 
-    def _generate_model_predictions(self):
+    def _generate_model_predictions(self, compute_latency=False):
         """
         Helper method for generating model predictions
         """
+
+        def predict_with_latency(X_copy):
+            y_pred_list = []
+            pred_latencies = []
+            if len(X_copy) == 0:
+                raise ValueError("Empty input data")
+
+            is_dataframe = isinstance(X_copy, pd.DataFrame)
+
+            for row in X_copy.iterrows() if is_dataframe else enumerate(X_copy):
+                i, row_data = row
+                single_input = row_data.to_frame().T if is_dataframe else row_data
+                start_time = time.time()
+                y_pred = self.model.predict(single_input)
+                end_time = time.time()
+                pred_latencies.append(end_time - start_time)
+                y_pred_list.append(y_pred)
+
+            # Update latency metric
+            self.metrics_values.update({_LATENCY_METRIC_NAME: MetricValue(scores=pred_latencies)})
+
+            # Aggregate all predictions into model_predictions
+            sample_pred = y_pred_list[0]
+            if isinstance(sample_pred, pd.DataFrame):
+                return pd.concat(y_pred_list)
+            elif isinstance(sample_pred, np.ndarray):
+                return np.concatenate(y_pred_list, axis=0)
+            elif isinstance(sample_pred, list):
+                return sum(y_pred_list, [])
+            elif isinstance(sample_pred, pd.Series):
+                return pd.concat(y_pred_list)
+            else:
+                raise MlflowException(
+                    message=f"Unsupported prediction type {type(sample_pred)} for model type "
+                    f"{self.model_type}.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+        X_copy = self.X.copy_to_avoid_mutation()
+        if compute_latency:
+            model_predictions = predict_with_latency(X_copy)
+        else:
+            model_predictions = self.model.predict(X_copy)
+
         if self.model_type == _ModelType.CLASSIFIER:
             self.label_list = np.unique(self.y)
             self.num_classes = len(self.label_list)
 
-            model_predictions = self.predict_fn(self.X.copy_to_avoid_mutation())
             self.is_binomial = self.num_classes <= 2
 
             if self.is_binomial:
@@ -1539,10 +1593,26 @@ class DefaultEvaluator(ModelEvaluator):
             self.metrics_values = {}
             self.builtin_metrics = {}
 
-            text_metrics = [toxicity, perplexity, flesch_kincaid_grade_level, ari_grade_level]
+            text_metrics = [
+                token_count,
+                toxicity,
+                perplexity,
+                flesch_kincaid_grade_level,
+                ari_grade_level,
+            ]
 
             with mlflow.utils.autologging_utils.disable_autologging():
-                self._generate_model_predictions()
+                compute_latency = False
+                if self.extra_metrics:
+                    for extra_metric in self.extra_metrics:
+                        # If latency metric is specified, we will compute latency for the model
+                        # during prediction, and we will remove the metric from the list of extra
+                        # metrics to be computed after prediction.
+                        if extra_metric.name == _LATENCY_METRIC_NAME:
+                            compute_latency = True
+                            self.extra_metrics.remove(extra_metric)
+                            break
+                self._generate_model_predictions(compute_latency=compute_latency)
                 if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
                     self._compute_builtin_metrics()
                 elif self.model_type == _ModelType.QUESTION_ANSWERING:
