@@ -1415,6 +1415,8 @@ class DefaultEvaluator(ModelEvaluator):
         self._update_metrics()
         self._evaluate_extra_metrics(first_row_df)
 
+        # capture all errors from first row and return together
+
         self._evaluate_builtin_metrics(eval_df)
         self._update_metrics()
         self._evaluate_extra_metrics(eval_df)
