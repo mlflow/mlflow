@@ -49,13 +49,13 @@ def test_evaluation_model_output():
 
     grading_context = {"ground_truth": "This is an output"}
     args_string = "Additional information used by the model:\n" + "\n".join(
-        [f"key:\n{arg}\nvalue:\n{arg_value}" for arg, arg_value in grading_context.items()]
+        [f"key: {arg}\nvalue:\n{arg_value}" for arg, arg_value in grading_context.items()]
     )
     expected_prompt1 = """
     Task:
     You are an impartial judge. You will be given an input that was sent to a machine
     learning model, and you will be given an output that the model produced. You
-    could also be given additional information that was used by the model to generate the output.
+    may also be given additional information that was used by the model to generate the output.
 
     Your task is to determine a numerical score called correctness based on the input and output.
     A definition of correctness and a grading rubric are provided below.
@@ -71,8 +71,7 @@ def test_evaluation_model_output():
     This is an output
 
     Additional information used by the model:
-    key:
-    ground_truth
+    key: ground_truth
     value:
     This is an output
 
@@ -101,8 +100,7 @@ def test_evaluation_model_output():
         This is an output
 
         Additional information used by the model:
-        key:
-        ground_truth
+        key: ground_truth
         value:
         This is an output
 
@@ -118,12 +116,13 @@ def test_evaluation_model_output():
 
         Additional information used by the model:
         key: ground_truth
-        value: This is an output
+        value:
+        This is an output
 
         score: 4
         justification: This is an example justification 2
 
-    You must output a JSON object with the following fields:
+    You must return the following fields in your response one below the other:
     score: Your numerical score for the model's correctness based on the rubric
     justification: Your step-by-step reasoning about the model's correctness score
       """
@@ -162,7 +161,7 @@ def test_evaluation_model_output():
     Task:
     You are an impartial judge. You will be given an input that was sent to a machine
     learning model, and you will be given an output that the model produced. You
-    could also be given additional information that was used by the model to generate the output.
+    may also be given additional information that was used by the model to generate the output.
 
     Your task is to determine a numerical score called correctness based on the input and output.
     A definition of correctness and a grading rubric are provided below.
@@ -194,7 +193,7 @@ def test_evaluation_model_output():
         critical aspect.
         - Score 5: the answer correctly answer the question and not missing any major aspect
 
-    You must output a JSON object with the following fields:
+    You must return the following fields in your response one below the other:
     score: Your numerical score for the model's correctness based on the rubric
     justification: Your step-by-step reasoning about the model's correctness score
       """
@@ -218,7 +217,7 @@ def test_no_examples(examples):
     Task:
     You are an impartial judge. You will be given an input that was sent to a machine
     learning model, and you will be given an output that the model produced. You
-    could also be given additional information that was used by the model to generate the output.
+    may also be given additional information that was used by the model to generate the output.
 
     Your task is to determine a numerical score called correctness based on the input and output.
     A definition of correctness and a grading rubric are provided below.
@@ -239,7 +238,7 @@ def test_no_examples(examples):
     Grading rubric:
     grading prompt
 
-    You must output a JSON object with the following fields:
+    You must return the following fields in your response one below the other:
     score: Your numerical score for the model's correctness based on the rubric
     justification: Your step-by-step reasoning about the model's correctness score
       """

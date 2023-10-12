@@ -244,7 +244,7 @@ def test_make_genai_metric_correct_response():
         assert mock_predict_function.call_args[0][1] == {
             "prompt": "\nTask:\nYou are an impartial judge. You will be given an input that was "
             "sent to a machine\nlearning model, and you will be given an output that the model "
-            "produced. You\ncould also be given additional information that was used by the model "
+            "produced. You\nmay also be given additional information that was used by the model "
             "to generate the output.\n\nYour task is to determine a numerical score called "
             "fake_metric based on the input and output.\nA definition of "
             "fake_metric and a grading rubric are provided below.\nYou must use the "
@@ -252,14 +252,14 @@ def test_make_genai_metric_correct_response():
             "\n\nExamples could be included below for reference. Make sure to use them as "
             "references and to\nunderstand them before completing the task.\n"
             "\nInput:\ninput\n\nOutput:\nprediction\n\nAdditional information used by the model:\n"
-            "key:\ntargets\nvalue:\nground_truth\n\nMetric definition:\nFake metric definition\n\n"
+            "key: targets\nvalue:\nground_truth\n\nMetric definition:\nFake metric definition\n\n"
             "Grading rubric:\nFake metric grading prompt\n\nExamples:\n\nInput:\nexample-input\n\n"
-            "Output:\nexample-output\n\nAdditional information used by the model:\nkey:\ntargets\n"
+            "Output:\nexample-output\n\nAdditional information used by the model:\nkey: targets\n"
             "value:\nexample-ground_truth\n\nscore: 4\njustification: "
-            "example-justification\n\n        \n\nYou must output a JSON object with the "
-            "following fields:\nscore: Your numerical score for the model's fake_metric based on "
-            "the rubric\njustification: Your step-by-step reasoning about the model's fake_metric "
-            "score\n    ",
+            "example-justification\n        \n\nYou must return the following fields in your "
+            "response one below the other:\nscore: Your numerical score for the model's "
+            "fake_metric based on the rubric\njustification: Your step-by-step reasoning about "
+            "the model's fake_metric score\n    ",
             "temperature": 0.0,
             "max_tokens": 200,
             "top_p": 1.0,
@@ -437,8 +437,7 @@ def test_format_args_string():
     variable_string = _format_args_string(["foo", "bar"], {"foo": ["foo"], "bar": ["bar"]}, 0)
 
     assert variable_string == (
-        "Additional information used by the model:\nkey:\nfoo\nvalue:\nfoo"
-        "\nkey:\nbar\nvalue:\nbar"
+        "Additional information used by the model:\nkey: foo\nvalue:\nfoo" "\nkey: bar\nvalue:\nbar"
     )
 
     with pytest.raises(
@@ -533,7 +532,7 @@ def test_correctness_metric():
         assert mock_predict_function.call_args[0][1] == {
             "prompt": "\nTask:\nYou are an impartial judge. You will be given an input that was "
             "sent to a machine\nlearning model, and you will be given an output that the model "
-            "produced. You\ncould also be given additional information that was used by the model "
+            "produced. You\nmay also be given additional information that was used by the model "
             "to generate the output.\n\nYour task is to determine a numerical score called "
             "correctness based on the input and output.\nA definition of "
             "correctness and a grading rubric are provided below.\nYou must use the "
@@ -542,18 +541,18 @@ def test_correctness_metric():
             "references and to\nunderstand them before completing the task.\n"
             f"\nInput:\n{input}\n"
             f"\nOutput:\n{mlflow_prediction}\n"
-            "\nAdditional information used by the model:\nkey:\ntargets\nvalue:\n"
+            "\nAdditional information used by the model:\nkey: targets\nvalue:\n"
             f"{mlflow_ground_truth}\n"
             f"\nMetric definition:\n{CorrectnessMetric.definition}\n"
             f"\nGrading rubric:\n{CorrectnessMetric.grading_prompt}\n"
             "\nExamples:\n"
             f"\nInput:\n{mlflow_example.input}\n"
             f"\nOutput:\n{mlflow_example.output}\n"
-            "\nAdditional information used by the model:\nkey:\ntargets\nvalue:\n"
+            "\nAdditional information used by the model:\nkey: targets\nvalue:\n"
             f"{mlflow_ground_truth}\n"
             f"\nscore: {mlflow_example.score}\n"
-            f"justification: {mlflow_example.justification}\n\n        \n"
-            "\nYou must output a JSON object with the following fields:\nscore: "
+            f"justification: {mlflow_example.justification}\n        \n"
+            "\nYou must return the following fields in your response one below the other:\nscore: "
             "Your numerical score for the model's correctness based on the "
             "rubric\njustification: Your step-by-step reasoning about the model's "
             "correctness score\n    ",
@@ -599,7 +598,7 @@ def test_relevance_metric():
         assert mock_predict_function.call_args[0][1] == {
             "prompt": "\nTask:\nYou are an impartial judge. You will be given an input that was "
             "sent to a machine\nlearning model, and you will be given an output that the model "
-            "produced. You\ncould also be given additional information that was used by the model "
+            "produced. You\nmay also be given additional information that was used by the model "
             "to generate the output.\n\nYour task is to determine a numerical score called "
             "relevance based on the input and output.\nA definition of "
             "relevance and a grading rubric are provided below.\nYou must use the "
@@ -608,12 +607,12 @@ def test_relevance_metric():
             "references and to\nunderstand them before completing the task.\n"
             f"\nInput:\n{input}\n"
             f"\nOutput:\n{mlflow_prediction}\n"
-            "\nAdditional information used by the model:\nkey:\ncontext\nvalue:\n"
+            "\nAdditional information used by the model:\nkey: context\nvalue:\n"
             f"{mlflow_ground_truth}\n"
             f"\nMetric definition:\n{RelevanceMetric.definition}\n"
             f"\nGrading rubric:\n{RelevanceMetric.grading_prompt}\n"
             "\n\n"
-            "\nYou must output a JSON object with the following fields:\nscore: "
+            "\nYou must return the following fields in your response one below the other:\nscore: "
             "Your numerical score for the model's relevance based on the "
             "rubric\njustification: Your step-by-step reasoning about the model's "
             "relevance score\n    ",
@@ -660,7 +659,7 @@ def test_strict_correctness_metric():
         assert mock_predict_function.call_args[0][1] == {
             "prompt": "\nTask:\nYou are an impartial judge. You will be given an input that was "
             "sent to a machine\nlearning model, and you will be given an output that the model "
-            "produced. You\ncould also be given additional information that was used by the model "
+            "produced. You\nmay also be given additional information that was used by the model "
             "to generate the output.\n\nYour task is to determine a numerical score called "
             "strict_correctness based on the input and output.\nA definition of "
             "strict_correctness and a grading rubric are provided below.\nYou must use the "
@@ -669,13 +668,13 @@ def test_strict_correctness_metric():
             "references and to\nunderstand them before completing the task.\n"
             f"\nInput:\n{input}\n"
             f"\nOutput:\n{mlflow_prediction}\n"
-            "\nAdditional information used by the model:\nkey:\ntargets\nvalue:\n"
+            "\nAdditional information used by the model:\nkey: targets\nvalue:\n"
             f"{mlflow_ground_truth}\n"
             f"\nMetric definition:\n{StrictCorrectnessMetric.definition}\n"
             f"\nGrading rubric:\n{StrictCorrectnessMetric.grading_prompt}\n"
             "\nExamples:\n"
             f"{examples}\n"
-            "\nYou must output a JSON object with the following fields:\nscore: "
+            "\nYou must return the following fields in your response one below the other:\nscore: "
             "Your numerical score for the model's strict_correctness based on the "
             "rubric\njustification: Your step-by-step reasoning about the model's "
             "strict_correctness score\n    ",

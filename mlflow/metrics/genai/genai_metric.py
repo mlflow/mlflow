@@ -36,7 +36,7 @@ def _format_args_string(grading_context_columns: Optional[List[str]], eval_value
         else (
             "Additional information used by the model:\n"
             + "\n".join(
-                [f"key:\n{arg}\nvalue:\n{arg_value}" for arg, arg_value in args_dict.items()]
+                [f"key: {arg}\nvalue:\n{arg_value}" for arg, arg_value in args_dict.items()]
             )
         )
     )
