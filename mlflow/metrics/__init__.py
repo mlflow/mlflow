@@ -44,7 +44,7 @@ latency = make_metric(
 """
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
-A metric for calculating `latency`_. Latency is determined by the time it takes to generate a
+A metric for calculating latency. Latency is determined by the time it takes to generate a
 prediction for a given input. Note that computing latency requires each row to be predicted 
 sequentially, which will likely slow down the evaluation process. 
 """
@@ -58,7 +58,7 @@ token_count = make_metric(
 """
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
-A metric for calculating `token_count`_. Token count is calculated using tiktoken by using the 
+A metric for calculating token_count. Token count is calculated using tiktoken by using the 
 `cl100k_base` tokenizer.
 """
 
