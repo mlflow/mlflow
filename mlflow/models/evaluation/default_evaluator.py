@@ -1408,7 +1408,10 @@ class DefaultEvaluator(ModelEvaluator):
                     name = f"{metric.name}/{metric.version}" if metric.version else metric.name
                     self.metrics_values.update({name: metric_value})
             except Exception as e:
-                exceptions.append(f"{e!r}")
+                if isinstance(e, MlflowException):
+                    exceptions.append(e.message)
+                else:
+                    exceptions.append(f"{e!r}")
         self._update_metrics()
         # lightweight version of _evaluate_extra_metrics just to check for errors that
         # stop execution
@@ -1419,10 +1422,13 @@ class DefaultEvaluator(ModelEvaluator):
                 eval_fn_args = self._get_args_for_metrics(extra_metric, first_row_df)
                 extra_metric.eval_fn(*eval_fn_args)
             except Exception as e:
-                exceptions.append(f"{e!r}")
+                if isinstance(e, MlflowException):
+                    exceptions.append(e.message)
+                else:
+                    exceptions.append(f"{e!r}")
 
         if len(exceptions) > 0:
-            raise MlflowException(exceptions)
+            raise MlflowException("\n".join(exceptions))
 
         # capture all errors from first row and return together
 
