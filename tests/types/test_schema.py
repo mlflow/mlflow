@@ -27,8 +27,6 @@ from mlflow.types.utils import (
     _infer_colspec_type,
     _infer_param_schema,
     _infer_schema,
-    _merge_object_properties,
-    _update_property_type,
     _validate_input_dictionary_contains_only_strings_and_lists_of_strings,
 )
 
@@ -1250,20 +1248,22 @@ def test_nested_array_object_to_and_from_dict():
     assert Array.from_json_dict(**json.loads(json.dumps(arr.to_dict()))) == arr
 
 
-def test_merge_object_properties_example():
+def test_merge_object_example():
     obj1 = Object(
         properties=[
             Property(name="a", dtype=DataType.string),
             Property(name="b", dtype=DataType.double),
         ]
     )
+    obj1_dict = obj1.to_dict()
     obj2 = Object(
         properties=[
             Property(name="a", dtype=DataType.string),
             Property(name="c", dtype=DataType.boolean),
         ]
     )
-    updated_obj = _merge_object_properties(obj1, obj2)
+    obj2_dict = obj2.to_dict()
+    updated_obj = obj1._merge_object(obj2)
     assert updated_obj == Object(
         properties=[
             Property(name="a", dtype=DataType.string),
@@ -1271,13 +1271,16 @@ def test_merge_object_properties_example():
             Property(name="c", dtype=DataType.boolean, required=False),
         ]
     )
+    assert obj1.to_dict() == obj1_dict
+    assert obj2.to_dict() == obj2_dict
 
 
-def test_update_property_type_example():
+def test_merge_property_example():
     prop1 = Property(
         name="a",
         dtype=Object(properties=[Property(name="a", dtype=DataType.string, required=False)]),
     )
+    prop1_dict = prop1.to_dict()
     prop2 = Property(
         name="a",
         dtype=Object(
@@ -1287,7 +1290,8 @@ def test_update_property_type_example():
             ]
         ),
     )
-    updated_prop = _update_property_type(prop1, prop2)
+    prop2_dict = prop2.to_dict()
+    updated_prop = prop1._merge_property(prop2)
     assert updated_prop == Property(
         name="a",
         dtype=Object(
@@ -1297,6 +1301,8 @@ def test_update_property_type_example():
             ]
         ),
     )
+    assert prop1.to_dict() == prop1_dict
+    assert prop2.to_dict() == prop2_dict
 
 
 def test_infer_colspec_type():

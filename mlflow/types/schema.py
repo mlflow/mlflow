@@ -4,6 +4,7 @@ import importlib.util
 import json
 import string
 import warnings
+from copy import deepcopy
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 
@@ -224,6 +225,64 @@ class Property:
         if dtype == OBJECT_TYPE:
             return cls(name=name, dtype=Object.from_json_dict(**dic), required=required)
 
+    def _merge_property(self, prop: "Property") -> "Property":
+        """
+        Check if current property is compatible with another property and return
+        the updated property.
+        When two properties has the same name, we need to check if the dtypes
+        of them are compatible or not.
+        An example of two compatible properties:
+
+            .. code-block:: python
+
+                prop1 = Property(
+                    name="a",
+                    dtype=Object(
+                        properties=[Property(name="a", dtype=DataType.string, required=False)]
+                    ),
+                )
+                prop2 = Property(
+                    name="a",
+                    dtype=Object(
+                        properties=[
+                            Property(name="a", dtype=DataType.string),
+                            Property(name="b", dtype=DataType.double),
+                        ]
+                    ),
+                )
+                updated_prop = prop1._merge_property(prop2)
+                assert updated_prop == Property(
+                    name="a",
+                    dtype=Object(
+                        properties=[
+                            Property(name="a", dtype=DataType.string, required=False),
+                            Property(name="b", dtype=DataType.double, required=False),
+                        ]
+                    ),
+                )
+
+        """
+        if self.name != prop.name:
+            raise MlflowException("Can't merge properties with different names")
+        required = self.required and prop.required
+        if isinstance(self.dtype, DataType) and isinstance(prop.dtype, DataType):
+            if self.dtype == prop.dtype:
+                return Property(name=self.name, dtype=self.dtype, required=required)
+            raise MlflowException(f"Properties are incompatible for {self.dtype} and {prop.dtype}")
+
+        if isinstance(self.dtype, Object) and isinstance(prop.dtype, Object):
+            obj = self.dtype._merge_object(prop.dtype)
+            return Property(name=self.name, dtype=obj, required=required)
+
+        if isinstance(self.dtype, Array) and isinstance(prop.dtype, Array):
+            if self.dtype.dtype == prop.dtype.dtype:
+                return Property(name=self.name, dtype=self.dtype, required=required)
+            if isinstance(self.dtype.dtype, Object) and isinstance(prop.dtype.dtype, Object):
+                obj = self.dtype.dtype._merge_object(prop.dtype.dtype)
+                return Property(name=self.name, dtype=Array(obj), required=required)
+
+        raise MlflowException("Properties are incompatible")
+
 
 @experimental
 class Object:
@@ -302,6 +361,59 @@ class Object:
         return cls(
             [Property.from_json_dict(**{name: prop}) for name, prop in kwargs["properties"].items()]
         )
+
+    def _merge_object(self, obj: "Object") -> "Object":
+        """
+        Check if the current object is compatible with another object and return
+        the updated object.
+        When we infer the signature from a list of objects, it is possible
+        that one object has more properties than the other. In this case,
+        we should mark those optional properties as required=False.
+        For properties with the same name, we should check the compatibility
+        of two properties and update.
+        An example of two compatible objects:
+
+            .. code-block:: python
+
+                obj1 = Object(
+                    properties=[
+                        Property(name="a", dtype=DataType.string),
+                        Property(name="b", dtype=DataType.double),
+                    ]
+                )
+                obj2 = Object(
+                    properties=[
+                        Property(name="a", dtype=DataType.string),
+                        Property(name="c", dtype=DataType.boolean),
+                    ]
+                )
+                updated_obj = obj1._merge_object(obj2)
+                assert updated_obj == Object(
+                    properties=[
+                        Property(name="a", dtype=DataType.string),
+                        Property(name="b", dtype=DataType.double, required=False),
+                        Property(name="c", dtype=DataType.boolean, required=False),
+                    ]
+                )
+
+        """
+        if self == obj:
+            return deepcopy(self)
+        prop_dict1 = {prop.name: prop for prop in self.properties}
+        prop_dict2 = {prop.name: prop for prop in obj.properties}
+        updated_properties = []
+        # For each property in the first element, if it doesn't appear
+        # later, we update required=False
+        for k in prop_dict1.keys() - prop_dict2.keys():
+            updated_properties.append(Property(name=k, dtype=prop_dict1[k].dtype, required=False))
+        # For common keys, property type should be the same
+        for k in prop_dict1.keys() & prop_dict2.keys():
+            updated_properties.append(prop_dict1[k]._merge_property(prop_dict2[k]))
+        # For each property appears in the second elements, if it doesn't
+        # exist, we update and set required=False
+        for k in prop_dict2.keys() - prop_dict1.keys():
+            updated_properties.append(Property(name=k, dtype=prop_dict2[k].dtype, required=False))
+        return Object(properties=updated_properties)
 
 
 class Array:

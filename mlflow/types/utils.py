@@ -106,118 +106,6 @@ def _infer_datatype(data) -> Optional[DataType]:
         return DataType.datetime
 
 
-def _merge_object_properties(obj1: Object, obj2: Object) -> Object:
-    """
-    Check if two objects are compatible and return the updated object.
-    When we infer the signature from a list of objects, it is possible
-    that one object has more properties than the other. In this case,
-    we should mark those optional properties as required=False.
-    For properties with the same name, we should check the compatibility
-    of two properties and update.
-    An example of two compatible objects:
-
-        .. code-block:: python
-
-            obj1 = Object(
-                properties=[
-                    Property(name="a", dtype=DataType.string),
-                    Property(name="b", dtype=DataType.double),
-                ]
-            )
-            obj2 = Object(
-                properties=[
-                    Property(name="a", dtype=DataType.string),
-                    Property(name="c", dtype=DataType.boolean),
-                ]
-            )
-            updated_obj = _merge_object_properties(obj1, obj2)
-            assert updated_obj == Object(
-                properties=[
-                    Property(name="a", dtype=DataType.string),
-                    Property(name="b", dtype=DataType.double, required=False),
-                    Property(name="c", dtype=DataType.boolean, required=False),
-                ]
-            )
-
-    """
-    if obj1 == obj2:
-        return obj1
-    properties1 = {prop.name: prop for prop in obj1.properties}
-    properties2 = {prop.name: prop for prop in obj2.properties}
-    updated_properties = []
-    # For each property in the first element, if it doesn't appear
-    # later, we update required=False
-    for k in properties1.keys() - properties2.keys():
-        properties1[k].required = False
-        updated_properties.append(properties1[k])
-    # For common keys, property type should be the same
-    for k in properties1.keys() & properties2.keys():
-        updated_properties.append(_update_property_type(properties1[k], properties2[k]))
-    # For each property appears in the second elements, if it doesn't
-    # exist, we update and set required=False
-    for k in properties2.keys() - properties1.keys():
-        properties2[k].required = False
-        updated_properties.append(properties2[k])
-    return Object(properties=updated_properties)
-
-
-def _update_property_type(prop1: Property, prop2: Property) -> Property:
-    """
-    Check if two properties are compatible and return the updated property.
-    When two properties has the same name, we need to check if the dtypes
-    of them are compatible or not.
-    An example of two compatible properties:
-
-        .. code-block:: python
-
-            prop1 = Property(
-                name="a",
-                dtype=Object(
-                    properties=[Property(name="a", dtype=DataType.string, required=False)]
-                ),
-            )
-            prop2 = Property(
-                name="a",
-                dtype=Object(
-                    properties=[
-                        Property(name="a", dtype=DataType.string),
-                        Property(name="b", dtype=DataType.double),
-                    ]
-                ),
-            )
-            updated_prop = _update_property_type(prop1, prop2)
-            assert updated_prop == Property(
-                name="a",
-                dtype=Object(
-                    properties=[
-                        Property(name="a", dtype=DataType.string, required=False),
-                        Property(name="b", dtype=DataType.double, required=False),
-                    ]
-                ),
-            )
-
-    """
-    if prop1.name != prop2.name:
-        raise MlflowException("Can't update two properties with different names")
-    required = prop1.required and prop2.required
-    if isinstance(prop1.dtype, DataType) and isinstance(prop2.dtype, DataType):
-        if prop1.dtype == prop2.dtype:
-            return Property(name=prop1.name, dtype=prop1.dtype, required=required)
-        raise MlflowException(f"Properties are incompatible for {prop1.dtype} and {prop2.dtype}")
-
-    if isinstance(prop1.dtype, Object) and isinstance(prop2.dtype, Object):
-        return Property(name=prop1.name, dtype=_merge_object_properties(prop1.dtype, prop2.dtype))
-
-    if isinstance(prop1.dtype, Array) and isinstance(prop2.dtype, Array):
-        if prop1.dtype.dtype == prop2.dtype.dtype:
-            return Property(name=prop1.name, dtype=prop1.dtype, required=required)
-        if isinstance(prop1.dtype.dtype, Object) and isinstance(prop2.dtype.dtype, Object):
-            obj = _merge_object_properties(prop1.dtype.dtype, prop2.dtype.dtype)
-            return Property(name=prop1.name, dtype=Array(obj), required=required)
-
-    raise MlflowException("Properties are incompatible")
-
-
 def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
     """
     Infer an MLflow Colspec type from the dataset.
@@ -250,7 +138,7 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
                     raise MlflowException.invalid_parameter_value(
                         "Expected all values in list to be of same type"
                     )
-                dtype = _merge_object_properties(dtype, dtype2)
+                dtype = dtype._merge_object(dtype2)
             return Array(dtype)
         elif isinstance(dtype, DataType):
             if any(_infer_colspec_type(v) != dtype for v in data[1:]):
