@@ -445,7 +445,8 @@ def test_save_model_with_secret_scope(tmp_path, monkeypatch):
     with mock.patch("mlflow.openai.is_in_databricks_runtime", return_value=True), mock.patch(
         "mlflow.openai.check_databricks_secret_scope_access"
     ):
-        mlflow.openai.save_model(model="gpt-3.5-turbo", task="chat.completions", path=tmp_path)
+        with pytest.warns(FutureWarning, match="MLFLOW_OPENAI_SECRET_SCOPE.+deprecated"):
+            mlflow.openai.save_model(model="gpt-3.5-turbo", task="chat.completions", path=tmp_path)
     with tmp_path.joinpath("openai.yaml").open() as f:
         creds = yaml.safe_load(f)
         assert creds == {

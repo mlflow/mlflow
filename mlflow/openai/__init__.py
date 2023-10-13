@@ -4,6 +4,12 @@ The ``mlflow.openai`` module provides an API for logging and loading OpenAI mode
 Credential management for OpenAI on Databricks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. warning::
+
+    Specifying secrets for model serving with ``MLFLOW_OPENAI_SECRET_SCOPE`` is deprecated.
+    Use `secrets-based environment variables <https://docs.databricks.com/en/machine-learning/model-serving/store-env-variable-model-serving.html>`_
+    instead.
+
 When this flavor logs a model on Databricks, it saves a YAML file with the following contents as
 ``openai.yaml`` if the ``MLFLOW_OPENAI_SECRET_SCOPE`` environment variable is set.
 
@@ -28,6 +34,7 @@ for how to set up secrets on Databricks.
 import itertools
 import logging
 import os
+import warnings
 from enum import Enum
 from string import Formatter
 from typing import Any, Dict, NamedTuple, Optional, Set
@@ -410,14 +417,14 @@ def save_model(
 
     if is_in_databricks_runtime():
         if scope := MLFLOW_OPENAI_SECRET_SCOPE.get():
+            url = "https://docs.databricks.com/en/machine-learning/model-serving/store-env-variable-model-serving.html"
+            warnings.warn(
+                "Specifying secrets for model serving with `MLFLOW_OPENAI_SECRET_SCOPE` is "
+                f"deprecated. Use secrets-based environment variables ({url}) instead.",
+                FutureWarning,
+            )
             check_databricks_secret_scope_access(scope)
             _log_secrets_yaml(path, scope)
-        else:
-            _logger.info(
-                "No secret scope specified, skipping logging of secrets for OpenAI credentials. "
-                "See https://mlflow.org/docs/latest/python_api/openai/index.html#credential-management-for-openai-on-databricks "
-                "for more information."
-            )
 
     if conda_env is None:
         if pip_requirements is None:
