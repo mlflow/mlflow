@@ -375,8 +375,8 @@ class ColSpec:
         self,
         type: Union[DataType, Array, Object, str],  # pylint: disable=redefined-builtin
         name: Optional[str] = None,
-        optional: bool = None,
-        required: bool = None,  # TODO: update to required=True after deprecating optional
+        optional: Optional[bool] = None,
+        required: Optional[bool] = None,  # TODO: update to required=True after deprecating optional
     ):
         self._name = name
 
@@ -392,7 +392,6 @@ class ColSpec:
                     "of MLflow. Use `required` instead.",
                     category=FutureWarning,
                 )
-                self._optional = optional
                 self._required = not optional
         else:
             self._required = True if required is None else required
@@ -428,7 +427,7 @@ class ColSpec:
 
         .. Warning:: Deprecated. `optional` is deprecated in favor of `required`.
         """
-        return self._optional
+        return not self._required
 
     @experimental
     @property
