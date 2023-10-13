@@ -300,8 +300,8 @@ def test_make_genai_metric_incorrect_response():
 
 
 def test_malformed_input_raises_exception():
-    error_message = "Provided values for grading_context_columns are malformed and cannot be "
-    "formatted into prompt for metric 'correctness'.\n\nProvided values: {'targets': None}\n"
+    error_message = "Values for grading_context_columns are malformed and cannot be "
+    "formatted into prompt for metric 'correctness'.\nProvided values: {'targets': None}\n"
     "Error: TypeError(\"'NoneType' object is not subscriptable\")\n"
 
     correctness_metric = correctness()

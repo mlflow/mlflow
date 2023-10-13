@@ -39,8 +39,6 @@ def _token_count_eval_fn(predictions, targets, metrics):
     os.environ["TIKTOKEN_CACHE_DIR"] = ""
     encoding = tiktoken.get_encoding("cl100k_base")
 
-    _logger.info("Computing token count metric:")
-
     num_tokens = []
     for prediction in predictions:
         if isinstance(prediction, str):
@@ -57,7 +55,6 @@ def _toxicity_eval_fn(predictions, targets, metrics):
     if not _validate_text_data(predictions, "toxicity", "predictions"):
         return
     try:
-        _logger.info("Loading toxicity metric:")
         import evaluate
 
         toxicity = evaluate.load("toxicity", module_type="measurement")
@@ -67,7 +64,6 @@ def _toxicity_eval_fn(predictions, targets, metrics):
         )
         return
 
-    _logger.info("Computing toxicity metric:")
     scores = toxicity.compute(predictions=predictions)["toxicity"]
     toxicity_ratio = toxicity.compute(predictions=predictions, aggregation="ratio")[
         "toxicity_ratio"
@@ -86,7 +82,6 @@ def _perplexity_eval_fn(predictions, targets, metrics):
         return
 
     try:
-        _logger.info("Loading perplexity metric:")
         import evaluate
 
         perplexity = evaluate.load("perplexity", module_type="metric")
@@ -96,7 +91,6 @@ def _perplexity_eval_fn(predictions, targets, metrics):
         )
         return
 
-    _logger.info("Computing perplexity metric:")
     scores = perplexity.compute(predictions=predictions, model_id="gpt2")["perplexities"]
     return MetricValue(
         scores=scores,
@@ -114,7 +108,6 @@ def _flesch_kincaid_eval_fn(predictions, targets, metrics):
         _logger.warning("Failed to load flesch kincaid metric, skipping metric logging.")
         return
 
-    _logger.info("Computing flesch kincaid metric:")
     scores = [textstat.flesch_kincaid_grade(prediction) for prediction in predictions]
     return MetricValue(
         scores=scores,
@@ -134,7 +127,6 @@ def _ari_eval_fn(predictions, targets, metrics):
         )
         return
 
-    _logger.info("Computing automated readability index metric:")
     scores = [textstat.automated_readability_index(prediction) for prediction in predictions]
     return MetricValue(
         scores=scores,
