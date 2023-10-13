@@ -1,6 +1,9 @@
 routes:
   - name: chat
     route_type: llm/v1/chat
+    limit:
+      renewal_period: "minute"
+      calls: 1
     model:
       provider: openai
       name: gpt-3.5-turbo

@@ -281,11 +281,22 @@ class Model(ConfigModel):
             return cls._validate_config(config, values)
 
 
+class Limit(LimitModel):
+    calls: int
+    key: Optional[str] = None
+    renewal_period: str
+
+
+class LimitsConfig(ConfigModel):
+    limits: Optional[List[Limit]] = []
+
+
 # pylint: disable=no-self-argument
 class RouteConfig(ConfigModel):
     name: str
     route_type: RouteType
     model: Model
+    limit: Optional[Limit] = None
 
     @validator("name")
     def validate_endpoint_name(cls, route_name):
@@ -375,18 +386,8 @@ class Route(ResponseModel):
         }
 
 
-class Limit(LimitModel):
-    calls: int
-    key: Optional[str] = None
-    renewal_period: str
-
-
 class GatewayConfig(ConfigModel):
     routes: List[RouteConfig]
-
-
-class LimitsConfig(ConfigModel):
-    limits: Optional[List[Limit]] = []
 
 
 def _load_route_config(path: Union[str, Path]) -> GatewayConfig:

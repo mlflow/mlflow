@@ -6,6 +6,9 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 from mlflow.exceptions import MlflowException
@@ -35,17 +38,19 @@ _logger = logging.getLogger(__name__)
 
 
 class GatewayAPI(FastAPI):
-    def __init__(self, config: GatewayConfig, *args: Any, **kwargs: Any):
+    def __init__(self, config: GatewayConfig, limiter: Limiter, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self.dynamic_routes: Dict[str, Route] = {}
-        self.set_dynamic_routes(config)
+        self.state.limiter = limiter
+        self.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+        self.set_dynamic_routes(config, limiter)
 
-    def set_dynamic_routes(self, config: GatewayConfig) -> None:
+    def set_dynamic_routes(self, config: GatewayConfig, limiter: Limiter) -> None:
         self.dynamic_routes.clear()
         for route in config.routes:
             self.add_api_route(
                 path=f"{MLFLOW_GATEWAY_ROUTE_BASE}{route.name}{MLFLOW_QUERY_SUFFIX}",
-                endpoint=_route_type_to_endpoint(route),
+                endpoint=_route_type_to_endpoint(route, limiter),
                 methods=["POST"],
             )
             self.dynamic_routes[route.name] = route.to_route()
@@ -57,8 +62,10 @@ class GatewayAPI(FastAPI):
 def _create_chat_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
-    async def _chat(payload: chat.RequestPayload) -> chat.ResponsePayload:
-        return await prov.chat(payload)
+    # https://slowapi.readthedocs.io/en/latest/#limitations-and-known-issues
+    async def _chat(request: Request) -> chat.ResponsePayload:
+        payload = await request.json()
+        return await prov.chat(chat.RequestPayload(**payload))
 
     return _chat
 
@@ -66,10 +73,9 @@ def _create_chat_endpoint(config: RouteConfig):
 def _create_completions_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
-    async def _completions(
-        payload: completions.RequestPayload,
-    ) -> completions.ResponsePayload:
-        return await prov.completions(payload)
+    async def _completions(request: Request) -> completions.ResponsePayload:
+        payload = await request.json()
+        return await prov.completions(**payload)
 
     return _completions
 
@@ -77,8 +83,9 @@ def _create_completions_endpoint(config: RouteConfig):
 def _create_embeddings_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
-    async def _embeddings(payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
-        return await prov.embeddings(payload)
+    async def _embeddings(request: Request) -> embeddings.ResponsePayload:
+        payload = await request.json()
+        return await prov.embeddings(embeddings.RequestPayload(**payload))
 
     return _embeddings
 
@@ -87,14 +94,19 @@ async def _custom(request: Request):
     return request.json()
 
 
-def _route_type_to_endpoint(config: RouteConfig):
+def _route_type_to_endpoint(config: RouteConfig, limiter: Limiter):
     provider_to_factory = {
         RouteType.LLM_V1_CHAT: _create_chat_endpoint,
         RouteType.LLM_V1_COMPLETIONS: _create_completions_endpoint,
         RouteType.LLM_V1_EMBEDDINGS: _create_embeddings_endpoint,
     }
     if factory := provider_to_factory.get(config.route_type):
-        return factory(config)
+        handler = factory(config)
+        if config.limit:
+            limit_value = f"{config.limit.calls}/{config.limit.renewal_period}"
+            return limiter.limit(limit_value)(handler)
+        else:
+            return handler
 
     raise HTTPException(
         status_code=404,
@@ -148,8 +160,10 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     """
     Create the GatewayAPI app from the gateway configuration.
     """
+    limiter = Limiter(key_func=get_remote_address)
     app = GatewayAPI(
         config=config,
+        limiter=limiter,
         title="MLflow Gateway API",
         description="The core gateway API for reverse proxy interface using remote inference "
         "endpoints within MLflow",
