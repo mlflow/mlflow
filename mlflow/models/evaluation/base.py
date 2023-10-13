@@ -1398,37 +1398,40 @@ def evaluate(
                             return model.predict(model_input)
 
         If omitted, it indicates a static dataset will be used for evaluation instead of a model.
-        In this case, the ``data`` argument must be a Pandas DataFrame that contains model outputs,
-        and the ``predictions`` argument must be the name of the column in ``data`` that contains
-        model outputs.
+        In this case, the ``data`` argument must be a Pandas DataFrame or an mlflow PandasDataset
+        that contains model outputs, and the ``predictions`` argument must be the name of the
+        column in ``data`` that contains model outputs.
 
     :param data: One of the following:
 
                  - A numpy array or list of evaluation features, excluding labels.
 
-                 - A Pandas DataFrame or Spark DataFrame, containing evaluation features,
-                   labels, and optionally model outputs. Model outputs are required to be
-                   provided when model is unspecified. If ``feature_names`` argument not
-                   specified, all columns except for the label column and model_output column
-                   are regarded as feature columns. Otherwise, only column names present in
-                   ``feature_names`` are regarded as feature columns.
-                   If it is Spark DataFrame, only the first 10000 rows in the Spark DataFrame
-                   will be used as evaluation data.
+                 - A Pandas DataFrame containing evaluation features, labels, and optionally model
+                   outputs. Model outputs are required to be provided when model is unspecified.
+                   If ``feature_names`` argument not specified, all columns except for the label
+                   column and model_output column are regarded as feature columns. Otherwise,
+                   only column names present in ``feature_names`` are regarded as feature columns.
 
-                 - A :py:class`mlflow.data.dataset.Dataset` instance containing evaluation features
-                   and labels.
+                 -  A Spark DataFrame containing evaluation features and labels. If
+                   ``feature_names`` argument not specified, all columns except for the label column
+                   are regarded as feature columns. Otherwise, only column names present in
+                   ``feature_names`` are regarded as feature columns. Only the first 10000 rows in
+                   the Spark DataFrame will be used as evaluation data.
+
+                 - A :py:class:`mlflow.data.dataset.Dataset` instance containing evaluation
+                   features, labels, and optionally model outputs. Model outputs are only supported
+                   with a PandasDataset. Model outputs are required when model is unspecified, and
+                   should be specified via the ``predictions`` property of the PandasDataset.
 
     :param targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
                     labels. If ``data`` is a DataFrame, the string name of a column from ``data``
                     that contains evaluation labels. Required for classifier and regressor models,
                     but optional for question-answering, text-summarization, and text models. If
-                    ``data`` is a :py:class`mlflow.data.dataset.Dataset` that defines targets,
+                    ``data`` is a :py:class:`mlflow.data.dataset.Dataset` that defines targets,
                     then ``targets`` is optional.
 
-    :param predictions: Optional. Only used when ``model`` is not specified. The name of the column
-                        in ``data`` that contains model outputs. If ``data`` is a
-                        :py:class:`mlflow.data.dataset.Dataset` that defines predictions,
-                        then ``predictions`` is optional.
+    :param predictions: Optional. Only used when ``model`` is not specified and ``data`` is a pandas
+                        dataframe. The name of the column in ``data`` that contains model outputs.
 
     :param model_type: (Optional) A string describing the model type. The default evaluator
                        supports the following model types:
