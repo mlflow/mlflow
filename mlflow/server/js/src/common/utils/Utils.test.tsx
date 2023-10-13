@@ -321,14 +321,14 @@ test('formatSource & renderSource', () => {
   );
 
   const gitlab_long_url = {
-    'mlflow.source.name': { value: 'git@gitlab.com:mlflow/mlflow-apps.git#hello.py' },
+    'mlflow.source.name': { value: 'git@gitlab.com:mlflow/mlflow-apps.git#tmp' },
     'mlflow.source.type': { value: 'PROJECT' },
     'mlflow.project.entryPoint': { value: 'entry' },
   };
-  expect(Utils.formatSource(gitlab_long_url)).toEqual('mlflow-apps:entry');
+  expect(Utils.formatSource(gitlab_long_url)).toEqual('mlflow-apps#tmp:entry');
   // @ts-expect-error TS(2554): Expected 3 arguments, but got 1.
   expect(Utils.renderSource(gitlab_long_url)).toEqual(
-    <a href='https://gitlab.com/mlflow/mlflow-apps/-/tree/master/hello.py' target='_top'>
+    <a href='https://gitlab.com/mlflow/mlflow-apps/-/tree/master/tmp' target='_top'>
       mlflow-apps:entry
     </a>,
   );
