@@ -12,9 +12,19 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _enforce_tensor_spec
 from mlflow.pyfunc import _parse_spark_datatype
 from mlflow.types import DataType
-from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
+from mlflow.types.schema import (
+    Array,
+    ColSpec,
+    Object,
+    ParamSchema,
+    ParamSpec,
+    Property,
+    Schema,
+    TensorSpec,
+)
 from mlflow.types.utils import (
     _get_tensor_shape,
+    _infer_colspec_type,
     _infer_param_schema,
     _infer_schema,
     _validate_input_dictionary_contains_only_strings_and_lists_of_strings,
@@ -989,3 +999,459 @@ def test_infer_param_schema_with_errors():
         MlflowException, match=r"Expected parameters to be 1D array or scalar, got Series"
     ):
         _infer_param_schema({"a": pd.Series([1, 2, 3])})
+
+
+def test_object_construction_with_errors():
+    with pytest.raises(MlflowException, match=r"Expected properties to be a list, got type dict"):
+        Object({"p1": Property("p1", DataType.string)})
+
+    with pytest.raises(
+        MlflowException, match=r"Creating Object with empty properties is not allowed."
+    ):
+        Object([])
+
+    properties = [
+        Property("p1", DataType.string),
+        Property("p2", DataType.binary),
+        {"invalid_type": "value"},
+    ]
+    with pytest.raises(MlflowException, match=r"Expected values to be instance of Property"):
+        Object(properties)
+
+    properties = [
+        Property("p1", DataType.string),
+        Property("p2", DataType.binary),
+        Property("p2", DataType.boolean),
+    ]
+    with pytest.raises(MlflowException, match=r"Found duplicated property names: {'p2'}"):
+        Object(properties)
+
+
+@pytest.mark.parametrize("data_type", DataType)
+def test_property_to_and_from_dict(data_type):
+    prop = Property("data", data_type, True)
+    assert prop.to_dict() == {"data": {"type": data_type.name, "required": True}}
+    assert Property.from_json_dict(**json.loads(json.dumps(prop.to_dict()))) == prop
+
+    # test array
+    prop = Property("arr", Array(data_type), False)
+    assert prop.to_dict() == {
+        "arr": {
+            "type": "array",
+            "items": {"type": data_type.name},
+            "required": False,
+        },
+    }
+    assert Property.from_json_dict(**json.loads(json.dumps(prop.to_dict()))) == prop
+
+    # test object
+    prop = Property("data", Object([Property("p", data_type)]))
+    assert prop.to_dict() == {
+        "data": {
+            "type": "object",
+            "properties": {"p": {"type": data_type.name, "required": True}},
+            "required": True,
+        },
+    }
+    assert Property.from_json_dict(**json.loads(json.dumps(prop.to_dict()))) == prop
+
+
+def test_property_from_dict_with_errors():
+    with pytest.raises(
+        MlflowException,
+        match=r"Expected Property JSON to contain a single key as name, got 2 keys.",
+    ):
+        Property.from_json_dict(**{"p1": {}, "p2": {}})
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Missing keys in Property `p`. Expected to find key `type`",
+    ):
+        Property.from_json_dict(**{"p": {}})
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Unsupported type 'invalid_type', expected instance of DataType, Array, Object or ",
+    ):
+        Property.from_json_dict(**{"p": {"type": "invalid_type"}})
+
+    # test array
+    with pytest.raises(
+        MlflowException,
+        match=r"Missing keys in Array JSON. Expected to find keys `items` and `type`",
+    ):
+        Property.from_json_dict(**{"p": {"type": "array"}})
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Unsupported type 'invalid_type', expected instance of DataType, Array, Object or ",
+    ):
+        Property.from_json_dict(**{"p": {"type": "array", "items": {"type": "invalid_type"}}})
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Expected items to be a dictionary of Object JSON",
+    ):
+        Property.from_json_dict(**{"p": {"type": "array", "items": "invalid_items_type"}})
+
+    # test object
+    with pytest.raises(
+        MlflowException,
+        match=r"Missing keys in Object JSON. Expected to find keys `properties` and `type`",
+    ):
+        Property.from_json_dict(**{"p": {"type": "object"}})
+
+    with pytest.raises(
+        MlflowException, match=r"Expected properties to be a dictionary of Property JSON"
+    ):
+        Property.from_json_dict(**{"p": {"type": "object", "properties": "invalid_type"}})
+
+    with pytest.raises(
+        MlflowException, match=r"Expected properties to be a dictionary of Property JSON"
+    ):
+        Property.from_json_dict(
+            **{
+                "p": {
+                    "type": "object",
+                    "properties": {"p1": {"type": "string"}, "p2": "invalid_type"},
+                }
+            }
+        )
+
+
+def test_object_to_and_from_dict():
+    properties = []
+    dict_prop = {}
+    for data_type in DataType:
+        properties.append(Property(f"name_{data_type.name}", data_type))
+        dict_prop[f"name_{data_type.name}"] = {"type": data_type.name, "required": True}
+    obj = Object(properties)
+    assert obj.to_dict() == {
+        "type": "object",
+        "properties": dict(sorted(dict_prop.items())),
+    }
+    assert Object.from_json_dict(**json.loads(json.dumps(obj.to_dict()))) == obj
+
+
+def test_object_from_dict_with_errors():
+    with pytest.raises(
+        MlflowException,
+        match=r"Missing keys in Object JSON. Expected to find keys `properties` and `type`",
+    ):
+        Object.from_json_dict(**{"type": "object"})
+
+    with pytest.raises(
+        MlflowException, match=r"Type mismatch, Object expects `object` as the type"
+    ):
+        Object.from_json_dict(**{"type": "array", "properties": {}})
+
+    with pytest.raises(
+        MlflowException, match=r"Expected properties to be a dictionary of Property JSON"
+    ):
+        Object.from_json_dict(**{"type": "object", "properties": "invalid_type"})
+
+    with pytest.raises(
+        MlflowException, match=r"Expected properties to be a dictionary of Property JSON"
+    ):
+        Object.from_json_dict(
+            **{
+                "type": "object",
+                "properties": {"p1": {"type": "string"}, "p2": "invalid_type"},
+            }
+        )
+
+
+@pytest.mark.parametrize("data_type", DataType)
+def test_array_to_and_from_dict(data_type):
+    arr = Array(data_type)
+    assert arr.to_dict() == {"type": "array", "items": {"type": data_type.name}}
+    assert Array.from_json_dict(**json.loads(json.dumps(arr.to_dict()))) == arr
+
+    # test object
+    arr = Array(Object([Property("p", data_type)]))
+    assert arr.to_dict() == {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {"p": {"type": data_type.name, "required": True}},
+        },
+    }
+    assert Array.from_json_dict(**json.loads(json.dumps(arr.to_dict()))) == arr
+
+
+def test_array_from_dict_with_errors():
+    with pytest.raises(
+        MlflowException,
+        match=r"Missing keys in Array JSON. Expected to find keys `items` and `type`",
+    ):
+        Array.from_json_dict(**{"type": "array"})
+
+    with pytest.raises(MlflowException, match=r"Type mismatch, Array expects `array` as the type"):
+        Array.from_json_dict(**{"type": "object", "items": "string"})
+
+    with pytest.raises(MlflowException, match=r"Expected items to be a dictionary of Object JSON"):
+        Array.from_json_dict(**{"type": "array", "items": "string"})
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Unsupported type 'invalid_type', expected instance of DataType, Array, Object or ",
+    ):
+        Array.from_json_dict(**{"type": "array", "items": {"type": "invalid_type"}})
+
+    with pytest.raises(
+        MlflowException, match=r"Expected properties to be a dictionary of Property JSON"
+    ):
+        Array.from_json_dict(**{"type": "array", "items": {"type": "object", "properties": []}})
+
+
+def test_nested_array_object_to_and_from_dict():
+    arr = Array(
+        Object(
+            [
+                Property("p", DataType.string),
+                Property(
+                    "arr",
+                    Array(
+                        Object(
+                            [
+                                Property("p2", DataType.boolean, required=False),
+                                Property("arr2", Array(DataType.integer)),
+                            ]
+                        )
+                    ),
+                ),
+            ]
+        )
+    )
+    assert arr.to_dict() == {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "p": {"type": "string", "required": True},
+                "arr": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "p2": {"type": "boolean", "required": False},
+                            "arr2": {
+                                "type": "array",
+                                "items": {"type": "integer"},
+                                "required": True,
+                            },
+                        },
+                    },
+                    "required": True,
+                },
+            },
+        },
+    }
+    assert Array.from_json_dict(**json.loads(json.dumps(arr.to_dict()))) == arr
+
+
+def test_merge_object_example():
+    obj1 = Object(
+        properties=[
+            Property(name="a", dtype=DataType.string),
+            Property(name="b", dtype=DataType.double),
+        ]
+    )
+    obj1_dict = obj1.to_dict()
+    obj2 = Object(
+        properties=[
+            Property(name="a", dtype=DataType.string),
+            Property(name="c", dtype=DataType.boolean),
+        ]
+    )
+    obj2_dict = obj2.to_dict()
+    updated_obj = obj1._merge(obj2)
+    assert updated_obj == Object(
+        properties=[
+            Property(name="a", dtype=DataType.string),
+            Property(name="b", dtype=DataType.double, required=False),
+            Property(name="c", dtype=DataType.boolean, required=False),
+        ]
+    )
+    assert obj1.to_dict() == obj1_dict
+    assert obj2.to_dict() == obj2_dict
+
+
+def test_merge_property_example():
+    prop1 = Property(
+        name="a",
+        dtype=Object(properties=[Property(name="a", dtype=DataType.string, required=False)]),
+    )
+    prop1_dict = prop1.to_dict()
+    prop2 = Property(
+        name="a",
+        dtype=Object(
+            properties=[
+                Property(name="a", dtype=DataType.string),
+                Property(name="b", dtype=DataType.double),
+            ]
+        ),
+    )
+    prop2_dict = prop2.to_dict()
+    updated_prop = prop1._merge(prop2)
+    assert updated_prop == Property(
+        name="a",
+        dtype=Object(
+            properties=[
+                Property(name="a", dtype=DataType.string, required=False),
+                Property(name="b", dtype=DataType.double, required=False),
+            ]
+        ),
+    )
+    assert prop1.to_dict() == prop1_dict
+    assert prop2.to_dict() == prop2_dict
+
+
+def test_infer_colspec_type():
+    data = {"role": "system", "content": "Translate every message you receive to French."}
+    dtype = _infer_colspec_type(data)
+    assert dtype == Object(
+        [Property("role", DataType.string), Property("content", DataType.string)]
+    )
+
+    data = {
+        "messages": [
+            {"role": "system", "content": "Translate every message you receive to French."},
+            {"role": "user", "content": "I like machine learning", "name": "John Doe"},
+        ],
+    }
+    dtype = _infer_colspec_type(data)
+    assert dtype == Object(
+        [
+            Property(
+                "messages",
+                Array(
+                    Object(
+                        [
+                            Property("role", DataType.string),
+                            Property("content", DataType.string),
+                            Property("name", DataType.string, required=False),
+                        ]
+                    )
+                ),
+            )
+        ]
+    )
+
+    data = [
+        {
+            "messages": [
+                {"role": "system", "content": "Translate every message you receive to French."},
+                {"role": "user", "content": "I like machine learning"},
+            ],
+        },
+        {
+            "messages": [
+                {"role": "user", "content": "Summarize the following document ...", "name": "jeff"},
+            ]
+        },
+    ]
+    dtype = _infer_colspec_type(data)
+    assert dtype == Array(
+        Object(
+            [
+                Property(
+                    "messages",
+                    Array(
+                        Object(
+                            [
+                                Property("role", DataType.string),
+                                Property("content", DataType.string),
+                                Property("name", DataType.string, required=False),
+                            ]
+                        )
+                    ),
+                )
+            ]
+        )
+    )
+
+
+def test_colspec_schema_to_and_from_dict():
+    data = [
+        {
+            "messages": [
+                {"role": "system", "content": "Translate every message you receive to French."},
+                {"role": "user", "content": "I like machine learning"},
+            ],
+        },
+        {
+            "messages": [
+                {"role": "user", "content": "Summarize the following document ...", "name": "jeff"},
+            ]
+        },
+    ]
+    dtype = _infer_colspec_type(data)
+
+    schema = Schema([ColSpec(dtype)])
+    assert schema.to_dict() == [
+        {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "messages": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "content": {"type": "string", "required": True},
+                                "name": {"type": "string", "required": False},
+                                "role": {"type": "string", "required": True},
+                            },
+                        },
+                        "required": True,
+                    }
+                },
+            },
+            "required": True,
+        }
+    ]
+    assert Schema.from_json(json.dumps(schema.to_dict())) == schema
+
+    data = [
+        {
+            "messages": [
+                {"role": "system", "content": "Translate every message you receive to French."},
+                {"role": "user", "content": "I like machine learning"},
+            ],
+            "another_message": "hello world",
+        },
+        {
+            "messages": [
+                {"role": "user", "content": "Summarize the following document ...", "name": "jeff"},
+            ]
+        },
+    ]
+    dtype = _infer_colspec_type(data)
+    schema = Schema([ColSpec(dtype)])
+    assert schema.to_dict() == [
+        {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "messages": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "content": {"type": "string", "required": True},
+                                "name": {"type": "string", "required": False},
+                                "role": {"type": "string", "required": True},
+                            },
+                        },
+                        "required": True,
+                    },
+                    "another_message": {"type": "string", "required": False},
+                },
+            },
+            "required": True,
+        }
+    ]
+    assert Schema.from_json(json.dumps(schema.to_dict())) == schema
