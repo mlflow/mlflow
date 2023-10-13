@@ -1425,7 +1425,9 @@ def evaluate(
                     then ``targets`` is optional.
 
     :param predictions: Optional. Only used when ``model`` is not specified. The name of the column
-                       in ``data`` that contains model outputs.
+                        in ``data`` that contains model outputs. If ``data`` is a
+                        :py:class:`mlflow.data.dataset.Dataset` that defines predictions,
+                        then ``predictions`` is optional.
 
     :param model_type: (Optional) A string describing the model type. The default evaluator
                        supports the following model types:
@@ -1681,23 +1683,33 @@ def evaluate(
         pass
     elif model is None:
         # Evaluating a static dataset
-        if predictions is None:
+        if isinstance(data, pd.DataFrame):
+            # If data is a pandas dataframe, predictions must be specified
+            if predictions is None:
+                raise MlflowException(
+                    message="The model output must be specified in the predicitons "
+                    "argument when model=None.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            if predictions not in data.columns:
+                raise MlflowException(
+                    message=f"The predictions column {predictions} is not found in data.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        elif (
+            isinstance(data, mlflow.data.pandas_dataset.PandasDataset)
+            and data.predictions is not None
+        ):
+            # If data is a mlflow PandasDataset with predictions specified, nothing else to check
+            pass
+        else:
+            # Other data formats are not supported
             raise MlflowException(
-                message="The predictions argument must be specified when model=None.",
+                message="The data must be a pandas dataframe or mlflow.data.pandas_dataset."
+                "PandasDataset when model=None.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        if not isinstance(data, pd.DataFrame):
-            raise MlflowException(
-                message="The data must be a pandas dataframe when model=None.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
-        if predictions not in data.columns:
-            raise MlflowException(
-                message=f"The predictions column {predictions} is not found in data.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
     elif callable(model):
         model = _get_model_from_function(model)
     else:

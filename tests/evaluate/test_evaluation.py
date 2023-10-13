@@ -1385,6 +1385,25 @@ def test_evaluate_with_static_dataset_input_single_output():
     assert "root_mean_squared_error" in run.data.metrics
 
 
+def test_evaluate_with_static_mlflow_dataset_input():
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    data = mlflow.data.from_pandas(
+        df=X.assign(y=y, model_output=y), targets="y", predictions="model_output"
+    )
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            data=data,
+            model_type="regressor",
+        )
+
+    run = mlflow.get_run(run.info.run_id)
+    assert "mean_absolute_error" in run.data.metrics
+    assert "mean_squared_error" in run.data.metrics
+    assert "root_mean_squared_error" in run.data.metrics
+
+
 def test_evaluate_with_static_spark_dataset_unsupported():
     data = sklearn.datasets.load_diabetes()
     spark = SparkSession.builder.master("local[*]").getOrCreate()
