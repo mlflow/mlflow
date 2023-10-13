@@ -1585,3 +1585,19 @@ def test_evaluate_with_static_dataset_error_handling_pandas_dataset():
                 model_type="regressor",
                 predictions="model_output",
             )
+
+
+def test_evaluate_retriever():
+    X = pd.DataFrame({"question": ["What is GPT-4?", "How does it work?", "Who developed it?"]})
+
+    def fn(X):
+        return pd.DataFrame({"output": [["doc1", "doc2"]] * len(X)})
+
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            fn,
+            X,
+            model_type="retriever",
+        )
+    run = mlflow.get_run(run.info.run_id)
+    assert run.data.metrics == {}
