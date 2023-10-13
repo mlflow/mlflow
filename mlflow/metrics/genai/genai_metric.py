@@ -213,6 +213,7 @@ def make_genai_metric(
         """
         This is the function that is called when the metric is evaluated.
         """
+
         eval_values = dict(zip(grading_context_columns, args))
 
         outputs = predictions.to_list()
