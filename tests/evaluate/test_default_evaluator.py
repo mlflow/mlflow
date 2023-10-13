@@ -2262,14 +2262,23 @@ def test_evaluate_question_answering_on_static_dataset_with_targets():
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     validate_question_answering_logged_data(logged_data)
     assert set(results.metrics.keys()) == {
-        "exact_match",
-        "mean_perplexity",
-        "toxicity_ratio",
-        "mean_ari_grade_level",
-        "mean_flesch_kincaid_grade_level",
+        "toxicity/v1/variance",
+        "perplexity/v1/p90",
+        "perplexity/v1/variance",
+        "toxicity/v1/ratio",
+        "toxicity/v1/mean",
+        "flesch_kincaid_grade_level/v1/variance",
+        "ari_grade_level/v1/p90",
+        "perplexity/v1/mean",
+        "flesch_kincaid_grade_level/v1/p90",
+        "flesch_kincaid_grade_level/v1/mean",
+        "ari_grade_level/v1/mean",
+        "ari_grade_level/v1/variance",
+        "exact_match/v1",
+        "toxicity/v1/p90",
     }
-    assert results.metrics["exact_match"] == 1.0
-    assert results.metrics["toxicity_ratio"] == 0.0
+    assert results.metrics["exact_match/v1"] == 1.0
+    assert results.metrics["toxicity/v1/ratio"] == 0.0
 
 
 def question_classifier(inputs):
