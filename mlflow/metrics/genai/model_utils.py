@@ -86,7 +86,7 @@ def _call_openai_api(openai_uri, payload, timeout):
     ).json()
 
     if "error" in resp:
-        raise MlflowException(f"Error response from openai {resp}")
+        raise MlflowException(f"Error response from OpenAI as follows:\n {resp}")
 
     return json.loads(openai_provider._prepare_completion_response_payload(resp).json())
 
