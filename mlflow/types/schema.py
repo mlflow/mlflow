@@ -3,6 +3,8 @@ import datetime as dt
 import importlib.util
 import json
 import string
+import warnings
+from copy import deepcopy
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 
@@ -10,6 +12,9 @@ import numpy as np
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
+
+ARRAY_TYPE = "array"
+OBJECT_TYPE = "object"
 
 
 class DataType(Enum):
@@ -122,6 +127,355 @@ class DataType(Enum):
         return next((v for v in cls._member_map_.values() if v.to_numpy() == np_type), None)
 
 
+@experimental
+class Property:
+    """
+    Specification used to represent a json-convertible object property.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        dtype: Union[DataType, "Array", "Object", str],
+        required: bool = True,
+    ) -> None:
+        """
+        :param name: The name of the property
+        :param dtype: The data type of the property
+        :param required: Whether this property is required
+        """
+        if not isinstance(name, str):
+            raise MlflowException.invalid_parameter_value(
+                f"Expected name to be a string, got type {type(name).__name__}"
+            )
+        self._name = name
+        try:
+            self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
+        except KeyError:
+            raise MlflowException(
+                f"Unsupported type '{dtype}', expected instance of DataType, Array, Object or "
+                f"one of {[t.name for t in DataType]}"
+            )
+        if not isinstance(self.dtype, (DataType, Array, Object)):
+            raise MlflowException(
+                "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array, "
+                "mlflow.types.schema.Object or str for the 'dtype' "
+                f"argument, but got {self.dtype.__class__}"
+            )
+        self._required = required
+
+    @property
+    def name(self) -> str:
+        """The property name."""
+        return self._name
+
+    @property
+    def dtype(self) -> Union[DataType, "Array", "Object"]:
+        """The property data type."""
+        return self._dtype
+
+    @property
+    def required(self) -> bool:
+        """Whether this property is required"""
+        return self._required
+
+    @required.setter
+    def required(self, value: bool) -> None:
+        self._required = value
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Property):
+            return (
+                self.name == other.name
+                and self.dtype == other.dtype
+                and self.required == other.required
+            )
+        return False
+
+    def __lt__(self, other) -> bool:
+        return self.name < other.name
+
+    def to_dict(self):
+        d = {"type": self.dtype.name} if isinstance(self.dtype, DataType) else self.dtype.to_dict()
+        d["required"] = self.required
+        return {self.name: d}
+
+    @classmethod
+    def from_json_dict(cls, **kwargs):
+        """
+        Deserialize from a json loaded dictionary.
+        The dictionary is expected to contain only one key as `name`, and
+        the value should be a dictionary containing `type` and
+        optional `required` keys.
+        Example: {"property_name": {"type": "string", "required": True}}
+        """
+        if len(kwargs) != 1:
+            raise MlflowException(
+                f"Expected Property JSON to contain a single key as name, got {len(kwargs)} keys."
+            )
+        name, dic = kwargs.popitem()
+        if not {"type"} <= set(dic.keys()):
+            raise MlflowException(f"Missing keys in Property `{name}`. Expected to find key `type`")
+        required = dic.pop("required", True)
+        dtype = dic["type"]
+        if dtype == ARRAY_TYPE:
+            return cls(name=name, dtype=Array.from_json_dict(**dic), required=required)
+        if dtype == OBJECT_TYPE:
+            return cls(name=name, dtype=Object.from_json_dict(**dic), required=required)
+        return cls(name=name, dtype=dtype, required=required)
+
+    def _merge(self, prop: "Property") -> "Property":
+        """
+        Check if current property is compatible with another property and return
+        the updated property.
+        When two properties have the same name, we need to check if their dtypes
+        are compatible or not.
+        An example of two compatible properties:
+
+            .. code-block:: python
+
+                prop1 = Property(
+                    name="a",
+                    dtype=Object(
+                        properties=[Property(name="a", dtype=DataType.string, required=False)]
+                    ),
+                )
+                prop2 = Property(
+                    name="a",
+                    dtype=Object(
+                        properties=[
+                            Property(name="a", dtype=DataType.string),
+                            Property(name="b", dtype=DataType.double),
+                        ]
+                    ),
+                )
+                merged_prop = prop1._merge(prop2)
+                assert merged_prop == Property(
+                    name="a",
+                    dtype=Object(
+                        properties=[
+                            Property(name="a", dtype=DataType.string, required=False),
+                            Property(name="b", dtype=DataType.double, required=False),
+                        ]
+                    ),
+                )
+
+        """
+        if self.name != prop.name:
+            raise MlflowException("Can't merge properties with different names")
+        required = self.required and prop.required
+        if isinstance(self.dtype, DataType) and isinstance(prop.dtype, DataType):
+            if self.dtype == prop.dtype:
+                return Property(name=self.name, dtype=self.dtype, required=required)
+            raise MlflowException(f"Properties are incompatible for {self.dtype} and {prop.dtype}")
+
+        if isinstance(self.dtype, Object) and isinstance(prop.dtype, Object):
+            obj = self.dtype._merge(prop.dtype)
+            return Property(name=self.name, dtype=obj, required=required)
+
+        if isinstance(self.dtype, Array) and isinstance(prop.dtype, Array):
+            if self.dtype.dtype == prop.dtype.dtype:
+                return Property(name=self.name, dtype=self.dtype, required=required)
+            if isinstance(self.dtype.dtype, Object) and isinstance(prop.dtype.dtype, Object):
+                obj = self.dtype.dtype._merge(prop.dtype.dtype)
+                return Property(name=self.name, dtype=Array(obj), required=required)
+
+        raise MlflowException("Properties are incompatible")
+
+
+@experimental
+class Object:
+    """
+    Specification used to represent a json-convertible object.
+    """
+
+    def __init__(self, properties: List[Property]) -> None:
+        self._check_properties(properties)
+        # Sort by name to make sure the order is stable
+        self._properties = sorted(properties)
+
+    def _check_properties(self, properties):
+        if not isinstance(properties, list):
+            raise MlflowException.invalid_parameter_value(
+                f"Expected properties to be a list, got type {type(properties).__name__}"
+            )
+        if len(properties) == 0:
+            raise MlflowException.invalid_parameter_value(
+                "Creating Object with empty properties is not allowed."
+            )
+        if any(not isinstance(v, Property) for v in properties):
+            raise MlflowException.invalid_parameter_value(
+                "Expected values to be instance of Property"
+            )
+        # check duplicated property names
+        names = [prop.name for prop in properties]
+        duplicates = {name for name in names if names.count(name) > 1}
+        if len(duplicates) > 0:
+            raise MlflowException.invalid_parameter_value(
+                f"Found duplicated property names: {duplicates}"
+            )
+
+    @property
+    def properties(self) -> List[Property]:
+        """The list of object properties"""
+        return self._properties
+
+    @properties.setter
+    def properties(self, value: List[Property]) -> None:
+        self._check_properties(value)
+        self._properties = sorted(value)
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Object):
+            return self.properties == other.properties
+        return False
+
+    def to_dict(self):
+        properties = {
+            name: value for prop in self.properties for name, value in prop.to_dict().items()
+        }
+        return {
+            "type": OBJECT_TYPE,
+            "properties": properties,
+        }
+
+    @classmethod
+    def from_json_dict(cls, **kwargs):
+        """
+        Deserialize from a json loaded dictionary.
+        The dictionary is expected to contain `type` and
+        `properties` keys.
+        Example: {"type": "object", "properties": {"property_name": {"type": "string"}}}
+        """
+        if not {"properties", "type"} <= set(kwargs.keys()):
+            raise MlflowException(
+                "Missing keys in Object JSON. Expected to find keys `properties` and `type`"
+            )
+        if kwargs["type"] != OBJECT_TYPE:
+            raise MlflowException("Type mismatch, Object expects `object` as the type")
+        if not isinstance(kwargs["properties"], dict) or any(
+            not isinstance(prop, dict) for prop in kwargs["properties"].values()
+        ):
+            raise MlflowException("Expected properties to be a dictionary of Property JSON")
+        return cls(
+            [Property.from_json_dict(**{name: prop}) for name, prop in kwargs["properties"].items()]
+        )
+
+    def _merge(self, obj: "Object") -> "Object":
+        """
+        Check if the current object is compatible with another object and return
+        the updated object.
+        When we infer the signature from a list of objects, it is possible
+        that one object has more properties than the other. In this case,
+        we should mark those optional properties as required=False.
+        For properties with the same name, we should check the compatibility
+        of two properties and update.
+        An example of two compatible objects:
+
+            .. code-block:: python
+
+                obj1 = Object(
+                    properties=[
+                        Property(name="a", dtype=DataType.string),
+                        Property(name="b", dtype=DataType.double),
+                    ]
+                )
+                obj2 = Object(
+                    properties=[
+                        Property(name="a", dtype=DataType.string),
+                        Property(name="c", dtype=DataType.boolean),
+                    ]
+                )
+                updated_obj = obj1._merge(obj2)
+                assert updated_obj == Object(
+                    properties=[
+                        Property(name="a", dtype=DataType.string),
+                        Property(name="b", dtype=DataType.double, required=False),
+                        Property(name="c", dtype=DataType.boolean, required=False),
+                    ]
+                )
+
+        """
+        if self == obj:
+            return deepcopy(self)
+        prop_dict1 = {prop.name: prop for prop in self.properties}
+        prop_dict2 = {prop.name: prop for prop in obj.properties}
+        updated_properties = []
+        # For each property in the first element, if it doesn't appear
+        # later, we update required=False
+        for k in prop_dict1.keys() - prop_dict2.keys():
+            updated_properties.append(Property(name=k, dtype=prop_dict1[k].dtype, required=False))
+        # For common keys, property type should be the same
+        for k in prop_dict1.keys() & prop_dict2.keys():
+            updated_properties.append(prop_dict1[k]._merge(prop_dict2[k]))
+        # For each property appears in the second elements, if it doesn't
+        # exist, we update and set required=False
+        for k in prop_dict2.keys() - prop_dict1.keys():
+            updated_properties.append(Property(name=k, dtype=prop_dict2[k].dtype, required=False))
+        return Object(properties=updated_properties)
+
+
+class Array:
+    """
+    Specification used to represent a json-convertible array.
+    """
+
+    def __init__(
+        self,
+        dtype: Union[DataType, Object, str],
+    ) -> None:
+        try:
+            self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
+        except KeyError:
+            raise MlflowException(
+                f"Unsupported type '{dtype}', expected instance of DataType, Array, Object or "
+                f"one of {[t.name for t in DataType]}"
+            )
+        if not isinstance(self.dtype, (DataType, Object)):
+            raise MlflowException(
+                "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Object "
+                f"or str for the 'dtype' argument, but got {self.dtype.__class__}"
+            )
+
+    @property
+    def dtype(self) -> Union[DataType, Object]:
+        """The array data type."""
+        return self._dtype
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Array):
+            return self.dtype == other.dtype
+        return False
+
+    def to_dict(self):
+        items = (
+            {"type": self.dtype.name} if isinstance(self.dtype, DataType) else self.dtype.to_dict()
+        )
+        return {"type": ARRAY_TYPE, "items": items}
+
+    @classmethod
+    def from_json_dict(cls, **kwargs):
+        """
+        Deserialize from a json loaded dictionary.
+        The dictionary is expected to contain `type` and
+        `items` keys.
+        Example: {"type": "array", "items": "string"}
+        """
+        if not {"items", "type"} <= set(kwargs.keys()):
+            raise MlflowException(
+                "Missing keys in Array JSON. Expected to find keys `items` and `type`"
+            )
+        if kwargs["type"] != ARRAY_TYPE:
+            raise MlflowException("Type mismatch, Array expects `array` as the type")
+        if not isinstance(kwargs["items"], dict):
+            raise MlflowException("Expected items to be a dictionary of Object JSON")
+        if not {"type"} <= set(kwargs["items"].keys()):
+            raise MlflowException("Missing keys in Array's items JSON. Expected to find key `type`")
+        if kwargs["items"]["type"] != OBJECT_TYPE:
+            return cls(dtype=kwargs["items"]["type"])
+        return cls(dtype=Object.from_json_dict(**kwargs["items"]))
+
+
 class ColSpec:
     """
     Specification of name and type of a single column in a dataset.
@@ -129,12 +483,28 @@ class ColSpec:
 
     def __init__(
         self,
-        type: Union[DataType, str],  # pylint: disable=redefined-builtin
+        type: Union[DataType, Array, Object, str],  # pylint: disable=redefined-builtin
         name: Optional[str] = None,
-        optional: bool = False,
+        optional: Optional[bool] = None,
+        required: Optional[bool] = None,  # TODO: update to required=True after deprecating optional
     ):
         self._name = name
-        self._optional = optional
+
+        if optional is not None:
+            if required is not None:
+                raise MlflowException(
+                    "Only one of `optional` and `required` can be specified. "
+                    "`optional` is deprecated, please use `required` instead."
+                )
+            else:
+                warnings.warn(
+                    "`optional` is deprecated and will be removed in a future version "
+                    "of MLflow. Use `required` instead.",
+                    category=FutureWarning,
+                )
+                self._required = not optional
+        else:
+            self._required = True if required is None else required
         try:
             self._type = DataType[type] if isinstance(type, str) else type
         except KeyError:
@@ -142,14 +512,15 @@ class ColSpec:
                 f"Unsupported type '{type}', expected instance of DataType or "
                 f"one of {[t.name for t in DataType]}"
             )
-        if not isinstance(self.type, DataType):
+        if not isinstance(self.type, (DataType, Array, Object)):
             raise TypeError(
-                "Expected mlflow.models.signature.Datatype or str for the 'type' "
+                "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array, "
+                "mlflow.types.schema.Object or str for the 'type' "
                 f"argument, but got {self.type.__class__}"
             )
 
     @property
-    def type(self) -> DataType:
+    def type(self) -> Union[DataType, Array, Object]:
         """The column data type."""
         return self._type
 
@@ -161,31 +532,66 @@ class ColSpec:
     @experimental
     @property
     def optional(self) -> bool:
-        """Whether this column is optional."""
-        return self._optional
+        """
+        Whether this column is optional.
+
+        .. Warning:: Deprecated. `optional` is deprecated in favor of `required`.
+        """
+        return not self._required
+
+    @experimental
+    @property
+    def required(self) -> bool:
+        """Whether this column is required."""
+        return self._required
 
     def to_dict(self) -> Dict[str, Any]:
-        d = {"type": self.type.name}
+        d = {"type": self.type.name} if isinstance(self.type, DataType) else self.type.to_dict()
         if self.name is not None:
             d["name"] = self.name
-        if self.optional:
-            d["optional"] = self.optional
+        d["required"] = self.required
         return d
 
     def __eq__(self, other) -> bool:
         if isinstance(other, ColSpec):
             names_eq = (self.name is None and other.name is None) or self.name == other.name
-            return names_eq and self.type == other.type and self.optional == other.optional
+            return names_eq and self.type == other.type and self.required == other.required
         return False
 
     def __repr__(self) -> str:
         if self.name is None:
             return repr(self.type)
         else:
-            return "{name}: {type}{optional}".format(
+            return "{name}: {type}{required}".format(
                 name=repr(self.name),
                 type=repr(self.type),
-                optional=" (optional)" if self.optional else "",
+                required=" (required)" if self.required else "",
+            )
+
+    @classmethod
+    def from_json_dict(cls, **kwargs):
+        """
+        Deserialize from a json loaded dictionary.
+        The dictionary is expected to contain `type` and
+        optional `name` and `required` keys.
+        """
+        if not {"type"} <= set(kwargs.keys()):
+            raise MlflowException("Missing keys in ColSpec JSON. Expected to find key `type`")
+        if kwargs["type"] not in [ARRAY_TYPE, OBJECT_TYPE]:
+            return cls(**kwargs)
+        name = kwargs.pop("name", None)
+        optional = kwargs.pop("optional", None)
+        required = kwargs.pop("required", None)
+        if kwargs["type"] == ARRAY_TYPE:
+            return cls(
+                name=name, type=Array.from_json_dict(**kwargs), optional=optional, required=required
+            )
+        if kwargs["type"] == OBJECT_TYPE:
+            return cls(
+                name=name,
+                type=Object.from_json_dict(**kwargs),
+                optional=optional,
+                required=required,
             )
 
 
@@ -283,9 +689,9 @@ class TensorSpec:
 
     @experimental
     @property
-    def optional(self) -> bool:
-        """Whether this tensor is optional."""
-        return False
+    def required(self) -> bool:
+        """Whether this tensor is required."""
+        return True
 
     def to_dict(self) -> Dict[str, Any]:
         if self.name is None:
@@ -367,7 +773,7 @@ class Schema:
                 "Creating Schema with multiple unnamed TensorSpecs is not supported. "
                 "Please provide names for each TensorSpec."
             )
-        if all(x.name is None for x in inputs) and any(x.optional is True for x in inputs):
+        if all(x.name is None for x in inputs) and any(x.required is False for x in inputs):
             raise MlflowException(
                 "Creating Schema with unnamed optional inputs is not supported. "
                 "Please name all inputs or make all inputs required."
@@ -395,12 +801,12 @@ class Schema:
 
     def required_input_names(self) -> List[Union[str, int]]:
         """Get list of required data names or range of indices if schema has no names."""
-        return [x.name or i for i, x in enumerate(self.inputs) if not x.optional]
+        return [x.name or i for i, x in enumerate(self.inputs) if x.required]
 
     @experimental
     def optional_input_names(self) -> List[Union[str, int]]:
         """Get list of optional data names or range of indices if schema has no names."""
-        return [x.name or i for i, x in enumerate(self.inputs) if x.optional]
+        return [x.name or i for i, x in enumerate(self.inputs) if not x.required]
 
     def has_input_names(self) -> bool:
         """Return true iff this schema declares names, false otherwise."""
@@ -460,7 +866,11 @@ class Schema:
         """Deserialize from a json string."""
 
         def read_input(x: dict):
-            return TensorSpec.from_json_dict(**x) if x["type"] == "tensor" else ColSpec(**x)
+            return (
+                TensorSpec.from_json_dict(**x)
+                if x["type"] == "tensor"
+                else ColSpec.from_json_dict(**x)
+            )
 
         return cls([read_input(x) for x in json.loads(json_str)])
 
