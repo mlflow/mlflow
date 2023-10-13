@@ -10,6 +10,7 @@ import os
 import posixpath
 import sys
 import tempfile
+import urllib
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 import yaml
@@ -19,7 +20,14 @@ from mlflow.entities import DatasetInput, Experiment, FileInfo, Metric, Param, R
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import FEATURE_DISABLED, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    FEATURE_DISABLED,
+    RESOURCE_ALREADY_EXISTS,
+    RESOURCE_DOES_NOT_EXIST,
+)
+from mlflow.store.artifact.utils.models import (
+    get_model_name_and_version,
+)
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
@@ -2664,6 +2672,28 @@ class MlflowClient:
             description=description,
             await_creation_for=await_creation_for,
         )
+
+    def copy_model_version(self, src_model_uri, dest_name) -> ModelVersion:
+        """
+        Copy a model version from one registered model to another.
+
+        :param src_model_uri: the model URI of the model version to copy
+        :param dest_name: the name of the registered model to copy the model version to.
+        :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                 the cloned model version.
+        """
+        if urllib.parse.urlparse(src_model_uri).scheme != "models":
+            raise MlflowException(f"Invalid source model URI: {src_model_uri}")
+        client = self._get_registry_client()
+        src_name, src_version = get_model_name_and_version(client, src_model_uri)
+        src_mv = client.get_model_version(src_name, src_version)
+        try:
+            client.create_registered_model(dest_name)
+        except MlflowException as e:
+            if e.error_code != RESOURCE_ALREADY_EXISTS:
+                raise
+
+        return client.copy_model_version(src_mv=src_mv, dest_name=dest_name)
 
     def update_model_version(
         self, name: str, version: str, description: Optional[str] = None

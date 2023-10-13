@@ -321,6 +321,26 @@ class AbstractStore:
         """
         pass
 
+    def copy_model_version(self, src_mv, dest_name):
+        """
+        Copy a model version from one registered model to another.
+
+        :param src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                       the source model version.
+        :param dest_name: the name of the registered model to copy to.
+        :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                 the cloned model version.
+        """
+        artifact_uri = self.get_model_version_download_uri(src_mv.name, src_mv.version)
+        return self.create_model_version(
+            name=dest_name,
+            source=artifact_uri,
+            run_id=src_mv.run_id,
+            tags=src_mv.tags,
+            run_link=src_mv.run_link,
+            description=src_mv.description,
+        )
+
     def _await_model_version_creation(self, mv, await_creation_for):
         """
         Await for model version to become ready after creation.
