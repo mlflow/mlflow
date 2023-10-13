@@ -224,7 +224,7 @@ def test_cannot_set_signature_on_models_scheme_uris():
 def test_signature_construction():
     signature = ModelSignature(inputs=Schema([ColSpec(DataType.binary)]))
     assert signature.to_dict() == {
-        "inputs": '[{"type": "binary"}]',
+        "inputs": '[{"type": "binary", "required": true}]',
         "outputs": None,
         "params": None,
     }
@@ -232,7 +232,7 @@ def test_signature_construction():
     signature = ModelSignature(outputs=Schema([ColSpec(DataType.double)]))
     assert signature.to_dict() == {
         "inputs": None,
-        "outputs": '[{"type": "double"}]',
+        "outputs": '[{"type": "double", "required": true}]',
         "params": None,
     }
 
