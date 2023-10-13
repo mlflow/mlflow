@@ -87,23 +87,28 @@ def _get_str_or_byte_type(data):
         return DataType.binary
 
 
-def _infer_datatype(data) -> Optional[DataType]:
+def _infer_datatype(data) -> DataType:
     if DataType.is_boolean(data):
         return DataType.boolean
-    if DataType.is_integer(data):
-        return DataType.integer
+    # Order of is_long & is_integer matters
+    # as both of theirs python_type is int
     if DataType.is_long(data):
         return DataType.long
-    if DataType.is_float(data):
-        return DataType.float
+    if DataType.is_integer(data):
+        return DataType.integer
+    # Order of is_double & is_float matters
+    # as both of theirs python_type is float
     if DataType.is_double(data):
         return DataType.double
+    if DataType.is_float(data):
+        return DataType.float
     if DataType.is_string(data):
         return DataType.string
     if DataType.is_binary(data):
         return DataType.binary
     if DataType.is_datetime(data):
         return DataType.datetime
+    raise MlflowException.invalid_parameter_value("Data is not one of the supported DataType")
 
 
 def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
@@ -118,9 +123,7 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
         for k, v in data.items():
             properties.append(Property(name=k, dtype=_infer_colspec_type(v)))
         return Object(properties=properties)
-    # Question: Should we cover np.ndarray here or we follow the old behavior
-    # for numpy arrays?
-    elif isinstance(data, list):
+    if isinstance(data, list):
         if len(data) == 0:
             raise MlflowException.invalid_parameter_value(
                 "Expected non-empty list of values to infer colspec type"
@@ -140,18 +143,18 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
                     )
                 dtype = dtype._merge(dtype2)
             return Array(dtype)
-        elif isinstance(dtype, DataType):
+        if isinstance(dtype, DataType):
             if any(_infer_colspec_type(v) != dtype for v in data[1:]):
                 raise MlflowException.invalid_parameter_value(
-                    "Expected all values in list to be of same type"
+                    f"Expected all values in list to be of same type {dtype}"
                 )
             return Array(dtype)
-        else:
-            raise MlflowException.invalid_parameter_value(
-                "Only support 1D array of DataType or Object"
-            )
-    else:
-        return _infer_datatype(data)
+        raise MlflowException.invalid_parameter_value(
+            "Only support 1D array of DataType or dictionaries"
+        )
+    if isinstance(data, np.ndarray):
+        return _infer_colspec_type(data.tolist())
+    return _infer_datatype(data)
 
 
 def _infer_schema(data: Any) -> Schema:
@@ -170,19 +173,16 @@ def _infer_schema(data: Any) -> Schema:
     passed in one of the supported formats (containers).
 
     The input should be one of these:
-      - pandas.DataFrame or pandas.Series
-      - dictionary of { name -> numpy.ndarray}
-      - dictionary of { name -> [str, List[str]}
+      - pandas.DataFrame
+      - pandas.Series
       - numpy.ndarray
+      - dictionary of (name -> numpy.ndarray)
       - pyspark.sql.DataFrame
-      - csc/csr matrix
-      - str
-      - List[str]
-      - List[Dict[str, Union[str, List[str]]]]
-      - Dict[str, Union[str, List[str]]]
-      - bytes
-      - Dict[str, Union[DataType, ArrayType, ObjectType, str]]
-      - List[Dict[str, Union[DataType, ArrayType, ObjectType, str]]]
+      - scipy.sparse.csr_matrix/csc_matrix
+      - DataType
+      - List[DataType]
+      - Dict[str, Union[DataType, List, Dict]]
+      - List[Dict[str, Union[DataType, List, Dict]]]
 
     The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType` for
     dataframes and to one of numpy types for tensors.
@@ -193,33 +193,45 @@ def _infer_schema(data: Any) -> Schema:
     """
     from scipy.sparse import csc_matrix, csr_matrix
 
-    if isinstance(data, dict) and all(isinstance(values, np.ndarray) for values in data.values()):
-        res = []
-        for name in data.keys():
-            ndarray = data[name]
-            res.append(
-                TensorSpec(
-                    type=clean_tensor_type(ndarray.dtype),
-                    shape=_get_tensor_shape(ndarray),
-                    name=name,
+    if isinstance(data, dict):
+        # dictionary of (name -> numpy.ndarray)
+        if all(isinstance(values, np.ndarray) for values in data.values()):
+            res = []
+            for name in data.keys():
+                ndarray = data[name]
+                res.append(
+                    TensorSpec(
+                        type=clean_tensor_type(ndarray.dtype),
+                        shape=_get_tensor_shape(ndarray),
+                        name=name,
+                    )
                 )
-            )
-        schema = Schema(res)
+            schema = Schema(res)
+        # Dict[str, Union[DataType, List, Dict]]
+        else:
+            if any(not isinstance(key, str) for key in data.keys()):
+                raise MlflowException("The dictionary keys are not all strings.")
+            schema = Schema([ColSpec(_infer_colspec_type(data))])
+    # pandas.Series
     elif isinstance(data, pd.Series):
         name = getattr(data, "name", None)
         schema = Schema([ColSpec(type=_infer_pandas_column(data), name=name)])
+    # pandas.DataFrame
     elif isinstance(data, pd.DataFrame):
         schema = Schema(
             [ColSpec(type=_infer_pandas_column(data[col]), name=col) for col in data.columns]
         )
+    # numpy.ndarray
     elif isinstance(data, np.ndarray):
         schema = Schema(
             [TensorSpec(type=clean_tensor_type(data.dtype), shape=_get_tensor_shape(data))]
         )
+    # scipy.sparse.csr_matrix/csc_matrix
     elif isinstance(data, (csc_matrix, csr_matrix)):
         schema = Schema(
             [TensorSpec(type=clean_tensor_type(data.data.dtype), shape=_get_tensor_shape(data))]
         )
+    # pyspark.sql.DataFrame
     elif _is_spark_df(data):
         schema = Schema(
             [
@@ -227,57 +239,31 @@ def _infer_schema(data: Any) -> Schema:
                 for field in data.schema.fields
             ]
         )
-    elif isinstance(data, dict):
-        _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data)
-        schema = Schema(
-            [ColSpec(type=_get_str_or_byte_type(value), name=name) for name, value in data.items()]
-        )
-    elif isinstance(data, str):
-        schema = Schema([ColSpec(type=DataType.string)])
-    elif isinstance(data, bytes):
-        schema = Schema([ColSpec(type=DataType.binary)])
-    elif isinstance(data, list) and all(isinstance(element, str) for element in data):
-        schema = Schema([ColSpec(type=DataType.string)])
-    elif (
-        isinstance(data, list)
-        and all(isinstance(element, dict) for element in data)
-        and all(isinstance(key, str) for d in data for key in d)
-        # NB: We allow both str and List[str] as values in the dictionary
-        # e.g. [{'output': 'some sentence', 'ids': ['id1', 'id2']}]
-        and all(
-            isinstance(value, str)
-            or (isinstance(value, list) and all(isinstance(v, str) for v in value))
-            for d in data
-            for value in d.values()
-        )
-    ):
-        first_keys = data[0].keys()
-        if all(d.keys() == first_keys for d in data):
-            schema = Schema([ColSpec(type=DataType.string, name=name) for name in first_keys])
-        else:
-            raise MlflowException(
-                "The list of dictionaries supplied has inconsistent keys among "
-                "each dictionary in the list. Please validate the uniformity "
-                "in the key naming for each dictionary.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
     else:
-        raise TypeError(
-            "Expected one of the following types:\n"
-            "- pandas.DataFrame\n"
-            "- pandas.Series\n"
-            "- numpy.ndarray\n"
-            "- dictionary of (name -> numpy.ndarray)\n"
-            "- pyspark.sql.DataFrame\n",
-            "- scipy.sparse.csr_matrix\n"
-            "- scipy.sparse.csc_matrix\n"
-            "- str\n"
-            "- List[str]\n"
-            "- List[Dict[str, Union[str, List[str]]]]\n"
-            "- Dict[str, Union[str, List[str]]]\n"
-            "- bytes\n"
-            f"but got '{type(data)}'",
-        )
+        # DataType
+        # e.g. "some sentence"
+        # List[DataType]
+        # e.g. ['some sentence', 'some sentence']
+        # List[Dict[str, Union[DataType, List, Dict]]]
+        # e.g. [{'output': 'some sentence', 'ids': ['id1', 'id2'], 'dict': {'key': 'value'}}]
+        try:
+            schema = Schema([ColSpec(_infer_colspec_type(data))])
+        except MlflowException as e:
+            raise MlflowException.invalid_parameter_value(
+                "Failed to infer schema. Expected one of the following types:\n"
+                "- pandas.DataFrame\n"
+                "- pandas.Series\n"
+                "- numpy.ndarray\n"
+                "- dictionary of (name -> numpy.ndarray)\n"
+                "- pyspark.sql.DataFrame\n"
+                "- scipy.sparse.csr_matrix\n"
+                "- scipy.sparse.csc_matrix\n"
+                "- DataType\n"
+                "- List[DataType]\n"
+                "- Dict[str, Union[DataType, List, Dict]]\n"
+                "- List[Dict[str, Union[DataType, List, Dict]]]\n"
+                f"but got '{data}'",
+            ) from e
     if not schema.is_tensor_spec() and any(
         t in (DataType.integer, DataType.long) for t in schema.input_types()
     ):
@@ -431,6 +417,13 @@ def _is_spark_df(x) -> bool:
 
 
 def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) -> None:
+    # valid keys -- str/int (here int doesn't make sense for ColSpec)
+    # valid values --
+    #    list of str/bytes
+    #    np.ndarray of str/bytes
+    #    str, bytes
+    # invalid values --
+    #    mix of np.ndarray and others
     invalid_keys = []
     invalid_values = []
     value_type = None

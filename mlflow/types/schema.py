@@ -497,6 +497,10 @@ class ColSpec:
         optional: Optional[bool] = None,
         required: Optional[bool] = None,  # TODO: update to required=True after deprecating optional
     ):
+        if name is not None and not isinstance(name, str):
+            raise MlflowException.invalid_parameter_value(
+                f"Expected name to be a string, got type {type(name).__name__}"
+            )
         self._name = name
 
         if optional is not None:

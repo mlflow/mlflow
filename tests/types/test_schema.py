@@ -318,12 +318,6 @@ def test_schema_inference_on_dictionary(dict_of_ndarrays):
             for name, tensor in dict_of_ndarrays.items()
         ]
     )
-    # test exception is raised if non-numpy data in dictionary
-    match = "Invalid values in dictionary. If passing a dictionary"
-    with pytest.raises(MlflowException, match=match):
-        _infer_schema({"x": 1})
-    with pytest.raises(MlflowException, match=match):
-        _infer_schema({"x": [1]})
 
 
 def test_schema_inference_on_string_input():
@@ -1293,6 +1287,8 @@ def test_nested_array_object_to_and_from_dict():
             ]
         )
     )
+    data = [{"p": "a", "arr": [{"p2": True, "arr2": [1, 2, 3]}, {"arr2": [2, 3, 4]}]}]
+    assert _infer_colspec_type(data) == arr
     assert arr.to_dict() == {
         "type": "array",
         "items": {
@@ -1525,3 +1521,87 @@ def test_colspec_schema_to_and_from_dict():
         }
     ]
     assert Schema.from_json(json.dumps(schema.to_dict())) == schema
+
+
+@pytest.mark.parametrize(
+    ("data", "data_type"),
+    [
+        ("string", DataType.string),
+        (np.int32(1), DataType.integer),
+        (True, DataType.boolean),
+        (1.0, DataType.double),
+        (np.float32(0.1), DataType.float),
+        (np.int64(100), DataType.long),
+        (np.datetime64("2023-10-13 00:00:00"), DataType.datetime),
+    ],
+)
+def test_schema_inference_on_datatypes(data, data_type):
+    # - pandas.DataFrame
+    # - pandas.Series
+    # - numpy.ndarray
+    # - dictionary of (name -> numpy.ndarray)
+    # - pyspark.sql.DataFrame
+    # - scipy.sparse.csr_matrix/csc_matrix
+    # - DataType
+    # - List[DataType]
+    # - Dict[str, Union[DataType, List, Dict]]
+    # - List[Dict[str, Union[DataType, List, Dict]]]
+    assert _infer_schema(data) == Schema([ColSpec(data_type)])
+
+
+@pytest.mark.parametrize(
+    ("data", "data_type"),
+    [
+        (["a", "b", "c"], DataType.string),
+        ([np.int32(1), np.int32(2)], DataType.integer),
+        ([True, False], DataType.boolean),
+        ([1.0, 2.0], DataType.double),
+        ([np.float32(0.1), np.float32(0.2)], DataType.float),
+        ([np.int64(100), np.int64(200)], DataType.long),
+        (
+            [np.datetime64("2023-10-13 00:00:00"), np.datetime64("2023-10-14 00:00:00")],
+            DataType.datetime,
+        ),
+    ],
+)
+def test_schema_inference_on_dictionaries(data, data_type):
+    test_data = {"data": data}
+    assert _infer_schema(test_data) == Schema(
+        [ColSpec(Object([Property("data", Array(data_type))]))]
+    )
+
+    test_data = {"data": {"dict": data}}
+    inferred_schema = _infer_schema(test_data)
+    expected_schema = Schema(
+        [ColSpec(Object([Property("data", Object([Property("dict", Array(data_type))]))]))]
+    )
+    assert inferred_schema == expected_schema
+
+
+@pytest.mark.parametrize(
+    ("data", "data_type"),
+    [
+        (["a", "b", "c"], DataType.string),
+        ([np.int32(1), np.int32(2)], DataType.integer),
+        ([True, False], DataType.boolean),
+        ([1.0, 2.0], DataType.double),
+        ([np.float32(0.1), np.float32(0.2)], DataType.float),
+        ([np.int64(100), np.int64(200)], DataType.long),
+        (
+            [np.datetime64("2023-10-13 00:00:00"), np.datetime64("2023-10-14 00:00:00")],
+            DataType.datetime,
+        ),
+    ],
+)
+def test_schema_inference_on_lists(data, data_type):
+    test_data = [{"data": data}]
+    assert _infer_schema(test_data) == Schema(
+        [ColSpec(Array(Object([Property("data", Array(data_type))])))]
+    )
+
+    test_data = [{"data": {"dict": data}}]
+    inferred_schema = _infer_schema(test_data)
+    expected_schema = Schema(
+        [ColSpec(Array(Object([Property("data", Object([Property("dict", Array(data_type))]))])))]
+    )
+    assert inferred_schema == expected_schema
