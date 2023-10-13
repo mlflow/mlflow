@@ -237,7 +237,7 @@ def make_genai_metric(
             except Exception as e:
                 raise MlflowException(
                     f"Values for grading_context_columns are malformed and cannot be "
-                    f"formatted into prompt for metric '{name}'.\n\n"
+                    f"formatted into prompt for metric '{name}'.\n"
                     f"Provided values: {eval_values}\n"
                     f"Error: {e!r}\n"
                 )
