@@ -279,23 +279,23 @@ class Utils {
     if (gitHubMatch) {
       url = `https://github.com/${gitHubMatch[1]}/${gitHubMatch[2].replace(/.git/, '')}`;
       if (gitHubMatch[3]) {
-        url = url + `/tree/master/${gitHubMatch[3]}`;
+        url += `/tree/master/${gitHubMatch[3]}`;
       }
     } else if (gitLabMatch) {
       url = `https://gitlab.com/${gitLabMatch[1]}/${gitLabMatch[2].replace(/.git/, '')}`;
       if (gitLabMatch[3]) {
-        url = url + `/-/tree/master${gitLabMatch[3]}`;
+        url += `/-/tree/master${gitLabMatch[3]}`;
       }
     } else if (bitbucketMatch) {
       url = `https://bitbucket.org/${bitbucketMatch[1]}/${bitbucketMatch[2].replace(/.git/, '')}`;
       if (bitbucketMatch[3]) {
-        url = url + `/src/master/${bitbucketMatch[3]}`;
+        url += `/src/master/${bitbucketMatch[3]}`;
       }
     } else if (gitMatch) {
       const [, baseUrl, repoDir, fileDir] = gitMatch;
       url = baseUrl.replace(/git@/, 'https://') + '/' + repoDir.replace(/.git/, '');
       if (fileDir) {
-        url = url + `/tree/master/${fileDir}`;
+        url += `/tree/master/${fileDir}`;
       }
     }
     return url;
