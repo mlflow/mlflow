@@ -1112,6 +1112,7 @@ class DefaultEvaluator(ModelEvaluator):
         input_df = self.X.copy_to_avoid_mutation()
         parameters = inspect.signature(extra_metric.eval_fn).parameters
         eval_fn_args = []
+        params_not_found = []
         if len(parameters) == 2:
             eval_fn_args.append(eval_df_copy)
             if "metrics" in parameters.keys():
@@ -1141,26 +1142,10 @@ class DefaultEvaluator(ModelEvaluator):
                     ):
                         eval_fn_args.append(self.other_output_columns[column])
                     elif param.default == inspect.Parameter.empty:
-                        output_column_name = self.evaluator_config.get(
-                            _Y_PREDICTED_OUTPUT_COLUMN_NAME, "output"
-                        )
-                        output_columns = list(self.other_output_columns.columns)
-                        input_columns = list(input_df.columns)
-                        raise MlflowException(
-                            "Error: Metric Calculation Failed\n"
-                            f"Metric '{extra_metric.name}' requires the column '{param_name}' to "
-                            "be defined in either the input data or resulting output data.\n\n"
-                            "Below are the existing column names for the input/output data:\n"
-                            f"Input Columns: {input_columns}\n"
-                            f"Output Columns: {output_columns}\n"
-                            "Note that this does not include the output column: "
-                            f"'{output_column_name}'\n\n"
-                            f"To resolve this issue, you may want to map {param_name} to an "
-                            "existing column using the following configuration:\n"
-                            f"evaluator_config={{'col_mapping': {{'{param_name}': "
-                            "'<existing column name>'}}\n"
-                        )
+                        params_not_found.append(param_name)
 
+        if len(params_not_found) > 0:
+            return extra_metric.name, params_not_found
         return eval_fn_args
 
     def _evaluate_extra_metrics(self, eval_df):
@@ -1370,28 +1355,49 @@ class DefaultEvaluator(ModelEvaluator):
             )
 
     def _check_args(self, metrics, eval_df):
-        exceptions = []
+        failed_metrics = []
+        # collect all failures for getting metric arguments
         for metric in metrics:
-            try:
-                self._get_args_for_metrics(metric, eval_df)
-            except Exception as e:
-                exceptions.append((metric.name, e))
+            # if it will error, should error the first time it is called
+            # TODO: should add casing in case it errors somehow the second/third time it is called
+            result = self._get_args_for_metrics(metric, eval_df)
+            if isinstance(result, tuple):
+                failed_metrics.append(result)
 
-        if len(exceptions) > 0:
+        if len(failed_metrics) > 0:
+            output_column_name = self.evaluator_config.get(
+                _Y_PREDICTED_OUTPUT_COLUMN_NAME, "output"
+            )
+            output_columns = (
+                [] if self.other_output_columns is None else list(self.other_output_columns.columns)
+            )
+            input_columns = list(self.X.copy_to_avoid_mutation().columns)
+
+            error_messages = []
+            for metric_name, param_names in failed_metrics:
+                error_messages.append(f"Metric '{metric_name}' requires the columns {param_names}")
+            error_message = "\n".join(error_messages)
             raise MlflowException(
-                f"failed to get correct args for the following metrics, {exceptions}"
+                "Error: Metric calculation failed for the following metrics:\n"
+                f"{error_message}\n\n"
+                "Below are the existing column names for the input/output data:\n"
+                f"Input Columns: {input_columns}\n"
+                f"Output Columns: {output_columns}\n"
+                "Note that this does not include the output column: "
+                f"'{output_column_name}'\n\n"
+                f"To resolve this issue, you may want to map the missing column to an "
+                "existing column using the following configuration:\n"
+                f"evaluator_config={{'col_mapping': {{'<missing column name>': "
+                "'<existing column name>'}}\n"
             )
 
     def _evaluate_metrics(self, eval_df):
+        metrics = self.builtin_metrics + self.extra_metrics
+        # try to get necessary args
+        self._check_args(metrics, eval_df)
+
         # evaluate first row
         # eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
-
-        metrics = self.builtin_metrics + self.extra_metrics
-        self._check_args(metrics, eval_df)
-        # try to get necessary args for all builtin metrics
-
-        # collect all errors with args and raise exceptions together
-
         # need to update args for extra_metrics because self.metrics / self.metric_values
         exceptions = []
         first_row_df = eval_df.iloc[[0]]

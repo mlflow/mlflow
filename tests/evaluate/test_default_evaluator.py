@@ -2173,6 +2173,42 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
         assert logged_data["answer"].tolist() == ["words random", "This is a sentence."]
 
 
+def test_missing_args_raises_exception():
+    def dummy_fn1(param_1, param_2, targets, metrics):
+        pass
+
+    def dummy_fn2(param_3, param_4, builtin_metrics):
+        pass
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"question": ["a", "b"], "answer": ["a", "b"]})
+
+    metric_1 = make_metric(name="metric_1", eval_fn=dummy_fn1, greater_is_better=True)
+    metric_2 = make_metric(name="metric_2", eval_fn=dummy_fn2, greater_is_better=True)
+
+    error_message = "Error: Metric calculation failed for the following metrics:\nMetric 'metric_1'"
+    " requires the columns ['param_1', 'param_2']\n\nMetric 'metric_2' requires the columns "
+    "['param_3', 'builtin_metrics']\n"
+
+    with pytest.raises(
+        MlflowException,
+        match=error_message,
+    ):
+        with mlflow.start_run():
+            mlflow.evaluate(
+                model_info.model_uri,
+                data,
+                targets="answer",
+                evaluators="default",
+                model_type="question-answering",
+                extra_metrics=[metric_1, metric_2],
+                evaluator_config={"col_mapping": {"param_4": "question"}},
+            )
+
+
 def test_custom_metrics_deprecated():
     def dummy_fn(eval_df, metrics):
         pass
