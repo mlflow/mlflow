@@ -268,6 +268,13 @@ def make_genai_metric(
                 )
                 return _extract_score_and_justification(raw_result)
             except Exception as e:
+                open_ai_error_header = "Error response from OpenAI as follows:\n "
+                error_types = {"invalid_request_error", "authentication_error"}
+                if isinstance(e, MlflowException):
+                    if e.message.startswith(open_ai_error_header):
+                        resp = e.message[len(open_ai_error_header):]
+                        if json.loads(resp)["error"]["type"] in error_types:
+                            raise Exception(f"Malformed OpenAI request: error {resp}")
                 _logger.info(f"Failed to score model on payload. Error: {e!r}")
                 return None, None
 
@@ -318,11 +325,6 @@ def make_genai_metric(
             return options[aggregate_option](scores)
 
         scores_for_aggregation = [score for score in scores if score is not None]
-
-        if len(scores_for_aggregation) == 0:
-            raise MlflowException(
-                f"Failed to score all payloads for metric '{name}'. Refer to logs for errors."
-            )
 
         aggregate_results = (
             {option: aggregate_function(option, scores_for_aggregation) for option in aggregations}
