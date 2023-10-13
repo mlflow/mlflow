@@ -20,6 +20,7 @@ from mlflow.metrics.metric_definitions import (
     _max_error_eval_fn,
     _mse_eval_fn,
     _perplexity_eval_fn,
+    _precision_at_k_eval_fn,
     _precision_eval_fn,
     _r2_score_eval_fn,
     _recall_eval_fn,
@@ -247,6 +248,20 @@ Aggregations calculated for this metric:
 
 .. _rougeLsum: https://huggingface.co/spaces/evaluate-metric/rouge
 """
+
+precision_at_k = make_metric(
+    eval_fn=_precision_at_k_eval_fn, greater_is_better=True, name="precision_at_k", version="v1"
+)
+"""
+.. Note:: Experimental: This metric may change or be removed in a future release without warning.
+
+A metric for calculating `accuracy`_ using sklearn.
+
+This metric only computes an aggregate score which ranges from 0 to 1.
+
+.. _accuracy: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
+"""
+
 
 # General Regression Metrics
 
