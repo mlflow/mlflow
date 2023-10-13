@@ -1296,9 +1296,10 @@ class DefaultEvaluator(ModelEvaluator):
                 model_predictions = self.model.predict(X_copy)
             else:
                 if self.dataset.predictions_data is None:
-                    # This should not happen unless we have a bug in mlflow code
                     raise MlflowException(
-                        message="Model predictions data is not available.",
+                        message="Predictions data is missing when model is not provided. "
+                        "Please provide predictions data in the pandas dataset or provide "
+                        "a model.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 model_predictions = self.dataset.predictions_data

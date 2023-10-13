@@ -489,7 +489,6 @@ class EvaluationDataset:
         has_targets = targets is not None
         if has_targets:
             self._has_targets = True
-
         if isinstance(data, (np.ndarray, list)):
             if has_targets and not isinstance(targets, (np.ndarray, list)):
                 raise MlflowException(
