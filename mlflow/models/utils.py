@@ -753,10 +753,8 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     if not input_schema.is_tensor_spec():
         if isinstance(pf_input, (list, np.ndarray, dict, pd.Series, str, bytes)):
             try:
-                if isinstance(pf_input, (str, bytes)):
-                    pf_input = pd.DataFrame([pf_input])
-                elif isinstance(pf_input, dict) and all(
-                    _is_scalar(value) for value in pf_input.values()
+                if isinstance(pf_input, (str, bytes)) or (
+                    isinstance(pf_input, dict) and all(map(_is_scalar, pf_input.values()))
                 ):
                     pf_input = pd.DataFrame([pf_input])
                 elif isinstance(pf_input, dict) and all(
