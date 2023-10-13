@@ -1204,6 +1204,52 @@ def test_array_from_dict_with_errors():
         Array.from_json_dict(**{"type": "array", "items": {"type": "object", "properties": []}})
 
 
+def test_nested_array_object_to_and_from_dict():
+    arr = Array(
+        Object(
+            [
+                Property("p", DataType.string),
+                Property(
+                    "arr",
+                    Array(
+                        Object(
+                            [
+                                Property("p2", DataType.boolean, required=False),
+                                Property("arr2", Array(DataType.integer)),
+                            ]
+                        )
+                    ),
+                ),
+            ]
+        )
+    )
+    assert arr.to_dict() == {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "p": {"type": "string", "required": True},
+                "arr": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "p2": {"type": "boolean", "required": False},
+                            "arr2": {
+                                "type": "array",
+                                "items": {"type": "integer"},
+                                "required": True,
+                            },
+                        },
+                    },
+                    "required": True,
+                },
+            },
+        },
+    }
+    assert Array.from_json_dict(**json.loads(json.dumps(arr.to_dict()))) == arr
+
+
 def test_merge_object_properties_example():
     obj1 = Object(
         properties=[
