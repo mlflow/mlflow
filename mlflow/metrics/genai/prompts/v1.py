@@ -83,15 +83,16 @@ class EvaluationModel:
 
 
 @dataclass
-class CorrectnessMetric:
+class AnswerSimilarityMetric:
     definition = (
-        "Correctness is evaluated on the proximity of the provided output to the ground truth "
-        "in terms of meaning and description similarity. Scores can be assigned from 1 to 5 based "
-        "on the gradual similarity in meaning and description to the ground truth."
+        "Answer similarity is evaluated on the proximity of the provided output to the "
+        "ground truth in terms of meaning and description similarity. Scores can be assigned "
+        "from 1 to 5 based on the gradual similarity in meaning and description to the ground "
+        "truth."
     )
 
     grading_prompt = (
-        "Correctness: Below are the details for different scores:"
+        "Answer Similarity: Below are the details for different scores:"
         "- Score 1: the output is completely incorrect, doesn't mention anything related to the "
         "input or is completely contrary to the provided ground truth."
         "- Score 2: the output provides some relevance to the input and answers one aspect of the "

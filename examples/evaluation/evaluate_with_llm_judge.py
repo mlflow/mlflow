@@ -4,7 +4,7 @@ import openai
 import pandas as pd
 
 import mlflow
-from mlflow.metrics import EvaluationExample, correctness
+from mlflow.metrics import EvaluationExample, answer_similarity
 
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
 
@@ -27,7 +27,7 @@ example = EvaluationExample(
     },
 )
 
-correctness_metric = correctness(examples=[example])
+correctness_metric = answer_similarity(examples=[example])
 
 eval_df = pd.DataFrame(
     {

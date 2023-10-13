@@ -15,12 +15,12 @@ from mlflow.metrics.genai.genai_metric import (
     make_genai_metric,
 )
 from mlflow.metrics.genai.metric_definitions import (
-    correctness,
+    answer_similarity,
     relevance,
     strict_correctness,
 )
 from mlflow.metrics.genai.prompts.v1 import (
-    CorrectnessMetric,
+    AnswerSimilarityMetric,
     RelevanceMetric,
     StrictCorrectnessMetric,
 )
@@ -506,7 +506,7 @@ def test_extract_score_and_justification():
 
 
 def test_correctness_metric():
-    correctness_metric = correctness(
+    correctness_metric = answer_similarity(
         model="gateway:/gpt-3.5-turbo", metric_version="v1", examples=[mlflow_example]
     )
 
@@ -532,8 +532,8 @@ def test_correctness_metric():
             f"\nInput:\n{input}\n"
             f"\nProvided output:\n{mlflow_prediction}\n"
             f"\nProvided targets: {mlflow_ground_truth}\n"
-            f"\nMetric definition:\n{CorrectnessMetric.definition}\n"
-            f"\nBelow is your grading criteria:\n{CorrectnessMetric.grading_prompt}\n"
+            f"\nMetric definition:\n{AnswerSimilarityMetric.definition}\n"
+            f"\nBelow is your grading criteria:\n{AnswerSimilarityMetric.grading_prompt}\n"
             "\nExamples:\n"
             f"\nInput: {mlflow_example.input}\n"
             f"\nProvided output: {mlflow_example.output}\n"
@@ -545,7 +545,7 @@ def test_correctness_metric():
             "Score: [your score number for the correctness of the output]\n"
             "Justification: [your step by step reasoning about the correctness of the output]"
             "\n    ",
-            **CorrectnessMetric.parameters,
+            **AnswerSimilarityMetric.parameters,
         }
 
     assert metric_value.scores == [3]
@@ -560,7 +560,7 @@ def test_correctness_metric():
     with pytest.raises(
         MlflowException, match="Failed to find correctness metric for version non-existent-version"
     ):
-        correctness_metric = correctness(
+        correctness_metric = answer_similarity(
             model="gateway:/gpt-3.5-turbo",
             metric_version="non-existent-version",
             examples=[mlflow_example],

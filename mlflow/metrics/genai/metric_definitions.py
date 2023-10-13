@@ -11,7 +11,7 @@ from mlflow.utils.class_utils import _get_class_from_string
 
 
 @experimental
-def correctness(
+def answer_similarity(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
     examples: Optional[List[EvaluationExample]] = None,
@@ -19,9 +19,9 @@ def correctness(
     """
     This function will create a genai metric used to evaluate the correctness of an LLM using the
     model provided. Correctness will be assessed by the similarity in meaning and description to
-    the ``ground_truth``.
+    the ``ground_truth``, which should be specified in the ``targets`` column.
 
-    The ``ground_truth`` eval_arg must be provided as part of the input dataset or output
+    The ``targets`` eval_arg must be provided as part of the input dataset or output
     predictions. This can be mapped to a column of a different name using the a ``col_mapping``
     in the ``evaluator_config``.
 
@@ -37,9 +37,9 @@ def correctness(
     """
     if metric_version is None:
         metric_version = _get_latest_metric_version()
-    class_name = f"mlflow.metrics.genai.prompts.{metric_version}.CorrectnessMetric"
+    class_name = f"mlflow.metrics.genai.prompts.{metric_version}.AnswerSimilarityMetric"
     try:
-        correctness_class_module = _get_class_from_string(class_name)
+        answer_similarity_class_module = _get_class_from_string(class_name)
     except ModuleNotFoundError:
         raise MlflowException(
             f"Failed to find correctness metric for version {metric_version}."
@@ -53,19 +53,19 @@ def correctness(
         ) from None
 
     if examples is None:
-        examples = correctness_class_module.default_examples
+        examples = answer_similarity_class_module.default_examples
     if model is None:
-        model = correctness_class_module.default_model
+        model = answer_similarity_class_module.default_model
 
     return make_genai_metric(
         name="correctness",
-        definition=correctness_class_module.definition,
-        grading_prompt=correctness_class_module.grading_prompt,
+        definition=answer_similarity_class_module.definition,
+        grading_prompt=answer_similarity_class_module.grading_prompt,
         examples=examples,
         version=metric_version,
         model=model,
-        grading_context_columns=correctness_class_module.grading_context_columns,
-        parameters=correctness_class_module.parameters,
+        grading_context_columns=answer_similarity_class_module.grading_context_columns,
+        parameters=answer_similarity_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
     )

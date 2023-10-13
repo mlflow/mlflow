@@ -6,7 +6,7 @@ from mlflow.metrics.genai.genai_metric import (
     make_genai_metric,
 )
 from mlflow.metrics.genai.metric_definitions import (
-    correctness,
+    answer_similarity,
     relevance,
     strict_correctness,
 )
@@ -387,7 +387,7 @@ __all__ = [
     "binary_recall",
     "binary_precision",
     "binary_f1_score",
-    "correctness",
+    "answer_similarity",
     "relevance",
     "strict_correctness",
     "token_count",
