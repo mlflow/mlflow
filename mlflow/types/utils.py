@@ -347,7 +347,7 @@ def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) 
             value_type = type(value)
         if isinstance(key, bool) or not isinstance(key, (str, int)):
             invalid_keys.append(key)
-        if (
+        elif (
             isinstance(value, list)
             and not all(isinstance(item, (str, bytes)) for item in value)
             or not isinstance(value, (np.ndarray, list, str, bytes))

@@ -754,8 +754,7 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
         if isinstance(pf_input, (list, np.ndarray, dict, pd.Series, str, bytes)):
             try:
                 if isinstance(pf_input, (str, bytes)) or (
-                    isinstance(pf_input, dict)
-                    and all(_is_scalar(value) for value in pf_input.values())
+                    isinstance(pf_input, dict) and all(map(_is_scalar, pf_input.values()))
                 ):
                     pf_input = pd.DataFrame([pf_input])
                 elif isinstance(pf_input, dict) and all(
