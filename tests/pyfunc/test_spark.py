@@ -622,7 +622,7 @@ def test_spark_udf_autofills_no_arguments(spark):
                 ColSpec("long", "a"),
                 ColSpec("long", "b"),
                 ColSpec("long", "c"),
-                ColSpec("long", "d", optional=True),
+                ColSpec("long", "d", required=False),
             ]
         ),
         outputs=Schema([ColSpec("integer")]),
