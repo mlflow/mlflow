@@ -196,7 +196,7 @@ class Property:
         return self.name < other.name
 
     def __repr__(self) -> str:
-        return f"Property(name={self.name}, dtype={self.dtype}, required={self.required})"
+        return f"Property(name={self.name}, type={self.dtype}, required={self.required})"
 
     def __hash__(self) -> int:
         return hash((self.name, self.dtype, self.required))
