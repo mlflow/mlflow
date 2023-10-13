@@ -425,12 +425,6 @@ def save_model(
             )
             check_databricks_secret_scope_access(scope)
             _log_secrets_yaml(path, scope)
-        else:
-            _logger.info(
-                "No secret scope specified, skipping logging of secrets for OpenAI credentials. "
-                "See https://mlflow.org/docs/latest/python_api/openai/index.html#credential-management-for-openai-on-databricks "
-                "for more information."
-            )
 
     if conda_env is None:
         if pip_requirements is None:
