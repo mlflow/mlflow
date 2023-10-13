@@ -228,8 +228,8 @@ class Property:
         """
         Check if current property is compatible with another property and return
         the updated property.
-        When two properties have the same name, we need to check if the dtypes
-        of them are compatible or not.
+        When two properties have the same name, we need to check if their dtypes
+        are compatible or not.
         An example of two compatible properties:
 
             .. code-block:: python
