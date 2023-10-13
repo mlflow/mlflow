@@ -1356,8 +1356,6 @@ class DefaultEvaluator(ModelEvaluator):
         failed_metrics = []
         # collect all failures for getting metric arguments
         for metric in metrics:
-            # if it will error, should error the first time it is called
-            # TODO: should add casing in case it errors somehow the second/third time it is called
             result = self._get_args_for_metrics(metric, eval_df)
             if isinstance(result, tuple):
                 failed_metrics.append(result)
@@ -1393,9 +1391,7 @@ class DefaultEvaluator(ModelEvaluator):
         metrics = self.builtin_metrics + self.extra_metrics
         self._check_args(metrics, eval_df)
 
-        # evaluate first row
-        # eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
-        # need to update args for extra_metrics because self.metrics / self.metric_values
+        # test calculations on first row of eval_df
         exceptions = []
         first_row_df = eval_df.iloc[[0]]
         for metric in self.builtin_metrics:
@@ -1403,35 +1399,30 @@ class DefaultEvaluator(ModelEvaluator):
                 eval_fn_args = self._get_args_for_metrics(metric, first_row_df)
                 metric_value = metric.eval_fn(*eval_fn_args)
 
-                # need this so that extra_metrics throw correct errors when calculating
+                # need to update metrics because they might be used in calculating extra_metrics
                 if metric_value:
                     name = f"{metric.name}/{metric.version}" if metric.version else metric.name
                     self.metrics_values.update({name: metric_value})
             except Exception as e:
                 if isinstance(e, MlflowException):
-                    exceptions.append(f"Metric '{extra_metric.name}': Error '{e.message}'")
+                    exceptions.append(f"Metric '{metric.name}': Error '{e.message}'")
                 else:
-                    exceptions.append(f"Metric '{extra_metric.name}': Error '{e!r}'")
+                    exceptions.append(f"Metric '{metric.name}': Error '{e!r}'")
         self._update_metrics()
-        # lightweight version of _evaluate_extra_metrics just to check for errors that
-        # stop execution
-        # + dont log evaluating x metric... because that is confusing
-        # + we want to catch exceptions at every metric
-        for extra_metric in self.extra_metrics:
+        for metric in self.extra_metrics:
             try:
-                eval_fn_args = self._get_args_for_metrics(extra_metric, first_row_df)
-                extra_metric.eval_fn(*eval_fn_args)
+                eval_fn_args = self._get_args_for_metrics(metric, first_row_df)
+                metric.eval_fn(*eval_fn_args)
             except Exception as e:
                 if isinstance(e, MlflowException):
-                    exceptions.append(f"Metric '{extra_metric.name}': Error '{e.message}'")
+                    exceptions.append(f"Metric '{metric.name}': Error '{e.message}'")
                 else:
-                    exceptions.append(f"Metric '{extra_metric.name}': Error '{e!r}'")
+                    exceptions.append(f"Metric '{metric.name}': Error '{e!r}'")
 
         if len(exceptions) > 0:
             raise MlflowException("\n".join(exceptions))
 
-        # capture all errors from first row and return together
-
+        # calculate metrics for the full eval_df
         self._evaluate_builtin_metrics(eval_df)
         self._update_metrics()
         self._evaluate_extra_metrics(eval_df)
