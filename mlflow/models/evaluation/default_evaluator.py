@@ -1149,8 +1149,6 @@ class DefaultEvaluator(ModelEvaluator):
         return eval_fn_args
 
     def _evaluate_extra_metrics(self, eval_df):
-        if not self.extra_metrics:
-            return
         for index, extra_metric in enumerate(self.extra_metrics):
             eval_fn_args = self._get_args_for_metrics(extra_metric, eval_df)
             _logger.info(f"Evaluating metrics: {extra_metric.name}")
@@ -1393,7 +1391,6 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _evaluate_metrics(self, eval_df):
         metrics = self.builtin_metrics + self.extra_metrics
-        # try to get necessary args
         self._check_args(metrics, eval_df)
 
         # evaluate first row
@@ -1401,15 +1398,28 @@ class DefaultEvaluator(ModelEvaluator):
         # need to update args for extra_metrics because self.metrics / self.metric_values
         exceptions = []
         first_row_df = eval_df.iloc[[0]]
-        try:
-            self._evaluate_builtin_metrics(first_row_df)
-        except Exception as e:
-            exceptions.append(e)
+        for metric in self.builtin_metrics:
+            try:
+                eval_fn_args = self._get_args_for_metrics(metric, first_row_df)
+                metric_value = metric.eval_fn(*eval_fn_args)
+
+                # need this so that extra_metrics throw correct errors when calculating
+                if metric_value:
+                    name = f"{metric.name}/{metric.version}" if metric.version else metric.name
+                    self.metrics_values.update({name: metric_value})
+            except Exception as e:
+                exceptions.append(e)
         self._update_metrics()
-        try:
-            self._evaluate_extra_metrics(first_row_df)
-        except Exception as e:
-            exceptions.append(e)
+        # lightweight version of _evaluate_extra_metrics just to check for errors that
+        # stop execution
+        # + dont log evaluating x metric... because that is confusing
+        # + we want to catch exceptions at every metric
+        for extra_metric in self.extra_metrics:
+            try:
+                eval_fn_args = self._get_args_for_metrics(extra_metric, first_row_df)
+                extra_metric.eval_fn(*eval_fn_args)
+            except Exception as e:
+                exceptions.append(e)
 
         if len(exceptions) > 0:
             raise MlflowException(exceptions)
@@ -1421,8 +1431,6 @@ class DefaultEvaluator(ModelEvaluator):
         self._evaluate_extra_metrics(eval_df)
 
     def _evaluate_builtin_metrics(self, eval_df):
-        if not self.builtin_metrics:
-            return
         for builtin_metric in self.builtin_metrics:
             _logger.info(f"Evaluating builtin metrics: {builtin_metric.name}")
 
@@ -1525,7 +1533,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.artifacts = {}
             self.metrics = {}
             self.metrics_values = {}
-            self.builtin_metrics = {}
+            self.builtin_metrics = []
 
             text_metrics = [
                 token_count,
@@ -1537,15 +1545,14 @@ class DefaultEvaluator(ModelEvaluator):
 
             with mlflow.utils.autologging_utils.disable_autologging():
                 compute_latency = False
-                if self.extra_metrics:
-                    for extra_metric in self.extra_metrics:
-                        # If latency metric is specified, we will compute latency for the model
-                        # during prediction, and we will remove the metric from the list of extra
-                        # metrics to be computed after prediction.
-                        if extra_metric.name == _LATENCY_METRIC_NAME:
-                            compute_latency = True
-                            self.extra_metrics.remove(extra_metric)
-                            break
+                for extra_metric in self.extra_metrics:
+                    # If latency metric is specified, we will compute latency for the model
+                    # during prediction, and we will remove the metric from the list of extra
+                    # metrics to be computed after prediction.
+                    if extra_metric.name == _LATENCY_METRIC_NAME:
+                        compute_latency = True
+                        self.extra_metrics.remove(extra_metric)
+                        break
                 self._generate_model_predictions(compute_latency=compute_latency)
                 if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
                     self._compute_builtin_metrics()
@@ -1631,6 +1638,9 @@ class DefaultEvaluator(ModelEvaluator):
             self.extra_metrics = custom_metrics
         else:
             self.extra_metrics = extra_metrics
+
+        if self.extra_metrics is None:
+            self.extra_metrics = []
 
         if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
             inferred_model_type = _infer_model_type_by_labels(self.y)
