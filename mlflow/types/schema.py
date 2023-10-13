@@ -218,18 +218,17 @@ class Property:
             raise MlflowException(f"Missing keys in Property `{name}`. Expected to find key `type`")
         required = dic.pop("required", True)
         dtype = dic["type"]
-        if dtype not in [ARRAY_TYPE, OBJECT_TYPE]:
-            return cls(name=name, dtype=dtype, required=required)
         if dtype == ARRAY_TYPE:
             return cls(name=name, dtype=Array.from_json_dict(**dic), required=required)
         if dtype == OBJECT_TYPE:
             return cls(name=name, dtype=Object.from_json_dict(**dic), required=required)
+        return cls(name=name, dtype=dtype, required=required)
 
     def _merge(self, prop: "Property") -> "Property":
         """
         Check if current property is compatible with another property and return
         the updated property.
-        When two properties has the same name, we need to check if the dtypes
+        When two properties have the same name, we need to check if the dtypes
         of them are compatible or not.
         An example of two compatible properties:
 
@@ -250,8 +249,8 @@ class Property:
                         ]
                     ),
                 )
-                updated_prop = prop1._merge(prop2)
-                assert updated_prop == Property(
+                merged_prop = prop1._merge(prop2)
+                assert merged_prop == Property(
                     name="a",
                     dtype=Object(
                         properties=[
