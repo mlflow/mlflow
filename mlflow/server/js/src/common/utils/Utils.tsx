@@ -284,7 +284,7 @@ class Utils {
     } else if (gitLabMatch) {
       url = `https://gitlab.com/${gitLabMatch[1]}/${gitLabMatch[2].replace(/.git/, '')}`;
       if (gitLabMatch[3]) {
-        url += `/-/tree/master${gitLabMatch[3]}`;
+        url += `/-/tree/master/${gitLabMatch[3]}`;
       }
     } else if (bitbucketMatch) {
       url = `https://bitbucket.org/${bitbucketMatch[1]}/${bitbucketMatch[2].replace(/.git/, '')}`;
