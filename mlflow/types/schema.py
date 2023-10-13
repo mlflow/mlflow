@@ -191,6 +191,9 @@ class Property:
             )
         return False
 
+    def __lt__(self, other) -> bool:
+        return self.name < other.name
+
     def to_dict(self):
         d = {"type": self.dtype.name} if isinstance(self.dtype, DataType) else self.dtype.to_dict()
         d["required"] = self.required
@@ -230,7 +233,8 @@ class Object:
 
     def __init__(self, properties: List[Property]) -> None:
         self._check_properties(properties)
-        self._properties = properties
+        # Sort by name to make sure the order is stable
+        self._properties = sorted(properties)
 
     def _check_properties(self, properties):
         if not isinstance(properties, list):
@@ -261,24 +265,19 @@ class Object:
     @properties.setter
     def properties(self, value: List[Property]) -> None:
         self._check_properties(value)
-        self._properties = value
+        self._properties = sorted(value)
 
     def __eq__(self, other) -> bool:
         if isinstance(other, Object):
-            return sorted(self.properties, key=lambda x: x.name) == sorted(
-                other.properties, key=lambda x: x.name
-            )
+            return self.properties == other.properties
         return False
 
     def to_dict(self):
-        properties = dict(
-            sorted(
-                (name, value) for prop in self.properties for name, value in prop.to_dict().items()
-            )
-        )
+        properties = {
+            name: value for prop in self.properties for name, value in prop.to_dict().items()
+        }
         return {
             "type": OBJECT_TYPE,
-            # Sort by name to make sure the order is stable
             "properties": properties,
         }
 
