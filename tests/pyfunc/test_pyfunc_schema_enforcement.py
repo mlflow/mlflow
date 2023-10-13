@@ -895,8 +895,8 @@ def test_schema_enforcement_for_optional_columns():
         [
             ColSpec("double", "a"),
             ColSpec("double", "b"),
-            ColSpec("string", "c", optional=True),
-            ColSpec("long", "d", optional=True),
+            ColSpec("string", "c", required=False),
+            ColSpec("long", "d", required=False),
         ]
     )
     signature = ModelSignature(inputs=input_schema)
