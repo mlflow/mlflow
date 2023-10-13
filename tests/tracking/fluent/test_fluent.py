@@ -1236,9 +1236,9 @@ def test_log_input(tmp_path):
     assert json.loads(dataset_inputs[0].dataset.source) == {"uri": str(path)}
     assert json.loads(dataset_inputs[0].dataset.schema) == {
         "mlflow_colspec": [
-            {"name": "a", "type": "long"},
-            {"name": "b", "type": "long"},
-            {"name": "c", "type": "long"},
+            {"name": "a", "type": "long", "required": True},
+            {"name": "b", "type": "long", "required": True},
+            {"name": "c", "type": "long", "required": True},
         ]
     }
     assert json.loads(dataset_inputs[0].dataset.profile) == {"num_rows": 2, "num_elements": 6}
@@ -1261,9 +1261,9 @@ def test_log_input(tmp_path):
     assert json.loads(dataset_inputs[0].dataset.source) == {"uri": str(path)}
     assert json.loads(dataset_inputs[0].dataset.schema) == {
         "mlflow_colspec": [
-            {"name": "a", "type": "long"},
-            {"name": "b", "type": "long"},
-            {"name": "c", "type": "long"},
+            {"name": "a", "type": "long", "required": True},
+            {"name": "b", "type": "long", "required": True},
+            {"name": "c", "type": "long", "required": True},
         ]
     }
     assert json.loads(dataset_inputs[0].dataset.profile) == {"num_rows": 2, "num_elements": 6}
