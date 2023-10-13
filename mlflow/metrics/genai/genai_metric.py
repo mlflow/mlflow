@@ -183,9 +183,6 @@ def make_genai_metric(
         This is the function that is called when the metric is evaluated.
         """
         eval_values = dict(zip(grading_context_columns, args))
-        for col_name, arg in eval_values.items():
-            if arg is None:
-                raise MlflowException(f"{col_name} for metric {name} was {arg} not okay!")
         class_name = f"mlflow.metrics.genai.prompts.{version}.EvaluationModel"
         try:
             evaluation_model_class_module = _get_class_from_string(class_name)
@@ -235,7 +232,12 @@ def make_genai_metric(
             eval_parameters,
             eval_model,
         ):
-            arg_string = _format_args_string(grading_context_columns, eval_values, indx)
+            try:
+                arg_string = _format_args_string(grading_context_columns, eval_values, indx)
+            except Exception as e:
+                raise MlflowException(
+                    f"Misformed input arguments, cannot be formatted into the prompt. Error: {e!r}"
+                )
             payload = {
                 "prompt": evaluation_context["eval_prompt"].format(
                     input=input, output=output, grading_context_columns=arg_string
