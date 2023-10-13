@@ -1644,6 +1644,8 @@ class DefaultEvaluator(ModelEvaluator):
                     ]
                 elif self.model_type == _ModelType.TEXT:
                     self.builtin_metrics = text_metrics
+                elif self.model_type == _ModelType.RETRIEVER:
+                    self.builtin_metrics = [token_count]
 
                 self.y_pred = (
                     self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred

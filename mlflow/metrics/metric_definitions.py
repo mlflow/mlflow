@@ -254,6 +254,13 @@ def _rougeLsum_eval_fn(predictions, targets, metrics):
         )
 
 
+def _precision_at_k_eval_fn(predictions, targets, k):
+    if targets is not None and len(targets) != 0:
+        assert predictions == {}
+        assert targets == {}
+        return MetricValue(scores=[], aggregate_results=standard_aggregations([]))
+
+
 def _mae_eval_fn(predictions, targets, metrics, sample_weight=None):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import mean_absolute_error
