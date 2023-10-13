@@ -1167,7 +1167,7 @@ def test_functional_python_model_only_input_type_hints(tmp_path):
 
     mlflow.pyfunc.save_model(path=tmp_path, python_model=python_model, input_example=["a"])
     model = Model.load(tmp_path)
-    assert model.signature.inputs.to_dict() == [{"type": "string"}]
+    assert model.signature.inputs.to_dict() == [{"type": "string", "required": True}]
 
 
 def test_functional_python_model_only_output_type_hints(tmp_path):
@@ -1187,8 +1187,8 @@ class CallableObject:
 def test_functional_python_model_callable_object(tmp_path):
     mlflow.pyfunc.save_model(path=tmp_path, python_model=CallableObject(), input_example=["a"])
     model = Model.load(tmp_path)
-    assert model.signature.inputs.to_dict() == [{"type": "string"}]
-    assert model.signature.outputs.to_dict() == [{"type": "string"}]
+    assert model.signature.inputs.to_dict() == [{"type": "string", "required": True}]
+    assert model.signature.outputs.to_dict() == [{"type": "string", "required": True}]
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
     assert loaded_model.predict(["a", "b"]) == ["a", "b"]
 
@@ -1200,8 +1200,8 @@ def list_to_list(x: List[str]) -> List[str]:
 def test_functional_python_model_list_to_list(tmp_path):
     mlflow.pyfunc.save_model(path=tmp_path, python_model=list_to_list, input_example=["a"])
     model = Model.load(tmp_path)
-    assert model.signature.inputs.to_dict() == [{"type": "string"}]
-    assert model.signature.outputs.to_dict() == [{"type": "string"}]
+    assert model.signature.inputs.to_dict() == [{"type": "string", "required": True}]
+    assert model.signature.outputs.to_dict() == [{"type": "string", "required": True}]
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
     assert loaded_model.predict(["a", "b"]) == ["a", "b"]
     # Dict with a single key is also a valid input
@@ -1215,8 +1215,8 @@ def list_to_list_pep585(x: list[str]) -> list[str]:
 def test_functional_python_model_list_to_list_pep585(tmp_path):
     mlflow.pyfunc.save_model(path=tmp_path, python_model=list_to_list_pep585, input_example=["a"])
     model = Model.load(tmp_path)
-    assert model.signature.inputs.to_dict() == [{"type": "string"}]
-    assert model.signature.outputs.to_dict() == [{"type": "string"}]
+    assert model.signature.inputs.to_dict() == [{"type": "string", "required": True}]
+    assert model.signature.outputs.to_dict() == [{"type": "string", "required": True}]
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
     assert loaded_model.predict(["a", "b"]) == ["a", "b"]
     # Dict with a single key is also a valid input
@@ -1232,8 +1232,8 @@ def test_functional_python_model_list_dict_to_list_without_example(tmp_path):
         path=tmp_path, python_model=list_dict_to_list, pip_requirements=["pandas"]
     )
     model = Model.load(tmp_path)
-    assert model.signature.inputs.to_dict() == [{"type": "string"}]
-    assert model.signature.outputs.to_dict() == [{"type": "string"}]
+    assert model.signature.inputs.to_dict() == [{"type": "string", "required": True}]
+    assert model.signature.outputs.to_dict() == [{"type": "string", "required": True}]
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
     assert loaded_model.predict([{"a": "x"}, {"a": "y"}]) == ["ax", "ay"]
 
@@ -1282,10 +1282,10 @@ def test_functional_python_model_list_dict_to_list(tmp_path):
     )
     model = Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
-        {"name": "a", "type": "string"},
-        {"name": "b", "type": "string"},
+        {"name": "a", "type": "string", "required": True},
+        {"name": "b", "type": "string", "required": True},
     ]
-    assert model.signature.outputs.to_dict() == [{"type": "string"}]
+    assert model.signature.outputs.to_dict() == [{"type": "string", "required": True}]
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
     assert loaded_model.predict([{"a": "x", "b": "y"}]) == ["abxy"]
 
@@ -1302,12 +1302,12 @@ def test_functional_python_model_list_dict_to_list_dict(tmp_path):
     )
     model = Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
-        {"name": "a", "type": "string"},
-        {"name": "b", "type": "string"},
+        {"name": "a", "type": "string", "required": True},
+        {"name": "b", "type": "string", "required": True},
     ]
     assert model.signature.outputs.to_dict() == [
-        {"name": "x", "type": "string"},
-        {"name": "y", "type": "string"},
+        {"name": "x", "type": "string", "required": True},
+        {"name": "y", "type": "string", "required": True},
     ]
 
 
@@ -1323,12 +1323,12 @@ def test_functional_python_model_list_dict_to_list_dict_with_example_pep585(tmp_
     )
     model = Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
-        {"name": "a", "type": "string"},
-        {"name": "b", "type": "string"},
+        {"name": "a", "type": "string", "required": True},
+        {"name": "b", "type": "string", "required": True},
     ]
     assert model.signature.outputs.to_dict() == [
-        {"name": "x", "type": "string"},
-        {"name": "y", "type": "string"},
+        {"name": "x", "type": "string", "required": True},
+        {"name": "y", "type": "string", "required": True},
     ]
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
     assert loaded_model.predict([{"a": "x", "b": "y"}]) == [{"x": "a", "y": "b"}]
@@ -1405,8 +1405,8 @@ class AnnotatedPythonModel(mlflow.pyfunc.PythonModel):
 def test_class_python_model_type_hints(tmp_path):
     mlflow.pyfunc.save_model(path=tmp_path, python_model=AnnotatedPythonModel())
     model = Model.load(tmp_path)
-    assert model.signature.inputs.to_dict() == [{"type": "string"}]
-    assert model.signature.outputs.to_dict() == [{"type": "string"}]
+    assert model.signature.inputs.to_dict() == [{"type": "string", "required": True}]
+    assert model.signature.outputs.to_dict() == [{"type": "string", "required": True}]
     model = mlflow.pyfunc.load_model(tmp_path)
     assert model.predict(["a", "b"]) == ["a", "b"]
 
