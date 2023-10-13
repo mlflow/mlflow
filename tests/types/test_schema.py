@@ -1263,7 +1263,7 @@ def test_merge_object_example():
         ]
     )
     obj2_dict = obj2.to_dict()
-    updated_obj = obj1._merge_object(obj2)
+    updated_obj = obj1._merge(obj2)
     assert updated_obj == Object(
         properties=[
             Property(name="a", dtype=DataType.string),
@@ -1291,7 +1291,7 @@ def test_merge_property_example():
         ),
     )
     prop2_dict = prop2.to_dict()
-    updated_prop = prop1._merge_property(prop2)
+    updated_prop = prop1._merge(prop2)
     assert updated_prop == Property(
         name="a",
         dtype=Object(

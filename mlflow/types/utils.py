@@ -138,7 +138,7 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
                     raise MlflowException.invalid_parameter_value(
                         "Expected all values in list to be of same type"
                     )
-                dtype = dtype._merge_object(dtype2)
+                dtype = dtype._merge(dtype2)
             return Array(dtype)
         elif isinstance(dtype, DataType):
             if any(_infer_colspec_type(v) != dtype for v in data[1:]):

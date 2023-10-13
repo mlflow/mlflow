@@ -225,7 +225,7 @@ class Property:
         if dtype == OBJECT_TYPE:
             return cls(name=name, dtype=Object.from_json_dict(**dic), required=required)
 
-    def _merge_property(self, prop: "Property") -> "Property":
+    def _merge(self, prop: "Property") -> "Property":
         """
         Check if current property is compatible with another property and return
         the updated property.
@@ -250,7 +250,7 @@ class Property:
                         ]
                     ),
                 )
-                updated_prop = prop1._merge_property(prop2)
+                updated_prop = prop1._merge(prop2)
                 assert updated_prop == Property(
                     name="a",
                     dtype=Object(
@@ -271,14 +271,14 @@ class Property:
             raise MlflowException(f"Properties are incompatible for {self.dtype} and {prop.dtype}")
 
         if isinstance(self.dtype, Object) and isinstance(prop.dtype, Object):
-            obj = self.dtype._merge_object(prop.dtype)
+            obj = self.dtype._merge(prop.dtype)
             return Property(name=self.name, dtype=obj, required=required)
 
         if isinstance(self.dtype, Array) and isinstance(prop.dtype, Array):
             if self.dtype.dtype == prop.dtype.dtype:
                 return Property(name=self.name, dtype=self.dtype, required=required)
             if isinstance(self.dtype.dtype, Object) and isinstance(prop.dtype.dtype, Object):
-                obj = self.dtype.dtype._merge_object(prop.dtype.dtype)
+                obj = self.dtype.dtype._merge(prop.dtype.dtype)
                 return Property(name=self.name, dtype=Array(obj), required=required)
 
         raise MlflowException("Properties are incompatible")
@@ -362,7 +362,7 @@ class Object:
             [Property.from_json_dict(**{name: prop}) for name, prop in kwargs["properties"].items()]
         )
 
-    def _merge_object(self, obj: "Object") -> "Object":
+    def _merge(self, obj: "Object") -> "Object":
         """
         Check if the current object is compatible with another object and return
         the updated object.
@@ -387,7 +387,7 @@ class Object:
                         Property(name="c", dtype=DataType.boolean),
                     ]
                 )
-                updated_obj = obj1._merge_object(obj2)
+                updated_obj = obj1._merge(obj2)
                 assert updated_obj == Object(
                     properties=[
                         Property(name="a", dtype=DataType.string),
@@ -408,7 +408,7 @@ class Object:
             updated_properties.append(Property(name=k, dtype=prop_dict1[k].dtype, required=False))
         # For common keys, property type should be the same
         for k in prop_dict1.keys() & prop_dict2.keys():
-            updated_properties.append(prop_dict1[k]._merge_property(prop_dict2[k]))
+            updated_properties.append(prop_dict1[k]._merge(prop_dict2[k]))
         # For each property appears in the second elements, if it doesn't
         # exist, we update and set required=False
         for k in prop_dict2.keys() - prop_dict1.keys():
