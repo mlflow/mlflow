@@ -137,7 +137,7 @@ def _mock_openai_request():
 
 def _validate_model_params(task, model, params):
     if params:
-        if any(param for param in params.keys() if param in model.keys()):
+        if any(key for key in params if key in model):
             raise mlflow.MlflowException.invalid_parameter_value(
                 f"Providing any of {list(model.keys())} as parameters in the signature is not "
                 "allowed because they were indicated as part of the OpenAI model. Either remove "
