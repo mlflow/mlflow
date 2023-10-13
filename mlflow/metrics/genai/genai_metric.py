@@ -236,7 +236,10 @@ def make_genai_metric(
                 arg_string = _format_args_string(grading_context_columns, eval_values, indx)
             except Exception as e:
                 raise MlflowException(
-                    f"Misformed input arguments, cannot be formatted into the prompt. Error: {e!r}"
+                    f"Provided values for grading_context_columns are malformed and cannot be "
+                    f"formatted into prompt for metric '{name}'.\n\n"
+                    f"Provided values: {eval_values}\n"
+                    f"Error: {e!r}\n"
                 )
             payload = {
                 "prompt": evaluation_context["eval_prompt"].format(

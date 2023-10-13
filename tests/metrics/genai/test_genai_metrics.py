@@ -299,6 +299,20 @@ def test_make_genai_metric_incorrect_response():
     assert metric_value.aggregate_results["p90"] is None
 
 
+def test_malformed_input_raises_exception():
+    error_message = "Provided values for grading_context_columns are malformed and cannot be "
+    "formatted into prompt for metric 'correctness'.\n\nProvided values: {'targets': None}\n"
+    "Error: TypeError(\"'NoneType' object is not subscriptable\")\n"
+
+    correctness_metric = correctness()
+
+    with pytest.raises(
+        MlflowException,
+        match=error_message,
+    ):
+        correctness_metric.eval_fn(pd.Series([mlflow_prediction]), {}, pd.Series([input]), None)
+
+
 def test_make_genai_metric_multiple():
     custom_metric = make_genai_metric(
         name="correctness",
