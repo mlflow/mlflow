@@ -189,6 +189,78 @@ def test_schema_inference_on_dataframe(pandas_df_with_all_types):
     assert schema == expected_schema
 
 
+def test_schema_inference_on_dataframe_array_and_object():
+    df = pd.DataFrame({"dict": [{"a": 0, "b": 1}]})
+    assert _infer_schema(df) == Schema(
+        [
+            ColSpec(
+                Object(
+                    [
+                        Property("a", DataType.integer),
+                        Property("b", DataType.integer),
+                    ],
+                ),
+                "dict",
+            )
+        ]
+    )
+
+    df = pd.DataFrame({"list_of_dicts": [[{"a": 0, "b": 1}]]})
+    assert _infer_schema(df) == Schema(
+        [
+            ColSpec(
+                Array(
+                    Object(
+                        [
+                            Property("a", DataType.integer),
+                            Property("b", DataType.integer),
+                        ],
+                    )
+                ),
+                "list_of_dicts",
+            )
+        ]
+    )
+
+    df = pd.DataFrame({"nested_dict": [{"a": {"b": 1}}]})
+    assert _infer_schema(df) == Schema(
+        [
+            ColSpec(
+                Object(
+                    [
+                        Property(
+                            "a",
+                            Object([Property("b", DataType.integer)]),
+                        ),
+                    ],
+                ),
+                "nested_dict",
+            )
+        ]
+    )
+
+    df = pd.DataFrame({"complex": [{"a": [{"b": 1}]}]})
+    assert _infer_schema(df) == Schema(
+        [
+            ColSpec(
+                Object(
+                    [
+                        Property(
+                            "a",
+                            Array(Object([Property("b", DataType.integer)])),
+                        ),
+                    ],
+                ),
+                "complex",
+            )
+        ]
+    )
+
+    df = pd.DataFrame({"dict": [{"a": 0}, {"b": 1}]})
+    with pytest.raises(MlflowException, match="Expected all values to be of same type"):
+        _infer_schema(df)
+
+
 def test_schema_inference_on_pandas_series():
     # test objects
     schema = _infer_schema(pd.Series(np.array(["a"], dtype=object)))

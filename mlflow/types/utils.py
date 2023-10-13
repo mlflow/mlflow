@@ -337,7 +337,7 @@ def _infer_numpy_dtype(dtype) -> DataType:
     raise MlflowException(f"Unsupported numpy data type '{dtype}', kind '{dtype.kind}'")
 
 
-def _infer_pandas_column(col: pd.Series) -> DataType:
+def _infer_pandas_column(col: pd.Series) -> Union[DataType, Array, Object]:
     if not isinstance(col, pd.Series):
         raise TypeError(f"Expected pandas.Series, got '{type(col)}'.")
     if len(col.values.shape) > 1:
@@ -368,6 +368,12 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
         elif pd.api.types.is_string_dtype(col):
             return DataType.string
         else:
+            if isinstance(col[0], (list, dict)):
+                types = set(map(_infer_colspec_type, col))
+                if len(types) != 1:
+                    raise MlflowException(f"Expected all values to be of same type, got {types}")
+                return types.pop()
+
             raise MlflowException(
                 "Unable to map 'object' type to MLflow DataType. object can "
                 "be mapped iff all values have identical data type which is one "

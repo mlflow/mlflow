@@ -195,6 +195,12 @@ class Property:
     def __lt__(self, other) -> bool:
         return self.name < other.name
 
+    def __repr__(self) -> str:
+        return f"Property(name={self.name}, dtype={self.dtype}, required={self.required})"
+
+    def __hash__(self) -> int:
+        return hash((self.name, self.dtype, self.required))
+
     def to_dict(self):
         d = {"type": self.dtype.name} if isinstance(self.dtype, DataType) else self.dtype.to_dict()
         d["required"] = self.required
@@ -329,6 +335,12 @@ class Object:
         if isinstance(other, Object):
             return self.properties == other.properties
         return False
+
+    def __repr__(self) -> str:
+        return f"Object(properties={self.properties})"
+
+    def __hash__(self) -> int:
+        return hash(tuple(self.properties))
 
     def to_dict(self):
         properties = {
@@ -474,6 +486,12 @@ class Array:
         if kwargs["items"]["type"] != OBJECT_TYPE:
             return cls(dtype=kwargs["items"]["type"])
         return cls(dtype=Object.from_json_dict(**kwargs["items"]))
+
+    def __repr__(self) -> str:
+        return f"Array(type={self.dtype})"
+
+    def __hash__(self) -> int:
+        return hash(self.dtype)
 
 
 class ColSpec:
