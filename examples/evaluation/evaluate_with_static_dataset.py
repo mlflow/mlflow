@@ -17,7 +17,7 @@ model = xgboost.XGBClassifier().fit(X_train, y_train)
 y_test_pred = model.predict(X=X_test)
 eval_data = X_test
 eval_data["label"] = y_test
-eval_data["prediction"] = y_test_pred
+eval_data["predictions"] = y_test_pred
 
 
 with mlflow.start_run() as run:
@@ -25,9 +25,8 @@ with mlflow.start_run() as run:
     result = mlflow.evaluate(
         data=eval_data,
         targets="label",
-        predictions="prediction",
+        predictions="predictions",
         model_type="classifier",
-        evaluators=["default"],
     )
 
 print(f"metrics:\n{result.metrics}")

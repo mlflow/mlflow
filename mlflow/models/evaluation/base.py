@@ -1407,7 +1407,8 @@ def evaluate(
                  - A numpy array or list of evaluation features, excluding labels.
 
                  - A Pandas DataFrame or Spark DataFrame, containing evaluation features,
-                   labels, and optionally model outputs. If ``feature_names`` argument not
+                   labels, and optionally model outputs. Model outputs are required to be
+                   provided when model is unspecified. If ``feature_names`` argument not
                    specified, all columns except for the label column and model_output column
                    are regarded as feature columns. Otherwise, only column names present in
                    ``feature_names`` are regarded as feature columns.
@@ -1688,20 +1689,34 @@ def evaluate(
             if predictions is None:
                 raise MlflowException(
                     message="The model output must be specified in the predicitons "
-                    "argument when model=None.",
+                    "parameter when model=None.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             if predictions not in data.columns:
                 raise MlflowException(
-                    message=f"The predictions column {predictions} is not found in data.",
+                    message=f"The specified predictions column '{predictions}' is not "
+                    "found in the specified data.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-        elif (
-            isinstance(data, mlflow.data.pandas_dataset.PandasDataset)
-            and data.predictions is not None
-        ):
-            # If data is a mlflow PandasDataset with predictions specified, nothing else to check
-            pass
+        elif isinstance(data, mlflow.data.pandas_dataset.PandasDataset):
+            # If data is a mlflow PandasDataset with predictions specified
+            # check that exact one predictions column is specified
+            if data.predictions is not None:
+                if predictions is not None and predictions != data.predictions:
+                    raise MlflowException(
+                        message="The predictions parameter must be None or the same as "
+                        "data.predictions when data.predictions is specified. Found "
+                        f"predictions='{predictions}', data.predictions='{data.predictions}'.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                else:  # predictions is None or predictions == data.predictions
+                    pass  # OK: exact one predictions column is specified
+            else:
+                raise MlflowException(
+                    message="The predictions parameter must be specified with the provided "
+                    "PandasDataset when model=None.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
         else:
             # Other data formats are not supported
             raise MlflowException(
