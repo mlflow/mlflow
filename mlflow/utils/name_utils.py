@@ -138,6 +138,7 @@ _GENERATOR_NOUNS = [
     "robin",
     "roo",
     "rook",
+    "salmon",
     "seal",
     "shad",
     "shark",
