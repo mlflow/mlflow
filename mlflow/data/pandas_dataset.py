@@ -28,7 +28,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         self,
         df: pd.DataFrame,
         source: DatasetSource,
-        targets: str = None,
+        targets: Optional[str] = None,
         name: Optional[str] = None,
         digest: Optional[str] = None,
     ):
