@@ -3,6 +3,9 @@ import threading
 import time
 import uuid
 
+import pytest
+
+from mlflow import MlflowException
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
@@ -27,19 +30,19 @@ class RunData:
 
     def consume_queue_data(self, run_id, metrics, tags, params):
         self.batch_count += 1
-        self.received_run_id = run_id
-        self.received_metrics += metrics or []
-        self.received_params += params or []
-        self.received_tags += tags or []
-
         if self.batch_count in self.throw_exception_on_batch_number:
-            raise Exception("Failed to process batch number: " + str(self.batch_count))
+            raise MlflowException("Failed to log run data")
+        self.received_run_id = run_id
+        self.received_metrics.extend(metrics or [])
+        self.received_params.extend(params or [])
+        self.received_tags.extend(tags or [])
 
 
+@pytest.mark.category("async-logging")
 def test_single_thread_publish_consume_queue():
     run_id = "test_run_id"
     run_data = RunData()
-    run_data_queueing_processor = AsyncLoggingQueue(run_data.consume_queue_data)
+    async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
 
     metrics_sent = []
     tags_sent = []
@@ -48,7 +51,7 @@ def test_single_thread_publish_consume_queue():
     run_operations = []
     for params, tags, metrics in _get_run_data():
         run_operations.append(
-            run_data_queueing_processor.log_batch_async(
+            async_logging_queue.log_batch_async(
                 run_id=run_id, metrics=metrics, tags=tags, params=params
             )
         )
@@ -60,7 +63,7 @@ def test_single_thread_publish_consume_queue():
         run_operation.wait()
 
     # Stop the run data processing thread.
-    run_data_queueing_processor.continue_to_process_data = False
+    async_logging_queue._continue_to_log_data.set()
 
     _assert_sent_received_data(
         metrics_sent,
@@ -72,44 +75,40 @@ def test_single_thread_publish_consume_queue():
     )
 
 
-def test_single_thread_publish_certain_batches_failed_to_be_sent_from_queue():
+@pytest.mark.category("async-logging")
+def test_partial_logging_failed():
     run_id = "test_run_id"
     run_data = RunData(throw_exception_on_batch_number=[3, 4])
-    run_data_queueing_processor = AsyncLoggingQueue(run_data.consume_queue_data)
-
+    async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
     metrics_sent = []
     tags_sent = []
     params_sent = []
 
     run_operations = []
+    batch_id = 1
     for params, tags, metrics in _get_run_data():
-        run_operations.append(
-            run_data_queueing_processor.log_batch_async(
-                run_id=run_id, metrics=metrics, tags=tags, params=params
+        if batch_id in [3, 4]:
+            with pytest.raises(MlflowException, match="Failed to log run data"):
+                async_logging_queue.log_batch_async(
+                    run_id=run_id, metrics=metrics, tags=tags, params=params
+                ).wait()
+        else:
+            run_operations.append(
+                async_logging_queue.log_batch_async(
+                    run_id=run_id, metrics=metrics, tags=tags, params=params
+                )
             )
-        )
-        metrics_sent += metrics
-        tags_sent += tags
-        params_sent += params
+            metrics_sent += metrics
+            tags_sent += tags
+            params_sent += params
 
-    exceptions = []
+        batch_id += 1
+
     for run_operation in run_operations:
-        try:
-            run_operation.wait()
-        except Exception as e:
-            exceptions.append(e)
+        run_operation.wait()
 
-    assert len(exceptions) == 2
-    assert "Failed to process batch number: 3" in str(exceptions[0])
-    assert "Failed to process batch number: 4" in str(exceptions[1])
     # Stop the run data processing thread.
-    run_data_queueing_processor.continue_to_process_data = False
-
-    num = 0
-    for run_operation in run_operations:
-        if num == 2 or num == 3:
-            run_operation.await_completion()
-
+    async_logging_queue._continue_to_log_data.set()
     _assert_sent_received_data(
         metrics_sent,
         params_sent,
@@ -120,16 +119,18 @@ def test_single_thread_publish_certain_batches_failed_to_be_sent_from_queue():
     )
 
 
+@pytest.mark.category("async-logging")
 def test_publish_multithread_consume_single_thread():
     run_id = "test_run_id"
     run_data = RunData(throw_exception_on_batch_number=[])
-    run_data_queueing_processor = AsyncLoggingQueue(run_data.consume_queue_data)
+    async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
+
     run_operations = []
     t1 = threading.Thread(
-        target=_send_metrics_tags_params, args=(run_data_queueing_processor, run_id, run_operations)
+        target=_send_metrics_tags_params, args=(async_logging_queue, run_id, run_operations)
     )
     t2 = threading.Thread(
-        target=_send_metrics_tags_params, args=(run_data_queueing_processor, run_id, run_operations)
+        target=_send_metrics_tags_params, args=(async_logging_queue, run_id, run_operations)
     )
 
     t1.start()
@@ -139,6 +140,9 @@ def test_publish_multithread_consume_single_thread():
 
     for run_operation in run_operations:
         run_operation.wait()
+
+    # Stop the run data processing thread.
+    async_logging_queue._continue_to_log_data.set()
 
     assert len(run_data.received_metrics) == 2 * METRIC_PER_BATCH * TOTAL_BATCHES
     assert len(run_data.received_tags) == 2 * TAGS_PER_BATCH * TOTAL_BATCHES

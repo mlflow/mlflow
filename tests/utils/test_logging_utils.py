@@ -33,8 +33,6 @@ def reset_logging_level():
 
 
 class TestStream:
-    __test__ = False
-
     def __init__(self):
         self.content = None
         self.flush_count = 0
