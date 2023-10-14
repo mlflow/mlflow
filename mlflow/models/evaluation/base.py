@@ -1112,7 +1112,7 @@ def evaluate(
     model_type: Optional[str] = None,
     targets=None,
     dataset_path=None,
-    feature_names: list = None,
+    feature_names: Optional[list] = None,
     evaluators=None,
     evaluator_config=None,
     custom_metrics=None,
