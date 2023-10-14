@@ -2,7 +2,7 @@ import abc
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import pandas as pd
 
@@ -135,8 +135,8 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         ingested_rows: int,
         schema: Dict,
         data_preview: pd.DataFrame = None,
-        dataset_src_location: str = None,
-        dataset_sql: str = None,
+        dataset_src_location: Optional[str] = None,
+        dataset_sql: Optional[str] = None,
     ) -> BaseCard:
         """
         Constructs a step card instance corresponding to the current ingest step state.

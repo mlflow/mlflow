@@ -617,8 +617,8 @@ def _warn_dependency_requirement_mismatches(model_path):
 def load_model(
     model_uri: str,
     suppress_warnings: bool = False,
-    dst_path: str = None,
-    model_config: Dict[str, Any] = None,
+    dst_path: Optional[str] = None,
+    model_config: Optional[Dict[str, Any]] = None,
 ) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -721,7 +721,9 @@ class _ServedPyFuncModel(PyFuncModel):
         return self._server_pid
 
 
-def _load_model_or_server(model_uri: str, env_manager: str, model_config: Dict[str, Any] = None):
+def _load_model_or_server(
+    model_uri: str, env_manager: str, model_config: Optional[Dict[str, Any]] = None
+):
     """
     Load a model with env restoration. If a non-local ``env_manager`` is specified, prepare an
     independent Python environment with the training time dependencies of the specified model
