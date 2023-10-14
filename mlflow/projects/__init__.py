@@ -323,7 +323,7 @@ def run(
                 raise
 
     if env_manager is not None:
-        _EnvManager.validate(env_manager)
+        _EnvManager.validate_and_set(env_manager)
 
     if backend == "databricks":
         mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), backend_config)

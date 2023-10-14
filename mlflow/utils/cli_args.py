@@ -61,7 +61,7 @@ RUN_ID = click.option(
 
 def _resolve_env_manager(_, __, env_manager):
     if env_manager is not None:
-        _EnvManager.validate(env_manager)
+        _EnvManager.validate_and_set(env_manager)
         if env_manager == _EnvManager.CONDA and not MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING.get():
             warnings.warn(
                 (

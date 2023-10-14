@@ -1573,7 +1573,7 @@ def evaluate(
     from mlflow.pyfunc import PyFuncModel, _load_model_or_server, _ServedPyFuncModel
     from mlflow.utils import env_manager as _EnvManager
 
-    _EnvManager.validate(env_manager)
+    _EnvManager.validate_and_set(env_manager)
 
     if model_type in [_ModelType.REGRESSOR, _ModelType.CLASSIFIER]:
         if isinstance(data, Dataset):
