@@ -623,12 +623,9 @@ def test_inference_params(tmp_path):
     )
 
     model_info = mlflow.models.Model.load(tmp_path)
-
-    assert any(
-        filter(
-            lambda f: f["name"] == "batch_size" and f["default"] == 16,
-            model_info.signature.params.to_dict(),
-        )
+    assert (
+        len([p for p in model_info.signature.params if p.name == "batch_size" and p.default == 16])
+        == 1
     )
 
     model = mlflow.pyfunc.load_model(tmp_path)
