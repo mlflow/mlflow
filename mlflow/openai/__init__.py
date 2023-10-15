@@ -346,7 +346,6 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
     task = _get_task_name(task)
-    _get_api_config()
 
     if mlflow_model is None:
         mlflow_model = Model()
