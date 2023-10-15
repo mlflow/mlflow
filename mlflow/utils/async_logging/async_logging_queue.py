@@ -37,11 +37,11 @@ class AsyncLoggingQueue:
         self._logging_func = logging_func
         self._continue_to_log_data = threading.Event()
         # Keeping max_workers=1 so that there are no two threads
-        self._RUN_DATA_LOGGING_THREADPOOL = ThreadPoolExecutor(max_workers=1)
+        self._BATCH_LOGGING_THREADPOOL = ThreadPoolExecutor(max_workers=1)
 
-        self._RUN_BATCH_PROCESSING_STATUS_CHECK_THREADPOOL = ThreadPoolExecutor(max_workers=1)
+        self._BATCH_STATUS_CHECK_THREADPOOL = ThreadPoolExecutor(max_workers=1)
 
-        self._run_data_logging_thread = self._RUN_DATA_LOGGING_THREADPOOL.submit(
+        self._run_data_logging_thread = self._BATCH_LOGGING_THREADPOOL.submit(
             self._logging_loop
         )  # concurrent.futures.Future[self._logging_loop]
 
@@ -60,8 +60,8 @@ class AsyncLoggingQueue:
             self._continue_to_log_data.set()
             # Waits till queue is drained.
             self._run_data_logging_thread.result()
-            self._RUN_DATA_LOGGING_THREADPOOL.shutdown(wait=False)
-            self._RUN_BATCH_PROCESSING_STATUS_CHECK_THREADPOOL.shutdown(wait=False)
+            self._BATCH_LOGGING_THREADPOOL.shutdown(wait=False)
+            self._BATCH_STATUS_CHECK_THREADPOOL.shutdown(wait=False)
         except Exception as e:
             _logger.error(f"Encountered error while trying to finish logging: {e}")
 
@@ -157,7 +157,5 @@ class AsyncLoggingQueue:
 
         self._queue.put(batch)
 
-        operation_future = self._RUN_BATCH_PROCESSING_STATUS_CHECK_THREADPOOL.submit(
-            self._wait_for_batch, batch
-        )
+        operation_future = self._BATCH_STATUS_CHECK_THREADPOOL.submit(self._wait_for_batch, batch)
         return RunOperations(operation_futures=[operation_future])
