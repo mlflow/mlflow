@@ -38,7 +38,7 @@ class RunData:
         self.received_tags.extend(tags or [])
 
 
-@pytest.mark.category("async-logging")
+@pytest.mark.asynclogging
 def test_single_thread_publish_consume_queue():
     run_id = "test_run_id"
     run_data = RunData()
@@ -75,7 +75,7 @@ def test_single_thread_publish_consume_queue():
     )
 
 
-@pytest.mark.category("async-logging")
+@pytest.mark.asynclogging
 def test_partial_logging_failed():
     run_id = "test_run_id"
     run_data = RunData(throw_exception_on_batch_number=[3, 4])
@@ -119,7 +119,7 @@ def test_partial_logging_failed():
     )
 
 
-@pytest.mark.category("async-logging")
+@pytest.mark.asynclogging
 def test_publish_multithread_consume_single_thread():
     run_id = "test_run_id"
     run_data = RunData(throw_exception_on_batch_number=[])

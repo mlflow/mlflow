@@ -10,7 +10,7 @@ from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
 
 
-@pytest.mark.category("async-logging")
+@pytest.mark.asynclogging
 def test_async_logging_mlflow_client():
     experiment_name = f"mlflow-async-logging-test-{str(uuid.uuid4())[:8]}"
     mlflow_client = MlflowClient()
@@ -83,8 +83,10 @@ def test_async_logging_mlflow_client():
         assert metric.key in run.data.metrics
         assert metric.value == run.data.metrics[metric.key]
 
+    mlflow_client.set_terminated(run_id=run_id, status="FINISHED", end_time=time.time())
 
-@pytest.mark.category("async-logging")
+
+@pytest.mark.asynclogging
 def test_async_logging_fluent():
     experiment_name = f"mlflow-async-logging-test-{str(uuid.uuid4())[:8]}"
     experiment_id = mlflow.create_experiment(experiment_name)
@@ -149,8 +151,6 @@ def test_async_logging_fluent():
     for run_operation in run_operations:
         run_operation.wait()
 
-    mlflow.MlflowClient()._tracking_client.store._continue_to_log_data.set()
-
     run = mlflow.run
     run = mlflow.get_run(run_id)
     for tag in tags_to_log:
@@ -162,3 +162,5 @@ def test_async_logging_fluent():
     for metric in metrics_to_log:
         assert metric.key in run.data.metrics
         assert metric.value == run.data.metrics[metric.key]
+
+    mlflow.end_run()
