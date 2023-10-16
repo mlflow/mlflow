@@ -623,7 +623,10 @@ def test_inference_params(tmp_path):
     )
 
     model_info = mlflow.models.Model.load(tmp_path)
-    assert [p for p in model_info.signature.params if p.name == "batch_size" and p.default == 16]
+    assert (
+        len([p for p in model_info.signature.params if p.name == "batch_size" and p.default == 16])
+        == 1
+    )
 
     model = mlflow.pyfunc.load_model(tmp_path)
     data = pd.DataFrame({"text": ["a", "b"]})
