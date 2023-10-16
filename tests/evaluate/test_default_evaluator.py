@@ -2146,7 +2146,6 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
         "flesch_kincaid_grade_level/v1/score",
         "ari_grade_level/v1/score",
         "perplexity/v1/score",
-        "latency",
         "token_count",
     }
     if with_targets:
@@ -2163,7 +2162,6 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
         isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level/v1/score"]
     )
     assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level/v1/score"])
-    assert all(isinstance(grade, float) for grade in logged_data["latency"])
     assert all(isinstance(grade, int) for grade in logged_data["token_count"])
 
     if with_targets:
@@ -2259,7 +2257,7 @@ def test_evaluate_question_answering_with_numerical_targets():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     pd.testing.assert_frame_equal(
-        logged_data.drop("latency", axis=1).drop("token_count", axis=1),
+        logged_data.drop("token_count", axis=1),
         data.assign(outputs=[0, 1]),
     )
     assert results.metrics == {"exact_match/v1": 1.0}
@@ -2295,7 +2293,6 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
         "flesch_kincaid_grade_level/v1/score",
         "ari_grade_level/v1/score",
         "perplexity/v1/score",
-        "latency",
         "token_count",
     }
     if with_targets:
@@ -2319,7 +2316,6 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
         isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level/v1/score"]
     )
     assert all(isinstance(grade, float) for grade in logged_data["ari_grade_level/v1/score"])
-    assert all(isinstance(grade, float) for grade in logged_data["latency"])
     assert all(isinstance(grade, int) for grade in logged_data["token_count"])
 
     if with_targets:
@@ -2462,7 +2458,6 @@ def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
         "outputs",
         "flesch_kincaid_grade_level/v1/score",
         "ari_grade_level/v1/score",
-        "latency",
         "token_count",
     }
     assert logged_data["text"].tolist() == ["a", "b"]
@@ -2493,7 +2488,6 @@ def test_evaluate_text_and_text_metrics():
         "flesch_kincaid_grade_level/v1/score",
         "ari_grade_level/v1/score",
         "perplexity/v1/score",
-        "latency",
         "token_count",
     }
     assert logged_data["text"].tolist() == ["sentence not", "All women are bad."]
@@ -2587,7 +2581,6 @@ def test_eval_results_table_json_can_be_prefixed_with_metric_prefix(metric_prefi
         f"{metric_prefix}flesch_kincaid_grade_level/v1/score",
         f"{metric_prefix}ari_grade_level/v1/score",
         f"{metric_prefix}perplexity/v1/score",
-        f"{metric_prefix}latency",
         f"{metric_prefix}token_count",
     }
 
@@ -2733,7 +2726,6 @@ def test_constructing_eval_df_for_custom_metrics():
         "truth",
         "targets",
         "outputs",
-        "latency",
         "token_count",
         "toxicity/v1/score",
         "perplexity/v1/score",
@@ -2853,3 +2845,34 @@ def test_default_metrics_as_custom_metrics():
         for measure in ["mean", "p90", "variance"]:
             assert f"{metric}/v1/{measure}" in results.metrics.keys()
     assert "exact_match/v1" in results.metrics.keys()
+
+
+def test_evaluate_with_latency():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["sentence not", "All women are bad."]})
+        results = mlflow.evaluate(
+            model_info.model_uri,
+            data,
+            model_type="text",
+            evaluators="default",
+            extra_metrics=[mlflow.metrics.latency],
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert "eval_results_table.json" in artifacts
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
+    assert set(logged_data.columns.tolist()) == {
+        "text",
+        "outputs",
+        "toxicity/v1/score",
+        "flesch_kincaid_grade_level/v1/score",
+        "ari_grade_level/v1/score",
+        "perplexity/v1/score",
+        "latency",
+        "token_count",
+    }
+    assert all(isinstance(grade, float) for grade in logged_data["latency"])
