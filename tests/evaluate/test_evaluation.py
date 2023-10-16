@@ -1430,7 +1430,9 @@ def test_evaluate_with_static_spark_dataset_unsupported():
     )
     with mlflow.start_run():
         with pytest.raises(
-            MlflowException, match="The data must be a pandas dataframe when model=None."
+            MlflowException,
+            match="The data must be a pandas dataframe or mlflow.data."
+            "pandas_dataset.PandasDataset when model=None.",
         ):
             mlflow.evaluate(
                 data=spark_dataframe,
