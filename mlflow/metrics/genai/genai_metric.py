@@ -172,6 +172,8 @@ def make_genai_metric(
 
     if aggregations is None:
         aggregations = ["mean", "variance", "p90"]
+    if grading_context_columns is None:
+        grading_context_columns = []
 
     def eval_fn(
         predictions: "pd.Series",
