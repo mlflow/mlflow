@@ -1413,10 +1413,10 @@ def evaluate(
                    only column names present in ``feature_names`` are regarded as feature columns.
 
                  -  A Spark DataFrame containing evaluation features and labels. If
-                   ``feature_names`` argument not specified, all columns except for the label column
-                   are regarded as feature columns. Otherwise, only column names present in
-                   ``feature_names`` are regarded as feature columns. Only the first 10000 rows in
-                   the Spark DataFrame will be used as evaluation data.
+                    ``feature_names`` argument not specified, all columns except for the label
+                    column are regarded as feature columns. Otherwise, only column names present in
+                    ``feature_names`` are regarded as feature columns. Only the first 10000 rows in
+                    the Spark DataFrame will be used as evaluation data.
 
                  - A :py:class:`mlflow.data.dataset.Dataset` instance containing evaluation
                    features, labels, and optionally model outputs. Model outputs are only supported
