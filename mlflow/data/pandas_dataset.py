@@ -41,7 +41,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
                      automatically generated.
         :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
                        is automatically computed.
-        :param predictions: An optional predictions column name for model evaluation. This column
+        :param predictions: Optional. The name of the column containing model predictions, if the dataset contains model predictions. If specified, this column
                             must be present in the dataframe (``df``).
         """
         if targets is not None and targets not in df.columns:
