@@ -1387,10 +1387,7 @@ class DefaultEvaluator(ModelEvaluator):
                 "'<existing column name>'}}\n"
             )
 
-    def _evaluate_metrics(self, eval_df):
-        metrics = self.builtin_metrics + self.extra_metrics
-        self._check_args(metrics, eval_df)
-
+    def _test_first_row(self, eval_df):
         # test calculations on first row of eval_df
         exceptions = []
         first_row_df = eval_df.iloc[[0]]
@@ -1422,6 +1419,10 @@ class DefaultEvaluator(ModelEvaluator):
         if len(exceptions) > 0:
             raise MlflowException("\n".join(exceptions))
 
+    def _evaluate_metrics(self, eval_df):
+        self._check_args(self.builtin_metrics + self.extra_metrics, eval_df)
+        self._test_first_row(eval_df)
+        
         # calculate metrics for the full eval_df
         self._evaluate_builtin_metrics(eval_df)
         self._update_metrics()
