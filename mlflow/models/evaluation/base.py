@@ -1581,8 +1581,9 @@ def evaluate(
                 targets = data.targets
             else:
                 raise MlflowException(
-                    message="The targets parameter must be specified with the provided Dataset "
-                    f"for {model_type} models. For example: "
+                    message="The targets parameter must be specified by the provided Dataset "
+                    "rather than using the `targets` argument in `mlflow.evaluate()` for "
+                    f"{model_type} models. For example: "
                     "`data = mlflow.data.from_pandas(df=X.assign(y=y), targets='y')`",
                     error_code=INVALID_PARAMETER_VALUE,
                 )

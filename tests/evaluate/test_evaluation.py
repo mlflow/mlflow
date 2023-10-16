@@ -1330,7 +1330,8 @@ def test_evaluate_with_targets_in_pandas_dataset_error_handling():
     with mlflow.start_run():
         with pytest.raises(
             MlflowException,
-            match="The targets parameter must be specified with the provided Dataset for "
+            match="The targets parameter must be specified by the provided Dataset rather than "
+            "using the `targets` argument in `mlflow.evaluate\(\)` for "
             "regressor models. For example: `data = mlflow.data.from_pandas"
             "\(df=X.assign\(y=y\), targets='y'\)`",
         ):
