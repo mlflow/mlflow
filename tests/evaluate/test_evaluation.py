@@ -1317,6 +1317,31 @@ def test_evaluate_lightgbm_regressor():
     assert "root_mean_squared_error" in run.data.metrics
 
 
+def test_evaluate_with_targets_in_pandas_dataset_error_handling():
+    import lightgbm as lgb
+
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    data = lgb.Dataset(X, label=y)
+    model = lgb.train({"objective": "regression"}, data, num_boost_round=5)
+
+    data = mlflow.data.from_pandas(df=X.assign(y=y))
+    with mlflow.start_run():
+        with pytest.raises(
+            MlflowException,
+            match="The targets parameter must be specified with the provided Dataset for "
+            "regressor models. For example: `data = mlflow.data.from_pandas"
+            "\(df=X.assign\(y=y\), targets='y'\)`",
+        ):
+            mlflow.evaluate(
+                model=model,
+                data=data,
+                model_type="regressor",
+                targets="y",  # conflict with data.targets
+            )
+
+
 def test_evaluate_with_function_input_single_output():
     import lightgbm as lgb
 
