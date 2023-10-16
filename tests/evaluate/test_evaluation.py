@@ -2,6 +2,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import signal
 import uuid
 from collections import namedtuple
@@ -1330,10 +1331,12 @@ def test_evaluate_with_targets_in_pandas_dataset_error_handling():
     with mlflow.start_run():
         with pytest.raises(
             MlflowException,
-            match="The targets parameter must be specified by the provided Dataset rather than "
-            "using the `targets` argument in `mlflow.evaluate\(\)` for "
-            "regressor models. For example: `data = mlflow.data.from_pandas"
-            "\(df=X.assign\(y=y\), targets='y'\)`",
+            match=re.escape(
+                "The targets parameter must be specified by the provided Dataset rather than "
+                "using the `targets` argument in `mlflow.evaluate()` for "
+                "regressor models. For example: `data = mlflow.data.from_pandas"
+                "(df=X.assign(y=y), targets='y')`"
+            ),
         ):
             mlflow.evaluate(
                 model=model,
