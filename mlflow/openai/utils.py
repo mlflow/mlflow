@@ -136,17 +136,19 @@ def _mock_openai_request():
 
 
 def _validate_model_params(task, model, params):
-    if params:
-        if any(key for key in params if key in model):
-            raise mlflow.MlflowException.invalid_parameter_value(
-                f"Providing any of {list(model.keys())} as parameters in the signature is not "
-                "allowed because they were indicated as part of the OpenAI model. Either remove "
-                "the argument when logging the model or remove the parameter from the signature.",
-            )
-        if "batch_size" in params.keys() and task == "chat.completions":
-            raise mlflow.MlflowException.invalid_parameter_value(
-                "Parameter `batch_size` is not supported for task `chat.completions`"
-            )
+    if not params:
+        return
+
+    if any(key in model for key in params):
+        raise mlflow.MlflowException.invalid_parameter_value(
+            f"Providing any of {list(model.keys())} as parameters in the signature is not "
+            "allowed because they were indicated as part of the OpenAI model. Either remove "
+            "the argument when logging the model or remove the parameter from the signature.",
+        )
+    if "batch_size" in params and task == "chat.completions":
+        raise mlflow.MlflowException.invalid_parameter_value(
+            "Parameter `batch_size` is not supported for task `chat.completions`"
+        )
 
 
 class _OAITokenHolder:
