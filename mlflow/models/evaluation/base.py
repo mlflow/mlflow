@@ -1145,7 +1145,7 @@ def _get_model_from_function(fn):
 
 
 def evaluate(
-    model: str = None,
+    model: Optional[str] = None,
     data=None,
     *,
     model_type: Optional[str] = None,
