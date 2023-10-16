@@ -1,8 +1,12 @@
 import os
 import posixpath
 
+import requests
+from requests import HTTPError
+
 from mlflow.entities import FileInfo
-from mlflow.entities.multipart_upload import CreateMultipartUploadResponse
+from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, MultipartUploadPart
+from mlflow.environment_variables import MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
@@ -119,3 +123,31 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         }
         resp = http_request(host_creds, endpoint, "POST", json=params)
         augmented_raise_for_status(resp)
+
+    def multipart_log_artifact(self, local_file, num_paths=1, artifact_path=None) -> bool:
+        parts = []
+        chunk_size = MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+        try:
+            create = self.create_multipart_upload(local_file, num_paths, artifact_path)
+        except HTTPError as e:
+            ...
+
+        try:
+            for i, credential in enumerate(create.credentials):
+                with open(local_file, "rb") as f:
+                    f.seek(i * chunk_size)
+                    chunk = f.read(chunk_size)
+
+                response = requests.put(credential.url, data=chunk)
+                response.raise_for_status()
+                parts.append(
+                    MultipartUploadPart(
+                        part_number=credential.part_number,
+                        etag=response.headers["ETag"],
+                    )
+                )
+
+            self.complete_multipart_upload(local_file, create.upload_id, parts, artifact_path)
+        except Exception as e:
+            self.abort_multipart_upload(local_file, create.upload_id, artifact_path)
+
