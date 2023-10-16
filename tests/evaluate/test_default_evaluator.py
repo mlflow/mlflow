@@ -2385,21 +2385,21 @@ def test_evaluate_text_summarization_with_targets():
     assert set(metrics.keys()) == set(get_text_summarization_metrics_keys(with_targets=True))
 
 
-def another_language_model(x):
-    return x
-
-
 def test_evaluate_text_summarization_with_targets_no_type_hints():
+    def another_language_model(x):
+        return x
+
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=another_language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["a", "b"], "summary": ["a", "b"]})
-        results = mlflow.evaluate(
+        results = evaluate(
             model_info.model_uri,
             data,
             targets="summary",
             model_type="text-summarization",
+            evaluators="default",
         )
 
     client = mlflow.MlflowClient()
@@ -2826,13 +2826,14 @@ def test_default_metrics_as_custom_metrics():
         data = pd.DataFrame(
             {
                 "question": ["words random", "This is a sentence."],
+                "truth": ["words random", "This is a sentence."],
                 "answer": ["words random", "This is a sentence."],
             }
         )
-        results = mlflow.evaluate(
+        results = evaluate(
             model_info.model_uri,
             data,
-            targets="answer",
+            targets="truth",
             model_type="question-answering",
             custom_metrics=[
                 mlflow.metrics.flesch_kincaid_grade_level,
@@ -2841,6 +2842,10 @@ def test_default_metrics_as_custom_metrics():
                 mlflow.metrics.toxicity,
                 mlflow.metrics.exact_match,
             ],
+            evaluators="default",
+            evaluator_config={
+                "predicted_column": "answer",
+            },
         )
 
     client = mlflow.MlflowClient()
