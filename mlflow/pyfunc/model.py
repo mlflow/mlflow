@@ -353,7 +353,7 @@ def _save_model_with_class_artifacts_params(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _load_pyfunc(model_path: str, model_config: Dict[str, Any] = None):
+def _load_pyfunc(model_path: str, model_config: Optional[Dict[str, Any]] = None):
     pyfunc_config = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )

@@ -1152,7 +1152,7 @@ def evaluate(
     targets=None,
     predictions=None,
     dataset_path=None,
-    feature_names: list = None,
+    feature_names: Optional[list] = None,
     evaluators=None,
     evaluator_config=None,
     custom_metrics=None,

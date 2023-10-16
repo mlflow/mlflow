@@ -28,7 +28,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         self,
         df: pd.DataFrame,
         source: DatasetSource,
-        targets: str = None,
+        targets: Optional[str] = None,
         name: Optional[str] = None,
         digest: Optional[str] = None,
         predictions: Optional[str] = None,
@@ -190,6 +190,19 @@ def from_pandas(
                    automatically.
     :param predictions: An optional predictions column name for model evaluation. This column
                         must be present in the dataframe (``df``).
+
+
+    .. testcode:: python
+        :caption: Example
+
+        import mlflow
+        import pandas as pd
+
+        x = pd.DataFrame(
+            [["tom", 10, 1], ["nick", 15, 0], ["juli", 14, 1]],
+            columns=["Name", "Age", "Label"],
+        )
+        dataset = mlflow.data.from_pandas(x, targets="Label")
     """
     from mlflow.data.code_dataset_source import CodeDatasetSource
     from mlflow.data.dataset_source_registry import resolve_dataset_source

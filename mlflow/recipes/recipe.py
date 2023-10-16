@@ -1,7 +1,7 @@
 import abc
 import logging
 import os
-from typing import List
+from typing import List, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
@@ -64,7 +64,7 @@ class BaseRecipe:
         """
         return self._profile
 
-    def run(self, step: str = None) -> None:
+    def run(self, step: Optional[str] = None) -> None:
         """
         Runs a step in the recipe, or the entire recipe if a step is not specified.
 
@@ -110,7 +110,7 @@ class BaseRecipe:
                     error_code=BAD_REQUEST,
                 )
 
-    def inspect(self, step: str = None) -> None:
+    def inspect(self, step: Optional[str] = None) -> None:
         """
         Displays main output from a step, or a recipe DAG if no step is specified.
 
@@ -125,7 +125,7 @@ class BaseRecipe:
             output_directory = get_step_output_path(self._recipe_root_path, step, "")
             self._get_step(step).inspect(output_directory)
 
-    def clean(self, step: str = None) -> None:
+    def clean(self, step: Optional[str] = None) -> None:
         """
         Removes the outputs of the specified step from the cache, or removes the cached outputs
         of all steps if no particular step is specified. After cached outputs are cleaned
