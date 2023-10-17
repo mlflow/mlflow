@@ -207,7 +207,7 @@ class ModelRegistryClient:
 
     def copy_model_version(self, src_mv, dest_name):
         """
-        Copy a model version from one registered model to another.
+        Copy a model version from one registered model to another as a new model version.
 
         :param src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
                        the source model version.

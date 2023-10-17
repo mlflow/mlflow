@@ -2671,7 +2671,7 @@ class MlflowClient:
 
     def copy_model_version(self, src_model_uri, dest_name) -> ModelVersion:
         """
-        Copy a model version from one registered model to another.
+        Copy a model version from one registered model to another as a new model version.
 
         :param src_model_uri: the model URI of the model version to copy
         :param dest_name: the name of the registered model to copy the model version to.
