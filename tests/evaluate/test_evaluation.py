@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import re
 import signal
 import uuid
 from collections import namedtuple
@@ -605,7 +606,6 @@ def test_pandas_df_regressor_evaluation_mlflow_dataset_with_metric_prefix(
         eval_result = evaluate(
             linear_regressor_model_uri,
             data=mlflow_df,
-            targets="y",
             model_type="regressor",
             evaluators=["default"],
             evaluator_config={
@@ -633,7 +633,6 @@ def test_pandas_df_regressor_evaluation_mlflow_dataset(linear_regressor_model_ur
         eval_result = evaluate(
             linear_regressor_model_uri,
             data=mlflow_df,
-            targets="y",
             model_type="regressor",
             evaluators=["default"],
         )
@@ -669,25 +668,6 @@ def test_pandas_df_regressor_evaluation_mlflow_dataset_with_targets_from_dataset
     datasets = get_run_datasets(run.info.run_id)
     assert len(datasets) == 1
     assert len(datasets[0].tags) == 0
-
-
-def test_pandas_df_regressor_evaluation_mlflow_dataset_without_targets(linear_regressor_model_uri):
-    data = sklearn.datasets.load_diabetes()
-    df = pd.DataFrame(data.data, columns=data.feature_names)
-    df["y"] = data.target
-    mlflow_df = from_pandas(df=df, source="my_src")
-    with mlflow.start_run():
-        with pytest.raises(
-            MlflowException,
-            match="The targets argument is required when data is a Dataset and does not define "
-            "targets.",
-        ):
-            evaluate(
-                linear_regressor_model_uri,
-                data=mlflow_df,
-                model_type="regressor",
-                evaluators=["default"],
-            )
 
 
 def test_dataset_name():
@@ -1317,6 +1297,79 @@ def test_evaluate_lightgbm_regressor():
     assert "root_mean_squared_error" in run.data.metrics
 
 
+def test_evaluate_with_targets_error_handling():
+    import lightgbm as lgb
+
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    lgb_data = lgb.Dataset(X, label=y)
+    model = lgb.train({"objective": "regression"}, lgb_data, num_boost_round=5)
+    ERROR_TYPE_1 = (
+        "The top-level targets parameter should not be specified since a Dataset "
+        "is used. Please only specify the targets column name in the Dataset. For example: "
+        "`data = mlflow.data.from_pandas(df=X.assign(y=y), targets='y')`. "
+        "Meanwhile, please specify `mlflow.evaluate(..., targets=None, ...)`."
+    )
+    ERROR_TYPE_2 = (
+        "The targets column name must be specified in the provided Dataset "
+        "for regressor models. For example: "
+        "`data = mlflow.data.from_pandas(df=X.assign(y=y), targets='y')`"
+    )
+    ERROR_TYPE_3 = "The targets argument must be specified for regressor models."
+
+    pandas_dataset_no_targets = X
+    mlflow_dataset_no_targets = mlflow.data.from_pandas(df=X.assign(y=y))
+    mlflow_dataset_with_targets = mlflow.data.from_pandas(df=X.assign(y=y), targets="y")
+
+    with mlflow.start_run():
+        with pytest.raises(MlflowException, match=re.escape(ERROR_TYPE_1)):
+            mlflow.evaluate(
+                model=model,
+                data=mlflow_dataset_with_targets,
+                model_type="regressor",
+                targets="y",
+            )
+
+        with pytest.raises(MlflowException, match=re.escape(ERROR_TYPE_1)):
+            mlflow.evaluate(
+                model=model,
+                data=mlflow_dataset_no_targets,
+                model_type="regressor",
+                targets="y",
+            )
+
+        with pytest.raises(MlflowException, match=re.escape(ERROR_TYPE_1)):
+            mlflow.evaluate(
+                model=model,
+                data=mlflow_dataset_with_targets,
+                model_type="question-answering",
+                targets="y",
+            )
+
+        with pytest.raises(MlflowException, match=re.escape(ERROR_TYPE_1)):
+            mlflow.evaluate(
+                model=model,
+                data=mlflow_dataset_no_targets,
+                model_type="question-answering",
+                targets="y",
+            )
+
+        with pytest.raises(MlflowException, match=re.escape(ERROR_TYPE_2)):
+            mlflow.evaluate(
+                model=model,
+                data=mlflow_dataset_no_targets,
+                model_type="regressor",
+            )
+
+        with pytest.raises(MlflowException, match=re.escape(ERROR_TYPE_3)):
+            mlflow.evaluate(
+                model=model,
+                data=pandas_dataset_no_targets,
+                model_type="regressor",
+            )
+
+
 def test_evaluate_with_function_input_single_output():
     import lightgbm as lgb
 
@@ -1403,20 +1456,6 @@ def test_evaluate_with_static_mlflow_dataset_input():
     assert "mean_squared_error" in run.data.metrics
     assert "root_mean_squared_error" in run.data.metrics
 
-    # redundent predictions parameter is allowed
-    with mlflow.start_run() as run:
-        mlflow.evaluate(
-            data=data,
-            model_type="regressor",
-            targets="y",
-            predictions="model_output",  # same as data.predictions
-        )
-
-    run = mlflow.get_run(run.info.run_id)
-    assert "mean_absolute_error" in run.data.metrics
-    assert "mean_squared_error" in run.data.metrics
-    assert "root_mean_squared_error" in run.data.metrics
-
 
 def test_evaluate_with_static_spark_dataset_unsupported():
     data = sklearn.datasets.load_diabetes()
@@ -1491,8 +1530,8 @@ def test_evaluate_with_static_dataset_error_handling_pandas_dataframe():
 
         with pytest.raises(
             MlflowException,
-            match="The specified predictions column 'prediction' is not "
-            "found in the specified data.",
+            match="The specified pandas DataFrame does not contain the specified predictions"
+            " column 'prediction'.",
         ):
             mlflow.evaluate(
                 data=X.assign(y=y, model_output=y),
@@ -1506,34 +1545,27 @@ def test_evaluate_with_static_dataset_error_handling_pandas_dataset():
     X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
     X = X[::5]
     y = y[::5]
-    data = mlflow.data.from_pandas(
+    dataset_with_predictions = mlflow.data.from_pandas(
         df=X.assign(y=y, model_output=y), targets="y", predictions="model_output"
     )
+    dataset_no_predictions = mlflow.data.from_pandas(df=X.assign(y=y, model_output=y), targets="y")
+    ERROR_MESSAGE = (
+        "The top-level predictions parameter should not be specified since a Dataset is "
+        "used. Please only specify the predictions column name in the Dataset. For example: "
+        "`data = mlflow.data.from_pandas(df=X.assign(y=y), predictions='y')`"
+        "Meanwhile, please specify `mlflow.evaluate(..., predictions=None, ...)`."
+    )
     with mlflow.start_run():
-        with pytest.raises(
-            MlflowException,
-            match="The predictions parameter must be None or the same as "
-            "data.predictions when data.predictions is specified. Found predictions='y', "
-            "data.predictions='model_output'.",
-        ):
+        with pytest.raises(MlflowException, match=re.escape(ERROR_MESSAGE)):
             mlflow.evaluate(
-                data=data,
+                data=dataset_with_predictions,
                 model_type="regressor",
-                targets="y",
-                predictions="y",  # conflict with data.predictions
+                predictions="model_output",
             )
 
-    # data.predictions cannot be missing
-    data = mlflow.data.from_pandas(df=X.assign(y=y, model_output=y), targets="y")
-    with mlflow.start_run():
-        with pytest.raises(
-            MlflowException,
-            match="The predictions parameter must be specified with the "
-            "provided PandasDataset when model=None.",
-        ):
+        with pytest.raises(MlflowException, match=re.escape(ERROR_MESSAGE)):
             mlflow.evaluate(
-                data=data,
+                data=dataset_no_predictions,
                 model_type="regressor",
-                targets="y",
                 predictions="model_output",
             )
