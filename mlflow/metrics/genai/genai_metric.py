@@ -328,5 +328,5 @@ def make_genai_metric(
         greater_is_better=greater_is_better,
         name=name,
         version=version,
-        metric_details=evaluation_context,
+        metric_details=evaluation_context["eval_prompt"].__str__(),
     )
