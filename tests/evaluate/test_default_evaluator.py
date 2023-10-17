@@ -2240,6 +2240,47 @@ def test_evaluate_question_answering_with_targets():
     assert results.metrics["exact_match/v1"] == 1.0
 
 
+def test_evaluate_question_answering_on_static_dataset_with_targets():
+    with mlflow.start_run() as run:
+        data = pd.DataFrame(
+            {
+                "question": ["words random", "This is a sentence."],
+                "answer": ["words random", "This is a sentence."],
+                "pred": ["words random", "This is a sentence."],
+            }
+        )
+        results = mlflow.evaluate(
+            data=data,
+            targets="answer",
+            predictions="pred",
+            model_type="question-answering",
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert "eval_results_table.json" in artifacts
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
+    validate_question_answering_logged_data(logged_data)
+    assert set(results.metrics.keys()) == {
+        "toxicity/v1/variance",
+        "perplexity/v1/p90",
+        "perplexity/v1/variance",
+        "toxicity/v1/ratio",
+        "toxicity/v1/mean",
+        "flesch_kincaid_grade_level/v1/variance",
+        "ari_grade_level/v1/p90",
+        "perplexity/v1/mean",
+        "flesch_kincaid_grade_level/v1/p90",
+        "flesch_kincaid_grade_level/v1/mean",
+        "ari_grade_level/v1/mean",
+        "ari_grade_level/v1/variance",
+        "exact_match/v1",
+        "toxicity/v1/p90",
+    }
+    assert results.metrics["exact_match/v1"] == 1.0
+    assert results.metrics["toxicity/v1/ratio"] == 0.0
+
+
 def question_classifier(inputs):
     return inputs["question"].map({"a": 0, "b": 1})
 
