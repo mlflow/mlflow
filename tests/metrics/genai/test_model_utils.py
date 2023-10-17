@@ -43,12 +43,12 @@ def test_parse_model_uri_throws_for_malformed():
 
 def test_score_model_on_payload_throws_for_invalid():
     with pytest.raises(MlflowException, match="Unknown model uri prefix"):
-        score_model_on_payload("myprovider:/gpt-3.5-turbo", {})
+        score_model_on_payload("myprovider:/gpt-3.5-turbo", {}, 10)
 
 
 def test_score_model_openai_without_key():
     with pytest.raises(MlflowException, match="OPENAI_API_KEY environment variable not set"):
-        score_model_on_payload("openai:/gpt-3.5-turbo", {})
+        score_model_on_payload("openai:/gpt-3.5-turbo", {}, 10)
 
 
 def test_score_model_openai(set_envs):
@@ -86,7 +86,9 @@ def test_score_model_openai(set_envs):
     }
 
     with mock.patch("requests.post", return_value=MockResponse(resp, 200)) as mock_post:
-        score_model_on_payload("openai:/gpt-3.5-turbo", {"prompt": "my prompt", "temperature": 0.1})
+        score_model_on_payload(
+            "openai:/gpt-3.5-turbo", {"prompt": "my prompt", "temperature": 0.1}, 10
+        )
         mock_post.assert_called_once_with(
             url="https://api.openai.com/v1/chat/completions",
             headers={"Authorization": "Bearer test"},
@@ -95,6 +97,7 @@ def test_score_model_openai(set_envs):
                 "temperature": 0.2,
                 "messages": [{"role": "user", "content": "my prompt"}],
             },
+            timeout=10,
         )
 
 
@@ -120,5 +123,5 @@ def test_score_model_gateway():
     }
 
     with mock.patch("mlflow.gateway.query", return_value=expected_output):
-        response = score_model_on_payload("gateway:/my-route", {})
+        response = score_model_on_payload("gateway:/my-route", {}, 10)
         assert response == expected_output
