@@ -1307,7 +1307,8 @@ def test_evaluate_with_targets_error_handling():
     model = lgb.train({"objective": "regression"}, lgb_data, num_boost_round=5)
     ERROR_TYPE_1 = (
         "The top-level targets parameter should not be specified since a Dataset "
-        "is used. Please only specify the targets column name in the Dataset. "
+        "is used. Please only specify the targets column name in the Dataset. For example: "
+        "`data = mlflow.data.from_pandas(df=X.assign(y=y), targets='y')`. "
         "Meanwhile, please specify `mlflow.evaluate(..., targets=None, ...)`."
     )
     ERROR_TYPE_2 = (
@@ -1549,16 +1550,16 @@ def test_evaluate_with_static_dataset_error_handling_pandas_dataset():
     )
     dataset_no_predictions = mlflow.data.from_pandas(df=X.assign(y=y, model_output=y), targets="y")
     ERROR_MESSAGE = (
-        "The top-level targets parameter should not be specified since a Dataset is "
-        "used. Please only specify the targets column name in the Dataset. "
-        "Meanwhile, please specify `mlflow.evaluate(..., targets=None, ...)`."
+        "The top-level predictions parameter should not be specified since a Dataset is "
+        "used. Please only specify the predictions column name in the Dataset. For example: "
+        "`data = mlflow.data.from_pandas(df=X.assign(y=y), predictions='y')`"
+        "Meanwhile, please specify `mlflow.evaluate(..., predictions=None, ...)`."
     )
     with mlflow.start_run():
         with pytest.raises(MlflowException, match=re.escape(ERROR_MESSAGE)):
             mlflow.evaluate(
                 data=dataset_with_predictions,
                 model_type="regressor",
-                targets="y",
                 predictions="model_output",
             )
 
@@ -1566,6 +1567,5 @@ def test_evaluate_with_static_dataset_error_handling_pandas_dataset():
             mlflow.evaluate(
                 data=dataset_no_predictions,
                 model_type="regressor",
-                targets="y",
                 predictions="model_output",
             )

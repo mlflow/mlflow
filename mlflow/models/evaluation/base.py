@@ -1648,14 +1648,16 @@ def evaluate(
     if isinstance(data, Dataset) and targets is not None:
         raise MlflowException(
             message="The top-level targets parameter should not be specified since a Dataset "
-            "is used. Please only specify the targets column name in the Dataset. "
+            "is used. Please only specify the targets column name in the Dataset. For example: "
+            "`data = mlflow.data.from_pandas(df=X.assign(y=y), targets='y')`. "
             "Meanwhile, please specify `mlflow.evaluate(..., targets=None, ...)`.",
             error_code=INVALID_PARAMETER_VALUE,
         )
     if isinstance(data, Dataset) and predictions is not None:
         raise MlflowException(
             message="The top-level predictions parameter should not be specified since a Dataset "
-            "is used. Please only specify the predictions column name in the Dataset. "
+            "is used. Please only specify the predictions column name in the Dataset. For example:"
+            " `data = mlflow.data.from_pandas(df=X.assign(y=y), predictions='y')`"
             "Meanwhile, please specify `mlflow.evaluate(..., predictions=None, ...)`.",
             error_code=INVALID_PARAMETER_VALUE,
         )
