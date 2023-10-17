@@ -28,7 +28,9 @@ def correctness(
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: (Optional) The model that will be used to evaluate this metric. Defaults to GPT-4.
+    :param model: (Optional) The model that will be used to evaluate this metric. Defaults to
+        gpt-3.5-turbo-16k. Your use of a third party LLM service (e.g., OpenAI) for evaluation may
+        be subject to and governed by the LLM service's terms of use.
     :param metric_version: (Optional) The version of the correctness metric to use.
         Defaults to the latest version.
     :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
@@ -97,7 +99,9 @@ def strict_correctness(
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: (Optional) The model that will be used to evaluate this metric. Defaults to GPT-4.
+    :param model: (Optional) The model that will be used to evaluate this metric. Defaults to
+        gpt-3.5-turbo-16k. Your use of a third party LLM service (e.g., OpenAI) for evaluation may
+        be subject to and governed by the LLM service's terms of use.
     :param metric_version: (Optional) The version of the strict correctness metric to use.
         Defaults to the latest version.
     :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
@@ -162,7 +166,9 @@ def relevance(
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: (Optional) The model that will be used to evaluate this metric. Defaults to GPT-4.
+    :param model: (Optional) The model that will be used to evaluate this metric. Defaults to
+        gpt-3.5-turbo-16k. Your use of a third party LLM service (e.g., OpenAI) for evaluation may
+        be subject to and governed by the LLM service's terms of use.
     :param metric_version: (Optional) The version of the relevance metric to use.
         Defaults to the latest version.
     :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
