@@ -875,21 +875,24 @@ def _enforce_datatype(data: Any, dtype: DataType):
     if not isinstance(dtype, DataType):
         raise MlflowException(f"Expected dtype to be DataType, got {type(dtype).__name__}")
     # we do not convert data type for users
-    if dtype == DataType.boolean and DataType.is_boolean(data):
-        return data
-    if dtype == DataType.integer and DataType.is_integer(data):
-        return data
-    if dtype == DataType.long and DataType.is_long(data):
-        return data
-    if dtype == DataType.float and DataType.is_float(data):
-        return data
-    if dtype == DataType.double and DataType.is_double(data):
-        return data
-    if dtype == DataType.string and DataType.is_string(data):
-        return data
-    if dtype == DataType.binary and DataType.is_binary(data):
-        return data
-    if dtype == DataType.datetime and DataType.is_datetime(data):
+    if (
+        dtype == DataType.boolean
+        and DataType.is_boolean(data)
+        or dtype == DataType.integer
+        and DataType.is_integer(data)
+        or dtype == DataType.long
+        and DataType.is_long(data)
+        or dtype == DataType.float
+        and DataType.is_float(data)
+        or dtype == DataType.double
+        and DataType.is_double(data)
+        or dtype == DataType.string
+        and DataType.is_string(data)
+        or dtype == DataType.binary
+        and DataType.is_binary(data)
+        or dtype == DataType.datetime
+        and DataType.is_datetime(data)
+    ):
         return data
     raise MlflowException(f"Failed to enforce schema of data `{data}` with dtype `{dtype.name}`")
 
@@ -917,7 +920,7 @@ def _enforce_property(data: Any, property: Property):
     )
 
 
-def _enforce_object(data: dict, obj: Object):
+def _enforce_object(data: Dict[str, Any], obj: Object):
     if not isinstance(data, dict):
         raise MlflowException(f"Expected data to be dictionary, got {type(data).__name__}")
     if not isinstance(obj, Object):
@@ -927,7 +930,7 @@ def _enforce_object(data: dict, obj: Object):
     missing_props = required_props - set(data.keys())
     if missing_props:
         raise MlflowException(f"Missing required properties: {missing_props}")
-    invalid_props = set(data.keys()) - set(properties.keys())
+    invalid_props = data.keys() - properties.keys()
     if invalid_props:
         raise MlflowException(
             "Invalid properties not defined in the schema found: " f"{invalid_props}"

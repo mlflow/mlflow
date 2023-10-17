@@ -205,8 +205,7 @@ def _infer_schema(data: Any) -> Schema:
         # dictionary of (name -> numpy.ndarray)
         if all(isinstance(values, np.ndarray) for values in data.values()):
             res = []
-            for name in data.keys():
-                ndarray = data[name]
+            for name, ndarray in data.items():
                 res.append(
                     TensorSpec(
                         type=clean_tensor_type(ndarray.dtype),
@@ -217,7 +216,7 @@ def _infer_schema(data: Any) -> Schema:
             schema = Schema(res)
         # Dict[str, Union[DataType, List, Dict]]
         else:
-            if any(not isinstance(key, str) for key in data.keys()):
+            if any(not isinstance(key, str) for key in data):
                 raise MlflowException("The dictionary keys are not all strings.")
             schema = Schema([ColSpec(_infer_colspec_type(data))])
     # pandas.Series
