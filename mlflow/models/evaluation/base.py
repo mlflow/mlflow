@@ -1643,43 +1643,34 @@ def evaluate(
 
     _EnvManager.validate(env_manager)
 
+    # If Dataset is provided, the targets and predictions can only be specified by the Dataset,
+    # not the targets and predictions parameters of the mlflow.evaluate() API.
+    if isinstance(data, Dataset) and targets is not None:
+        raise MlflowException(
+            message="The top-level targets parameter should not be specified since a Dataset "
+            "is used. Please only specify the targets column name in the Dataset. "
+            "Meanwhile, please specify `mlflow.evaluate(..., targets=None, ...)`.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if isinstance(data, Dataset) and predictions is not None:
+        raise MlflowException(
+            message="The top-level predictions parameter should not be specified since a Dataset "
+            "is used. Please only specify the predictions column name in the Dataset. "
+            "Meanwhile, please specify `mlflow.evaluate(..., predictions=None, ...)`.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     if model_type in [_ModelType.REGRESSOR, _ModelType.CLASSIFIER]:
         if isinstance(data, Dataset):
             if getattr(data, "targets", None) is not None:
-                if targets == data.targets:
-                    # It's allowed to have redundent targets parameter
-                    pass
-                elif targets is None:
-                    targets = data.targets
-                else:
-                    # targets is not None and not equal to data.targets
-                    raise MlflowException(
-                        message="The targets parameter must only be specified by the provided "
-                        "Dataset. Please use `targets=None` in `mlflow.evaluate()`.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
+                targets = data.targets
             else:
-                if targets is None:
-                    # User didn't specify targets parameter and data.targets is None, so
-                    # the error message should not mention "rather than using the `targets`
-                    # argument in `mlflow.evaluate()`".
-                    raise MlflowException(
-                        message="The targets parameter must be specified by the provided Dataset "
-                        f"for {model_type} models. For example: "
-                        "`data = mlflow.data.from_pandas(df=X.assign(y=y), targets='y')`",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                else:
-                    # User specified targets parameter but data.targets is None, so
-                    # the error message should mention "rather than using the `targets`
-                    # argument in `mlflow.evaluate()`".
-                    raise MlflowException(
-                        message="The targets parameter must be specified by the provided Dataset "
-                        "rather than using the `targets` argument in `mlflow.evaluate()` for "
-                        f"{model_type} models. For example: "
-                        "`data = mlflow.data.from_pandas(df=X.assign(y=y), targets='y')`",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
+                raise MlflowException(
+                    message="The targets column name must be specified in the provided Dataset "
+                    f"for {model_type} models. For example: "
+                    "`data = mlflow.data.from_pandas(df=X.assign(y=y), targets='y')`",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
         else:
             if targets is None:
                 raise MlflowException(
@@ -1722,29 +1713,14 @@ def evaluate(
                     "parameter when model=None.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-            if predictions not in data.columns:
-                raise MlflowException(
-                    message=f"The specified predictions column '{predictions}' is not "
-                    "found in the specified data.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
         elif isinstance(data, mlflow.data.pandas_dataset.PandasDataset):
             # If data is a mlflow PandasDataset with predictions specified
             # check that exact one predictions column is specified
-            if data.predictions is not None:
-                if predictions is not None and predictions != data.predictions:
-                    raise MlflowException(
-                        message="The predictions parameter must be None or the same as "
-                        "data.predictions when data.predictions is specified. Found "
-                        f"predictions='{predictions}', data.predictions='{data.predictions}'.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                else:  # predictions is None or predictions == data.predictions
-                    pass  # OK: exact one predictions column is specified
-            else:
+            if data.predictions is None:
                 raise MlflowException(
                     message="The predictions parameter must be specified with the provided "
-                    "PandasDataset when model=None.",
+                    "PandasDataset when model=None. For example: "
+                    "`data = mlflow.data.from_pandas(df=X.assign(y=y), predictions='y')`",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         else:
