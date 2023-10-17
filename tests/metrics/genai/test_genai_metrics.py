@@ -700,7 +700,7 @@ def test_make_genai_metric_metric_details():
         examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
         grading_context_columns=["targets"],
-        parameters={"temperature": 1.0},
+        parameters={"temperature": 0.0},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
     )
