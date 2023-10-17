@@ -17,9 +17,9 @@ def answer_similarity(
     examples: Optional[List[EvaluationExample]] = None,
 ) -> EvaluationMetric:
     """
-    This function will create a genai metric used to evaluate the correctness of an LLM using the
-    model provided. Correctness will be assessed by the similarity in meaning and description to
-    the ``ground_truth``, which should be specified in the ``target`` column.
+    This function will create a genai metric used to evaluate the answer similarity of an LLM
+    using the model provided. Answer similarity will be assessed by the semantic similarity of the
+    output to the ``ground_truth``, which should be specified in the ``target`` column.
 
     The ``target`` eval_arg must be provided as part of the input dataset or output
     predictions. This can be mapped to a column of a different name using the a ``col_mapping``
@@ -28,10 +28,10 @@ def answer_similarity(
     An MlflowException will be raised if the specified version for this metric does not exist.
 
     :param model: (Optional) The model that will be used to evaluate this metric. Defaults to GPT-4.
-    :param metric_version: (Optional) The version of the correctness metric to use.
+    :param metric_version: (Optional) The version of the answer similarity metric to use.
         Defaults to the latest version.
     :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
-        correctness. It is highly recommended to add examples to be used as a reference to
+        answer similarity. It is highly recommended to add examples to be used as a reference to
         evaluate the new results.
     :return: A metric object
     """
@@ -42,13 +42,13 @@ def answer_similarity(
         answer_similarity_class_module = _get_class_from_string(class_name)
     except ModuleNotFoundError:
         raise MlflowException(
-            f"Failed to find correctness metric for version {metric_version}."
+            f"Failed to find answer similarity metric for version {metric_version}."
             f" Please check the version",
             error_code=INVALID_PARAMETER_VALUE,
         ) from None
     except Exception as e:
         raise MlflowException(
-            f"Failed to construct correctness metric {metric_version}. Error: {e!r}",
+            f"Failed to construct answer similarity metric {metric_version}. Error: {e!r}",
             error_code=INTERNAL_ERROR,
         ) from None
 
