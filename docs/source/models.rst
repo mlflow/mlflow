@@ -2551,7 +2551,7 @@ Model with the ``openai`` flavor as a dictionary of the model's attributes.
 
 Example:
 
-.. literalinclude:: ../../examples/openai/pyfunc.py
+.. literalinclude:: ../../examples/openai/chat_completions.py
     :language: python
 
 
