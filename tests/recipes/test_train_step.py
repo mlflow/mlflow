@@ -4,6 +4,7 @@ import os
 import random
 import sys
 from pathlib import Path
+from typing import Optional
 from unittest import mock
 from unittest.mock import MagicMock, Mock
 
@@ -647,7 +648,7 @@ def test_tuning_multiclass(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Pat
 
     _old_import_module = importlib.import_module
 
-    def _import_module(name: str, package: str = None):
+    def _import_module(name: str, package: Optional[str] = None):
         if "steps" in name:
             return _old_import_module("tests.recipes.test_train_step")
         else:
