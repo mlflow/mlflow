@@ -709,7 +709,7 @@ build_dependencies:
    - setuptools==56.0.0
    - wheel==0.40.0
 dependencies:
-   - -r requirements.txt    
+   - -r requirements.txt
 """
     )
     tmp_path.joinpath("requirements.txt").write_text(

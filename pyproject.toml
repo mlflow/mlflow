@@ -59,6 +59,7 @@ select = [
   "T20",
   "TID252",
   "TID251",
+  "W",
 ]
 force-exclude = true
 ignore = [
