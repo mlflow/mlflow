@@ -104,7 +104,8 @@ def make_genai_metric(
         the metric. These grading_context_columns are used by the LLM as a judge as additional
         information to compute the metric. The columns are extracted from the input dataset or
         output predictions based on col_mapping in evaluator_config.
-    :param parameters: (Optional) Parameters for the LLM used to compute the metric. We recommend
+    :param parameters: (Optional) Parameters for the LLM used to compute the metric. By default, we
+        set the temperature to 0.0, max_tokens to 200, and top_p to 1.0. We recommend
         setting the temperature to 0.0 for the LLM used as a judge to ensure consistent results.
     :param aggregations: (Optional) The list of options to aggregate the scores. Currently supported
         options are: min, max, mean, median, variance, p90.
