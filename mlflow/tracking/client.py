@@ -20,11 +20,7 @@ from mlflow.entities import DatasetInput, Experiment, FileInfo, Metric, Param, R
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import (
-    FEATURE_DISABLED,
-    RESOURCE_ALREADY_EXISTS,
-    RESOURCE_DOES_NOT_EXIST,
-)
+from mlflow.protos.databricks_pb2 import FEATURE_DISABLED, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
 )
@@ -2687,11 +2683,6 @@ class MlflowClient:
         client = self._get_registry_client()
         src_name, src_version = get_model_name_and_version(client, src_model_uri)
         src_mv = client.get_model_version(src_name, src_version)
-        try:
-            client.create_registered_model(dest_name)
-        except MlflowException as e:
-            if e.error_code != RESOURCE_ALREADY_EXISTS:
-                raise
 
         return client.copy_model_version(src_mv=src_mv, dest_name=dest_name)
 

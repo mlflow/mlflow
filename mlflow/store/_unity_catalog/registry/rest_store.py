@@ -745,15 +745,6 @@ class UcModelRegistryStore(BaseRestStore):
         response_proto = self._call_endpoint(GetModelVersionByAliasRequest, req_body)
         return model_version_from_uc_proto(response_proto.model_version)
 
-    def copy_model_version(self, src_mv, dst_name):
-        return self.create_model_version(
-            name=dst_name,
-            source=src_mv.source,
-            run_id=src_mv.run_id,
-            tags=src_mv.tags,
-            description=src_mv.description,
-        )
-
     def _await_model_version_creation(self, mv, await_creation_for):
         """
         Does not wait for the model version to become READY as a successful creation will
