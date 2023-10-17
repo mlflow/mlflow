@@ -11,7 +11,16 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, infer_signature, set_signature
 from mlflow.models.model import get_model_info
 from mlflow.types import DataType
-from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
+from mlflow.types.schema import (
+    Array,
+    ColSpec,
+    Object,
+    ParamSchema,
+    ParamSpec,
+    Property,
+    Schema,
+    TensorSpec,
+)
 
 
 def test_model_signature_with_colspec():
@@ -141,12 +150,22 @@ def test_infer_signature_on_list_of_dictionaries():
             }
         ],
     )
-    assert signature.inputs == Schema([ColSpec(DataType.string, name="query")])
+    assert signature.inputs == Schema(
+        [ColSpec(Array(Object([Property("query", DataType.string)])))]
+    )
     assert signature.outputs == Schema(
         [
-            ColSpec(DataType.string, name="output"),
-            ColSpec(DataType.string, name="candidate_ids"),
-            ColSpec(DataType.string, name="candidate_sources"),
+            ColSpec(
+                Array(
+                    Object(
+                        [
+                            Property("output", DataType.string),
+                            Property("candidate_ids", Array(DataType.string)),
+                            Property("candidate_sources", Array(DataType.string)),
+                        ]
+                    )
+                )
+            ),
         ]
     )
 

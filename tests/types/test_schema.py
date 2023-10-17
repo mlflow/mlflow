@@ -360,11 +360,11 @@ def test_schema_inference_validating_dictionary_keys():
 
 
 def test_schema_inference_on_lists_with_errors():
-    for data in [["a", 1], ["a", ["b", "c"]]]:
-        with pytest.raises(
-            MlflowException, match="Expected all values in list to be of same type "
-        ):
-            _infer_schema(data)
+    with pytest.raises(MlflowException, match="Expected all values in list to be of same type "):
+        _infer_schema(["a", 1])
+
+    with pytest.raises(MlflowException, match="Failed to infer schema."):
+        _infer_schema(["a", ["b", "c"]])
 
 
 def test_schema_inference_on_list_of_dicts():

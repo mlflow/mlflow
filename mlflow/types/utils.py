@@ -128,7 +128,14 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
             raise MlflowException.invalid_parameter_value(
                 "Expected non-empty list of values to infer colspec type"
             )
-        ndim = np.array(data).ndim
+        try:
+            ndim = np.array(data).ndim
+        except ValueError:
+            # To catch `ValueError: setting an array element with a sequence.`
+            # for input like `["a", ["a", "b"]]`
+            raise MlflowException.invalid_parameter_value(
+                "Expected data to be 1D array, shape mismatch"
+            )
         if ndim != 1:
             raise MlflowException.invalid_parameter_value(
                 f"Expected data to be 1D array, got {ndim}D array"

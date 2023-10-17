@@ -501,10 +501,6 @@ class ColSpec:
         optional: Optional[bool] = None,
         required: Optional[bool] = None,  # TODO: update to required=True after deprecating optional
     ):
-        if name is not None and not isinstance(name, str):
-            raise MlflowException.invalid_parameter_value(
-                f"Expected name to be a string, got type {type(name).__name__}"
-            )
         self._name = name
 
         if optional is not None:
@@ -829,11 +825,11 @@ class Schema:
         """Return true iff this schema declares names, false otherwise."""
         return self.inputs and self.inputs[0].name is not None
 
-    def input_types(self) -> List[Union[DataType, np.dtype]]:
+    def input_types(self) -> List[Union[DataType, np.dtype, Array, Object]]:
         """Get types for each column in the schema."""
         return [x.type for x in self.inputs]
 
-    def input_types_dict(self) -> Dict[str, Union[DataType, np.dtype]]:
+    def input_types_dict(self) -> Dict[str, Union[DataType, np.dtype, Array, Object]]:
         """Maps column names to types, iff this schema declares names."""
         if not self.has_input_names():
             raise MlflowException("Cannot get input types as a dict for schema without names.")
