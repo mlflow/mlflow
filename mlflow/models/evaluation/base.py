@@ -142,6 +142,7 @@ def make_metric(
     name=None,
     long_name=None,
     version=None,
+    metric_details=None,
 ):
     '''
     A factory function to create an :py:class:`EvaluationMetric` object.
@@ -182,6 +183,7 @@ def make_metric(
     :param long_name: (Optional) The long name of the metric. For example, ``"mean_squared_error"``
         for ``"mse"``.
     :param version: (Optional) The metric version. For example ``v1``.
+    :param metric_details: (Optional) A description of the metric and how it is calculated.
 
     .. seealso::
 
@@ -201,7 +203,7 @@ def make_metric(
             )
         name = eval_fn.__name__
 
-    return EvaluationMetric(eval_fn, name, greater_is_better, long_name, version)
+    return EvaluationMetric(eval_fn, name, greater_is_better, long_name, version, metric_details)
 
 
 @developer_stable

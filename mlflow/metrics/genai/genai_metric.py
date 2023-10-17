@@ -322,6 +322,13 @@ def make_genai_metric(
 
     eval_fn.__signature__ = Signature(signature_parameters)
 
+    # TODO: fill this in
+    metric_details = ""
+
     return make_metric(
-        eval_fn=eval_fn, greater_is_better=greater_is_better, name=name, version=version
+        eval_fn=eval_fn,
+        greater_is_better=greater_is_better,
+        name=name,
+        version=version,
+        metric_details=metric_details,
     )
