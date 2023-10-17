@@ -1710,7 +1710,7 @@ class _TransformersWrapper:
 
         if isinstance(data, pd.DataFrame):
             input_data = self._convert_pandas_to_dict(data)
-        elif isinstance(data, dict):
+        elif isinstance(data, (dict, str, bytes, np.ndarray)):
             input_data = data
         elif isinstance(data, list):
             if not all(isinstance(entry, (str, dict)) for entry in data):
@@ -1720,12 +1720,6 @@ class _TransformersWrapper:
                     "dictionaries must be strings and values must be either str or List[str].",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-            input_data = data
-        elif isinstance(data, str):
-            input_data = data
-        elif isinstance(data, bytes):
-            input_data = data
-        elif isinstance(data, np.ndarray):
             input_data = data
         else:
             raise MlflowException(

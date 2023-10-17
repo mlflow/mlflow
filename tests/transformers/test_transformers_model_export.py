@@ -1633,15 +1633,11 @@ def test_fill_mask_pipeline(fill_mask_pipeline, model_path, inference_payload, r
     inference = pyfunc_loaded.predict(inference_payload)
     assert inference == result
 
-    if len(inference_payload) > 1 and isinstance(inference_payload, list):
-        pd_input = pd.DataFrame([{"inputs": v} for v in inference_payload])
-    elif isinstance(inference_payload, list) and len(inference_payload) == 1:
-        pd_input = pd.DataFrame([{"inputs": v} for v in inference_payload], index=[0])
-    else:
+    if isinstance(inference_payload, str):
+        # We do not support pandas dataframe input for arrays/objects schema
         pd_input = pd.DataFrame({"inputs": inference_payload}, index=[0])
-
-    pd_inference = pyfunc_loaded.predict(pd_input)
-    assert pd_inference == result
+        pd_inference = pyfunc_loaded.predict(pd_input)
+        assert pd_inference == result
 
 
 @pytest.mark.parametrize(

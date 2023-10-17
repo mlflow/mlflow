@@ -426,41 +426,28 @@ def _is_spark_df(x) -> bool:
 
 
 def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) -> None:
-    # valid keys -- str/int (here int doesn't make sense for ColSpec)
-    # valid values --
-    #    list of str/bytes
-    #    np.ndarray of str/bytes
-    #    str, bytes
-    # invalid values --
-    #    mix of np.ndarray and others
-    invalid_keys = []
-    invalid_values = []
-    value_type = None
-    for key, value in data.items():
-        if not value_type:
-            value_type = type(value)
-        if isinstance(key, bool):
-            invalid_keys.append(key)
-        elif not isinstance(key, (str, int)):
-            invalid_keys.append(key)
-        if isinstance(value, list) and not all(isinstance(item, (str, bytes)) for item in value):
-            invalid_values.append(key)
-        elif not isinstance(value, (np.ndarray, list, str, bytes)):
-            invalid_values.append(key)
-        elif isinstance(value, np.ndarray) or value_type == np.ndarray:
-            if not isinstance(value, value_type):
-                invalid_values.append(key)
-    if invalid_values:
+    invalid_keys = [key for key in data.keys() if not isinstance(key, (str, int))]
+    if invalid_keys:
         raise MlflowException(
+            f"The dictionary keys are not all strings or indexes. Invalid keys: {invalid_keys}"
+        )
+    if any(isinstance(value, np.ndarray) for value in data.values()) and not all(
+        isinstance(value, np.ndarray) for value in data.values()
+    ):
+        raise MlflowException("The dictionary values are not all numpy.ndarray.")
+
+    invalid_values = [
+        key
+        for key, value in data.items()
+        if (isinstance(value, list) and not all(isinstance(item, (str, bytes)) for item in value))
+        or (not isinstance(value, (np.ndarray, list, str, bytes)))
+    ]
+    if invalid_values:
+        raise MlflowException.invalid_parameter_value(
             "Invalid values in dictionary. If passing a dictionary containing strings, all "
             "values must be either strings or lists of strings. If passing a dictionary containing "
             "numeric values, the data must be enclosed in a numpy.ndarray. The following keys "
             f"in the input dictionary are invalid: {invalid_values}",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-    if invalid_keys:
-        raise MlflowException(
-            f"The dictionary keys are not all strings or indexes. Invalid keys: {invalid_keys}"
         )
 
 
