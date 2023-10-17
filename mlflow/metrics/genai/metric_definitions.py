@@ -58,7 +58,7 @@ def answer_similarity(
         model = answer_similarity_class_module.default_model
 
     return make_genai_metric(
-        name="correctness",
+        name="answer_similarity",
         definition=answer_similarity_class_module.definition,
         grading_prompt=answer_similarity_class_module.grading_prompt,
         examples=examples,
