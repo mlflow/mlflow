@@ -1148,6 +1148,8 @@ class DefaultEvaluator(ModelEvaluator):
                         eval_fn_args.append(None)
                 elif param_name == "metrics":
                     eval_fn_args.append(copy.deepcopy(self.metrics_values))
+                elif param_name == "k":
+                    eval_fn_args.append(eval_df_copy["k"])
                 else:
                     column = self.col_mapping.get(param_name, param_name)
                     if not isinstance(column, str):
