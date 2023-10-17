@@ -59,3 +59,6 @@ class PromptTemplate:
         new_template_str = self.template_str.format_map(safe_dict)
         unfilled_variables = [var for var in self.variables if var not in kwargs.keys()]
         return PromptTemplate(template_str=new_template_str, variables=unfilled_variables)
+
+    def __str__(self):
+        return self.template_str

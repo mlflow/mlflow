@@ -202,8 +202,6 @@ def make_genai_metric(
         *(parameters,) if parameters is not None else (),
     ).to_dict()
 
-    metric_details = json.dumps(evaluation_context)
-
     def eval_fn(
         predictions: "pd.Series",
         metrics: Dict[str, MetricValue],
@@ -330,5 +328,5 @@ def make_genai_metric(
         greater_is_better=greater_is_better,
         name=name,
         version=version,
-        metric_details=metric_details,
+        metric_details=evaluation_context,
     )

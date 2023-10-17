@@ -184,6 +184,8 @@ def test_make_genai_metric_correct_response():
         aggregations=["mean", "variance", "p90"],
     )
 
+    assert custom_metric.__str__() == ""
+
     assert [
         param.name for param in inspect.signature(custom_metric.eval_fn).parameters.values()
     ] == ["predictions", "metrics", "inputs", "targets"]
@@ -378,18 +380,6 @@ def test_make_genai_metric_failure():
     )
     import pandas as pd
 
-    custom_metric1 = make_genai_metric(
-        name="correctness",
-        version="v-latest",
-        definition="definition",
-        grading_prompt="grading_prompt",
-        examples=[example],
-        model="model",
-        grading_context_columns=["targets"],
-        parameters={"temperature": 1.0},
-        greater_is_better=True,
-        aggregations=["mean"],
-    )
     with pytest.raises(
         MlflowException,
         match=re.escape(
@@ -397,11 +387,17 @@ def test_make_genai_metric_failure():
             "Please check the correctness of the version"
         ),
     ):
-        custom_metric1.eval_fn(
-            pd.Series(["predictions"]),
-            {},
-            pd.Series(["What is MLflow?"]),
-            pd.Series(["truth"]),
+        make_genai_metric(
+            name="correctness",
+            version="v-latest",
+            definition="definition",
+            grading_prompt="grading_prompt",
+            examples=[example],
+            model="model",
+            grading_context_columns=["targets"],
+            parameters={"temperature": 1.0},
+            greater_is_better=True,
+            aggregations=["mean"],
         )
 
     with mock.patch.object(
