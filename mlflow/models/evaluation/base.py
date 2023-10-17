@@ -1714,8 +1714,7 @@ def evaluate(
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         elif isinstance(data, mlflow.data.pandas_dataset.PandasDataset):
-            # If data is a mlflow PandasDataset with predictions specified
-            # check that exact one predictions column is specified
+            # If data is a mlflow PandasDataset, data.predictions must be specified
             if data.predictions is None:
                 raise MlflowException(
                     message="The predictions parameter must be specified with the provided "
