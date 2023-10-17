@@ -19,9 +19,9 @@ def answer_similarity(
     """
     This function will create a genai metric used to evaluate the correctness of an LLM using the
     model provided. Correctness will be assessed by the similarity in meaning and description to
-    the ``ground_truth``, which should be specified in the ``targets`` column.
+    the ``ground_truth``, which should be specified in the ``target`` column.
 
-    The ``targets`` eval_arg must be provided as part of the input dataset or output
+    The ``target`` eval_arg must be provided as part of the input dataset or output
     predictions. This can be mapped to a column of a different name using the a ``col_mapping``
     in the ``evaluator_config``.
 
