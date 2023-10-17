@@ -5,6 +5,8 @@ import re
 
 import numpy as np
 import pandas as pd
+import pyspark
+import pyspark.sql.types as T
 import pytest
 from scipy.sparse import csc_matrix, csr_matrix
 
@@ -29,6 +31,12 @@ from mlflow.types.utils import (
     _infer_schema,
     _validate_input_dictionary_contains_only_strings_and_lists_of_strings,
 )
+
+
+@pytest.fixture(scope="module")
+def spark():
+    with pyspark.sql.SparkSession.builder.getOrCreate() as s:
+        yield s
 
 
 def test_col_spec():
@@ -608,6 +616,70 @@ def test_spark_schema_inference(pandas_df_with_all_types):
         sparkdf = spark.createDataFrame(pandas_df_with_all_types, schema=spark_schema)
         schema = _infer_schema(sparkdf)
         assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
+
+
+def test_spark_schema_inference_complex(spark):
+    df = spark.createDataFrame(
+        [(["arr"],)],
+        schema=T.StructType([T.StructField("arr", T.ArrayType(T.StringType()))]),
+    )
+    schema = _infer_schema(df)
+    assert schema == Schema([ColSpec(Array(DataType.string), "arr")])
+
+    df = spark.createDataFrame(
+        [({"str": "s", "str_nullable": None},)],
+        schema=T.StructType(
+            [
+                T.StructField(
+                    "obj",
+                    T.StructType(
+                        [
+                            T.StructField("str", T.StringType(), nullable=False),
+                            T.StructField("str_nullable", T.StringType(), nullable=True),
+                        ]
+                    ),
+                )
+            ]
+        ),
+    )
+    schema = _infer_schema(df)
+    assert schema == Schema(
+        [
+            ColSpec(
+                Object(
+                    [
+                        Property("str", DataType.string, required=True),
+                        Property("str_nullable", DataType.string, required=False),
+                    ]
+                ),
+                "obj",
+            )
+        ]
+    )
+
+    df = spark.createDataFrame(
+        [([{"str": "s"}],)],
+        schema=T.StructType(
+            [
+                T.StructField(
+                    "obj_arr",
+                    T.ArrayType(
+                        T.StructType([T.StructField("str", T.StringType(), nullable=False)])
+                    ),
+                )
+            ]
+        ),
+    )
+
+    schema = _infer_schema(df)
+    assert schema == Schema(
+        [
+            ColSpec(
+                Array(Object([Property("str", DataType.string, required=True)])),
+                "obj_arr",
+            )
+        ]
+    )
 
 
 def test_spark_type_mapping(pandas_df_with_all_types):
