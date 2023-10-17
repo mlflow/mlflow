@@ -1578,15 +1578,40 @@ def evaluate(
     if model_type in [_ModelType.REGRESSOR, _ModelType.CLASSIFIER]:
         if isinstance(data, Dataset):
             if getattr(data, "targets", None) is not None:
-                targets = data.targets
+                if targets == data.targets:
+                    # It's allowed to have redundent targets parameter
+                    pass
+                elif targets is None:
+                    targets = data.targets
+                else:
+                    # targets is not None and not equal to data.targets
+                    raise MlflowException(
+                        message="The targets parameter must only be specified by the provided "
+                        "Dataset. Please use `targets=None` in `mlflow.evaluate()`.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
             else:
-                raise MlflowException(
-                    message="The targets parameter must be specified by the provided Dataset "
-                    "rather than using the `targets` argument in `mlflow.evaluate()` for "
-                    f"{model_type} models. For example: "
-                    "`data = mlflow.data.from_pandas(df=X.assign(y=y), targets='y')`",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+                if targets is None:
+                    # User didn't specify targets parameter and data.targets is None, so
+                    # the error message should not mention "rather than using the `targets`
+                    # argument in `mlflow.evaluate()`".
+                    raise MlflowException(
+                        message="The targets parameter must be specified by the provided Dataset "
+                        f"for {model_type} models. For example: "
+                        "`data = mlflow.data.from_pandas(df=X.assign(y=y), targets='y')`",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                else:
+                    # User specified targets parameter but data.targets is None, so
+                    # the error message should mention "rather than using the `targets`
+                    # argument in `mlflow.evaluate()`".
+                    raise MlflowException(
+                        message="The targets parameter must be specified by the provided Dataset "
+                        "rather than using the `targets` argument in `mlflow.evaluate()` for "
+                        f"{model_type} models. For example: "
+                        "`data = mlflow.data.from_pandas(df=X.assign(y=y), targets='y')`",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
         else:
             if targets is None:
                 raise MlflowException(

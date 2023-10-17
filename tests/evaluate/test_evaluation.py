@@ -680,8 +680,12 @@ def test_pandas_df_regressor_evaluation_mlflow_dataset_without_targets(linear_re
     with mlflow.start_run():
         with pytest.raises(
             MlflowException,
-            match="The targets argument is required when data is a Dataset and does not define "
-            "targets.",
+            match=re.escape(
+                "The targets parameter must be specified by the provided Dataset rather than "
+                "using the `targets` argument in `mlflow.evaluate()` for "
+                "regressor models. For example: `data = mlflow.data.from_pandas"
+                "(df=X.assign(y=y), targets='y')`"
+            ),
         ):
             evaluate(
                 linear_regressor_model_uri,
