@@ -400,6 +400,20 @@ def _infer_spark_type(x) -> DataType:
     # NB: Spark differentiates date and timestamps, so we coerce both to TimestampType.
     elif isinstance(x, (pyspark.sql.types.DateType, pyspark.sql.types.TimestampType)):
         return DataType.datetime
+    elif isinstance(x, pyspark.sql.types.ArrayType):
+        return Array(_infer_spark_type(x.elementType))
+    elif isinstance(x, pyspark.sql.types.StructType):
+        return Object(
+            properties=[
+                Property(
+                    name=f.name,
+                    dtype=_infer_spark_type(f.dataType),
+                    required=not f.nullable,
+                )
+                for f in x.fields
+            ]
+        )
+
     else:
         raise Exception(
             f"Unsupported Spark Type '{type(x)}', MLflow schema is only supported for scalar "
