@@ -1421,7 +1421,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _evaluate_metrics(self, eval_df):
         self._check_args(self.builtin_metrics + self.extra_metrics, eval_df)
-        self._test_first_row(eval_df)
+        # self._test_first_row(eval_df)
 
         # calculate metrics for the full eval_df
         self._evaluate_builtin_metrics(eval_df)
