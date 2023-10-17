@@ -12,13 +12,13 @@ ROUTE_TYPE = "llm/v1/completions"
 
 
 # TODO: improve this name
-def score_model_on_payload(model_uri, payload):
+def score_model_on_payload(model_uri, payload, timeout):
     """Call the model identified by the given uri with the given payload."""
 
     prefix, suffix = _parse_model_uri(model_uri)
 
     if prefix == "openai":
-        return _call_openai_api(suffix, payload)
+        return _call_openai_api(suffix, payload, timeout)
     elif prefix == "gateway":
         return _call_gateway_api(suffix, payload)
     elif prefix in ("model", "runs"):
@@ -43,7 +43,7 @@ def _parse_model_uri(model_uri):
     return scheme, path
 
 
-def _call_openai_api(openai_uri, payload):
+def _call_openai_api(openai_uri, payload, timeout):
     """Wrapper around the OpenAI API to make it compatible with the MLflow Gateway API."""
     from mlflow.gateway.config import RouteConfig
     from mlflow.gateway.providers.openai import OpenAIProvider
@@ -72,6 +72,7 @@ def _call_openai_api(openai_uri, payload):
         url=append_to_uri_path(openai_provider._request_base_url, "chat/completions"),
         headers=openai_provider._request_headers,
         json=openai_provider._add_model_to_payload_if_necessary(payload),
+        timeout=timeout,
     ).json()
 
     return json.loads(openai_provider._prepare_completion_response_payload(resp).json())

@@ -89,7 +89,7 @@ def make_genai_metric(
     aggregations: Optional[List[str]] = None,
     greater_is_better: bool = True,
     max_workers: int = 10,
-    judge_request_timeout: int = 15,
+    judge_request_timeout: int = 60,
 ) -> EvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow.
@@ -111,7 +111,7 @@ def make_genai_metric(
     :param max_workers: (Optional) The maximum number of workers to use for judge scoring.
         Defaults to 10 workers.
     :param judge_request_timeout: (Optional) The timeout in seconds for each judge scoring request.
-        Defaults to 15 seconds.
+        Defaults to 60 seconds.
 
     :return: A metric object.
 
@@ -167,9 +167,9 @@ def make_genai_metric(
             ),
             examples=[example],
             version="v1",
-            model="gateway:/gpt4",
+            model="openai:/gpt-3.5-turbo-16k",
             grading_context_columns=["ground_truth"],
-            parameters={"temperature": 1.0},
+            parameters={"temperature": 0.0},
             aggregations=["mean", "variance", "p90"],
             greater_is_better=True,
         )
@@ -246,7 +246,9 @@ def make_genai_metric(
                 **eval_parameters,
             }
             try:
-                raw_result = model_utils.score_model_on_payload(eval_model, payload)
+                raw_result = model_utils.score_model_on_payload(
+                    eval_model, payload, judge_request_timeout
+                )
                 return _extract_score_and_justification(raw_result)
             except Exception as e:
                 _logger.info(f"Failed to score model on payload. Error: {e!r}")
