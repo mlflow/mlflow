@@ -37,7 +37,7 @@ openai_justification1 = (
 properly_formatted_openai_response1 = {
     "candidates": [
         {
-            "text": '{\n  "Score": 3,\n  "Justification": "' f"{openai_justification1}" '"\n}',
+            "text": '{\n  "score": 3,\n  "justification": "' f"{openai_justification1}" '"\n}',
             "metadata": {"finish_reason": "stop"},
         }
     ],
@@ -53,7 +53,7 @@ properly_formatted_openai_response1 = {
 properly_formatted_openai_response2 = {
     "candidates": [
         {
-            "text": '{\n  "Score": 2,\n  "Justification": "The provided output gives a correct '
+            "text": '{\n  "score": 2,\n  "justification": "The provided output gives a correct '
             "and adequate explanation of what Apache Spark is, covering its main functions and "
             "components like Spark SQL, Spark Streaming, and MLlib. However, it misses a "
             "critical aspect, which is Spark's development as a response to the limitations "
@@ -78,7 +78,7 @@ properly_formatted_openai_response2 = {
 incorrectly_formatted_openai_response = {
     "candidates": [
         {
-            "text": "Score: 2\nJustification: \n\nThe provided output gives some relevant "
+            "text": "score: 2\njustification: \n\nThe provided output gives some relevant "
             "information about MLflow including its capabilities such as experiment tracking, "
             "model packaging, versioning, and deployment. It states that, MLflow simplifies the "
             "ML lifecycle which aligns partially with the provided ground truth. However, it "
@@ -242,20 +242,24 @@ def test_make_genai_metric_correct_response():
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "openai:/gpt-3.5-turbo"
         assert mock_predict_function.call_args[0][1] == {
-            "prompt": "\nPlease act as an impartial judge and evaluate the quality of "
-            "the provided output which\nattempts to produce output for the provided input "
-            "based on a provided information.\n\nYou'll be given a grading format below which "
-            "you'll call for each provided information,\ninput and provided output to submit "
-            "your justification and score to compute the fake_metric of\nthe output."
-            "\n\nInput:\ninput\n\nProvided output:\nprediction\n\nProvided targets: "
-            "ground_truth\n\nMetric definition:\nFake metric definition\n\nBelow is your grading "
-            "criteria:\nFake metric grading prompt\n\nExamples:\n\nInput: example-input\n\n"
-            "Provided output: example-output\n\nProvided targets: example-ground_truth\n\n"
-            "Score: 4\nJustification: example-justification\n\n        \n\nAnd you'll need to "
-            "submit your grading for the fake_metric of the output,\nusing the following in json "
-            "format:\nScore: [your score number for the fake_metric of the "
-            "output]\nJustification: [your step by step reasoning about the fake_metric of the "
-            "output]\n    ",
+            "prompt": "\nTask:\nYou are an impartial judge. You will be given an input that was "
+            "sent to a machine\nlearning model, and you will be given an output that the model "
+            "produced. You\nmay also be given additional information that was used by the model "
+            "to generate the output.\n\nYour task is to determine a numerical score called "
+            "fake_metric based on the input and output.\nA definition of "
+            "fake_metric and a grading rubric are provided below.\nYou must use the "
+            "grading rubric to determine your score. You must also justify your score."
+            "\n\nExamples could be included below for reference. Make sure to use them as "
+            "references and to\nunderstand them before completing the task.\n"
+            "\nInput:\ninput\n\nOutput:\nprediction\n\nAdditional information used by the model:\n"
+            "key: targets\nvalue:\nground_truth\n\nMetric definition:\nFake metric definition\n\n"
+            "Grading rubric:\nFake metric grading prompt\n\nExamples:\n\nInput:\nexample-input\n\n"
+            "Output:\nexample-output\n\nAdditional information used by the model:\nkey: targets\n"
+            "value:\nexample-ground_truth\n\nscore: 4\njustification: "
+            "example-justification\n        \n\nYou must return the following fields in your "
+            "response one below the other:\nscore: Your numerical score for the model's "
+            "fake_metric based on the rubric\njustification: Your step-by-step reasoning about "
+            "the model's fake_metric score\n    ",
             "temperature": 0.0,
             "max_tokens": 200,
             "top_p": 1.0,
@@ -432,7 +436,9 @@ def test_make_genai_metric_failure():
 def test_format_args_string():
     variable_string = _format_args_string(["foo", "bar"], {"foo": ["foo"], "bar": ["bar"]}, 0)
 
-    assert variable_string == "Provided foo: foo\nProvided bar: bar"
+    assert variable_string == (
+        "Additional information used by the model:\nkey: foo\nvalue:\nfoo" "\nkey: bar\nvalue:\nbar"
+    )
 
     with pytest.raises(
         MlflowException,
@@ -446,7 +452,7 @@ def test_extract_score_and_justification():
         output={
             "candidates": [
                 {
-                    "text": '{"Score": 4, "Justification": "This is a justification"}',
+                    "text": '{"score": 4, "justification": "This is a justification"}',
                 }
             ]
         }
@@ -459,7 +465,7 @@ def test_extract_score_and_justification():
         output={
             "candidates": [
                 {
-                    "text": "Score: 2 \nJustification: This is a justification",
+                    "text": "score: 2 \njustification: This is a justification",
                 }
             ]
         }
@@ -482,7 +488,7 @@ def test_extract_score_and_justification():
         output={
             "candidates": [
                 {
-                    "text": '{"Score": "4", "Justification": "This is a justification"}',
+                    "text": '{"score": "4", "justification": "This is a justification"}',
                 }
             ]
         }
@@ -495,7 +501,7 @@ def test_extract_score_and_justification():
         output={
             "candidates": [
                 {
-                    "text": '{"Score": 4, "Justification": {"foo": "bar"}}',
+                    "text": '{"score": 4, "justification": {"foo": "bar"}}',
                 }
             ]
         }
@@ -524,27 +530,32 @@ def test_correctness_metric():
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
         assert mock_predict_function.call_args[0][1] == {
-            "prompt": "\nPlease act as an impartial judge and evaluate the quality of "
-            "the provided output which\nattempts to produce output for the provided input "
-            "based on a provided information.\n\nYou'll be given a grading format below which "
-            "you'll call for each provided information,\ninput and provided output to submit "
-            "your justification and score to compute the correctness of\nthe output.\n"
+            "prompt": "\nTask:\nYou are an impartial judge. You will be given an input that was "
+            "sent to a machine\nlearning model, and you will be given an output that the model "
+            "produced. You\nmay also be given additional information that was used by the model "
+            "to generate the output.\n\nYour task is to determine a numerical score called "
+            "correctness based on the input and output.\nA definition of "
+            "correctness and a grading rubric are provided below.\nYou must use the "
+            "grading rubric to determine your score. You must also justify your score."
+            "\n\nExamples could be included below for reference. Make sure to use them as "
+            "references and to\nunderstand them before completing the task.\n"
             f"\nInput:\n{input}\n"
-            f"\nProvided output:\n{mlflow_prediction}\n"
-            f"\nProvided targets: {mlflow_ground_truth}\n"
+            f"\nOutput:\n{mlflow_prediction}\n"
+            "\nAdditional information used by the model:\nkey: targets\nvalue:\n"
+            f"{mlflow_ground_truth}\n"
             f"\nMetric definition:\n{CorrectnessMetric.definition}\n"
-            f"\nBelow is your grading criteria:\n{CorrectnessMetric.grading_prompt}\n"
+            f"\nGrading rubric:\n{CorrectnessMetric.grading_prompt}\n"
             "\nExamples:\n"
-            f"\nInput: {mlflow_example.input}\n"
-            f"\nProvided output: {mlflow_example.output}\n"
-            f"\nProvided targets: {mlflow_ground_truth}\n"
-            f"\nScore: {mlflow_example.score}\n"
-            f"Justification: {mlflow_example.justification}\n\n        \n\n"
-            "And you'll need to submit your grading for the correctness of the output,"
-            "\nusing the following in json format:\n"
-            "Score: [your score number for the correctness of the output]\n"
-            "Justification: [your step by step reasoning about the correctness of the output]"
-            "\n    ",
+            f"\nInput:\n{mlflow_example.input}\n"
+            f"\nOutput:\n{mlflow_example.output}\n"
+            "\nAdditional information used by the model:\nkey: targets\nvalue:\n"
+            f"{mlflow_ground_truth}\n"
+            f"\nscore: {mlflow_example.score}\n"
+            f"justification: {mlflow_example.justification}\n        \n"
+            "\nYou must return the following fields in your response one below the other:\nscore: "
+            "Your numerical score for the model's correctness based on the "
+            "rubric\njustification: Your step-by-step reasoning about the model's "
+            "correctness score\n    ",
             **CorrectnessMetric.parameters,
         }
 
@@ -585,22 +596,26 @@ def test_relevance_metric():
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
         assert mock_predict_function.call_args[0][1] == {
-            "prompt": "\nPlease act as an impartial judge and evaluate the quality of "
-            "the provided output which\nattempts to produce output for the provided input "
-            "based on a provided information.\n\nYou'll be given a grading format below which "
-            "you'll call for each provided information,\ninput and provided output to submit "
-            "your justification and score to compute the relevance of\nthe output.\n"
+            "prompt": "\nTask:\nYou are an impartial judge. You will be given an input that was "
+            "sent to a machine\nlearning model, and you will be given an output that the model "
+            "produced. You\nmay also be given additional information that was used by the model "
+            "to generate the output.\n\nYour task is to determine a numerical score called "
+            "relevance based on the input and output.\nA definition of "
+            "relevance and a grading rubric are provided below.\nYou must use the "
+            "grading rubric to determine your score. You must also justify your score."
+            "\n\nExamples could be included below for reference. Make sure to use them as "
+            "references and to\nunderstand them before completing the task.\n"
             f"\nInput:\n{input}\n"
-            f"\nProvided output:\n{mlflow_prediction}\n"
-            f"\nProvided context: {mlflow_ground_truth}\n"
+            f"\nOutput:\n{mlflow_prediction}\n"
+            "\nAdditional information used by the model:\nkey: context\nvalue:\n"
+            f"{mlflow_ground_truth}\n"
             f"\nMetric definition:\n{RelevanceMetric.definition}\n"
-            f"\nBelow is your grading criteria:\n{RelevanceMetric.grading_prompt}\n"
+            f"\nGrading rubric:\n{RelevanceMetric.grading_prompt}\n"
             "\n\n"
-            "\nAnd you'll need to submit your grading for the relevance of the output,"
-            "\nusing the following in json format:\n"
-            "Score: [your score number for the relevance of the output]\n"
-            "Justification: [your step by step reasoning about the relevance of the output]"
-            "\n    ",
+            "\nYou must return the following fields in your response one below the other:\nscore: "
+            "Your numerical score for the model's relevance based on the "
+            "rubric\njustification: Your step-by-step reasoning about the model's "
+            "relevance score\n    ",
             **RelevanceMetric.parameters,
         }
 
@@ -642,24 +657,27 @@ def test_strict_correctness_metric():
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "openai:/gpt-3.5-turbo-16k"
         assert mock_predict_function.call_args[0][1] == {
-            "prompt": "\nPlease act as an impartial judge and evaluate the quality of "
-            "the provided output which\nattempts to produce output for the provided input "
-            "based on a provided information.\n\nYou'll be given a grading format below which "
-            "you'll call for each provided information,\ninput and provided output to submit "
-            "your justification and score to compute the strict_correctness of\nthe output.\n"
+            "prompt": "\nTask:\nYou are an impartial judge. You will be given an input that was "
+            "sent to a machine\nlearning model, and you will be given an output that the model "
+            "produced. You\nmay also be given additional information that was used by the model "
+            "to generate the output.\n\nYour task is to determine a numerical score called "
+            "strict_correctness based on the input and output.\nA definition of "
+            "strict_correctness and a grading rubric are provided below.\nYou must use the "
+            "grading rubric to determine your score. You must also justify your score."
+            "\n\nExamples could be included below for reference. Make sure to use them as "
+            "references and to\nunderstand them before completing the task.\n"
             f"\nInput:\n{input}\n"
-            f"\nProvided output:\n{mlflow_prediction}\n"
-            f"\nProvided targets: {mlflow_ground_truth}\n"
+            f"\nOutput:\n{mlflow_prediction}\n"
+            "\nAdditional information used by the model:\nkey: targets\nvalue:\n"
+            f"{mlflow_ground_truth}\n"
             f"\nMetric definition:\n{StrictCorrectnessMetric.definition}\n"
-            f"\nBelow is your grading criteria:\n{StrictCorrectnessMetric.grading_prompt}\n"
+            f"\nGrading rubric:\n{StrictCorrectnessMetric.grading_prompt}\n"
             "\nExamples:\n"
             f"{examples}\n"
-            "\nAnd you'll need to submit your grading for the strict_correctness of the output,"
-            "\nusing the following in json format:\n"
-            "Score: [your score number for the strict_correctness of the output]\n"
-            "Justification: [your step by step reasoning about the strict_correctness of the "
-            "output]"
-            "\n    ",
+            "\nYou must return the following fields in your response one below the other:\nscore: "
+            "Your numerical score for the model's strict_correctness based on the "
+            "rubric\njustification: Your step-by-step reasoning about the model's "
+            "strict_correctness score\n    ",
             **StrictCorrectnessMetric.parameters,
         }
 
