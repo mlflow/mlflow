@@ -32,7 +32,7 @@ module.exports = async ({ context, github }) => {
   const title = "&#x1F6E0 DevTools &#x1F6E0";
   if (body && !body.includes(title)) {
     const codespacesBadge = `[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/${user.login}/mlflow/pull/${issue_number}?quickstart=1)`;
-    const body = `
+    const newSection = `
 <details><summary>${title}</summary>
 <p>
 
@@ -52,12 +52,12 @@ gh pr checkout ${issue_number}
 
 </p>
 </details>
-`.trimStart();
+`.trim();
     await github.rest.pulls.update({
       owner,
       repo,
       pull_number: issue_number,
-      body: `${codespacesBadge}\n\n${body}`,
+      body: `${newSection}\n\n${body}`,
     });
   }
 
