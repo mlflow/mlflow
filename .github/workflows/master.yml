@@ -278,7 +278,7 @@ jobs:
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
-          pytest tests/evaluate --cpu-mem-usage
+          pytest tests/evaluate --mem-usage
 
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
