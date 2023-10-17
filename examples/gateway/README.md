@@ -58,6 +58,9 @@ Replace `<provider>` with the actual path to the MLflow configuration file for t
 
 ```sh
 mlflow gateway start --config-path examples/gateway/<provider>/config.yaml
+
+# For example:
+mlflow gateway start --config-path examples/gateway/openai/config.yaml
 ```
 
 ## Step 5: Accessing the Interactive API Documentation

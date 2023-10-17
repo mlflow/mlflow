@@ -43,7 +43,7 @@ def show_system_info():
 
 
 def md5_checksum(path):
-    file_hash = hashlib.md5()
+    file_hash = hashlib.sha256()
     with open(path, "rb") as f:
         while chunk := f.read(1024**2):
             file_hash.update(chunk)

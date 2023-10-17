@@ -46,8 +46,8 @@ latency = make_metric(
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for calculating latency. Latency is determined by the time it takes to generate a
-prediction for a given input. Note that computing latency requires each row to be predicted 
-sequentially, which will likely slow down the evaluation process. 
+prediction for a given input. Note that computing latency requires each row to be predicted
+sequentially, which will likely slow down the evaluation process.
 """
 
 # general text metrics
@@ -59,7 +59,7 @@ token_count = make_metric(
 """
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
-A metric for calculating token_count. Token count is calculated using tiktoken by using the 
+A metric for calculating token_count. Token count is calculated using tiktoken by using the
 `cl100k_base` tokenizer.
 """
 
@@ -73,11 +73,11 @@ toxicity = make_metric(
 """
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
-A metric for evaluating `toxicity`_ using the model `roberta-hate-speech-dynabench-r4`_, 
-which defines hate as "abusive speech targeting specific group characteristics, such as 
+A metric for evaluating `toxicity`_ using the model `roberta-hate-speech-dynabench-r4`_,
+which defines hate as "abusive speech targeting specific group characteristics, such as
 ethnic origin, religion, gender, or sexual orientation."
 
-The score ranges from 0 to 1, where scores closer to 1 are more toxic. The default threshold 
+The score ranges from 0 to 1, where scores closer to 1 are more toxic. The default threshold
 for a text to be considered "toxic" is 0.5.
 
 Aggregations calculated for this metric:
@@ -99,7 +99,7 @@ perplexity = make_metric(
 
 A metric for evaluating `perplexity`_ using the model gpt2.
 
-The score ranges from 0 to infinity, where a lower score means that the model is better at 
+The score ranges from 0 to infinity, where a lower score means that the model is better at
 predicting the given text and a higher score means that the model is not likely to predict the text.
 
 Aggregations calculated for this metric:
@@ -118,7 +118,7 @@ flesch_kincaid_grade_level = make_metric(
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for calculating `flesch kincaid grade level`_ using `textstat`_.
-    
+
 This metric outputs a number that approximates the grade level needed to comprehend the text, which
 will likely range from around 0 to 15 (although it is not limited to this range).
 
@@ -141,7 +141,7 @@ ari_grade_level = make_metric(
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for calculating `automated readability index`_ using `textstat`_.
-    
+
 This metric outputs a number that approximates the grade level needed to comprehend the text, which
 will likely range from around 0 to 15 (although it is not limited to this range).
 
@@ -179,7 +179,7 @@ rouge1 = make_metric(
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for evaluating `rouge1`_.
-    
+
 The score ranges from 0 to 1, where a higher score indicates higher similarity.
 `rouge1`_ uses unigram based scoring to calculate similarity.
 
@@ -199,7 +199,7 @@ rouge2 = make_metric(
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for evaluating `rouge2`_.
-    
+
 The score ranges from 0 to 1, where a higher score indicates higher similarity.
 `rouge2`_ uses bigram based scoring to calculate similarity.
 
@@ -219,7 +219,7 @@ rougeL = make_metric(
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for evaluating `rougeL`_.
-    
+
 The score ranges from 0 to 1, where a higher score indicates higher similarity.
 `rougeL`_ uses unigram based scoring to calculate similarity.
 
@@ -239,7 +239,7 @@ rougeLsum = make_metric(
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for evaluating `rougeLsum`_.
-    
+
 The score ranges from 0 to 1, where a higher score indicates higher similarity.
 `rougeLsum`_ uses longest common subsequence based scoring to calculate similarity.
 
@@ -313,7 +313,7 @@ r2_score = make_metric(
 A metric for evaluating `r2_score`_.
 
 This metric computes an aggregate score for the coefficient of determination. R2 ranges from
-negative infinity to 1, and measures the percentage of variance explained by the predictor 
+negative infinity to 1, and measures the percentage of variance explained by the predictor
 variables in a regression.
 
 .. _r2_score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html
@@ -363,7 +363,7 @@ precision_score = make_metric(
 A metric for evaluating `precision`_ for classification.
 
 This metric computes an aggregate score between 0 and 1 for the precision of
-classification task. 
+classification task.
 
 .. _precision: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html
 """

@@ -2240,6 +2240,47 @@ def test_evaluate_question_answering_with_targets():
     assert results.metrics["exact_match/v1"] == 1.0
 
 
+def test_evaluate_question_answering_on_static_dataset_with_targets():
+    with mlflow.start_run() as run:
+        data = pd.DataFrame(
+            {
+                "question": ["words random", "This is a sentence."],
+                "answer": ["words random", "This is a sentence."],
+                "pred": ["words random", "This is a sentence."],
+            }
+        )
+        results = mlflow.evaluate(
+            data=data,
+            targets="answer",
+            predictions="pred",
+            model_type="question-answering",
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert "eval_results_table.json" in artifacts
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
+    validate_question_answering_logged_data(logged_data)
+    assert set(results.metrics.keys()) == {
+        "toxicity/v1/variance",
+        "perplexity/v1/p90",
+        "perplexity/v1/variance",
+        "toxicity/v1/ratio",
+        "toxicity/v1/mean",
+        "flesch_kincaid_grade_level/v1/variance",
+        "ari_grade_level/v1/p90",
+        "perplexity/v1/mean",
+        "flesch_kincaid_grade_level/v1/p90",
+        "flesch_kincaid_grade_level/v1/mean",
+        "ari_grade_level/v1/mean",
+        "ari_grade_level/v1/variance",
+        "exact_match/v1",
+        "toxicity/v1/p90",
+    }
+    assert results.metrics["exact_match/v1"] == 1.0
+    assert results.metrics["toxicity/v1/ratio"] == 0.0
+
+
 def question_classifier(inputs):
     return inputs["question"].map({"a": 0, "b": 1})
 
@@ -2385,21 +2426,21 @@ def test_evaluate_text_summarization_with_targets():
     assert set(metrics.keys()) == set(get_text_summarization_metrics_keys(with_targets=True))
 
 
-def another_language_model(x):
-    return x
-
-
 def test_evaluate_text_summarization_with_targets_no_type_hints():
+    def another_language_model(x):
+        return x
+
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=another_language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["a", "b"], "summary": ["a", "b"]})
-        results = mlflow.evaluate(
+        results = evaluate(
             model_info.model_uri,
             data,
             targets="summary",
             model_type="text-summarization",
+            evaluators="default",
         )
 
     client = mlflow.MlflowClient()
@@ -2826,13 +2867,14 @@ def test_default_metrics_as_custom_metrics():
         data = pd.DataFrame(
             {
                 "question": ["words random", "This is a sentence."],
+                "truth": ["words random", "This is a sentence."],
                 "answer": ["words random", "This is a sentence."],
             }
         )
-        results = mlflow.evaluate(
+        results = evaluate(
             model_info.model_uri,
             data,
-            targets="answer",
+            targets="truth",
             model_type="question-answering",
             custom_metrics=[
                 mlflow.metrics.flesch_kincaid_grade_level,
@@ -2841,6 +2883,10 @@ def test_default_metrics_as_custom_metrics():
                 mlflow.metrics.toxicity,
                 mlflow.metrics.exact_match,
             ],
+            evaluators="default",
+            evaluator_config={
+                "predicted_column": "answer",
+            },
         )
 
     client = mlflow.MlflowClient()
