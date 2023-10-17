@@ -3,8 +3,10 @@ import os
 import posixpath
 import shutil
 import subprocess
+import sys
 
 import click
+import psutil
 import pytest
 
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
@@ -26,6 +28,13 @@ def pytest_addoption(parser):
         dest="ignore_flavors",
         default=False,
         help="Ignore tests for model flavors.",
+    )
+    parser.addoption(
+        "--cpu-mem-usage",
+        action="store_true",
+        dest="ignore_flavors",
+        default=False,
+        help="If True, print CPU and memory usage before and after each test.",
     )
 
 
@@ -165,3 +174,15 @@ def enable_mlflow_testing():
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv(_MLFLOW_TESTING.name, "TRUE")
         yield
+
+
+@pytest.fixture(autouse=True)
+def cpu_mem_usage(request, capsys):
+    yield
+    if request.config.getoption("--cpu-mem-usage"):
+        with capsys.disabled():
+            process = psutil.Process()
+            sys.stdout.write(
+                f"| CPU: {process.cpu_percent():.1f}%, "
+                f"Mem: {process.memory_info().rss / 1e6:.1f} MB"
+            )
