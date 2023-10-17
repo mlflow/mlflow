@@ -1,4 +1,3 @@
-import hashlib
 import json
 import logging
 import math
@@ -31,7 +30,7 @@ from mlflow.models.evaluation.validation import (
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils import _get_fully_qualified_class_name
+from mlflow.utils import _get_fully_qualified_class_name, _insecure_md5
 from mlflow.utils.annotations import developer_stable, experimental
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.file_utils import TempDir
@@ -597,7 +596,7 @@ class EvaluationDataset:
             )
 
         # generate dataset hash
-        md5_gen = hashlib.md5()
+        md5_gen = _insecure_md5()
         _gen_md5_for_arraylike_obj(md5_gen, self._features_data)
         if self._labels_data is not None:
             _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)
