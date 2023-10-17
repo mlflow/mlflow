@@ -226,7 +226,7 @@ def log_model(
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
 
-    .. testcode:: python
+    .. code-block:: python
         :caption: Example
 
         import numpy as np
@@ -947,7 +947,7 @@ def autolog(
                                   The registered model is created if it does not already exist.
     :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
 
-    .. code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import os
