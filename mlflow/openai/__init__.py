@@ -47,7 +47,7 @@ from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_OPENAI_SECRET_S
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
-from mlflow.openai.utils import _OAITokenHolder
+from mlflow.openai.utils import _OAITokenHolder, _validate_model_params
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -358,6 +358,10 @@ def save_model(
         mlflow_model = Model()
 
     if signature is not None:
+        if signature.params:
+            _validate_model_params(
+                task, kwargs, {p.name: p.default for p in signature.params.params}
+            )
         mlflow_model.signature = signature
     elif task == "chat.completions":
         messages = kwargs.get("messages", [])
@@ -683,13 +687,14 @@ class _OpenAIWrapper:
         else:
             return data[self.formater.variables].to_dict(orient="records")
 
-    def _predict_chat(self, data):
+    def _predict_chat(self, data, params):
         import openai
 
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
+        _validate_model_params(self.task, self.model, params)
         messages_list = self.format_completions(self.get_params_list(data))
-        requests = [{**self.model, "messages": messages} for messages in messages_list]
+        requests = [{**self.model, **params, "messages": messages} for messages in messages_list]
         results = process_api_requests(
             requests,
             openai.ChatCompletion,
@@ -699,18 +704,20 @@ class _OpenAIWrapper:
         )
         return [r["choices"][0]["message"]["content"] for r in results]
 
-    def _predict_completions(self, data):
+    def _predict_completions(self, data, params):
         import openai
 
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
+        _validate_model_params(self.task, self.model, params)
         prompts_list = self.format_completions(self.get_params_list(data))
 
-        batch_size = self.api_config.batch_size
+        batch_size = params.pop("batch_size", self.api_config.batch_size)
         _logger.debug(f"Requests are being batched by {batch_size} samples.")
         requests = [
             {
                 **self.model,
+                **params,
                 "prompt": prompts_list[i : i + batch_size],
             }
             for i in range(0, len(prompts_list), batch_size)
@@ -724,12 +731,13 @@ class _OpenAIWrapper:
         )
         return [row["text"] for batch in results for row in batch["choices"]]
 
-    def _predict_embeddings(self, data):
+    def _predict_embeddings(self, data, params):
         import openai
 
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
-        batch_size = self.api_config.batch_size
+        _validate_model_params(self.task, self.model, params)
+        batch_size = params.pop("batch_size", self.api_config.batch_size)
         _logger.debug(f"Requests are being batched by {batch_size} samples.")
 
         first_string_column = _first_string_column(data)
@@ -737,6 +745,7 @@ class _OpenAIWrapper:
         requests = [
             {
                 **self.model,
+                **params,
                 "input": texts[i : i + batch_size],
             }
             for i in range(0, len(texts), batch_size)
@@ -750,9 +759,7 @@ class _OpenAIWrapper:
         )
         return [row["embedding"] for batch in results for row in batch["data"]]
 
-    def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
-    ):
+    def predict(self, data, params: Optional[Dict[str, Any]] = None):
         """
         :param data: Model input data.
         :param params: Additional parameters to pass to the model for inference.
@@ -765,11 +772,11 @@ class _OpenAIWrapper:
 
         self.api_token.validate()
         if self.task == "chat.completions":
-            return self._predict_chat(data)
+            return self._predict_chat(data, params or {})
         elif self.task == "completions":
-            return self._predict_completions(data)
+            return self._predict_completions(data, params or {})
         elif self.task == "embeddings":
-            return self._predict_embeddings(data)
+            return self._predict_embeddings(data, params or {})
 
 
 class _TestOpenAIWrapper(_OpenAIWrapper):

@@ -38,6 +38,7 @@ select = [
   "PT026",
   "PT027",
   "RUF010",
+  "RUF013",
   "S307",
   "UP004",
   "UP008",
@@ -58,6 +59,7 @@ select = [
   "T20",
   "TID252",
   "TID251",
+  "W",
 ]
 force-exclude = true
 ignore = [
