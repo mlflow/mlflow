@@ -137,11 +137,12 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
         if isinstance(dtype, Object):
             for v in data[1:]:
                 dtype2 = _infer_colspec_type(v)
-                if not isinstance(dtype2, Object):
+                try:
+                    dtype = dtype._merge(dtype2)
+                except MlflowException as e:
                     raise MlflowException.invalid_parameter_value(
                         "Expected all values in list to be of same type"
-                    )
-                dtype = dtype._merge(dtype2)
+                    ) from e
             return Array(dtype)
         if isinstance(dtype, DataType):
             if any(_infer_colspec_type(v) != dtype for v in data[1:]):
@@ -262,8 +263,9 @@ def _infer_schema(data: Any) -> Schema:
                 "- List[DataType]\n"
                 "- Dict[str, Union[DataType, List, Dict]]\n"
                 "- List[Dict[str, Union[DataType, List, Dict]]]\n"
-                f"but got '{data}'",
-            ) from e
+                f"but got '{data}'.\n"
+                f"Error: {e}",
+            )
     if not schema.is_tensor_spec() and any(
         t in (DataType.integer, DataType.long) for t in schema.input_types()
     ):

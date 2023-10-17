@@ -288,11 +288,6 @@ def test_get_tensor_shape(dict_of_ndarrays):
     ):
         _get_tensor_shape(data, -10)
 
-    with pytest.raises(
-        MlflowException, match="Invalid values in dictionary. If passing a dictionary"
-    ):
-        _infer_schema({"x": 1})
-
 
 @pytest.fixture
 def dict_of_sparse_matrix():
@@ -320,62 +315,86 @@ def test_schema_inference_on_dictionary(dict_of_ndarrays):
     )
 
 
-def test_schema_inference_on_string_input():
-    schema = _infer_schema("some string")
-    assert schema == Schema([ColSpec(DataType.string)])
+@pytest.mark.parametrize(
+    ("data", "col_spec"),
+    [
+        (
+            {"a": "b", "c": "d"},
+            Object([Property("a", DataType.string), Property("c", DataType.string)]),
+        ),
+        (
+            {"a": ["a", "b"], "b": ["c", "d"]},
+            Object([Property("a", Array(DataType.string)), Property("b", Array(DataType.string))]),
+        ),
+        (
+            {"a": "a", "b": ["a", "b"]},
+            Object([Property("a", DataType.string), Property("b", Array(DataType.string))]),
+        ),
+        (
+            [{"a": 1}, {"a": 1, "b": ["a", "b"]}],
+            Array(
+                Object(
+                    [
+                        Property("a", DataType.long),
+                        Property("b", Array(DataType.string), required=False),
+                    ]
+                )
+            ),
+        ),
+    ],
+)
+def test_schema_inference_on_dictionary_of_strings(data, col_spec):
+    assert _infer_schema(data) == Schema([ColSpec(col_spec)])
 
-    with pytest.raises(TypeError, match="Expected one of the following types:"):
-        _infer_schema(1)
 
-
-def test_schema_inference_on_dictionary_of_strings():
-    for valid_data in [
-        {"a": "b", "c": "d"},
-        {"a": ["a", "b"], "b": ["c", "d"]},
-        {"a": "a", "b": ["a", "b"]},
-    ]:
-        schema = _infer_schema(valid_data)
-        assert schema == Schema([ColSpec(DataType.string, name) for name in valid_data])
-    for invalid_data in [{"a": 1, "b": "c"}, {"a": 1, "b": ["a", "b"]}]:
-        with pytest.raises(
-            MlflowException, match="Invalid values in dictionary. If passing a dictionary"
-        ):
-            _infer_schema(invalid_data)
+def test_schema_inference_on_list_with_errors():
+    data = [{"a": 1, "b": "c"}, {"a": 1, "b": ["a", "b"]}]
+    with pytest.raises(MlflowException, match=r"Expected all values in list to be of same type"):
+        _infer_schema(data)
 
 
 def test_schema_inference_validating_dictionary_keys():
-    valid_data = {"a": "b", "b": "c"}
-    schema = _infer_schema(valid_data)
-    assert schema == Schema([ColSpec(DataType.string, name) for name in valid_data])
     for data in [{1.7: "a", "b": "c"}, {12.4: "c", "d": "e"}]:
-        with pytest.raises(
-            MlflowException, match="The dictionary keys are not all strings or indexes. Invalid "
-        ):
+        with pytest.raises(MlflowException, match="The dictionary keys are not all strings."):
             _infer_schema(data)
 
 
-def test_schema_inference_on_list_of_strings():
-    schema = _infer_schema(["a", "b", "c"])
-    assert schema == Schema([ColSpec(DataType.string)])
-
+def test_schema_inference_on_lists_with_errors():
     for data in [["a", 1], ["a", ["b", "c"]]]:
-        with pytest.raises(TypeError, match="Expected one of the following types"):
+        with pytest.raises(
+            MlflowException, match="Expected all values in list to be of same type "
+        ):
             _infer_schema(data)
 
 
 def test_schema_inference_on_list_of_dicts():
     schema = _infer_schema([{"a": "a", "b": "b"}, {"a": "a", "b": "b"}])
-    assert schema == Schema([ColSpec(DataType.string, "a"), ColSpec(DataType.string, "b")])
+    assert schema == Schema(
+        [ColSpec(Array(Object([Property("a", DataType.string), Property("b", DataType.string)])))]
+    )
 
-    with pytest.raises(MlflowException, match="The list of dictionaries supplied has inconsistent"):
-        _infer_schema([{"a": "a", "b": "b"}, {"a": "c", "c": "invalid"}])
-    with pytest.raises(TypeError, match="Expected one of the following types:"):
-        _infer_schema([{"a": 1}, {"b": "a"}])
+    schema = _infer_schema([{"a": 1}, {"b": "a"}])
+    assert schema == Schema(
+        [
+            ColSpec(
+                Array(
+                    Object(
+                        [
+                            Property("a", DataType.long, required=False),
+                            Property("b", DataType.string, required=False),
+                        ]
+                    )
+                )
+            )
+        ]
+    )
 
 
-def test_mixed_string_and_numpy_array_raises():
-    with pytest.raises(MlflowException, match="Invalid values in dictionary. If passing a"):
-        _infer_schema({"a": np.array([1, 2, 3]), "b": "c"})
+def test_mixed_string_and_numpy_array():
+    schema = _infer_schema({"a": np.array([1, 2, 3]), "b": "c"})
+    assert schema == Schema(
+        [ColSpec(Object([Property("a", Array(DataType.long)), Property("b", DataType.string)]))]
+    )
 
 
 def test_dict_input_valid_checks_on_keys():
@@ -1269,6 +1288,8 @@ def test_array_from_dict_with_errors():
 
 
 def test_nested_array_object_to_and_from_dict():
+    data = [{"p": "a", "arr": [{"p2": True, "arr2": [1, 2, 3]}, {"arr2": [2, 3, 4]}]}]
+    col_spec = _infer_colspec_type(data)
     arr = Array(
         Object(
             [
@@ -1279,7 +1300,7 @@ def test_nested_array_object_to_and_from_dict():
                         Object(
                             [
                                 Property("p2", DataType.boolean, required=False),
-                                Property("arr2", Array(DataType.integer)),
+                                Property("arr2", Array(DataType.long)),
                             ]
                         )
                     ),
@@ -1287,8 +1308,7 @@ def test_nested_array_object_to_and_from_dict():
             ]
         )
     )
-    data = [{"p": "a", "arr": [{"p2": True, "arr2": [1, 2, 3]}, {"arr2": [2, 3, 4]}]}]
-    assert _infer_colspec_type(data) == arr
+    assert col_spec == arr
     assert arr.to_dict() == {
         "type": "array",
         "items": {
@@ -1303,7 +1323,7 @@ def test_nested_array_object_to_and_from_dict():
                             "p2": {"type": "boolean", "required": False},
                             "arr2": {
                                 "type": "array",
-                                "items": {"type": "integer"},
+                                "items": {"type": "long"},
                                 "required": True,
                             },
                         },
@@ -1438,7 +1458,7 @@ def test_infer_colspec_type():
     )
 
 
-def test_colspec_schema_to_and_from_dict():
+def test_infer_schema_on_objects_and_arrays_to_and_from_dict():
     data = [
         {
             "messages": [
@@ -1452,9 +1472,7 @@ def test_colspec_schema_to_and_from_dict():
             ]
         },
     ]
-    dtype = _infer_colspec_type(data)
-
-    schema = Schema([ColSpec(dtype)])
+    schema = _infer_schema(data)
     assert schema.to_dict() == [
         {
             "type": "array",
@@ -1494,8 +1512,7 @@ def test_colspec_schema_to_and_from_dict():
             ]
         },
     ]
-    dtype = _infer_colspec_type(data)
-    schema = Schema([ColSpec(dtype)])
+    schema = _infer_schema(data)
     assert schema.to_dict() == [
         {
             "type": "array",
@@ -1536,16 +1553,6 @@ def test_colspec_schema_to_and_from_dict():
     ],
 )
 def test_schema_inference_on_datatypes(data, data_type):
-    # - pandas.DataFrame
-    # - pandas.Series
-    # - numpy.ndarray
-    # - dictionary of (name -> numpy.ndarray)
-    # - pyspark.sql.DataFrame
-    # - scipy.sparse.csr_matrix/csc_matrix
-    # - DataType
-    # - List[DataType]
-    # - Dict[str, Union[DataType, List, Dict]]
-    # - List[Dict[str, Union[DataType, List, Dict]]]
     assert _infer_schema(data) == Schema([ColSpec(data_type)])
 
 

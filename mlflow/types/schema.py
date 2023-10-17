@@ -264,6 +264,8 @@ class Property:
                 )
 
         """
+        if not isinstance(prop, Property):
+            raise MlflowException("Can't merge property with non-property type")
         if self.name != prop.name:
             raise MlflowException("Can't merge properties with different names")
         required = self.required and prop.required
@@ -402,6 +404,8 @@ class Object:
                 )
 
         """
+        if not isinstance(obj, Object):
+            raise MlflowException("Can't merge object with non-object type")
         if self == obj:
             return deepcopy(self)
         prop_dict1 = {prop.name: prop for prop in self.properties}

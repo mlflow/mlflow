@@ -12,7 +12,12 @@ from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
 from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
-from mlflow.types.utils import TensorsNotSupportedException, _infer_param_schema, clean_tensor_type
+from mlflow.types.schema import Array, Object, Property
+from mlflow.types.utils import (
+    TensorsNotSupportedException,
+    _infer_param_schema,
+    clean_tensor_type,
+)
 from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
@@ -36,6 +41,7 @@ ModelInputExample = Union[
     pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes, tuple
 ]
 
+# TODO: update this
 PyFuncInput = Union[
     pd.DataFrame, pd.Series, np.ndarray, "csc_matrix", "csr_matrix", List[Any], Dict[str, Any], str
 ]
@@ -751,6 +757,13 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     if isinstance(pf_input, pd.Series):
         pf_input = pd.DataFrame(pf_input)
     if not input_schema.is_tensor_spec():
+        if len(input_schema.inputs) == 1:
+            col_spec = input_schema.inputs[0]
+            if isinstance(col_spec.type, Array):
+                return _enforce_array(pf_input, col_spec.type)
+            if isinstance(col_spec.type, Object):
+                return _enforce_object(pf_input, col_spec.type)
+
         if isinstance(pf_input, (list, np.ndarray, dict, pd.Series, str, bytes)):
             try:
                 if isinstance(pf_input, (str, bytes)):
@@ -856,6 +869,75 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
         return _enforce_named_col_schema(pf_input, input_schema)
     else:
         return _enforce_unnamed_col_schema(pf_input, input_schema)
+
+
+def _enforce_datatype(data: Any, dtype: DataType):
+    if not isinstance(dtype, DataType):
+        raise MlflowException(f"Expected dtype to be DataType, got {type(dtype).__name__}")
+    # we do not convert data type for users
+    if dtype == DataType.boolean and DataType.is_boolean(data):
+        return data
+    if dtype == DataType.integer and DataType.is_integer(data):
+        return data
+    if dtype == DataType.long and DataType.is_long(data):
+        return data
+    if dtype == DataType.float and DataType.is_float(data):
+        return data
+    if dtype == DataType.double and DataType.is_double(data):
+        return data
+    if dtype == DataType.string and DataType.is_string(data):
+        return data
+    if dtype == DataType.binary and DataType.is_binary(data):
+        return data
+    if dtype == DataType.datetime and DataType.is_datetime(data):
+        return data
+    raise MlflowException(f"Failed to enforce schema of data `{data}` with dtype `{dtype.name}`")
+
+
+def _enforce_array(data: Any, arr: Array):
+    # Question: should we convert np.ndarry to list
+    if not isinstance(data, list):
+        data = data.tolist() if isinstance(data, np.ndarray) else list(data)
+    if isinstance(arr.dtype, DataType):
+        return [_enforce_datatype(x, arr.dtype) for x in data]
+    if isinstance(arr.dtype, Object):
+        return [_enforce_object(x, arr.dtype) for x in data]
+    raise MlflowException(f"Failed to enforce schema of data `{data}` with dtype `{arr.dtype}`")
+
+
+def _enforce_property(data: Any, property: Property):
+    if isinstance(property.dtype, DataType):
+        return _enforce_datatype(data, property.dtype)
+    if isinstance(property.dtype, Array):
+        return _enforce_array(data, property.dtype)
+    if isinstance(property.dtype, Object):
+        return _enforce_object(data, property.dtype)
+    raise MlflowException(
+        f"Failed to enforce schema of data `{data}` with dtype `{property.dtype}`"
+    )
+
+
+def _enforce_object(data: dict, obj: Object):
+    if not isinstance(data, dict):
+        raise MlflowException(f"Expected data to be dictionary, got {type(data).__name__}")
+    if not isinstance(obj, Object):
+        raise MlflowException(f"Expected obj to be Object, got {type(obj).__name__}")
+    properties = {prop.name: prop for prop in obj.properties}
+    required_props = {k for k, prop in properties.items() if prop.required}
+    missing_props = required_props - set(data.keys())
+    if missing_props:
+        raise MlflowException(f"Missing required properties: {missing_props}")
+    invalid_props = set(data.keys()) - set(properties.keys())
+    if invalid_props:
+        raise MlflowException(
+            "Invalid properties not defined in the schema found: " f"{invalid_props}"
+        )
+    for k, v in data.items():
+        try:
+            data[k] = _enforce_property(v, properties[k])
+        except MlflowException as e:
+            raise MlflowException(f"Failed to enforce schema for key `{k}`") from e
+    return data
 
 
 def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
