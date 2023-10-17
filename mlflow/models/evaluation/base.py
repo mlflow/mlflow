@@ -1197,10 +1197,9 @@ def evaluate(
           precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
 
      - For question-answering models, the default evaluator logs:
-        - **metrics**: ``exact_match``, `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
-          `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_, `transformers`_),
-          `mean_ari_grade_level`_ (requires `textstat`_), `mean_flesch_kincaid_grade_level`_
-          (requires `textstat`_).
+        - **metrics**: ``exact_match``, ``token_count``, `mean_perplexity`_ (requires `evaluate`_,
+          `pytorch`_, `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_,
+          `mean_flesch_kincaid_grade_level`_ (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in tabular format.
 
@@ -1229,8 +1228,8 @@ def evaluate(
             https://pypi.org/project/textstat
 
      - For text-summarization models, the default evaluator logs:
-        - **metrics**: `ROUGE`_ (requires `evaluate`_, `nltk`_, and `rouge_score`_ to be installed),
-          `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
+        - **metrics**: ``token_count``, `ROUGE`_ (requires `evaluate`_, `nltk`_, and
+          `rouge_score`_ to be installed), `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
           `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_, `transformers`_),
           `mean_ari_grade_level`_ (requires `textstat`_), `mean_flesch_kincaid_grade_level`_
           (requires `textstat`_).
@@ -1271,7 +1270,7 @@ def evaluate(
             https://pypi.org/project/textstat
 
      - For text models, the default evaluator logs:
-        - **metrics**: `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
+        - **metrics**: ``token_count``, `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
           `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_, `transformers`_),
           `mean_ari_grade_level`_ (requires `textstat`_), `mean_flesch_kincaid_grade_level`_
           (requires `textstat`_).
@@ -1442,7 +1441,7 @@ def evaluate(
                        - ``'text'``
 
                        If no ``model_type`` is specified, then you must provide a a list of
-                       metrics to compute via the``extra_metrics`` param.
+                       metrics to compute via the ``extra_metrics`` param.
 
                        .. note::
                             ``'question-answering'``, ``'text-summarization'``, and ``'text'``
