@@ -225,7 +225,7 @@ def save_model(
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
-    metadata: Dict[str, Any] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
@@ -560,14 +560,14 @@ def log_model(
     model_card=None,
     inference_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
-    registered_model_name: str = None,
+    registered_model_name: Optional[str] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
-    metadata: Dict[str, Any] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
     **kwargs,
 ):
@@ -777,7 +777,9 @@ def log_model(
 
 @experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
-def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", device=None, **kwargs):
+def load_model(
+    model_uri: str, dst_path: Optional[str] = None, return_type="pipeline", device=None, **kwargs
+):
     """
     Load a ``transformers`` object from a local file or a run.
 
@@ -1568,7 +1570,7 @@ def _get_model_config(local_path, pyfunc_config):
         return pyfunc_config or {}
 
 
-def _load_pyfunc(path, model_config: Dict[str, Any] = None):
+def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     """
     Loads the model as pyfunc model
     """
