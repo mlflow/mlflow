@@ -606,7 +606,6 @@ def test_pandas_df_regressor_evaluation_mlflow_dataset_with_metric_prefix(
         eval_result = evaluate(
             linear_regressor_model_uri,
             data=mlflow_df,
-            targets="y",
             model_type="regressor",
             evaluators=["default"],
             evaluator_config={
@@ -634,7 +633,6 @@ def test_pandas_df_regressor_evaluation_mlflow_dataset(linear_regressor_model_ur
         eval_result = evaluate(
             linear_regressor_model_uri,
             data=mlflow_df,
-            targets="y",
             model_type="regressor",
             evaluators=["default"],
         )
@@ -1450,20 +1448,6 @@ def test_evaluate_with_static_mlflow_dataset_input():
         mlflow.evaluate(
             data=data,
             model_type="regressor",
-        )
-
-    run = mlflow.get_run(run.info.run_id)
-    assert "mean_absolute_error" in run.data.metrics
-    assert "mean_squared_error" in run.data.metrics
-    assert "root_mean_squared_error" in run.data.metrics
-
-    # redundent predictions parameter is allowed
-    with mlflow.start_run() as run:
-        mlflow.evaluate(
-            data=data,
-            model_type="regressor",
-            targets="y",
-            predictions="model_output",  # same as data.predictions
         )
 
     run = mlflow.get_run(run.info.run_id)
