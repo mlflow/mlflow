@@ -2855,26 +2855,31 @@ def test_evaluate_no_model_type_with_custom_metric():
         ]
 
 
-def identity_model(inputs):
-    return inputs
+def multi_output_model(inputs):
+    return pd.DataFrame(
+        {
+            "answer": ["words random", "This is a sentence."],
+            "source": ["words random", "This is a sentence."],
+        }
+    )
 
 
 def test_default_metrics_as_custom_metrics():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            artifact_path="model", python_model=identity_model, input_example=["a", "b"]
+            artifact_path="model", python_model=multi_output_model, input_example=["a"]
         )
         data = pd.DataFrame(
             {
                 "question": ["words random", "This is a sentence."],
                 "truth": ["words random", "This is a sentence."],
-                "answer": ["words random", "This is a sentence."],
             }
         )
         results = evaluate(
             model_info.model_uri,
             data,
             targets="truth",
+            predictions="answer",
             model_type="question-answering",
             custom_metrics=[
                 mlflow.metrics.flesch_kincaid_grade_level,
@@ -2884,9 +2889,40 @@ def test_default_metrics_as_custom_metrics():
                 mlflow.metrics.exact_match,
             ],
             evaluators="default",
-            evaluator_config={
-                "predicted_column": "answer",
-            },
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert "eval_results_table.json" in artifacts
+    for metric in ["toxicity", "perplexity", "ari_grade_level", "flesch_kincaid_grade_level"]:
+        for measure in ["mean", "p90", "variance"]:
+            assert f"{metric}/v1/{measure}" in results.metrics.keys()
+    assert "exact_match/v1" in results.metrics.keys()
+
+
+def test_default_metrics_as_custom_metrics_static_dataset():
+    with mlflow.start_run() as run:
+        data = pd.DataFrame(
+            {
+                "question": ["words random", "This is a sentence."],
+                "truth": ["words random", "This is a sentence."],
+                "answer": ["words random", "This is a sentence."],
+                "source": ["words random", "This is a sentence."],
+            }
+        )
+        results = evaluate(
+            data=data,
+            targets="truth",
+            predictions="answer",
+            model_type="question-answering",
+            custom_metrics=[
+                mlflow.metrics.flesch_kincaid_grade_level,
+                mlflow.metrics.perplexity,
+                mlflow.metrics.ari_grade_level,
+                mlflow.metrics.toxicity,
+                mlflow.metrics.exact_match,
+            ],
+            evaluators="default",
         )
 
     client = mlflow.MlflowClient()
@@ -2964,41 +3000,3 @@ def test_evaluate_with_latency_static_dataset():
     }
     assert all(isinstance(grade, float) for grade in logged_data["latency"])
     assert all(grade == 0.0 for grade in logged_data["latency"])
-
-
-def test_default_metrics_as_custom_metrics_static_dataset():
-    with mlflow.start_run() as run:
-        data = pd.DataFrame(
-            {
-                "question": ["words random", "This is a sentence."],
-                "truth": ["words random", "This is a sentence."],
-                "answer": ["words random", "This is a sentence."],
-                "question_model_output": ["words random", "This is a sentence."],
-                "answer_model_output": ["words random", "This is a sentence."],
-            }
-        )
-        results = evaluate(
-            data=data,
-            targets="truth",
-            predictions="answer_model_output",
-            model_type="question-answering",
-            custom_metrics=[
-                mlflow.metrics.flesch_kincaid_grade_level,
-                mlflow.metrics.perplexity,
-                mlflow.metrics.ari_grade_level,
-                mlflow.metrics.toxicity,
-                mlflow.metrics.exact_match,
-            ],
-            evaluators="default",
-            evaluator_config={
-                "predicted_column": "answer",
-            },
-        )
-
-    client = mlflow.MlflowClient()
-    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
-    assert "eval_results_table.json" in artifacts
-    for metric in ["toxicity", "perplexity", "ari_grade_level", "flesch_kincaid_grade_level"]:
-        for measure in ["mean", "p90", "variance"]:
-            assert f"{metric}/v1/{measure}" in results.metrics.keys()
-    assert "exact_match/v1" in results.metrics.keys()

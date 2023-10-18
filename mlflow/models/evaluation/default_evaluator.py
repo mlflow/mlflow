@@ -61,7 +61,6 @@ _logger = logging.getLogger(__name__)
 
 _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 _EVAL_TABLE_FILE_NAME = "eval_results_table.json"
-_Y_PREDICTED_OUTPUT_COLUMN_NAME = "predicted_column"
 _TOKEN_COUNT_METRIC_NAME = "token_count"
 _LATENCY_METRIC_NAME = "latency"
 
@@ -458,7 +457,7 @@ def _extract_output_and_other_columns(model_predictions, output_column_name):
             raise MlflowException(
                 f"Output column name '{output_column_name}' is not found in the model "
                 f"predictions list: {model_predictions}. Please set the correct output column "
-                "name using the `predicted_column` parameter in evaluator config."
+                "name using the `predictions` parameter."
             )
     elif isinstance(model_predictions, pd.DataFrame):
         if output_column_name in model_predictions.columns:
@@ -468,7 +467,7 @@ def _extract_output_and_other_columns(model_predictions, output_column_name):
             raise MlflowException(
                 f"Output column name '{output_column_name}' is not found in the model "
                 f"predictions dataframe {model_predictions.columns}. Please set the correct "
-                "output column name using the `predicted_column` parameter in evaluator config."
+                "output column name using the `predictions` parameter."
             )
     elif isinstance(model_predictions, dict):
         if output_column_name in model_predictions:
@@ -480,7 +479,7 @@ def _extract_output_and_other_columns(model_predictions, output_column_name):
             raise MlflowException(
                 f"Output column name '{output_column_name}' is not found in the "
                 f"model predictions dict {model_predictions}. Please set the correct "
-                "output column name using the `predicted_column` parameter in evaluator config."
+                "output column name using the ``predictions` parameter."
             )
 
     return y_pred if y_pred is not None else model_predictions, other_output_columns
@@ -1159,8 +1158,8 @@ class DefaultEvaluator(ModelEvaluator):
                     ):
                         eval_fn_args.append(self.other_output_columns[column])
                     elif param.default == inspect.Parameter.empty:
-                        output_column_name = self.evaluator_config.get(
-                            _Y_PREDICTED_OUTPUT_COLUMN_NAME, "output"
+                        output_column_name = (
+                            self.predictions if self.predictions is not None else "output"
                         )
                         output_columns = list(self.other_output_columns.columns)
                         input_columns = list(input_df.columns)
@@ -1360,7 +1359,7 @@ class DefaultEvaluator(ModelEvaluator):
             else:
                 self.y_probs = None
 
-        output_column_name = self.evaluator_config.get(_Y_PREDICTED_OUTPUT_COLUMN_NAME, "output")
+        output_column_name = self.predictions if self.predictions is not None else "output"
         self.y_pred, self.other_output_columns = _extract_output_and_other_columns(
             model_predictions, output_column_name
         )
@@ -1590,6 +1589,7 @@ class DefaultEvaluator(ModelEvaluator):
         extra_metrics=None,
         custom_artifacts=None,
         baseline_model=None,
+        predictions=None,
         **kwargs,
     ):
         self.dataset = dataset
@@ -1600,6 +1600,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         self.custom_artifacts = custom_artifacts
         self.y = dataset.labels_data
+        self.predictions = predictions
         self.col_mapping = self.evaluator_config.get("col_mapping", {})
         self.pos_label = self.evaluator_config.get("pos_label")
         self.sample_weights = self.evaluator_config.get("sample_weights")

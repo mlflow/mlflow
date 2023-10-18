@@ -769,6 +769,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         extra_metrics=None,
         custom_artifacts=None,
         baseline_model=None,
+        predictions=None,
         **kwargs,
     ):
         """
@@ -793,6 +794,9 @@ class ModelEvaluator(metaclass=ABCMeta):
                                           flavor as a baseline model to be compared with the
                                           candidate model (specified by the `model` param) for model
                                           validation. (pyfunc model instance is not allowed)
+        :param predictions: The column name of the model output column that is used for evaluation.
+                            This is only used when a model returns a pandas dataframe that contains
+                            multiple columns.
         :return: A :py:class:`mlflow.models.EvaluationResult` instance containing
                  evaluation metrics for candidate model and baseline model and
                  artifacts for candidate model.
@@ -1066,6 +1070,7 @@ def _evaluate(
     extra_metrics,
     custom_artifacts,
     baseline_model,
+    predictions,
 ):
     """
     The public API "evaluate" will verify argument first, and then pass normalized arguments
@@ -1107,6 +1112,7 @@ def _evaluate(
                 extra_metrics=extra_metrics,
                 custom_artifacts=custom_artifacts,
                 baseline_model=baseline_model,
+                predictions=predictions,
             )
             eval_results.append(eval_result)
 
@@ -1428,8 +1434,32 @@ def evaluate(
                     ``data`` is a :py:class:`mlflow.data.dataset.Dataset` that defines targets,
                     then ``targets`` is optional.
 
-    :param predictions: Optional. Only used when ``model`` is not specified and ``data`` is a pandas
-                        dataframe. The name of the column in ``data`` that contains model outputs.
+    :param predictions: Optional. The name of the column that contains model outputs. There are two
+                        cases where this argument is required:
+
+                        - When ``model`` is specified and outputs multiple columns. The
+                          ``predictions`` should be the name of the column that is used for
+                          evaluation.
+                        - When ``model`` is not specified and ``data`` is a pandas dataframe. The
+                          ``predictions`` should be the name of the column in ``data`` that
+                          contains model outputs.
+
+        .. code-block:: python
+            :caption: Example usage of predictions
+
+            # Evaluate a model that outputs multiple columns
+            data = pd.DataFrame({"question": ["foo"]})
+
+
+            def model(inputs):
+                return pd.DataFrame({"answer": ["bar"], "source": ["baz"]})
+
+
+            results = evalaute(model=model, data=data, predictions="answer", ...)
+
+            # Evaluate a static dataset
+            data = pd.DataFrame({"question": ["foo"], "answer": ["bar"], "source": ["baz"]})
+            results = evalaute(data=data, predictions="answer", ...)
 
     :param model_type: (Optional) A string describing the model type. The default evaluator
                        supports the following model types:
@@ -1633,12 +1663,6 @@ def evaluate(
             message="The data argument cannot be None.", error_code=INVALID_PARAMETER_VALUE
         )
 
-    if predictions is not None and model is not None:
-        raise MlflowException(
-            message="The predictions argument cannot be specified when model is specified.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
     _EnvManager.validate(env_manager)
 
     # If Dataset is provided, the targets and predictions can only be specified by the Dataset,
@@ -1779,9 +1803,12 @@ def evaluate(
     with _start_run_or_reuse_active_run() as run_id:
         if not isinstance(data, Dataset):
             # Convert data to `mlflow.data.dataset.Dataset`.
-            data = _convert_data_to_mlflow_dataset(
-                data=data, targets=targets, predictions=predictions
-            )
+            if model is None:
+                data = _convert_data_to_mlflow_dataset(
+                    data=data, targets=targets, predictions=predictions
+                )
+            else:
+                data = _convert_data_to_mlflow_dataset(data=data, targets=targets)
 
         from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 
@@ -1802,6 +1829,7 @@ def evaluate(
                 path=dataset_path,
                 feature_names=feature_names,
             )
+        predictions_expected_in_model_output = predictions if model is not None else None
 
         try:
             evaluate_result = _evaluate(
@@ -1815,6 +1843,7 @@ def evaluate(
                 extra_metrics=extra_metrics,
                 custom_artifacts=custom_artifacts,
                 baseline_model=baseline_model,
+                predictions=predictions_expected_in_model_output,
             )
         finally:
             if isinstance(model, _ServedPyFuncModel):

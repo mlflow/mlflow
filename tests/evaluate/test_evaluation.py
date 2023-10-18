@@ -1509,18 +1509,6 @@ def test_evaluate_with_static_dataset_error_handling_pandas_dataframe():
                 model_type="regressor",
             )
 
-        with pytest.raises(
-            MlflowException,
-            match="The predictions argument cannot be specified when model is specified.",
-        ):
-            mlflow.evaluate(
-                model="models:/test",
-                data=X.assign(y=y, model_output=y).to_numpy(),
-                targets="y",
-                predictions="model_output",
-                model_type="regressor",
-            )
-
         with pytest.raises(MlflowException, match="The data argument cannot be None."):
             mlflow.evaluate(
                 data=None,
