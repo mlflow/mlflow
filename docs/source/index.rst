@@ -26,6 +26,7 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     concepts
     tracking
     python_api/index
+    notebooks
 
 .. grid::  1 2 2 2
     :gutter: 4
@@ -38,10 +39,10 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
         The reference describes how the methods work and which parameters can
         be used. It assumes that you have an understanding of the key concepts.
 
-    .. grid-item-card::  Tutorials
+    .. grid-item-card::  Notebooks
+        :link: notebooks.html
 
-        ...
-
+        Notebooks
 
     .. grid-item-card::  Another card
 
