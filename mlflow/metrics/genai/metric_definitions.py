@@ -11,18 +11,18 @@ from mlflow.utils.class_utils import _get_class_from_string
 
 
 @experimental
-def correctness(
+def answer_similarity(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
     examples: Optional[List[EvaluationExample]] = None,
     judge_request_timeout=60,
 ) -> EvaluationMetric:
     """
-    This function will create a genai metric used to evaluate the correctness of an LLM using the
-    model provided. Correctness will be assessed by the similarity in meaning and description to
-    the ``ground_truth``.
+    This function will create a genai metric used to evaluate the answer similarity of an LLM
+    using the model provided. Answer similarity will be assessed by the semantic similarity of the
+    output to the ``ground_truth``, which should be specified in the ``target`` column.
 
-    The ``ground_truth`` eval_arg must be provided as part of the input dataset or output
+    The ``target`` eval_arg must be provided as part of the input dataset or output
     predictions. This can be mapped to a column of a different name using the a ``col_mapping``
     in the ``evaluator_config``.
 
@@ -31,10 +31,10 @@ def correctness(
     :param model: (Optional) The model that will be used to evaluate this metric. Defaults to
         gpt-3.5-turbo-16k. Your use of a third party LLM service (e.g., OpenAI) for evaluation may
         be subject to and governed by the LLM service's terms of use.
-    :param metric_version: (Optional) The version of the correctness metric to use.
+    :param metric_version: (Optional) The version of the answer similarity metric to use.
         Defaults to the latest version.
     :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
-        correctness. It is highly recommended to add examples to be used as a reference to
+        answer similarity. It is highly recommended to add examples to be used as a reference to
         evaluate the new results.
     :param judge_request_timeout: (Optional) The timeout in seconds for the judge API request.
         Defaults to 60 seconds.
@@ -42,35 +42,35 @@ def correctness(
     """
     if metric_version is None:
         metric_version = _get_latest_metric_version()
-    class_name = f"mlflow.metrics.genai.prompts.{metric_version}.CorrectnessMetric"
+    class_name = f"mlflow.metrics.genai.prompts.{metric_version}.AnswerSimilarityMetric"
     try:
-        correctness_class_module = _get_class_from_string(class_name)
+        answer_similarity_class_module = _get_class_from_string(class_name)
     except ModuleNotFoundError:
         raise MlflowException(
-            f"Failed to find correctness metric for version {metric_version}."
+            f"Failed to find answer similarity metric for version {metric_version}."
             f" Please check the version",
             error_code=INVALID_PARAMETER_VALUE,
         ) from None
     except Exception as e:
         raise MlflowException(
-            f"Failed to construct correctness metric {metric_version}. Error: {e!r}",
+            f"Failed to construct answer similarity metric {metric_version}. Error: {e!r}",
             error_code=INTERNAL_ERROR,
         ) from None
 
     if examples is None:
-        examples = correctness_class_module.default_examples
+        examples = answer_similarity_class_module.default_examples
     if model is None:
-        model = correctness_class_module.default_model
+        model = answer_similarity_class_module.default_model
 
     return make_genai_metric(
-        name="correctness",
-        definition=correctness_class_module.definition,
-        grading_prompt=correctness_class_module.grading_prompt,
+        name="answer_similarity",
+        definition=answer_similarity_class_module.definition,
+        grading_prompt=answer_similarity_class_module.grading_prompt,
         examples=examples,
         version=metric_version,
         model=model,
-        grading_context_columns=correctness_class_module.grading_context_columns,
-        parameters=correctness_class_module.parameters,
+        grading_context_columns=answer_similarity_class_module.grading_context_columns,
+        parameters=answer_similarity_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
         judge_request_timeout=judge_request_timeout,
