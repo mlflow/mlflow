@@ -1138,17 +1138,18 @@ class DefaultEvaluator(ModelEvaluator):
                 eval_fn_args.append(copy.deepcopy(self.metrics))
         else:
             for param_name, param in parameters.items():
-                if param_name == "predictions":
+                column = self.col_mapping.get(param_name, param_name)
+
+                if column == "predictions" or column == self.dataset.predictions_name:
                     eval_fn_args.append(eval_df_copy["prediction"])
-                elif param_name == "targets":
+                elif column == "targets" or column == self.dataset.targets_name:
                     if "target" in eval_df_copy:
                         eval_fn_args.append(eval_df_copy["target"])
                     else:
                         eval_fn_args.append(None)
-                elif param_name == "metrics":
+                elif column == "metrics":
                     eval_fn_args.append(copy.deepcopy(self.metrics_values))
                 else:
-                    column = self.col_mapping.get(param_name, param_name)
                     if not isinstance(column, str):
                         eval_fn_args.append(column)
                     elif column in input_df.columns:
@@ -1447,7 +1448,10 @@ class DefaultEvaluator(ModelEvaluator):
             metric_prefix = ""
         if self.dataset.has_targets:
             data = self.dataset.features_data.assign(
-                **{self.dataset.targets_name or "target": self.y, "outputs": self.y_pred}
+                **{
+                    self.dataset.targets_name or "target": self.y,
+                    self.dataset.predictions_name or "outputs": self.y_pred,
+                }
             )
         else:
             data = self.dataset.features_data.assign(outputs=self.y_pred)
