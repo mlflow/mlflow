@@ -4,7 +4,6 @@ import logging
 import numbers
 import os
 import random
-import shutil
 import signal
 import socket
 import subprocess
@@ -636,7 +635,3 @@ def clear_hub_cache():
     except ImportError:
         # Local import check for mlflow-skinny not including huggingface_hub
         pass
-
-
-def get_free_disk_space_in_GiB():
-    return shutil.disk_usage("/").free / (1024**3)
