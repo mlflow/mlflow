@@ -1534,9 +1534,15 @@ class DefaultEvaluator(ModelEvaluator):
                 if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
                     self._compute_builtin_metrics()
                 elif self.model_type == _ModelType.QUESTION_ANSWERING:
-                    self.builtin_metrics = [*text_metrics, exact_match]
+                    self.builtin_metrics = [*text_metrics, exact_match()]
                 elif self.model_type == _ModelType.TEXT_SUMMARIZATION:
-                    self.builtin_metrics = [*text_metrics, rouge1, rouge2, rougeL, rougeLsum]
+                    self.builtin_metrics = [
+                        *text_metrics,
+                        rouge1(),
+                        rouge2(),
+                        rougeL(),
+                        rougeLsum(),
+                    ]
                 elif self.model_type == _ModelType.TEXT:
                     self.builtin_metrics = text_metrics
 
