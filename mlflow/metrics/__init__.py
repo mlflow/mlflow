@@ -37,18 +37,18 @@ from mlflow.models import (
 )
 from mlflow.utils.annotations import experimental
 
-latency = make_metric(
-    eval_fn=lambda x: MetricValue(),
-    greater_is_better=False,
-    name="latency",
-)
-latency.__doc__ = """
-.. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
-This function will create a metric for calculating latency. Latency is determined by the time it takes to generate a
-prediction for a given input. Note that computing latency requires each row to be predicted
-sequentially, which will likely slow down the evaluation process.
-"""
+@experimental
+def latency() -> EvaluationMetric:
+    """
+    This function will create a metric for calculating latency. Latency is determined by the time it takes to generate a
+    prediction for a given input. Note that computing latency requires each row to be predicted
+    sequentially, which will likely slow down the evaluation process."""
+    return make_metric(
+        eval_fn=lambda x: MetricValue(),
+        greater_is_better=False,
+        name="latency",
+    )
 
 
 # general text metrics
