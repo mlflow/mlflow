@@ -1665,8 +1665,8 @@ def evaluate(
 
     _EnvManager.validate(env_manager)
 
-    # If Dataset is provided, the targets and predictions can only be specified by the Dataset,
-    # not the targets and predictions parameters of the mlflow.evaluate() API.
+    # If Dataset is provided, the targets can only be specified by the Dataset,
+    # not the targets parameters of the mlflow.evaluate() API.
     if isinstance(data, Dataset) and targets is not None:
         raise MlflowException(
             message="The top-level targets parameter should not be specified since a Dataset "
@@ -1675,12 +1675,25 @@ def evaluate(
             "Meanwhile, please specify `mlflow.evaluate(..., targets=None, ...)`.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    if isinstance(data, Dataset) and predictions is not None:
+    # If Dataset is provided and model is None, then the predictions can only be specified by the
+    # Dataset, not the predictions parameters of the mlflow.evaluate() API.
+    if isinstance(data, Dataset) and model is None and predictions is not None:
         raise MlflowException(
             message="The top-level predictions parameter should not be specified since a Dataset "
             "is used. Please only specify the predictions column name in the Dataset. For example:"
             " `data = mlflow.data.from_pandas(df=X.assign(y=y), predictions='y')`"
             "Meanwhile, please specify `mlflow.evaluate(..., predictions=None, ...)`.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    # If Dataset is provided and model is specified, then the data.predictions cannot be specified.
+    if (
+        isinstance(data, Dataset)
+        and model is not None
+        and getattr(data, "predictions", None) is not None
+    ):
+        raise MlflowException(
+            message="The predictions parameter should not be specified in the Dataset since a "
+            "model is specified. Please remove the predictions column from the Dataset.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

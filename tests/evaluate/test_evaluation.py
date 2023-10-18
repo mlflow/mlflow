@@ -1370,6 +1370,32 @@ def test_evaluate_with_targets_error_handling():
             )
 
 
+def test_evaluate_with_predictions_error_handling():
+    import lightgbm as lgb
+
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    lgb_data = lgb.Dataset(X, label=y)
+    model = lgb.train({"objective": "regression"}, lgb_data, num_boost_round=5)
+    mlflow_dataset_with_predictions = mlflow.data.from_pandas(
+        df=X.assign(y=y, model_output=y),
+        targets="y",
+        predictions="model_output",
+    )
+    with mlflow.start_run():
+        with pytest.raises(
+            MlflowException,
+            match="The predictions parameter should not be specified in the Dataset since a model "
+            "is specified. Please remove the predictions column from the Dataset.",
+        ):
+            mlflow.evaluate(
+                model=model,
+                data=mlflow_dataset_with_predictions,
+                model_type="regressor",
+            )
+
+
 def test_evaluate_with_function_input_single_output():
     import lightgbm as lgb
 
