@@ -41,7 +41,7 @@ latency = make_metric(
     greater_is_better=False,
     name="latency",
 )
-"""
+latency.__doc__ = """
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for calculating latency. Latency is determined by the time it takes to generate a
