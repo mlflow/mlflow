@@ -186,13 +186,16 @@ For more information about Plugins, see
 We follow [Google's Python Style Guide](https://google.github.io/styleguide/pyguide.html) for writing 
 docstrings. Make sure your docstrings adhere to this style guide.
 
-Currently, the MLflow team is working to reformat docstrings to adhere to 
-these guidelines. Any contributions regarding style reformatting are much appreciated!
+Currently, the MLflow team is working to reformat docstrings to 
+adhere to these guidelines. Any contributions regarding style 
+reformatting are much appreciated!
 
 ###### Code Style
-For Python code, we generally adhere to Google's Python Style Guide. However, we use [pylint](https://pypi.org/project/pylint/) 
-and [black](https://black.readthedocs.io/en/stable/the_black_code_style/index.html) in our CI via pre-commit Git hooks.
-If your code passes the CI checks, it's formatted correctly.
+We use [pylint](https://pypi.org/project/pylint/), 
+[black](https://black.readthedocs.io/en/stable/the_black_code_style/index.html), 
+and [ruff](https://github.com/astral-sh/ruff) in our CI via
+pre-commit Git hooks. If your code passes the CI checks, it's
+formatted correctly. 
 
 ## Setting up the repository
 
