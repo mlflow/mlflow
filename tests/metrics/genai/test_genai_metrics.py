@@ -534,8 +534,8 @@ def test_correctness_metric():
             "sent to a machine\nlearning model, and you will be given an output that the model "
             "produced. You\nmay also be given additional information that was used by the model "
             "to generate the output.\n\nYour task is to determine a numerical score called "
-            "answer similarity based on the input and output.\nA definition of "
-            "answer similarity and a grading rubric are provided below.\nYou must use the "
+            "answer_similarity based on the input and output.\nA definition of "
+            "answer_similarity and a grading rubric are provided below.\nYou must use the "
             "grading rubric to determine your score. You must also justify your score."
             "\n\nExamples could be included below for reference. Make sure to use them as "
             "references and to\nunderstand them before completing the task.\n"
@@ -553,9 +553,9 @@ def test_correctness_metric():
             f"\nscore: {mlflow_example.score}\n"
             f"justification: {mlflow_example.justification}\n        \n"
             "\nYou must return the following fields in your response one below the other:\nscore: "
-            "Your numerical score for the model's answer similarity based on the "
+            "Your numerical score for the model's answer_similarity based on the "
             "rubric\njustification: Your step-by-step reasoning about the model's "
-            "answer similarity score\n    ",
+            "answer_similarity score\n    ",
             **AnswerSimilarityMetric.parameters,
         }
 
@@ -569,9 +569,10 @@ def test_correctness_metric():
     }
 
     with pytest.raises(
-        MlflowException, match="Failed to find correctness metric for version non-existent-version"
+        MlflowException,
+        match="Failed to find answer similarity metric for version non-existent-version",
     ):
-        correctness_metric = answer_similarity(
+        answer_similarity(
             model="gateway:/gpt-3.5-turbo",
             metric_version="non-existent-version",
             examples=[mlflow_example],
