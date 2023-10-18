@@ -41,9 +41,10 @@ from mlflow.utils.annotations import experimental
 @experimental
 def latency() -> EvaluationMetric:
     """
-    This function will create a metric for calculating latency. Latency is determined by the time it takes to generate a
-    prediction for a given input. Note that computing latency requires each row to be predicted
-    sequentially, which will likely slow down the evaluation process."""
+    This function will create a metric for calculating latency. Latency is determined by the time
+    it takes to generate a prediction for a given input. Note that computing latency requires
+    each row to be predicted sequentially, which will likely slow down the evaluation process.
+    """
     return make_metric(
         eval_fn=lambda x: MetricValue(),
         greater_is_better=False,
@@ -55,8 +56,9 @@ def latency() -> EvaluationMetric:
 @experimental
 def token_count() -> EvaluationMetric:
     """
-    This function will create a metric for calculating token_count. Token count is calculated using tiktoken by using the
-    `cl100k_base` tokenizer."""
+    This function will create a metric for calculating token_count. Token count is calculated
+    using tiktoken by using the `cl100k_base` tokenizer.
+    """
     return make_metric(
         eval_fn=_token_count_eval_fn,
         greater_is_better=True,
@@ -67,9 +69,10 @@ def token_count() -> EvaluationMetric:
 @experimental
 def toxicity() -> EvaluationMetric:
     """
-    This function will create a metric for evaluating `toxicity`_ using the model `roberta-hate-speech-dynabench-r4`_,
-    which defines hate as "abusive speech targeting specific group characteristics, such as
-    ethnic origin, religion, gender, or sexual orientation."
+    This function will create a metric for evaluating `toxicity`_ using the model
+    `roberta-hate-speech-dynabench-r4`_, which defines hate as "abusive speech targeting
+    specific group characteristics, such as ethnic origin, religion, gender, or sexual
+    orientation."
 
     The score ranges from 0 to 1, where scores closer to 1 are more toxic. The default threshold
     for a text to be considered "toxic" is 0.5.
@@ -78,7 +81,8 @@ def toxicity() -> EvaluationMetric:
         - ratio (of toxic input texts)
 
     .. _toxicity: https://huggingface.co/spaces/evaluate-measurement/toxicity
-    .. _roberta-hate-speech-dynabench-r4: https://huggingface.co/facebook/roberta-hate-speech-dynabench-r4-target
+    .. _roberta-hate-speech-dynabench-r4:
+    https://huggingface.co/facebook/roberta-hate-speech-dynabench-r4-target
     """
     return make_metric(
         eval_fn=_toxicity_eval_fn,
@@ -95,7 +99,8 @@ def perplexity() -> EvaluationMetric:
     This function will create a metric for evaluating `perplexity`_ using the model gpt2.
 
     The score ranges from 0 to infinity, where a lower score means that the model is better at
-    predicting the given text and a higher score means that the model is not likely to predict the text.
+    predicting the given text and a higher score means that the model is not likely to predict the
+    text.
 
     Aggregations calculated for this metric:
         - mean
@@ -114,17 +119,19 @@ def perplexity() -> EvaluationMetric:
 @experimental
 def flesch_kincaid_grade_level() -> EvaluationMetric:
     """
-    This function will create a metric for calculating `flesch kincaid grade level`_ using `textstat`_.
+    This function will create a metric for calculating `flesch kincaid grade level`_ using
+    `textstat`_.
 
-    This metric outputs a number that approximates the grade level needed to comprehend the text, which
-    will likely range from around 0 to 15 (although it is not limited to this range).
+    This metric outputs a number that approximates the grade level needed to comprehend the text,
+    which will likely range from around 0 to 15 (although it is not limited to this range).
 
     Aggregations calculated for this metric:
         - mean
 
     .. _flesch kincaid grade level:
         https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level
-    .. _textstat: https://pypi.org/project/textstat/"""
+    .. _textstat: https://pypi.org/project/textstat/
+    """
     return make_metric(
         eval_fn=_flesch_kincaid_eval_fn,
         greater_is_better=False,
@@ -136,16 +143,18 @@ def flesch_kincaid_grade_level() -> EvaluationMetric:
 @experimental
 def ari_grade_level() -> EvaluationMetric:
     """
-    This function will create a metric for calculating `automated readability index`_ using `textstat`_.
+    This function will create a metric for calculating `automated readability index`_ using
+    `textstat`_.
 
-    This metric outputs a number that approximates the grade level needed to comprehend the text, which
-    will likely range from around 0 to 15 (although it is not limited to this range).
+    This metric outputs a number that approximates the grade level needed to comprehend the text,
+    which will likely range from around 0 to 15 (although it is not limited to this range).
 
     Aggregations calculated for this metric:
         - mean
 
     .. _automated readability index: https://en.wikipedia.org/wiki/Automated_readability_index
-    .. _textstat: https://pypi.org/project/textstat/"""
+    .. _textstat: https://pypi.org/project/textstat/
+    """
     return make_metric(
         eval_fn=_ari_eval_fn,
         greater_is_better=False,
@@ -182,7 +191,8 @@ def rouge1() -> EvaluationMetric:
     Aggregations calculated for this metric:
         - mean
 
-    .. _rouge1: https://huggingface.co/spaces/evaluate-metric/rouge"""
+    .. _rouge1: https://huggingface.co/spaces/evaluate-metric/rouge
+    """
     return make_metric(
         eval_fn=_rouge1_eval_fn,
         greater_is_better=True,
@@ -202,7 +212,8 @@ def rouge2() -> EvaluationMetric:
     Aggregations calculated for this metric:
         - mean
 
-    .. _rouge2: https://huggingface.co/spaces/evaluate-metric/rouge"""
+    .. _rouge2: https://huggingface.co/spaces/evaluate-metric/rouge
+    """
     return make_metric(
         eval_fn=_rouge2_eval_fn,
         greater_is_better=True,
@@ -222,7 +233,8 @@ def rougeL() -> EvaluationMetric:
     Aggregations calculated for this metric:
         - mean
 
-    .. _rougeL: https://huggingface.co/spaces/evaluate-metric/rouge"""
+    .. _rougeL: https://huggingface.co/spaces/evaluate-metric/rouge
+    """
     return make_metric(
         eval_fn=_rougeL_eval_fn,
         greater_is_better=True,
@@ -234,8 +246,6 @@ def rougeL() -> EvaluationMetric:
 @experimental
 def rougeLsum() -> EvaluationMetric:
     """
-    .. Note:: Experimental: This metric may change or be removed in a future release without warning.
-
     This function will create a metric for evaluating `rougeLsum`_.
 
     The score ranges from 0 to 1, where a higher score indicates higher similarity.
@@ -244,7 +254,8 @@ def rougeLsum() -> EvaluationMetric:
     Aggregations calculated for this metric:
         - mean
 
-    .. _rougeLsum: https://huggingface.co/spaces/evaluate-metric/rouge"""
+    .. _rougeLsum: https://huggingface.co/spaces/evaluate-metric/rouge
+    """
     return make_metric(
         eval_fn=_rougeLsum_eval_fn,
         greater_is_better=True,
@@ -380,7 +391,8 @@ def f1_score() -> EvaluationMetric:
     This metric computes an aggregate score between 0 and 1 for the F1 score (F-measure) of a
     classification task. F1 score is defined as 2 * (precision * recall) / (precision + recall).
 
-    .. _f1_score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html"""
+    .. _f1_score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html
+    """
     return make_metric(eval_fn=_f1_score_eval_fn, greater_is_better=True, name="f1_score")
 
 
