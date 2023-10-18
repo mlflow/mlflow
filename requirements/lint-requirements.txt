@@ -1,5 +1,5 @@
 pylint==2.14.4
-ruff==0.0.286
+ruff==0.0.292
 rstcheck==6.1.1
 black[jupyter]==23.7.0
 blacken-docs==1.16.0

@@ -1,5 +1,5 @@
 import string
-from typing import Any, List
+from typing import Any, List, Optional
 
 from mlflow.exceptions import MlflowException
 
@@ -28,7 +28,7 @@ class PromptTemplate:
             prompt.format(baz="qux")
     """
 
-    def __init__(self, template_str: str, variables: List[str] = None):
+    def __init__(self, template_str: str, variables: Optional[List[str]] = None):
         self.template_str = template_str
         extracted_variables = [
             fname for _, fname, _, _ in string.Formatter().parse(template_str) if fname

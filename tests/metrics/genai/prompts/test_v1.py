@@ -41,30 +41,39 @@ def test_evaluation_model_output():
             ),
         ],
         model="gateway:/gpt-4",
-        parameters={"temperature": 1.0},
+        parameters={"temperature": 0.0},
     ).to_dict()
 
     assert model1["model"] == "gateway:/gpt-4"
-    assert model1["parameters"] == {"temperature": 1.0}
+    assert model1["parameters"] == {"temperature": 0.0}
 
     grading_context = {"ground_truth": "This is an output"}
-    args_string = "\n".join(
-        [f"Provided {arg}: {arg_value}" for arg, arg_value in grading_context.items()]
+    args_string = "Additional information used by the model:\n" + "\n".join(
+        [f"key: {arg}\nvalue:\n{arg_value}" for arg, arg_value in grading_context.items()]
     )
     expected_prompt1 = """
-    Please act as an impartial judge and evaluate the quality of the provided output which
-    attempts to produce output for the provided input based on a provided information.
-    You'll be given a grading format below which you'll call for each provided information,
-    input and provided output to submit your justification and score to compute the correctness of
-    the output.
+    Task:
+    You are an impartial judge. You will be given an input that was sent to a machine
+    learning model, and you will be given an output that the model produced. You
+    may also be given additional information that was used by the model to generate the output.
+
+    Your task is to determine a numerical score called correctness based on the input and output.
+    A definition of correctness and a grading rubric are provided below.
+    You must use the grading rubric to determine your score. You must also justify your score.
+
+    Examples could be included below for reference. Make sure to use them as references and to
+    understand them before completing the task.
 
     Input:
     This is an input
 
-    Provided output:
+    Output:
     This is an output
 
-    Provided ground_truth: This is an output
+    Additional information used by the model:
+    key: ground_truth
+    value:
+    This is an output
 
     Metric definition:
     Correctness refers to how well the generated output matches or aligns with the reference or
@@ -72,7 +81,7 @@ def test_evaluation_model_output():
     truth serves as a benchmark against which the provided output is compared to determine the
     level of accuracy and fidelity.
 
-    Below is your grading criteria:
+    Grading rubric:
     Correctness: If the answer correctly answer the question, below are the details for
     different scores:
         - Score 1: the answer is completely incorrect, doesn’t mention anything about the
@@ -84,22 +93,38 @@ def test_evaluation_model_output():
         - Score 5: the answer correctly answer the question and not missing any major aspect
 
     Examples:
-        Input: This is an input
-        Provided output: This is an output
-        Provided ground_truth: This is an output
-        Score: 4
-        Justification: This is a justification
+        Input:
+        This is an input
 
-        Input: This is an example input 2
-        Provided output: This is an example output 2
-        Provided ground_truth: This is an output
-        Score: 4
-        Justification: This is an example justification 2
+        Output:
+        This is an output
 
-    And you'll need to submit your grading for the correctness of the output,
-    using the following in json format:
-    Score: [your score number for the correctness of the output]
-    Justification: [your step by step reasoning about the correctness of the output]
+        Additional information used by the model:
+        key: ground_truth
+        value:
+        This is an output
+
+        score: 4
+        justification: This is a justification
+
+
+        Input:
+        This is an example input 2
+
+        Output:
+        This is an example output 2
+
+        Additional information used by the model:
+        key: ground_truth
+        value:
+        This is an output
+
+        score: 4
+        justification: This is an example justification 2
+
+    You must return the following fields in your response one below the other:
+    score: Your numerical score for the model's correctness based on the rubric
+    justification: Your step-by-step reasoning about the model's correctness score
       """
     prompt1 = model1["eval_prompt"].format(
         input="This is an input", output="This is an output", grading_context_columns=args_string
@@ -133,16 +158,22 @@ def test_evaluation_model_output():
     }
     args_string = ""
     expected_prompt2 = """
-    Please act as an impartial judge and evaluate the quality of the provided output which
-    attempts to produce output for the provided input based on a provided information.
-    You'll be given a grading format below which you'll call for each provided information,
-    input and provided output to submit your justification and score to compute the correctness of
-    the output.
+    Task:
+    You are an impartial judge. You will be given an input that was sent to a machine
+    learning model, and you will be given an output that the model produced. You
+    may also be given additional information that was used by the model to generate the output.
+
+    Your task is to determine a numerical score called correctness based on the input and output.
+    A definition of correctness and a grading rubric are provided below.
+    You must use the grading rubric to determine your score. You must also justify your score.
+
+    Examples could be included below for reference. Make sure to use them as references and to
+    understand them before completing the task.
 
     Input:
     This is an input
 
-    Provided output:
+    Output:
     This is an output
 
     Metric definition:
@@ -151,7 +182,7 @@ def test_evaluation_model_output():
     truth serves as a benchmark against which the provided output is compared to determine the
     level of accuracy and fidelity.
 
-    Below is your grading criteria:
+    Grading rubric:
     Correctness: If the answer correctly answer the question, below are the details for different
     scores:
         - Score 1: the answer is completely incorrect, doesn’t mention anything about the question
@@ -162,10 +193,9 @@ def test_evaluation_model_output():
         critical aspect.
         - Score 5: the answer correctly answer the question and not missing any major aspect
 
-    And you'll need to submit your grading for the correctness of the output,
-    using the following in json format:
-    Score: [your score number for the correctness of the output]
-    Justification: [your step by step reasoning about the correctness of the output]
+    You must return the following fields in your response one below the other:
+    score: Your numerical score for the model's correctness based on the rubric
+    justification: Your step-by-step reasoning about the model's correctness score
       """
     prompt2 = model2["eval_prompt"].format(
         input="This is an input", output="This is an output", grading_context_columns=args_string
@@ -184,28 +214,33 @@ def test_no_examples(examples):
 
     args_string = ""
     expected_prompt2 = """
-    Please act as an impartial judge and evaluate the quality of the provided output which
-    attempts to produce output for the provided input based on a provided information.
-    You'll be given a grading format below which you'll call for each provided information,
-    input and provided output to submit your justification and score to compute the correctness of
-    the output.
+    Task:
+    You are an impartial judge. You will be given an input that was sent to a machine
+    learning model, and you will be given an output that the model produced. You
+    may also be given additional information that was used by the model to generate the output.
+
+    Your task is to determine a numerical score called correctness based on the input and output.
+    A definition of correctness and a grading rubric are provided below.
+    You must use the grading rubric to determine your score. You must also justify your score.
+
+    Examples could be included below for reference. Make sure to use them as references and to
+    understand them before completing the task.
 
     Input:
     This is an input
 
-    Provided output:
+    Output:
     This is an output
 
     Metric definition:
     definition
 
-    Below is your grading criteria:
+    Grading rubric:
     grading prompt
 
-    And you'll need to submit your grading for the correctness of the output,
-    using the following in json format:
-    Score: [your score number for the correctness of the output]
-    Justification: [your step by step reasoning about the correctness of the output]
+    You must return the following fields in your response one below the other:
+    score: Your numerical score for the model's correctness based on the rubric
+    justification: Your step-by-step reasoning about the model's correctness score
       """
     prompt2 = model["eval_prompt"].format(
         input="This is an input", output="This is an output", grading_context_columns=args_string

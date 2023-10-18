@@ -1,4 +1,3 @@
-import hashlib
 import json
 import logging
 import math
@@ -31,7 +30,7 @@ from mlflow.models.evaluation.validation import (
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils import _get_fully_qualified_class_name
+from mlflow.utils import _get_fully_qualified_class_name, _insecure_md5
 from mlflow.utils.annotations import developer_stable, experimental
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.file_utils import TempDir
@@ -440,7 +439,9 @@ class EvaluationDataset:
     NUM_SAMPLE_ROWS_FOR_HASH = 5
     SPARK_DATAFRAME_LIMIT = 10000
 
-    def __init__(self, data, *, targets=None, name=None, path=None, feature_names=None):
+    def __init__(
+        self, data, *, targets=None, name=None, path=None, feature_names=None, predictions=None
+    ):
         """
         The values of the constructor arguments comes from the `evaluate` call.
         """
@@ -463,6 +464,9 @@ class EvaluationDataset:
         self._labels_data = None
         self._targets_name = None
         self._has_targets = False
+        self._predictions_data = None
+        self._predictions_name = None
+        self._has_predictions = False
 
         try:
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
@@ -563,14 +567,24 @@ class EvaluationDataset:
                 self._labels_data = data[targets].to_numpy()
                 self._targets_name = targets
 
+            self._has_predictions = predictions is not None
+            if self._has_predictions:
+                self._predictions_data = data[predictions].to_numpy()
+                self._predictions_name = predictions
+
             if feature_names is not None:
                 self._features_data = data[list(feature_names)]
                 self._feature_names = feature_names
             else:
+                features_data = data
+
                 if has_targets:
-                    self._features_data = data.drop(targets, axis=1, inplace=False)
-                else:
-                    self._features_data = data
+                    features_data = features_data.drop(targets, axis=1, inplace=False)
+
+                if self._has_predictions:
+                    features_data = features_data.drop(predictions, axis=1, inplace=False)
+
+                self._features_data = features_data
                 self._feature_names = [
                     generate_feature_name_if_not_string(c) for c in self._features_data.columns
                 ]
@@ -582,10 +596,12 @@ class EvaluationDataset:
             )
 
         # generate dataset hash
-        md5_gen = hashlib.md5()
+        md5_gen = _insecure_md5()
         _gen_md5_for_arraylike_obj(md5_gen, self._features_data)
         if self._labels_data is not None:
             _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)
+        if self._predictions_data is not None:
+            _gen_md5_for_arraylike_obj(md5_gen, self._predictions_data)
         md5_gen.update(",".join(list(map(str, self._feature_names))).encode("UTF-8"))
 
         self._hash = md5_gen.hexdigest()
@@ -621,6 +637,27 @@ class EvaluationDataset:
         return targets name
         """
         return self._targets_name
+
+    @property
+    def predictions_data(self):
+        """
+        return labels data as a numpy array
+        """
+        return self._predictions_data
+
+    @property
+    def has_predictions(self):
+        """
+        Returns True if the dataset has targets, False otherwise.
+        """
+        return self._has_predictions
+
+    @property
+    def predictions_name(self):
+        """
+        return targets name
+        """
+        return self._predictions_name
 
     @property
     def name(self):
@@ -723,11 +760,11 @@ class ModelEvaluator(metaclass=ABCMeta):
     def evaluate(
         self,
         *,
-        model,
         model_type,
         dataset,
         run_id,
         evaluator_config,
+        model=None,
         custom_metrics=None,
         extra_metrics=None,
         custom_artifacts=None,
@@ -737,9 +774,6 @@ class ModelEvaluator(metaclass=ABCMeta):
         """
         The abstract API to log metrics and artifacts, and return evaluation results.
 
-        :param model: A pyfunc model instance, used as the candidate_model
-                      to be compared with baseline_model (specified by the `baseline_model` param)
-                      for model validation.
         :param model_type: A string describing the model type
                            (e.g., ``"regressor"``, ``"classifier"``, …).
         :param dataset: An instance of `mlflow.models.evaluation.base._EvaluationDataset`
@@ -747,6 +781,10 @@ class ModelEvaluator(metaclass=ABCMeta):
         :param run_id: The ID of the MLflow Run to which to log results.
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
+        :param model: A pyfunc model instance, used as the candidate_model
+                      to be compared with baseline_model (specified by the `baseline_model` param)
+                      for model validation. If None, the model output is supposed to be found in
+                      ``dataset.predictions_data``.
         :param extra_metrics: A list of :py:class:`EvaluationMetric` objects.
         :param custom_artifacts: A list of callable custom artifact functions.
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
@@ -994,7 +1032,7 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
     raise ModelValidationFailedException(message=os.linesep.join(failure_messages))
 
 
-def _convert_data_to_mlflow_dataset(data, targets=None):
+def _convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
     """Convert input data to mlflow dataset."""
     if "pyspark" in sys.modules:
         from pyspark.sql import DataFrame as SparkDataFrame
@@ -1004,7 +1042,7 @@ def _convert_data_to_mlflow_dataset(data, targets=None):
     elif isinstance(data, np.ndarray):
         return mlflow.data.from_numpy(data, targets=targets)
     elif isinstance(data, pd.DataFrame):
-        return mlflow.data.from_pandas(df=data, targets=targets)
+        return mlflow.data.from_pandas(df=data, targets=targets, predictions=predictions)
     elif "pyspark" in sys.modules and isinstance(data, SparkDataFrame):
         return mlflow.data.from_spark(df=data, targets=targets)
     else:
@@ -1106,13 +1144,14 @@ def _get_model_from_function(fn):
 
 
 def evaluate(
-    model: str,
-    data,
+    model: Optional[str] = None,
+    data=None,
     *,
     model_type: Optional[str] = None,
     targets=None,
+    predictions=None,
     dataset_path=None,
-    feature_names: list = None,
+    feature_names: Optional[list] = None,
     evaluators=None,
     evaluator_config=None,
     custom_metrics=None,
@@ -1158,10 +1197,9 @@ def evaluate(
           precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
 
      - For question-answering models, the default evaluator logs:
-        - **metrics**: ``exact_match``, `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
-          `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_, `transformers`_),
-          `mean_ari_grade_level`_ (requires `textstat`_), `mean_flesch_kincaid_grade_level`_
-          (requires `textstat`_).
+        - **metrics**: ``exact_match``, ``token_count``, `mean_perplexity`_ (requires `evaluate`_,
+          `pytorch`_, `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_,
+          `mean_flesch_kincaid_grade_level`_ (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in tabular format.
 
@@ -1190,8 +1228,8 @@ def evaluate(
             https://pypi.org/project/textstat
 
      - For text-summarization models, the default evaluator logs:
-        - **metrics**: `ROUGE`_ (requires `evaluate`_, `nltk`_, and `rouge_score`_ to be installed),
-          `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
+        - **metrics**: ``token_count``, `ROUGE`_ (requires `evaluate`_, `nltk`_, and
+          `rouge_score`_ to be installed), `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
           `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_, `transformers`_),
           `mean_ari_grade_level`_ (requires `textstat`_), `mean_flesch_kincaid_grade_level`_
           (requires `textstat`_).
@@ -1232,7 +1270,7 @@ def evaluate(
             https://pypi.org/project/textstat
 
      - For text models, the default evaluator logs:
-        - **metrics**: `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
+        - **metrics**: ``token_count``, `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
           `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_, `transformers`_),
           `mean_ari_grade_level`_ (requires `textstat`_), `mean_flesch_kincaid_grade_level`_
           (requires `textstat`_).
@@ -1341,7 +1379,7 @@ def evaluate(
           specified, unless the ``evaluator_config`` option **log_model_explainability** is
           explicitly set to ``True``.
 
-    :param model: One of the following:
+    :param model: Optional. If specified, it should be one of the following:
 
                   - A pyfunc model instance
 
@@ -1357,25 +1395,41 @@ def evaluate(
                         def fn(model_input):
                             return model.predict(model_input)
 
+        If omitted, it indicates a static dataset will be used for evaluation instead of a model.
+        In this case, the ``data`` argument must be a Pandas DataFrame or an mlflow PandasDataset
+        that contains model outputs, and the ``predictions`` argument must be the name of the
+        column in ``data`` that contains model outputs.
+
     :param data: One of the following:
 
                  - A numpy array or list of evaluation features, excluding labels.
 
-                 - A Pandas DataFrame or Spark DataFrame, containing evaluation features and
-                   labels. If ``feature_names`` argument not specified, all columns are regarded
-                   as feature columns. Otherwise, only column names present in ``feature_names``
-                   are regarded as feature columns. If it is Spark DataFrame, only the first 10000
-                   rows in the Spark DataFrame will be used as evaluation data.
+                 - A Pandas DataFrame containing evaluation features, labels, and optionally model
+                   outputs. Model outputs are required to be provided when model is unspecified.
+                   If ``feature_names`` argument not specified, all columns except for the label
+                   column and model_output column are regarded as feature columns. Otherwise,
+                   only column names present in ``feature_names`` are regarded as feature columns.
 
-                 - A :py:class`mlflow.data.dataset.Dataset` instance containing evaluation features
-                   and labels.
+                 -  A Spark DataFrame containing evaluation features and labels. If
+                    ``feature_names`` argument not specified, all columns except for the label
+                    column are regarded as feature columns. Otherwise, only column names present in
+                    ``feature_names`` are regarded as feature columns. Only the first 10000 rows in
+                    the Spark DataFrame will be used as evaluation data.
+
+                 - A :py:class:`mlflow.data.dataset.Dataset` instance containing evaluation
+                   features, labels, and optionally model outputs. Model outputs are only supported
+                   with a PandasDataset. Model outputs are required when model is unspecified, and
+                   should be specified via the ``predictions`` property of the PandasDataset.
 
     :param targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
                     labels. If ``data`` is a DataFrame, the string name of a column from ``data``
                     that contains evaluation labels. Required for classifier and regressor models,
                     but optional for question-answering, text-summarization, and text models. If
-                    ``data`` is a :py:class`mlflow.data.dataset.Dataset` that defines targets,
+                    ``data`` is a :py:class:`mlflow.data.dataset.Dataset` that defines targets,
                     then ``targets`` is optional.
+
+    :param predictions: Optional. Only used when ``model`` is not specified and ``data`` is a pandas
+                        dataframe. The name of the column in ``data`` that contains model outputs.
 
     :param model_type: (Optional) A string describing the model type. The default evaluator
                        supports the following model types:
@@ -1387,7 +1441,7 @@ def evaluate(
                        - ``'text'``
 
                        If no ``model_type`` is specified, then you must provide a a list of
-                       metrics to compute via the``extra_metrics`` param.
+                       metrics to compute via the ``extra_metrics`` param.
 
                        .. note::
                             ``'question-answering'``, ``'text-summarization'``, and ``'text'``
@@ -1403,7 +1457,8 @@ def evaluate(
                           ``feature_{feature_index}``. If the ``data`` argument is a Pandas
                           DataFrame or a Spark DataFrame, ``feature_names`` is a list of the names
                           of the feature columns in the DataFrame. If ``None``, then all columns
-                          except the label column are regarded as feature columns.
+                          except the label column and the predictions column are regarded as
+                          feature columns.
 
     :param evaluators: The name of the evaluator to use for model evaluation, or a list of
                        evaluator names. If unspecified, all evaluators capable of evaluating the
@@ -1573,7 +1628,37 @@ def evaluate(
     from mlflow.pyfunc import PyFuncModel, _load_model_or_server, _ServedPyFuncModel
     from mlflow.utils import env_manager as _EnvManager
 
+    if data is None:
+        raise MlflowException(
+            message="The data argument cannot be None.", error_code=INVALID_PARAMETER_VALUE
+        )
+
+    if predictions is not None and model is not None:
+        raise MlflowException(
+            message="The predictions argument cannot be specified when model is specified.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     _EnvManager.validate(env_manager)
+
+    # If Dataset is provided, the targets and predictions can only be specified by the Dataset,
+    # not the targets and predictions parameters of the mlflow.evaluate() API.
+    if isinstance(data, Dataset) and targets is not None:
+        raise MlflowException(
+            message="The top-level targets parameter should not be specified since a Dataset "
+            "is used. Please only specify the targets column name in the Dataset. For example: "
+            "`data = mlflow.data.from_pandas(df=X.assign(y=y), targets='y')`. "
+            "Meanwhile, please specify `mlflow.evaluate(..., targets=None, ...)`.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if isinstance(data, Dataset) and predictions is not None:
+        raise MlflowException(
+            message="The top-level predictions parameter should not be specified since a Dataset "
+            "is used. Please only specify the predictions column name in the Dataset. For example:"
+            " `data = mlflow.data.from_pandas(df=X.assign(y=y), predictions='y')`"
+            "Meanwhile, please specify `mlflow.evaluate(..., predictions=None, ...)`.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     if model_type in [_ModelType.REGRESSOR, _ModelType.CLASSIFIER]:
         if isinstance(data, Dataset):
@@ -1581,8 +1666,9 @@ def evaluate(
                 targets = data.targets
             else:
                 raise MlflowException(
-                    message="The targets argument is required when data is a Dataset and does not "
-                    "define targets.",
+                    message="The targets column name must be specified in the provided Dataset "
+                    f"for {model_type} models. For example: "
+                    "`data = mlflow.data.from_pandas(df=X.assign(y=y), targets='y')`",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         else:
@@ -1617,12 +1703,39 @@ def evaluate(
                 error_code=INVALID_PARAMETER_VALUE,
             )
         pass
+    elif model is None:
+        # Evaluating a static dataset
+        if isinstance(data, pd.DataFrame):
+            # If data is a pandas dataframe, predictions must be specified
+            if predictions is None:
+                raise MlflowException(
+                    message="The model output must be specified in the predicitons "
+                    "parameter when model=None.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        elif isinstance(data, mlflow.data.pandas_dataset.PandasDataset):
+            # If data is a mlflow PandasDataset, data.predictions must be specified
+            if data.predictions is None:
+                raise MlflowException(
+                    message="The predictions parameter must be specified with the provided "
+                    "PandasDataset when model=None. For example: "
+                    "`data = mlflow.data.from_pandas(df=X.assign(y=y), predictions='y')`",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        else:
+            # Other data formats are not supported
+            raise MlflowException(
+                message="The data must be a pandas dataframe or mlflow.data.pandas_dataset."
+                "PandasDataset when model=None.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
     elif callable(model):
         model = _get_model_from_function(model)
     else:
         raise MlflowException(
             message="The model argument must be a string URI referring to an MLflow model, "
-            "an instance of `mlflow.pyfunc.PyFuncModel`, or a function.",
+            "an instance of `mlflow.pyfunc.PyFuncModel`, a function, or None.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -1666,7 +1779,9 @@ def evaluate(
     with _start_run_or_reuse_active_run() as run_id:
         if not isinstance(data, Dataset):
             # Convert data to `mlflow.data.dataset.Dataset`.
-            data = _convert_data_to_mlflow_dataset(data=data, targets=targets)
+            data = _convert_data_to_mlflow_dataset(
+                data=data, targets=targets, predictions=predictions
+            )
 
         from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 

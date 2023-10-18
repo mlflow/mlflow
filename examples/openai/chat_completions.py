@@ -5,6 +5,8 @@ import openai
 import pandas as pd
 
 import mlflow
+from mlflow.models.signature import ModelSignature
+from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema
 
 logging.getLogger("mlflow").setLevel(logging.ERROR)
 
@@ -14,11 +16,6 @@ logging.getLogger("mlflow").setLevel(logging.ERROR)
 
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
 
-
-# On Databricks, set the stored OpenAI API key scope here for automatically loading the API key
-# for real time inference. See https://docs.databricks.com/security/secrets/index.html on
-# how to add a scope and API key.
-os.environ["MLFLOW_OPENAI_SECRET_SCOPE"] = "<scope-name>"
 
 print(
     """
@@ -164,3 +161,40 @@ list_of_strings = [
 ]
 model = mlflow.pyfunc.load_model(model_info.model_uri)
 print(model.predict(list_of_strings))
+
+
+print(
+    """
+# ******************************************************************************
+# Inference parameters with chat completions
+# ******************************************************************************
+"""
+)
+with mlflow.start_run():
+    model_info = mlflow.openai.log_model(
+        model="gpt-3.5-turbo",
+        task=openai.ChatCompletion,
+        artifact_path="model",
+        messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
+        signature=ModelSignature(
+            inputs=Schema([ColSpec(type="string", name=None)]),
+            outputs=Schema([ColSpec(type="string", name=None)]),
+            params=ParamSchema(
+                [
+                    ParamSpec(name="temperature", default=0, dtype="float"),
+                ]
+            ),
+        ),
+    )
+
+
+model = mlflow.pyfunc.load_model(model_info.model_uri)
+df = pd.DataFrame(
+    {
+        "animal": [
+            "cats",
+            "dogs",
+        ]
+    }
+)
+print(model.predict(df, params={"temperature": 1}))

@@ -28,9 +28,10 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         self,
         df: pd.DataFrame,
         source: DatasetSource,
-        targets: str = None,
+        targets: Optional[str] = None,
         name: Optional[str] = None,
         digest: Optional[str] = None,
+        predictions: Optional[str] = None,
     ):
         """
         :param df: A pandas DataFrame.
@@ -40,6 +41,9 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
                      automatically generated.
         :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
                        is automatically computed.
+        :param predictions: Optional. The name of the column containing model predictions,
+                            if the dataset contains model predictions. If specified, this column
+                            must be present in the dataframe (``df``).
         """
         if targets is not None and targets not in df.columns:
             raise MlflowException(
@@ -47,8 +51,15 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
                 f" '{targets}'.",
                 INVALID_PARAMETER_VALUE,
             )
+        if predictions is not None and predictions not in df.columns:
+            raise MlflowException(
+                f"The specified pandas DataFrame does not contain the specified predictions column"
+                f" '{predictions}'.",
+                INVALID_PARAMETER_VALUE,
+            )
         self._df = df
         self._targets = targets
+        self._predictions = predictions
         super().__init__(source=source, name=name, digest=digest)
 
     def _compute_digest(self) -> str:
@@ -97,6 +108,13 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._targets
 
     @property
+    def predictions(self) -> Optional[str]:
+        """
+        The name of the predictions column. May be ``None`` if no predictions column is available.
+        """
+        return self._predictions
+
+    @property
     def profile(self) -> Optional[Any]:
         """
         A profile of the dataset. May be ``None`` if a profile cannot be computed.
@@ -140,6 +158,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
             targets=self._targets,
             path=path,
             feature_names=feature_names,
+            predictions=self._predictions,
         )
 
 
@@ -150,6 +169,7 @@ def from_pandas(
     targets: Optional[str] = None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
+    predictions: Optional[str] = None,
 ) -> PandasDataset:
     """
     Constructs a :py:class:`PandasDataset <mlflow.data.pandas_dataset.PandasDataset>` instance from
@@ -169,6 +189,21 @@ def from_pandas(
     :param name: The name of the dataset. If unspecified, a name is generated.
     :param digest: The dataset digest (hash). If unspecified, a digest is computed
                    automatically.
+    :param predictions: An optional predictions column name for model evaluation. This column
+                        must be present in the dataframe (``df``).
+
+
+    .. testcode:: python
+        :caption: Example
+
+        import mlflow
+        import pandas as pd
+
+        x = pd.DataFrame(
+            [["tom", 10, 1], ["nick", 15, 0], ["juli", 14, 1]],
+            columns=["Name", "Age", "Label"],
+        )
+        dataset = mlflow.data.from_pandas(x, targets="Label")
     """
     from mlflow.data.code_dataset_source import CodeDatasetSource
     from mlflow.data.dataset_source_registry import resolve_dataset_source
@@ -184,4 +219,11 @@ def from_pandas(
     else:
         context_tags = registry.resolve_tags()
         resolved_source = CodeDatasetSource(tags=context_tags)
-    return PandasDataset(df=df, source=resolved_source, targets=targets, name=name, digest=digest)
+    return PandasDataset(
+        df=df,
+        source=resolved_source,
+        targets=targets,
+        name=name,
+        digest=digest,
+        predictions=predictions,
+    )

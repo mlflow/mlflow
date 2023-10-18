@@ -109,7 +109,7 @@ def _extract_raw_model(model):
 
 
 def _extract_predict_fn(model, raw_model):
-    predict_fn = model.predict
+    predict_fn = model.predict if model is not None else None
     predict_proba_fn = None
 
     if raw_model is not None:
@@ -454,15 +454,33 @@ def _extract_output_and_other_columns(model_predictions, output_column_name):
             other_output_columns = pd.DataFrame(
                 [{k: v for k, v in p.items() if k != output_column_name} for p in model_predictions]
             )
+        elif len(model_predictions) > 1:
+            raise MlflowException(
+                f"Output column name '{output_column_name}' is not found in the model "
+                f"predictions list: {model_predictions}. Please set the correct output column "
+                "name using the `predicted_column` parameter in evaluator config."
+            )
     elif isinstance(model_predictions, pd.DataFrame):
         if output_column_name in model_predictions.columns:
             y_pred = model_predictions[output_column_name]
             other_output_columns = model_predictions.drop(columns=output_column_name)
+        elif model_predictions.shape[1] > 1:
+            raise MlflowException(
+                f"Output column name '{output_column_name}' is not found in the model "
+                f"predictions dataframe {model_predictions.columns}. Please set the correct "
+                "output column name using the `predicted_column` parameter in evaluator config."
+            )
     elif isinstance(model_predictions, dict):
         if output_column_name in model_predictions:
             y_pred = pd.Series(model_predictions[output_column_name], name=output_column_name)
             other_output_columns = pd.DataFrame(
                 {k: v for k, v in model_predictions.items() if k != output_column_name}
+            )
+        elif len(model_predictions) > 1:
+            raise MlflowException(
+                f"Output column name '{output_column_name}' is not found in the "
+                f"model predictions dict {model_predictions}. Please set the correct "
+                "output column name using the `predicted_column` parameter in evaluator config."
             )
 
     return y_pred if y_pred is not None else model_predictions, other_output_columns
@@ -1275,12 +1293,26 @@ class DefaultEvaluator(ModelEvaluator):
         if compute_latency:
             model_predictions = predict_with_latency(X_copy)
         else:
-            model_predictions = self.model.predict(X_copy)
+            if self.model is not None:
+                model_predictions = self.model.predict(X_copy)
+            else:
+                if self.dataset.predictions_data is None:
+                    raise MlflowException(
+                        message="Predictions data is missing when model is not provided. "
+                        "Please provide predictions data in the pandas dataset or provide "
+                        "a model.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                model_predictions = self.dataset.predictions_data
 
         if self.model_type == _ModelType.CLASSIFIER:
             self.label_list = np.unique(self.y)
             self.num_classes = len(self.label_list)
 
+            if self.predict_fn is not None:
+                self.y_pred = self.predict_fn(self.X.copy_to_avoid_mutation())
+            else:
+                self.y_pred = self.dataset.predictions_data
             self.is_binomial = self.num_classes <= 2
 
             if self.is_binomial:
@@ -1509,7 +1541,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _evaluate(
         self,
-        model: "mlflow.pyfunc.PyFuncModel",
+        model: "mlflow.pyfunc.PyFuncModel" = None,
         is_baseline_model=False,
         **kwargs,
     ):
@@ -1524,7 +1556,7 @@ class DefaultEvaluator(ModelEvaluator):
             if getattr(model, "metadata", None):
                 self.model_loader_module, self.raw_model = _extract_raw_model(model)
             else:
-                # model is constructed from a user specified function
+                # model is constructed from a user specified function or not provided
                 self.model_loader_module, self.raw_model = None, None
             self.predict_fn, self.predict_proba_fn = _extract_predict_fn(model, self.raw_model)
 
@@ -1598,11 +1630,11 @@ class DefaultEvaluator(ModelEvaluator):
     def evaluate(
         self,
         *,
-        model: "mlflow.pyfunc.PyFuncModel",
         model_type,
         dataset,
         run_id,
         evaluator_config,
+        model: "mlflow.pyfunc.PyFuncModel" = None,
         custom_metrics=None,
         extra_metrics=None,
         custom_artifacts=None,

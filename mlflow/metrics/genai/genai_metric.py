@@ -33,7 +33,12 @@ def _format_args_string(grading_context_columns: Optional[List[str]], eval_value
     return (
         ""
         if args_dict is None
-        else "\n".join(f"Provided {arg}: {arg_value}" for arg, arg_value in args_dict.items())
+        else (
+            "Additional information used by the model:\n"
+            + "\n".join(
+                [f"key: {arg}\nvalue:\n{arg_value}" for arg, arg_value in args_dict.items()]
+            )
+        )
     )
 
 
@@ -51,11 +56,11 @@ def _extract_score_and_justification(output):
         # Attempt to parse JSON
         try:
             data = json.loads(text)
-            score = int(data.get("Score"))
-            justification = data.get("Justification")
+            score = int(data.get("score"))
+            justification = data.get("justification")
         except json.JSONDecodeError:
             # If parsing fails, use regex
-            match = re.search(r"Score: (\d+),?\s*Justification: (.+)", text)
+            match = re.search(r"score: (\d+),?\s*justification: (.+)", text)
             if match:
                 score = int(match.group(1))
                 justification = match.group(2)
@@ -84,7 +89,7 @@ def make_genai_metric(
     aggregations: Optional[List[str]] = None,
     greater_is_better: bool = True,
     max_workers: int = 10,
-    judge_request_timeout: int = 15,
+    judge_request_timeout: int = 60,
 ) -> EvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow.
@@ -94,19 +99,24 @@ def make_genai_metric(
     :param grading_prompt: Grading criteria of the metric.
     :param examples: (Optional) Examples of the metric.
     :param version: (Optional) Version of the metric. Currently supported versions are: v1.
-    :param model: (Optional) Model uri of the metric.
+    :param model: (Optional) Model uri of the of an openai or gateway judge model in the format of
+        "openai:/gpt-4" or "gateway:/my-route". Defaults to
+        "openai:/gpt-3.5-turbo-16k". Your use of a third party LLM service (e.g., OpenAI) for
+        evaluation may be subject to and governed by the LLM service's terms of use.
     :param grading_context_columns: (Optional) grading_context_columns required to compute
         the metric. These grading_context_columns are used by the LLM as a judge as additional
         information to compute the metric. The columns are extracted from the input dataset or
         output predictions based on col_mapping in evaluator_config.
-    :param parameters: (Optional) Parameters for the llm used to compute the metric.
+    :param parameters: (Optional) Parameters for the LLM used to compute the metric. By default, we
+        set the temperature to 0.0, max_tokens to 200, and top_p to 1.0. We recommend
+        setting the temperature to 0.0 for the LLM used as a judge to ensure consistent results.
     :param aggregations: (Optional) The list of options to aggregate the scores. Currently supported
         options are: min, max, mean, median, variance, p90.
     :param greater_is_better: (Optional) Whether the metric is better when it is greater.
     :param max_workers: (Optional) The maximum number of workers to use for judge scoring.
         Defaults to 10 workers.
     :param judge_request_timeout: (Optional) The timeout in seconds for each judge scoring request.
-        Defaults to 15 seconds.
+        Defaults to 60 seconds.
 
     :return: A metric object.
 
@@ -162,9 +172,9 @@ def make_genai_metric(
             ),
             examples=[example],
             version="v1",
-            model="gateway:/gpt4",
+            model="openai:/gpt-3.5-turbo-16k",
             grading_context_columns=["ground_truth"],
-            parameters={"temperature": 1.0},
+            parameters={"temperature": 0.0},
             aggregations=["mean", "variance", "p90"],
             greater_is_better=True,
         )
@@ -250,7 +260,9 @@ def make_genai_metric(
                 **eval_parameters,
             }
             try:
-                raw_result = model_utils.score_model_on_payload(eval_model, payload)
+                raw_result = model_utils.score_model_on_payload(
+                    eval_model, payload, judge_request_timeout
+                )
                 return _extract_score_and_justification(raw_result)
             except Exception as e:
                 _logger.info(f"Failed to score model on payload. Error: {e!r}")
