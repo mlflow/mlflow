@@ -1448,6 +1448,37 @@ def test_evaluate_with_loaded_pyfunc_model():
     assert "root_mean_squared_error" in run.data.metrics
 
 
+def test_evaluate_retriever():
+    X = pd.DataFrame(
+        {
+            "question": ["What is GPT-4?", "How does it work?", "Who developed it?"],
+            "ground_truth": [("doc1", "doc2")] * 3,
+        }
+    )
+
+    def fn(X):
+        return pd.DataFrame({"output": [("doc1", "doc3")] * len(X)})
+
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            model=fn,
+            data=X,
+            targets="ground_truth",
+            model_type="retriever",
+            evaluator_config={
+                "default": {
+                    "k": 2,
+                }
+            },
+        )
+    run = mlflow.get_run(run.info.run_id)
+    assert run.data.metrics == {
+        "precision_at_k/v1/mean": 2.0,
+        "precision_at_k/v1/variance": 0.0,
+        "precision_at_k/v1/p90": 2.0,
+    }
+
+
 def test_evaluate_with_static_dataset_input_single_output():
     X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
     X = X[::5]

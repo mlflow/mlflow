@@ -30,6 +30,7 @@ from mlflow.metrics import (
     exact_match,
     flesch_kincaid_grade_level,
     perplexity,
+    precision_at_k,
     rouge1,
     rouge2,
     rougeL,
@@ -1171,6 +1172,8 @@ class DefaultEvaluator(ModelEvaluator):
                         eval_fn_args.append(None)
                 elif column == "metrics":
                     eval_fn_args.append(copy.deepcopy(self.metrics_values))
+                elif param_name == "k":
+                    eval_fn_args.append(eval_df_copy["k"])
                 else:
                     # case when column passed in col_mapping contains the entire column
                     if not isinstance(column, str):
@@ -1645,7 +1648,7 @@ class DefaultEvaluator(ModelEvaluator):
                 elif self.model_type == _ModelType.TEXT:
                     self.builtin_metrics = text_metrics
                 elif self.model_type == _ModelType.RETRIEVER:
-                    self.builtin_metrics = [token_count]
+                    self.builtin_metrics = [precision_at_k]
 
                 self.y_pred = (
                     self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
@@ -1653,6 +1656,8 @@ class DefaultEvaluator(ModelEvaluator):
                 eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
                 if self.dataset.has_targets:
                     eval_df["target"] = self.y
+                if self.model_type == _ModelType.RETRIEVER:
+                    eval_df["k"] = self.evaluator_config.get("k", 3)  # default K
 
                 self._evaluate_metrics(eval_df)
                 if not is_baseline_model:
