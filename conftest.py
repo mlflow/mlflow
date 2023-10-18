@@ -66,9 +66,19 @@ def pytest_report_teststatus(report, config):
 
         (*rest, result) = outcome.get_result()
         mem = psutil.virtual_memory()
-        used = mem.used / 1024**3
-        total = mem.total / 1024**3
-        outcome.force_result((*rest, f"{result} | mem {used:.1f}/{total:.1f} GB"))
+        mem_used = mem.used / 1024**3
+        mem_total = mem.total / 1024**3
+
+        disk = psutil.disk_usage("/")
+        disk_used = disk.used / 1024**3
+        disk_total = disk.total / 1024**3
+        outcome.force_result(
+            (
+                *rest,
+                f"{result} 🧠 {mem_used:.1f}/{mem_total:.1f} GB "
+                f"💿 {disk_used:.1f}/{disk_total:.1f} GB",
+            )
+        )
 
 
 @pytest.hookimpl(hookwrapper=True)
