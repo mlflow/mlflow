@@ -22,6 +22,7 @@ _logger = logging.getLogger(__name__)
 
 # NOTE: The MLMODEL_FILE_NAME constant is considered @developer_stable
 MLMODEL_FILE_NAME = "MLmodel"
+_DATABRICKS_FS_LOADER_MODULE = "databricks.feature_store.mlflow_model"
 _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "Logging model metadata to the tracking server has failed. The model artifacts "
     "have been logged successfully under %s. Set logging level to DEBUG via "
@@ -259,7 +260,7 @@ class Model:
         utc_time_created=None,
         flavors=None,
         signature=None,  # ModelSignature
-        saved_input_example_info: Dict[str, Any] = None,
+        saved_input_example_info: Optional[Dict[str, Any]] = None,
         model_uuid: Union[str, Callable, None] = lambda: uuid.uuid4().hex,
         mlflow_version: Union[str, None] = mlflow.version.VERSION,
         metadata: Optional[Dict[str, Any]] = None,
@@ -320,6 +321,19 @@ class Model:
         from mlflow.models.utils import _read_example
 
         return _read_example(self, path)
+
+    def load_input_example_params(self, path: str):
+        """
+        Load the params of input example saved along a model. Returns None if there is no params in
+        the input_example.
+
+        :param path: Path to the model directory.
+
+        :return: params (dict) or None if the model has no params.
+        """
+        from mlflow.models.utils import _read_example_params
+
+        return _read_example_params(self, path)
 
     def add_flavor(self, name, **params):
         """Add an entry for how to serve the model in a given format."""
@@ -543,11 +557,19 @@ class Model:
                             train = df.drop_column("target_label")
                             signature = infer_signature(train, model.predict(train))
 
-        :param input_example: Input example provides one or several examples of
-                              valid model input. The example can be used as a hint of what data to
-                              feed the model. The given example will be converted to a Pandas
-                              DataFrame and then serialized to json using the Pandas split-oriented
-                              format. Bytes are base64-encoded.
+        :param input_example: one or several instances of valid model input. The input example is
+                            used as a hint of what data to feed the model. It will be converted to
+                            a Pandas DataFrame and then serialized to json using the Pandas
+                            split-oriented format, or a numpy array where the example will be
+                            serialized to json by converting it to a list. If input example is a
+                            tuple, then the first element must be a valid model input, and the
+                            second element must be a valid params dictionary that can optionally
+                            be used during model inference. Bytes are base64-encoded. When the
+                            ``signature`` parameter is ``None``, the input example is used to infer
+                            a model's signature. If an input example containing params is provided,
+                            and signature is inferred from the input example, then params will be
+                            used as default params during model inference if no extra params are
+                            passed at inference time.
 
         :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function

@@ -17,7 +17,8 @@ from threading import Timer
 from typing import NamedTuple, Optional
 
 import importlib_metadata
-import pkg_resources
+import pkg_resources  # noqa: TID251
+from packaging.requirements import Requirement
 from packaging.version import InvalidVersion, Version
 
 import mlflow
@@ -374,8 +375,7 @@ _PyPIPackageIndex = namedtuple("_PyPIPackageIndex", ["date", "package_names"])
 
 
 def _load_pypi_package_index():
-    pypi_index_path = pkg_resources.resource_filename(mlflow.__name__, "pypi_package_index.json")
-    with open(pypi_index_path) as f:
+    with Path(mlflow.__file__).parent.joinpath("pypi_package_index.json").open() as f:
         index_dict = json.load(f)
 
     return _PyPIPackageIndex(
@@ -462,7 +462,7 @@ def _strip_local_version_label(version):
         return version
 
 
-def _get_pinned_requirement(package, version=None, module=None):
+def _get_pinned_requirement(package, version=None, module=None, extras=None):
     """
     Returns a string representing a pinned pip requirement to install the specified package and
     version (e.g. 'mlflow==1.2.3').
@@ -472,6 +472,7 @@ def _get_pinned_requirement(package, version=None, module=None):
     :param module: The name of the top-level module provided by the package . For example,
                    if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
                    to `package`.
+    :param extras: A list of extra names for the package
     """
     if version is None:
         version_raw = _get_installed_version(package, module)
@@ -491,6 +492,8 @@ def _get_pinned_requirement(package, version=None, module=None):
         else:
             version = version_raw
 
+    if extras:
+        return f"{package}[{','.join(extras)}]=={version}"
     return f"{package}=={version}"
 
 
@@ -513,7 +516,7 @@ def _check_requirement_satisfied(requirement_str):
     """
     _init_packages_to_modules_map()
     try:
-        req = pkg_resources.Requirement.parse(requirement_str)
+        req = Requirement(requirement_str)
     except Exception:
         # We reach here if the requirement string is a file path or a URL.
         # Extracting the package name from the requirement string is not trivial,

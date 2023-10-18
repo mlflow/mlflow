@@ -27,6 +27,8 @@ import { injectIntl } from 'react-intl';
 import { ErrorWrapper } from './../../common/utils/ErrorWrapper';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
+import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
+import ErrorUtils from '../../common/utils/ErrorUtils';
 
 type ModelPageImplProps = WithRouterNextProps<{ subpage: string }> & {
   modelName: string;
@@ -160,6 +162,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps> {
                   handleEditDescription={this.handleEditDescription}
                   handleDelete={this.handleDelete}
                   navigate={navigate}
+                  onAliasesModified={this.loadData}
                 />
               );
             }
@@ -189,7 +192,12 @@ const mapDispatchToProps = {
   deleteRegisteredModelApi,
 };
 
-export const ModelPage = withRouterNext(
+const ModelPageWithRouter = withRouterNext(
   // @ts-expect-error TS(2769): No overload matches this call.
   connect(mapStateToProps, mapDispatchToProps)(injectIntl(ModelPageImpl)),
+);
+
+export const ModelPage = withErrorBoundary(
+  ErrorUtils.mlflowServices.MODEL_REGISTRY,
+  ModelPageWithRouter,
 );

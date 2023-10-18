@@ -29,6 +29,9 @@ on:
     # Run this workflow daily at 13:00 UTC
     - cron: "0 13 * * *"
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
@@ -45,6 +48,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    permissions:
+      issues: read # listLabelsOnIssue
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       is_matrix_empty: ${{ steps.set-matrix.outputs.is_matrix_empty }}
@@ -125,7 +130,11 @@ jobs:
       - name: Get python version
         id: get-python-version
         run: |
-          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8")
+          if [ "${{ matrix.package }}" = "tensorflow" ] && [ "${{ matrix.version }}" = "dev" ]; then
+            python_version=3.9
+          else
+            python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          fi
           echo "version=$python_version" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/setup-python
         with:
@@ -143,6 +152,14 @@ jobs:
               java_version=11
             else
               java_version=8
+            fi
+          elif [ "${{ matrix.package }}" = "pyspark" ]; then
+            pip install packaging
+            use_java17=$(python -c "from packaging.version import parse; print('${{ matrix.version }}' == 'dev' or parse('${{ matrix.version }}') > parse('3.4.1'))")
+            if [ "$use_java17" = "True" ]; then
+              java_version=17
+            else
+              java_version=11
             fi
           else
             java_version=11

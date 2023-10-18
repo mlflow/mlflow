@@ -883,7 +883,7 @@ message LogParam {
   // Name of the param. Maximum size is 255 bytes.
   optional string key = 2 [(validate_required) = true];
 
-  // String value of the param being logged. Maximum size is 500 bytes.
+  // String value of the param being logged. Maximum size is 6000 bytes.
   optional string value = 3 [(validate_required) = true];
 
   message Response {

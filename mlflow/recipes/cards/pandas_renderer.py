@@ -266,8 +266,7 @@ def construct_facets_html(
         <facets-overview id="facets" proto-input="{protostr}" compare-mode="{compare}"></facets-overview>
         </div>
     """
-    html = html_template.format(protostr=protostr, compare=compare, polyfills_code=polyfills_code)
-    return html
+    return html_template.format(protostr=protostr, compare=compare, polyfills_code=polyfills_code)
 
 
 def get_html(inputs: Union[pd.DataFrame, Iterable[Tuple[str, pd.DataFrame]]]) -> str:
@@ -286,5 +285,4 @@ def get_html(inputs: Union[pd.DataFrame, Iterable[Tuple[str, pd.DataFrame]]]) ->
         proto = convert_to_comparison_proto(inputs)
         compare = True
 
-    html = construct_facets_html(proto, compare=compare)
-    return html
+    return construct_facets_html(proto, compare=compare)

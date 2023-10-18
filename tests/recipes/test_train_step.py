@@ -4,6 +4,7 @@ import os
 import random
 import sys
 from pathlib import Path
+from typing import Optional
 from unittest import mock
 from unittest.mock import MagicMock, Mock
 
@@ -164,8 +165,7 @@ def setup_train_step_with_tuning(
             """
         )
     recipe_config = read_yaml(recipe_root, _RECIPE_CONFIG_FILE_NAME)
-    train_step = TrainStep.from_recipe_config(recipe_config, str(recipe_root))
-    return train_step
+    return TrainStep.from_recipe_config(recipe_config, str(recipe_root))
 
 
 def test_train_step(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
@@ -328,8 +328,7 @@ def setup_train_step_with_automl(
         """
     )
     recipe_config = read_yaml(recipe_root, _RECIPE_CONFIG_FILE_NAME)
-    train_step = TrainStep.from_recipe_config(recipe_config, str(recipe_root))
-    return train_step
+    return TrainStep.from_recipe_config(recipe_config, str(recipe_root))
 
 
 def estimator_fn(estimator_params=None):
@@ -481,7 +480,7 @@ def test_train_step_with_tuning_best_parameters(
     assert "penalty" in best_params_yaml
     assert "eta0" in best_params_yaml
 
-    run_id = open(train_step_output_dir / "run_id").read()
+    run_id = train_step_output_dir.joinpath("run_id").read_text()
     parent_run_params = MlflowClient().get_run(run_id).data.params
     assert "alpha" in parent_run_params
     assert "penalty" in parent_run_params
@@ -649,7 +648,7 @@ def test_tuning_multiclass(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Pat
 
     _old_import_module = importlib.import_module
 
-    def _import_module(name: str, package: str = None):
+    def _import_module(name: str, package: Optional[str] = None):
         if "steps" in name:
             return _old_import_module("tests.recipes.test_train_step")
         else:

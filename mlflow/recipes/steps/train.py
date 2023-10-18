@@ -102,7 +102,7 @@ class TrainStep(BaseStep):
             if self.step_config["tuning_enabled"]:
                 if "sample_fraction" in self.step_config["tuning"]:
                     sample_fraction = float(self.step_config["tuning"]["sample_fraction"])
-                    if sample_fraction > 0 and sample_fraction <= 1.0:
+                    if 0 < sample_fraction <= 1.0:
                         self.step_config["sample_fraction"] = sample_fraction
                     else:
                         raise MlflowException(
@@ -278,7 +278,8 @@ class TrainStep(BaseStep):
             filename = frame.f_code.co_filename
             lineno = frame.f_lineno
             message = f"{timestamp} {filename}:{lineno}: {args[0]}\n"
-            open(os.path.join(output_directory, "warning_logs.txt"), "a").write(message)
+            with open(os.path.join(output_directory, "warning_logs.txt"), "a") as f:
+                f.write(message)
 
         original_warn = warnings.warn
         warnings.warn = my_warn
@@ -291,7 +292,8 @@ class TrainStep(BaseStep):
 
             from mlflow.models import infer_signature
 
-            open(os.path.join(output_directory, "warning_logs.txt"), "w")
+            with open(os.path.join(output_directory, "warning_logs.txt"), "w"):
+                pass
 
             apply_recipe_tracking_config(self.tracking_config)
 
@@ -486,7 +488,7 @@ class TrainStep(BaseStep):
                         targets=self.target_col,
                         model_type=_get_model_type_from_template(self.recipe),
                         evaluators="default",
-                        custom_metrics=_load_custom_metrics(
+                        extra_metrics=_load_custom_metrics(
                             self.recipe_root,
                             self.evaluation_metrics.values(),
                         ),
@@ -778,7 +780,7 @@ class TrainStep(BaseStep):
 
         metric_columns = sorted(metric_names, key=sorter)
 
-        leaderboard_df = (
+        return (
             pd.DataFrame.from_records(
                 [latest_model_item, *top_leaderboard_items],
                 columns=["Model Rank", *metric_columns, "Run Time", "Run ID"],
@@ -792,7 +794,6 @@ class TrainStep(BaseStep):
             .set_axis(["Latest"] + top_leaderboard_item_index_values, axis="index")
             .transpose()
         )
-        return leaderboard_df
 
     def _get_tuning_df(self, run, params=None):
         exp_id = _get_experiment_id()
@@ -967,7 +968,8 @@ class TrainStep(BaseStep):
             else:
                 automl_estimator_str = ""
 
-            best_parameters = open(best_parameters_yaml).read()
+            with open(best_parameters_yaml) as f:
+                best_parameters = f.read()
             best_parameters_card_tab.add_html(
                 "BEST_PARAMETERS",
                 f"{automl_estimator_str}<b>Best parameters:</b><br>"
@@ -1002,9 +1004,8 @@ class TrainStep(BaseStep):
         warning_output_path = os.path.join(output_directory, "warning_logs.txt")
         if os.path.exists(warning_output_path):
             warnings_output_tab = card.add_tab("Warning Logs", "{{ STEP_WARNINGS }}")
-            warnings_output_tab.add_html(
-                "STEP_WARNINGS", f"<pre>{open(warning_output_path).read()}</pre>"
-            )
+            with open(warning_output_path) as f:
+                warnings_output_tab.add_html("STEP_WARNINGS", f"<pre>{f.read()}</pre>")
 
         # Tab 11: Run summary.
         run_card_tab = card.add_tab(
@@ -1147,7 +1148,7 @@ class TrainStep(BaseStep):
                     targets=self.target_col,
                     model_type=_get_model_type_from_template(self.recipe),
                     evaluators="default",
-                    custom_metrics=_load_custom_metrics(
+                    extra_metrics=_load_custom_metrics(
                         self.recipe_root,
                         self.evaluation_metrics.values(),
                     ),
@@ -1268,13 +1269,12 @@ class TrainStep(BaseStep):
         estimator_schema = infer_signature(
             X_train_sampled, estimator.predict(X_train_sampled.copy())
         )
-        logged_estimator = mlflow.sklearn.log_model(
+        return mlflow.sklearn.log_model(
             estimator,
             f"{self.name}/estimator",
             signature=estimator_schema,
             code_paths=self.code_paths,
         )
-        return logged_estimator
 
     def _write_best_parameters_outputs(
         self,
@@ -1357,6 +1357,4 @@ class TrainStep(BaseStep):
         _logger.info(
             f"After downsampling: minority class percentage is {resampling_minority_percentage:.2f}"
         )
-        train_df = pd.concat([df_minority_class, df_majority_downsampled], axis=0).sample(frac=1)
-
-        return train_df
+        return pd.concat([df_minority_class, df_majority_downsampled], axis=0).sample(frac=1)

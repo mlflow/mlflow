@@ -25,7 +25,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
-    INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
@@ -90,7 +89,9 @@ from mlflow.protos.service_pb2 import (
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
+from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.file_utils import local_file_uri_to_path
@@ -267,6 +268,7 @@ def _get_tracking_store(backend_store_uri=None, default_artifact_root=None):
         store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
         artifact_root = default_artifact_root or os.environ.get(ARTIFACT_ROOT_ENV_VAR, None)
         _tracking_store = _tracking_store_registry.get_store(store_uri, artifact_root)
+        utils.set_tracking_uri(store_uri)
     return _tracking_store
 
 
@@ -281,6 +283,7 @@ def _get_model_registry_store(registry_store_uri=None):
             or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
         )
         _model_registry_store = _model_registry_store_registry.get_store(store_uri)
+        registry_utils.set_registry_uri(store_uri)
     return _model_registry_store
 
 
@@ -1102,7 +1105,7 @@ def get_metric_history_bulk_handler():
 @_disable_if_artifacts_only
 def search_datasets_handler():
     MAX_EXPERIMENT_IDS_PER_REQUEST = 20
-    experiment_ids = request.args.to_dict(flat=False).get("experiment_id", [])
+    experiment_ids = request.json.get("experiment_ids", [])
     if not experiment_ids:
         raise MlflowException(
             message="SearchDatasets request must specify at least one experiment_id.",
@@ -1131,15 +1134,12 @@ def search_datasets_handler():
 
 @catch_mlflow_exception
 def gateway_proxy_handler():
-    args = request.json
-
     gateway_uri = MLFLOW_GATEWAY_URI.get()
-    _logger.info("gateway_uri: %s", gateway_uri)
     if not gateway_uri:
-        raise MlflowException(
-            message="MLFLOW_GATEWAY_URI environment variable must be set.",
-            error_code=INTERNAL_ERROR,
-        )
+        # Pretend an empty gateway service is running
+        return {"routes": []}
+
+    args = request.args if request.method == "GET" else request.json
 
     gateway_path = args.get("gateway_path")
     if not gateway_path:
@@ -1199,8 +1199,7 @@ def create_promptlab_run_handler():
     ]
     mlflow_version = args.get("mlflow_version")
     assert_arg_exists("mlflow_version", mlflow_version)
-    user_id = args.get("user_id")
-    assert_arg_exists("user_id", user_id)
+    user_id = args.get("user_id", "unknown")
 
     # use current time if not provided
     start_time = args.get("start_time", int(time.time() * 1000))
@@ -1228,6 +1227,70 @@ def create_promptlab_run_handler():
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
+
+
+@catch_mlflow_exception
+def upload_artifact_handler():
+    args = request.args
+    run_uuid = args.get("run_uuid")
+    if not run_uuid:
+        raise MlflowException(
+            message="Request must specify run_uuid.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    path = args.get("path")
+    if not path:
+        raise MlflowException(
+            message="Request must specify path.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    validate_path_is_safe(path)
+
+    if request.content_length and request.content_length > 10 * 1024 * 1024:
+        raise MlflowException(
+            message="Artifact size is too large. Max size is 10MB.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    data = request.data
+    if not data:
+        raise MlflowException(
+            message="Request must specify data.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    run = _get_tracking_store().get_run(run_uuid)
+    artifact_dir = run.info.artifact_uri
+
+    basename = posixpath.basename(path)
+    dirname = posixpath.dirname(path)
+
+    def _log_artifact_to_repo(file, run, dirname, artifact_dir):
+        if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
+            artifact_repo = _get_artifact_repo_mlflow_artifacts()
+            path_to_log = (
+                os.path.join(run.info.experiment_id, run.info.run_id, "artifacts", dirname)
+                if dirname
+                else os.path.join(run.info.experiment_id, run.info.run_id, "artifacts")
+            )
+        else:
+            artifact_repo = get_artifact_repository(artifact_dir)
+            path_to_log = dirname
+
+        artifact_repo.log_artifact(file, path_to_log)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        dir_path = os.path.join(tmpdir, dirname) if dirname else tmpdir
+        file_path = os.path.join(dir_path, basename)
+
+        os.makedirs(dir_path, exist_ok=True)
+
+        with open(file_path, "wb") as f:
+            f.write(data)
+
+        _log_artifact_to_repo(file_path, run, dirname, artifact_dir)
+
+    return Response(mimetype="application/json")
 
 
 @catch_mlflow_exception
@@ -1837,7 +1900,7 @@ def _download_artifact(artifact_path):
     dst = artifact_repo.download_artifacts(artifact_path, tmp_dir.name)
 
     # Ref: https://stackoverflow.com/a/24613980/6943581
-    file_handle = open(dst, "rb")
+    file_handle = open(dst, "rb")  # noqa: SIM115
 
     def stream_and_remove_file():
         yield from file_handle

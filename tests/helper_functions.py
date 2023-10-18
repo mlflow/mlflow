@@ -4,7 +4,6 @@ import logging
 import numbers
 import os
 import random
-import shutil
 import signal
 import socket
 import subprocess
@@ -328,12 +327,11 @@ class RestEndpoint:
         elif type(data) not in {str, dict}:
             data = json.dumps({"instances": data})
 
-        response = requests.post(
+        return requests.post(
             url=f"http://localhost:{self._port}/invocations",
             data=data,
             headers={"Content-Type": content_type},
         )
-        return response
 
 
 def _evaluate_scoring_proc(
@@ -475,9 +473,21 @@ def _is_available_on_pypi(package, version=None, module=None):
     """
     from mlflow.utils.requirements_utils import _get_installed_version
 
-    resp = requests.get(f"https://pypi.python.org/pypi/{package}/json")
-    if not resp.ok:
-        return False
+    url = f"https://pypi.python.org/pypi/{package}/json"
+    for sec in range(3):
+        try:
+            time.sleep(sec)
+            resp = requests.get(url)
+        except requests.exceptions.ConnectionError:
+            continue
+
+        if resp.status_code == 404:
+            return False
+
+        if resp.status_code == 200:
+            break
+    else:
+        raise Exception(f"Failed to connect to {url}")
 
     version = version or _get_installed_version(module or package)
     dist_files = resp.json()["releases"].get(version)
@@ -625,7 +635,3 @@ def clear_hub_cache():
     except ImportError:
         # Local import check for mlflow-skinny not including huggingface_hub
         pass
-
-
-def get_free_disk_space_in_GiB():
-    return shutil.disk_usage("/").free / (1024**3)

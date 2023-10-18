@@ -2,6 +2,7 @@ import decimal
 import json
 import logging
 import os
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -11,11 +12,11 @@ from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
 from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
-from mlflow.types.utils import TensorsNotSupportedException, clean_tensor_type
+from mlflow.types.utils import TensorsNotSupportedException, _infer_param_schema, clean_tensor_type
 from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
-    dataframe_from_raw_json,
+    dataframe_from_parsed_json,
     parse_tf_serving_input,
 )
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
@@ -27,8 +28,12 @@ try:
 except ImportError:
     HAS_SCIPY = False
 
+INPUT_EXAMPLE_PATH = "artifact_path"
+EXAMPLE_DATA_KEY = "inputs"
+EXAMPLE_PARAMS_KEY = "params"
+
 ModelInputExample = Union[
-    pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes
+    pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes, tuple
 ]
 
 PyFuncInput = Union[
@@ -83,6 +88,13 @@ class _Example:
     def __init__(self, input_example: ModelInputExample):
         def _is_scalar(x):
             return np.isscalar(x) or x is None
+
+        def _validate_params(params):
+            try:
+                _infer_param_schema(params)
+            except MlflowException:
+                _logger.warning(f"Invalid params found in input example: {params}")
+                raise
 
         def _is_ndarray(x):
             return isinstance(x, np.ndarray) or (
@@ -172,14 +184,27 @@ class _Example:
             return result
 
         example_filename = "input_example.json"
+        self.info = {
+            INPUT_EXAMPLE_PATH: example_filename,
+        }
+        # Avoid changing the variable passed in
+        input_example = deepcopy(input_example)
+        if _contains_params(input_example):
+            input_example, self._inference_params = input_example
+            _validate_params(self._inference_params)
+            self.info[EXAMPLE_PARAMS_KEY] = "true"
+        else:
+            self._inference_params = None
+
         if _is_ndarray(input_example):
             self._inference_data = input_example
             self.data = _handle_ndarray_input(input_example)
-            self.info = {
-                "artifact_path": example_filename,
-                "type": "ndarray",
-                "format": "tf-serving",
-            }
+            self.info.update(
+                {
+                    "type": "ndarray",
+                    "format": "tf-serving",
+                }
+            )
         elif _is_sparse_matrix(input_example):
             self._inference_data = input_example
             self.data = _handle_sparse_matrix(input_example)
@@ -187,10 +212,11 @@ class _Example:
                 example_type = "sparse_matrix_csc"
             else:
                 example_type = "sparse_matrix_csr"
-            self.info = {
-                "artifact_path": example_filename,
-                "type": example_type,
-            }
+            self.info.update(
+                {
+                    "type": example_type,
+                }
+            )
         else:
             self._inference_data = _coerce_to_pandas_df(input_example)
             if self._inference_data is None:
@@ -208,16 +234,22 @@ class _Example:
                     f"but got '{type(input_example)}'",
                 )
             self.data = _handle_dataframe_input(self._inference_data)
-            self.info = {
-                "artifact_path": example_filename,
-                "type": "dataframe",
-                "pandas_orient": "split",
-            }
+            orient = "split" if "columns" in self.data else "values"
+            self.info.update(
+                {
+                    "type": "dataframe",
+                    "pandas_orient": orient,
+                }
+            )
 
     def save(self, parent_dir_path: str):
         """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`."""
-        with open(os.path.join(parent_dir_path, self.info["artifact_path"]), "w") as f:
-            json.dump(self.data, f, cls=NumpyEncoder)
+        if self._inference_params is not None:
+            data = {EXAMPLE_DATA_KEY: self.data, EXAMPLE_PARAMS_KEY: self._inference_params}
+        else:
+            data = self.data
+        with open(os.path.join(parent_dir_path, self.info[INPUT_EXAMPLE_PATH]), "w") as f:
+            json.dump(data, f, cls=NumpyEncoder)
 
     @property
     def inference_data(self):
@@ -225,6 +257,23 @@ class _Example:
         Returns the input example in a form that PyFunc wrapped models can score.
         """
         return self._inference_data
+
+    @property
+    def inference_params(self):
+        """
+        Returns the params dictionary that PyFunc wrapped models can use for scoring.
+        """
+        return self._inference_params
+
+
+def _contains_params(input_example):
+    # For tuple input, we assume the first item is input_example data
+    # and the second item is params dictionary.
+    return (
+        isinstance(input_example, tuple)
+        and len(input_example) == 2
+        and isinstance(input_example[1], dict)
+    )
 
 
 def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: str):
@@ -248,12 +297,10 @@ def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: s
     mlflow_model.saved_input_example_info = example.info
 
 
-def _read_example(mlflow_model: Model, path: str):
+def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
     """
-    Read example from a model directory. Returns None if there is no example metadata (i.e. the
-    model was saved without example). Raises FileNotFoundError if there is model metadata but the
-    example file is missing.
-
+    Read input_example dictionary from the model artifact path. Returns None if there is no
+    example metadata.
     :param mlflow_model: Model metadata.
     :param path: Path to the model directory.
     :return: Input example or None if the model has no example.
@@ -263,34 +310,74 @@ def _read_example(mlflow_model: Model, path: str):
     example_type = mlflow_model.saved_input_example_info["type"]
     if example_type not in ["dataframe", "ndarray", "sparse_matrix_csc", "sparse_matrix_csr"]:
         raise MlflowException(f"This version of mlflow can not load example of type {example_type}")
-    input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
     path = os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
+    with open(path) as handle:
+        return json.load(handle)
+
+
+def _read_example(mlflow_model: Model, path: str):
+    """
+    Read example from a model directory. Returns None if there is no example metadata (i.e. the
+    model was saved without example). Raises FileNotFoundError if there is model metadata but the
+    example file is missing.
+
+    :param mlflow_model: Model metadata.
+    :param path: Path to the model directory.
+    :return: Input example data or None if the model has no example.
+    """
+    input_example = _get_mlflow_model_input_example_dict(mlflow_model, path)
+    if input_example is None:
+        return None
+
+    example_type = mlflow_model.saved_input_example_info["type"]
+    input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
+    if mlflow_model.saved_input_example_info.get(EXAMPLE_PARAMS_KEY, None):
+        input_example = input_example[EXAMPLE_DATA_KEY]
     if example_type == "ndarray":
-        return _read_tensor_input_from_json(path, schema=input_schema)
-    elif example_type in ["sparse_matrix_csc", "sparse_matrix_csr"]:
-        return _read_sparse_matrix_from_json(path, example_type)
+        return _read_tensor_input_from_json(input_example, schema=input_schema)
+    if example_type in ["sparse_matrix_csc", "sparse_matrix_csr"]:
+        return _read_sparse_matrix_from_json(input_example, example_type)
+    return dataframe_from_parsed_json(input_example, pandas_orient="split", schema=input_schema)
+
+
+def _read_example_params(mlflow_model: Model, path: str):
+    """
+    Read params of input_example from a model directory. Returns None if there is no params
+    in the input_example or the model was saved without example.
+    """
+    if (
+        mlflow_model.saved_input_example_info is None
+        or mlflow_model.saved_input_example_info.get(EXAMPLE_PARAMS_KEY, None) is None
+    ):
+        return None
+    input_example_dict = _get_mlflow_model_input_example_dict(mlflow_model, path)
+    return input_example_dict[EXAMPLE_PARAMS_KEY]
+
+
+def _read_tensor_input_from_json(path_or_data, schema=None):
+    if isinstance(path_or_data, str) and os.path.exists(path_or_data):
+        with open(path_or_data) as handle:
+            inp_dict = json.load(handle)
     else:
-        return dataframe_from_raw_json(path, schema=input_schema)
+        inp_dict = path_or_data
+    return parse_tf_serving_input(inp_dict, schema)
 
 
-def _read_tensor_input_from_json(path, schema=None):
-    with open(path) as handle:
-        inp_dict = json.load(handle)
-        return parse_tf_serving_input(inp_dict, schema)
+def _read_sparse_matrix_from_json(path_or_data, example_type):
+    if isinstance(path_or_data, str) and os.path.exists(path_or_data):
+        with open(path_or_data) as handle:
+            matrix_data = json.load(handle)
+    else:
+        matrix_data = path_or_data
+    data = matrix_data["data"]
+    indices = matrix_data["indices"]
+    indptr = matrix_data["indptr"]
+    shape = tuple(matrix_data["shape"])
 
-
-def _read_sparse_matrix_from_json(path, example_type):
-    with open(path) as handle:
-        matrix_data = json.load(handle)
-        data = matrix_data["data"]
-        indices = matrix_data["indices"]
-        indptr = matrix_data["indptr"]
-        shape = tuple(matrix_data["shape"])
-
-        if example_type == "sparse_matrix_csc":
-            return csc_matrix((data, indices, indptr), shape=shape)
-        else:
-            return csr_matrix((data, indices, indptr), shape=shape)
+    if example_type == "sparse_matrix_csc":
+        return csc_matrix((data, indices, indptr), shape=shape)
+    else:
+        return csr_matrix((data, indices, indptr), shape=shape)
 
 
 def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs=None, title=None):
@@ -666,10 +753,8 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     if not input_schema.is_tensor_spec():
         if isinstance(pf_input, (list, np.ndarray, dict, pd.Series, str, bytes)):
             try:
-                if isinstance(pf_input, (str, bytes)):
-                    pf_input = pd.DataFrame([pf_input])
-                elif isinstance(pf_input, dict) and all(
-                    _is_scalar(value) for value in pf_input.values()
+                if isinstance(pf_input, (str, bytes)) or (
+                    isinstance(pf_input, dict) and all(map(_is_scalar, pf_input.values()))
                 ):
                     pf_input = pd.DataFrame([pf_input])
                 elif isinstance(pf_input, dict) and all(
@@ -695,6 +780,25 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                     for value in pf_input.values()
                 ):
                     pf_input = pd.DataFrame([pf_input])
+                elif isinstance(pf_input, dict) and any(
+                    isinstance(value, np.ndarray) and value.ndim > 1 for value in pf_input.values()
+                ):
+                    # Pandas DataFrames can't be constructed with embedded multi-dimensional
+                    # numpy arrays. Accordingly, we convert any multi-dimensional numpy
+                    # arrays to lists before constructing a DataFrame. This is safe because ColSpec
+                    # model signatures do not support array columns, so subsequent validation logic
+                    # will result in a clear "incompatible input types" exception. This is
+                    # preferable to a pandas DataFrame construction error
+                    pf_input = pd.DataFrame(
+                        {
+                            key: (
+                                value.tolist()
+                                if (isinstance(value, np.ndarray) and value.ndim > 1)
+                                else value
+                            )
+                            for key, value in pf_input.items()
+                        }
+                    )
                 else:
                     pf_input = pd.DataFrame(pf_input)
             except Exception as e:
@@ -883,8 +987,7 @@ def get_model_version_from_model_uri(model_uri):
     )
     client = MlflowClient(registry_uri=databricks_profile_uri)
     (name, version) = get_model_name_and_version(client, model_uri)
-    model_version = client.get_model_version(name, version)
-    return model_version
+    return client.get_model_version(name, version)
 
 
 def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[ParamSchema]):

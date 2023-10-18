@@ -64,7 +64,8 @@ def test_is_zip_uri():
 
 
 def test__fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpserver):
-    httpserver.serve_content(open(zipped_repo, "rb").read())
+    with open(zipped_repo, "rb") as f:
+        httpserver.serve_content(f.read())
     # The tests are as follows:
     # 1. Fetching a locally saved project.
     # 2. Fetching a project located in a Git repo root directory.

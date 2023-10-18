@@ -272,7 +272,8 @@ def test_column_schema_enforcement():
     with pytest.raises(MlflowException, match=match_missing_inputs):
         pyfunc_model.predict(pdf.values)
 
-    # 14. dictionaries of str -> list/nparray work
+    # 14. dictionaries of str -> list/nparray work,
+    # including extraneous multi-dimensional arrays and lists
     arr = np.array([1, 2, 3])
     d = {
         "a": arr.astype("int32"),
@@ -283,6 +284,10 @@ def test_column_schema_enforcement():
         "g": ["a", "b", "c"],
         "f": [bytes(0), bytes(1), bytes(1)],
         "h": np.array(["2020-01-01", "2020-02-02", "2020-03-03"], dtype=np.datetime64),
+        # Extraneous multi-dimensional numpy array should be silenty dropped
+        "i": np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]),
+        # Extraneous multi-dimensional list should be silently dropped
+        "j": [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
     }
     res = pyfunc_model.predict(d)
     assert res.dtypes.to_dict() == expected_types
@@ -294,7 +299,7 @@ def test_column_schema_enforcement():
         "c": [arr.astype("float32")],
         "d": [arr.astype("float64")],
         "e": [[True, False, True]],
-        "g": [["a", "b", "c"]],
+        "g": np.array([["a", "b", "c"]]),
         "f": [[bytes(0), bytes(1), bytes(1)]],
         "h": [np.array(["2020-01-01", "2020-02-02", "2020-03-03"], dtype=np.datetime64)],
     }
@@ -1878,3 +1883,40 @@ def test_enforce_schema_with_arrays_in_python_model_serving(sample_params_with_a
         "Incompatible types for param 'double_array'"
         in json.loads(response.content.decode("utf-8"))["message"]
     )
+
+
+def test_pyfunc_model_input_example_with_params(sample_params_basic, param_schema_basic):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            if isinstance(model_input, pd.DataFrame):
+                return model_input.values.tolist()[0]
+            if isinstance(model_input, list):
+                return model_input
+            return [model_input]
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            input_example=(["input1", "input2", "input3"], sample_params_basic),
+        )
+
+    # Test _infer_signature_from_input_example
+    assert model_info.signature.inputs == Schema([ColSpec(DataType.string)])
+    assert model_info.signature.outputs == Schema([ColSpec(DataType.string)])
+    assert model_info.signature.params == param_schema_basic
+
+    # Test predict
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert loaded_model.predict(["input1"]) == ["input1"]
+
+    # Test model serving
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": ["input1"]}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 200, response.content
+    result = json.loads(response.content.decode("utf-8"))["predictions"]
+    assert result == ["input1"]

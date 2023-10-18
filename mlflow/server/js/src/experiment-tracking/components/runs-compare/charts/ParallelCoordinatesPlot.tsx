@@ -1,13 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Skeleton } from '@databricks/design-system';
+import { LegacySkeleton } from '@databricks/design-system';
 import Parcoords from 'parcoord-es';
 import 'parcoord-es/dist/parcoords.css';
-import { scaleLinear } from 'd3-scale';
+import { scaleSequential } from 'd3-scale';
 import { useDynamicPlotSize, truncateString } from './CompareRunsCharts.common';
 import './ParallelCoordinatesPlot.css';
-
-const COLOR_BAR_LOWER = '#3182bd';
-const COLOR_BAR_UPPER = '#f33';
 
 /**
  * Attaches custom tooltip to the axis label inside SVG
@@ -245,9 +242,18 @@ const ParallelCoordinatesPlotImpl = (props: {
       const maxValue = Math.max(...metricVals.filter((v: number) => !isNaN(v)));
 
       // use d3 scale to map metric values to colors
-      const color_set = scaleLinear<string>()
+      // color math is from interpolateTurbo in d3-scale-chromatic https://github.com/d3/d3-scale-chromatic/blob/main/src/sequential-multi/turbo.js
+      // prettier-ignore
+      const color_set = scaleSequential()
         .domain([minValue, maxValue])
-        .range([COLOR_BAR_LOWER, COLOR_BAR_UPPER]);
+        .interpolator((x) => {
+          const t = Math.max(0, Math.min(1, x));
+          return `rgb(
+            ${Math.max(0, Math.min(255, Math.round(34.61 + t * (1172.33 - t * (10793.56 - t * (33300.12 - t * (38394.49 - t * 14825.05)))))))},
+            ${Math.max(0, Math.min(255, Math.round(23.31 + t * (557.33 + t * (1225.33 - t * (3574.96 - t * (1073.77 + t * 707.56)))))))},
+            ${Math.max(0, Math.min(255, Math.round(27.2 + t * (3211.1 - t * (15327.97 - t * (27814 - t * (22569.18 - t * 6838.66)))))))}
+          )`;
+        });
 
       const wrapperElement = chartRef.current;
 
@@ -266,7 +272,7 @@ const ParallelCoordinatesPlotImpl = (props: {
           data.map((d: any) => d[key]).filter((v: any) => v !== null),
         );
         const types = nonNullValues.map((v: any) => {
-          if (v.every((x: any) => !isNaN(x))) return 'number';
+          if (v.every((x: any) => !isNaN(x) && x !== null)) return 'number';
           return 'string';
         });
         return Object.fromEntries(keys.map((_, i) => [keys[i], { type: types[i] }]));
@@ -347,22 +353,20 @@ const ParallelCoordinatesPlotImpl = (props: {
       });
 
       // draw color bar
+      const stops = Array.from({ length: 10 }, (_, i) => i / 9);
       const lg = parcoord.current.svg
         .append('defs')
         .append('linearGradient')
-        .attr('id', 'mygrad') // id of the gradient
-        .attr('x1', '0%')
+        .attr('id', 'mygrad')
         .attr('x2', '0%')
-        .attr('y1', '0%')
-        .attr('y2', '100%'); // since its a vertical linear gradient
-      lg.append('stop')
-        .attr('offset', '0%')
-        .style('stop-color', '#f33') // end in red
-        .style('stop-opacity', 1);
-      lg.append('stop')
-        .attr('offset', '100%')
-        .style('stop-color', '#3182bd') // start in blue
-        .style('stop-opacity', 1);
+        .attr('y1', '100%')
+        .attr('y2', '0%'); // Vertical linear gradient
+
+      stops.forEach((stop) => {
+        lg.append('stop')
+          .attr('offset', `${stop * 100}%`)
+          .style('stop-color', color_set(minValue + stop * (maxValue - minValue)));
+      });
 
       // place the color bar right after the last axis
       // D3's select() has a hard time inside shadow DOM, let's use querySelector instead
@@ -434,7 +438,7 @@ export const ParallelCoordinatesPlot = (props: any) => {
   return (
     <div ref={wrapper} css={{ overflow: 'hidden', flex: '1', paddingTop: '20px', fontSize: 0 }}>
       {isResizing ? (
-        <Skeleton />
+        <LegacySkeleton />
       ) : (
         <ParallelCoordinatesPlotImpl {...props} width={layoutWidth} height={layoutHeight} />
       )}

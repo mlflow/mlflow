@@ -1,1 +1,1 @@
-{"version":3,"file":"index.d.ts","sourceRoot":"","sources":["../../../src/design-system/Skeleton/index.tsx"],"names":[],"mappings":"AAAA,cAAc,YAAY,CAAC"}
+{"version":3,"file":"index.d.ts","sourceRoot":"","sources":["../../../src/design-system/Skeleton/index.ts"],"names":[],"mappings":"AAAA,cAAc,mBAAmB,CAAC;AAClC,cAAc,qBAAqB,CAAC;AACpC,cAAc,iBAAiB,CAAC;AAChC,cAAc,iBAAiB,CAAC"}

@@ -69,6 +69,15 @@ def clean_tensor_type(dtype: np.dtype):
     return dtype
 
 
+def _get_str_or_byte_type(data):
+    if isinstance(data, (np.ndarray, list)):
+        data = data[0]
+    if DataType.is_string(data):
+        return DataType.string
+    elif DataType.is_binary(data):
+        return DataType.binary
+
+
 def _infer_schema(data: Any) -> Schema:
     """
     Infer an MLflow schema from a dataset.
@@ -142,7 +151,9 @@ def _infer_schema(data: Any) -> Schema:
         )
     elif isinstance(data, dict):
         _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data)
-        schema = Schema([ColSpec(type=DataType.string, name=name) for name in data.keys()])
+        schema = Schema(
+            [ColSpec(type=_get_str_or_byte_type(value), name=name) for name, value in data.items()]
+        )
     elif isinstance(data, str):
         schema = Schema([ColSpec(type=DataType.string)])
     elif isinstance(data, bytes):
@@ -334,13 +345,13 @@ def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) 
     for key, value in data.items():
         if not value_type:
             value_type = type(value)
-        if isinstance(key, bool):
+        if isinstance(key, bool) or not isinstance(key, (str, int)):
             invalid_keys.append(key)
-        elif not isinstance(key, (str, int)):
-            invalid_keys.append(key)
-        if isinstance(value, list) and not all(isinstance(item, (str, bytes)) for item in value):
-            invalid_values.append(key)
-        elif not isinstance(value, (np.ndarray, list, str, bytes)):
+        elif (
+            isinstance(value, list)
+            and not all(isinstance(item, (str, bytes)) for item in value)
+            or not isinstance(value, (np.ndarray, list, str, bytes))
+        ):
             invalid_values.append(key)
         elif isinstance(value, np.ndarray) or value_type == np.ndarray:
             if not isinstance(value, value_type):
@@ -480,7 +491,7 @@ def _infer_schema_from_type_hint(type_hint, examples=None):
 
 
 def _infer_type_and_shape(value):
-    if isinstance(value, (list, np.ndarray, pd.Series)):
+    if isinstance(value, (list, np.ndarray)):
         ndim = np.array(value).ndim
         if ndim != 1:
             raise MlflowException.invalid_parameter_value(

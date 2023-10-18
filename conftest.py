@@ -56,6 +56,35 @@ def pytest_runtest_setup(item):
 
 
 @pytest.hookimpl(hookwrapper=True)
+def pytest_report_teststatus(report, config):
+    outcome = yield
+    if report.when == "call":
+        try:
+            import psutil
+        except ImportError:
+            return
+
+        (*rest, result) = outcome.get_result()
+        mem = psutil.virtual_memory()
+        mem_used = mem.used / 1024**3
+        mem_total = mem.total / 1024**3
+
+        disk = psutil.disk_usage("/")
+        disk_used = disk.used / 1024**3
+        disk_total = disk.total / 1024**3
+        outcome.force_result(
+            (
+                *rest,
+                (
+                    f"{result} | "
+                    f"MEM {mem_used:.1f}/{mem_total:.1f} GB | "
+                    f"DISK {disk_used:.1f}/{disk_total:.1f} GB"
+                ),
+            )
+        )
+
+
+@pytest.hookimpl(hookwrapper=True)
 def pytest_ignore_collect(path, config):
     outcome = yield
     if not outcome.get_result() and config.getoption("ignore_flavors"):
@@ -63,46 +92,50 @@ def pytest_ignore_collect(path, config):
 
         # Ignored files and directories must be included in dev/run-python-flavor-tests.sh
         model_flavors = [
-            "tests/h2o",
-            "tests/keras",
-            "tests/pytorch",
-            "tests/pyfunc",
-            "tests/sagemaker",
-            "tests/sklearn",
-            "tests/spark",
-            "tests/mleap",
-            "tests/tensorflow",
+            # Tests of flavor modules.
             "tests/azureml",
-            "tests/onnx",
-            "tests/gluon",
-            "tests/xgboost",
-            "tests/lightgbm",
             "tests/catboost",
-            "tests/statsmodels",
-            "tests/spacy",
-            "tests/fastai",
-            "tests/models",
-            "tests/shap",
-            "tests/paddle",
-            "tests/prophet",
-            "tests/pmdarima",
             "tests/diviner",
-            "tests/transformers",
-            "tests/sentence_transformers",
-            "tests/openai",
-            "tests/langchain",
+            "tests/fastai",
+            "tests/gluon",
+            "tests/h2o",
             "tests/johnsnowlabs",
+            "tests/keras",
+            "tests/keras_core",
+            "tests/langchain",
+            "tests/lightgbm",
+            "tests/mleap",
+            "tests/models",
+            "tests/onnx",
+            "tests/openai",
+            "tests/paddle",
+            "tests/pmdarima",
+            "tests/prophet",
+            "tests/pyfunc",
+            "tests/pytorch",
+            "tests/sagemaker",
+            "tests/sentence_transformers",
+            "tests/shap",
+            "tests/sklearn",
+            "tests/spacy",
+            "tests/spark",
+            "tests/statsmodels",
+            "tests/tensorflow",
+            "tests/transformers",
+            "tests/xgboost",
+            # Lazy loading test.
             "tests/test_mlflow_lazily_imports_ml_packages.py",
+            # Tests of utils.
             "tests/utils/test_model_utils.py",
-            # this test is included here because it imports many big libraries like tf, keras, etc
+            # This test is included here because it imports many big libraries like tf, keras, etc.
             "tests/tracking/fluent/test_fluent_autolog.py",
-            # cross flavor autologging related tests.
+            # Cross flavor autologging related tests.
             "tests/autologging/test_autologging_safety_unit.py",
             "tests/autologging/test_autologging_behaviors_unit.py",
             "tests/autologging/test_autologging_behaviors_integration.py",
             "tests/autologging/test_autologging_utils.py",
             "tests/autologging/test_training_session.py",
-            # opt in authentication feature
+            # Opt in authentication feature.
             "tests/server/auth",
             "tests/gateway",
         ]

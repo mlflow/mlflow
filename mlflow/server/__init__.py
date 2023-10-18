@@ -21,6 +21,7 @@ from mlflow.server.handlers import (
     get_metric_history_bulk_handler,
     get_model_version_artifact_handler,
     search_datasets_handler,
+    upload_artifact_handler,
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import _exec_cmd
@@ -85,7 +86,7 @@ def serve_get_metric_history_bulk():
 
 
 # Serve the "experiments/search-datasets" route.
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"))
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"), methods=["POST"])
 def serve_search_datasets():
     return search_datasets_handler()
 
@@ -99,6 +100,11 @@ def serve_create_promptlab_run():
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/gateway-proxy"), methods=["POST", "GET"])
 def serve_gateway_proxy():
     return gateway_proxy_handler()
+
+
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/upload-artifact"), methods=["POST"])
+def serve_upload_artifact():
+    return upload_artifact_handler()
 
 
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
@@ -182,7 +188,9 @@ def get_app_client(app_name: str, *args, **kwargs):
 def _build_waitress_command(waitress_opts, host, port, app_name, is_factory):
     opts = shlex.split(waitress_opts) if waitress_opts else []
     return [
-        "waitress-serve",
+        sys.executable,
+        "-m",
+        "waitress",
         *opts,
         f"--host={host}",
         f"--port={port}",
@@ -196,6 +204,8 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     bind_address = f"{host}:{port}"
     opts = shlex.split(gunicorn_opts) if gunicorn_opts else []
     return [
+        sys.executable,
+        "-m",
         "gunicorn",
         *opts,
         "-b",

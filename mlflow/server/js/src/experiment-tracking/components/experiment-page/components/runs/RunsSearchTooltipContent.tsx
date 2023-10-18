@@ -39,6 +39,8 @@ export const RunsSearchTooltipContent = () => {
       <br />
       {"• metric.f1_score > 0.9 AND params.model = 'tree'"}
       <br />
+      {"• dataset.name IN ('dataset1', 'dataset2')"}
+      <br />
       {"• attributes.run_id IN ('a1b2c3d4', 'e5f6g7h8')"}
       <br />
       {"• tags.model_class LIKE 'sklearn.linear_model%'"}

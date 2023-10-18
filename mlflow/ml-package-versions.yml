@@ -5,7 +5,7 @@ sklearn:
       pip install git+https://github.com/scikit-learn/scikit-learn.git
 
   models:
-    minimum: "0.22.1"
+    minimum: "0.24.1"
     maximum: "1.3.0"
     requirements:
       "< 1.0": ["scipy==1.7.3"]
@@ -13,7 +13,7 @@ sklearn:
       pytest tests/sklearn/test_sklearn_model_export.py
 
   autologging:
-    minimum: "0.22.1"
+    minimum: "0.24.1"
     maximum: "1.3.0"
     requirements:
       ">= 0.0.0": ["matplotlib"]
@@ -32,7 +32,7 @@ pytorch:
       pip install --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 
   models:
-    minimum: "1.6.0"
+    minimum: "1.9.0"
     maximum: "2.0.1"
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
@@ -42,7 +42,7 @@ pytorch:
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
   autologging:
-    minimum: "1.6.0"
+    minimum: "1.9.0"
     maximum: "2.0.1"
     requirements:
       ">= 0.0.0": ["tensorboard"]
@@ -57,11 +57,10 @@ pytorch-lightning:
       pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
-    minimum: "1.0.5"
-    maximum: "2.0.6"
+    minimum: "1.4.9"
+    maximum: "2.0.8"
     requirements:
-      ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard"]
-      "< 1.2.0": ["torch<1.11.0"]
+      ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
       # torchmetrics==0.8.0 released a breaking change for versions 1.3 and 1.4 where
       # torchmetrics dependency was defined as non-upper-bounded in its requirements.
       # see: https://github.com/PyTorchLightning/metrics/commit/c537c9b3e8e801772a7e5670ff273321ed26e77b
@@ -79,23 +78,19 @@ tensorflow:
   package_info:
     pip_release: "tensorflow"
     install_dev: |
-      pip install tf-nightly
+      pip install --pre tf-nightly
 
   models:
-    minimum: "2.3.0"
+    minimum: "2.6.5"
     maximum: "2.13.0"
     requirements:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers"]
-      "< 2.6.0": ["protobuf<4.0.0"]
       "< 2.7.0": ["pandas==1.3.5"]
       ">= 2.7.0": ["pandas<2.0"]
-      # TensorFlow 2.3.4, 2.4.4, 2.5.3, and 2.6.5 are incompatible with SQLAlchemy 2.x due to
+      # TensorFlow == 2.6.5 are incompatible with SQLAlchemy 2.x due to
       # transitive dependency version conflicts with the `typing-extensions` package
       # They are also incompatible with alembic 1.10.1 with the TypeGuard dependency in py3.8
-      "== 2.3.4": ["sqlalchemy<2", "alembic<1.10"]
-      "== 2.4.4": ["sqlalchemy<2", "alembic<1.10"]
-      "== 2.5.3": ["sqlalchemy<2", "alembic<1.10"]
       "== 2.6.5": ["sqlalchemy<2", "alembic<1.10"]
     run: |
       pytest \
@@ -106,18 +101,14 @@ tensorflow:
         tests/tensorflow/test_keras_pyfunc_model_works_with_all_input_types.py
 
   autologging:
-    minimum: "2.3.0"
+    minimum: "2.6.5"
     maximum: "2.13.0"
     requirements:
       "== dev": ["scikit-learn"]
-      "< 2.6.0": ["protobuf<4.0.0"]
       "< 2.7.0": ["pandas==1.3.5"]
-      # TensorFlow 2.3.4, 2.4.4, 2.5.3, and 2.6.5 are incompatible with SQLAlchemy 2.x due to
+      # TensorFlow == 2.6.5 are incompatible with SQLAlchemy 2.x due to
       # transitive dependency version conflicts with the `typing-extensions` package
       # They are also incompatible with alembic 1.10.1 with the TypeGuard dependency in py3.8
-      "== 2.3.4": ["sqlalchemy<2", "alembic<1.10"]
-      "== 2.4.4": ["sqlalchemy<2", "alembic<1.10"]
-      "== 2.5.3": ["sqlalchemy<2", "alembic<1.10"]
       "== 2.6.5": ["sqlalchemy<2", "alembic<1.10"]
     run: |
       pytest tests/tensorflow/test_tensorflow2_autolog.py
@@ -129,8 +120,8 @@ xgboost:
       pip install git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
 
   models:
-    minimum: "1.1.1"
-    maximum: "1.7.6"
+    minimum: "1.4.2"
+    maximum: "2.0.0"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
       "< 1.6": ["pandas<2"]
@@ -138,8 +129,8 @@ xgboost:
       pytest tests/xgboost/test_xgboost_model_export.py
 
   autologging:
-    minimum: "1.1.1"
-    maximum: "1.7.6"
+    minimum: "1.4.2"
+    maximum: "2.0.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
       "< 1.6": ["pandas<2"]
@@ -155,16 +146,16 @@ lightgbm:
       bash build-python.sh install
 
   models:
-    minimum: "2.3.1"
-    maximum: "4.0.0"
+    minimum: "3.1.1"
+    maximum: "4.1.0"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
       pytest tests/lightgbm/test_lightgbm_model_export.py
 
   autologging:
-    minimum: "2.3.1"
-    maximum: "4.0.0"
+    minimum: "3.1.1"
+    maximum: "4.1.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
     run: |
@@ -179,8 +170,8 @@ catboost:
         git+https://github.com/catboost/catboost.git@f8921d839eccf11e533a46347dde5b5b25b17190#subdirectory=catboost/python-package
 
   models:
-    minimum: "0.23.1"
-    maximum: "1.2"
+    minimum: "1.0.0"
+    maximum: "1.2.1"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
       "< 1.1": ["pandas<2"]
@@ -264,7 +255,7 @@ onnx:
 
   models:
     minimum: "1.7.0"
-    maximum: "1.14.0"
+    maximum: "1.14.1"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
       "< 1.11.0": ["numpy<1.24.0"]
@@ -282,7 +273,7 @@ spacy:
     maximum: "3.6.1"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
-      "<= 3.0.9": ["flask<2.1.0"]
+      "<= 3.0.9": ["flask<2.1.0", "werkzeug<3"]
       "<3.4.0": ["typing_extensions<4.6.0"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py
@@ -316,9 +307,11 @@ spark:
       temp_dir=$(mktemp -d)
       git clone --depth 1 https://github.com/apache/spark.git $temp_dir
       cd $temp_dir
-      ./build/mvn -DskipTests --no-transfer-progress clean package
+      # -Pconnect -Phive is required by spark connect
+      ./build/sbt -Pconnect -Phive clean package connect/assembly
       cd python
-      python setup.py install
+      pip install '.[connect]'
+      pyspark --version
 
   models:
     minimum: "3.0.0"
@@ -330,6 +323,8 @@ spark:
     requirements:
       ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow"]
       "<= 3.3.3": ["pandas<2"]
+      ">= 3.5.0": ["torch", "scikit-learn", "torcheval"]
+      ">= 3.5.0, < dev": ["pyspark[connect]"]
     run: |
       SAGEMAKER_OUT=$(mktemp)
       if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
@@ -339,7 +334,11 @@ spark:
         cat $SAGEMAKER_OUT;
         exit 1
       fi
-      pytest tests/spark --ignore tests/spark/autologging
+      pytest tests/spark --ignore tests/spark/autologging --ignore tests/spark/test_spark_connect_model_export.py
+
+      if [[ $(python -c "from packaging.version import Version;import pyspark;print(Version(pyspark.__version__) >= Version('3.5'))") = "True" ]]; then
+        pytest tests/spark/test_spark_connect_model_export.py;
+      fi
 
   autologging:
     minimum: "3.0.0"
@@ -449,7 +448,7 @@ h2o:
     pip_release: "h2o"
   models:
     minimum: "3.40.0.1"
-    maximum: "3.42.0.2"
+    maximum: "3.42.0.3"
     run: |
       pytest tests/h2o
 
@@ -485,7 +484,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.25.1"
-    maximum: "4.31.0"
+    maximum: "4.33.1"
     requirements:
       ">= 0.0.0": [
           "datasets",
@@ -509,7 +508,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.25.1"
-    maximum: "4.31.0"
+    maximum: "4.33.1"
     requirements:
       ">= 0.0.0":
         [
@@ -536,7 +535,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "0.27.2"
-    maximum: "0.27.8"
+    maximum: "0.28.0"
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
@@ -549,7 +548,7 @@ langchain:
       pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
   models:
     minimum: "0.0.244"
-    maximum: "0.0.264"
+    maximum: "0.0.286"
     requirements:
       ">= 0.0.0":
         [
@@ -561,6 +560,7 @@ langchain:
           "psutil",
           "faiss-cpu",
           "langchain-experimental",
+          "numexpr",
         ]
     run: |
       pytest tests/langchain/test_langchain_model_export.py
@@ -583,7 +583,7 @@ johnsnowlabs:
     pip_release: "johnsnowlabs"
   models:
     minimum: "4.4.6"
-    maximum: "5.0.1"
+    maximum: "5.0.8"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3", "pyspark<3.4"]
     run: |

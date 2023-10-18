@@ -97,10 +97,7 @@ def serve(
         }'
 
     """
-    if no_conda:
-        env_manager = _EnvManager.LOCAL
-    else:
-        env_manager = env_manager or _EnvManager.VIRTUALENV
+    env_manager = _EnvManager.LOCAL if no_conda else env_manager or _EnvManager.VIRTUALENV
 
     return get_flavor_backend(
         model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
@@ -197,7 +194,7 @@ def generate_dockerfile(
         _logger.info("Generating Dockerfile for model %s", model_uri)
     else:
         _logger.info("Generating Dockerfile")
-    env_manager = env_manager or _EnvManager.CONDA
+    env_manager = env_manager or _EnvManager.VIRTUALENV
     backend = get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager)
     if backend.can_build_image():
         backend.generate_dockerfile(

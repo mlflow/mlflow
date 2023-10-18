@@ -23,7 +23,7 @@ describe('LineSmoothSlider', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<LineSmoothSlider {...minimalProps} />);
+    wrapper = shallow(<LineSmoothSlider {...minimalProps} />).dive(1);
     expect(wrapper.length).toBe(1);
   });
 
@@ -34,8 +34,7 @@ describe('LineSmoothSlider', () => {
       handleLineSmoothChange: jest.fn(),
       defaultValue: 5,
     };
-    wrapper = shallow(<LineSmoothSlider {...props} />);
-    expect(wrapper.state('inputValue')).toBe(5);
+    wrapper = shallow(<LineSmoothSlider {...props} />).dive(1);
 
     const slider = wrapper.find('Slider').get(0);
     expect(slider.props.min).toBe(0);
@@ -55,7 +54,7 @@ describe('LineSmoothSlider', () => {
       handleLineSmoothChange: jest.fn(),
       defaultValue: 5,
     };
-    wrapper = shallow(<LineSmoothSlider {...props} />);
+    wrapper = shallow(<LineSmoothSlider {...props} />).dive(1);
     const inputNumber = wrapper.find('[data-test-id="InputNumber"]');
     inputNumber.simulate('change', 6);
     expect(props.handleLineSmoothChange).toHaveBeenCalledWith(6);
@@ -69,7 +68,7 @@ describe('LineSmoothSlider', () => {
       handleLineSmoothChange: jest.fn(),
       defaultValue: 5,
     };
-    wrapper = shallow(<LineSmoothSlider {...props} />);
+    wrapper = shallow(<LineSmoothSlider {...props} />).dive(1);
     const slider = wrapper.find('Slider');
     slider.simulate('change', 1);
     expect(props.handleLineSmoothChange).toHaveBeenCalledWith(1);

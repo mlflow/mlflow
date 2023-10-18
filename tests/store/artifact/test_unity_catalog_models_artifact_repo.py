@@ -12,7 +12,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store._unity_catalog.registry.utils import _ACTIVE_CATALOG_QUERY, _ACTIVE_SCHEMA_QUERY
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
@@ -101,17 +101,17 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws():
     with mock.patch("databricks_cli.configure.provider.get_config"), mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
-        "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository"
-    ) as s3_artifact_repo_class_mock:
-        mock_s3_repo = mock.MagicMock(autospec=S3ArtifactRepository)
+        "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository"
+    ) as optimized_s3_artifact_repo_class_mock:
+        mock_s3_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
         mock_s3_repo.download_artifacts.return_value = fake_local_path
-        s3_artifact_repo_class_mock.return_value = mock_s3_repo
+        optimized_s3_artifact_repo_class_mock.return_value = mock_s3_repo
         request_mock.return_value = _mock_temporary_creds_response(temporary_creds)
         models_repo = UnityCatalogModelsArtifactRepository(
             artifact_uri="models:/MyModel/12", registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME
         )
         assert models_repo.download_artifacts("artifact_path", "dst_path") == fake_local_path
-        s3_artifact_repo_class_mock.assert_called_once_with(
+        optimized_s3_artifact_repo_class_mock.assert_called_once_with(
             artifact_uri=artifact_location,
             access_key_id=fake_key_id,
             secret_access_key=fake_secret_access_key,

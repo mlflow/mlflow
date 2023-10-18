@@ -19,7 +19,7 @@ import urllib.request
 import uuid
 from concurrent.futures import as_completed
 from contextlib import contextmanager
-from subprocess import TimeoutExpired
+from subprocess import CalledProcessError, TimeoutExpired
 from typing import Optional
 from urllib.parse import unquote
 from urllib.request import pathname2url
@@ -203,20 +203,23 @@ def make_containing_dirs(path):
         os.makedirs(dir_name)
 
 
-def write_yaml(root, file_name, data, overwrite=False, sort_keys=True):
+def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_yaml_extension=True):
     """
     Write dictionary data in yaml format.
 
     :param root: Directory name.
-    :param file_name: Desired file name. Will automatically add .yaml extension if not given
+    :param file_name: Desired file name.
     :param data: data to be dumped as yaml format
     :param overwrite: If True, will overwrite existing files
+    :param ensure_yaml_extension: If True, will automatically add .yaml extension if not given
     """
     if not exists(root):
         raise MissingConfigException(f"Parent directory '{root}' does not exist.")
 
     file_path = os.path.join(root, file_name)
-    yaml_file_name = file_path if file_path.endswith(".yaml") else file_path + ".yaml"
+    yaml_file_name = file_path
+    if ensure_yaml_extension and not file_path.endswith(".yaml"):
+        yaml_file_name = file_path + ".yaml"
 
     if exists(yaml_file_name) and not overwrite:
         raise Exception(f"Yaml file '{file_path}' exists as '{yaml_file_name}")
@@ -235,7 +238,7 @@ def write_yaml(root, file_name, data, overwrite=False, sort_keys=True):
         raise e
 
 
-def overwrite_yaml(root, file_name, data):
+def overwrite_yaml(root, file_name, data, ensure_yaml_extension=True):
     """
     Safely overwrites a preexisting yaml file, ensuring that file contents are not deleted or
     corrupted if the write fails. This is achieved by writing contents to a temporary file
@@ -243,10 +246,13 @@ def overwrite_yaml(root, file_name, data):
     preexisting file for a direct write.
 
     :param root: Directory name.
-    :param file_name: File name. Expects to have '.yaml' extension.
+    :param file_name: File name.
     :param data: The data to write, represented as a dictionary.
+    :param ensure_yaml_extension: If True, Will automatically add .yaml extension if not given
     """
     tmp_file_path = None
+    original_file_path = os.path.join(root, file_name)
+    original_file_mode = os.stat(original_file_path).st_mode
     try:
         tmp_file_fd, tmp_file_path = tempfile.mkstemp(suffix="file.yaml")
         os.close(tmp_file_fd)
@@ -256,11 +262,11 @@ def overwrite_yaml(root, file_name, data):
             data=data,
             overwrite=True,
             sort_keys=True,
+            ensure_yaml_extension=ensure_yaml_extension,
         )
-        shutil.move(
-            tmp_file_path,
-            os.path.join(root, file_name),
-        )
+        shutil.move(tmp_file_path, original_file_path)
+        # restores original file permissions, see https://docs.python.org/3/library/tempfile.html#tempfile.mkstemp
+        os.chmod(original_file_path, original_file_mode)
     finally:
         if tmp_file_path is not None and os.path.exists(tmp_file_path):
             os.remove(tmp_file_path)
@@ -689,10 +695,17 @@ def parallelized_download_file_using_http_uri(
     """
 
     def run_download(range_start, range_end):
+        template = """
+----- stdout -----
+{stdout}
+
+----- stderr -----
+{stderr}
+"""
         with tempfile.TemporaryDirectory() as tmpdir:
             json_file = os.path.join(tmpdir, "http_error.json")
             try:
-                prc = subprocess.run(
+                subprocess.run(
                     [
                         sys.executable,
                         download_cloud_file_chunk.__file__,
@@ -710,31 +723,44 @@ def parallelized_download_file_using_http_uri(
                         json_file,
                     ],
                     text=True,
-                    check=False,
+                    check=True,
                     capture_output=True,
                     timeout=MLFLOW_DOWNLOAD_CHUNK_TIMEOUT.get(),
                     env=env,
                 )
             except TimeoutExpired as e:
-                raise _ChunkDownloadError(True, repr(e)) from e
-
-            # Successfully downloaded chunk
-            if prc.returncode == 0:
-                return
-
-            #  HTTP error
-            if os.path.exists(json_file):
-                with open(json_file) as f:
-                    raise _ChunkDownloadError(**json.load(f))
-
-            # Unexpected error
-            raise _ChunkDownloadError(False, repr(prc))
+                raise _ChunkDownloadError(
+                    True,
+                    template.format(
+                        stdout=e.stdout.strip() or "(no stdout)",
+                        stderr=e.stderr.strip() or "(no stderr)",
+                    ),
+                ) from e
+            except CalledProcessError as e:
+                retryable = False
+                status_code = None
+                if os.path.exists(json_file):
+                    with open(json_file) as f:
+                        data = json.load(f)
+                        retryable = data.get("retryable", False)
+                        status_code = data.get("status_code")
+                raise _ChunkDownloadError(
+                    retryable,
+                    template.format(
+                        stdout=e.stdout.strip() or "(no stdout)",
+                        stderr=e.stderr.strip() or "(no stderr)",
+                    ),
+                    status_code,
+                ) from e
+            except Exception as e:
+                raise _ChunkDownloadError(False, str(e)) from e
 
     num_requests = int(math.ceil(file_size / float(chunk_size)))
     # Create file if it doesn't exist or erase the contents if it does. We should do this here
     # before sending to the workers so they can each individually seek to their respective positions
     # and write chunks without overwriting.
-    open(download_path, "w").close()
+    with open(download_path, "w"):
+        pass
     starting_index = 0
     if uri_type == ArtifactCredentialType.GCP_SIGNED_URL or uri_type is None:
         # GCP files could be transcoded, in which case the range header is ignored.
@@ -808,6 +834,7 @@ def create_tmp_dir():
         except Exception:
             repl_local_tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id())
 
+        os.makedirs(repl_local_tmp_dir, exist_ok=True)
         return tempfile.mkdtemp(dir=repl_local_tmp_dir)
     else:
         return tempfile.mkdtemp()
@@ -911,7 +938,7 @@ def shutil_copytree_without_file_permissions(src_dir, dst_dir):
             file_path = os.path.join(dirpath, filename)
             relative_file_path = os.path.relpath(file_path, src_dir)
             abs_file_path = os.path.join(dst_dir, relative_file_path)
-            shutil.copyfile(file_path, abs_file_path)
+            shutil.copy2(file_path, abs_file_path)
 
 
 def contains_path_separator(path):

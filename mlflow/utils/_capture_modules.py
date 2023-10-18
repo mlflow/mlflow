@@ -112,6 +112,7 @@ def store_imported_modules(cap_cm, model_path, flavor, output_file):
         mlflow_model = Model.load(model_path)
         pyfunc_conf = mlflow_model.flavors.get(mlflow.pyfunc.FLAVOR_NAME)
         input_example = mlflow_model.load_input_example(model_path)
+        params = mlflow_model.load_input_example_params(model_path)
         loader_module = importlib.import_module(pyfunc_conf[MAIN])
         original = loader_module._load_pyfunc
 
@@ -120,7 +121,7 @@ def store_imported_modules(cap_cm, model_path, flavor, output_file):
             with cap_cm:
                 model = original(*args, **kwargs)
                 if input_example is not None:
-                    model.predict(input_example)
+                    model.predict(input_example, params=params)
                 return model
 
         loader_module._load_pyfunc = _load_pyfunc_patch

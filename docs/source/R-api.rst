@@ -15,6 +15,16 @@ To use the MLflow R API, you must install `the MLflow Python package <https://py
 
     pip install mlflow
 
+Installing with an Available Conda Environment example:
+
+.. code-block:: bash
+    
+    conda create -n mlflow-env python
+    conda activate mlflow-env
+    pip install mlflow
+
+The above provided commands create a new Conda environment named mlflow-env, specifying the default Python version. It then activates this environment, making it the active working environment. Finally, it installs the MLflow package using pip, ensuring that MLflow is isolated within this environment, allowing for independent Python and package management for MLflow-related tasks.
+
 Optionally, you can set the ``MLFLOW_PYTHON_BIN`` and ``MLFLOW_BIN`` environment variables to specify the Python and MLflow binaries to use. By default, the R client automatically finds them using ``Sys.which('python')`` and ``Sys.which('mlflow')``.
 
 .. code-block:: bash

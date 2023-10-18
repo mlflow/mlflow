@@ -17,7 +17,7 @@ import {
 import { connect } from 'react-redux';
 import './RunView.css';
 import { HtmlTableView } from './HtmlTableView';
-import { Link } from 'react-router-dom-v5-compat';
+import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
 import ArtifactPage from './ArtifactPage';
 import { getLatestMetrics } from '../reducers/MetricReducer';
@@ -58,7 +58,6 @@ type RunViewImplProps = {
   handleSetRunTag: (...args: any[]) => any;
   setTagApi: (...args: any[]) => any;
   deleteTagApi: (...args: any[]) => any;
-  modelVersions?: any[];
   intl: {
     formatMessage: (...args: any[]) => any;
   };
@@ -293,7 +292,6 @@ export class RunViewImpl extends Component<RunViewImplProps, RunViewImplState> {
       latestMetrics,
       datasets,
       getMetricPagePath,
-      modelVersions,
       notificationContextHolder,
       runName,
       experimentId,
@@ -702,7 +700,7 @@ export class RunViewImpl extends Component<RunViewImplProps, RunViewImplState> {
             onChange={this.handleCollapseChange('artifacts')}
             data-test-id='run-artifacts-section'
           >
-            <ArtifactPage runUuid={runUuid} modelVersions={modelVersions} runTags={tags} />
+            <ArtifactPage runUuid={runUuid} runTags={tags} />
           </CollapsibleSection>
         </div>
         {notificationContextHolder}

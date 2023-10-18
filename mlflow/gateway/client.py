@@ -1,15 +1,16 @@
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import requests.exceptions
 
 from mlflow import MlflowException
-from mlflow.gateway.config import Route
+from mlflow.gateway.config import LimitsConfig, Route
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
     MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
     MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
+    MLFLOW_GATEWAY_LIMITS_BASE,
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
 )
@@ -344,3 +345,81 @@ class MlflowGatewayClient:
                 raise MlflowException(message=timeout_message, error_code=BAD_REQUEST)
             else:
                 raise e
+
+    @experimental
+    def set_limits(self, route: str, limits: List[Dict[str, Any]]) -> LimitsConfig:
+        """
+        Set limits on an existing route in the Gateway.
+
+        .. warning::
+
+            This API is **only available** when running within Databricks.
+
+        :param route: The name of the route to set limits on.
+        :param limits: Limits (Array of dictionary) to set on the route. Each limit is defined by a
+                       dictionary representing the limit details to be associated with the route.
+                       This dictionary should define:
+
+                       - renewal_period: a string representing the length of the window
+                         to enforce limit on (only supports "minute" for now).
+                       - calls: a non-negative integer representing the number of calls
+                         allowed per renewal_period (e.g., 10, 0, 55).
+                       - key: an optional string represents per route limit or per user
+                         limit ("user" for per user limit, "route" for per route limit, if not
+                         supplied, default to per route limit).
+
+        :return: The returned data structure is a serialized representation of the `Limit`
+            data structure, giving information about the renewal_period, key, and calls.
+
+        Example usage:
+
+        .. code-block:: python
+
+            from mlflow.gateway import MlflowGatewayClient
+
+            gateway_client = MlflowGatewayClient("databricks")
+
+            gateway_client.set_limits(
+                "my-new-route", [{"key": "user", "renewal_period": "minute", "calls": 50}]
+            )
+        """
+        payload = {
+            "route": route,
+            "limits": limits,
+        }
+
+        response = self._call_endpoint(
+            "POST", MLFLOW_GATEWAY_LIMITS_BASE, json.dumps(payload)
+        ).json()
+        return LimitsConfig(**response)
+
+    @experimental
+    def get_limits(self, route: str) -> LimitsConfig:
+        """
+        Get limits of an existing route in the Gateway.
+
+        .. warning::
+
+            This API is **only available** when connected to a Databricks-hosted AI Gateway.
+
+        :param route: The name of the route to get limits of.
+
+        :return: The returned data structure is a serialized representation of the `Limit` data
+            structure, giving information about the renewal_period, key, and calls.
+
+        Example usage:
+
+        .. code-block:: python
+
+            from mlflow.gateway import MlflowGatewayClient
+
+            gateway_client = MlflowGatewayClient("databricks")
+
+            gateway_client.get_limits("my-new-route")
+
+        """
+        if not route:
+            raise MlflowException("A non-empty string is required for the route.", BAD_REQUEST)
+        route_uri = assemble_uri_path([MLFLOW_GATEWAY_LIMITS_BASE, route])
+        response = self._call_endpoint("GET", route_uri).json()
+        return LimitsConfig(**response)

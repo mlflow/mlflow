@@ -175,7 +175,7 @@ class MlflowClient:
         :return: A single :py:class:`mlflow.entities.Run` object, if the parent run exists.
                     Otherwise, returns None.
 
-        .. test-code-block:: python
+        .. testcode:: python
             :caption: Example
 
             import mlflow
@@ -759,7 +759,7 @@ class MlflowClient:
                     All backend stores support keys up to length 250, but some may
                     support larger keys.
         :param value: Parameter value (string, but will be string-ified if not).
-                      All backend stores support values up to length 500, but some
+                      All built-in backend stores support values up to length 6000, but some
                       may support larger values.
         :return: the parameter value that is logged.
 
@@ -1483,7 +1483,7 @@ class MlflowClient:
                                 the table is saved (e.g. "dir/file.json").
         :return: None
 
-        .. test-code-block:: python
+        .. testcode:: python
             :caption: Dictionary Example
 
             import mlflow
@@ -1501,7 +1501,7 @@ class MlflowClient:
                 run.info.run_id, data=table_dict, artifact_file="qabot_eval_results.json"
             )
 
-        .. test-code-block:: python
+        .. testcode:: python
             :caption: Pandas DF Example
 
             import mlflow
@@ -1585,7 +1585,7 @@ class MlflowClient:
         :return: pandas.DataFrame containing the loaded table if the artifact exists
                  or else throw a MlflowException.
 
-        .. test-code-block:: python
+        .. testcode:: python
             :caption: Example with passing run_ids
 
             import mlflow
@@ -1612,7 +1612,7 @@ class MlflowClient:
                 extra_columns=["run_id"],
             )
 
-        .. test-code-block:: python
+        .. testcode:: python
             :caption: Example with passing no run_ids
 
             # Loads the table with the specified name for all runs in the given
@@ -2354,7 +2354,9 @@ class MlflowClient:
         """
         return self._get_registry_client().get_registered_model(name)
 
-    def get_latest_versions(self, name: str, stages: List[str] = None) -> List[ModelVersion]:
+    def get_latest_versions(
+        self, name: str, stages: Optional[List[str]] = None
+    ) -> List[ModelVersion]:
         """
         Latest version models for each requests stage. If no ``stages`` provided, returns the
         latest version for each stage.
@@ -3130,7 +3132,12 @@ class MlflowClient:
         return ALL_STAGES
 
     def set_model_version_tag(
-        self, name: str, version: str = None, key: str = None, value: Any = None, stage: str = None
+        self,
+        name: str,
+        version: Optional[str] = None,
+        key: Optional[str] = None,
+        value: Any = None,
+        stage: Optional[str] = None,
     ) -> None:
         """
         Set a tag for the model version.
@@ -3213,7 +3220,11 @@ class MlflowClient:
         self._get_registry_client().set_model_version_tag(name, version, key, value)
 
     def delete_model_version_tag(
-        self, name: str, version: str = None, key: str = None, stage: str = None
+        self,
+        name: str,
+        version: Optional[str] = None,
+        key: Optional[str] = None,
+        stage: Optional[str] = None,
     ) -> None:
         """
         Delete a tag associated with the model version.

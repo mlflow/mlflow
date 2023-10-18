@@ -17,7 +17,7 @@ import {
   Stages,
 } from '../constants';
 import { Provider } from 'react-redux';
-import { MemoryRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { ModelListPageImpl } from './ModelListPage';
 
 describe('ModelListPage', () => {

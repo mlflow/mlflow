@@ -13,7 +13,7 @@ from pydantic import ValidationError, root_validator, validator
 from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.base_models import ConfigModel, ResponseModel
+from mlflow.gateway.base_models import ConfigModel, LimitModel, ResponseModel
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES,
     MLFLOW_GATEWAY_ROUTE_BASE,
@@ -21,6 +21,7 @@ from mlflow.gateway.constants import (
 )
 from mlflow.gateway.utils import (
     check_configuration_route_name_collisions,
+    is_valid_ai21labs_model,
     is_valid_endpoint_name,
     is_valid_mosiacml_chat_model,
 )
@@ -34,8 +35,10 @@ class Provider(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     COHERE = "cohere"
+    AI21LABS = "ai21labs"
     MLFLOW_MODEL_SERVING = "mlflow-model-serving"
     MOSAICML = "mosaicml"
+    PALM = "palm"
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     DATABRICKS = "databricks"
@@ -57,6 +60,15 @@ class CohereConfig(ConfigModel):
     # pylint: disable=no-self-argument
     @validator("cohere_api_key", pre=True)
     def validate_cohere_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
+class AI21LabsConfig(ConfigModel):
+    ai21labs_api_key: str
+
+    # pylint: disable=no-self-argument
+    @validator("ai21labs_api_key", pre=True)
+    def validate_ai21labs_api_key(cls, value):
         return _resolve_api_key_from_input(value)
 
 
@@ -156,6 +168,15 @@ class AnthropicConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
+class PaLMConfig(ConfigModel):
+    palm_api_key: str
+
+    # pylint: disable=no-self-argument
+    @validator("palm_api_key", pre=True)
+    def validate_palm_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
 class MlflowModelServingConfig(ConfigModel):
     model_server_url: str
 
@@ -164,8 +185,10 @@ config_types = {
     Provider.COHERE: CohereConfig,
     Provider.OPENAI: OpenAIConfig,
     Provider.ANTHROPIC: AnthropicConfig,
+    Provider.AI21LABS: AI21LabsConfig,
     Provider.MOSAICML: MosaicMLConfig,
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
+    Provider.PALM: PaLMConfig,
 }
 
 
@@ -218,9 +241,11 @@ class Model(ConfigModel):
         Union[
             CohereConfig,
             OpenAIConfig,
+            AI21LabsConfig,
             AnthropicConfig,
             MosaicMLConfig,
             MlflowModelServingConfig,
+            PaLMConfig,
         ]
     ] = None
 
@@ -298,6 +323,11 @@ class RouteConfig(ConfigModel):
                 f"Ensure the model selected starts with one of: "
                 f"{MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES}"
             )
+        if model and model.provider == "ai21labs" and not is_valid_ai21labs_model(model.name):
+            raise MlflowException.invalid_parameter_value(
+                f"An Unsupported AI21Labs model has been specified: '{model.name}'. "
+                f"Please see documentation for supported models."
+            )
         return values
 
     @validator("route_type", pre=True)
@@ -345,8 +375,18 @@ class Route(ResponseModel):
         }
 
 
+class Limit(LimitModel):
+    calls: int
+    key: Optional[str] = None
+    renewal_period: str
+
+
 class GatewayConfig(ConfigModel):
     routes: List[RouteConfig]
+
+
+class LimitsConfig(ConfigModel):
+    limits: Optional[List[Limit]] = []
 
 
 def _load_route_config(path: Union[str, Path]) -> GatewayConfig:

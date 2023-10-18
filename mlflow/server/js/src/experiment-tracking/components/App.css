@@ -8,10 +8,6 @@ textarea {
   border: 1px solid #ccc;
 }
 
-::placeholder {
-  opacity: 0.6;
-}
-
 button, .btn {
   background-color: #f5f5f5;
   border-color: #cccccc;
@@ -31,10 +27,6 @@ button:hover, .btn:hover {
 .App-header-text {
   position: relative;
   top: 40%;
-}
-
-.App-experiments {
-  width: 200px;
 }
 
 div.mlflow-logo {
@@ -104,19 +96,16 @@ h1 a, h1 a:hover, h1 a:active, h1 a:visited {
 h2 {
   font-size: 16px;
   font-weight: normal;
-  color: #333;
 }
 
 h3 {
   font-size: 16px;
   font-weight: normal;
-  color: #333;
 }
 
 label {
   font-size: 13px;
   font-weight: normal;
-  color: #333;
   margin: 0;
 }
 

@@ -111,4 +111,16 @@ export class Services {
    */
   static deleteModelVersionTag = (data: any) =>
     deleteJson({ relativeUrl: 'ajax-api/2.0/mlflow/model-versions/delete-tag', data });
+
+  /**
+   * Set model version alias
+   */
+  static setModelVersionAlias = (data: { name: string; version: string; alias: string }) =>
+    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/registered-models/alias', data });
+
+  /**
+   * Delete model version alias
+   */
+  static deleteModelVersionAlias = (data: { name: string; version: string; alias: string }) =>
+    deleteJson({ relativeUrl: 'ajax-api/2.0/mlflow/registered-models/alias', data });
 }

@@ -1,4 +1,5 @@
 import os
+import pathlib
 import uuid
 from datetime import date
 from unittest import mock
@@ -16,7 +17,7 @@ from mlflow.models import Model, ModelSignature, infer_signature, validate_schem
 from mlflow.models.utils import _save_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types.schema import ColSpec, Schema, TensorSpec
+from mlflow.types.schema import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
 from mlflow.utils.proto_json_utils import dataframe_from_raw_json
@@ -124,8 +125,11 @@ def _log_model_with_signature_and_example(tmp_path, sig, input_example, metadata
             "some/path", TestFlavor, signature=sig, input_example=input_example, metadata=metadata
         )
 
+    # TODO: remove this after replacing all `with TempDir(chdr=True) as tmp`
+    # with tmp_path fixture
+    output_path = tmp_path if isinstance(tmp_path, pathlib.PosixPath) else tmp_path.path("")
     local_path = _download_artifact_from_uri(
-        f"runs:/{run.info.run_id}/some/path", output_path=tmp_path.path("")
+        f"runs:/{run.info.run_id}/some/path", output_path=output_path
     )
 
     return local_path, run
@@ -296,6 +300,48 @@ def test_model_log_with_input_example_succeeds():
         loaded_example = loaded_model.load_input_example(local_path)
         assert isinstance(loaded_example, pd.DataFrame)
         pd.testing.assert_frame_equal(loaded_example, input_example)
+
+
+def test_model_input_example_with_params_log_load_succeeds(tmp_path):
+    pdf = pd.DataFrame(
+        {
+            "a": np.int32(1),
+            "b": "test string",
+            "c": True,
+            "d": date.today(),
+            "e": np.datetime64("2020-01-01T00:00:00"),
+        },
+        index=[0],
+    )
+    input_example = (pdf, {"a": 1, "b": "string"})
+
+    sig = ModelSignature(
+        inputs=Schema(
+            [
+                ColSpec("integer", "a"),
+                ColSpec("string", "b"),
+                ColSpec("boolean", "c"),
+                ColSpec("string", "d"),
+                ColSpec("datetime", "e"),
+            ]
+        ),
+        outputs=Schema([ColSpec(name=None, type="double")]),
+        params=ParamSchema(
+            [ParamSpec("a", DataType.long, 1), ParamSpec("b", DataType.string, "string")]
+        ),
+    )
+
+    local_path, _ = _log_model_with_signature_and_example(tmp_path, sig, input_example)
+    loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+
+    # date column will get deserialized into string
+    pdf["d"] = pdf["d"].apply(lambda x: x.isoformat())
+    loaded_example = loaded_model.load_input_example(local_path)
+    assert isinstance(loaded_example, pd.DataFrame)
+    pd.testing.assert_frame_equal(loaded_example, pdf)
+
+    params = loaded_model.load_input_example_params(local_path)
+    assert params == input_example[1]
 
 
 def test_model_load_input_example_numpy():

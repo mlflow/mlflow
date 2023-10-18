@@ -7,6 +7,9 @@ on:
       - master
       - branch-[0-9]+.[0-9]+
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
@@ -39,7 +42,8 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install -e .
-          pip install pyspark
+          # pyspark 3.5 is incompatible with delta 2.4
+          pip install 'pyspark<3.5'
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
@@ -60,7 +64,8 @@ jobs:
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .
-          pip install pyspark
+          # pyspark 3.5 is incompatible with delta 2.4
+          pip install 'pyspark<3.5'
           # TODO: Importing datasets in a pandas UDF (created by mlflow.pyfunc.spark_udf) crashes
           # the Python worker. To avoid this, uninstall `datasets`. This is a temporary workaround.
           pip uninstall -y datasets

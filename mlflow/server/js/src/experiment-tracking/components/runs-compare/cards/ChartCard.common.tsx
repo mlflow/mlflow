@@ -1,6 +1,7 @@
 import { Button, DropdownMenu, OverflowIcon, Typography } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import { PropsWithChildren } from 'react';
+import { InfoTooltip } from '@databricks/design-system';
 
 export interface ChartCardWrapperProps {
   title: React.ReactNode;
@@ -8,6 +9,7 @@ export interface ChartCardWrapperProps {
   onEdit: () => void;
   onDelete: () => void;
   fullWidth?: boolean;
+  tooltip?: string;
 }
 
 /**
@@ -21,14 +23,25 @@ export const RunsCompareChartCardWrapper = ({
   onEdit,
   children,
   fullWidth = false,
+  tooltip = '',
 }: PropsWithChildren<ChartCardWrapperProps>) => (
   <div css={styles.chartEntry(fullWidth)} data-testid='experiment-view-compare-runs-card'>
     <div css={styles.chartEntryTitle}>
-      <div>
-        <Typography.Title level={4} css={{ marginBottom: 0 }}>
+      <div css={{ overflow: 'hidden' }}>
+        <Typography.Title
+          title={String(title)}
+          level={4}
+          css={{
+            marginBottom: 0,
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
+            textOverflow: 'ellipsis',
+          }}
+        >
           {title}
         </Typography.Title>
         {subtitle && <span css={styles.subtitle}>{subtitle}</span>}
+        {tooltip && <InfoTooltip title={tooltip} />}
       </div>
       <DropdownMenu.Root modal={false}>
         <DropdownMenu.Trigger asChild>
@@ -80,5 +93,6 @@ const styles = {
   subtitle: (theme: Theme) => ({
     color: theme.colors.textSecondary,
     fontSize: 11,
+    marginRight: 4,
   }),
 };

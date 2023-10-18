@@ -10,9 +10,8 @@ import os
 import shutil
 import signal
 import sys
+from pathlib import Path
 from subprocess import Popen, check_call
-
-from pkg_resources import resource_filename
 
 import mlflow
 import mlflow.version
@@ -21,7 +20,9 @@ from mlflow.environment_variables import MLFLOW_DEPLOYMENT_FLAVOR_NAME, MLFLOW_D
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.pyfunc import _extract_conda_env, mlserver, scoring_server
+from mlflow.store.artifact.models_artifact_repo import REGISTERED_MODEL_META_FILE_NAME
 from mlflow.utils import env_manager as em
+from mlflow.utils.file_utils import read_yaml
 from mlflow.utils.virtualenv import _get_or_create_virtualenv
 from mlflow.version import VERSION as MLFLOW_VERSION
 
@@ -102,7 +103,7 @@ def _install_pyfunc_deps(
             env_path_dst_dir = os.path.dirname(env_path_dst)
             if not os.path.exists(env_path_dst_dir):
                 os.makedirs(env_path_dst_dir)
-            shutil.copyfile(os.path.join(MODEL_PATH, env), env_path_dst)
+            shutil.copy2(os.path.join(MODEL_PATH, env), env_path_dst)
             if env_manager == em.CONDA:
                 conda_create_model_env = f"conda env create -n custom_env -f {env_path_dst}"
                 if Popen(["bash", "-c", conda_create_model_env]).wait() != 0:
@@ -162,8 +163,8 @@ def _serve_pyfunc(model, env_manager):
         start_nginx = False
 
     if start_nginx:
-        nginx_conf = resource_filename(
-            mlflow.models.__name__, "container/scoring_server/nginx.conf"
+        nginx_conf = Path(mlflow.models.__file__).parent.joinpath(
+            "container", "scoring_server", "nginx.conf"
         )
 
         nginx = Popen(["nginx", "-c", nginx_conf]) if start_nginx else None
@@ -177,6 +178,7 @@ def _serve_pyfunc(model, env_manager):
         procs.append(nginx)
 
     cpu_count = multiprocessing.cpu_count()
+    inference_server_kwargs = {}
     if enable_mlserver:
         inference_server = mlserver
         # Allows users to choose the number of workers using MLServer var env settings.
@@ -185,13 +187,24 @@ def _serve_pyfunc(model, env_manager):
         # Since MLServer will run without NGINX, expose the server in the `8080`
         # port, which is the assumed "public" port.
         port = DEFAULT_MLSERVER_PORT
+
+        model_meta = _read_registered_model_meta(MODEL_PATH)
+        model_dict = model.to_dict()
+        inference_server_kwargs = {
+            "model_name": model_meta.get("model_name"),
+            "model_version": model_meta.get(
+                "model_version", model_dict.get("run_id", model_dict.get("model_uuid"))
+            ),
+        }
     else:
         inference_server = scoring_server
         # users can use GUNICORN_CMD_ARGS="--workers=3" var env to override the number of workers
         nworkers = cpu_count
         port = DEFAULT_INFERENCE_SERVER_PORT
 
-    cmd, cmd_env = inference_server.get_cmd(model_uri=MODEL_PATH, nworkers=nworkers, port=port)
+    cmd, cmd_env = inference_server.get_cmd(
+        model_uri=MODEL_PATH, nworkers=nworkers, port=port, **inference_server_kwargs
+    )
 
     bash_cmds.append(cmd)
     inference_server_process = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)], env=cmd_env)
@@ -201,6 +214,14 @@ def _serve_pyfunc(model, env_manager):
     # If either subprocess exits, so do we.
     awaited_pids = _await_subprocess_exit_any(procs=procs)
     _sigterm_handler(awaited_pids)
+
+
+def _read_registered_model_meta(model_path):
+    model_meta = {}
+    if os.path.isfile(os.path.join(model_path, REGISTERED_MODEL_META_FILE_NAME)):
+        model_meta = read_yaml(model_path, REGISTERED_MODEL_META_FILE_NAME)
+
+    return model_meta
 
 
 def _serve_mleap():

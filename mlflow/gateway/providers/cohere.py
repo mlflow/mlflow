@@ -38,7 +38,7 @@ class CohereProvider(BaseProvider):
         for k1, k2 in key_mapping.items():
             if k2 in payload:
                 raise HTTPException(
-                    status_code=400, detail=f"Invalid parameter {k2}. Use {k1} instead."
+                    status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         # The range of Cohere's temperature is 0-5, but ours is 0-1, so we scale it.
         payload["temperature"] = 5 * payload["temperature"]
@@ -83,7 +83,7 @@ class CohereProvider(BaseProvider):
         for k1, k2 in key_mapping.items():
             if k2 in payload:
                 raise HTTPException(
-                    status_code=400, detail=f"Invalid parameter {k2}. Use {k1} instead."
+                    status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         payload = rename_payload_keys(payload, key_mapping)
         resp = await self._request(

@@ -6,11 +6,10 @@
  */
 
 import React, { Component } from 'react';
-import { getSrc } from './ShowArtifactPage';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { coy as style } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { getLanguage } from '../../../common/utils/FileUtils';
-import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
+import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactTextView.css';
 
 const LARGE_ARTIFACT_SIZE = 100 * 1024;
@@ -103,7 +102,7 @@ class ShowArtifactTextView extends Component<Props, State> {
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
     this.setState({ loading: true });
-    const artifactLocation = getSrc(this.props.path, this.props.runUuid);
+    const artifactLocation = getArtifactLocationUrl(this.props.path, this.props.runUuid);
     this.props
       .getArtifact(artifactLocation)
       .then((text: any) => {

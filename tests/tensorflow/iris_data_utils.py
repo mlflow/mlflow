@@ -36,30 +36,22 @@ def train_input_fn(features, labels, batch_size):
     dataset = tf.data.Dataset.from_tensor_slices((dict(features), labels))
 
     # Shuffle, repeat, and batch the examples.
-    dataset = dataset.shuffle(1000).repeat().batch(batch_size)
-
-    # Return the dataset.
-    return dataset
+    return dataset.shuffle(1000).repeat().batch(batch_size)
 
 
 def eval_input_fn(features, labels, batch_size):
     """An input function for evaluation or prediction"""
     features = dict(features)
-    if labels is None:
-        # No labels, use only features.
-        inputs = features
-    else:
-        inputs = (features, labels)
+
+    # Use only features when lables are null.
+    inputs = features if labels is None else (features, labels)
 
     # Convert the inputs to a Dataset.
     dataset = tf.data.Dataset.from_tensor_slices(inputs)
 
     # Batch the examples
     assert batch_size is not None, "batch_size must not be None"
-    dataset = dataset.batch(batch_size)
-
-    # Return the dataset.
-    return dataset
+    return dataset.batch(batch_size)
 
 
 # The remainder of this file contains a simple example of a csv parser,
@@ -91,7 +83,4 @@ def csv_input_fn(csv_path, batch_size):
     dataset = dataset.map(_parse_line)
 
     # Shuffle, repeat, and batch the examples.
-    dataset = dataset.shuffle(1000).repeat().batch(batch_size)
-
-    # Return the dataset.
-    return dataset
+    return dataset.shuffle(1000).repeat().batch(batch_size)

@@ -518,8 +518,7 @@ def _find_duplicate_requirements(requirements):
             continue
 
     package_counts = Counter(base_package_names)
-    duplicates = [package for package, count in package_counts.items() if count > 1]
-    return duplicates
+    return [package for package, count in package_counts.items() if count > 1]
 
 
 def _process_conda_env(conda_env):
@@ -601,16 +600,10 @@ class Environment:
         if not isinstance(command, list):
             command = [command]
 
-        if _IS_UNIX:
-            separator = " && "
-        else:
-            separator = " & "
+        separator = " && " if _IS_UNIX else " & "
 
         command = separator.join(map(str, self._activate_cmd + command))
-        if _IS_UNIX:
-            command = ["bash", "-c", command]
-        else:
-            command = ["cmd", "/c", command]
+        command = ["bash", "-c", command] if _IS_UNIX else ["cmd", "/c", command]
         _logger.info("=== Running command '%s'", command)
         return _exec_cmd(
             command,
