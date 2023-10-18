@@ -69,3 +69,8 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
   - RAPIDS
 
     + `Random Forest Classifier <https://github.com/mlflow/mlflow/tree/master/examples/rapids>`_
+
+.. toctree::
+    :maxdepth: 1
+
+    creating-first-gateway/index
