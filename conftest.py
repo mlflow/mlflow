@@ -67,8 +67,8 @@ def pytest_report_teststatus(report, config):
         (*rest, result) = outcome.get_result()
         mem = psutil.virtual_memory()
         used = mem.used / 1024**3
-        avail = mem.available / 1024**3
-        outcome.force_result((*rest, f"{result} | mem {used:.1f}/{avail:.1f} GB"))
+        total = mem.total / 1024**3
+        outcome.force_result((*rest, f"{result} | mem {used:.1f}/{total:.1f} GB"))
 
 
 @pytest.hookimpl(hookwrapper=True)
