@@ -179,7 +179,7 @@ def test_make_genai_metric_correct_response():
         examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
         grading_context_columns=["targets"],
-        parameters={"temperature": 1.0},
+        parameters={"temperature": 0.0},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
     )
@@ -278,7 +278,7 @@ def test_make_genai_metric_incorrect_response():
         examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
         grading_context_columns=["targets"],
-        parameters={"temperature": 1.0},
+        parameters={"temperature": 0.0},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
     )
@@ -312,7 +312,7 @@ def test_make_genai_metric_multiple():
         examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
         grading_context_columns=["targets"],
-        parameters={"temperature": 1.0},
+        parameters={"temperature": 0.0},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
     )
@@ -393,7 +393,7 @@ def test_make_genai_metric_failure():
             examples=[example],
             model="model",
             grading_context_columns=["targets"],
-            parameters={"temperature": 1.0},
+            parameters={"temperature": 0.0},
             greater_is_better=True,
             aggregations=["mean"],
         )
@@ -411,7 +411,7 @@ def test_make_genai_metric_failure():
             examples=[example],
             model="openai:/gpt-3.5-turbo",
             grading_context_columns=["targets"],
-            parameters={"temperature": 1.0},
+            parameters={"temperature": 0.0},
             greater_is_better=True,
             aggregations=["random-fake"],
         )

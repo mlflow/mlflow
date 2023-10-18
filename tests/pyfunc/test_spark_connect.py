@@ -41,3 +41,20 @@ def test_spark_udf_spark_connect_unsupported_env_manager(spark, tmp_path, env_ma
         match=f"Environment manager {env_manager!r} is not supported",
     ):
         mlflow.pyfunc.spark_udf(spark, str(tmp_path), env_manager=env_manager)
+
+
+def test_spark_udf_spark_connect_with_model_logging(spark, tmp_path):
+    X, y = load_iris(return_X_y=True, as_frame=True)
+    model = LogisticRegression().fit(X, y)
+
+    mlflow.set_tracking_uri(tmp_path.joinpath("mlruns").as_uri())
+    mlflow.set_experiment("test")
+    with mlflow.start_run():
+        signature = mlflow.models.infer_signature(X, y)
+        model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
+
+    udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, env_manager="local")
+    X_test = X.head(5)
+    sdf = spark.createDataFrame(X_test)
+    preds = sdf.select(udf(*X_test.columns).alias("preds")).toPandas()["preds"]
+    np.testing.assert_array_almost_equal(preds, model.predict(X_test))

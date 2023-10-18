@@ -2772,6 +2772,7 @@ def test_constructing_eval_df_for_custom_metrics():
         "truth",
         "targets",
         "outputs",
+        "context",
         "token_count",
         "toxicity/v1/score",
         "perplexity/v1/score",

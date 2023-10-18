@@ -99,12 +99,17 @@ def make_genai_metric(
     :param grading_prompt: Grading criteria of the metric.
     :param examples: (Optional) Examples of the metric.
     :param version: (Optional) Version of the metric. Currently supported versions are: v1.
-    :param model: (Optional) Model uri of the metric.
+    :param model: (Optional) Model uri of the of an openai or gateway judge model in the format of
+        "openai:/gpt-4" or "gateway:/my-route". Defaults to
+        "openai:/gpt-3.5-turbo-16k". Your use of a third party LLM service (e.g., OpenAI) for
+        evaluation may be subject to and governed by the LLM service's terms of use.
     :param grading_context_columns: (Optional) grading_context_columns required to compute
         the metric. These grading_context_columns are used by the LLM as a judge as additional
         information to compute the metric. The columns are extracted from the input dataset or
         output predictions based on col_mapping in evaluator_config.
-    :param parameters: (Optional) Parameters for the llm used to compute the metric.
+    :param parameters: (Optional) Parameters for the LLM used to compute the metric. By default, we
+        set the temperature to 0.0, max_tokens to 200, and top_p to 1.0. We recommend
+        setting the temperature to 0.0 for the LLM used as a judge to ensure consistent results.
     :param aggregations: (Optional) The list of options to aggregate the scores. Currently supported
         options are: min, max, mean, median, variance, p90.
     :param greater_is_better: (Optional) Whether the metric is better when it is greater.

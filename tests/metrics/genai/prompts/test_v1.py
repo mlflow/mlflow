@@ -41,11 +41,11 @@ def test_evaluation_model_output():
             ),
         ],
         model="gateway:/gpt-4",
-        parameters={"temperature": 1.0},
+        parameters={"temperature": 0.0},
     ).to_dict()
 
     assert model1["model"] == "gateway:/gpt-4"
-    assert model1["parameters"] == {"temperature": 1.0}
+    assert model1["parameters"] == {"temperature": 0.0}
 
     grading_context = {"ground_truth": "This is an output"}
     args_string = "Additional information used by the model:\n" + "\n".join(
