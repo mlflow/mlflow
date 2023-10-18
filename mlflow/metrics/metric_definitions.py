@@ -266,11 +266,19 @@ def _rougeLsum_eval_fn(predictions, targets, metrics):
         )
 
 
-def _precision_at_k_eval_fn(predictions, targets, k):
+def _precision_at_k_eval_fn(predictions, targets, k, metrics, sample_weight=None):
+    assert targets is not None
+    assert len(targets) != 0
+    import pandas as pd
+
     if targets is not None and len(targets) != 0:
-        assert predictions == {}
-        assert targets == {}
-        return MetricValue(scores=[], aggregate_results=standard_aggregations([]))
+        assert isinstance(predictions, pd.Series)
+        assert isinstance(targets, pd.Series)
+        assert isinstance(k, pd.Series)
+        assert (predictions == pd.Series([("doc1", "doc3")] * 3, name="prediction")).all()
+        assert (targets == pd.Series([("doc1", "doc2")] * 3, name="target")).all()
+        assert (k == pd.Series([2, 2, 2], name="k")).all()
+        return MetricValue(scores=[2, 2, 2], aggregate_results=standard_aggregations([2, 2, 2]))
 
 
 def _mae_eval_fn(predictions, targets, metrics, sample_weight=None):
