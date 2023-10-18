@@ -580,7 +580,7 @@ Then, verify that the unit tests & linter pass before submitting a pull
 request by running:
 
 ```bash
-./dev/lint.sh
+pre-commit run --all-files
 ./dev/run-python-tests.sh
 ```
 
