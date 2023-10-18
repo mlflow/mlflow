@@ -146,7 +146,7 @@ mlflow_example = EvaluationExample(
     score=4,
     justification="The definition effectively explains what MLflow is "
     "its purpose, and its developer. It could be more concise for a 5-score.",
-    grading_context={"target": mlflow_ground_truth},
+    grading_context={"targets": mlflow_ground_truth},
 )
 
 example_grading_prompt = (
@@ -178,7 +178,7 @@ def test_make_genai_metric_correct_response():
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
-        grading_context_columns=["target"],
+        grading_context_columns=["targets"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
@@ -186,7 +186,7 @@ def test_make_genai_metric_correct_response():
 
     assert [
         param.name for param in inspect.signature(custom_metric.eval_fn).parameters.values()
-    ] == ["predictions", "metrics", "inputs", "target"]
+    ] == ["predictions", "metrics", "inputs", "targets"]
 
     with mock.patch.object(
         model_utils,
@@ -220,11 +220,11 @@ def test_make_genai_metric_correct_response():
                 output="example-output",
                 score=4,
                 justification="example-justification",
-                grading_context={"target": "example-ground_truth"},
+                grading_context={"targets": "example-ground_truth"},
             )
         ],
         model="openai:/gpt-3.5-turbo",
-        grading_context_columns=["target"],
+        grading_context_columns=["targets"],
         greater_is_better=True,
         aggregations=None,
     )
@@ -277,7 +277,7 @@ def test_make_genai_metric_incorrect_response():
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
-        grading_context_columns=["target"],
+        grading_context_columns=["targets"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
@@ -311,7 +311,7 @@ def test_make_genai_metric_multiple():
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
         model="gateway:/gpt-3.5-turbo",
-        grading_context_columns=["target"],
+        grading_context_columns=["targets"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
@@ -374,7 +374,7 @@ def test_make_genai_metric_failure():
         output="output",
         score=4,
         justification="justification",
-        grading_context={"target": "ground_truth"},
+        grading_context={"targets": "ground_truth"},
     )
     import pandas as pd
 
@@ -385,7 +385,7 @@ def test_make_genai_metric_failure():
         grading_prompt="grading_prompt",
         examples=[example],
         model="model",
-        grading_context_columns=["target"],
+        grading_context_columns=["targets"],
         parameters={"temperature": 1.0},
         greater_is_better=True,
         aggregations=["mean"],
@@ -416,7 +416,7 @@ def test_make_genai_metric_failure():
             grading_prompt="grading_prompt",
             examples=[example],
             model="openai:/gpt-3.5-turbo",
-            grading_context_columns=["target"],
+            grading_context_columns=["targets"],
             parameters={"temperature": 1.0},
             greater_is_better=True,
             aggregations=["random-fake"],
