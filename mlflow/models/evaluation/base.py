@@ -1302,6 +1302,12 @@ def evaluate(
         .. _textstat:
             https://pypi.org/project/textstat
 
+    - For retriever models, the default evaluator logs:
+        - **metrics**: ``precision_at_k``: precision at k, where k is specified by the
+            ``evaluator_config`` argument. The default value of k is 3.
+        - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
+          argument is supplied), and per-row metrics of the model in tabular format.
+
      - For sklearn models, the default evaluator additionally logs the model's evaluation criterion
        (e.g. mean accuracy for a classifier) computed by `model.score` method.
 
@@ -1345,6 +1351,8 @@ def evaluate(
           metrics.
         - **col_mapping**: A dictionary mapping column names in the input dataset or output
           predictions to column names used when invoking the evaluation functions.
+        - **k**: The number of top predictions to use when computing the built-in metric
+          precision_at_k.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.
@@ -1440,13 +1448,15 @@ def evaluate(
                        - ``'question-answering'``
                        - ``'text-summarization'``
                        - ``'text'``
+                       - ``'retriever'``
 
                        If no ``model_type`` is specified, then you must provide a a list of
                        metrics to compute via the ``extra_metrics`` param.
 
                        .. note::
-                            ``'question-answering'``, ``'text-summarization'``, and ``'text'``
-                            are experimental and may be changed or removed in a future release.
+                            ``'question-answering'``, ``'text-summarization'``, ``'text'``, and
+                            ``'retriever'`` are experimental and may be changed or removed in a
+                            future release.
 
     :param dataset_path: (Optional) The path where the data is stored. Must not contain double
                          quotes (``“``). If specified, the path is logged to the ``mlflow.datasets``
