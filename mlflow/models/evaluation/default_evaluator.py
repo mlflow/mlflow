@@ -1512,7 +1512,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.builtin_metrics = {}
 
             text_metrics = [
-                token_count,
+                token_count(),
                 toxicity,
                 perplexity,
                 flesch_kincaid_grade_level,

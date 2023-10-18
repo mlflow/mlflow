@@ -35,6 +35,7 @@ from mlflow.models import (
     EvaluationMetric,
     make_metric,
 )
+from mlflow.utils.annotations import experimental
 
 latency = make_metric(
     eval_fn=lambda x: MetricValue(),
@@ -49,18 +50,20 @@ prediction for a given input. Note that computing latency requires each row to b
 sequentially, which will likely slow down the evaluation process.
 """
 
-# general text metrics
-token_count = make_metric(
-    eval_fn=_token_count_eval_fn,
-    greater_is_better=True,
-    name="token_count",
-)
-token_count.__doc__ = """
-.. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
-A metric for calculating token_count. Token count is calculated using tiktoken by using the
-`cl100k_base` tokenizer.
-"""
+# general text metrics
+@experimental
+def token_count() -> EvaluationMetric:
+    """
+    This function will create a metric for calculating token_count. Token count is calculated using tiktoken by using the
+    `cl100k_base` tokenizer.
+    """
+    return make_metric(
+        eval_fn=_token_count_eval_fn,
+        greater_is_better=True,
+        name="token_count",
+    )
+
 
 toxicity = make_metric(
     eval_fn=_toxicity_eval_fn,
