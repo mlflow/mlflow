@@ -1307,20 +1307,25 @@ class DefaultEvaluator(ModelEvaluator):
                 )
 
         X_copy = self.X.copy_to_avoid_mutation()
-        if compute_latency:
-            model_predictions = predict_with_latency(X_copy)
-        else:
-            if self.model is not None:
-                model_predictions = self.model.predict(X_copy)
+        if self.model is not None:
+            if compute_latency:
+                model_predictions = predict_with_latency(X_copy)
             else:
-                if self.dataset.predictions_data is None:
-                    raise MlflowException(
-                        message="Predictions data is missing when model is not provided. "
-                        "Please provide predictions data in the pandas dataset or provide "
-                        "a model.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                model_predictions = self.dataset.predictions_data
+                model_predictions = self.model.predict(X_copy)
+        else:
+            if self.dataset.predictions_data is None:
+                raise MlflowException(
+                    message="Predictions data is missing when model is not provided. "
+                    "Please provide predictions data in the pandas dataset or provide "
+                    "a model.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            if compute_latency:
+                _logger.warning("Returning the latency as zeros because model is not provided.")
+                self.metrics_values.update(
+                    {_LATENCY_METRIC_NAME: MetricValue(scores=[0.0] * len(X_copy))}
+                )
+            model_predictions = self.dataset.predictions_data
 
         if self.model_type == _ModelType.CLASSIFIER:
             self.label_list = np.unique(self.y)
