@@ -15,12 +15,12 @@ from mlflow.metrics.genai.genai_metric import (
     make_genai_metric,
 )
 from mlflow.metrics.genai.metric_definitions import (
-    correctness,
+    answer_similarity,
     relevance,
     strict_correctness,
 )
 from mlflow.metrics.genai.prompts.v1 import (
-    CorrectnessMetric,
+    AnswerSimilarityMetric,
     RelevanceMetric,
     StrictCorrectnessMetric,
 )
@@ -512,7 +512,7 @@ def test_extract_score_and_justification():
 
 
 def test_correctness_metric():
-    correctness_metric = correctness(
+    correctness_metric = answer_similarity(
         model="gateway:/gpt-3.5-turbo", metric_version="v1", examples=[mlflow_example]
     )
 
@@ -534,8 +534,8 @@ def test_correctness_metric():
             "sent to a machine\nlearning model, and you will be given an output that the model "
             "produced. You\nmay also be given additional information that was used by the model "
             "to generate the output.\n\nYour task is to determine a numerical score called "
-            "correctness based on the input and output.\nA definition of "
-            "correctness and a grading rubric are provided below.\nYou must use the "
+            "answer_similarity based on the input and output.\nA definition of "
+            "answer_similarity and a grading rubric are provided below.\nYou must use the "
             "grading rubric to determine your score. You must also justify your score."
             "\n\nExamples could be included below for reference. Make sure to use them as "
             "references and to\nunderstand them before completing the task.\n"
@@ -543,8 +543,8 @@ def test_correctness_metric():
             f"\nOutput:\n{mlflow_prediction}\n"
             "\nAdditional information used by the model:\nkey: targets\nvalue:\n"
             f"{mlflow_ground_truth}\n"
-            f"\nMetric definition:\n{CorrectnessMetric.definition}\n"
-            f"\nGrading rubric:\n{CorrectnessMetric.grading_prompt}\n"
+            f"\nMetric definition:\n{AnswerSimilarityMetric.definition}\n"
+            f"\nGrading rubric:\n{AnswerSimilarityMetric.grading_prompt}\n"
             "\nExamples:\n"
             f"\nInput:\n{mlflow_example.input}\n"
             f"\nOutput:\n{mlflow_example.output}\n"
@@ -553,10 +553,10 @@ def test_correctness_metric():
             f"\nscore: {mlflow_example.score}\n"
             f"justification: {mlflow_example.justification}\n        \n"
             "\nYou must return the following fields in your response one below the other:\nscore: "
-            "Your numerical score for the model's correctness based on the "
+            "Your numerical score for the model's answer_similarity based on the "
             "rubric\njustification: Your step-by-step reasoning about the model's "
-            "correctness score\n    ",
-            **CorrectnessMetric.parameters,
+            "answer_similarity score\n    ",
+            **AnswerSimilarityMetric.parameters,
         }
 
     assert metric_value.scores == [3]
@@ -569,9 +569,10 @@ def test_correctness_metric():
     }
 
     with pytest.raises(
-        MlflowException, match="Failed to find correctness metric for version non-existent-version"
+        MlflowException,
+        match="Failed to find answer similarity metric for version non-existent-version",
     ):
-        correctness_metric = correctness(
+        answer_similarity(
             model="gateway:/gpt-3.5-turbo",
             metric_version="non-existent-version",
             examples=[mlflow_example],
