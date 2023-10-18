@@ -54,13 +54,23 @@ def _call_openai_api(openai_uri, payload, timeout):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
+    config = {"openai_api_key": os.environ["OPENAI_API_KEY"]}
+    if "OPENAI_API_BASE" in os.environ:
+        config["openai_api_base"] = os.environ["OPENAI_API_BASE"]
+    if "OPENAI_API_TYPE" in os.environ:
+        config["openai_api_type"] = os.environ["OPENAI_API_TYPE"]
+    if "OPENAI_API_VERSION" in os.environ:
+        config["openai_api_version"] = os.environ["OPENAI_API_VERSION"]
+    if "OPENAI_DEPLOYMENT_NAME" in os.environ:
+        config["openai_deployment_name"] = os.environ["OPENAI_DEPLOYMENT_NAME"]
+
     route_config = RouteConfig(
         name="openai",
         route_type=ROUTE_TYPE,
         model={
             "name": openai_uri,
             "provider": "openai",
-            "config": {"openai_api_key": os.environ["OPENAI_API_KEY"]},
+            "config": config,
         },
     )
     openai_provider = OpenAIProvider(route_config)

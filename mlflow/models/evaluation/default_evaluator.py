@@ -1162,7 +1162,10 @@ class DefaultEvaluator(ModelEvaluator):
                         output_column_name = self.evaluator_config.get(
                             _Y_PREDICTED_OUTPUT_COLUMN_NAME, "output"
                         )
-                        output_columns = list(self.other_output_columns.columns)
+                        if self.other_output_columns:
+                            output_columns = list(self.other_output_columns.columns)
+                        else:
+                            output_columns = []
                         input_columns = list(input_df.columns)
                         raise MlflowException(
                             "Error: Metric Calculation Failed\n"
@@ -1448,6 +1451,10 @@ class DefaultEvaluator(ModelEvaluator):
             )
         else:
             data = self.dataset.features_data.assign(outputs=self.y_pred)
+
+        # include other_output_columns in the eval table
+        if self.other_output_columns is not None:
+            data = data.assign(**self.other_output_columns)
 
         columns = {}
         for metric_name, metric_value in self.metrics_values.items():

@@ -41,7 +41,7 @@ latency = make_metric(
     greater_is_better=False,
     name="latency",
 )
-"""
+latency.__doc__ = """
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for calculating latency. Latency is determined by the time it takes to generate a
@@ -55,7 +55,7 @@ token_count = make_metric(
     greater_is_better=True,
     name="token_count",
 )
-"""
+token_count.__doc__ = """
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for calculating token_count. Token count is calculated using tiktoken by using the
@@ -69,7 +69,7 @@ toxicity = make_metric(
     long_name="toxicity/roberta-hate-speech-dynabench-r4",
     version="v1",
 )
-"""
+toxicity.__doc__ = """
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for evaluating `toxicity`_ using the model `roberta-hate-speech-dynabench-r4`_,
@@ -113,7 +113,7 @@ flesch_kincaid_grade_level = make_metric(
     name="flesch_kincaid_grade_level",
     version="v1",
 )
-"""
+flesch_kincaid_grade_level.__doc__ = """
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for calculating `flesch kincaid grade level`_ using `textstat`_.
@@ -136,7 +136,7 @@ ari_grade_level = make_metric(
     long_name="automated_readability_index_grade_level",
     version="v1",
 )
-"""
+ari_grade_level.__doc__ = """
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for calculating `automated readability index`_ using `textstat`_.
@@ -156,7 +156,7 @@ Aggregations calculated for this metric:
 exact_match = make_metric(
     eval_fn=_accuracy_eval_fn, greater_is_better=True, name="exact_match", version="v1"
 )
-"""
+exact_match.__doc__ = """
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for calculating `accuracy`_ using sklearn.
@@ -174,7 +174,7 @@ rouge1 = make_metric(
     name="rouge1",
     version="v1",
 )
-"""
+rouge1.__doc__ = """
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for evaluating `rouge1`_.
@@ -194,7 +194,7 @@ rouge2 = make_metric(
     name="rouge2",
     version="v1",
 )
-"""
+rouge2.__doc__ = """
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for evaluating `rouge2`_.
@@ -214,7 +214,7 @@ rougeL = make_metric(
     name="rougeL",
     version="v1",
 )
-"""
+rougeL.__doc__ = """
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for evaluating `rougeL`_.
@@ -234,7 +234,7 @@ rougeLsum = make_metric(
     name="rougeLsum",
     version="v1",
 )
-"""
+rougeLsum.__doc__ = """
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
 A metric for evaluating `rougeLsum`_.
@@ -255,7 +255,7 @@ mae = make_metric(
     greater_is_better=False,
     name="mean_absolute_error",
 )
-"""
+mae.__doc__ = """
 A metric for evaluating `mae`_.
 
 This metric computes an aggregate score for the mean absolute error for regression.
@@ -268,7 +268,7 @@ mse = make_metric(
     greater_is_better=False,
     name="mean_squared_error",
 )
-"""
+mse.__doc__ = """
 A metric for evaluating `mse`_.
 
 This metric computes an aggregate score for the mean squared error for regression.
@@ -281,7 +281,7 @@ rmse = make_metric(
     greater_is_better=False,
     name="root_mean_squared_error",
 )
-"""
+rmse.__doc__ = """
 A metric for evaluating the square root of `mse`_.
 
 This metric computes an aggregate score for the root mean absolute error for regression.
@@ -294,7 +294,7 @@ r2_score = make_metric(
     greater_is_better=True,
     name="r2_score",
 )
-"""
+r2_score.__doc__ = """
 A metric for evaluating `r2_score`_.
 
 This metric computes an aggregate score for the coefficient of determination. R2 ranges from
@@ -309,7 +309,7 @@ max_error = make_metric(
     greater_is_better=False,
     name="max_error",
 )
-"""
+max_error.__doc__ = """
 A metric for evaluating `max_error`_.
 
 This metric computes an aggregate score for the maximum residual error for regression.
@@ -322,7 +322,7 @@ mape = make_metric(
     greater_is_better=False,
     name="mean_absolute_percentage_error",
 )
-"""
+mape.__doc__ = """
 A metric for evaluating `mape`_.
 
 This metric computes an aggregate score for the mean absolute percentage error for regression.
@@ -333,7 +333,7 @@ This metric computes an aggregate score for the mean absolute percentage error f
 # Binary Classification Metrics
 
 recall_score = make_metric(eval_fn=_recall_eval_fn, greater_is_better=True, name="recall_score")
-"""
+recall_score.__doc__ = """
 A metric for evaluating `recall`_ for classification.
 
 This metric computes an aggregate score between 0 and 1 for the recall of a classification task.
@@ -344,7 +344,7 @@ This metric computes an aggregate score between 0 and 1 for the recall of a clas
 precision_score = make_metric(
     eval_fn=_precision_eval_fn, greater_is_better=True, name="precision_score"
 )
-"""
+precision_score.__doc__ = """
 A metric for evaluating `precision`_ for classification.
 
 This metric computes an aggregate score between 0 and 1 for the precision of
@@ -354,7 +354,7 @@ classification task.
 """
 
 f1_score = make_metric(eval_fn=_f1_score_eval_fn, greater_is_better=True, name="f1_score")
-"""
+f1_score.__doc__ = """
 A metric for evaluating `f1_score`_ for binary classification.
 
 This metric computes an aggregate score between 0 and 1 for the F1 score (F-measure) of a

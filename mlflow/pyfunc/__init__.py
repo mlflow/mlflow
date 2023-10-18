@@ -1473,6 +1473,8 @@ Compound types:
         pandas.DataFrame if isinstance(result_type, SparkStructType) else pandas.Series
     )
 
+    tracking_uri = mlflow.get_tracking_uri()
+
     @pandas_udf(result_type)
     def udf(
         iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]]
@@ -1492,6 +1494,9 @@ Compound types:
         if mlflow_testing:
             _MLFLOW_TESTING.set(mlflow_testing)
         scoring_server_proc = None
+        # set tracking_uri inside udf so that with spark_connect
+        # we can load the model from correct path
+        mlflow.set_tracking_uri(tracking_uri)
 
         if env_manager != _EnvManager.LOCAL:
             if should_use_spark_to_broadcast_file:
