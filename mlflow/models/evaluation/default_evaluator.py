@@ -1513,10 +1513,10 @@ class DefaultEvaluator(ModelEvaluator):
 
             text_metrics = [
                 token_count(),
-                toxicity,
-                perplexity,
-                flesch_kincaid_grade_level,
-                ari_grade_level,
+                toxicity(),
+                perplexity(),
+                flesch_kincaid_grade_level(),
+                ari_grade_level(),
             ]
 
             with mlflow.utils.autologging_utils.disable_autologging():

@@ -300,79 +300,89 @@ def rmse() -> EvaluationMetric:
     )
 
 
-r2_score = make_metric(
-    eval_fn=_r2_score_eval_fn,
-    greater_is_better=True,
-    name="r2_score",
-)
-r2_score.__doc__ = """
-This function will create a metric for evaluating `r2_score`_.
+def r2_score() -> EvaluationMetric:
+    """
+    This function will create a metric for evaluating `r2_score`_.
 
-This metric computes an aggregate score for the coefficient of determination. R2 ranges from
-negative infinity to 1, and measures the percentage of variance explained by the predictor
-variables in a regression.
+    This metric computes an aggregate score for the coefficient of determination. R2 ranges from
+    negative infinity to 1, and measures the percentage of variance explained by the predictor
+    variables in a regression.
 
-.. _r2_score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html
-"""
+    .. _r2_score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html
+    """
+    return make_metric(
+        eval_fn=_r2_score_eval_fn,
+        greater_is_better=True,
+        name="r2_score",
+    )
 
-max_error = make_metric(
-    eval_fn=_max_error_eval_fn,
-    greater_is_better=False,
-    name="max_error",
-)
-max_error.__doc__ = """
-This function will create a metric for evaluating `max_error`_.
 
-This metric computes an aggregate score for the maximum residual error for regression.
+def max_error() -> EvaluationMetric:
+    """
+    This function will create a metric for evaluating `max_error`_.
 
-.. _max_error: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.max_error.html
-"""
+    This metric computes an aggregate score for the maximum residual error for regression.
 
-mape = make_metric(
-    eval_fn=_mape_eval_fn,
-    greater_is_better=False,
-    name="mean_absolute_percentage_error",
-)
-mape.__doc__ = """
-This function will create a metric for evaluating `mape`_.
+    .. _max_error: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.max_error.html
+    """
+    return make_metric(
+        eval_fn=_max_error_eval_fn,
+        greater_is_better=False,
+        name="max_error",
+    )
 
-This metric computes an aggregate score for the mean absolute percentage error for regression.
 
-.. _mape: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_percentage_error.html
-"""
+def mape() -> EvaluationMetric:
+    """
+    This function will create a metric for evaluating `mape`_.
+
+    This metric computes an aggregate score for the mean absolute percentage error for regression.
+
+    .. _mape: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_percentage_error.html
+    """
+    return make_metric(
+        eval_fn=_mape_eval_fn,
+        greater_is_better=False,
+        name="mean_absolute_percentage_error",
+    )
+
 
 # Binary Classification Metrics
 
-recall_score = make_metric(eval_fn=_recall_eval_fn, greater_is_better=True, name="recall_score")
-recall_score.__doc__ = """
-This function will create a metric for evaluating `recall`_ for classification.
 
-This metric computes an aggregate score between 0 and 1 for the recall of a classification task.
+def recall_score() -> EvaluationMetric:
+    """
+    This function will create a metric for evaluating `recall`_ for classification.
 
-.. _recall: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html
-"""
+    This metric computes an aggregate score between 0 and 1 for the recall of a classification task.
 
-precision_score = make_metric(
-    eval_fn=_precision_eval_fn, greater_is_better=True, name="precision_score"
-)
-precision_score.__doc__ = """
-This function will create a metric for evaluating `precision`_ for classification.
+    .. _recall: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html
+    """
+    return make_metric(eval_fn=_recall_eval_fn, greater_is_better=True, name="recall_score")
 
-This metric computes an aggregate score between 0 and 1 for the precision of
-classification task.
 
-.. _precision: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html
-"""
+def precision_score() -> EvaluationMetric:
+    """
+    This function will create a metric for evaluating `precision`_ for classification.
 
-f1_score = make_metric(eval_fn=_f1_score_eval_fn, greater_is_better=True, name="f1_score")
-f1_score.__doc__ = """
-This function will create a metric for evaluating `f1_score`_ for binary classification.
+    This metric computes an aggregate score between 0 and 1 for the precision of
+    classification task.
 
-This metric computes an aggregate score between 0 and 1 for the F1 score (F-measure) of a
-classification task. F1 score is defined as 2 * (precision * recall) / (precision + recall).
+    .. _precision: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html
+    """
+    return make_metric(eval_fn=_precision_eval_fn, greater_is_better=True, name="precision_score")
 
-.. _f1_score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html
-"""
+
+def f1_score() -> EvaluationMetric:
+    """
+    This function will create a metric for evaluating `f1_score`_ for binary classification.
+
+    This metric computes an aggregate score between 0 and 1 for the F1 score (F-measure) of a
+    classification task. F1 score is defined as 2 * (precision * recall) / (precision + recall).
+
+    .. _f1_score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html"""
+    return make_metric(eval_fn=_f1_score_eval_fn, greater_is_better=True, name="f1_score")
+
 
 __all__ = [
     "EvaluationExample",
