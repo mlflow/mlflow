@@ -56,6 +56,22 @@ def pytest_runtest_setup(item):
 
 
 @pytest.hookimpl(hookwrapper=True)
+def pytest_report_teststatus(report, config):
+    outcome = yield
+    if report.when == "call":
+        try:
+            import psutil
+        except ImportError:
+            return
+
+        (*rest, result) = outcome.get_result()
+        mem = psutil.virtual_memory()
+        used = mem.used / 1024**3
+        avail = mem.available / 1024**3
+        outcome.force_result((*rest, f"{result} | mem {used:.1f}/{avail:.1f} GB"))
+
+
+@pytest.hookimpl(hookwrapper=True)
 def pytest_ignore_collect(path, config):
     outcome = yield
     if not outcome.get_result() and config.getoption("ignore_flavors"):
