@@ -81,8 +81,7 @@ def toxicity() -> EvaluationMetric:
         - ratio (of toxic input texts)
 
     .. _toxicity: https://huggingface.co/spaces/evaluate-measurement/toxicity
-    .. _roberta-hate-speech-dynabench-r4:
-    https://huggingface.co/facebook/roberta-hate-speech-dynabench-r4-target
+    .. _roberta-hate-speech-dynabench-r4: https://huggingface.co/facebook/roberta-hate-speech-dynabench-r4-target
     """
     return make_metric(
         eval_fn=_toxicity_eval_fn,
