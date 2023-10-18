@@ -1452,6 +1452,10 @@ class DefaultEvaluator(ModelEvaluator):
         else:
             data = self.dataset.features_data.assign(outputs=self.y_pred)
 
+        # include other_output_columns in the eval table
+        if self.other_output_columns is not None:
+            data = data.assign(**self.other_output_columns)
+
         columns = {}
         for metric_name, metric_value in self.metrics_values.items():
             scores = metric_value.scores
