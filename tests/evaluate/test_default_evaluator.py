@@ -2963,3 +2963,4 @@ def test_evaluate_with_latency_static_dataset():
         "token_count",
     }
     assert all(isinstance(grade, float) for grade in logged_data["latency"])
+    assert all(grade == 0.0 for grade in logged_data["latency"])
