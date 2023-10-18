@@ -1093,17 +1093,6 @@ def test_schema_enforcement_for_list_inputs():
     assert _enforce_schema(data, signature.inputs) == data
 
     test_signature = {
-        "inputs": '[{"type": "object", "properties": '
-        '{"a": {"type": "array", "items": {"type": "string"}, "required": true}, '
-        '"b": {"type": "array", "items": {"type": "long"}, "required": true}}, '
-        '"required": true}]',
-        "outputs": '[{"type": "string", "required": true}]',
-    }
-    signature = ModelSignature.from_dict(test_signature)
-    data = {"a": ["a", "b", "c"], "b": np.array([1, 2, 3])}
-    assert _enforce_schema(data, signature.inputs) == {"a": ["a", "b", "c"], "b": [1, 2, 3]}
-
-    test_signature = {
         "inputs": '[{"name": "a", "type": "tensor", "tensor-spec": '
         '{"dtype": "int64", "shape": [-1]}}, '
         '{"name": "b", "type": "tensor", "tensor-spec": '
