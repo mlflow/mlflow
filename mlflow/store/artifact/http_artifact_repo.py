@@ -7,7 +7,10 @@ from requests import HTTPError
 
 from mlflow.entities import FileInfo
 from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, MultipartUploadPart
-from mlflow.environment_variables import MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE, MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE
+from mlflow.environment_variables import (
+    MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
+    MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
+)
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
@@ -146,7 +149,9 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         except HTTPError as e:
             # return False if server does not support multipart upload
             error_message = e.response.json().get("message", "")
-            if isinstance(error_message, str) and error_message.startswith("Multipart upload is not supported for artifact repository"):
+            if isinstance(error_message, str) and error_message.startswith(
+                "Multipart upload is not supported for artifact repository"
+            ):
                 return False
             else:
                 raise
@@ -167,7 +172,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 )
 
             self.complete_multipart_upload(local_file, create.upload_id, parts, artifact_path)
-        except Exception as e:
+        except Exception:
             self.abort_multipart_upload(local_file, create.upload_id, artifact_path)
             raise
 
