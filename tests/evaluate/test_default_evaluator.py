@@ -2968,20 +2968,19 @@ def test_evaluate_with_latency_static_dataset():
 
 def test_default_metrics_as_custom_metrics_static_dataset():
     with mlflow.start_run() as run:
-        model_info = mlflow.pyfunc.log_model(
-            artifact_path="model", python_model=identity_model, input_example=["a", "b"]
-        )
         data = pd.DataFrame(
             {
                 "question": ["words random", "This is a sentence."],
                 "truth": ["words random", "This is a sentence."],
                 "answer": ["words random", "This is a sentence."],
+                "question_model_output": ["words random", "This is a sentence."],
+                "answer_model_output": ["words random", "This is a sentence."],
             }
         )
         results = evaluate(
-            model_info.model_uri,
-            data,
+            data=data,
             targets="truth",
+            predictions="answer_model_output",
             model_type="question-answering",
             custom_metrics=[
                 mlflow.metrics.flesch_kincaid_grade_level,
