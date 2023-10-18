@@ -124,13 +124,22 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         resp = http_request(host_creds, endpoint, "POST", json=params)
         augmented_raise_for_status(resp)
 
-    def multipart_log_artifact(self, local_file, num_paths=1, artifact_path=None) -> bool:
+    def _multipart_log_artifact(self, local_file, num_paths=1, artifact_path=None) -> bool:
+        """
+        Attempts to perform multipart upload to log an artifact.
+        Returns True if the multipart upload is successful.
+        """
         parts = []
         chunk_size = MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
         try:
             create = self.create_multipart_upload(local_file, num_paths, artifact_path)
         except HTTPError as e:
-            ...
+            # return False if server does not support multipart upload
+            error = e.response.json()
+            if "Multipart upload is not supported for artifact repository" in error.get("message", ""):
+                return False
+            else:
+                raise
 
         try:
             for i, credential in enumerate(create.credentials):
@@ -148,6 +157,8 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 )
 
             self.complete_multipart_upload(local_file, create.upload_id, parts, artifact_path)
-        except Exception as e:
+        except Exception:
             self.abort_multipart_upload(local_file, create.upload_id, artifact_path)
+            raise
 
+        return True
