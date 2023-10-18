@@ -52,7 +52,6 @@ def _token_count_eval_fn(predictions, targets, metrics):
 
 
 def _toxicity_eval_fn(predictions, targets, metrics):
-    return None
     if not _validate_text_data(predictions, "toxicity", "predictions"):
         return
     try:
