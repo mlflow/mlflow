@@ -18,7 +18,7 @@ from mlflow.store.tracking import GET_METRIC_HISTORY_MAX_RESULTS, SEARCH_MAX_RES
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
-from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
+from mlflow.utils.async_logging.run_operations import get_combined_run_operations
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
@@ -262,9 +262,7 @@ class TrackingServiceClient:
         """
         self.store.rename_experiment(experiment_id, new_name)
 
-    def log_metric(
-        self, run_id, key, value, timestamp=None, step=None, synchronous: bool = True
-    ) -> RunOperations:
+    def log_metric(self, run_id, key, value, timestamp=None, step=None, synchronous=True):
         """
         Log a metric against the run ID.
 
@@ -281,14 +279,12 @@ class TrackingServiceClient:
                       may support larger values.
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
-        :param synchronous: [Experimental] Defaults to True and no behavior change.
+        :param synchronous: [Experimental] Defaults to True.
                              Indicates if the metric would be logged in synchronous fashion or not.
                             When it is True this call would be blocking call and offers immediate
                              consistency of the metric upon returning.
                             When this value is set to False, metric would be logged in async
-                             fashion. Backing provider gurantees that metrics are accepted
-                             into system but would persist them with some time delay -
-                             'near-real time'/'eventual' consistency.
+                             fashion and offers eventual consistency.
         """
         timestamp = timestamp if timestamp is not None else get_current_time_millis()
         step = step if step is not None else 0
@@ -299,7 +295,7 @@ class TrackingServiceClient:
         else:
             return self.store.log_metric_async(run_id, metric)
 
-    def log_param(self, run_id, key, value, synchronous: bool = True) -> RunOperations:
+    def log_param(self, run_id, key, value, synchronous=True):
         """
         Log a parameter (e.g. model hyperparameter) against the run ID. Value is converted to
         a string.
@@ -307,15 +303,13 @@ class TrackingServiceClient:
         :param run_id: ID of the run to log the parameter against.
         :param key: Name of the parameter.
         :param value: Value of the parameter.
-        :param synchronous: [Experimental] Defaults to True with no behavior change.
+        :param synchronous: [Experimental] Defaults to True.
                              Indicates if the parameter would be logged in synchronous fashion
                              or not.
                             When it is True this call would be blocking call and offers immediate
                              consistency of the parameter upon returning.
                             When this value is set to False, parameter would be logged in async
-                             fashion. Backing provider gurantees that parameter is accepted
-                             into system but would persist them with some time delay -
-                             'near-real time'/'eventual' consistency.
+                             fashion and offers eventual consistency.
 
         :return: An instance of `RunOperations` that can be used to perform additional operations
                  on the run.
@@ -344,7 +338,7 @@ class TrackingServiceClient:
         tag = ExperimentTag(key, str(value))
         self.store.set_experiment_tag(experiment_id, tag)
 
-    def set_tag(self, run_id, key, value, synchronous: bool = True) -> RunOperations:
+    def set_tag(self, run_id, key, value, synchronous=True):
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
 
@@ -356,15 +350,13 @@ class TrackingServiceClient:
         :param value: Tag value (string, but will be string-ified if not).
                       All backend stores will support values up to length 5000, but some
                       may support larger values.
-        :param synchronous: [Experimental] Defaults to True with no behavior change.
+        :param synchronous: [Experimental] Defaults to True.
                             Indicates if the tag would be logged in synchronous fashion
                               or not.
                             When it is True this call would be blocking call and offers immediate
                              consistency of the tag upon returning.
                             When this value is set to False, tag would be logged in async
-                             fashion. Backing provider gurantees that tag is accepted
-                             into system but would persist them with some time delay -
-                             'near-real time'/'eventual' consistency.
+                             fashion and offers eventual consistency.
 
         """
         tag = RunTag(key, str(value))
@@ -405,9 +397,7 @@ class TrackingServiceClient:
             run_name=name,
         )
 
-    def log_batch(
-        self, run_id, metrics=(), params=(), tags=(), synchronous: bool = True
-    ) -> RunOperations:
+    def log_batch(self, run_id, metrics=(), params=(), tags=(), synchronous=True):
         """
         Log multiple metrics, params, and/or tags.
 
@@ -415,16 +405,11 @@ class TrackingServiceClient:
         :param metrics: If provided, List of Metric(key, value, timestamp) instances.
         :param params: If provided, List of Param(key, value) instances.
         :param tags: If provided, List of RunTag(key, value) instances.
-        :param synchronous: [Experimental] Defaults to True with no behavior change.
-                            Indicates if the metrics/parameters/tags would be logged
-                             in synchronous fashion or not.
+        :param synchronous: [Experimental] Defaults to True.
                             When it is True this call would be blocking call and offers immediate
                              consistency of the metrics/parameters/tags upon returning.
-                            When this value is set to False, metrics/parameters/tags would be
-                             logged in async fashion. Backing provider gurantees that
-                             metrics/parameters/tags are accepted into the system but
-                             would persist them with some time delay -
-                             'near-real time'/'eventual' consistency.
+                            When this value is set to False, metric/params/tags would be logged in
+                              async fashion and offers eventual consistency.
 
         Raises an MlflowException if any errors occur.
         :return: None
@@ -434,7 +419,13 @@ class TrackingServiceClient:
 
         param_batches = chunk_list(params, MAX_PARAMS_TAGS_PER_BATCH)
         tag_batches = chunk_list(tags, MAX_PARAMS_TAGS_PER_BATCH)
-        run_operations_list = []  # type: List[RunOperations]
+
+        # When given data is split into one or more batches, we need to wait for all the batches.
+        # Each batch logged returns run_operations which we append to this list
+        # At the end we merge all the run_operations into a single run_operations object and return.
+        # Applicable only when synchronous is False
+        run_operations_list = []
+
         for params_batch, tags_batch in zip_longest(param_batches, tag_batches, fillvalue=[]):
             metrics_batch_size = min(
                 MAX_ENTITIES_PER_BATCH - len(params_batch) - len(tags_batch),
@@ -447,11 +438,8 @@ class TrackingServiceClient:
             run_operations = None
 
             if synchronous:
-                run_operations = self.store.log_batch(
-                    run_id=run_id,
-                    metrics=metrics_batch,
-                    params=params_batch,
-                    tags=tags_batch,
+                self.store.log_batch(
+                    run_id=run_id, metrics=metrics_batch, params=params_batch, tags=tags_batch
                 )
             else:
                 run_operations = self.store.log_batch_async(
@@ -464,9 +452,7 @@ class TrackingServiceClient:
 
         for metrics_batch in chunk_list(metrics, chunk_size=MAX_METRICS_PER_BATCH):
             if synchronous:
-                run_operations = self.store.log_batch(
-                    run_id=run_id, metrics=metrics_batch, params=[], tags=[]
-                )
+                self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
             else:
                 run_operations = self.store.log_batch_async(
                     run_id=run_id, metrics=metrics_batch, params=[], tags=[]
@@ -474,8 +460,9 @@ class TrackingServiceClient:
             if run_operations:
                 run_operations_list.append(run_operations)
 
-        # Merge all the run operations into a single run operations object
-        return get_combined_run_operations(run_operations_list)
+        if not synchronous:
+            # Merge all the run operations into a single run operations object
+            return get_combined_run_operations(run_operations_list)
 
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """

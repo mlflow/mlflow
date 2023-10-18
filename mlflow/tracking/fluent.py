@@ -665,8 +665,12 @@ def set_tag(key: str, value: Any, synchronous: Optional[bool] = True) -> RunOper
 
         import mlflow
 
+        # Set a tag.
         with mlflow.start_run():
             mlflow.set_tag("release.version", "2.2.0")
+
+        # Set a tag in async fashion.
+        with mlflow.start_run():
             mlflow.set_tag("release.version", "2.2.1", synchronous=False)
 
     """
@@ -730,8 +734,12 @@ def log_metric(
 
         import mlflow
 
+        # Log a metric
         with mlflow.start_run():
             mlflow.log_metric("mse", 2500.00)
+
+        # Log a metric in async fashion.
+        with mlflow.start_run():
             mlflow.log_metric("mse", 2500.00, synchronous=False)
     """
     run_id = _get_or_start_run().info.run_id
@@ -776,6 +784,7 @@ def log_metrics(
         # Log a batch of metrics
         with mlflow.start_run():
             mlflow.log_metrics(metrics)
+
         # Log a batch of metrics in async fashion.
         with mlflow.start_run():
             mlflow.log_metrics(metrics, synchronous=False)
@@ -817,7 +826,8 @@ def log_params(params: Dict[str, Any], synchronous: Optional[bool] = True) -> Ru
         # Log a batch of parameters
         with mlflow.start_run():
             mlflow.log_params(params)
-        # Log a batch of parameters in async way
+
+        # Log a batch of parameters in async fashion.
         with mlflow.start_run():
             mlflow.log_params(params, synchronous=False)
 
@@ -926,7 +936,7 @@ def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = True) -> RunOpe
         with mlflow.start_run():
             mlflow.set_tags(tags)
 
-        # Set a batch of tags in async way
+        # Set a batch of tags in async fashion.
         with mlflow.start_run():
             mlflow.set_tags(tags, synchronous=False)
     """
