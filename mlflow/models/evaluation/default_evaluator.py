@@ -1293,6 +1293,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.metrics_values.update({_LATENCY_METRIC_NAME: MetricValue(scores=pred_latencies)})
 
             # Aggregate all predictions into model_predictions
+            # TODO: fix with dict
             sample_pred = y_pred_list[0]
             if isinstance(sample_pred, pd.DataFrame):
                 return pd.concat(y_pred_list)
