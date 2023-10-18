@@ -34,9 +34,12 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
         # Try to perform multipart upload if the file is large.
         # If the server does not support, or if the upload failed, revert to normal upload.
-        if os.path.getsize(local_file) >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get():
-            if self._multipart_log_artifact(local_file, artifact_path):
-                return
+        if os.path.getsize(
+            local_file
+        ) >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get() and self._multipart_log_artifact(
+            local_file, artifact_path
+        ):
+            return
 
         file_name = os.path.basename(local_file)
         mime_type = _guess_mime_type(file_name)
