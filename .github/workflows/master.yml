@@ -278,7 +278,7 @@ jobs:
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
-          pytest --memray tests/evaluate
+          pytest --memray --most-allocations=10 tests/evaluate
 
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
