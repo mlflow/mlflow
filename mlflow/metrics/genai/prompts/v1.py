@@ -90,24 +90,24 @@ class EvaluationModel:
 @dataclass
 class AnswerSimilarityMetric:
     definition = (
-        "Answer similarity is evaluated on the degree of semantic similarity of the provided output"
-        " to the provided target, which is the ground truth. Scores can be assigned based on the "
-        "gradual similarity in meaning and description to the provided target, where a higher "
-        "score indicates greater alignment between the provided output and provided target."
+        "Answer similarity is evaluated on the degree of semantic similarity of the provided "
+        "output to the provided targets, which is the ground truth. Scores can be assigned based "
+        "on the gradual similarity in meaning and description to the provided targets, where a "
+        "higher score indicates greater alignment between the provided output and provided targets."
     )
 
     grading_prompt = (
-        "Answer Similarity: Below are the details for different scores:"
-        "- Score 1: the output has little to no semantic similarity to the provided target."
-        "- Score 2: the output displays partial semantic similarity to the provided target on some "
-        "aspects."
-        "- Score 3: the output has moderate semantic similarity to the provided target."
-        "- Score 4: the output aligns with the provided target in most aspects and has substantial"
-        " semantic similarity."
-        "- Score 5: the output closely aligns with the provided target in all significant aspects."
+        "Answer similarity: Below are the details for different scores:\n"
+        "- Score 1: the output has little to no semantic similarity to the provided targets.\n"
+        "- Score 2: the output displays partial semantic similarity to the provided targets on "
+        "some aspects.\n"
+        "- Score 3: the output has moderate semantic similarity to the provided targets.\n"
+        "- Score 4: the output aligns with the provided targets in most aspects and has "
+        "substantial semantic similarity.\n"
+        "- Score 5: the output closely aligns with the provided targets in all significant aspects."
     )
 
-    grading_context_columns = ["target"]
+    grading_context_columns = ["targets"]
     parameters = default_parameters
     default_model = default_model
 
@@ -121,7 +121,7 @@ class AnswerSimilarityMetric:
         "challenges it addresses. Therefore, it demonstrates partial, but not complete, "
         "semantic similarity.",
         grading_context={
-            "target": "MLflow is an open-source platform for managing the end-to-end "
+            "targets": "MLflow is an open-source platform for managing the end-to-end "
             "machine learning (ML) lifecycle. It was developed by Databricks, a company "
             "that specializes in big data and machine learning solutions. MLflow is "
             "designed to address the challenges that data scientists and machine learning "
@@ -141,7 +141,7 @@ class AnswerSimilarityMetric:
         "experiment tracking, model packaging, versioning, and deployment. While it may not include"
         " every single detail from the target, it demonstrates substantial semantic similarity.",
         grading_context={
-            "target": "MLflow is an open-source platform for managing the end-to-end "
+            "targets": "MLflow is an open-source platform for managing the end-to-end "
             "machine learning (ML) lifecycle. It was developed by Databricks, a company "
             "that specializes in big data and machine learning solutions. MLflow is "
             "designed to address the challenges that data scientists and machine learning "
@@ -235,7 +235,7 @@ class StrictCorrectnessMetric:
         "- Score 1: the output answers the question correctly as provided in the ground truth."
     )
 
-    grading_context_columns = ["target"]
+    grading_context_columns = ["targets"]
     parameters = default_parameters
     default_model = default_model
 
@@ -248,7 +248,7 @@ class StrictCorrectnessMetric:
         "open-source platform. This directly opposes the ground truth, resulting in a score of 0 "
         "for strict correctness.",
         grading_context={
-            "target": "MLflow is an open-source platform for managing the end-to-end machine "
+            "targets": "MLflow is an open-source platform for managing the end-to-end machine "
             "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
             "in big data and machine learning solutions. MLflow is designed to address the "
             "challenges that data scientists and machine learning engineers face when developing, "
@@ -264,7 +264,7 @@ class StrictCorrectnessMetric:
         "with the provided context. It accurately reflects the ground truth information, earning "
         "a score of 1 for strict correctness.",
         grading_context={
-            "target": "MLflow is an open-source platform for managing the end-to-end machine "
+            "targets": "MLflow is an open-source platform for managing the end-to-end machine "
             "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
             "in big data and machine learning solutions. MLflow is designed to address the "
             "challenges that data scientists and machine learning engineers face when developing, "
