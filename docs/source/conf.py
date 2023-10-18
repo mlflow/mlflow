@@ -37,8 +37,10 @@ import languagesections
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.viewcode",
-    "sphinx.ext.napoleon",
-    "sphinx_click.ext",
+    # "sphinx.ext.napoleon",
+    "sphinx_design",
+    "sphinx_click",
+    "sphinx_copybutton",
     "testcode_block",
 ]
 
@@ -129,15 +131,36 @@ html_context = {
     "gtm_id": os.environ.get("GTM_ID", ""),
 }
 
-html_theme_path = ["../theme/"]
-html_theme = "mlflow"
+# html_theme_path = ["../theme/"]
+html_theme = "pydata_sphinx_theme"
 html_favicon = "_static/favicon.ico"
 
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-# html_theme_options = {}
+html_theme_options = {
+    "show_nav_level": 0,
+    "show_toc_level": 1,
+    "navigation_depth": 2,
+    "logo": {
+        "image_light": "_static/MLflow-logo-final-black.png",
+        "image_dark": "_static/MLflow-logo-final-black.png",
+    },
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/mlflow/mlflow",
+            "icon": "fa-brands fa-square-github",
+            "type": "fontawesome",
+        },
+        {
+            "name": "Twitter",
+            "url": "https://twitter.com/mlflow",
+            "icon": "fa-brands fa-square-twitter",
+        },
+    ],
+}
 
 # Add any paths that contain custom themes here, relative to this directory.
 # html_theme_path = []
@@ -151,7 +174,7 @@ html_favicon = "_static/favicon.ico"
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-# html_logo = None
+html_logo = None
 
 # The name of an image file (relative to this directory) to use as a favicon of
 # the docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32

@@ -20,29 +20,33 @@ and :ref:`java_api`.
 Get started using the :ref:`quickstart` or by reading about the :ref:`key concepts<concepts>`.
 
 .. toctree::
-    :maxdepth: 1
+    :hidden:
 
     what-is-mlflow
-    quickstart
-    quickstart_mlops
-    tutorials-and-examples/index
     concepts
     tracking
-    llm-tracking
-    projects
-    models
-    model-registry
-    recipes
-    gateway/index
-    llms/prompt-engineering
-    plugins
-    auth/index
-    cli
-    search-runs
-    search-experiments
     python_api/index
-    R-api
-    java_api/index
-    rest-api
-    docker
-    community-model-flavors
+
+.. grid::  1 2 2 2
+    :gutter: 4
+    :padding: 2 2 0 0
+
+    .. grid-item-card::  API reference
+        :link: python_api/index.html
+
+        The reference guide contains a detailed description of the MLflow API.
+        The reference describes how the methods work and which parameters can
+        be used. It assumes that you have an understanding of the key concepts.
+
+    .. grid-item-card::  Tutorials
+
+        ...
+
+
+    .. grid-item-card::  Another card
+
+        ...
+
+    .. grid-item-card::  Another card
+
+        ...
