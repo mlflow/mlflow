@@ -76,9 +76,9 @@ def pytest_report_teststatus(report, config):
             (
                 *rest,
                 (
-                    f"{result} "
-                    f"🧠 {mem_used:.1f}/{mem_total:.1f} GB "
-                    f"💿 {disk_used:.1f}/{disk_total:.1f} GB"
+                    f"{result} | "
+                    f"MEM {mem_used:.1f}/{mem_total:.1f} GB | "
+                    f"DISK {disk_used:.1f}/{disk_total:.1f} GB"
                 ),
             )
         )
