@@ -3,6 +3,7 @@ import os
 import shutil
 import sys
 import time
+import urllib
 from os.path import join
 
 from mlflow.entities.model_registry import (
@@ -27,6 +28,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
@@ -63,6 +65,8 @@ from mlflow.utils.validation import (
 from mlflow.utils.validation import (
     _validate_model_name as _original_validate_model_name,
 )
+
+_STORAGE_LOCATION_META_KEY = "storage_location"
 
 
 def _default_root_dir():
@@ -500,15 +504,18 @@ class FileStore(AbstractStore):
         version = os.path.basename(directory).replace("version-", "")
         return [alias.alias for alias in aliases if alias.version == version]
 
-    def _get_model_version_from_dir(self, directory):
+    def _get_model_version_meta_from_dir(self, directory):
         meta = FileStore._read_yaml(directory, FileStore.META_DATA_FILE_NAME)
         meta["tags"] = self._get_model_version_tags_from_dir(directory)
         meta["aliases"] = self._get_model_version_aliases(directory)
-        return ModelVersion.from_dictionary(meta)
+        return meta
 
-    def _save_model_version_as_meta_file(self, model_version, meta_dir=None, overwrite=True):
+    def _save_model_version_as_meta_file(
+        self, model_version, meta_dir=None, storage_location=None, overwrite=True
+    ):
         model_version_dict = dict(model_version)
         del model_version_dict["tags"]
+        model_version_dict[_STORAGE_LOCATION_META_KEY] = storage_location
         meta_dir = meta_dir or self._get_model_version_dir(
             model_version.name, model_version.version
         )
@@ -560,6 +567,19 @@ class FileStore(AbstractStore):
         _validate_model_name(name)
         for tag in tags or []:
             _validate_model_version_tag(tag.key, tag.value)
+
+        storage_location = source
+        if urllib.parse.urlparse(source).scheme == "models":
+            (src_model_name, src_model_version, _, _) = _parse_model_uri(source)
+            try:
+                storage_location = self.get_model_version_download_uri(
+                    src_model_name, src_model_version
+                )
+            except Exception as e:
+                raise MlflowException(
+                    f"Unable to fetch model from model URI source artifact location '{source}'."
+                    f"Error: {e}"
+                ) from e
         for attempt in range(self.CREATE_MODEL_VERSION_RETRIES):
             try:
                 creation_time = get_current_time_millis()
@@ -583,7 +603,10 @@ class FileStore(AbstractStore):
                 model_version_dir = self._get_model_version_dir(name, version)
                 mkdir(model_version_dir)
                 self._save_model_version_as_meta_file(
-                    model_version, meta_dir=model_version_dir, overwrite=False
+                    model_version,
+                    meta_dir=model_version_dir,
+                    storage_location=storage_location,
+                    overwrite=False,
                 )
                 self._save_registered_model_as_meta_file(registered_model)
                 if tags is not None:
@@ -683,13 +706,14 @@ class FileStore(AbstractStore):
                 f"Model Version (name={name}, version={version}) not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
-        model_version = self._get_model_version_from_dir(registered_model_version_dir)
+        meta = self._get_model_version_meta_from_dir(registered_model_version_dir)
+        model_version = ModelVersion.from_dictionary(meta)
         if model_version.current_stage == STAGE_DELETED_INTERNAL:
             raise MlflowException(
                 f"Model Version (name={name}, version={version}) not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
-        return model_version
+        return model_version, meta.get(_STORAGE_LOCATION_META_KEY, None)
 
     def get_model_version(self, name, version):
         """
@@ -701,7 +725,7 @@ class FileStore(AbstractStore):
         """
         _validate_model_name(name)
         _validate_model_version(version)
-        return self._fetch_model_version_if_exists(name, version)
+        return self._fetch_model_version_if_exists(name, version)[0]
 
     def get_model_version_download_uri(self, name, version):
         """
@@ -713,8 +737,10 @@ class FileStore(AbstractStore):
         :param version: Registered model version.
         :return: A single URI location that allows reads for downloading.
         """
-        model_version = self.get_model_version(name, version)
-        return model_version.source
+        _validate_model_name(name)
+        _validate_model_version(version)
+        model_version, storage_location = self._fetch_model_version_if_exists(name, version)
+        return storage_location if storage_location is not None else model_version.source
 
     def _get_all_registered_model_paths(self):
         self._check_root_dir()
@@ -729,7 +755,9 @@ class FileStore(AbstractStore):
             full_path=True,
         )
         for directory in model_version_dirs:
-            model_versions.append(self._get_model_version_from_dir(directory))
+            model_versions.append(
+                ModelVersion.from_dictionary(self._get_model_version_meta_from_dir(directory))
+            )
         return model_versions
 
     def search_model_versions(

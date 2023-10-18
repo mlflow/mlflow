@@ -2679,7 +2679,10 @@ class MlflowClient:
                  the cloned model version.
         """
         if urllib.parse.urlparse(src_model_uri).scheme != "models":
-            raise MlflowException(f"Invalid source model URI: {src_model_uri}")
+            raise MlflowException(
+                f"Unsupported source model URI: '{src_model_uri}'. The `copy_model_version` API "
+                "only copies models stored in the 'models:/' scheme."
+            )
         client = self._get_registry_client()
         src_name, src_version = get_model_name_and_version(client, src_model_uri)
         src_mv = client.get_model_version(src_name, src_version)
