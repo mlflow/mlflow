@@ -425,7 +425,8 @@ def _is_spark_df(x) -> bool:
 
 
 def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) -> None:
-    invalid_keys = [key for key in data.keys() if not isinstance(key, (str, int))]
+    # isinstance(True, int) is True
+    invalid_keys = [key for key in data.keys() if not isinstance(key, (str, int)) or isinstance(key, bool)]
     if invalid_keys:
         raise MlflowException(
             f"The dictionary keys are not all strings or indexes. Invalid keys: {invalid_keys}"

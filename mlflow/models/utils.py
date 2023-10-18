@@ -874,33 +874,22 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
 def _enforce_datatype(data: Any, dtype: DataType):
     if not isinstance(dtype, DataType):
         raise MlflowException(f"Expected dtype to be DataType, got {type(dtype).__name__}")
-    # we do not convert data type for users
-    if (
-        dtype == DataType.boolean
-        and DataType.is_boolean(data)
-        or dtype == DataType.integer
-        and DataType.is_integer(data)
-        or dtype == DataType.long
-        and DataType.is_long(data)
-        or dtype == DataType.float
-        and DataType.is_float(data)
-        or dtype == DataType.double
-        and DataType.is_double(data)
-        or dtype == DataType.string
-        and DataType.is_string(data)
-        or dtype == DataType.binary
-        and DataType.is_binary(data)
-        or dtype == DataType.datetime
-        and DataType.is_datetime(data)
-    ):
-        return data
-    raise MlflowException(f"Failed to enforce schema of data `{data}` with dtype `{dtype.name}`")
+    if not np.isscalar(data):
+        raise MlflowException(f"Expected data to be scalar, got {type(data).__name__}")
+    # Reuse logic in _enforce_mlflow_datatype for type conversion
+    pd_series = pd.Series(data)
+    try:
+        pd_series = _enforce_mlflow_datatype("", pd_series, dtype)
+    except MlflowException:
+        raise MlflowException(
+            f"Failed to enforce schema of data `{data}` with dtype `{dtype.name}`"
+        )
+    return pd_series[0]
 
 
 def _enforce_array(data: Any, arr: Array):
-    # Question: should we convert np.ndarry to list
     if not isinstance(data, list):
-        data = data.tolist() if isinstance(data, np.ndarray) else list(data)
+        raise MlflowException(f"Expected data to be list, got {type(data).__name__}")
     if isinstance(arr.dtype, DataType):
         return [_enforce_datatype(x, arr.dtype) for x in data]
     if isinstance(arr.dtype, Object):
