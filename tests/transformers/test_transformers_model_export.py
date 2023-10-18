@@ -1331,7 +1331,7 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
     assert all(isinstance(element, str) for element in inference)
 
     if isinstance(inference_payload, dict):
-        pd_input = pd.DataFrame(inference_payload, index=[0])
+        pd_input = pd.DataFrame([inference_payload])
     else:
         pd_input = pd.DataFrame(inference_payload)
     pd_inference = pyfunc_loaded.predict(pd_input)
@@ -1729,10 +1729,7 @@ def test_table_question_answering_pipeline(
     inference = loaded.predict(data)
     assert inference == result
 
-    if all(isinstance(value, str) for value in data.values()):
-        pd_input = pd.DataFrame(data, index=[0])
-    else:
-        pd_input = pd.DataFrame(data)
+    pd_input = pd.DataFrame([data]) if isinstance(data, dict) else pd.DataFrame(data)
     pd_inference = loaded.predict(pd_input)
     assert pd_inference == result
 
@@ -1763,12 +1760,7 @@ def test_translation_pipeline(translation_pipeline, model_path, data, result):
     inference = pyfunc_loaded.predict(data)
     assert inference == result
 
-    if len(data) > 1 and isinstance(data, list):
-        pd_input = pd.DataFrame([{"inputs": v} for v in data])
-    elif isinstance(data, list) and len(data) == 1:
-        pd_input = pd.DataFrame([{"inputs": v} for v in data], index=[0])
-    else:
-        pd_input = pd.DataFrame({"inputs": data}, index=[0])
+    pd_input = pd.DataFrame(data) if isinstance(data, list) else pd.DataFrame([data])
 
     pd_inference = pyfunc_loaded.predict(pd_input)
     assert pd_inference == result
@@ -1896,12 +1888,7 @@ def test_ner_pipeline(pipeline_name, model_path, data, result, request):
 
     assert inference == result
 
-    if len(data) > 1 and isinstance(data, list):
-        pd_input = pd.DataFrame([{"inputs": v} for v in data])
-    elif isinstance(data, list) and len(data) == 1:
-        pd_input = pd.DataFrame([{"inputs": v} for v in data], index=[0])
-    else:
-        pd_input = pd.DataFrame({"inputs": data}, index=[0])
+    pd_input = pd.DataFrame(data) if isinstance(data, list) else pd.DataFrame([data])
 
     pd_inference = loaded_pyfunc.predict(pd_input)
     assert pd_inference == result
@@ -1942,8 +1929,8 @@ def test_conversational_pipeline(conversational_pipeline, model_path):
         (
             "fill_mask_pipeline",
             ["I use stacks of <mask> to buy things", "I <mask> the whole bowl of cherries"],
-            [{"type": "string"}],
-            [{"type": "string"}],
+            [{"items": {"type": "string"}, "required": True, "type": "array"}],
+            [{"items": {"type": "string"}, "required": True, "type": "array"}],
         ),
         (
             "zero_shot_pipeline",
@@ -1953,48 +1940,91 @@ def test_conversational_pipeline(conversational_pipeline, model_path):
                 "hypothesis_template": "This example talks about how the dog is {}",
             },
             [
-                {"name": "sequences", "type": "string"},
-                {"name": "candidate_labels", "type": "string"},
-                {"name": "hypothesis_template", "type": "string"},
+                {
+                    "type": "object",
+                    "properties": {
+                        "candidate_labels": {"type": "string", "required": True},
+                        "hypothesis_template": {"type": "string", "required": True},
+                        "sequences": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "required": True,
+                        },
+                    },
+                    "required": True,
+                },
             ],
+            # TODO: update this schema once input_example is supported for new signature
             [
-                {"name": "sequence", "type": "string"},
-                {"name": "labels", "type": "string"},
-                {"name": "scores", "type": "double"},
+                {"name": "sequence", "type": "string", "required": True},
+                {"name": "labels", "type": "string", "required": True},
+                {"name": "scores", "type": "double", "required": True},
             ],
         ),
     ],
 )
-@pytest.mark.parametrize("provide_example", [True, False])
 @pytest.mark.skipcacheclean
-def test_infer_signature_from_example_only(
-    pipeline_name, model_path, example, request, provide_example, in_signature, out_signature
+def test_infer_signature_from_input_example_only(
+    pipeline_name, model_path, example, request, in_signature, out_signature
 ):
     pipeline = request.getfixturevalue(pipeline_name)
-
-    input_example = example if provide_example else None
-    mlflow.transformers.save_model(pipeline, model_path, input_example=input_example)
+    mlflow.transformers.save_model(pipeline, model_path, input_example=example)
 
     model = Model.load(model_path)
 
     assert model.signature.inputs.to_dict() == in_signature
     assert model.signature.outputs.to_dict() == out_signature
 
-    if provide_example:
-        saved_example = _read_example(model, model_path).to_dict(orient="records")
-        if isinstance(example, str):
-            assert next(iter(saved_example[0].values())) == example
-        elif isinstance(example, list):
-            assert list(saved_example[0].values()) == example
-        else:
-            assert set(saved_example[0].keys()).intersection(example.keys()) == set(
-                saved_example[0].keys()
-            )
-        assert model.saved_input_example_info["type"] == "dataframe"
-        orient = "split" if pipeline_name == "zero_shot_pipeline" else "values"
-        assert model.saved_input_example_info["pandas_orient"] == orient
+    saved_example = _read_example(model, model_path).to_dict(orient="records")
+    if isinstance(example, str):
+        assert next(iter(saved_example[0].values())) == example
+    elif isinstance(example, list):
+        assert list(saved_example[0].values()) == example
     else:
-        assert model.saved_input_example_info is None
+        assert set(saved_example[0].keys()).intersection(example.keys()) == set(
+            saved_example[0].keys()
+        )
+    assert model.saved_input_example_info["type"] == "dataframe"
+    orient = "split" if pipeline_name == "zero_shot_pipeline" else "values"
+    assert model.saved_input_example_info["pandas_orient"] == orient
+
+
+@pytest.mark.parametrize(
+    ("pipeline_name", "in_signature", "out_signature"),
+    [
+        (
+            "fill_mask_pipeline",
+            [{"required": True, "type": "string"}],
+            [{"required": True, "type": "string"}],
+        ),
+        (
+            "zero_shot_pipeline",
+            [
+                {"name": "sequences", "type": "string", "required": True},
+                {"name": "candidate_labels", "type": "string", "required": True},
+                {"name": "hypothesis_template", "type": "string", "required": True},
+            ],
+            [
+                {"name": "sequence", "type": "string", "required": True},
+                {"name": "labels", "type": "string", "required": True},
+                {"name": "scores", "type": "double", "required": True},
+            ],
+        ),
+    ],
+)
+@pytest.mark.skipcacheclean
+def test_get_default_pipeline_signature(
+    pipeline_name, model_path, request, in_signature, out_signature
+):
+    pipeline = request.getfixturevalue(pipeline_name)
+    mlflow.transformers.save_model(pipeline, model_path)
+
+    model = Model.load(model_path)
+
+    assert model.signature.inputs.to_dict() == in_signature
+    assert model.signature.outputs.to_dict() == out_signature
+
+    assert model.saved_input_example_info is None
 
 
 def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
@@ -3456,6 +3486,7 @@ def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
     assert data == card_data.data.to_dict()
 
 
+@pytest.mark.skip("Skipping until model-serving change is merged")
 def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
     artifact_path = "qa_model"
     data = {
@@ -3697,6 +3728,7 @@ def test_whisper_model_supports_timestamps(raw_audio_file, whisper_pipeline):
     assert prediction_inference["chunks"][0]["timestamp"][1] == first_timestamp[1]
 
 
+@pytest.mark.skip("Skipping until model-serving change is merged")
 def test_pyfunc_model_log_load_with_artifacts_snapshot():
     architecture = "prajjwal1/bert-tiny"
     tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)

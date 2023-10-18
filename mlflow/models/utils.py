@@ -760,9 +760,20 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
         if len(input_schema.inputs) == 1:
             col_spec = input_schema.inputs[0]
             if isinstance(col_spec.type, Array):
+                arr_dtype = col_spec.type.dtype
+                if isinstance(pf_input, pd.DataFrame):
+                    if isinstance(arr_dtype, Object):
+                        pf_input = _convert_pf_to_list_of_dicts(pf_input)
+                    elif isinstance(arr_dtype, DataType):
+                        pf_input = _convert_pf_to_list(pf_input)
                 return _enforce_array(pf_input, col_spec.type)
             if isinstance(col_spec.type, Object):
-                return _enforce_object(pf_input, col_spec.type)
+                obj = (
+                    _convert_pf_to_dict(pf_input)
+                    if isinstance(pf_input, pd.DataFrame)
+                    else pf_input
+                )
+                return _enforce_object(obj, col_spec.type)
 
         if isinstance(pf_input, (list, np.ndarray, dict, pd.Series, str, bytes)):
             try:
@@ -871,6 +882,45 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
         return _enforce_unnamed_col_schema(pf_input, input_schema)
 
 
+def _convert_pf_to_dict(pdf: pd.DataFrame):
+    if not isinstance(pdf, pd.DataFrame):
+        raise MlflowException(f"Expected input to be DataFrame. Found: {type(pdf).__name__}")
+    # We expect the pandas DataFrame to be a single row
+    # with columns for each key in the dictionary
+    # dict like {index -> {column -> value}}
+    data = pdf.to_dict(orient="index")
+    if len(data.values()) != 1:
+        raise MlflowException(
+            f"Expected input to be DataFrame with a single row. Found: {len(data.values())} rows"
+        )
+    return next(iter(data.values()))
+
+
+def _convert_pf_to_list_of_dicts(pdf: pd.DataFrame):
+    if not isinstance(pdf, pd.DataFrame):
+        raise MlflowException(f"Expected input to be DataFrame. Found: {type(pdf).__name__}")
+    # We expect the pandas DataFrame to be constructed
+    # from a list of dictionaries, each row in the DataFrame
+    # corresponds to a dictionary in the list
+    # list like [{column -> value}, … , {column -> value}]
+    return pdf.to_dict(orient="records")
+
+
+def _convert_pf_to_list(pdf: pd.DataFrame):
+    if not isinstance(pdf, pd.DataFrame):
+        raise MlflowException(f"Expected input to be DataFrame. Found: {type(pdf).__name__}")
+    # We expect the pandas DataFrame contain a single column
+    # where each row in the DataFrame corresponds to a value in the list
+    # dict like {column -> [values]}
+    data = pdf.to_dict(orient="list")
+    if len(data.values()) != 1:
+        raise MlflowException(
+            "Expected input to be DataFrame with a single column. "
+            f"Found: {len(data.values())} columns"
+        )
+    return next(iter(data.values()))
+
+
 def _enforce_datatype(data: Any, dtype: DataType):
     if not isinstance(dtype, DataType):
         raise MlflowException(f"Expected dtype to be DataType, got {type(dtype).__name__}")
@@ -889,7 +939,10 @@ def _enforce_datatype(data: Any, dtype: DataType):
 
 def _enforce_array(data: Any, arr: Array):
     if not isinstance(data, list):
-        raise MlflowException(f"Expected data to be list, got {type(data).__name__}")
+        if np.isscalar(data):
+            data = [data]
+        else:
+            raise MlflowException(f"Expected data to be list, got {type(data).__name__}")
     if isinstance(arr.dtype, DataType):
         return [_enforce_datatype(x, arr.dtype) for x in data]
     if isinstance(arr.dtype, Object):
