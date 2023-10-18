@@ -6,6 +6,7 @@ import pytest
 
 from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.environment_variables import (
+    MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
     MLFLOW_TRACKING_CLIENT_CERT_PATH,
     MLFLOW_TRACKING_INSECURE_TLS,
     MLFLOW_TRACKING_PASSWORD,
@@ -96,6 +97,15 @@ def test_log_artifact(http_artifact_repo, tmp_path, artifact_path, filename, exp
     ):
         with pytest.raises(Exception, match="request failed"):
             http_artifact_repo.log_artifact(file_path, artifact_path)
+
+    mpu_minimum_file_size = MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
+    with mock.patch(
+        "os.path.getsize", return_value=mpu_minimum_file_size + 1
+    ), mock.patch.object(
+        http_artifact_repo,"_multipart_log_artifact", return_value=200
+    ) as mock_mpu:
+        http_artifact_repo.log_artifact(file_path, artifact_path)
+        mock_mpu.assert_called_once()
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
