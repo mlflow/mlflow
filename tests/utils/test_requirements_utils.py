@@ -417,6 +417,7 @@ def test_capture_imported_modules_includes_extras():
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, _, inputs):
             import mlflow.gateway  # noqa: F401
+
             return inputs
 
     with mlflow.start_run():

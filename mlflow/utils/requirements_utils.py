@@ -424,7 +424,6 @@ def _infer_requirements(model_uri, flavor):
     ]
     packages = packages - set(excluded_packages)
 
-
     # manually exclude mlflow[gateway] as it isn't listed separately in PYPI_PACKAGE_INDEX
     unrecognized_packages = packages - _PYPI_PACKAGE_INDEX.package_names - {"mlflow[gateway]"}
     if unrecognized_packages:
