@@ -2618,6 +2618,10 @@ class _TransformersWrapper:
             return decode_audio(encoded_audio)
         elif isinstance(data, str):
             self._validate_str_input_uri_or_file(data)
+        # For new schema, we extract the data field out when converting
+        # pandas DataFrame to dictionary.
+        elif isinstance(data, bytes):
+            return decode_audio(data)
         return data
 
     @staticmethod
