@@ -607,9 +607,7 @@ def log_param(key: str, value: Any, synchronous: Optional[bool] = True) -> Any:
             value = mlflow.log_param("learning_rate", 0.01)
             assert value == 0.01
             value = mlflow.log_param("learning_rate", 0.02, synchronous=False)
-
     """
-
     run_id = _get_or_start_run().info.run_id
     return MlflowClient().log_param(run_id, key, value, synchronous=synchronous)
 
@@ -675,7 +673,6 @@ def set_tag(key: str, value: Any, synchronous: Optional[bool] = True) -> RunOper
         # Set a tag in async fashion.
         with mlflow.start_run():
             mlflow.set_tag("release.version", "2.2.1", synchronous=False)
-
     """
     run_id = _get_or_start_run().info.run_id
     return MlflowClient().set_tag(run_id, key, value, synchronous=synchronous)
@@ -733,6 +730,7 @@ def log_metric(
              This object, when not None, can be awaited to know if given metric was processed
              or not.
 
+    .. testcode:: python
         :caption: Example
 
         import mlflow

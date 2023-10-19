@@ -1,4 +1,5 @@
 import threading
+from typing import List
 
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
@@ -9,9 +10,9 @@ class RunBatch:
     def __init__(
         self,
         run_id: str,
-        params: [Param],
-        tags: [RunTag],
-        metrics: [Metric],
+        params: List[Param],
+        tags: List[RunTag],
+        metrics: List[Metric],
         completion_event: threading.Event,
     ) -> None:
         """
