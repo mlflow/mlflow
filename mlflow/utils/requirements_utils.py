@@ -435,16 +435,7 @@ def _infer_requirements(model_uri, flavor):
             unrecognized_packages,
         )
 
-    pinned_requirements = []
-    for package in packages:
-        # special casing for mlflow[gateway] to ensure proper formatting of the extra
-        if package == "mlflow[gateway]":
-            pinned_requirement = _get_pinned_requirement("mlflow", extras=["gateway"])
-        else:
-            pinned_requirement = _get_pinned_requirement(package)
-        pinned_requirements.append(pinned_requirement)
-
-    return sorted(pinned_requirements)
+    return sorted(map(_get_pinned_requirement, packages))
 
 
 def _get_local_version_label(version):
@@ -480,18 +471,20 @@ def _strip_local_version_label(version):
         return version
 
 
-def _get_pinned_requirement(package, version=None, module=None, extras=None):
+def _get_pinned_requirement(req_str, version=None, module=None):
     """
     Returns a string representing a pinned pip requirement to install the specified package and
     version (e.g. 'mlflow==1.2.3').
 
-    :param package: The name of the package.
+    :param req_str: The package requirement string (e.g. "mlflow" or "mlflow[gateway]").
     :param version: The version of the package. If None, defaults to the installed version.
     :param module: The name of the top-level module provided by the package . For example,
                    if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
                    to `package`.
     :param extras: A list of extra names for the package
     """
+    req = Requirement(req_str)
+    package = req.name
     if version is None:
         version_raw = _get_installed_version(package, module)
         local_version_label = _get_local_version_label(version_raw)
@@ -510,8 +503,8 @@ def _get_pinned_requirement(package, version=None, module=None, extras=None):
         else:
             version = version_raw
 
-    if extras:
-        return f"{package}[{','.join(extras)}]=={version}"
+    if req.extras:
+        return f"{package}[{','.join(req.extras)}]=={version}"
     return f"{package}=={version}"
 
 
@@ -553,10 +546,12 @@ def _check_requirement_satisfied(requirement_str):
 
     if pkg_name == "mlflow" and "gateway" in req.extras:
         try:
-            import mlflow.gateway
+            from mlflow import gateway  # noqa: F401
+
+            gateway.__name__
         except ModuleNotFoundError:
             return _MismatchedPackageInfo(
-                package_name=pkg_name, installed_version=None, requirement=requirement_str
+                package_name="mlflow[gateway]", installed_version=None, requirement=requirement_str
             )
 
     if (

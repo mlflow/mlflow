@@ -413,9 +413,9 @@ def test_capture_imported_modules_include_deps_by_params():
     assert "sklearn" in captured_modules
 
 
-def test_capture_imported_modules_includes_extras():
+def test_capture_imported_modules_includes_gateway_extra():
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, _, inputs):
+        def predict(self, _, inputs, params=None):
             import mlflow.gateway  # noqa: F401
 
             return inputs
