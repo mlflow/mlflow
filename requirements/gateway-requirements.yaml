@@ -29,4 +29,4 @@ aiohttp:
 boto3:
   pip_release: boto3
   minimum: "1.28.56"
-  max_major_version: 2
+  max_major_version: 1
