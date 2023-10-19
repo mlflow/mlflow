@@ -245,9 +245,14 @@ def make_genai_metric(
                 raise MlflowException(
                     f"Values for grading_context_columns are malformed and cannot be "
                     f"formatted into a prompt for metric '{name}'.\n"
-                    f"Required grading_context_columns: {grading_context_columns}\n"
+                    f"Required columns: {grading_context_columns}\n"
                     f"Values: {eval_values}\n"
                     f"Error: {e!r}\n"
+                    f"Please check the following: \n "
+                    "- predictions and targets (if required) are provided correctly\n"
+                    "- grading_context_columns are mapped correctly using the evaluator_config "
+                    "parameter\n"
+                    "- input and output data are formatted correctly."
                 )
             payload = {
                 "prompt": evaluation_context["eval_prompt"].format(
