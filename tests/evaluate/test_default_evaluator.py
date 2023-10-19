@@ -2486,7 +2486,10 @@ def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
         )
 
         data = pd.DataFrame({"text": ["a", "b"], "summary": ["a", "b"]})
-        with mock.patch("evaluate.load", side_effect=ImportError("mocked error")) as mock_load:
+        with mock.patch(
+            "mlflow.metrics.metric_definitions._cached_evaluate_load",
+            side_effect=ImportError("mocked error"),
+        ) as mock_load:
             results = mlflow.evaluate(
                 model_info.model_uri,
                 data,
