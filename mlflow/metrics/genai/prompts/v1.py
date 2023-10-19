@@ -88,23 +88,23 @@ class EvaluationModel:
 
 
 @dataclass
-class CorrectnessMetric:
+class AnswerSimilarityMetric:
     definition = (
-        "Correctness is evaluated on the proximity of the provided output to the ground truth "
-        "in terms of meaning and description similarity. Scores can be assigned from 1 to 5 based "
-        "on the gradual similarity in meaning and description to the ground truth."
+        "Answer similarity is evaluated on the degree of semantic similarity of the provided "
+        "output to the provided targets, which is the ground truth. Scores can be assigned based "
+        "on the gradual similarity in meaning and description to the provided targets, where a "
+        "higher score indicates greater alignment between the provided output and provided targets."
     )
 
     grading_prompt = (
-        "Correctness: Below are the details for different scores:"
-        "- Score 1: the output is completely incorrect, doesn't mention anything related to the "
-        "input or is completely contrary to the provided ground truth."
-        "- Score 2: the output provides some relevance to the input and answers one aspect of the "
-        "question as in the ground truth."
-        "- Score 3: the output mostly answers the question but is missing or hallucinating on "
-        "one critical aspect."
-        "- Score 5: the output correctly answers the question and is not missing any major aspect "
-        "provided in the ground truth answer."
+        "Answer similarity: Below are the details for different scores:\n"
+        "- Score 1: the output has little to no semantic similarity to the provided targets.\n"
+        "- Score 2: the output displays partial semantic similarity to the provided targets on "
+        "some aspects.\n"
+        "- Score 3: the output has moderate semantic similarity to the provided targets.\n"
+        "- Score 4: the output aligns with the provided targets in most aspects and has "
+        "substantial semantic similarity.\n"
+        "- Score 5: the output closely aligns with the provided targets in all significant aspects."
     )
 
     grading_context_columns = ["targets"]
@@ -115,12 +115,11 @@ class CorrectnessMetric:
         input="What is MLflow?",
         output="MLflow is an open-source platform.",
         score=2,
-        justification="While the statement correctly identifies MLflow as an open-source platform, "
-        "it lacks some critical aspects mentioned in the ground truth. Specifically, it doesn't "
-        "provide information about MLflow's purpose in managing the end-to-end machine learning "
-        "lifecycle, its development by Databricks, and its focus on addressing challenges faced by "
-        "data scientists and machine learning engineers. Therefore, it answers one aspect of the "
-        "question but is missing several critical aspects provided in the ground truth.",
+        justification="The provided output is partially similar to the target, as it captures the "
+        "general idea that MLflow is an open-source platform. However, it lacks the comprehensive "
+        "details and context provided in the target about MLflow's purpose, development, and "
+        "challenges it addresses. Therefore, it demonstrates partial, but not complete, "
+        "semantic similarity.",
         grading_context={
             "targets": "MLflow is an open-source platform for managing the end-to-end "
             "machine learning (ML) lifecycle. It was developed by Databricks, a company "
@@ -137,8 +136,10 @@ class CorrectnessMetric:
         "including experiment tracking, model packaging, versioning, and deployment, simplifying "
         "the ML lifecycle.",
         score=4,
-        justification="The output effectively explains what MLflow is and its purpose. "
-        "Information about the developer of MLflow could be included for a 5-score.",
+        justification="The provided output aligns closely with the target. It covers various key "
+        "aspects mentioned in the target, including managing machine learning workflows, "
+        "experiment tracking, model packaging, versioning, and deployment. While it may not include"
+        " every single detail from the target, it demonstrates substantial semantic similarity.",
         grading_context={
             "targets": "MLflow is an open-source platform for managing the end-to-end "
             "machine learning (ML) lifecycle. It was developed by Databricks, a company "

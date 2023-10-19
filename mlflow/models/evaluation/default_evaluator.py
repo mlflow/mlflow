@@ -1137,17 +1137,18 @@ class DefaultEvaluator(ModelEvaluator):
                 eval_fn_args.append(copy.deepcopy(self.metrics))
         else:
             for param_name, param in parameters.items():
-                if param_name == "predictions":
+                column = self.col_mapping.get(param_name, param_name)
+
+                if column == "predictions" or column == self.dataset.predictions_name:
                     eval_fn_args.append(eval_df_copy["prediction"])
-                elif param_name == "targets":
+                elif column == "targets" or column == self.dataset.targets_name:
                     if "target" in eval_df_copy:
                         eval_fn_args.append(eval_df_copy["target"])
                     else:
                         eval_fn_args.append(None)
-                elif param_name == "metrics":
+                elif column == "metrics":
                     eval_fn_args.append(copy.deepcopy(self.metrics_values))
                 else:
-                    column = self.col_mapping.get(param_name, param_name)
                     if not isinstance(column, str):
                         eval_fn_args.append(column)
                     elif column in input_df.columns:
@@ -1161,7 +1162,10 @@ class DefaultEvaluator(ModelEvaluator):
                         output_column_name = (
                             self.predictions if self.predictions is not None else "output"
                         )
-                        output_columns = list(self.other_output_columns.columns)
+                        if self.other_output_columns:
+                            output_columns = list(self.other_output_columns.columns)
+                        else:
+                            output_columns = []
                         input_columns = list(input_df.columns)
                         raise MlflowException(
                             "Error: Metric Calculation Failed\n"
@@ -1448,10 +1452,17 @@ class DefaultEvaluator(ModelEvaluator):
             metric_prefix = ""
         if self.dataset.has_targets:
             data = self.dataset.features_data.assign(
-                **{self.dataset.targets_name or "target": self.y, "outputs": self.y_pred}
+                **{
+                    self.dataset.targets_name or "target": self.y,
+                    self.dataset.predictions_name or "outputs": self.y_pred,
+                }
             )
         else:
             data = self.dataset.features_data.assign(outputs=self.y_pred)
+
+        # include other_output_columns in the eval table
+        if self.other_output_columns is not None:
+            data = data.assign(**self.other_output_columns)
 
         columns = {}
         for metric_name, metric_value in self.metrics_values.items():
@@ -1513,11 +1524,11 @@ class DefaultEvaluator(ModelEvaluator):
             self.builtin_metrics = {}
 
             text_metrics = [
-                token_count,
-                toxicity,
-                perplexity,
-                flesch_kincaid_grade_level,
-                ari_grade_level,
+                token_count(),
+                toxicity(),
+                perplexity(),
+                flesch_kincaid_grade_level(),
+                ari_grade_level(),
             ]
 
             with mlflow.utils.autologging_utils.disable_autologging():
@@ -1535,9 +1546,15 @@ class DefaultEvaluator(ModelEvaluator):
                 if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
                     self._compute_builtin_metrics()
                 elif self.model_type == _ModelType.QUESTION_ANSWERING:
-                    self.builtin_metrics = [*text_metrics, exact_match]
+                    self.builtin_metrics = [*text_metrics, exact_match()]
                 elif self.model_type == _ModelType.TEXT_SUMMARIZATION:
-                    self.builtin_metrics = [*text_metrics, rouge1, rouge2, rougeL, rougeLsum]
+                    self.builtin_metrics = [
+                        *text_metrics,
+                        rouge1(),
+                        rouge2(),
+                        rougeL(),
+                        rougeLsum(),
+                    ]
                 elif self.model_type == _ModelType.TEXT:
                     self.builtin_metrics = text_metrics
 

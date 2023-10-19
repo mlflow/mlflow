@@ -330,6 +330,9 @@ DATABRICKS_MODULES_TO_PACKAGES = {
     "databricks.automl_runtime": ["databricks-automl-runtime"],
     "databricks.model_monitoring": ["databricks-model-monitoring"],
 }
+MLFLOW_MODULES_TO_PACKAGES = {
+    "mlflow.gateway": ["mlflow[gateway]"],
+}
 _MODULES_TO_PACKAGES = None
 _PACKAGES_TO_MODULES = None
 
@@ -341,6 +344,9 @@ def _init_modules_to_packages_map():
         # Python’s site-packages directory via tools such as pip:
         # https://importlib-metadata.readthedocs.io/en/latest/using.html#using-importlib-metadata
         _MODULES_TO_PACKAGES = importlib_metadata.packages_distributions()
+
+        # Add mapping for MLFlow extras
+        _MODULES_TO_PACKAGES.update(MLFLOW_MODULES_TO_PACKAGES)
 
         # Multiple packages populate the `databricks` module namespace on Databricks; to avoid
         # bundling extraneous Databricks packages into model dependencies, we scope each module
@@ -417,7 +423,9 @@ def _infer_requirements(model_uri, flavor):
         *_MODULES_TO_PACKAGES.get("mlflow", []),
     ]
     packages = packages - set(excluded_packages)
-    unrecognized_packages = packages - _PYPI_PACKAGE_INDEX.package_names
+
+    # manually exclude mlflow[gateway] as it isn't listed separately in PYPI_PACKAGE_INDEX
+    unrecognized_packages = packages - _PYPI_PACKAGE_INDEX.package_names - {"mlflow[gateway]"}
     if unrecognized_packages:
         _logger.warning(
             "The following packages were not found in the public PyPI package index as of"
@@ -426,6 +434,7 @@ def _infer_requirements(model_uri, flavor):
             _PYPI_PACKAGE_INDEX.date,
             unrecognized_packages,
         )
+
     return sorted(map(_get_pinned_requirement, packages))
 
 
@@ -462,18 +471,20 @@ def _strip_local_version_label(version):
         return version
 
 
-def _get_pinned_requirement(package, version=None, module=None, extras=None):
+def _get_pinned_requirement(req_str, version=None, module=None):
     """
     Returns a string representing a pinned pip requirement to install the specified package and
     version (e.g. 'mlflow==1.2.3').
 
-    :param package: The name of the package.
+    :param req_str: The package requirement string (e.g. "mlflow" or "mlflow[gateway]").
     :param version: The version of the package. If None, defaults to the installed version.
     :param module: The name of the top-level module provided by the package . For example,
                    if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
                    to `package`.
     :param extras: A list of extra names for the package
     """
+    req = Requirement(req_str)
+    package = req.name
     if version is None:
         version_raw = _get_installed_version(package, module)
         local_version_label = _get_local_version_label(version_raw)
@@ -492,8 +503,8 @@ def _get_pinned_requirement(package, version=None, module=None, extras=None):
         else:
             version = version_raw
 
-    if extras:
-        return f"{package}[{','.join(extras)}]=={version}"
+    if req.extras:
+        return f"{package}[{','.join(req.extras)}]=={version}"
     return f"{package}=={version}"
 
 
@@ -532,6 +543,14 @@ def _check_requirement_satisfied(requirement_str):
             installed_version=None,
             requirement=requirement_str,
         )
+
+    if pkg_name == "mlflow" and "gateway" in req.extras:
+        try:
+            from mlflow import gateway  # noqa: F401
+        except ModuleNotFoundError:
+            return _MismatchedPackageInfo(
+                package_name="mlflow[gateway]", installed_version=None, requirement=requirement_str
+            )
 
     if (
         pkg_name == "mlflow"

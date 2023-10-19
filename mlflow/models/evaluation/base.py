@@ -655,7 +655,7 @@ class EvaluationDataset:
     @property
     def predictions_name(self):
         """
-        return targets name
+        return predictions name
         """
         return self._predictions_name
 

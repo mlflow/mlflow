@@ -26,6 +26,7 @@ from mlflow.metrics import (
     MetricValue,
     make_metric,
 )
+from mlflow.metrics.genai import model_utils
 from mlflow.models import Model
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
@@ -2143,10 +2144,12 @@ def language_model(inputs: list[str]) -> list[str]:
     return inputs
 
 
-def validate_question_answering_logged_data(logged_data, with_targets=True):
+def validate_question_answering_logged_data(
+    logged_data, with_targets=True, predictions_name="outputs"
+):
     columns = {
         "question",
-        "outputs",
+        predictions_name,
         "toxicity/v1/score",
         "flesch_kincaid_grade_level/v1/score",
         "ari_grade_level/v1/score",
@@ -2159,7 +2162,7 @@ def validate_question_answering_logged_data(logged_data, with_targets=True):
     assert set(logged_data.columns.tolist()) == columns
 
     assert logged_data["question"].tolist() == ["words random", "This is a sentence."]
-    assert logged_data["outputs"].tolist() == ["words random", "This is a sentence."]
+    assert logged_data[predictions_name].tolist() == ["words random", "This is a sentence."]
     assert logged_data["toxicity/v1/score"][0] < 0.5
     assert logged_data["toxicity/v1/score"][1] < 0.5
     assert logged_data["perplexity/v1/score"][0] > logged_data["perplexity/v1/score"][1]
@@ -2260,7 +2263,7 @@ def test_evaluate_question_answering_on_static_dataset_with_targets():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    validate_question_answering_logged_data(logged_data)
+    validate_question_answering_logged_data(logged_data, predictions_name="pred")
     assert set(results.metrics.keys()) == {
         "toxicity/v1/variance",
         "perplexity/v1/p90",
@@ -2483,7 +2486,10 @@ def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
         )
 
         data = pd.DataFrame({"text": ["a", "b"], "summary": ["a", "b"]})
-        with mock.patch("evaluate.load", side_effect=ImportError("mocked error")) as mock_load:
+        with mock.patch(
+            "mlflow.metrics.metric_definitions._cached_evaluate_load",
+            side_effect=ImportError("mocked error"),
+        ) as mock_load:
             results = mlflow.evaluate(
                 model_info.model_uri,
                 data,
@@ -2772,6 +2778,7 @@ def test_constructing_eval_df_for_custom_metrics():
         "truth",
         "targets",
         "outputs",
+        "context",
         "token_count",
         "toxicity/v1/score",
         "perplexity/v1/score",
@@ -2805,7 +2812,7 @@ def test_evaluate_no_model_type_with_builtin_metric():
         results = mlflow.evaluate(
             model_info.model_uri,
             data,
-            extra_metrics=[mlflow.metrics.perplexity],
+            extra_metrics=[mlflow.metrics.perplexity()],
         )
         assert results.metrics.keys() == {
             "perplexity/v1/mean",
@@ -2916,11 +2923,11 @@ def test_default_metrics_as_custom_metrics_static_dataset():
             predictions="answer",
             model_type="question-answering",
             custom_metrics=[
-                mlflow.metrics.flesch_kincaid_grade_level,
-                mlflow.metrics.perplexity,
-                mlflow.metrics.ari_grade_level,
-                mlflow.metrics.toxicity,
-                mlflow.metrics.exact_match,
+                mlflow.metrics.flesch_kincaid_grade_level(),
+                mlflow.metrics.perplexity(),
+                mlflow.metrics.ari_grade_level(),
+                mlflow.metrics.toxicity(),
+                mlflow.metrics.exact_match(),
             ],
             evaluators="default",
         )
@@ -2945,7 +2952,7 @@ def test_evaluate_with_latency():
             data,
             model_type="text",
             evaluators="default",
-            extra_metrics=[mlflow.metrics.latency],
+            extra_metrics=[mlflow.metrics.latency()],
         )
 
     client = mlflow.MlflowClient()
@@ -3000,3 +3007,91 @@ def test_evaluate_with_latency_static_dataset():
     }
     assert all(isinstance(grade, float) for grade in logged_data["latency"])
     assert all(grade == 0.0 for grade in logged_data["latency"])
+
+
+properly_formatted_openai_response1 = {
+    "candidates": [
+        {
+            "text": '{\n  "score": 3,\n  "justification": "' "justification" '"\n}',
+            "metadata": {"finish_reason": "stop"},
+        }
+    ],
+    "metadata": {
+        "input_tokens": 569,
+        "output_tokens": 93,
+        "total_tokens": 662,
+        "model": "gpt-3.5-turbo-0613",
+        "route_type": "llm/v1/completions",
+    },
+}
+
+
+def test_evaluate_with_correctness():
+    metric = mlflow.metrics.make_genai_metric(
+        name="correctness",
+        definition=(
+            "Correctness refers to how well the generated output matches "
+            "or aligns with the reference or ground truth text that is considered "
+            "accurate and appropriate for the given input. The ground truth serves as "
+            "a benchmark against which the provided output is compared to determine the "
+            "level of accuracy and fidelity."
+        ),
+        grading_prompt=(
+            "Correctness: If the answer correctly answer the question, below "
+            "are the details for different scores: "
+            "- Score 0: the answer is completely incorrect, doesn’t mention anything about "
+            "the question or is completely contrary to the correct answer. "
+            "- Score 1: the answer provides some relevance to the question and answer "
+            "one aspect of the question correctly. "
+            "- Score 2: the answer mostly answer the question but is missing or hallucinating "
+            "on one critical aspect. "
+            "- Score 4: the answer correctly answer the question and not missing any "
+            "major aspect"
+        ),
+        examples=[],
+        version="v1",
+        model="openai:/gpt-3.5-turbo-16k",
+        grading_context_columns=["ground_truth"],
+        parameters={"temperature": 0.0},
+        aggregations=["mean", "variance", "p90"],
+        greater_is_better=True,
+    )
+
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        return_value=properly_formatted_openai_response1,
+    ):
+        with mlflow.start_run():
+            eval_df = pd.DataFrame(
+                {
+                    "inputs": [
+                        "What is MLflow?",
+                        "What is Spark?",
+                        "What is Python?",
+                    ],
+                    "ground_truth": [
+                        "MLflow is an open-source platform",
+                        "Apache Spark is an open-source, distributed computing system",
+                        "Python is a high-level programming language",
+                    ],
+                    "prediction": [
+                        "MLflow is an open-source platform",
+                        "Apache Spark is an open-source, distributed computing system",
+                        "Python is a high-level programming language",
+                    ],
+                }
+            )
+            results = mlflow.evaluate(
+                data=eval_df,
+                evaluators="default",
+                targets="ground_truth",
+                predictions="prediction",
+                extra_metrics=[metric],
+            )
+
+            assert results.metrics == {
+                "correctness/v1/mean": 3.0,
+                "correctness/v1/variance": 0.0,
+                "correctness/v1/p90": 3.0,
+            }
