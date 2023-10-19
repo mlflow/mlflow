@@ -248,7 +248,7 @@ def make_genai_metric(
                     f"Required columns: {grading_context_columns}\n"
                     f"Values: {eval_values}\n"
                     f"Error: {e!r}\n"
-                    f"Please check the following: \n "
+                    f"Please check the following: \n"
                     "- predictions and targets (if required) are provided correctly\n"
                     "- grading_context_columns are mapped correctly using the evaluator_config "
                     "parameter\n"
