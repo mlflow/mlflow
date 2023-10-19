@@ -111,7 +111,7 @@ class SqlModelVersion(Base):
             self.status_message,
             [tag.to_mlflow_entity() for tag in self.model_version_tags],
             self.run_link,
-            [],
+            [a.to_mlflow_entity() for a in self.model_version_aliases],
         )
 
 
@@ -193,7 +193,21 @@ class SqlRegisteredModelAlias(Base):
         "SqlRegisteredModel", backref=backref("registered_model_aliases", cascade="all")
     )
 
-    __table_args__ = (PrimaryKeyConstraint("name", "alias", name="registered_model_alias_pk"),)
+    model_version = relationship(
+        "SqlModelVersion",
+        foreign_keys=[name, version],
+        backref=backref("model_version_aliases", cascade="all"),
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("name", "alias", name="registered_model_alias_pk"),
+        ForeignKeyConstraint(
+            ("name", "version"),
+            ("model_versions.name", "model_versions.version"),
+            onupdate="cascade",
+            ondelete="cascade",
+        ),
+    )
 
     def __repr__(self):
         return f"<SqlRegisteredModelAlias ({self.name}, {self.alias}, {self.version})>"
