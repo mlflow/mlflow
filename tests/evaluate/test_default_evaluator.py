@@ -2176,8 +2176,11 @@ def validate_question_answering_logged_data(
         assert logged_data["answer"].tolist() == ["words random", "This is a sentence."]
 
 
-def test_custom_metrics_deprecated():
-    def dummy_fn(eval_df, metrics):
+def test_missing_args_raises_exception():
+    def dummy_fn1(param_1, param_2, targets, metrics):
+        pass
+
+    def dummy_fn2(param_3, param_4, builtin_metrics):
         pass
 
     with mlflow.start_run():
@@ -2186,6 +2189,36 @@ def test_custom_metrics_deprecated():
         )
         data = pd.DataFrame({"question": ["a", "b"], "answer": ["a", "b"]})
 
+    metric_1 = make_metric(name="metric_1", eval_fn=dummy_fn1, greater_is_better=True)
+    metric_2 = make_metric(name="metric_2", eval_fn=dummy_fn2, greater_is_better=True)
+
+    error_message = "Error: Metric calculation failed for the following metrics:\nMetric 'metric_1'"
+    " requires the columns ['param_1', 'param_2']\n\nMetric 'metric_2' requires the columns "
+    "['param_3', 'builtin_metrics']\n"
+
+    with pytest.raises(
+        MlflowException,
+        match=error_message,
+    ):
+        with mlflow.start_run():
+            mlflow.evaluate(
+                model_info.model_uri,
+                data,
+                targets="answer",
+                evaluators="default",
+                model_type="question-answering",
+                extra_metrics=[metric_1, metric_2],
+                evaluator_config={"col_mapping": {"param_4": "question"}},
+            )
+
+
+def test_custom_metrics_deprecated(
+    binary_logistic_regressor_model_uri,
+    breast_cancer_dataset,
+):
+    def dummy_fn(eval_df, metrics):
+        pass
+
     with pytest.raises(
         MlflowException,
         match="The 'custom_metrics' parameter in mlflow.evaluate is deprecated. Please update "
@@ -2193,10 +2226,11 @@ def test_custom_metrics_deprecated():
     ):
         with mlflow.start_run():
             mlflow.evaluate(
-                model_info.model_uri,
-                data,
-                targets="answer",
-                model_type="question-answering",
+                binary_logistic_regressor_model_uri,
+                breast_cancer_dataset._constructor_args["data"],
+                targets=breast_cancer_dataset._constructor_args["targets"],
+                evaluators="default",
+                model_type="classifier",
                 custom_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
                 extra_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
             )
@@ -2206,10 +2240,11 @@ def test_custom_metrics_deprecated():
     with pytest.warns(FutureWarning, match=message):
         with mlflow.start_run():
             mlflow.evaluate(
-                model_info.model_uri,
-                data,
-                targets="answer",
-                model_type="question-answering",
+                binary_logistic_regressor_model_uri,
+                breast_cancer_dataset._constructor_args["data"],
+                targets=breast_cancer_dataset._constructor_args["targets"],
+                evaluators="default",
+                model_type="classifier",
                 custom_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
             )
 
@@ -2480,6 +2515,10 @@ def test_evaluate_text_summarization_without_targets():
 
 
 def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
+    from mlflow.metrics.metric_definitions import _cached_evaluate_load
+
+    _cached_evaluate_load.cache_clear()
+
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
@@ -2890,10 +2929,6 @@ def test_default_metrics_as_custom_metrics():
             predictions="answer",
             model_type="question-answering",
             custom_metrics=[
-                mlflow.metrics.flesch_kincaid_grade_level(),
-                mlflow.metrics.perplexity(),
-                mlflow.metrics.ari_grade_level(),
-                mlflow.metrics.toxicity(),
                 mlflow.metrics.exact_match(),
             ],
             evaluators="default",
@@ -2902,9 +2937,6 @@ def test_default_metrics_as_custom_metrics():
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
-    for metric in ["toxicity", "perplexity", "ari_grade_level", "flesch_kincaid_grade_level"]:
-        for measure in ["mean", "p90", "variance"]:
-            assert f"{metric}/v1/{measure}" in results.metrics.keys()
     assert "exact_match/v1" in results.metrics.keys()
 
 

@@ -172,6 +172,10 @@ def test_rougeLsum():
 
 
 def test_fails_to_load_metric():
+    from mlflow.metrics.metric_definitions import _cached_evaluate_load
+
+    _cached_evaluate_load.cache_clear()
+
     predictions = pd.Series(["random text", "This is a sentence"])
     e = ImportError("mocked error")
     with mock.patch(

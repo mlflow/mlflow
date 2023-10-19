@@ -226,7 +226,6 @@ def test_make_genai_metric_correct_response():
         model="openai:/gpt-3.5-turbo",
         grading_context_columns=["targets"],
         greater_is_better=True,
-        aggregations=None,
     )
     with mock.patch.object(
         model_utils,
@@ -301,6 +300,22 @@ def test_make_genai_metric_incorrect_response():
     assert np.isnan(metric_value.aggregate_results["mean"])
     assert np.isnan(metric_value.aggregate_results["variance"])
     assert metric_value.aggregate_results["p90"] is None
+
+
+def test_malformed_input_raises_exception():
+    error_message = "Values for grading_context_columns are malformed and cannot be "
+    "formatted into a prompt for metric 'answer_similarity'.\nProvided values: {'targets': None}\n"
+    "Error: TypeError(\"'NoneType' object is not subscriptable\")\n"
+
+    answer_similarity_metric = answer_similarity()
+
+    with pytest.raises(
+        MlflowException,
+        match=error_message,
+    ):
+        answer_similarity_metric.eval_fn(
+            pd.Series([mlflow_prediction]), {}, pd.Series([input]), None
+        )
 
 
 def test_make_genai_metric_multiple():

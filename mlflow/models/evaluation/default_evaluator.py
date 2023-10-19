@@ -1151,6 +1151,7 @@ class DefaultEvaluator(ModelEvaluator):
         input_df = self.X.copy_to_avoid_mutation()
         parameters = inspect.signature(extra_metric.eval_fn).parameters
         eval_fn_args = []
+        params_not_found = []
         if len(parameters) == 2:
             eval_fn_args.append(eval_df_copy)
             if "metrics" in parameters.keys():
@@ -1181,38 +1182,13 @@ class DefaultEvaluator(ModelEvaluator):
                     ):
                         eval_fn_args.append(self.other_output_columns[column])
                     elif param.default == inspect.Parameter.empty:
-                        output_column_name = self.predictions
-                        if self.other_output_columns:
-                            output_columns = list(self.other_output_columns.columns)
-                        else:
-                            output_columns = []
-                        input_columns = list(input_df.columns)
-                        msg_output_columns = (
-                            (
-                                "Note that this does not include the output column: "
-                                f"'{output_column_name}'\n\n"
-                            )
-                            if output_column_name is not None
-                            else ""
-                        )
-                        raise MlflowException(
-                            "Error: Metric Calculation Failed\n"
-                            f"Metric '{extra_metric.name}' requires the column '{param_name}' to "
-                            "be defined in either the input data or resulting output data.\n\n"
-                            "Below are the existing column names for the input/output data:\n"
-                            f"Input Columns: {input_columns}\n"
-                            f"Output Columns: {output_columns}\n{msg_output_columns}"
-                            f"To resolve this issue, you may want to map {param_name} to an "
-                            "existing column using the following configuration:\n"
-                            f"evaluator_config={{'col_mapping': {{'{param_name}': "
-                            "'<existing column name>'}}\n"
-                        )
+                        params_not_found.append(param_name)
 
+        if len(params_not_found) > 0:
+            return extra_metric.name, params_not_found
         return eval_fn_args
 
     def _evaluate_extra_metrics(self, eval_df):
-        if not self.extra_metrics:
-            return
         for index, extra_metric in enumerate(self.extra_metrics):
             eval_fn_args = self._get_args_for_metrics(extra_metric, eval_df)
             _logger.info(f"Evaluating metrics: {extra_metric.name}")
@@ -1438,9 +1414,81 @@ class DefaultEvaluator(ModelEvaluator):
                 )
             )
 
+    def _check_args(self, metrics, eval_df):
+        failed_metrics = []
+        # collect all failures for getting metric arguments
+        for metric in metrics:
+            result = self._get_args_for_metrics(metric, eval_df)
+            if isinstance(result, tuple):
+                failed_metrics.append(result)
+
+        if len(failed_metrics) > 0:
+            output_column_name = self.predictions
+            output_columns = (
+                [] if self.other_output_columns is None else list(self.other_output_columns.columns)
+            )
+            input_columns = list(self.X.copy_to_avoid_mutation().columns)
+
+            error_messages = []
+            for metric_name, param_names in failed_metrics:
+                error_messages.append(f"Metric '{metric_name}' requires the columns {param_names}")
+            error_message = "\n".join(error_messages)
+            raise MlflowException(
+                "Error: Metric calculation failed for the following metrics:\n"
+                f"{error_message}\n\n"
+                "Below are the existing column names for the input/output data:\n"
+                f"Input Columns: {input_columns}\n"
+                f"Output Columns: {output_columns}\n"
+                "Note that this does not include the output column: "
+                f"'{output_column_name}'\n\n"
+                f"To resolve this issue, you may want to map the missing column to an "
+                "existing column using the following configuration:\n"
+                f"evaluator_config={{'col_mapping': {{'<missing column name>': "
+                "'<existing column name>'}}\n"
+            )
+
+    def _test_first_row(self, eval_df):
+        # test calculations on first row of eval_df
+        exceptions = []
+        first_row_df = eval_df.iloc[[0]]
+        for metric in self.builtin_metrics:
+            try:
+                eval_fn_args = self._get_args_for_metrics(metric, first_row_df)
+                metric_value = metric.eval_fn(*eval_fn_args)
+
+                # need to update metrics because they might be used in calculating extra_metrics
+                if metric_value:
+                    name = f"{metric.name}/{metric.version}" if metric.version else metric.name
+                    self.metrics_values.update({name: metric_value})
+            except Exception as e:
+                if isinstance(e, MlflowException):
+                    exceptions.append(f"Metric '{metric.name}': Error:\n{e.message}")
+                else:
+                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}")
+        self._update_metrics()
+        for metric in self.extra_metrics:
+            try:
+                eval_fn_args = self._get_args_for_metrics(metric, first_row_df)
+                metric.eval_fn(*eval_fn_args)
+            except Exception as e:
+                if isinstance(e, MlflowException):
+                    exceptions.append(f"Metric '{metric.name}': Error:\n{e.message}")
+                else:
+                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}")
+
+        if len(exceptions) > 0:
+            raise MlflowException("\n".join(exceptions))
+
+    def _evaluate_metrics(self, eval_df):
+        self._check_args(self.builtin_metrics + self.extra_metrics, eval_df)
+        self._test_first_row(eval_df)
+
+        # calculate metrics for the full eval_df
+        self._evaluate_builtin_metrics(eval_df)
+        self._update_metrics()
+        self._evaluate_extra_metrics(eval_df)
+
     def _evaluate_builtin_metrics(self, eval_df):
-        if not self.builtin_metrics:
-            return
         for builtin_metric in self.builtin_metrics:
             _logger.info(f"Evaluating builtin metrics: {builtin_metric.name}")
 
@@ -1550,7 +1598,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.artifacts = {}
             self.metrics = {}
             self.metrics_values = {}
-            self.builtin_metrics = {}
+            self.builtin_metrics = []
 
             text_metrics = [
                 token_count(),
@@ -1562,15 +1610,14 @@ class DefaultEvaluator(ModelEvaluator):
 
             with mlflow.utils.autologging_utils.disable_autologging():
                 compute_latency = False
-                if self.extra_metrics:
-                    for extra_metric in self.extra_metrics:
-                        # If latency metric is specified, we will compute latency for the model
-                        # during prediction, and we will remove the metric from the list of extra
-                        # metrics to be computed after prediction.
-                        if extra_metric.name == _LATENCY_METRIC_NAME:
-                            compute_latency = True
-                            self.extra_metrics.remove(extra_metric)
-                            break
+                for extra_metric in self.extra_metrics:
+                    # If latency metric is specified, we will compute latency for the model
+                    # during prediction, and we will remove the metric from the list of extra
+                    # metrics to be computed after prediction.
+                    if extra_metric.name == _LATENCY_METRIC_NAME:
+                        compute_latency = True
+                        self.extra_metrics.remove(extra_metric)
+                        break
                 self._generate_model_predictions(compute_latency=compute_latency)
                 if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
                     self._compute_builtin_metrics()
@@ -1594,9 +1641,7 @@ class DefaultEvaluator(ModelEvaluator):
                 if self.dataset.has_targets:
                     eval_df["target"] = self.y
 
-                self._evaluate_builtin_metrics(eval_df)
-                self._update_metrics()
-                self._evaluate_extra_metrics(eval_df)
+                self._evaluate_metrics(eval_df)
                 if not is_baseline_model:
                     self._log_custom_artifacts(eval_df)
 
@@ -1666,6 +1711,9 @@ class DefaultEvaluator(ModelEvaluator):
             self.extra_metrics = custom_metrics
         else:
             self.extra_metrics = extra_metrics
+
+        if self.extra_metrics is None:
+            self.extra_metrics = []
 
         if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
             inferred_model_type = _infer_model_type_by_labels(self.y)

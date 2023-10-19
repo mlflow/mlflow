@@ -84,9 +84,9 @@ def make_genai_metric(
     examples: Optional[List[EvaluationExample]] = None,
     version: Optional[str] = _get_latest_metric_version(),
     model: Optional[str] = "openai:/gpt-3.5-turbo-16k",
-    grading_context_columns: Optional[List[str]] = None,
+    grading_context_columns: Optional[List[str]] = [],  # noqa: B006
     parameters: Optional[Dict[str, Any]] = None,
-    aggregations: Optional[List[str]] = None,
+    aggregations: Optional[List[str]] = ["mean", "variance", "p90"],  # noqa: B006
     greater_is_better: bool = True,
     max_workers: int = 10,
     judge_request_timeout: int = 60,
@@ -180,9 +180,6 @@ def make_genai_metric(
         )
     """
 
-    if aggregations is None:
-        aggregations = ["mean", "variance", "p90"]
-
     class_name = f"mlflow.metrics.genai.prompts.{version}.EvaluationModel"
     try:
         evaluation_model_class_module = _get_class_from_string(class_name)
@@ -216,7 +213,6 @@ def make_genai_metric(
         """
         This is the function that is called when the metric is evaluated.
         """
-
         eval_values = dict(zip(grading_context_columns, args))
 
         outputs = predictions.to_list()
@@ -244,7 +240,21 @@ def make_genai_metric(
             eval_parameters,
             eval_model,
         ):
-            arg_string = _format_args_string(grading_context_columns, eval_values, indx)
+            try:
+                arg_string = _format_args_string(grading_context_columns, eval_values, indx)
+            except Exception as e:
+                raise MlflowException(
+                    f"Values for grading_context_columns are malformed and cannot be "
+                    f"formatted into a prompt for metric '{name}'.\n"
+                    f"Required columns: {grading_context_columns}\n"
+                    f"Values: {eval_values}\n"
+                    f"Error: {e!r}\n"
+                    f"Please check the following: \n"
+                    "- predictions and targets (if required) are provided correctly\n"
+                    "- grading_context_columns are mapped correctly using the evaluator_config "
+                    "parameter\n"
+                    "- input and output data are formatted correctly."
+                )
             payload = {
                 "prompt": evaluation_context["eval_prompt"].format(
                     input=input, output=output, grading_context_columns=arg_string
