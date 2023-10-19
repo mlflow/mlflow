@@ -912,45 +912,6 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
         return _enforce_unnamed_col_schema(pf_input, input_schema)
 
 
-def _convert_pf_to_dict(pdf: pd.DataFrame):
-    if not isinstance(pdf, pd.DataFrame):
-        raise MlflowException(f"Expected input to be DataFrame. Found: {type(pdf).__name__}")
-    # We expect the pandas DataFrame to be a single row
-    # with columns for each key in the dictionary
-    # dict like {index -> {column -> value}}
-    data = pdf.to_dict(orient="index")
-    if len(data.values()) != 1:
-        raise MlflowException(
-            f"Expected input to be DataFrame with a single row. Found: {len(data.values())} rows"
-        )
-    return next(iter(data.values()))
-
-
-def _convert_pf_to_list_of_dicts(pdf: pd.DataFrame):
-    if not isinstance(pdf, pd.DataFrame):
-        raise MlflowException(f"Expected input to be DataFrame. Found: {type(pdf).__name__}")
-    # We expect the pandas DataFrame to be constructed
-    # from a list of dictionaries, each row in the DataFrame
-    # corresponds to a dictionary in the list
-    # list like [{column -> value}, … , {column -> value}]
-    return pdf.to_dict(orient="records")
-
-
-def _convert_pf_to_list(pdf: pd.DataFrame):
-    if not isinstance(pdf, pd.DataFrame):
-        raise MlflowException(f"Expected input to be DataFrame. Found: {type(pdf).__name__}")
-    # We expect the pandas DataFrame contain a single column
-    # where each row in the DataFrame corresponds to a value in the list
-    # dict like {column -> [values]}
-    data = pdf.to_dict(orient="list")
-    if len(data.values()) != 1:
-        raise MlflowException(
-            "Expected input to be DataFrame with a single column. "
-            f"Found: {len(data.values())} columns"
-        )
-    return next(iter(data.values()))
-
-
 def _enforce_datatype(data: Any, dtype: DataType):
     if not isinstance(dtype, DataType):
         raise MlflowException(f"Expected dtype to be DataType, got {type(dtype).__name__}")
