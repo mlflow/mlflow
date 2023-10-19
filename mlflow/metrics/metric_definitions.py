@@ -88,9 +88,7 @@ def _perplexity_eval_fn(predictions, targets, metrics):
         return
 
     try:
-        import evaluate
-
-        perplexity = evaluate.load("perplexity", module_type="metric")
+        perplexity = _cached_evaluate_load("perplexity", module_type="metric")
     except Exception as e:
         _logger.warning(
             f"Failed to load 'perplexity' metric (error: {e!r}), skipping metric logging."
@@ -156,9 +154,7 @@ def _rouge1_eval_fn(predictions, targets, metrics):
             return
 
         try:
-            import evaluate
-
-            rouge = evaluate.load("rouge")
+            rouge = _cached_evaluate_load("rouge")
         except Exception as e:
             _logger.warning(
                 f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
@@ -185,9 +181,7 @@ def _rouge2_eval_fn(predictions, targets, metrics):
             return
 
         try:
-            import evaluate
-
-            rouge = evaluate.load("rouge")
+            rouge = _cached_evaluate_load("rouge")
         except Exception as e:
             _logger.warning(
                 f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
@@ -214,9 +208,7 @@ def _rougeL_eval_fn(predictions, targets, metrics):
             return
 
         try:
-            import evaluate
-
-            rouge = evaluate.load("rouge")
+            rouge = _cached_evaluate_load("rouge")
         except Exception as e:
             _logger.warning(
                 f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
@@ -243,9 +235,7 @@ def _rougeLsum_eval_fn(predictions, targets, metrics):
             return
 
         try:
-            import evaluate
-
-            rouge = evaluate.load("rouge")
+            rouge = _cached_evaluate_load("rouge")
         except Exception as e:
             _logger.warning(
                 f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
