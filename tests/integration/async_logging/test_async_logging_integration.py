@@ -1,8 +1,6 @@
 import time
 import uuid
 
-import pytest
-
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.metric import Metric
@@ -10,7 +8,6 @@ from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
 
 
-@pytest.mark.asynclogging
 def test_async_logging_mlflow_client():
     experiment_name = f"mlflow-async-logging-test-{str(uuid.uuid4())[:8]}"
     mlflow_client = MlflowClient()
@@ -22,19 +19,19 @@ def test_async_logging_mlflow_client():
     run_operations = []
 
     params_to_log = []
-    param1 = Param("async param 1", "1")
+    param1 = Param("async param 1", "async param 1 value")
     run_operations.append(
         mlflow_client.log_param(run_id, param1.key, param1.value, synchronous=False)
     )
     params_to_log.append(param1)
 
     tags_to_log = []
-    tag1 = RunTag("async tag 1", "1")
+    tag1 = RunTag("async tag 1", "async tag 1 value")
     run_operations.append(mlflow_client.set_tag(run_id, tag1.key, tag1.value, synchronous=False))
     tags_to_log.append(tag1)
 
     metrics_to_log = []
-    metric1 = Metric("async metric 1", 1, int(time.time() * 1000), 0)
+    metric1 = Metric("async metric 1", 1, 132, 0)
     run_operations.append(
         mlflow_client.log_metric(
             run_id, metric1.key, metric1.value, metric1.timestamp, metric1.step, synchronous=False
@@ -43,20 +40,23 @@ def test_async_logging_mlflow_client():
     metrics_to_log.append(metric1)
 
     # Log batch of metrics
-
-    for _ in range(1, 2):
+    metric_value = 1
+    for _ in range(1, 5):
+        metrics = []
         guid8 = str(uuid.uuid4())[:8]
-        params = [Param(f"batch param-{guid8}-{val}", value=str(time.time())) for val in range(1)]
-        tags = [RunTag(f"batch tag-{guid8}-{val}", value=str(time.time())) for val in range(1)]
-        metrics = [
-            Metric(
-                key=f"batch metrics async-{val}",
-                value=time.time(),
-                timestamp=int(time.time() * 1000),
-                step=0,
+        params = [Param(f"batch param-{guid8}-{val}", value=str(val)) for val in range(1)]
+        tags = [RunTag(f"batch tag-{guid8}-{val}", value=str(val)) for val in range(1)]
+        for _ in range(0, 50):
+            metric_value += 1
+            metrics.append(
+                Metric(
+                    key=f"batch metrics async-{metric_value}",
+                    value=time.time(),
+                    timestamp=metric_value,
+                    step=0,
+                )
             )
-            for val in range(50)
-        ]
+
         params_to_log.extend(params)
         tags_to_log.extend(tags)
         metrics_to_log.extend(metrics)
@@ -86,67 +86,68 @@ def test_async_logging_mlflow_client():
     mlflow_client.set_terminated(run_id=run_id, status="FINISHED", end_time=time.time())
 
 
-@pytest.mark.asynclogging
 def test_async_logging_fluent():
     experiment_name = f"mlflow-async-logging-test-{str(uuid.uuid4())[:8]}"
     experiment_id = mlflow.create_experiment(experiment_name)
 
-    run = mlflow.start_run(experiment_id=experiment_id)
-    run_id = run.info.run_id
-
     run_operations = []
 
-    params_to_log = []
-    param1 = Param("async param 1", "1")
-    run_operations.append(mlflow.log_param(param1.key, param1.value, synchronous=False))
-    params_to_log.append(param1)
+    with mlflow.start_run(experiment_id=experiment_id) as run:
+        run_id = run.info.run_id
+        params_to_log = []
+        param1 = Param("async param 1", "async param 1 value")
+        run_operations.append(mlflow.log_param(param1.key, param1.value, synchronous=False))
+        params_to_log.append(param1)
 
-    tags_to_log = []
-    tag1 = RunTag("async tag 1", "1")
-    run_operations.append(mlflow.set_tag(tag1.key, tag1.value, synchronous=False))
-    tags_to_log.append(tag1)
+        tags_to_log = []
+        tag1 = RunTag("async tag 1", "async tag 1 value")
+        run_operations.append(mlflow.set_tag(tag1.key, tag1.value, synchronous=False))
+        tags_to_log.append(tag1)
 
-    metrics_to_log = []
-    metric1 = Metric("async metric 1", 1, int(time.time() * 1000), 0)
-    run_operations.append(mlflow.log_metric(metric1.key, metric1.value, synchronous=False))
-    metrics_to_log.append(metric1)
+        metrics_to_log = []
+        metric1 = Metric("async metric 1", 1, 432, 0)
+        run_operations.append(mlflow.log_metric(metric1.key, metric1.value, synchronous=False))
+        metrics_to_log.append(metric1)
 
-    # Log batch of metrics
-    for _ in range(1, 2):
-        guid8 = str(uuid.uuid4())[:8]
-        params = [Param(f"batch param-{guid8}-{val}", value=str(time.time())) for val in range(5)]
-        tags = [RunTag(f"batch tag-{guid8}-{val}", value=str(time.time())) for val in range(5)]
-        metrics = [
-            Metric(
-                key=f"batch metrics async-{val}",
-                value=time.time(),
-                step=1,
-                timestamp=int(time.time() * 1000),
+        # Log batch of metrics
+        metric_value = 1
+        for _ in range(1, 5):
+            metrics = []
+            guid8 = str(uuid.uuid4())[:8]
+            params = [Param(f"batch param-{guid8}-{val}", value=str(val)) for val in range(5)]
+            tags = [RunTag(f"batch tag-{guid8}-{val}", value=str(val)) for val in range(5)]
+            for _ in range(0, 50):
+                metric_value += 1
+                metrics.append(
+                    Metric(
+                        key=f"batch metrics async-{metric_value}",
+                        value=time.time(),
+                        timestamp=metric_value,
+                        step=0,
+                    )
+                )
+
+            params_to_log.extend(params)
+            run_operation = mlflow.log_params(
+                params={param.key: param.value for param in params},
+                synchronous=False,
             )
-            for val in range(50)
-        ]
+            run_operations.append(run_operation)
 
-        params_to_log.extend(params)
-        run_operation = mlflow.log_params(
-            params={param.key: param.value for param in params},
-            synchronous=False,
-        )
-        run_operations.append(run_operation)
+            tags_to_log.extend(tags)
+            run_operation = mlflow.set_tags(
+                tags={tag.key: tag.value for tag in tags},
+                synchronous=False,
+            )
+            run_operations.append(run_operation)
 
-        tags_to_log.extend(tags)
-        run_operation = mlflow.set_tags(
-            tags={tag.key: tag.value for tag in tags},
-            synchronous=False,
-        )
-        run_operations.append(run_operation)
-
-        metrics_to_log.extend(metrics)
-        run_operation = mlflow.log_metrics(
-            metrics={metric.key: metric.value for metric in metrics},
-            step=1,
-            synchronous=False,
-        )
-        run_operations.append(run_operation)
+            metrics_to_log.extend(metrics)
+            run_operation = mlflow.log_metrics(
+                metrics={metric.key: metric.value for metric in metrics},
+                step=1,
+                synchronous=False,
+            )
+            run_operations.append(run_operation)
 
     for run_operation in run_operations:
         run_operation.wait()
@@ -162,5 +163,3 @@ def test_async_logging_fluent():
     for metric in metrics_to_log:
         assert metric.key in run.data.metrics
         assert metric.value == run.data.metrics[metric.key]
-
-    mlflow.end_run()

@@ -435,30 +435,29 @@ class TrackingServiceClient:
             metrics_batch = metrics[:metrics_batch_size]
             metrics = metrics[metrics_batch_size:]
 
-            run_operations = None
-
             if synchronous:
                 self.store.log_batch(
                     run_id=run_id, metrics=metrics_batch, params=params_batch, tags=tags_batch
                 )
             else:
-                run_operations = self.store.log_batch_async(
-                    run_id=run_id,
-                    metrics=metrics_batch,
-                    params=params_batch,
-                    tags=tags_batch,
+                run_operations_list.append(
+                    self.store.log_batch_async(
+                        run_id=run_id,
+                        metrics=metrics_batch,
+                        params=params_batch,
+                        tags=tags_batch,
+                    )
                 )
-            run_operations_list.append(run_operations)
 
         for metrics_batch in chunk_list(metrics, chunk_size=MAX_METRICS_PER_BATCH):
             if synchronous:
                 self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
             else:
-                run_operations = self.store.log_batch_async(
-                    run_id=run_id, metrics=metrics_batch, params=[], tags=[]
+                run_operations_list.append(
+                    self.store.log_batch_async(
+                        run_id=run_id, metrics=metrics_batch, params=[], tags=[]
+                    )
                 )
-            if run_operations:
-                run_operations_list.append(run_operations)
 
         if not synchronous:
             # Merge all the run operations into a single run operations object

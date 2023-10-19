@@ -1290,7 +1290,6 @@ def test_get_parent_run():
     assert mlflow.get_parent_run(run_id) is None
 
 
-@pytest.mark.asynclogging
 def test_log_metric_async():
     run_operations = []
 
@@ -1311,7 +1310,6 @@ def test_log_metric_async():
         assert parent_run.data.metrics[f"async batch metric {num}"] == num
 
 
-@pytest.mark.asynclogging
 def test_log_metric_async_throws():
     with mlflow.start_run():
         with pytest.raises(MlflowException, match="Please specify value as a valid double"):
@@ -1327,7 +1325,6 @@ def test_log_metric_async_throws():
             ).wait()
 
 
-@pytest.mark.asynclogging
 def test_log_param_async():
     run_operations = []
 
@@ -1345,7 +1342,6 @@ def test_log_param_async():
         assert parent_run.data.params[f"async batch param {num}"] == str(num)
 
 
-@pytest.mark.asynclogging
 def test_log_param_async_throws():
     with mlflow.start_run():
         mlflow.log_param("async single param", value="1", synchronous=False)
@@ -1357,7 +1353,6 @@ def test_log_param_async_throws():
             mlflow.log_params({"async batch param": "3"}, synchronous=False).wait()
 
 
-@pytest.mark.asynclogging
 def test_set_tag_async():
     run_operations = []
 

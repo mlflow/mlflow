@@ -378,6 +378,7 @@ class AbstractStore:
         This API does not offer immediate consistency of the data. When API returns,
         data is accepted but not persisted/processed by back end. Data would be processed
         in near real time fashion.
+
         :param run_id: String id for the run
         :param metrics: List of :py:class:`mlflow.entities.Metric` instances to log
         :param params: List of :py:class:`mlflow.entities.Param` instances to log

@@ -767,7 +767,6 @@ def test_update_run(mock_store):
     )
 
 
-@pytest.mark.asynclogging
 def test_client_log_metric_params_tags_overrides(mock_store):
     experiment_id = mock.Mock()
     start_time = mock.Mock()

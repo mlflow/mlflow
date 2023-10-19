@@ -39,7 +39,7 @@ class AsyncLoggingQueue:
         # Keeping max_workers=1 so that there are no two threads
         self._BATCH_LOGGING_THREADPOOL = ThreadPoolExecutor(max_workers=1)
 
-        self._BATCH_STATUS_CHECK_THREADPOOL = ThreadPoolExecutor(max_workers=1)
+        self._BATCH_STATUS_CHECK_THREADPOOL = ThreadPoolExecutor(max_workers=10)
 
         self._run_data_logging_thread = self._BATCH_LOGGING_THREADPOOL.submit(
             self._logging_loop
