@@ -594,8 +594,9 @@ def log_param(key: str, value: Any, synchronous: Optional[bool] = True) -> Any:
                             'near-real time'/'eventual' consistency.
 
     :return: When synchronous=True, the parameter value that is logged.
-                When synchronous=False, returns RunOperations object. This object
-                can be awaited to know if given param is processed or not.
+                When synchronous=False, returns
+                :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` object.
+                This object can be awaited to know if given param is processed or not.
 
     .. testcode:: python
         :caption: Example
@@ -608,6 +609,7 @@ def log_param(key: str, value: Any, synchronous: Optional[bool] = True) -> Any:
             value = mlflow.log_param("learning_rate", 0.02, synchronous=False)
 
     """
+
     run_id = _get_or_start_run().info.run_id
     return MlflowClient().log_param(run_id, key, value, synchronous=synchronous)
 
@@ -658,8 +660,9 @@ def set_tag(key: str, value: Any, synchronous: Optional[bool] = True) -> RunOper
                             into system but would persist them with some time delay -
                             'near-real time'/'eventual' consistency.
 
-    :return: Returns RunOperations object. This object, when not None,
-                can be awaited to know if given tag was processed or not.
+    :return: :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` object.
+             This object, when not None, can be awaited to know if given metric was processed
+             or not.
     .. testcode:: python
         :caption: Example
 
@@ -721,14 +724,13 @@ def log_metric(
     :param step: Metric step (int). Defaults to zero if unspecified.
     :param synchronous: [Experimental] Defaults to True.
                         Indicates if the metric would be logged in synchronous fashion or not.
-                    When it is True this call would be blocking call and offers immediate
+                        When it is True this call would be blocking call and offers immediate
                         consistency of the metric upon returning.
-                    When this value is set to False, metric would be logged in async
-                        fashion. Backing provider gurantees that metrics are accepted
-                        into system but would persist them with some time delay -
-                        'near-real time'/'eventual' consistency.
-    :return: Returns RunOperations object. This object, when not None,
-                can be awaited to know if given metric was processed or not.
+                        When this value is set to False, metric would be logged in async
+                        fashion with eventual consistency.
+    :return: :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` object.
+             This object, when not None, can be awaited to know if given metric was processed
+             or not.
 
         :caption: Example
 
@@ -742,6 +744,7 @@ def log_metric(
         with mlflow.start_run():
             mlflow.log_metric("mse", 2500.00, synchronous=False)
     """
+
     run_id = _get_or_start_run().info.run_id
     return MlflowClient().log_metric(
         run_id, key, value, get_current_time_millis(), step or 0, synchronous=synchronous
@@ -764,15 +767,14 @@ def log_metrics(
 
     :param synchronous: [Experimental] Defaults to True.
                         Indicates if the metrics would be logged
-                            in synchronous fashion or not.
+                        in synchronous fashion or not.
                         When it is True this call would be blocking call and offers immediate
-                            consistency of the metrics upon returning.
+                        consistency of the metrics upon returning.
                         When this value is set to False, metrics would be logged in async fashion.
-                          Backing provider gurantees that metrics are accepted into the system
-                            but would persist them with some time delay
-                            -'near-real time'/'eventual' consistency.
-    :return: Returns RunOperations object. This object, when not None,
-                can be awaited to know if given metrics are processed or not.
+                        with eventual consistency.
+    :return: :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` object.
+             This object, when not None, can be awaited to know if given metric was processed
+             or not.
 
     .. testcode:: python
         :caption: Example
@@ -789,6 +791,7 @@ def log_metrics(
         with mlflow.start_run():
             mlflow.log_metrics(metrics, synchronous=False)
     """
+
     run_id = _get_or_start_run().info.run_id
     timestamp = get_current_time_millis()
     metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
@@ -813,8 +816,9 @@ def log_params(params: Dict[str, Any], synchronous: Optional[bool] = True) -> Ru
                             fashion. Backing provider gurantees that parameters are accepted
                             into system but would persist them with some time delay -
                             'near-real time'/'eventual' consistency.
-    :return: Returns RunOperations object. This object, when not None,
-                can be awaited to know if given params are processed or not.
+    :return: :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` object.
+             This object, when not None, can be awaited to know if given metric was processed
+             or not.
 
     .. testcode:: python
         :caption: Example
@@ -832,6 +836,7 @@ def log_params(params: Dict[str, Any], synchronous: Optional[bool] = True) -> Ru
             mlflow.log_params(params, synchronous=False)
 
     """
+
     run_id = _get_or_start_run().info.run_id
     params_arr = [Param(key, str(value)) for key, value in params.items()]
     return MlflowClient().log_batch(
@@ -918,8 +923,9 @@ def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = True) -> RunOpe
                             fashion. Backing provider gurantees that tags are accepted
                             into system but would persist them with some time delay -
                             'near-real time'/'eventual' consistency.
-    :return: Returns RunOperations object. This object, when not None,
-                can be awaited to know if given tags are processed or not.
+    :return: :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` object.
+             This object, when not None, can be awaited to know if given metric was processed
+             or not.
 
     .. testcode:: python
         :caption: Example
@@ -940,6 +946,7 @@ def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = True) -> RunOpe
         with mlflow.start_run():
             mlflow.set_tags(tags, synchronous=False)
     """
+
     run_id = _get_or_start_run().info.run_id
     tags_arr = [RunTag(key, str(value)) for key, value in tags.items()]
     return MlflowClient().log_batch(
