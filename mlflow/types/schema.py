@@ -269,7 +269,9 @@ class Property:
 
         """
         if not isinstance(prop, Property):
-            raise MlflowException("Can't merge property with non-property type")
+            raise MlflowException(
+                f"Can't merge property with non-property type: {type(prop).__name__}"
+            )
         if self.name != prop.name:
             raise MlflowException("Can't merge properties with different names")
         required = self.required and prop.required
@@ -409,7 +411,7 @@ class Object:
 
         """
         if not isinstance(obj, Object):
-            raise MlflowException("Can't merge object with non-object type")
+            raise MlflowException(f"Can't merge object with non-object type: {type(obj).__name__}")
         if self == obj:
             return deepcopy(self)
         prop_dict1 = {prop.name: prop for prop in self.properties}
@@ -498,7 +500,7 @@ class Array:
 
     def _merge(self, arr: "Array") -> "Array":
         if not isinstance(arr, Array):
-            raise MlflowException("Can't merge array with non-array type")
+            raise MlflowException(f"Can't merge array with non-array type: {type(arr).__name__}")
         if self == arr:
             return deepcopy(self)
         if isinstance(self.dtype, DataType):

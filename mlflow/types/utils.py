@@ -78,15 +78,6 @@ def clean_tensor_type(dtype: np.dtype):
     return dtype
 
 
-def _get_str_or_byte_type(data):
-    if isinstance(data, (np.ndarray, list)):
-        data = data[0]
-    if DataType.is_string(data):
-        return DataType.string
-    elif DataType.is_binary(data):
-        return DataType.binary
-
-
 def _infer_datatype(data) -> DataType:
     if DataType.is_boolean(data):
         return DataType.boolean
@@ -192,16 +183,16 @@ def _infer_schema(data: Any) -> Schema:
     if isinstance(data, dict):
         # dictionary of (name -> numpy.ndarray)
         if all(isinstance(values, np.ndarray) for values in data.values()):
-            res = []
-            for name, ndarray in data.items():
-                res.append(
+            schema = Schema(
+                [
                     TensorSpec(
                         type=clean_tensor_type(ndarray.dtype),
                         shape=_get_tensor_shape(ndarray),
                         name=name,
                     )
-                )
-            schema = Schema(res)
+                    for name, ndarray in data.items()
+                ]
+            )
         # Dict[str, Union[DataType, List, Dict]]
         else:
             if any(not isinstance(key, str) for key in data):

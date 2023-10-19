@@ -589,28 +589,28 @@ def _enforce_named_col_schema(pf_input: PyFuncInput, input_schema: Schema):
     input_names = input_schema.input_names()
     input_dict = input_schema.input_dict()
     new_pf_input = pd.DataFrame()
-    for x in input_names:
-        input_type = input_dict[x].type
-        required = input_dict[x].required
-        if x not in pf_input:
+    for name in input_names:
+        input_type = input_dict[name].type
+        required = input_dict[name].required
+        if name not in pf_input:
             if required:
                 raise MlflowException(
-                    f"The input column '{x}' is required by the model "
+                    f"The input column '{name}' is required by the model "
                     "signature but missing from the input data."
                 )
             else:
                 continue
         if isinstance(input_type, DataType):
-            new_pf_input[x] = _enforce_mlflow_datatype(x, pf_input[x], input_type)
+            new_pf_input[name] = _enforce_mlflow_datatype(name, pf_input[name], input_type)
         # If the input_type is objects/arrays, we assume pf_input must be a pandas DataFrame.
         # Otherwise, the schema is not valid.
         elif isinstance(input_type, Object):
-            new_pf_input[x] = pd.Series(
-                [_enforce_object(obj, input_type, required) for obj in pf_input[x]], name=x
+            new_pf_input[name] = pd.Series(
+                [_enforce_object(obj, input_type, required) for obj in pf_input[name]], name=name
             )
         elif isinstance(input_type, Array):
-            new_pf_input[x] = pd.Series(
-                [_enforce_array(arr, input_type, required) for arr in pf_input[x]], name=x
+            new_pf_input[name] = pd.Series(
+                [_enforce_array(arr, input_type, required) for arr in pf_input[name]], name=name
             )
     return new_pf_input
 
