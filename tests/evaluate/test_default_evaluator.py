@@ -2806,7 +2806,7 @@ def test_evaluate_no_model_type_with_builtin_metric():
         results = mlflow.evaluate(
             model_info.model_uri,
             data,
-            extra_metrics=[mlflow.metrics.perplexity],
+            extra_metrics=[mlflow.metrics.perplexity()],
         )
         assert results.metrics.keys() == {
             "perplexity/v1/mean",
@@ -2878,11 +2878,11 @@ def test_default_metrics_as_custom_metrics():
             targets="truth",
             model_type="question-answering",
             custom_metrics=[
-                mlflow.metrics.flesch_kincaid_grade_level,
-                mlflow.metrics.perplexity,
-                mlflow.metrics.ari_grade_level,
-                mlflow.metrics.toxicity,
-                mlflow.metrics.exact_match,
+                mlflow.metrics.flesch_kincaid_grade_level(),
+                mlflow.metrics.perplexity(),
+                mlflow.metrics.ari_grade_level(),
+                mlflow.metrics.toxicity(),
+                mlflow.metrics.exact_match(),
             ],
             evaluators="default",
             evaluator_config={
@@ -2910,7 +2910,7 @@ def test_evaluate_with_latency():
             data,
             model_type="text",
             evaluators="default",
-            extra_metrics=[mlflow.metrics.latency],
+            extra_metrics=[mlflow.metrics.latency()],
         )
 
     client = mlflow.MlflowClient()
