@@ -84,9 +84,9 @@ def make_genai_metric(
     examples: Optional[List[EvaluationExample]] = None,
     version: Optional[str] = _get_latest_metric_version(),
     model: Optional[str] = "openai:/gpt-3.5-turbo-16k",
-    grading_context_columns: Optional[List[str]] = None,
+    grading_context_columns: Optional[List[str]] = [],  # noqa: B006
     parameters: Optional[Dict[str, Any]] = None,
-    aggregations: Optional[List[str]] = None,
+    aggregations: Optional[List[str]] = ["mean", "variance", "p90"],  # noqa: B006
     greater_is_better: bool = True,
     max_workers: int = 10,
     judge_request_timeout: int = 60,
@@ -180,11 +180,6 @@ def make_genai_metric(
         )
     """
 
-    if aggregations is None:
-        aggregations = ["mean", "variance", "p90"]
-    if grading_context_columns is None:
-        grading_context_columns = []
-
     def eval_fn(
         predictions: "pd.Series",
         metrics: Dict[str, MetricValue],
@@ -249,8 +244,9 @@ def make_genai_metric(
             except Exception as e:
                 raise MlflowException(
                     f"Values for grading_context_columns are malformed and cannot be "
-                    f"formatted into prompt for metric '{name}'.\n"
-                    f"Provided values: {eval_values}\n"
+                    f"formatted into a prompt for metric '{name}'.\n"
+                    f"Required grading_context_columns: {grading_context_columns}\n"
+                    f"Values: {eval_values}\n"
                     f"Error: {e!r}\n"
                 )
             payload = {
