@@ -2889,11 +2889,11 @@ def test_default_metrics_as_custom_metrics():
             predictions="answer",
             model_type="question-answering",
             custom_metrics=[
-                mlflow.metrics.flesch_kincaid_grade_level,
-                mlflow.metrics.perplexity,
-                mlflow.metrics.ari_grade_level,
-                mlflow.metrics.toxicity,
-                mlflow.metrics.exact_match,
+                mlflow.metrics.flesch_kincaid_grade_level(),
+                mlflow.metrics.perplexity(),
+                mlflow.metrics.ari_grade_level(),
+                mlflow.metrics.toxicity(),
+                mlflow.metrics.exact_match(),
             ],
             evaluators="default",
         )
@@ -2960,14 +2960,13 @@ def test_multi_output_model_error_handling():
                 model_info.model_uri,
                 data,
                 targets="truth",
-                predictions="answer",
                 model_type="question-answering",
                 custom_metrics=[
-                    mlflow.metrics.flesch_kincaid_grade_level,
-                    mlflow.metrics.perplexity,
-                    mlflow.metrics.ari_grade_level,
-                    mlflow.metrics.toxicity,
-                    mlflow.metrics.exact_match,
+                    mlflow.metrics.flesch_kincaid_grade_level(),
+                    mlflow.metrics.perplexity(),
+                    mlflow.metrics.ari_grade_level(),
+                    mlflow.metrics.toxicity(),
+                    mlflow.metrics.exact_match(),
                 ],
                 evaluators="default",
             )
@@ -3020,7 +3019,7 @@ def test_evaluate_with_latency_static_dataset():
             model_type="text",
             evaluators="default",
             predictions="model_output",
-            extra_metrics=[mlflow.metrics.latency],
+            extra_metrics=[mlflow.metrics.latency()],
         )
 
     client = mlflow.MlflowClient()
