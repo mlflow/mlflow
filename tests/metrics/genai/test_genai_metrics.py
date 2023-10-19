@@ -226,7 +226,6 @@ def test_make_genai_metric_correct_response():
         model="openai:/gpt-3.5-turbo",
         grading_context_columns=["targets"],
         greater_is_better=True,
-        aggregations=None,
     )
     with mock.patch.object(
         model_utils,
