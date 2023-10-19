@@ -56,6 +56,35 @@ def pytest_runtest_setup(item):
 
 
 @pytest.hookimpl(hookwrapper=True)
+def pytest_report_teststatus(report, config):
+    outcome = yield
+    if report.when == "call":
+        try:
+            import psutil
+        except ImportError:
+            return
+
+        (*rest, result) = outcome.get_result()
+        mem = psutil.virtual_memory()
+        mem_used = mem.used / 1024**3
+        mem_total = mem.total / 1024**3
+
+        disk = psutil.disk_usage("/")
+        disk_used = disk.used / 1024**3
+        disk_total = disk.total / 1024**3
+        outcome.force_result(
+            (
+                *rest,
+                (
+                    f"{result} | "
+                    f"MEM {mem_used:.1f}/{mem_total:.1f} GB | "
+                    f"DISK {disk_used:.1f}/{disk_total:.1f} GB"
+                ),
+            )
+        )
+
+
+@pytest.hookimpl(hookwrapper=True)
 def pytest_ignore_collect(path, config):
     outcome = yield
     if not outcome.get_result() and config.getoption("ignore_flavors"):

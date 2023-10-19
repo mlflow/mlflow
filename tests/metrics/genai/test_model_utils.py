@@ -19,6 +19,19 @@ def set_envs(monkeypatch):
     )
 
 
+@pytest.fixture
+def set_azure_envs(monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "OPENAI_API_KEY": "test",
+            "OPENAI_API_TYPE": "azure",
+            "OPENAI_API_VERSION": "2023-05-15",
+            "OPENAI_API_BASE": "https://openai-for.openai.azure.com/",
+            "OPENAI_DEPLOYMENT_NAME": "test-openai",
+        }
+    )
+
+
 def test_parse_model_uri():
     prefix, suffix = _parse_model_uri("openai:/gpt-3.5-turbo")
 
@@ -94,6 +107,56 @@ def test_score_model_openai(set_envs):
             headers={"Authorization": "Bearer test"},
             json={
                 "model": "gpt-3.5-turbo",
+                "temperature": 0.2,
+                "messages": [{"role": "user", "content": "my prompt"}],
+            },
+            timeout=10,
+        )
+
+
+def test_score_model_azure_openai(set_azure_envs):
+    class MockResponse(Response):
+        def __init__(self, json_data, status_code):
+            super().__init__()
+            self.json_data = json_data
+            self.status_code = status_code
+            self.headers = {"Content-Type": "application/json"}
+
+        def json(self):
+            return self.json_data
+
+    resp = {
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "gpt-3.5-turbo-0301",
+        "usage": {
+            "prompt_tokens": 13,
+            "completion_tokens": 7,
+            "total_tokens": 20,
+        },
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "\n\nThis is a test!",
+                },
+                "finish_reason": "stop",
+                "index": 0,
+            }
+        ],
+        "headers": {"Content-Type": "application/json"},
+    }
+
+    with mock.patch("requests.post", return_value=MockResponse(resp, 200)) as mock_post:
+        score_model_on_payload(
+            "openai:/gpt-3.5-turbo", {"prompt": "my prompt", "temperature": 0.1}, 10
+        )
+        mock_post.assert_called_once_with(
+            url="https://openai-for.openai.azure.com/openai/deployments/test-openai/chat/"
+            "completions?api-version=2023-05-15",
+            headers={"api-key": "test"},
+            json={
                 "temperature": 0.2,
                 "messages": [{"role": "user", "content": "my prompt"}],
             },
