@@ -633,7 +633,6 @@ class FileStore(AbstractStore):
                         self.set_model_version_tag(name, version, tag)
                 return model_version.to_mlflow_entity()
             except Exception as e:
-                raise
                 more_retries = self.CREATE_MODEL_VERSION_RETRIES - attempt - 1
                 logging.warning(
                     "Model Version creation error (name=%s) Retrying %s more time%s.",

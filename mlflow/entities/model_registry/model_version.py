@@ -40,6 +40,7 @@ class ModelVersion(_ModelRegistryEntity):
         self._run_link = run_link
         self._status = status
         self._status_message = status_message
+        assert 1 == 0
         self._tags = {tag.key: tag.value for tag in (tags or [])}
         self._aliases = aliases or []
 
