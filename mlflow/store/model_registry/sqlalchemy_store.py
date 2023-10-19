@@ -146,7 +146,10 @@ class SqlAlchemyStore(AbstractStore):
         # of the eager loading procedure. For more information about relationship loading
         # techniques, see https://docs.sqlalchemy.org/en/13/orm/
         # loading_relationships.html#relationship-loading-techniques
-        return [sqlalchemy.orm.subqueryload(SqlModelVersion.model_version_tags)]
+        return [
+            sqlalchemy.orm.subqueryload(SqlModelVersion.model_version_tags),
+            sqlalchemy.orm.subqueryload(SqlModelVersion.model_version_aliases),
+        ]
 
     def create_registered_model(self, name, tags=None, description=None):
         """
