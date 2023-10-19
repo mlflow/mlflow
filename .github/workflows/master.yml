@@ -278,7 +278,7 @@ jobs:
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
-          python dev/pytest.py tests/evaluate
+          dev/pytest.sh tests/evaluate
 
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
