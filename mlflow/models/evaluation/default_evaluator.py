@@ -1517,11 +1517,11 @@ class DefaultEvaluator(ModelEvaluator):
             self.builtin_metrics = {}
 
             text_metrics = [
-                token_count,
-                toxicity,
-                perplexity,
-                flesch_kincaid_grade_level,
-                ari_grade_level,
+                token_count(),
+                toxicity(),
+                perplexity(),
+                flesch_kincaid_grade_level(),
+                ari_grade_level(),
             ]
 
             with mlflow.utils.autologging_utils.disable_autologging():
@@ -1539,9 +1539,15 @@ class DefaultEvaluator(ModelEvaluator):
                 if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
                     self._compute_builtin_metrics()
                 elif self.model_type == _ModelType.QUESTION_ANSWERING:
-                    self.builtin_metrics = [*text_metrics, exact_match]
+                    self.builtin_metrics = [*text_metrics, exact_match()]
                 elif self.model_type == _ModelType.TEXT_SUMMARIZATION:
-                    self.builtin_metrics = [*text_metrics, rouge1, rouge2, rougeL, rougeLsum]
+                    self.builtin_metrics = [
+                        *text_metrics,
+                        rouge1(),
+                        rouge2(),
+                        rougeL(),
+                        rougeLsum(),
+                    ]
                 elif self.model_type == _ModelType.TEXT:
                     self.builtin_metrics = text_metrics
 

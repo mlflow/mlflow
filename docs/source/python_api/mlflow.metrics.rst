@@ -12,7 +12,7 @@ The following code demonstrates how to use :py:func:`mlflow.evaluate()` with an 
 .. code-block:: python
 
     import mlflow
-    from mlflow.metrics import EvaluationExample, correctness
+    from mlflow.metrics import EvaluationExample, answer_similarity
 
     eval_df = pd.DataFrame(
         {
@@ -41,77 +41,58 @@ The following code demonstrates how to use :py:func:`mlflow.evaluate()` with an 
             "engineers face when developing, training, and deploying machine learning models."
         },
     )
-    correctness_metric = correctness(examples=[example])
+    answer_similarity_metric = answer_similarity(examples=[example])
     results = mlflow.evaluate(
         logged_model.model_uri,
         eval_df,
         targets="ground_truth",
         model_type="question-answering",
-        extra_metrics=[correctness_metric],
+        extra_metrics=[answer_similarity_metric],
     )
 
 Evaluation results are stored as :py:class:`MetricValue <mlflow.metrics.MetricValue>`. Aggregate results are logged to the MLflow run as metrics, while per-example results are logged to the MLflow run as artifacts in the form of an evaluation table.
 
 .. autoclass:: mlflow.metrics.MetricValue
 
-We provide the following builtin :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` for evaluating models. These metrics are computed automatically depending on the ``model_type``. For more information on the ``model_type`` parameter, see :py:func:`mlflow.evaluate()` API.
+We provide the following builtin factory functions to create :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` for evaluating models. These metrics are computed automatically depending on the ``model_type``. For more information on the ``model_type`` parameter, see :py:func:`mlflow.evaluate()` API.
 
-.. autodata:: mlflow.metrics.mae
-   :annotation:
+.. autofunction:: mlflow.metrics.mae
 
-.. autodata:: mlflow.metrics.mape
-   :annotation:
+.. autofunction:: mlflow.metrics.mape
 
-.. autodata:: mlflow.metrics.max_error
-   :annotation:
+.. autofunction:: mlflow.metrics.max_error
 
-.. autodata:: mlflow.metrics.mse
-   :annotation:
+.. autofunction:: mlflow.metrics.mse
 
-.. autodata:: mlflow.metrics.rmse
-   :annotation:
+.. autofunction:: mlflow.metrics.rmse
 
-.. autodata:: mlflow.metrics.r2_score
-   :annotation:
+.. autofunction:: mlflow.metrics.r2_score
 
-.. autodata:: mlflow.metrics.precision_score
-   :annotation:
+.. autofunction:: mlflow.metrics.precision_score
 
-.. autodata:: mlflow.metrics.recall_score
-   :annotation:
+.. autofunction:: mlflow.metrics.recall_score
 
-.. autodata:: mlflow.metrics.f1_score
-   :annotation:
+.. autofunction:: mlflow.metrics.f1_score
 
-.. autodata:: mlflow.metrics.ari_grade_level
-   :annotation:
+.. autofunction:: mlflow.metrics.ari_grade_level
 
-.. autodata:: mlflow.metrics.flesch_kincaid_grade_level
-   :annotation:
+.. autofunction:: mlflow.metrics.flesch_kincaid_grade_level
 
-.. autodata:: mlflow.metrics.perplexity
-   :annotation:
+.. autofunction:: mlflow.metrics.perplexity
 
-.. autodata:: mlflow.metrics.rouge1
-   :annotation:
+.. autofunction:: mlflow.metrics.rouge1
 
-.. autodata:: mlflow.metrics.rouge2
-   :annotation:
+.. autofunction:: mlflow.metrics.rouge2
 
-.. autodata:: mlflow.metrics.rougeL
-   :annotation:
+.. autofunction:: mlflow.metrics.rougeL
 
-.. autodata:: mlflow.metrics.rougeLsum
-   :annotation:
+.. autofunction:: mlflow.metrics.rougeLsum
 
-.. autodata:: mlflow.metrics.toxicity
-   :annotation:
+.. autofunction:: mlflow.metrics.toxicity
 
-.. autodata:: mlflow.metrics.token_count
-   :annotation:
+.. autofunction:: mlflow.metrics.token_count
 
-.. autodata:: mlflow.metrics.latency
-   :annotation:
+.. autofunction:: mlflow.metrics.latency
 
 Users create their own :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` using the :py:func:`make_metric <mlflow.metrics.make_metric>` factory function
 
@@ -119,7 +100,7 @@ Users create their own :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMet
 
 We provide the following pre-canned "intelligent" :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` for evaluating text models. These metrics use an LLM to evaluate the quality of a model's output text. Note that your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to and governed by the LLM service's terms of use. The following factory functions help you customize the intelligent metric to your use case.
 
-.. autofunction:: mlflow.metrics.correctness
+.. autofunction:: mlflow.metrics.answer_similarity
 
 .. autofunction:: mlflow.metrics.strict_correctness
 
@@ -137,4 +118,4 @@ When using LLM based :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetri
     :members:
     :undoc-members:
     :show-inheritance:
-    :exclude-members: MetricValue, EvaluationMetric, make_metric, make_genai_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, perplexity, rouge1, rouge2, rougeL, rougeLsum, toxicity, correctness, strict_correctness, relevance, mae, mape, max_error, mse, rmse, r2_score, precision_score, recall_score, f1_score, token_count, latency
+    :exclude-members: MetricValue, EvaluationMetric, make_metric, make_genai_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, perplexity, rouge1, rouge2, rougeL, rougeLsum, toxicity, answer_similarity, strict_correctness, relevance, mae, mape, max_error, mse, rmse, r2_score, precision_score, recall_score, f1_score, token_count, latency
