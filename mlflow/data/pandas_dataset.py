@@ -173,7 +173,7 @@ def from_pandas(
 ) -> PandasDataset:
     """
     Constructs a :py:class:`PandasDataset <mlflow.data.pandas_dataset.PandasDataset>` instance from
-    a Pandas DataFrame, optional targets, and source.
+    a Pandas DataFrame, optional targets, optional predictions, and source.
 
     :param df: A Pandas DataFrame.
     :param source: The source from which the DataFrame was derived, e.g. a filesystem
@@ -200,10 +200,10 @@ def from_pandas(
         import pandas as pd
 
         x = pd.DataFrame(
-            [["tom", 10, 1], ["nick", 15, 0], ["juli", 14, 1]],
-            columns=["Name", "Age", "Label"],
+            [["tom", 10, 1, 1], ["nick", 15, 0, 1], ["juli", 14, 1, 1]],
+            columns=["Name", "Age", "Label", "ModelOutput"],
         )
-        dataset = mlflow.data.from_pandas(x, targets="Label")
+        dataset = mlflow.data.from_pandas(x, targets="Label", predictions="ModelOutput")
     """
     from mlflow.data.code_dataset_source import CodeDatasetSource
     from mlflow.data.dataset_source_registry import resolve_dataset_source
