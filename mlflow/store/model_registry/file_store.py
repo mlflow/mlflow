@@ -101,7 +101,7 @@ class FileModelVersion(ModelVersion):
 
     def to_mlflow_entity(self):
         meta = dict(self)
-        # meta["tags"] = [ModelVersionTag(k, v) for k,v in meta["tags"].items()]
+        meta["tags"] = [ModelVersionTag(k, v) for k,v in meta["tags"].items()]
         return ModelVersion.from_dictionary(meta)
 
 
