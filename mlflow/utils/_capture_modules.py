@@ -14,7 +14,10 @@ from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.pyfunc import MAIN
 from mlflow.utils._spark_utils import _prepare_subprocess_environ_for_creating_local_spark_session
 from mlflow.utils.file_utils import write_to
-from mlflow.utils.requirements_utils import DATABRICKS_MODULES_TO_PACKAGES
+from mlflow.utils.requirements_utils import (
+    DATABRICKS_MODULES_TO_PACKAGES,
+    MLFLOW_MODULES_TO_PACKAGES,
+)
 
 
 def _get_top_level_module(full_module_name):
@@ -78,6 +81,12 @@ class _CaptureImportedModules:
                 if full_module_name.startswith(databricks_module):
                     self.imported_modules.add(databricks_module)
                     return
+
+        # special casing for mlflow extras since they may not be required by default
+        if top_level_module == "mlflow":
+            if second_level_module in MLFLOW_MODULES_TO_PACKAGES:
+                self.imported_modules.add(second_level_module)
+                return
 
         self.imported_modules.add(top_level_module)
 
