@@ -286,7 +286,6 @@ def test_multi_classifier_evaluation(
     use_sample_weights,
 ):
     sample_weights = np.random.rand(len(iris_dataset.labels_data)) if use_sample_weights else None
-    assert False, "test"
 
     with mlflow.start_run() as run:
         result = evaluate_model_helper(
