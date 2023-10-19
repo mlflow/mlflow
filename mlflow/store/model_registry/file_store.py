@@ -5,6 +5,7 @@ import sys
 import time
 import urllib
 from os.path import join
+from typing import List
 
 from mlflow.entities.model_registry import (
     ModelVersion,
@@ -28,7 +29,6 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
-from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
@@ -66,8 +66,6 @@ from mlflow.utils.validation import (
     _validate_model_name as _original_validate_model_name,
 )
 
-_STORAGE_LOCATION_META_KEY = "storage_location"
-
 
 def _default_root_dir():
     return MLFLOW_REGISTRY_DIR.get() or os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
@@ -80,6 +78,31 @@ def _validate_model_name(name):
             f"Invalid name: '{name}'. Registered model name cannot contain path separator",
             INVALID_PARAMETER_VALUE,
         )
+
+
+class FileModelVersion(ModelVersion):
+    def __init__(self, storage_location=None, **kwargs):
+        super().__init__(**kwargs)
+        self._storage_location = storage_location
+
+    @property
+    def storage_location(self):
+        """String. The storage location of the model version."""
+        return self._storage_location
+
+    @storage_location.setter
+    def storage_location(self, location):
+        self._storage_location = location
+
+    @classmethod
+    def _properties(cls):
+        # aggregate with parent class with subclass properties
+        return sorted(ModelVersion._properties() + cls._get_properties_helper())
+
+    def to_mlflow_entity(self):
+        meta = dict(self)
+        # meta["tags"] = [ModelVersionTag(k, v) for k,v in meta["tags"].items()]
+        return ModelVersion.from_dictionary(meta)
 
 
 class FileStore(AbstractStore):
@@ -236,7 +259,7 @@ class FileStore(AbstractStore):
             self._save_registered_model_as_meta_file(
                 registered_model, meta_dir=new_meta_dir, overwrite=False
             )
-            model_versions = self._list_model_versions_under_path(model_path)
+            model_versions = self._list_file_model_versions_under_path(model_path)
             for mv in model_versions:
                 mv.name = new_name
                 mv.last_updated_timestamp = updated_time
@@ -351,7 +374,7 @@ class FileStore(AbstractStore):
             )
         return self._get_registered_model_from_path(model_path)
 
-    def get_latest_versions(self, name, stages=None):
+    def get_latest_versions(self, name, stages=None) -> List[ModelVersion]:
         """
         Latest version models for each requested stage. If no ``stages`` argument is provided,
         returns the latest version for each stage.
@@ -367,7 +390,7 @@ class FileStore(AbstractStore):
                 f"Registered Model with name={name} not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
-        model_versions = self._list_model_versions_under_path(registered_model_path)
+        model_versions = self._list_file_model_versions_under_path(registered_model_path)
         if stages is None or len(stages) == 0:
             expected_stages = {get_canonical_stage(stage) for stage in ALL_STAGES}
         else:
@@ -379,7 +402,7 @@ class FileStore(AbstractStore):
                     mv.current_stage not in latest_versions
                     or latest_versions[mv.current_stage].version < mv.version
                 ):
-                    latest_versions[mv.current_stage] = mv
+                    latest_versions[mv.current_stage] = mv.to_mlflow_entity()
 
         return [latest_versions[stage] for stage in expected_stages if stage in latest_versions]
 
@@ -478,12 +501,12 @@ class FileStore(AbstractStore):
 
     # CRUD API for ModelVersion objects
 
-    def _get_registered_model_version_tag_from_file(self, parent_path, tag_name):
+    def _get_registered_model_version_tag_from_file(self, parent_path, tag_name) -> ModelVersionTag:
         _validate_tag_name(tag_name)
         tag_data = read_file(parent_path, tag_name)
         return ModelVersionTag(tag_name, tag_data)
 
-    def _get_model_version_tags_from_dir(self, directory):
+    def _get_model_version_tags_from_dir(self, directory) -> List[ModelVersionTag]:
         parent_path, tag_files = self._get_resource_files(directory, FileStore.TAGS_FOLDER_NAME)
         tags = []
         for tag_file in tag_files:
@@ -504,18 +527,17 @@ class FileStore(AbstractStore):
         version = os.path.basename(directory).replace("version-", "")
         return [alias.alias for alias in aliases if alias.version == version]
 
-    def _get_model_version_meta_from_dir(self, directory):
+    def _get_file_model_version_from_dir(self, directory) -> FileModelVersion:
         meta = FileStore._read_yaml(directory, FileStore.META_DATA_FILE_NAME)
         meta["tags"] = self._get_model_version_tags_from_dir(directory)
         meta["aliases"] = self._get_model_version_aliases(directory)
-        return meta
+        return FileModelVersion.from_dictionary(meta)
 
     def _save_model_version_as_meta_file(
-        self, model_version, meta_dir=None, storage_location=None, overwrite=True
+        self, model_version: FileModelVersion, meta_dir=None, overwrite=True
     ):
         model_version_dict = dict(model_version)
         del model_version_dict["tags"]
-        model_version_dict[_STORAGE_LOCATION_META_KEY] = storage_location
         meta_dir = meta_dir or self._get_model_version_dir(
             model_version.name, model_version.version
         )
@@ -541,7 +563,7 @@ class FileStore(AbstractStore):
         run_link=None,
         description=None,
         local_model_path=None,
-    ):
+    ) -> ModelVersion:
         """
         Create a new model version from given source and run ID.
 
@@ -558,7 +580,7 @@ class FileStore(AbstractStore):
 
         def next_version(registered_model_name):
             path = self._get_registered_model_path(registered_model_name)
-            model_versions = self._list_model_versions_under_path(path)
+            model_versions = self._list_file_model_versions_under_path(path)
             if model_versions:
                 return max(mv.version for mv in model_versions) + 1
             else:
@@ -567,7 +589,6 @@ class FileStore(AbstractStore):
         _validate_model_name(name)
         for tag in tags or []:
             _validate_model_version_tag(tag.key, tag.value)
-
         storage_location = source
         if urllib.parse.urlparse(source).scheme == "models":
             (src_model_name, src_model_version, _, _) = _parse_model_uri(source)
@@ -587,7 +608,7 @@ class FileStore(AbstractStore):
                 registered_model.last_updated_timestamp = creation_time
                 self._save_registered_model_as_meta_file(registered_model)
                 version = next_version(name)
-                model_version = ModelVersion(
+                model_version = FileModelVersion(
                     name=name,
                     version=version,
                     creation_timestamp=creation_time,
@@ -599,21 +620,20 @@ class FileStore(AbstractStore):
                     run_link=run_link,
                     tags=tags,
                     aliases=[],
+                    storage_location=storage_location,
                 )
                 model_version_dir = self._get_model_version_dir(name, version)
                 mkdir(model_version_dir)
                 self._save_model_version_as_meta_file(
-                    model_version,
-                    meta_dir=model_version_dir,
-                    storage_location=storage_location,
-                    overwrite=False,
+                    model_version, meta_dir=model_version_dir, overwrite=False
                 )
                 self._save_registered_model_as_meta_file(registered_model)
                 if tags is not None:
                     for tag in tags:
                         self.set_model_version_tag(name, version, tag)
-                return model_version
+                return model_version.to_mlflow_entity()
             except Exception as e:
+                raise
                 more_retries = self.CREATE_MODEL_VERSION_RETRIES - attempt - 1
                 logging.warning(
                     "Model Version creation error (name=%s) Retrying %s more time%s.",
@@ -627,7 +647,7 @@ class FileStore(AbstractStore):
                         f"{self.CREATE_MODEL_VERSION_RETRIES} attempts."
                     )
 
-    def update_model_version(self, name, version, description):
+    def update_model_version(self, name, version, description) -> ModelVersion:
         """
         Update metadata associated with a model version in backend.
 
@@ -637,13 +657,15 @@ class FileStore(AbstractStore):
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         updated_time = get_current_time_millis()
-        model_version = self.get_model_version(name=name, version=version)
+        model_version = self._fetch_model_version_if_exists(name=name, version=version)
         model_version.description = description
         model_version.last_updated_timestamp = updated_time
         self._save_model_version_as_meta_file(model_version)
-        return model_version
+        return model_version.to_mlflow_entity()
 
-    def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
+    def transition_model_version_stage(
+        self, name, version, stage, archive_existing_versions
+    ) -> ModelVersion:
         """
         Update model version stage.
 
@@ -668,19 +690,19 @@ class FileStore(AbstractStore):
         model_versions = []
         if archive_existing_versions:
             registered_model_path = self._get_registered_model_path(name)
-            model_versions = self._list_model_versions_under_path(registered_model_path)
+            model_versions = self._list_file_model_versions_under_path(registered_model_path)
             for mv in model_versions:
                 if mv.version != version and mv.current_stage == get_canonical_stage(stage):
                     mv.current_stage = STAGE_ARCHIVED
                     mv.last_updated_timestamp = last_updated_time
                     self._save_model_version_as_meta_file(mv)
 
-        model_version = self.get_model_version(name, version)
+        model_version = self._fetch_model_version_if_exists(name, version)
         model_version.current_stage = get_canonical_stage(stage)
         model_version.last_updated_timestamp = last_updated_time
         self._save_model_version_as_meta_file(model_version)
         self._update_registered_model_last_updated_time(name, last_updated_time)
-        return model_version
+        return model_version.to_mlflow_entity()
 
     def delete_model_version(self, name, version):
         """
@@ -690,7 +712,7 @@ class FileStore(AbstractStore):
         :param version: Registered model version.
         :return: None
         """
-        model_version = self.get_model_version(name=name, version=version)
+        model_version = self._fetch_model_version_if_exists(name=name, version=version)
         model_version.current_stage = STAGE_DELETED_INTERNAL
         updated_time = get_current_time_millis()
         model_version.last_updated_timestamp = updated_time
@@ -699,23 +721,24 @@ class FileStore(AbstractStore):
         for alias in model_version.aliases:
             self.delete_registered_model_alias(name, alias)
 
-    def _fetch_model_version_if_exists(self, name, version):
+    def _fetch_model_version_if_exists(self, name, version) -> FileModelVersion:
+        _validate_model_name(name)
+        _validate_model_version(version)
         registered_model_version_dir = self._get_model_version_dir(name, version)
         if not exists(registered_model_version_dir):
             raise MlflowException(
                 f"Model Version (name={name}, version={version}) not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
-        meta = self._get_model_version_meta_from_dir(registered_model_version_dir)
-        model_version = ModelVersion.from_dictionary(meta)
+        model_version = self._get_file_model_version_from_dir(registered_model_version_dir)
         if model_version.current_stage == STAGE_DELETED_INTERNAL:
             raise MlflowException(
                 f"Model Version (name={name}, version={version}) not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
-        return model_version, meta.get(_STORAGE_LOCATION_META_KEY, None)
+        return model_version
 
-    def get_model_version(self, name, version):
+    def get_model_version(self, name, version) -> ModelVersion:
         """
         Get the model version instance by name and version.
 
@@ -723,11 +746,9 @@ class FileStore(AbstractStore):
         :param version: Registered model version.
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        _validate_model_name(name)
-        _validate_model_version(version)
-        return self._fetch_model_version_if_exists(name, version)[0]
+        return self._fetch_model_version_if_exists(name, version).to_mlflow_entity()
 
-    def get_model_version_download_uri(self, name, version):
+    def get_model_version_download_uri(self, name, version) -> str:
         """
         Get the download location in Model Registry for this model version.
         NOTE: For first version of Model Registry, since the models are not copied over to another
@@ -737,16 +758,16 @@ class FileStore(AbstractStore):
         :param version: Registered model version.
         :return: A single URI location that allows reads for downloading.
         """
-        _validate_model_name(name)
-        _validate_model_version(version)
-        model_version, storage_location = self._fetch_model_version_if_exists(name, version)
-        return storage_location if storage_location is not None else model_version.source
+        model_version = self._fetch_model_version_if_exists(name, version)
+        if model_version.storage_location is not None:
+            return model_version.storage_location
+        return model_version.source
 
     def _get_all_registered_model_paths(self):
         self._check_root_dir()
         return list_subdirs(join(self.root_directory, FileStore.MODELS_FOLDER_NAME), full_path=True)
 
-    def _list_model_versions_under_path(self, path):
+    def _list_file_model_versions_under_path(self, path) -> List[FileModelVersion]:
         model_versions = []
         model_version_dirs = list_all(
             path,
@@ -755,14 +776,12 @@ class FileStore(AbstractStore):
             full_path=True,
         )
         for directory in model_version_dirs:
-            model_versions.append(
-                ModelVersion.from_dictionary(self._get_model_version_meta_from_dir(directory))
-            )
+            model_versions.append(self._get_file_model_version_from_dir(directory))
         return model_versions
 
     def search_model_versions(
         self, filter_string=None, max_results=None, order_by=None, page_token=None
-    ):
+    ) -> List[ModelVersion]:
         """
         Search for model versions in backend that satisfy the filter criteria.
 
@@ -795,7 +814,12 @@ class FileStore(AbstractStore):
         registered_model_paths = self._get_all_registered_model_paths()
         model_versions = []
         for path in registered_model_paths:
-            model_versions.extend(self._list_model_versions_under_path(path))
+            model_versions.extend(
+                [
+                    file_mv.to_mlflow_entity()
+                    for file_mv in self._list_file_model_versions_under_path(path)
+                ]
+            )
         filtered_mvs = SearchModelVersionUtils.filter(model_versions, filter_string)
 
         sorted_mvs = SearchModelVersionUtils.sort(
@@ -812,8 +836,6 @@ class FileStore(AbstractStore):
         return PagedList(paginated_mvs, next_page_token)
 
     def _get_registered_model_version_tag_path(self, name, version, tag_name):
-        _validate_model_name(name)
-        _validate_model_version(version)
         _validate_tag_name(tag_name)
         self._fetch_model_version_if_exists(name, version)
         registered_model_version_path = self._get_model_version_dir(name, version)
@@ -893,7 +915,7 @@ class FileStore(AbstractStore):
             updated_time = get_current_time_millis()
             self._update_registered_model_last_updated_time(name, updated_time)
 
-    def get_model_version_by_alias(self, name, alias):
+    def get_model_version_by_alias(self, name, alias) -> ModelVersion:
         """
         Get the model version instance by name and alias.
 
