@@ -2515,6 +2515,10 @@ def test_evaluate_text_summarization_without_targets():
 
 
 def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
+    from mlflow.metrics.metric_definitions import _cached_evaluate_load
+
+    _cached_evaluate_load.cache_clear()
+
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]

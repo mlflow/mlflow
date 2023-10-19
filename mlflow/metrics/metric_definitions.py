@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 
@@ -51,13 +52,18 @@ def _token_count_eval_fn(predictions, targets, metrics):
     )
 
 
+@functools.lru_cache(maxsize=8)
+def _cached_evaluate_load(path, module_type=None):
+    import evaluate
+
+    return evaluate.load(path, module_type=module_type)
+
+
 def _toxicity_eval_fn(predictions, targets, metrics):
     if not _validate_text_data(predictions, "toxicity", "predictions"):
         return
     try:
-        import evaluate
-
-        toxicity = evaluate.load("toxicity", module_type="measurement")
+        toxicity = _cached_evaluate_load("toxicity", module_type="measurement")
     except Exception as e:
         _logger.warning(
             f"Failed to load 'toxicity' metric (error: {e!r}), skipping metric logging."
