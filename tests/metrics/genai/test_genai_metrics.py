@@ -393,18 +393,6 @@ def test_make_genai_metric_failure():
     )
     import pandas as pd
 
-    custom_metric1 = make_genai_metric(
-        name="correctness",
-        version="v-latest",
-        definition="definition",
-        grading_prompt="grading_prompt",
-        examples=[example],
-        model="model",
-        grading_context_columns=["targets"],
-        parameters={"temperature": 0.0},
-        greater_is_better=True,
-        aggregations=["mean"],
-    )
     with pytest.raises(
         MlflowException,
         match=re.escape(
@@ -412,11 +400,17 @@ def test_make_genai_metric_failure():
             "Please check the correctness of the version"
         ),
     ):
-        custom_metric1.eval_fn(
-            pd.Series(["predictions"]),
-            {},
-            pd.Series(["What is MLflow?"]),
-            pd.Series(["truth"]),
+        make_genai_metric(
+            name="correctness",
+            version="v-latest",
+            definition="definition",
+            grading_prompt="grading_prompt",
+            examples=[example],
+            model="model",
+            grading_context_columns=["targets"],
+            parameters={"temperature": 0.0},
+            greater_is_better=True,
+            aggregations=["mean"],
         )
 
     with mock.patch.object(
@@ -711,3 +705,29 @@ def test_strict_correctness_metric():
         match="Failed to find strict correctness metric for version non-existent-version",
     ):
         strict_correctness_metric = strict_correctness(metric_version="non-existent-version")
+
+
+def test_make_genai_metric_metric_details():
+    custom_metric = make_genai_metric(
+        name="correctness",
+        version="v1",
+        definition=example_definition,
+        grading_prompt=example_grading_prompt,
+        examples=[mlflow_example],
+        model="gateway:/gpt-3.5-turbo",
+        grading_context_columns=["targets"],
+        parameters={"temperature": 0.0},
+        greater_is_better=True,
+        aggregations=["mean", "variance", "p90"],
+    )
+
+    # pylint: disable=line-too-long
+    expected_metric_details = "\nTask:\nYou are an impartial judge. You will be given an input that was sent to a machine\nlearning model, and you will be given an output that the model produced. You\nmay also be given additional information that was used by the model to generate the output.\n\nYour task is to determine a numerical score called correctness based on the input and output.\nA definition of correctness and a grading rubric are provided below.\nYou must use the grading rubric to determine your score. You must also justify your score.\n\nExamples could be included below for reference. Make sure to use them as references and to\nunderstand them before completing the task.\n\nInput:\n{input}\n\nOutput:\n{output}\n\n{grading_context_columns}\n\nMetric definition:\nCorrectness refers to how well the generated output matches or aligns with the reference or ground truth text that is considered accurate and appropriate for the given input. The ground truth serves as a benchmark against which the provided output is compared to determine the level of accuracy and fidelity.\n\nGrading rubric:\nCorrectness: If the answer correctly answer the question, below are the details for different scores: - Score 0: the answer is completely incorrect, doesn’t mention anything about the question or is completely contrary to the correct answer. - Score 1: the answer provides some relevance to the question and answer one aspect of the question correctly. - Score 2: the answer mostly answer the question but is missing or hallucinating on one critical aspect. - Score 4: the answer correctly answer the question and not missing any major aspect\n\nExamples:\n\nInput:\nWhat is MLflow?\n\nOutput:\nMLflow is an open-source platform for managing machine learning workflows, including experiment tracking, model packaging, versioning, and deployment, simplifying the ML lifecycle.\n\nAdditional information used by the model:\nkey: targets\nvalue:\nMLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, a company that specializes in big data and machine learning solutions. MLflow is designed to address the challenges that data scientists and machine learning engineers face when developing, training, and deploying machine learning models.\n\nscore: 4\njustification: The definition effectively explains what MLflow is its purpose, and its developer. It could be more concise for a 5-score.\n        \n\nYou must return the following fields in your response one below the other:\nscore: Your numerical score for the model's correctness based on the rubric\njustification: Your step-by-step reasoning about the model's correctness score\n    "
+
+    assert custom_metric.metric_details == expected_metric_details
+
+    assert (
+        custom_metric.__str__()
+        == f"EvaluationMetric(name=correctness, greater_is_better=True, long_name=correctness, version=v1, metric_details={expected_metric_details})"
+    )
+    # pylint: enable=line-too-long

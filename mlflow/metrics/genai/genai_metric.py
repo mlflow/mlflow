@@ -180,6 +180,30 @@ def make_genai_metric(
         )
     """
 
+    class_name = f"mlflow.metrics.genai.prompts.{version}.EvaluationModel"
+    try:
+        evaluation_model_class_module = _get_class_from_string(class_name)
+    except ModuleNotFoundError:
+        raise MlflowException(
+            f"Failed to find evaluation model for version {version}."
+            f"Please check the correctness of the version",
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from None
+    except Exception as e:
+        raise MlflowException(
+            f"Failed to construct evaluation model {version}. Error: {e!r}",
+            error_code=INTERNAL_ERROR,
+        ) from None
+
+    evaluation_context = evaluation_model_class_module(
+        name,
+        definition,
+        grading_prompt,
+        examples,
+        model,
+        *(parameters,) if parameters is not None else (),
+    ).to_dict()
+
     def eval_fn(
         predictions: "pd.Series",
         metrics: Dict[str, MetricValue],
@@ -190,29 +214,6 @@ def make_genai_metric(
         This is the function that is called when the metric is evaluated.
         """
         eval_values = dict(zip(grading_context_columns, args))
-        class_name = f"mlflow.metrics.genai.prompts.{version}.EvaluationModel"
-        try:
-            evaluation_model_class_module = _get_class_from_string(class_name)
-        except ModuleNotFoundError:
-            raise MlflowException(
-                f"Failed to find evaluation model for version {version}."
-                f"Please check the correctness of the version",
-                error_code=INVALID_PARAMETER_VALUE,
-            ) from None
-        except Exception as e:
-            raise MlflowException(
-                f"Failed to construct evaluation model {version}. Error: {e!r}",
-                error_code=INTERNAL_ERROR,
-            ) from None
-
-        evaluation_context = evaluation_model_class_module(
-            name,
-            definition,
-            grading_prompt,
-            examples,
-            model,
-            *(parameters,) if parameters is not None else (),
-        ).to_dict()
 
         outputs = predictions.to_list()
         inputs = inputs.to_list()
@@ -338,5 +339,9 @@ def make_genai_metric(
     eval_fn.__signature__ = Signature(signature_parameters)
 
     return make_metric(
-        eval_fn=eval_fn, greater_is_better=greater_is_better, name=name, version=version
+        eval_fn=eval_fn,
+        greater_is_better=greater_is_better,
+        name=name,
+        version=version,
+        metric_details=evaluation_context["eval_prompt"].__str__(),
     )
