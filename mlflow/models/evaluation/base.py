@@ -14,7 +14,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from decimal import Decimal
 from types import FunctionType
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -1164,7 +1164,7 @@ def evaluate(
     evaluators=None,
     evaluator_config=None,
     custom_metrics=None,
-    extra_metrics=None,
+    extra_metrics: Optional[List[EvaluationMetric]] = None,
     custom_artifacts=None,
     validation_thresholds=None,
     baseline_model=None,
