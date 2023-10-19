@@ -752,7 +752,7 @@ def log_metric(
 
 
 def log_metrics(
-    metrics: Dict[str, float], step: Optional[int] = None, synchronous: Optional[bool] = True
+    metrics: Dict[str, float], step: Optional[int] = None, synchronous: bool = True
 ) -> RunOperations:
     """
     Log multiple metrics for the current run. If no run is active, this method will create a new
