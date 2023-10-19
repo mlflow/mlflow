@@ -1330,10 +1330,7 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
     assert isinstance(inference, list)
     assert all(isinstance(element, str) for element in inference)
 
-    if isinstance(inference_payload, dict):
-        pd_input = pd.DataFrame([inference_payload])
-    else:
-        pd_input = pd.DataFrame(inference_payload)
+    pd_input = pd.DataFrame({"inputs": [inference_payload]})
     pd_inference = pyfunc_loaded.predict(pd_input)
 
     assert isinstance(pd_inference, list)
@@ -1383,7 +1380,7 @@ def test_text2text_generation_pipeline_with_model_configs(
 
     assert inference == result
 
-    pd_input = pd.DataFrame([data]) if isinstance(data, str) else pd.DataFrame(data)
+    pd_input = pd.DataFrame({"inputs": [data]})
     pd_inference = pyfunc_loaded.predict(pd_input)
     assert pd_inference == result
 
@@ -1729,7 +1726,7 @@ def test_table_question_answering_pipeline(
     inference = loaded.predict(data)
     assert inference == result
 
-    pd_input = pd.DataFrame([data]) if isinstance(data, dict) else pd.DataFrame(data)
+    pd_input = pd.DataFrame({"inputs": [data]})
     pd_inference = loaded.predict(pd_input)
     assert pd_inference == result
 
@@ -1760,7 +1757,7 @@ def test_translation_pipeline(translation_pipeline, model_path, data, result):
     inference = pyfunc_loaded.predict(data)
     assert inference == result
 
-    pd_input = pd.DataFrame(data) if isinstance(data, list) else pd.DataFrame([data])
+    pd_input = pd.DataFrame({"inputs": [data]})
 
     pd_inference = pyfunc_loaded.predict(pd_input)
     assert pd_inference == result
@@ -1888,8 +1885,7 @@ def test_ner_pipeline(pipeline_name, model_path, data, result, request):
 
     assert inference == result
 
-    pd_input = pd.DataFrame(data) if isinstance(data, list) else pd.DataFrame([data])
-
+    pd_input = pd.DataFrame({"inputs": [data]})
     pd_inference = loaded_pyfunc.predict(pd_input)
     assert pd_inference == result
 

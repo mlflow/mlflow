@@ -390,11 +390,9 @@ def test_schema_inference_on_list_of_dicts():
     )
 
 
-def test_mixed_string_and_numpy_array():
-    schema = _infer_schema({"a": np.array([1, 2, 3]), "b": "c"})
-    assert schema == Schema(
-        [ColSpec(Object([Property("a", Array(DataType.long)), Property("b", DataType.string)]))]
-    )
+def test_mixed_string_and_numpy_array_with_errors():
+    with pytest.raises(MlflowException, match=r"Data is not one of the supported DataType"):
+        _infer_schema({"a": np.array([1, 2, 3]), "b": "c"})
 
 
 def test_dict_input_valid_checks_on_keys():

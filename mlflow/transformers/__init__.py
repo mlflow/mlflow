@@ -1626,8 +1626,19 @@ class _TransformersWrapper:
     def _convert_pandas_to_dict(self, data):
         import transformers
 
+        records = data.to_dict(orient="records")
+        # for cases when users pass a pandas DataFrame with a single column
+        # that contains objects/arrays, we should extract the field out
+        # e.g.
+        # data = [{"a": "some_value", "b": "some_value"}]
+        # pdf = pd.DataFrame({"inputs": [data]})
+        # >>> pdf
+        #                                      inputs
+        # 0  [{'a': 'some_value', 'b': 'some_value'}]
+        if len(records) == 1 and len(records[0]) == 1:
+            return next(iter(records[0].values()))
         if not isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
-            return data.to_dict(orient="records")
+            return records
         else:
             # NB: The ZeroShotClassificationPipeline requires an input in the form of
             # Dict[str, Union[str, List[str]]] and will throw if an additional nested

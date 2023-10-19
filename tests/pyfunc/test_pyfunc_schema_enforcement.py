@@ -19,7 +19,7 @@ from mlflow.models import Model, ModelSignature, infer_signature
 from mlflow.models.utils import _enforce_params_schema, _enforce_schema
 from mlflow.pyfunc import PyFuncModel
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
-from mlflow.types.schema import Array
+from mlflow.types.schema import Array, Object, Property
 from mlflow.utils.proto_json_utils import dump_input_data
 
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -682,7 +682,7 @@ def test_column_schema_enforcement_no_col_names():
         pyfunc_model.predict([[1, 2, 3]])
 
     # Can only provide data type that can be converted to dataframe...
-    with pytest.raises(MlflowException, match="Expected input to be DataFrame or list. Found: set"):
+    with pytest.raises(MlflowException, match="Expected input to be DataFrame. Found: set"):
         pyfunc_model.predict({1, 2, 3})
 
     # 9. dictionaries of str -> list/nparray work
@@ -2009,4 +2009,130 @@ def test_pyfunc_model_input_example_with_params(sample_params_basic, param_schem
     assert result == ["input1"]
 
 
-# def test_pyfunc_model_schema_enforcement
+@pytest.mark.parametrize(
+    ("data", "schema"),
+    [
+        ({"query": "sentence"}, Schema([ColSpec(Object([Property("query", DataType.string)]))])),
+        (
+            {"query": ["sentence_1", "sentence_2"]},
+            Schema([ColSpec(Object([Property("query", Array(DataType.string))]))]),
+        ),
+        (
+            {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
+            Schema(
+                [
+                    ColSpec(
+                        Object(
+                            [
+                                Property("query", Array(DataType.string)),
+                                Property("table", DataType.string),
+                            ]
+                        )
+                    )
+                ]
+            ),
+        ),
+        (
+            [{"query": "sentence"}, {"query": "sentence"}],
+            Schema([ColSpec(Array(Object([Property("query", DataType.string)])))]),
+        ),
+        (
+            [
+                {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
+                {"query": ["sentence_1", "sentence_2"]},
+            ],
+            Schema(
+                [
+                    ColSpec(
+                        Array(
+                            Object(
+                                [
+                                    Property("query", Array(DataType.string)),
+                                    Property("table", DataType.string, required=False),
+                                ]
+                            )
+                        )
+                    )
+                ]
+            ),
+        ),
+    ],
+)
+def test_pyfunc_model_schema_enforcement_with_objects_and_arrays(data, schema):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    signature = infer_signature(data)
+    assert signature.inputs == schema
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            signature=signature,
+        )
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert loaded_model.predict(data) == data
+
+    # Test pandas DataFrame input
+    df = pd.DataFrame({"inputs": [data]})
+    prediction = loaded_model.predict(df)
+    pd.testing.assert_frame_equal(prediction, df)
+
+
+@pytest.mark.parametrize(
+    ("data", "schema"),
+    [
+        (
+            [
+                {
+                    "object_column": {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
+                    "string_column": "some_string",
+                    "array_column": [{"name": "value"}, {"name": "value"}],
+                },
+                {
+                    "object_column": {"query": ["sentence_1", "sentence_2"]},
+                    "string_column": "some_string",
+                    "array_column": [{"name": "value"}],
+                },
+            ],
+            Schema(
+                [
+                    ColSpec(
+                        Object(
+                            [
+                                Property("query", Array(DataType.string)),
+                                Property("table", DataType.string, required=False),
+                            ]
+                        ),
+                        "object_column",
+                    ),
+                    ColSpec(DataType.string, "string_column"),
+                    ColSpec(
+                        Array(Object([Property("name", DataType.string)])),
+                        "array_column",
+                    ),
+                ]
+            ),
+        ),
+    ],
+)
+def test_pyfunc_model_schema_enforcement_complex(data, schema):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    df = pd.DataFrame.from_records(data)
+    signature = infer_signature(df)
+    assert signature.inputs == schema
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            signature=signature,
+        )
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    prediction = loaded_model.predict(df)
+    pd.testing.assert_frame_equal(prediction, df)

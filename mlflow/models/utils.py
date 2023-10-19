@@ -569,31 +569,49 @@ def _enforce_unnamed_col_schema(pf_input: PyFuncInput, input_schema: Schema):
     input_types = input_schema.input_types()
     new_pf_input = pd.DataFrame()
     for i, x in enumerate(input_names):
-        new_pf_input[x] = _enforce_mlflow_datatype(x, pf_input[x], input_types[i])
+        if isinstance(input_types[i], DataType):
+            new_pf_input[x] = _enforce_mlflow_datatype(x, pf_input[x], input_types[i])
+        # If the input_type is objects/arrays, we assume pf_input must be a pandas DataFrame.
+        # Otherwise, the schema is not valid.
+        elif isinstance(input_types[i], Object):
+            new_pf_input[x] = pd.Series(
+                [_enforce_object(obj, input_types[i]) for obj in pf_input[x]], name=x
+            )
+        elif isinstance(input_types[i], Array):
+            new_pf_input[x] = pd.Series(
+                [_enforce_array(arr, input_types[i]) for arr in pf_input[x]], name=x
+            )
     return new_pf_input
 
 
 def _enforce_named_col_schema(pf_input: PyFuncInput, input_schema: Schema):
     """Enforce the input columns conform to the model's column-based signature."""
-    required_input_names = input_schema.required_input_names()
-    input_types = input_schema.input_types_dict()
-
+    input_names = input_schema.input_names()
+    input_dict = input_schema.input_dict()
     new_pf_input = pd.DataFrame()
-    for x in required_input_names:
-        new_pf_input[x] = _enforce_mlflow_datatype(x, pf_input[x], input_types[x])
-
-    # Upstream validation means that if we're here, pf_input can only be a
-    # pandas dataframe or a dict.
-    optional_input_names = input_schema.optional_input_names()
-    if isinstance(pf_input, pd.DataFrame):
-        supplied_optional_inputs = [col for col in pf_input.columns if col in optional_input_names]
-    elif isinstance(pf_input, dict):
-        supplied_optional_inputs = [col for col in pf_input.keys() if col in optional_input_names]
-    else:
-        supplied_optional_inputs = []
-    # Iterate over supplied optional inputs rather than all optional inputs.
-    for x in supplied_optional_inputs:
-        new_pf_input[x] = _enforce_mlflow_datatype(x, pf_input[x], input_types[x])
+    for x in input_names:
+        input_type = input_dict[x].type
+        required = input_dict[x].required
+        if x not in pf_input:
+            if required:
+                raise MlflowException(
+                    f"The input column '{x}' is required by the model "
+                    "signature but missing from the input data."
+                )
+            else:
+                continue
+        if isinstance(input_type, DataType):
+            new_pf_input[x] = _enforce_mlflow_datatype(x, pf_input[x], input_type)
+        # If the input_type is objects/arrays, we assume pf_input must be a pandas DataFrame.
+        # Otherwise, the schema is not valid.
+        elif isinstance(input_type, Object):
+            new_pf_input[x] = pd.Series(
+                [_enforce_object(obj, input_type, required) for obj in pf_input[x]], name=x
+            )
+        elif isinstance(input_type, Array):
+            new_pf_input[x] = pd.Series(
+                [_enforce_array(arr, input_type, required) for arr in pf_input[x]], name=x
+            )
     return new_pf_input
 
 
@@ -757,85 +775,97 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     if isinstance(pf_input, pd.Series):
         pf_input = pd.DataFrame(pf_input)
     if not input_schema.is_tensor_spec():
-        if len(input_schema.inputs) == 1:
-            col_spec = input_schema.inputs[0]
-            if isinstance(col_spec.type, Array):
-                arr_dtype = col_spec.type.dtype
-                if isinstance(pf_input, pd.DataFrame):
-                    if isinstance(arr_dtype, Object):
-                        pf_input = _convert_pf_to_list_of_dicts(pf_input)
-                    elif isinstance(arr_dtype, DataType):
-                        pf_input = _convert_pf_to_list(pf_input)
-                return _enforce_array(pf_input, col_spec.type)
-            if isinstance(col_spec.type, Object):
-                obj = (
-                    _convert_pf_to_dict(pf_input)
-                    if isinstance(pf_input, pd.DataFrame)
-                    else pf_input
-                )
-                return _enforce_object(obj, col_spec.type)
-
-        if isinstance(pf_input, (list, np.ndarray, dict, pd.Series, str, bytes)):
-            try:
-                if isinstance(pf_input, (str, bytes)):
-                    pf_input = pd.DataFrame([pf_input])
-                elif isinstance(pf_input, dict) and all(
-                    _is_scalar(value) for value in pf_input.values()
-                ):
-                    pf_input = pd.DataFrame([pf_input])
-                elif isinstance(pf_input, dict) and all(
-                    isinstance(value, np.ndarray)
-                    and value.dtype.type == np.str_
-                    and value.size == 1
-                    and value.shape == ()
-                    for value in pf_input.values()
-                ):
-                    # This check is specifically to handle the serving structural cast for
-                    # certain inputs for the transformers implementation. Due to the fact that
-                    # specific Pipeline types in transformers support passing input data
-                    # of the form Dict[str, str] in which the value is a scalar string, model
-                    # serving will cast this entry as a numpy array with shape () and size 1.
-                    # This is seen as a scalar input when attempting to create a Pandas DataFrame
-                    # from such a numpy structure and requires the array to be encapsulated in a
-                    # list in order to prevent a ValueError exception for requiring an index
-                    # if passing in all scalar values thrown by Pandas.
-                    pf_input = pd.DataFrame([pf_input])
-                elif isinstance(pf_input, dict) and all(
-                    _is_scalar(value)
-                    or (isinstance(value, list) and all(isinstance(elem, str) for elem in value))
-                    for value in pf_input.values()
-                ):
-                    pf_input = pd.DataFrame([pf_input])
-                elif isinstance(pf_input, dict) and any(
-                    isinstance(value, np.ndarray) and value.ndim > 1 for value in pf_input.values()
-                ):
-                    # Pandas DataFrames can't be constructed with embedded multi-dimensional
-                    # numpy arrays. Accordingly, we convert any multi-dimensional numpy
-                    # arrays to lists before constructing a DataFrame. This is safe because ColSpec
-                    # model signatures do not support array columns, so subsequent validation logic
-                    # will result in a clear "incompatible input types" exception. This is
-                    # preferable to a pandas DataFrame construction error
-                    pf_input = pd.DataFrame(
-                        {
-                            key: (
-                                value.tolist()
-                                if (isinstance(value, np.ndarray) and value.ndim > 1)
-                                else value
-                            )
-                            for key, value in pf_input.items()
-                        }
+        # convert single DataType to pandas DataFrame
+        if np.isscalar(pf_input):
+            pf_input = pd.DataFrame([pf_input])
+        elif isinstance(pf_input, dict):
+            # For Object schema, we can validate it directly
+            if isinstance(input_schema.inputs[0].type, Object):
+                if len(input_schema.inputs) != 1:
+                    raise MlflowException(
+                        f"Expecting {len(input_schema.inputs)} inputs for schema {input_schema}, "
+                        f"received only one dictionary input {pf_input}."
                     )
-                else:
-                    pf_input = pd.DataFrame(pf_input)
-            except Exception as e:
-                raise MlflowException(
-                    "This model contains a column-based signature, which suggests a DataFrame"
-                    " input. There was an error casting the input data to a DataFrame:"
-                    f" {e}"
-                )
+                return _enforce_object(pf_input, input_schema.inputs[0].type)
+            # For old schema, we convert dicts to pandas DataFrame
+            else:
+                try:
+                    if (
+                        # This check is specifically to handle the serving structural cast for
+                        # certain inputs for the transformers implementation. Due to the fact that
+                        # specific Pipeline types in transformers support passing input data
+                        # of the form Dict[str, str] in which the value is a scalar string, model
+                        # serving will cast this entry as a numpy array with shape () and size 1.
+                        # This is seen as a scalar input when attempting to create a Pandas
+                        # DataFrame from such a numpy structure and requires the array to be
+                        # encapsulated in a list in order to prevent a ValueError exception for
+                        # requiring an index if passing in all scalar values thrown by Pandas.
+                        all(
+                            isinstance(value, np.ndarray)
+                            and value.dtype.type == np.str_
+                            and value.size == 1
+                            and value.shape == ()
+                            for value in pf_input.values()
+                        )
+                        or
+                        # Dict[str, Union[str, List[str]]]
+                        all(
+                            _is_scalar(value)
+                            or (
+                                isinstance(value, list)
+                                and all(isinstance(elem, str) for elem in value)
+                            )
+                            for value in pf_input.values()
+                        )
+                    ):
+                        pf_input = pd.DataFrame([pf_input])
+                    elif any(
+                        isinstance(value, np.ndarray) and value.ndim > 1
+                        for value in pf_input.values()
+                    ):
+                        # Pandas DataFrames can't be constructed with embedded multi-dimensional
+                        # numpy arrays. Accordingly, we convert any multi-dimensional numpy
+                        # arrays to lists before constructing a DataFrame. This is safe because
+                        # ColSpec model signatures do not support array columns, so subsequent
+                        # validation logic will result in a clear "incompatible input types"
+                        # exception. This is preferable to a pandas DataFrame construction error
+                        pf_input = pd.DataFrame(
+                            {
+                                key: (
+                                    value.tolist()
+                                    if (isinstance(value, np.ndarray) and value.ndim > 1)
+                                    else value
+                                )
+                                for key, value in pf_input.items()
+                            }
+                        )
+                    else:
+                        pf_input = pd.DataFrame(pf_input)
+                except Exception as e:
+                    raise MlflowException(
+                        "This model contains a column-based signature, which suggests a DataFrame"
+                        " input. There was an error casting the input data to a DataFrame:"
+                        f" {e}"
+                    )
+        elif isinstance(pf_input, list):
+            # For Array schema, we can validate it directly
+            if isinstance(input_schema.inputs[0].type, Array):
+                if len(input_schema.inputs) != 1:
+                    raise MlflowException(
+                        f"Expecting {len(input_schema.inputs)} inputs for schema {input_schema}, "
+                        f"received only one list input {pf_input}."
+                    )
+                return _enforce_array(pf_input, input_schema.inputs[0].type)
+            # For old schema, we convert lists to pandas DataFrame
+            else:
+                pf_input = pd.DataFrame(pf_input)
+
+        elif isinstance(pf_input, (np.ndarray, pd.Series)):
+            pf_input = pd.DataFrame(pf_input)
+
         if not isinstance(pf_input, pd.DataFrame):
             raise MlflowException(
-                f"Expected input to be DataFrame or list. Found: {type(pf_input).__name__}"
+                f"Expected input to be DataFrame. Found: {type(pf_input).__name__}"
             )
 
     if input_schema.has_input_names():
@@ -937,7 +967,9 @@ def _enforce_datatype(data: Any, dtype: DataType):
     return pd_series[0]
 
 
-def _enforce_array(data: Any, arr: Array):
+def _enforce_array(data: Any, arr: Array, required=True):
+    if not required and data is None:
+        return None
     if not isinstance(data, list):
         if np.isscalar(data):
             data = [data]
@@ -962,7 +994,9 @@ def _enforce_property(data: Any, property: Property):
     )
 
 
-def _enforce_object(data: Dict[str, Any], obj: Object):
+def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
+    if not required and data is None:
+        return None
     if not isinstance(data, dict):
         raise MlflowException(f"Expected data to be dictionary, got {type(data).__name__}")
     if not isinstance(obj, Object):

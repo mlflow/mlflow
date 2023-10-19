@@ -124,24 +124,14 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
             properties.append(Property(name=k, dtype=_infer_colspec_type(v)))
         return Object(properties=properties)
     if isinstance(data, list):
+        # We accept None in list to provide backward compatibility
+        data = [x for x in data if x is not None]
         if len(data) == 0:
             raise MlflowException.invalid_parameter_value(
                 "Expected non-empty list of values to infer colspec type"
             )
-        try:
-            ndim = np.array(data).ndim
-        except ValueError:
-            # To catch `ValueError: setting an array element with a sequence.`
-            # for input like `["a", ["a", "b"]]`
-            raise MlflowException.invalid_parameter_value(
-                "Expected data to be 1D array, shape mismatch"
-            )
-        if ndim != 1:
-            raise MlflowException.invalid_parameter_value(
-                f"Expected data to be 1D array, got {ndim}D array"
-            )
         dtype = _infer_colspec_type(data[0])
-        if isinstance(dtype, Object):
+        if isinstance(dtype, (Array, Object)):
             for v in data[1:]:
                 dtype2 = _infer_colspec_type(v)
                 try:
@@ -160,8 +150,6 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
         raise MlflowException.invalid_parameter_value(
             "Only support 1D array of DataType or dictionaries"
         )
-    if isinstance(data, np.ndarray):
-        return _infer_colspec_type(data.tolist())
     return _infer_datatype(data)
 
 
@@ -354,19 +342,13 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
     if col.dtype.kind == "O":
         col = col.infer_objects()
     if col.dtype.kind == "O":
-        # NB: Objects can be either binary or string. Pandas may consider binary data to be a string
-        # so we need to check for binary first.
-        is_binary_test = IsInstanceOrNone(bytes, bytearray)
-        if all(map(is_binary_test, col)) and is_binary_test.seen_instances > 0:
-            return DataType.binary
-        elif pd.api.types.is_string_dtype(col):
-            return DataType.string
-        else:
-            raise MlflowException(
-                "Unable to map 'object' type to MLflow DataType. object can "
-                "be mapped iff all values have identical data type which is one "
-                "of (string, (bytes or byterray),  int, float)."
-            )
+        try:
+            # We convert pandas Series into list and infer the schema.
+            # The real schema for internal field should be the Array's dtype
+            arr_type = _infer_colspec_type(col.to_list())
+            return arr_type.dtype
+        except Exception as e:
+            raise MlflowException(f"Failed to infer schema for pandas.Series {col}. Error: {e}")
     else:
         # NB: The following works for numpy types as well as pandas extension types.
         return _infer_numpy_dtype(col.dtype)
