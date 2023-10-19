@@ -305,16 +305,18 @@ def test_make_genai_metric_incorrect_response():
 
 def test_malformed_input_raises_exception():
     error_message = "Values for grading_context_columns are malformed and cannot be "
-    "formatted into prompt for metric 'correctness'.\nProvided values: {'targets': None}\n"
+    "formatted into prompt for metric 'answer_similarity'.\nProvided values: {'targets': None}\n"
     "Error: TypeError(\"'NoneType' object is not subscriptable\")\n"
 
-    correctness_metric = correctness()
+    answer_similarity_metric = answer_similarity()
 
     with pytest.raises(
         MlflowException,
         match=error_message,
     ):
-        correctness_metric.eval_fn(pd.Series([mlflow_prediction]), {}, pd.Series([input]), None)
+        answer_similarity_metric.eval_fn(
+            pd.Series([mlflow_prediction]), {}, pd.Series([input]), None
+        )
 
 
 def test_make_genai_metric_multiple():
