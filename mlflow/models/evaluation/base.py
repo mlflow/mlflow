@@ -109,23 +109,30 @@ class EvaluationMetric:
     :param long_name: (Optional) The long name of the metric. For example,
         ``"root_mean_squared_error"`` for ``"mse"``.
     :param version: (Optional) The metric version. For example ``v1``.
+    :param metric_details: (Optional) A description of the metric and how it is calculated.
     '''
 
-    def __init__(self, eval_fn, name, greater_is_better, long_name=None, version=None):
+    def __init__(
+        self, eval_fn, name, greater_is_better, long_name=None, version=None, metric_details=None
+    ):
         self.eval_fn = eval_fn
         self.name = name
         self.greater_is_better = greater_is_better
         self.long_name = long_name or name
         self.version = version
+        self.metric_details = metric_details
 
     def __str__(self):
+        parts = [f"name={self.name}, greater_is_better={self.greater_is_better}"]
+
         if self.long_name:
-            return (
-                f"EvaluationMetric(name={self.name}, long_name={self.long_name}, "
-                f"greater_is_better={self.greater_is_better})"
-            )
-        else:
-            return f"EvaluationMetric(name={self.name}, greater_is_better={self.greater_is_better})"
+            parts.append(f"long_name={self.long_name}")
+        if self.version:
+            parts.append(f"version={self.version}")
+        if self.metric_details:
+            parts.append(f"metric_details={self.metric_details}")
+
+        return "EvaluationMetric(" + ", ".join(parts) + ")"
 
 
 def make_metric(
@@ -135,6 +142,7 @@ def make_metric(
     name=None,
     long_name=None,
     version=None,
+    metric_details=None,
 ):
     '''
     A factory function to create an :py:class:`EvaluationMetric` object.
@@ -175,6 +183,7 @@ def make_metric(
     :param long_name: (Optional) The long name of the metric. For example, ``"mean_squared_error"``
         for ``"mse"``.
     :param version: (Optional) The metric version. For example ``v1``.
+    :param metric_details: (Optional) A description of the metric and how it is calculated.
 
     .. seealso::
 
@@ -194,7 +203,7 @@ def make_metric(
             )
         name = eval_fn.__name__
 
-    return EvaluationMetric(eval_fn, name, greater_is_better, long_name, version)
+    return EvaluationMetric(eval_fn, name, greater_is_better, long_name, version, metric_details)
 
 
 @developer_stable
