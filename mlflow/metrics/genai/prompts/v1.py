@@ -221,18 +221,27 @@ class RelevanceMetric:
 
 
 @dataclass
-class StrictCorrectnessMetric:
+class AnswerCorrectnessMetric:
     definition = (
-        "When a question demands a specific value, term, or description (e.g., math questions or "
-        "fact-checking), correctness is binary. Strict correctness of the output is assessed on "
-        "whether it aligns exactly with the ground truth. Scores are assigned to be 0 or 1."
+        "Answer correctness is evaluated on the accuracy of the provided output based on the "
+        "provided targets, which is the ground truth. Scores can be assigned based on the degree "
+        "of semantic similarity and factual correctness of the provided output to the provided "
+        "targets, where a higher score indicates higher degree of accuracy."
     )
 
     grading_prompt = (
-        "Strict Correctness: Below are the details for different scores:"
-        "- Score 0: the output is completely incorrect, doesn't mention anything about the "
-        "question or is completely contrary to the ground truth."
-        "- Score 1: the output answers the question correctly as provided in the ground truth."
+        "Answer Correctness: Below are the details for different scores:\n"
+        "- Score 1: the output is completely incorrect. It is completely different from or "
+        "contradicts the provided targets.\n"
+        "- Score 2: the output demonstrates some degree of semantic similarity and includes "
+        "partially correct information. However, the output still has significant discrepancies "
+        "with the provided targets or inaccuracies.\n"
+        "- Score 3: the output addresses a couple of aspects of the input accurately, aligning "
+        "with the provided targets. However, there are still omissions or minor inaccuracies.\n"
+        "- Score 4: the output is mostly correct. It provides mostly accurate information, but "
+        "there may be one or more minor omissions or inaccuracies.\n"
+        "- Score 5: the output is correct. It demonstrates a high degree of accuracy and "
+        "semantic similarity to the targets."
     )
 
     grading_context_columns = ["targets"]
@@ -242,7 +251,7 @@ class StrictCorrectnessMetric:
     example_score_0 = EvaluationExample(
         input="Is MLflow open-source?",
         output="No, MLflow is not open-source.",
-        score=0,
+        score=1,
         justification="The output is incorrect. It states that MLflow is not open-source, which "
         "contradicts the provided context, where it is explicitly mentioned that MLflow is an "
         "open-source platform. This directly opposes the ground truth, resulting in a score of 0 "

@@ -78,14 +78,15 @@ def answer_similarity(
 
 
 @experimental
-def strict_correctness(
+def answer_correctness(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
     examples: Optional[List[EvaluationExample]] = None,
     judge_request_timeout=60,
 ) -> EvaluationMetric:
+    # TODO: update docstring
     """
-    This function will create a genai metric used to evaluate the strict correctness of an LLM
+    This function will create a genai metric used to evaluate the  correctness of an LLM
     using the model provided. Strict correctness should be used in cases where correctness is
     binary, and the source of truth is provided in the ``ground_truth``. Outputs will be
     given either the highest or lowest score depending on if they are consistent with the

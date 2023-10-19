@@ -17,12 +17,12 @@ from mlflow.metrics.genai.genai_metric import (
 from mlflow.metrics.genai.metric_definitions import (
     answer_similarity,
     relevance,
-    strict_correctness,
+    answer_correctness,
 )
 from mlflow.metrics.genai.prompts.v1 import (
     AnswerSimilarityMetric,
     RelevanceMetric,
-    StrictCorrectnessMetric,
+    AnswerCorrectnessMetric,
 )
 
 openai_justification1 = (
@@ -649,9 +649,9 @@ def test_relevance_metric():
 
 
 def test_strict_correctness_metric():
-    strict_correctness_metric = strict_correctness()
+    strict_correctness_metric = answer_correctness()
     input = "What is MLflow?"
-    examples = "\n".join([str(example) for example in StrictCorrectnessMetric.default_examples])
+    examples = "\n".join([str(example) for example in AnswerCorrectnessMetric.default_examples])
 
     with mock.patch.object(
         model_utils,
@@ -680,15 +680,15 @@ def test_strict_correctness_metric():
             f"\nOutput:\n{mlflow_prediction}\n"
             "\nAdditional information used by the model:\nkey: targets\nvalue:\n"
             f"{mlflow_ground_truth}\n"
-            f"\nMetric definition:\n{StrictCorrectnessMetric.definition}\n"
-            f"\nGrading rubric:\n{StrictCorrectnessMetric.grading_prompt}\n"
+            f"\nMetric definition:\n{AnswerCorrectnessMetric.definition}\n"
+            f"\nGrading rubric:\n{AnswerCorrectnessMetric.grading_prompt}\n"
             "\nExamples:\n"
             f"{examples}\n"
             "\nYou must return the following fields in your response one below the other:\nscore: "
             "Your numerical score for the model's strict_correctness based on the "
             "rubric\njustification: Your step-by-step reasoning about the model's "
             "strict_correctness score\n    ",
-            **StrictCorrectnessMetric.parameters,
+            **AnswerCorrectnessMetric.parameters,
         }
 
     assert metric_value.scores == [3]
@@ -704,7 +704,7 @@ def test_strict_correctness_metric():
         MlflowException,
         match="Failed to find strict correctness metric for version non-existent-version",
     ):
-        strict_correctness_metric = strict_correctness(metric_version="non-existent-version")
+        answer_correctness(metric_version="non-existent-version")
 
 
 def test_make_genai_metric_metric_details():
