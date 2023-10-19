@@ -274,6 +274,7 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install pyspark torch transformers
+          pip uninstall -y safetensors
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
