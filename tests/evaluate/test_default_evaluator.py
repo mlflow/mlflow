@@ -2941,6 +2941,38 @@ def test_default_metrics_as_custom_metrics_static_dataset():
     assert "exact_match/v1" in results.metrics.keys()
 
 
+def test_multi_output_model_error_handling():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=multi_output_model, input_example=["a"]
+        )
+        data = pd.DataFrame(
+            {
+                "question": ["words random", "This is a sentence."],
+                "truth": ["words random", "This is a sentence."],
+            }
+        )
+        with pytest.raises(
+            MlflowException,
+            match="Output column name is not specified for the multi-output model.",
+        ):
+            evaluate(
+                model_info.model_uri,
+                data,
+                targets="truth",
+                predictions="answer",
+                model_type="question-answering",
+                custom_metrics=[
+                    mlflow.metrics.flesch_kincaid_grade_level,
+                    mlflow.metrics.perplexity,
+                    mlflow.metrics.ari_grade_level,
+                    mlflow.metrics.toxicity,
+                    mlflow.metrics.exact_match,
+                ],
+                evaluators="default",
+            )
+
+
 def test_evaluate_with_latency():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(

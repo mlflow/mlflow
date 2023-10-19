@@ -443,6 +443,10 @@ _matplotlib_config = {
 def _extract_output_and_other_columns(model_predictions, output_column_name):
     y_pred = None
     other_output_columns = None
+    ERROR_MISSING_OUTPUT_COLUMN_NAME = (
+        "Output column name is not specified for the multi-output model. "
+        "Please set the correct output column name using the `predictions` parameter."
+    )
 
     if isinstance(model_predictions, list) and all(isinstance(p, dict) for p in model_predictions):
         # Extract 'y_pred' and 'other_output_columns' from list of dictionaries
@@ -454,20 +458,32 @@ def _extract_output_and_other_columns(model_predictions, output_column_name):
                 [{k: v for k, v in p.items() if k != output_column_name} for p in model_predictions]
             )
         elif len(model_predictions) > 1:
+            if output_column_name is None:
+                raise MlflowException(
+                    ERROR_MISSING_OUTPUT_COLUMN_NAME,
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             raise MlflowException(
                 f"Output column name '{output_column_name}' is not found in the model "
                 f"predictions list: {model_predictions}. Please set the correct output column "
-                "name using the `predictions` parameter."
+                "name using the `predictions` parameter.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
     elif isinstance(model_predictions, pd.DataFrame):
         if output_column_name in model_predictions.columns:
             y_pred = model_predictions[output_column_name]
             other_output_columns = model_predictions.drop(columns=output_column_name)
         elif model_predictions.shape[1] > 1:
+            if output_column_name is None:
+                raise MlflowException(
+                    ERROR_MISSING_OUTPUT_COLUMN_NAME,
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             raise MlflowException(
                 f"Output column name '{output_column_name}' is not found in the model "
                 f"predictions dataframe {model_predictions.columns}. Please set the correct "
-                "output column name using the `predictions` parameter."
+                "output column name using the `predictions` parameter.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
     elif isinstance(model_predictions, dict):
         if output_column_name in model_predictions:
@@ -476,10 +492,16 @@ def _extract_output_and_other_columns(model_predictions, output_column_name):
                 {k: v for k, v in model_predictions.items() if k != output_column_name}
             )
         elif len(model_predictions) > 1:
+            if output_column_name is None:
+                raise MlflowException(
+                    ERROR_MISSING_OUTPUT_COLUMN_NAME,
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             raise MlflowException(
                 f"Output column name '{output_column_name}' is not found in the "
                 f"model predictions dict {model_predictions}. Please set the correct "
-                "output column name using the ``predictions` parameter."
+                "output column name using the `predictions` parameter.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
     return y_pred if y_pred is not None else model_predictions, other_output_columns
@@ -1159,23 +1181,27 @@ class DefaultEvaluator(ModelEvaluator):
                     ):
                         eval_fn_args.append(self.other_output_columns[column])
                     elif param.default == inspect.Parameter.empty:
-                        output_column_name = (
-                            self.predictions if self.predictions is not None else "output"
-                        )
+                        output_column_name = self.predictions
                         if self.other_output_columns:
                             output_columns = list(self.other_output_columns.columns)
                         else:
                             output_columns = []
                         input_columns = list(input_df.columns)
+                        msg_output_columns = (
+                            (
+                                "Note that this does not include the output column: "
+                                f"'{output_column_name}'\n\n"
+                            )
+                            if output_column_name is not None
+                            else ""
+                        )
                         raise MlflowException(
                             "Error: Metric Calculation Failed\n"
                             f"Metric '{extra_metric.name}' requires the column '{param_name}' to "
                             "be defined in either the input data or resulting output data.\n\n"
                             "Below are the existing column names for the input/output data:\n"
                             f"Input Columns: {input_columns}\n"
-                            f"Output Columns: {output_columns}\n"
-                            "Note that this does not include the output column: "
-                            f"'{output_column_name}'\n\n"
+                            f"Output Columns: {output_columns}\n{msg_output_columns}"
                             f"To resolve this issue, you may want to map {param_name} to an "
                             "existing column using the following configuration:\n"
                             f"evaluator_config={{'col_mapping': {{'{param_name}': "
@@ -1319,12 +1345,15 @@ class DefaultEvaluator(ModelEvaluator):
             if self.dataset.predictions_data is None:
                 raise MlflowException(
                     message="Predictions data is missing when model is not provided. "
-                    "Please provide predictions data in the pandas dataset or provide "
-                    "a model.",
+                    "Please provide predictions data in a dataset or provide a model. "
+                    "See the documentation for mlflow.evaluate() for how to specify "
+                    "the predictions data in a dataset.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             if compute_latency:
-                _logger.warning("Returning the latency as zeros because model is not provided.")
+                _logger.warning(
+                    "Setting the latency to 0 for all entries because the model " "is not provided."
+                )
                 self.metrics_values.update(
                     {_LATENCY_METRIC_NAME: MetricValue(scores=[0.0] * len(X_copy))}
                 )
@@ -1363,7 +1392,7 @@ class DefaultEvaluator(ModelEvaluator):
             else:
                 self.y_probs = None
 
-        output_column_name = self.predictions if self.predictions is not None else "output"
+        output_column_name = self.predictions
         self.y_pred, self.other_output_columns = _extract_output_and_other_columns(
             model_predictions, output_column_name
         )
