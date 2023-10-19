@@ -126,7 +126,7 @@ xgboost:
       ">= 0.0.0": ["scikit-learn"]
       "< 1.6": ["pandas<2"]
     run: |
-      pytest tests/xgboost/test_xgboost_model_export.py
+      dev/pytest.sh tests/xgboost/test_xgboost_model_export.py
 
   autologging:
     minimum: "1.4.2"
@@ -135,7 +135,7 @@ xgboost:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
       "< 1.6": ["pandas<2"]
     run: |
-      pytest tests/xgboost/test_xgboost_autolog.py
+      dev/pytest.sh tests/xgboost/test_xgboost_autolog.py
 
 lightgbm:
   package_info:

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# pytest runner to fail fast if the "fail-fast" label is present on the PR.
+
 fetch_labels() {
     if [ -z $GITHUB_ACTIONS ]; then
         echo ""
