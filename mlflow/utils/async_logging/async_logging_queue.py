@@ -33,7 +33,7 @@ class AsyncLoggingQueue:
                 representing the run_id, a list of Metric objects,
                 a list of Param objects, and a list of RunTag objects.
         """
-        self._queue = Queue()  # Dict[str, Queue]
+        self._queue = Queue()
         self._logging_func = logging_func
         self._continue_to_log_data = threading.Event()
         # Keeping max_workers=1 so that there are no two threads
