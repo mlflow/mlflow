@@ -4,7 +4,8 @@ from fastapi.encoders import jsonable_encoder
 from mlflow.gateway.config import AnthropicConfig, RouteConfig
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
-    MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS)
+    MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
+)
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -68,7 +69,7 @@ class AnthropicAdapter(ProviderAdapter):
             payload["prompt"] = "\n\n" + payload["prompt"]
 
         if not payload["prompt"].startswith("\n\nHuman: "):
-            payload["prompt"] = f"\n\nHuman: " + payload["prompt"]
+            payload["prompt"] = "\n\nHuman: " + payload["prompt"]
 
         if not payload["prompt"].endswith("\n\nAssistant:"):
             payload["prompt"] = payload["prompt"] + "\n\nAssistant:"

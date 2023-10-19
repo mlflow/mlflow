@@ -496,7 +496,7 @@ class EvaluationDataset:
                 self._feature_names = feature_names
             else:
                 self._feature_names = [
-                    f"feature_{str(i + 1).zfill(math.ceil((math.log10(num_features + 1))))}"
+                    f"feature_{str(i + 1).zfill(math.ceil(math.log10(num_features + 1)))}"
                     for i in range(num_features)
                 ]
         elif isinstance(data, self._supported_dataframe_types):

@@ -1,22 +1,19 @@
-import os
 from unittest import mock
 
 import pytest
-from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-from mlflow.gateway.config import (AWSBaseConfig, AWSBedrockConfig,
-                                   AWSIdAndKey, AWSRole, RouteConfig)
-from mlflow.gateway.providers.bedrock import (AWSBedrockModelProvider,
-                                              AWSBedrockProvider)
-from mlflow.gateway.schemas import chat, completions, embeddings
-from pydantic import ValidationError
-from tests.gateway.providers.test_anthropic import \
-    completions_response as anthropic_completions_response
-from tests.gateway.providers.test_anthropic import \
-    parsed_completions_response as anthropic_parsed_completions_response
-from tests.gateway.providers.test_cohere import \
-    completions_response as cohere_completions_response
-from tests.gateway.tools import MockAsyncResponse
+
+from mlflow.gateway.config import AWSBaseConfig, AWSBedrockConfig, AWSIdAndKey, AWSRole, RouteConfig
+from mlflow.gateway.providers.bedrock import AWSBedrockModelProvider, AWSBedrockProvider
+from mlflow.gateway.schemas import completions
+
+from tests.gateway.providers.test_anthropic import (
+    completions_response as anthropic_completions_response,
+)
+from tests.gateway.providers.test_anthropic import (
+    parsed_completions_response as anthropic_parsed_completions_response,
+)
+from tests.gateway.providers.test_cohere import completions_response as cohere_completions_response
 
 
 def ai21_completion_response():
@@ -289,13 +286,13 @@ def _assert_any_call_at_least(mobj, *args, **kwargs):
         raise AssertionError(f"No valid call to {mobj=} with {args=} and {kwargs=}")
 
 
-@pytest.mark.parametrize("aws_config,expected", bedrock_aws_configs)
+@pytest.mark.parametrize(("aws_config", "expected"), bedrock_aws_configs)
 def test_bedrock_aws_config(aws_config, expected):
-    assert isinstance(AWSBedrockConfig.parse_obj(dict(aws_config=aws_config)).aws_config, expected)
+    assert isinstance(AWSBedrockConfig.parse_obj({"aws_config": aws_config}).aws_config, expected)
 
 
 @pytest.mark.parametrize(
-    "provider,config",
+    ("provider", "config"),
     [(fix["provider"], fix["config"]) for fix in bedrock_model_provider_fixtures][:1],
 )
 @pytest.mark.parametrize("aws_config", [c for c, _ in bedrock_aws_configs])
@@ -336,7 +333,7 @@ def test_bedrock_aws_client(provider, config, aws_config):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("aws_config", [c[0] for c in bedrock_aws_configs])
 @pytest.mark.parametrize(
-    "provider,config,payload,response,expected,model_request",
+    ("provider", "config", "payload", "response", "expected", "model_request"),
     [
         pytest.param(
             fix["provider"],

@@ -1,4 +1,4 @@
-from abc import ABC, abstractclassmethod, abstractmethod
+from abc import ABC, abstractclassmethod
 from typing import Tuple
 
 from fastapi import HTTPException

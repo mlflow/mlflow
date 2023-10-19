@@ -1,5 +1,4 @@
 import json
-import os
 import time
 from enum import Enum
 
@@ -9,16 +8,15 @@ import botocore.exceptions
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.config import (AWSBedrockConfig, AWSIdAndKey, AWSRole,
-                                   RouteConfig)
+from mlflow.gateway.config import AWSBedrockConfig, AWSIdAndKey, AWSRole, RouteConfig
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
-    MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS)
+)
 from mlflow.gateway.exceptions import AIGatewayConfigException
 from mlflow.gateway.providers.anthropic import AnthropicAdapter
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.cohere import CohereAdapter
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request
+from mlflow.gateway.providers.utils import rename_payload_keys
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS = 8191
