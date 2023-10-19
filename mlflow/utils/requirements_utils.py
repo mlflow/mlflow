@@ -547,8 +547,6 @@ def _check_requirement_satisfied(requirement_str):
     if pkg_name == "mlflow" and "gateway" in req.extras:
         try:
             from mlflow import gateway  # noqa: F401
-
-            gateway.__name__
         except ModuleNotFoundError:
             return _MismatchedPackageInfo(
                 package_name="mlflow[gateway]", installed_version=None, requirement=requirement_str
