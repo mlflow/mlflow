@@ -29,14 +29,12 @@ def train_keras(ratings_data, als_model_uri, hidden_units):
     np.random.seed(0)
     tf.set_random_seed(42)  # For reproducibility
 
-    spark = pyspark.sql.SparkSession.builder.getOrCreate()
     als_model = mlflow.spark.load_model(als_model_uri).stages[0]
-
-    ratings_df = spark.read.parquet(ratings_data)
-
-    (training_df, test_df) = ratings_df.randomSplit([0.8, 0.2], seed=42)
-    training_df.cache()
-    test_df.cache()
+    with pyspark.sql.SparkSession.builder.getOrCreate() as spark:
+        ratings_df = spark.read.parquet(ratings_data)
+        (training_df, test_df) = ratings_df.randomSplit([0.8, 0.2], seed=42)
+        training_df.cache()
+        test_df.cache()
 
     mlflow.log_metric("training_nrows", training_df.count())
     mlflow.log_metric("test_nrows", test_df.count())

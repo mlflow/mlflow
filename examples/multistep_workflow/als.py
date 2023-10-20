@@ -23,12 +23,11 @@ import mlflow.spark
 def train_als(ratings_data, split_prop, max_iter, reg_param, rank, cold_start_strategy):
     seed = 42
 
-    spark = pyspark.sql.SparkSession.builder.getOrCreate()
-
-    ratings_df = spark.read.parquet(ratings_data)
-    (training_df, test_df) = ratings_df.randomSplit([split_prop, 1 - split_prop], seed=seed)
-    training_df.cache()
-    test_df.cache()
+    with pyspark.sql.SparkSession.builder.getOrCreate() as spark:
+        ratings_df = spark.read.parquet(ratings_data)
+        (training_df, test_df) = ratings_df.randomSplit([split_prop, 1 - split_prop], seed=seed)
+        training_df.cache()
+        test_df.cache()
 
     mlflow.log_metric("training_nrows", training_df.count())
     mlflow.log_metric("test_nrows", test_df.count())
