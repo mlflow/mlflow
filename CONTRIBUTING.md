@@ -199,6 +199,14 @@ and [ruff](https://github.com/astral-sh/ruff) in our CI via
 pre-commit Git hooks. If your code passes the CI checks, it's
 formatted correctly. 
 
+To validate that your local versions of the above libraries 
+match those in the mlflow CI, refer to [lint-requirements.txt](https://github.com/mlflow/mlflow/blob/master/requirements/lint-requirements.txt). 
+You can compare these versions with your local using pip:
+
+```bash
+pip show pylint
+```
+
 ## Setting up the repository
 
 To set up the MLflow repository, run the following commands:
