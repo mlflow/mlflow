@@ -480,7 +480,7 @@ def test_instance_extraction(small_qa_pipeline):
         ("small_multi_modal_pipeline", False),
         ("small_vision_model", False),
     ],
-)
+) 
 def test_pipeline_eligibility_for_pyfunc_registration(model, result, request):
     pipeline = request.getfixturevalue(model)
     assert _should_add_pyfunc_to_model(pipeline) == result
