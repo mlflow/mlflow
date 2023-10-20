@@ -33,6 +33,7 @@ defaults:
     shell: bash --noprofile --norc -exo pipefail {0}
 
 env:
+  MLFLOW_HOME: /home/runner/work/mlflow/mlflow
   MLFLOW_CONDA_HOME: /usr/share/miniconda
 
 jobs:
@@ -74,7 +75,6 @@ jobs:
         env:
           SPARK_LOCAL_IP: localhost
         run: |
-          export MLFLOW_HOME=$(pwd)
           pytest tests/examples --durations=30
 
       - name: Remove conda environments

@@ -4,7 +4,6 @@ set -x
 # https://stackoverflow.com/a/42219754
 err=0
 trap 'err=1' ERR
-export MLFLOW_HOME=$(pwd)
 
 pytest tests --quiet --requires-ssh --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate
 
