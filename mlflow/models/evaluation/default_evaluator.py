@@ -1457,7 +1457,7 @@ class DefaultEvaluator(ModelEvaluator):
             Output Columns: {output_columns}
             To resolve this issue, you may want to map the missing column to an existing column
             using the following configuration:
-            evaluator_config={{'col_mapping': {{<missing column name>: <existing column name}}}}"""
+            evaluator_config={{'col_mapping': {{<missing column name>: <existing column name>}}}}"""
             stripped_message = "\n".join(l.lstrip() for l in full_message.splitlines())
             raise MlflowException(stripped_message)
 

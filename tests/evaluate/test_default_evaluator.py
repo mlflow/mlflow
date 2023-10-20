@@ -2195,7 +2195,13 @@ def test_missing_args_raises_exception():
     error_message = (
         r"Error: Metric calculation failed for the following metrics:\n"
         r"Metric 'metric_1' requires the columns \['param_1', 'param_2'\]\n"
-        r"Metric 'metric_2' requires the columns \['param_3', 'builtin_metrics'\]\n"
+        r"Metric 'metric_2' requires the columns \['param_3', 'builtin_metrics'\]\n\n"
+        r"Below are the existing column names for the input/output data:\n"
+        r"Input Columns: \['question'\]\n"
+        r"Output Columns: \[\]\n"
+        r"To resolve this issue, you may want to map the missing column to an existing column\n"
+        r"using the following configuration:\n"
+        r"evaluator_config=\{'col_mapping': \{<missing column name>: <existing column name>\}\}"
     )
 
     with pytest.raises(
