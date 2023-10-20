@@ -1172,15 +1172,26 @@ class DefaultEvaluator(ModelEvaluator):
                 elif column == "metrics":
                     eval_fn_args.append(copy.deepcopy(self.metrics_values))
                 else:
+                    # case when column passed in col_mapping contains the entire column
                     if not isinstance(column, str):
                         eval_fn_args.append(column)
+
+                    # case column in col_mapping is string and the column value
+                    # is part of the input_df
                     elif column in input_df.columns:
                         eval_fn_args.append(input_df[column])
+
+                    # case column in col_mapping is string and the column value
+                    # is part of the output_df(other than predictions)
                     elif (
                         self.other_output_columns is not None
                         and column in self.other_output_columns.columns
                     ):
                         eval_fn_args.append(self.other_output_columns[column])
+
+                    # case where the param is defined as part of the evaluator_config
+                    elif column in self.evaluator_config:
+                        eval_fn_args.append(self.evaluator_config.get(column))
                     elif param.default == inspect.Parameter.empty:
                         params_not_found.append(param_name)
 
