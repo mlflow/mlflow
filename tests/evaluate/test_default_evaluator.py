@@ -3159,3 +3159,28 @@ def test_evaluate_with_correctness():
                 "correctness/v1/variance": 0.0,
                 "correctness/v1/p90": 3.0,
             }
+
+
+def test_evaluate_custom_metrics_string_values():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
+        results = mlflow.evaluate(
+            model_info.model_uri,
+            data,
+            extra_metrics=[
+                make_metric(
+                    eval_fn=lambda predictions, metrics, eval_config: MetricValue(
+                        aggregate_results={"eval_config_value_average": eval_config}
+                    ),
+                    name="cm",
+                    greater_is_better=True,
+                    long_name="custom_metric",
+                )
+            ],
+            evaluators="default",
+            evaluator_config={"eval_config": 3},
+        )
+        assert results.metrics["cm/eval_config_value_average"] == 3
