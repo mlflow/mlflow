@@ -3276,3 +3276,56 @@ def test_evaluate_retriever():
         "precision_at_k/v1/variance": 0,
         "precision_at_k/v1/p90": 1,
     }
+
+
+def test_temp():
+    data = pd.DataFrame(
+        {
+            "questions": [
+                "What is MLflow?",
+                "What is Databricks?",
+                "How to serve a model on Databricks?",
+                "How to enable MLflow Autologging for my workspace by default?",
+            ],
+            "retrieved_context": [
+                (
+                    "https://docs.databricks.com/en/mlflow/index.html",
+                    "https://docs.databricks.com/en/mlflow/quick-start.html",
+                ),
+                (
+                    "https://docs.databricks.com/en/introduction/index.html",
+                    "https://docs.databricks.com/en/getting-started/overview.html",
+                ),
+                (
+                    "https://docs.databricks.com/en/machine-learning/model-serving/index.html",
+                    "https://docs.databricks.com/en/machine-learning/model-serving/model-serving-intro.html",
+                ),
+                (),
+            ],
+            "ground_truth_context": [
+                (("https://docs.databricks.com/en/mlflow/index.html")),
+                (("https://docs.databricks.com/en/introduction/index.html")),
+                (
+                    "https://docs.databricks.com/en/machine-learning/model-serving/index.html",
+                    "https://docs.databricks.com/en/machine-learning/model-serving/llm-optimized-model-serving.html",
+                ),
+                ("https://docs.databricks.com/en/mlflow/databricks-autologging.html"),
+            ],
+        }
+    )
+
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            data=data,
+            model_type="retriever",
+            targets="ground_truth_context",
+            predictions="retrieved_context",
+            evaluators="default",
+            evaluator_config={"k": 3},
+        )
+    run = mlflow.get_run(run.info.run_id)
+    assert run.data.metrics == {
+        "precision_at_k/v1/mean": 1,
+        "precision_at_k/v1/variance": 0,
+        "precision_at_k/v1/p90": 1,
+    }
