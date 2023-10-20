@@ -29,6 +29,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
@@ -101,7 +102,7 @@ class FileModelVersion(ModelVersion):
 
     def to_mlflow_entity(self):
         meta = dict(self)
-        meta["tags"] = [ModelVersionTag(k, v) for k,v in meta["tags"].items()]
+        meta["tags"] = [ModelVersionTag(k, v) for k, v in meta["tags"].items()]
         return ModelVersion.from_dictionary(meta)
 
 
@@ -656,7 +657,7 @@ class FileStore(AbstractStore):
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         updated_time = get_current_time_millis()
-        model_version = self._fetch_model_version_if_exists(name=name, version=version)
+        model_version = self._fetch_file_model_version_if_exists(name=name, version=version)
         model_version.description = description
         model_version.last_updated_timestamp = updated_time
         self._save_model_version_as_meta_file(model_version)
@@ -696,7 +697,7 @@ class FileStore(AbstractStore):
                     mv.last_updated_timestamp = last_updated_time
                     self._save_model_version_as_meta_file(mv)
 
-        model_version = self._fetch_model_version_if_exists(name, version)
+        model_version = self._fetch_file_model_version_if_exists(name, version)
         model_version.current_stage = get_canonical_stage(stage)
         model_version.last_updated_timestamp = last_updated_time
         self._save_model_version_as_meta_file(model_version)
@@ -711,7 +712,7 @@ class FileStore(AbstractStore):
         :param version: Registered model version.
         :return: None
         """
-        model_version = self._fetch_model_version_if_exists(name=name, version=version)
+        model_version = self._fetch_file_model_version_if_exists(name=name, version=version)
         model_version.current_stage = STAGE_DELETED_INTERNAL
         updated_time = get_current_time_millis()
         model_version.last_updated_timestamp = updated_time
@@ -720,7 +721,7 @@ class FileStore(AbstractStore):
         for alias in model_version.aliases:
             self.delete_registered_model_alias(name, alias)
 
-    def _fetch_model_version_if_exists(self, name, version) -> FileModelVersion:
+    def _fetch_file_model_version_if_exists(self, name, version) -> FileModelVersion:
         _validate_model_name(name)
         _validate_model_version(version)
         registered_model_version_dir = self._get_model_version_dir(name, version)
@@ -745,7 +746,7 @@ class FileStore(AbstractStore):
         :param version: Registered model version.
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        return self._fetch_model_version_if_exists(name, version).to_mlflow_entity()
+        return self._fetch_file_model_version_if_exists(name, version).to_mlflow_entity()
 
     def get_model_version_download_uri(self, name, version) -> str:
         """
@@ -757,7 +758,7 @@ class FileStore(AbstractStore):
         :param version: Registered model version.
         :return: A single URI location that allows reads for downloading.
         """
-        model_version = self._fetch_model_version_if_exists(name, version)
+        model_version = self._fetch_file_model_version_if_exists(name, version)
         if model_version.storage_location is not None:
             return model_version.storage_location
         return model_version.source
@@ -836,7 +837,7 @@ class FileStore(AbstractStore):
 
     def _get_registered_model_version_tag_path(self, name, version, tag_name):
         _validate_tag_name(tag_name)
-        self._fetch_model_version_if_exists(name, version)
+        self._fetch_file_model_version_if_exists(name, version)
         registered_model_version_path = self._get_model_version_dir(name, version)
         return os.path.join(registered_model_version_path, FileStore.TAGS_FOLDER_NAME, tag_name)
 
@@ -894,7 +895,7 @@ class FileStore(AbstractStore):
         :return: None
         """
         alias_path = self._get_registered_model_alias_path(name, alias)
-        self._fetch_model_version_if_exists(name, version)
+        self._fetch_file_model_version_if_exists(name, version)
         make_containing_dirs(alias_path)
         write_to(alias_path, self._writeable_value(version))
         updated_time = get_current_time_millis()
@@ -953,6 +954,18 @@ class FileStore(AbstractStore):
                 return _read_helper(root, file_name, attempts_remaining - 1)
 
         return _read_helper(root, file_name, attempts_remaining=retries)
+
+    def copy_model_version(self, mv, dst_name) -> ModelVersion:
+        """
+        Copy a model version from one registered model to another as a new model version.
+
+        :param src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                       the source model version.
+        :param dst_name: the name of the registered model to copy to.
+        :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                 the cloned model version.
+        """
+        return self._copy_model_version_impl(mv, dst_name)
 
     def _await_model_version_creation(self, mv, await_creation_for):
         """

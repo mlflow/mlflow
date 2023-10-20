@@ -205,17 +205,17 @@ class ModelRegistryClient:
             self.store._await_model_version_creation(mv, await_creation_for)
         return mv
 
-    def copy_model_version(self, src_mv, dest_name):
+    def copy_model_version(self, src_mv, dst_name):
         """
         Copy a model version from one registered model to another as a new model version.
 
         :param src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
                        the source model version.
-        :param dest_name: the name of the registered model to copy to.
+        :param dst_name: the name of the registered model to copy to.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
                  the cloned model version.
         """
-        return self.store.copy_model_version(src_mv=src_mv, dest_name=dest_name)
+        return self.store.copy_model_version(src_mv=src_mv, dst_name=dst_name)
 
     def update_model_version(self, name, version, description):
         """

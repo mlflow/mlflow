@@ -2,6 +2,7 @@ import logging
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
 
+from mlflow.entities.model_registry import ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
@@ -348,7 +349,7 @@ class AbstractStore:
             name=dst_name,
             source=source_uri,
             run_id=src_mv.run_id,
-            tags=src_mv.tags,
+            tags=[ModelVersionTag(k, v) for k, v in src_mv.tags.items()],
             run_link=src_mv.run_link,
             description=src_mv.description,
         )
