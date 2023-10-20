@@ -813,10 +813,8 @@ class FileStore(AbstractStore):
         model_versions = []
         for path in registered_model_paths:
             model_versions.extend(
-                [
-                    file_mv.to_mlflow_entity()
-                    for file_mv in self._list_file_model_versions_under_path(path)
-                ]
+                file_mv.to_mlflow_entity()
+                for file_mv in self._list_file_model_versions_under_path(path)
             )
         filtered_mvs = SearchModelVersionUtils.filter(model_versions, filter_string)
 
