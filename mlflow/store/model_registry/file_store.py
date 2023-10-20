@@ -759,9 +759,7 @@ class FileStore(AbstractStore):
         :return: A single URI location that allows reads for downloading.
         """
         model_version = self._fetch_file_model_version_if_exists(name, version)
-        if model_version.storage_location is not None:
-            return model_version.storage_location
-        return model_version.source
+        return model_version.storage_location or model_version.source
 
     def _get_all_registered_model_paths(self):
         self._check_root_dir()
