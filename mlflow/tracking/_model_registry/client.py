@@ -274,6 +274,9 @@ class ModelRegistryClient:
         """
         Search for model versions in backend that satisfy the filter criteria.
 
+        .. warning:
+            The searched model versions may not have aliases populated for performance reasons.
+
         :param filter_string: A filter string expression. Currently supports a single filter
                               condition either name of model like ``name = 'model_name'`` or
                               ``run_id = '...'``.
